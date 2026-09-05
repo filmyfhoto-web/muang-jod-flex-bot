@@ -55,3 +55,4 @@ npm run check
 ```
 
 ดูผลการทดลองและรายการที่ยังไม่เปิดใช้ใน `docs/PREFLIGHT_REPORT.md`
+# muang-jod-flex-bot
