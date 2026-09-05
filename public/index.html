@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#6d3b8c">
+  <title>ม่วงจดให้ — การ์ด LINE ทดลอง</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app.css">
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand"><img class="brand-logo" src="/assets/mamung-card.png" alt="มะม่วง"><div><strong>ม่วงจดให้</strong><small>ผู้ช่วยบันทึกใน LINE</small></div></div>
+      <span class="test-badge" data-test-badge>TEST MODE</span>
+    </header>
+    <section class="content">
+      <div class="notice">ข้อมูลในหน้านี้เป็น TEST ยังไม่ส่ง LINE และไม่แตะฐานข้อมูลจริง</div>
+      <div id="chat" class="chat-stage" aria-live="polite">
+        <div class="message-row"><img class="avatar" src="/assets/mamung-card.png" alt=""><div class="bubble-text">พิมพ์รายการด้านล่าง แล้วฉันจะจัดเป็นการ์ดให้ตรวจสอบก่อนบันทึกค่ะ 🐶</div></div>
+      </div>
+      <form id="composer" class="composer">
+        <textarea id="message" aria-label="ข้อความรายการ" placeholder="เช่น กาแฟ 50" required>งานวันนี้ ป้ายไวนิล 60*100 150 บาท โฟมบอร์ด 40*60 250 บาท</textarea>
+        <div class="composer-foot"><small>ขนาด 60*100 จะไม่ถูกนับเป็นราคา</small><button class="btn primary" id="send" type="submit">ส่งข้อความ</button></div>
+      </form>
+      <div class="rich-menu" aria-label="ริชเมนูตัวอย่าง">
+        <button class="rich-button big" data-action="focus"><span>✍️</span>บันทึกงานวันนี้</button>
+        <a class="rich-button" href="/transactions"><span>🕘</span>รายการล่าสุด</a>
+        <a class="rich-button" href="/summary"><span>📊</span>สรุปวันนี้</a>
+        <a class="rich-button" href="/transactions"><span>✏️</span>แก้ไขล่าสุด</a>
+        <button class="rich-button" data-action="cancel-latest"><span>🗑️</span>ยกเลิกล่าสุด</button>
+        <a class="rich-button" href="/categories"><span>🗂️</span>หมวด/งบ</a>
+        <button class="rich-button" data-action="help"><span>🎧</span>ช่วยเหลือ</button>
+      </div>
+    </section>
+    <nav class="bottom-nav"><a class="active" href="/"><span>💬</span>ทดลอง</a><a href="/summary"><span>⌂</span>สรุป</a><a href="/categories"><span>◔</span>หมวด/งบ</a><a href="/transactions"><span>☷</span>รายการ</a></nav>
+  </main>
+  <script type="module" src="/index.js"></script>
+</body>
+</html>

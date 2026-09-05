@@ -1,0 +1,16 @@
+{
+  "size": { "width": 2500, "height": 1686 },
+  "selected": true,
+  "name": "ม่วงจดให้ 8 เมนู",
+  "chatBarText": "เมนูม่วงจดให้",
+  "areas": [
+    { "bounds": { "x": 0, "y": 0, "width": 1250, "height": 843 }, "action": { "type": "message", "label": "บันทึกงานวันนี้", "text": "บันทึกงานวันนี้" } },
+    { "bounds": { "x": 1250, "y": 0, "width": 625, "height": 421 }, "action": { "type": "message", "label": "รายการล่าสุด", "text": "รายการล่าสุด" } },
+    { "bounds": { "x": 1875, "y": 0, "width": 625, "height": 421 }, "action": { "type": "message", "label": "สรุปวันนี้", "text": "สรุปวันนี้" } },
+    { "bounds": { "x": 1250, "y": 421, "width": 625, "height": 422 }, "action": { "type": "message", "label": "แก้ไขล่าสุด", "text": "แก้ไขล่าสุด" } },
+    { "bounds": { "x": 1875, "y": 421, "width": 625, "height": 422 }, "action": { "type": "message", "label": "ยกเลิกล่าสุด", "text": "ยกเลิกล่าสุด" } },
+    { "bounds": { "x": 0, "y": 843, "width": 834, "height": 843 }, "action": { "type": "uri", "label": "สรุป", "uri": "https://liff.line.me/{LIFF_ID}/summary" } },
+    { "bounds": { "x": 834, "y": 843, "width": 833, "height": 843 }, "action": { "type": "uri", "label": "หมวดและงบ", "uri": "https://liff.line.me/{LIFF_ID}/categories" } },
+    { "bounds": { "x": 1667, "y": 843, "width": 833, "height": 843 }, "action": { "type": "message", "label": "ช่วยเหลือ", "text": "ช่วยเหลือ" } }
+  ]
+}
