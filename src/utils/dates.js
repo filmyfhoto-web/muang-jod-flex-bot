@@ -82,6 +82,20 @@ export function formatThaiMonth(input) {
   return new Intl.DateTimeFormat('th-TH', { timeZone: TZ, month: 'long', year: 'numeric' }).format(d);
 }
 
+// Thai short date + time in Bangkok, e.g. "7 ก.ย. 2569 10:25".
+export function formatThaiDateTime(input) {
+  const d = input ? new Date(input) : new Date();
+  if (Number.isNaN(d.getTime())) return String(input ?? '');
+  return new Intl.DateTimeFormat('th-TH', {
+    timeZone: TZ,
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(d);
+}
+
 // Format a date/timestamp into Thai short form, e.g. "7 ก.ย. 2569".
 export function formatThaiDate(input) {
   const d = input ? new Date(input) : new Date();

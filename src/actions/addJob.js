@@ -1,7 +1,7 @@
 import { reply } from '../services/lineService.js';
 import { getState, setState, clearState, STATES } from '../services/stateService.js';
 import { createJob } from '../services/jobService.js';
-import { jobCardMessage } from '../flex/jobCard.js';
+import { receiptFlex } from '../flex/receiptFlex.js';
 
 const PROMPT = `📝 บันทึกงานใหม่
 
@@ -45,10 +45,8 @@ export async function confirmAddJob({ replyToken, profile }) {
 
   await clearState(profile.id);
 
-  return reply(replyToken, [
-    { type: 'text', text: 'บันทึกงานเรียบร้อยค่ะ 💜' },
-    jobCardMessage(job, 'บันทึกงานเรียบร้อย'),
-  ]);
+  // Receipt-style "บันทึกสำเร็จ" card.
+  return reply(replyToken, receiptFlex(job));
 }
 
 // postback action=edit_new_job — go back to collecting a fresh description.
