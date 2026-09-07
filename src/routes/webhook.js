@@ -76,8 +76,13 @@ async function processEvent(event) {
       status: err?.statusCode,
     });
     if (event.replyToken) {
+      // DEBUG_ERRORS=1 makes the bot tell its owner what actually broke, so a
+      // deployment can be diagnosed from the chat instead of the server logs.
+      const detail = process.env.DEBUG_ERRORS
+        ? `\n\n[debug] ${err?.code || ''} ${err?.message || err}`.trimEnd()
+        : '';
       try {
-        await reply(event.replyToken, { type: 'text', text: GENERIC_ERROR });
+        await reply(event.replyToken, { type: 'text', text: GENERIC_ERROR + detail });
       } catch (e2) {
         logger.error('webhook.error_reply_failed', { message: e2?.message });
       }

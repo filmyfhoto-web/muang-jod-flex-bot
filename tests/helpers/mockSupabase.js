@@ -25,7 +25,7 @@ class Query {
   }
 
   select(_sel, opts) {
-    if (this.op === 'insert' || this.op === 'update') this._selectAfterWrite = true;
+    if (this.op === 'insert' || this.op === 'update' || this.op === 'upsert') this._selectAfterWrite = true;
     if (opts?.count) this._count = true;
     if (opts?.head) this._head = true;
     return this;
@@ -33,6 +33,14 @@ class Query {
   insert(rows) {
     this.op = 'insert';
     this.payload = Array.isArray(rows) ? rows : [rows];
+    return this;
+  }
+  upsert(rows, opts) {
+    this.op = 'upsert';
+    this.payload = Array.isArray(rows) ? rows : [rows];
+    this._conflict = String(opts?.onConflict || 'id')
+      .split(',')
+      .map((c) => c.trim());
     return this;
   }
   update(patch) {
@@ -127,6 +135,30 @@ class Query {
       return { data: this._selectAfterWrite ? inserted : null, error: null };
     }
 
+    if (this.op === 'upsert') {
+      // Simulates a schema whose ON CONFLICT target has no unique constraint.
+      if (this.store.failUpsert) {
+        return {
+          data: null,
+          error: { code: '42P10', message: 'there is no unique or exclusion constraint matching the ON CONFLICT specification' },
+        };
+      }
+      const written = [];
+      for (const raw of this.payload) {
+        const existing = rows.find((r) => this._conflict.every((c) => r[c] === raw[c]));
+        if (existing) {
+          Object.assign(existing, raw);
+          written.push(existing);
+        } else {
+          const row = { ...raw };
+          if (row.id == null) row.id = `id-${++idCounter}`;
+          rows.push(row);
+          written.push(row);
+        }
+      }
+      return { data: this._selectAfterWrite ? written : null, error: null };
+    }
+
     if (this.op === 'update') {
       const set = this._applyFilters(rows);
       for (const row of set) Object.assign(row, this.payload);
@@ -185,6 +217,7 @@ export function createMockSupabase(seed = {}) {
       user_states: seed.user_states || [],
       webhook_events: seed.webhook_events || [],
     },
+    failUpsert: seed.failUpsert || false,
     uniques: {
       profiles: [['line_user_id']],
       webhook_events: [['line_event_id']],
