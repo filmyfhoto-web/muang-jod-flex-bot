@@ -9,7 +9,8 @@ import { safe, paymentAmountSchema, searchQuerySchema } from '../utils/validatio
 import { jobCardMessage, jobPreviewMessage } from '../flex/jobCard.js';
 import { paymentConfirmationFlex } from '../flex/paymentFlex.js';
 import { searchResultsFlex } from '../flex/searchResultsFlex.js';
-import { reportMenu } from '../actions/report.js';
+import { resolveMenuCommand } from '../utils/menuCommands.js';
+import { handlePostback } from './postbackHandler.js';
 
 // Shape a draft (parsed, not-yet-saved) job into the object the flex bubble
 // expects (job_name / job_date / items / total / payment_status).
@@ -75,6 +76,14 @@ function deriveJobName(items) {
 export async function handleTextMessage(event, profile) {
   const { replyToken } = event;
   const text = event.message?.text || '';
+
+  // Menu labels sent as plain text (e.g. a Rich Menu built in OA Manager with
+  // "send message" actions, or a typed command) route exactly like postbacks.
+  const menuAction = resolveMenuCommand(text);
+  if (menuAction) {
+    return handlePostback({ ...event, postback: { data: `action=${menuAction}` } }, profile);
+  }
+
   const state = await getState(profile.id);
   const current = state?.state || STATES.IDLE;
 
@@ -103,11 +112,6 @@ export async function handleTextMessage(event, profile) {
       type: 'text',
       text: 'กำลังรอรูปสลิป/หลักฐานอยู่ค่ะ ส่งรูปมาได้เลยนะคะ 📎',
     });
-  }
-
-  // Idle text command: "รายงาน" / "report" opens the report menu.
-  if (/^\s*(รายงาน|report)\s*$/i.test(text)) {
-    return reportMenu({ replyToken, profile });
   }
 
   // Idle: nudge toward the menu.
