@@ -13,6 +13,7 @@ import { derivePaymentFields } from '../utils/payment.js';
 import { round2 } from '../utils/currency.js';
 import { safe, jobPatchSchema, paymentAmountSchema } from '../utils/validation.js';
 import { liffId, liffChannelId } from '../utils/liff.js';
+import { CATEGORY_GROUPS, OTHER_GROUP } from '../utils/category.js';
 import { logger, maskUserId } from '../services/logger.js';
 
 // JSON API behind the LIFF dashboard. Every request carries the LIFF access
@@ -61,7 +62,17 @@ export function createApiRouter(deps = {}) {
   router.use(express.json({ limit: '64kb' }));
 
   router.get('/config', (req, res) => {
-    res.json({ liffId: liffId(), enabled: Boolean(liffId()) });
+    res.json({
+      liffId: liffId(),
+      enabled: Boolean(liffId()),
+      // The edit form's two dropdowns; public, so it can render before login.
+      categories: CATEGORY_GROUPS.map((g) => ({
+        id: g.id,
+        label: g.label,
+        icon: g.icon,
+        types: g.types.map((t) => ({ id: t.id, label: t.label, icon: t.icon })),
+      })).concat([{ id: OTHER_GROUP.id, label: OTHER_GROUP.label, icon: OTHER_GROUP.icon, types: [] }]),
+    });
   });
 
   // Auth for everything below.

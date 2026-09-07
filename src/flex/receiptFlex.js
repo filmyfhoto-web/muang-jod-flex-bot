@@ -1,6 +1,6 @@
 import { formatBaht } from '../utils/currency.js';
 import { formatThaiDateTime } from '../utils/dates.js';
-import { guessCategory, itemIcon } from '../utils/category.js';
+import { jobCategory, categoryLabel, itemIcon } from '../utils/category.js';
 import { COLORS } from './theme.js';
 import { divider } from './components/divider.js';
 import { brandAssetUrl, MASCOT } from '../utils/brand.js';
@@ -76,7 +76,7 @@ function link(label, action, displayText) {
 
 export function receiptFlex(job, opts = {}) {
   const items = job.items || [];
-  const cat = guessCategory(items);
+  const { group, type } = jobCategory(job);
   // Explicit option (null = none) > env override > the bot's own /brand file.
   const mascotUrl =
     opts.mascotImageUrl !== undefined
@@ -126,7 +126,7 @@ export function receiptFlex(job, opts = {}) {
   const metaText = [
     {
       type: 'text',
-      text: `${cat?.icon || '🏪'} ${job.job_name || 'งาน'}`,
+      text: `${type?.icon || group.icon} ${job.job_name || categoryLabel(job)}`,
       weight: 'bold',
       size: 'md',
       color: COLORS.purpleDark,

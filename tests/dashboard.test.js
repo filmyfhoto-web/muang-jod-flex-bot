@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createMockSupabase } from './helpers/mockSupabase.js';
-import { getDashboard } from '../src/services/dashboardService.js';
+import { getDashboard, breakdownByCategory, trendVs } from '../src/services/dashboardService.js';
 import { dashboardFlex } from '../src/flex/dashboardFlex.js';
 import { todayISO } from '../src/utils/dates.js';
 
@@ -72,16 +72,58 @@ test('getDashboard: a user with no jobs gets zeroes, not a crash', async () => {
   assert.deepEqual(dash.recent, []);
 });
 
-test('dashboardFlex: tiles, money, overview and actions', async () => {
+test('breakdownByCategory: groups, money and shares, biggest first', () => {
+  const rows = [
+    { category: 'sign', total: 600 },
+    { category: 'print', total: 300 },
+    { category: 'print', total: 100 },
+  ];
+  const [first, second] = breakdownByCategory(rows);
+  assert.equal(first.id, 'sign');
+  assert.equal(first.count, 1);
+  assert.equal(first.total, 600);
+  assert.equal(first.percent, 60);
+  assert.equal(second.id, 'print');
+  assert.equal(second.count, 2);
+  assert.equal(second.total, 400);
+  assert.equal(second.percent, 40);
+
+  // No stored category: classified from the items instead.
+  const [only] = breakdownByCategory([{ total: 50, items: [{ item_name: 'ถ่ายเอกสาร' }] }]);
+  assert.equal(only.id, 'print');
+  assert.deepEqual(breakdownByCategory([]), []);
+  assert.equal(breakdownByCategory([{ total: 0 }])[0].percent, 0); // no divide-by-zero
+});
+
+test('trendVs: compares with yesterday, and says nothing when there is no baseline', () => {
+  assert.deepEqual(trendVs(1250, 1116), { percent: 12, direction: 'up', yesterday: 1116 });
+  assert.equal(trendVs(50, 100).percent, -50);
+  assert.equal(trendVs(100, 100).direction, 'flat');
+  assert.equal(trendVs(500, 0).percent, null);
+  assert.equal(trendVs(0, 0).direction, 'flat');
+});
+
+test('getDashboard: categories and the trend against yesterday', async () => {
+  const client = db();
+  client._store.tables.jobs.push(
+    { ...job('7', { job_date: '2026-01-01' }), id: '7' } // different day, ignored by today's split
+  );
+  const dash = await getDashboard(USER, {}, client);
+  assert.ok(Array.isArray(dash.categories));
+  assert.equal(dash.categories.reduce((n, c) => n + c.count, 0), 3);
+  assert.equal(dash.trend.percent, null); // nothing yesterday to compare against
+});
+
+test('dashboardFlex: headline, categories, shares and actions', async () => {
   const dash = await getDashboard(USER, {}, db());
   const msg = dashboardFlex(dash, { liffUrl: 'https://liff.line.me/1234567890-abcdefgh?tab=today' });
 
   assert.equal(msg.type, 'flex');
   assert.equal(msg.contents.type, 'bubble');
   const json = JSON.stringify(msg);
-  assert.ok(json.includes('สรุปวันนี้'));
-  assert.ok(json.includes('งานวันนี้'));
-  assert.ok(json.includes('ภาพรวมงาน'));
+  assert.ok(json.includes('สรุปงานวันนี้'));
+  assert.ok(json.includes('ยอดวันนี้'));
+  assert.ok(json.includes('สัดส่วนงานวันนี้'));
   assert.ok(json.includes('รายการล่าสุด'));
   assert.ok(json.includes('฿600'));
   assert.ok(json.includes('action=pending_payment'));
@@ -94,6 +136,6 @@ test('dashboardFlex: empty day says so and omits the dashboard button without LI
   const msg = dashboardFlex(dash, { liffUrl: null });
   const json = JSON.stringify(msg);
   assert.ok(json.includes('วันนี้ยังไม่มีงาน'));
-  assert.ok(!json.includes('ภาพรวมงาน')); // no bars when there is nothing to split
+  assert.ok(!json.includes('สัดส่วนงานวันนี้')); // nothing to split
   assert.ok(!json.includes('"type":"uri"'));
 });

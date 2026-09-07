@@ -123,6 +123,10 @@
       <input id="e-name" maxlength="200" />
       <label for="e-customer">ลูกค้า</label>
       <input id="e-customer" maxlength="200" placeholder="เช่น พี่นก" />
+      <label for="e-group">ประเภทงาน</label>
+      <select id="e-group"></select>
+      <label for="e-type">หมวด</label>
+      <select id="e-type"></select>
       <label>สถานะการเงิน</label>
       <div class="seg" id="e-status">
         <button type="button" data-v="pending">ค้างรับ</button>
@@ -157,7 +161,7 @@ const ICONS = { 'ป้าย': '🪧', 'สติกเกอร์': '🏷️'
 const iconFor = (s) => Object.entries(ICONS).find(([k]) => String(s || '').includes(k))?.[1] || '📦';
 const BADGE = { paid: ['b-paid', 'รับเงินแล้ว'], partial: ['b-partial', 'รับบางส่วน'], pending: ['b-pending', 'ค้างรับ'] };
 
-let token = null, scope = 'recent', current = null;
+let token = null, scope = 'recent', current = null, groups = [];
 
 function toast(msg, isErr) {
   const t = $('toast');
@@ -228,6 +232,25 @@ async function reloadList() {
   renderList((await api('/jobs?scope=' + scope + '&limit=20')).jobs);
 }
 
+function fillGroups(groupId) {
+  const sel = $('e-group');
+  sel.textContent = '';
+  groups.forEach((g) => sel.add(new Option(g.icon + ' ' + g.label, g.id)));
+  sel.value = groups.some((g) => g.id === groupId) ? groupId : 'other';
+}
+
+function fillTypes(groupId, typeId) {
+  const sel = $('e-type');
+  sel.textContent = '';
+  const types = groups.find((g) => g.id === groupId)?.types || [];
+  sel.add(new Option('— ไม่ระบุ —', ''));
+  types.forEach((t) => sel.add(new Option(t.icon + ' ' + t.label, t.id)));
+  sel.value = types.some((t) => t.id === typeId) ? typeId : '';
+  sel.disabled = types.length === 0;
+}
+
+$('e-group').onchange = () => fillTypes($('e-group').value, '');
+
 function setStatus(v) {
   [...$('e-status').children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
 }
@@ -243,6 +266,8 @@ async function openEdit(id) {
   $('e-paid').value = Number(job.paid_amount) || 0;
   $('e-date').value = job.job_date || '';
   $('e-note').value = job.note || '';
+  fillGroups(job.category || 'other');
+  fillTypes($('e-group').value, job.category_type || '');
   setStatus(job.payment_status || 'pending');
   $('view-dash').hidden = true;
   $('view-edit').hidden = false;
@@ -277,6 +302,8 @@ $('e-save').onclick = async () => {
         paid_amount: Number($('e-paid').value) || 0,
         payment_status: getStatus(),
         job_date: $('e-date').value || undefined,
+        category: $('e-group').value,
+        category_type: $('e-type').value || null,
         note: $('e-note').value.trim() || null,
       }),
     });
@@ -313,7 +340,9 @@ document.querySelectorAll('[role="tab"]').forEach((tab) => {
 
 (async function start() {
   try {
-    const { liffId } = await (await fetch('/api/config')).json();
+    const cfg = await (await fetch('/api/config')).json();
+    groups = cfg.categories || [];
+    const liffId = cfg.liffId;
     if (!liffId) return fatal('ยังไม่ได้ตั้งค่า LIFF_ID ค่ะ');
     await liff.init({ liffId });
     if (!liff.isLoggedIn()) return liff.login({ redirectUri: location.href });

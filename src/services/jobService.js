@@ -2,6 +2,7 @@ import { supabase } from '../config/supabase.js';
 import { round2 } from '../utils/currency.js';
 import { todayISO, rangeForPeriod } from '../utils/dates.js';
 import { derivePaymentFields } from '../utils/payment.js';
+import { categoryFields } from '../utils/category.js';
 import { logger } from './logger.js';
 
 const ACTIVE_STATUSES = ['active', 'completed'];
@@ -72,6 +73,10 @@ export async function createJob(userId, payload, client = supabase) {
   const jobDate = payload.jobDate || todayISO();
   const name = jobName || `งานวันที่ ${jobDate}`;
   const pay = derivePaymentFields(total, paidAmount);
+  const cat = {
+    category: payload.category ?? categoryFields(items).category,
+    category_type: payload.categoryType ?? categoryFields(items).category_type,
+  };
 
   const itemRows = items.map((it) => ({
     item_name: it.item_name,
@@ -98,7 +103,21 @@ export async function createJob(userId, payload, client = supabase) {
   });
 
   if (!rpc.error && rpc.data) {
-    const job = Array.isArray(rpc.data) ? rpc.data[0] : rpc.data;
+    let job = Array.isArray(rpc.data) ? rpc.data[0] : rpc.data;
+    // The RPC predates categories; stamp them on afterwards. Derived metadata,
+    // so a failure here must never lose the job that was just created.
+    if (job && !job.category) {
+      const { data: recat, error: recatErr } = await client
+        .from('jobs')
+        .update(cat)
+        .eq('id', job.id)
+        .eq('user_id', userId)
+        .select('*')
+        .maybeSingle();
+      if (recatErr) logger.warn('job.category_stamp_failed', { message: recatErr.message });
+      else if (recat) job = recat;
+      else job = { ...job, ...cat };
+    }
     const [withItems] = await attachItems([job], client);
     logger.info('job.created', { via: 'rpc', jobNumber: job.job_number });
     return withItems || { ...job, items: itemRows };
@@ -132,6 +151,7 @@ export async function createJob(userId, payload, client = supabase) {
         paid_amount: pay.paid_amount,
         balance_due: pay.balance_due,
         note,
+        ...cat,
       })
       .select('*')
       .single();
@@ -232,6 +252,8 @@ export async function updateJob(userId, jobId, patch, client = supabase) {
     'paid_amount',
     'balance_due',
     'job_date',
+    'category',
+    'category_type',
     'note',
   ];
   for (const f of fields) {

@@ -38,6 +38,26 @@ test('add job: saves with MJ job_number and items, defaults to pending', async (
   assert.equal(Number(job.balance_due), 150);
 });
 
+test('add job: classifies the work from its items, and takes an explicit category', async () => {
+  const db = createMockSupabase();
+
+  const sign = await createJob('userA', { ...newJobPayload(150), items: [{ item_name: 'ป้ายไวนิล 60x100', quantity: 1, unit_price: 150, total: 150 }] }, db);
+  assert.equal(sign.category, 'sign');
+  assert.equal(sign.category_type, 'vinyl');
+
+  const print = await createJob('userA', { ...newJobPayload(40), items: [{ item_name: 'ถ่ายเอกสาร 20 แผ่น', quantity: 1, unit_price: 40, total: 40 }] }, db);
+  assert.equal(print.category, 'print');
+  assert.equal(print.category_type, 'copy');
+
+  const unknown = await createJob('userA', { ...newJobPayload(99), items: [{ item_name: 'ของแปลก', quantity: 1, unit_price: 99, total: 99 }] }, db);
+  assert.equal(unknown.category, 'other');
+  assert.equal(unknown.category_type, null);
+
+  const forced = await createJob('userA', { ...newJobPayload(10), category: 'design', categoryType: 'artwork' }, db);
+  assert.equal(forced.category, 'design');
+  assert.equal(forced.category_type, 'artwork');
+});
+
 test('job_number increments per user per day', async () => {
   const db = createMockSupabase();
   const j1 = await createJob('userA', newJobPayload(100), db);
