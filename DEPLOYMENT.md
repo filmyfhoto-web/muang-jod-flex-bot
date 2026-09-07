@@ -101,6 +101,9 @@ gcloud run deploy muang-jod \
 
 ## บอตตอบ "ระบบมีปัญหาชั่วคราว"
 
+0. `[debug] PGRST125 | Invalid path specified in request URL` = `SUPABASE_URL`
+   ใส่เป็น `https://xxx.supabase.co/rest/v1` (ช่อง REST) แทน Project URL —
+   โค้ดตัด `/rest/v1` ให้เองแล้ว แต่ควรแก้ค่าใน env ให้เหลือแค่ `https://xxx.supabase.co`
 1. เปิด `GET /health/db` — ถ้ามีตารางขึ้น `error` ให้รันไฟล์ใน `supabase/migrations/`
    ที่ขาด (เรียงตามเลข) ใน Supabase → SQL Editor
    - อาการ "กดเมนูได้ แต่พิมพ์งานแล้วพัง" มักมาจากตาราง `user_states`

@@ -33,11 +33,12 @@ app.get('/', (req, res) => res.send('ม่วงจด LINE Bot กำลัง
 app.use('/brand', express.static('public/brand', { maxAge: '1d' }));
 
 // Health: also probes the database so setup problems (migration not run,
-// wrong key) are visible from a browser instead of only in server logs.
+// wrong key, wrong URL) are visible from a browser instead of only in logs.
+// A real GET, not HEAD: a HEAD 404 has no body and reads as success.
 app.get('/health', async (req, res) => {
   const body = { status: 'ok', service: 'muang-jod', db: 'unknown' };
   try {
-    const { error } = await supabase.from('profiles').select('id', { count: 'exact', head: true });
+    const { error } = await supabase.from('profiles').select('id').limit(1);
     if (error) {
       body.db = 'error';
       body.dbError = `${error.code || ''} ${error.message || ''}`.trim();
@@ -58,7 +59,7 @@ app.get('/health/db', async (req, res) => {
   const tables = {};
   for (const table of TABLES) {
     try {
-      const { error } = await supabase.from(table).select('id', { count: 'exact', head: true });
+      const { error } = await supabase.from(table).select('id').limit(1);
       tables[table] = error ? `error: ${`${error.code || ''} ${error.message || ''}`.trim()}` : 'ok';
     } catch (err) {
       tables[table] = `error: ${err?.message || String(err)}`;
