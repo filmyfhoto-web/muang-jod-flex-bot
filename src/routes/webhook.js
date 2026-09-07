@@ -24,6 +24,29 @@ function actionOf(event) {
   }
 }
 
+// Append the real cause to the error reply unless explicitly switched off.
+export function debugErrorsEnabled(env = process.env) {
+  const v = String(env.DEBUG_ERRORS ?? '').trim().toLowerCase();
+  return !(v === '0' || v === 'false' || v === 'off' || v === 'no');
+}
+
+// A one-line, human-readable cause. LINE SDK errors keep the useful part in
+// `body` (e.g. which Flex property was rejected), Supabase errors in
+// code/details/hint — so gather all of them, not just `message`.
+export function errorDetail(err) {
+  if (!err) return 'unknown error';
+  const body = err.body ?? err.originalError?.response?.data;
+  const parts = [
+    err.code,
+    err.status ?? err.statusCode,
+    err.message,
+    typeof body === 'string' ? body : body ? JSON.stringify(body) : '',
+    err.details,
+    err.hint,
+  ].filter(Boolean);
+  return parts.join(' | ').slice(0, 900);
+}
+
 async function dispatch(event, profile) {
   switch (event.type) {
     case 'message': {
@@ -72,15 +95,13 @@ async function processEvent(event) {
       ...base,
       ms: Date.now() - started,
       result: 'failure',
-      message: err?.message,
-      status: err?.statusCode,
+      detail: errorDetail(err),
     });
     if (event.replyToken) {
-      // DEBUG_ERRORS=1 makes the bot tell its owner what actually broke, so a
-      // deployment can be diagnosed from the chat instead of the server logs.
-      const detail = process.env.DEBUG_ERRORS
-        ? `\n\n[debug] ${err?.code || ''} ${err?.message || err}`.trimEnd()
-        : '';
+      // The bot tells its owner what actually broke, so a deployment can be
+      // diagnosed from the chat instead of the server logs. Set DEBUG_ERRORS=0
+      // (or false) once the bot has other users than its owner.
+      const detail = debugErrorsEnabled() ? `\n\n[debug] ${errorDetail(err)}` : '';
       try {
         await reply(event.replyToken, { type: 'text', text: GENERIC_ERROR + detail });
       } catch (e2) {
