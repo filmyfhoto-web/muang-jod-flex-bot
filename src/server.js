@@ -51,6 +51,23 @@ app.get('/health', async (req, res) => {
   res.json(body);
 });
 
+// Deep health: probes every table the bot writes to, so a half-applied
+// migration shows up as one failing table instead of a generic chat error.
+app.get('/health/db', async (req, res) => {
+  const TABLES = ['profiles', 'jobs', 'job_items', 'attachments', 'user_states', 'webhook_events'];
+  const tables = {};
+  for (const table of TABLES) {
+    try {
+      const { error } = await supabase.from(table).select('id', { count: 'exact', head: true });
+      tables[table] = error ? `error: ${`${error.code || ''} ${error.message || ''}`.trim()}` : 'ok';
+    } catch (err) {
+      tables[table] = `error: ${err?.message || String(err)}`;
+    }
+  }
+  const failed = Object.entries(tables).filter(([, v]) => v !== 'ok').map(([k]) => k);
+  res.json({ status: failed.length ? 'error' : 'ok', tables, failed });
+});
+
 // Mount webhook. NOTE: no express.json() before this — the LINE middleware
 // needs the raw body to verify the signature.
 app.use('/webhook', webhookRouter);

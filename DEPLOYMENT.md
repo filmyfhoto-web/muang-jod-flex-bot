@@ -88,9 +88,23 @@ gcloud run deploy muang-jod \
 
 ## ตรวจหลัง deploy
 
-- [ ] `GET /health` → `{"status":"ok"}`
+- [ ] `GET /health` → `{"status":"ok","db":"ok"}`
+- [ ] `GET /health/db` → `{"status":"ok", ...}` — ตรวจทีละตาราง ถ้ามีตารางไหนขึ้น `error`
+      แปลว่า migration ยังไม่ครบ ให้รัน `supabase/migrations/` ที่ขาดใน SQL Editor
 - [ ] LINE **Verify** webhook สำเร็จ
 - [ ] **Use webhook = ON**, ปิด auto-reply/greeting แล้ว
 - [ ] แอดเพื่อนแล้วได้ข้อความต้อนรับ + Quick Reply
 - [ ] Rich Menu แสดงครบ 8 ปุ่ม กดแล้วตอบถูก
 - [ ] ไม่มี secret อยู่ใน repo / log
+
+---
+
+## บอตตอบ "ระบบมีปัญหาชั่วคราว"
+
+1. เปิด `GET /health/db` — ถ้ามีตารางขึ้น `error` ให้รันไฟล์ใน `supabase/migrations/`
+   ที่ขาด (เรียงตามเลข) ใน Supabase → SQL Editor
+   - อาการ "กดเมนูได้ แต่พิมพ์งานแล้วพัง" มักมาจากตาราง `user_states`
+     → รัน `003_repair_user_states.sql` (รันซ้ำได้ ปลอดภัย)
+2. ถ้ายังไม่หาย ตั้ง env `DEBUG_ERRORS=1` แล้ว deploy ใหม่ — บอตจะต่อท้ายข้อความ
+   ด้วย `[debug] <code> <message>` ซึ่งบอกสาเหตุจริง
+3. แก้เสร็จแล้ว **ลบ `DEBUG_ERRORS` ออก** ก่อนใช้งานจริง
