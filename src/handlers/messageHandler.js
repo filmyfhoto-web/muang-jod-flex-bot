@@ -1,8 +1,9 @@
 import { reply } from '../services/lineService.js';
 import { getState, setState, clearState, STATES } from '../services/stateService.js';
 import { getJobById, updateJob, recordPayment, searchJobs } from '../services/jobService.js';
-import { parseJobText } from '../utils/parser.js';
+import { extractJobDraft } from '../services/nlpService.js';
 import { round2, parsePrice } from '../utils/currency.js';
+import { derivePaymentFields } from '../utils/payment.js';
 import { todayISO } from '../utils/dates.js';
 import { safe, paymentAmountSchema, searchQuerySchema } from '../utils/validation.js';
 import { jobCardMessage, jobPreviewMessage } from '../flex/jobCard.js';
@@ -15,10 +16,13 @@ import { reportMenu } from '../actions/report.js';
 function draftToBubble(draft) {
   return {
     job_name: draft.jobName,
+    customer_name: draft.customerName || null,
     job_date: draft.jobDate,
     job_number: '',
     payment_status: draft.paymentStatus,
     total: draft.total,
+    paid_amount: draft.paidAmount || 0,
+    balance_due: draft.balanceDue || 0,
     items: draft.items,
     note: null,
   };
@@ -111,7 +115,9 @@ export async function handleTextMessage(event, profile) {
 }
 
 async function handleNewJob(replyToken, profile, text) {
-  const parsed = parseJobText(text);
+  // Natural-language understanding: customer, items, quantity, price, and any
+  // amount already received — via the AI layer when configured, else rules.
+  const parsed = await extractJobDraft(text);
 
   if (!parsed.items.length) {
     return reply(replyToken, {
@@ -122,14 +128,18 @@ async function handleNewJob(replyToken, profile, text) {
 
   // Parse only — do NOT save yet. Stash the draft in user_states.context and
   // show a preview with confirm / edit / cancel buttons.
+  const pay = derivePaymentFields(parsed.total, parsed.paidAmount);
   const draft = {
     jobName: deriveJobName(parsed.items),
+    customerName: parsed.customerName || null,
     jobDate: todayISO(),
     items: parsed.items,
     subtotal: parsed.subtotal,
-    discount: parsed.discount,
+    discount: parsed.discount || 0,
     total: parsed.total,
-    paymentStatus: 'pending',
+    paidAmount: pay.paid_amount,
+    balanceDue: pay.balance_due,
+    paymentStatus: pay.payment_status,
   };
 
   await setState(profile.id, STATES.CONFIRMING_JOB, { draft });

@@ -58,6 +58,9 @@ export function buildJobBubble(job) {
       size: 'xs',
       color: COLORS.grey,
     },
+    ...(job.customer_name
+      ? [{ type: 'text', text: `ลูกค้า: ${job.customer_name}`, size: 'xs', color: COLORS.sub }]
+      : []),
     divider(),
     { type: 'box', layout: 'vertical', spacing: 'sm', contents: itemRows },
     divider(),
