@@ -3,12 +3,30 @@ import { formatThaiDateTime } from '../utils/dates.js';
 import { guessCategory, itemIcon } from '../utils/category.js';
 import { COLORS } from './theme.js';
 import { divider } from './components/divider.js';
-import { moneyRow } from './components/moneyRow.js';
+
+// Receipt card styled after the brand mockup: white card, purple circle check,
+// soft-purple category strip (with optional mascot image), thumbnail-style
+// item rows, highlighted total, and "ดูรายงาน (วันนี้) ›" footer link.
 
 function qtyText(it) {
   const q = Number(it.quantity) || 1;
-  const n = Number.isInteger(q) ? String(q) : String(q);
-  return `${n} ${it.unit || 'ชิ้น'}`;
+  return `${q} ${it.unit || 'ชิ้น'}`;
+}
+
+// A rounded square "thumbnail" holding the category emoji.
+function thumb(emoji) {
+  return {
+    type: 'box',
+    layout: 'vertical',
+    width: '44px',
+    height: '44px',
+    cornerRadius: 'md',
+    backgroundColor: COLORS.purpleSoft,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flex: 0,
+    contents: [{ type: 'text', text: emoji, size: 'lg', align: 'center' }],
+  };
 }
 
 function itemRow(it) {
@@ -19,7 +37,7 @@ function itemRow(it) {
     spacing: 'md',
     alignItems: 'center',
     contents: [
-      { type: 'text', text: itemIcon(it.item_name), size: 'xl', flex: 0 },
+      thumb(itemIcon(it.item_name)),
       {
         type: 'box',
         layout: 'vertical',
@@ -43,32 +61,54 @@ function itemRow(it) {
   };
 }
 
-// "บันทึกสำเร็จ" receipt card shown right after a job is saved.
-// Optional hero image (brand art) via opts.heroImageUrl or BRAND_HERO_IMAGE_URL.
+function link(label, action, displayText) {
+  return {
+    type: 'text',
+    text: label,
+    size: 'sm',
+    color: COLORS.purple,
+    weight: 'bold',
+    action: { type: 'postback', label: displayText, data: `action=${action}`, displayText },
+  };
+}
+
 export function receiptFlex(job, opts = {}) {
   const items = job.items || [];
   const cat = guessCategory(items);
+  const mascotUrl = opts.mascotImageUrl ?? process.env.BRAND_MASCOT_IMAGE_URL;
   const heroUrl = opts.heroImageUrl ?? process.env.BRAND_HERO_IMAGE_URL;
 
+  // ✓ in a purple circle + title/subtitle, on a white background.
   const header = {
     type: 'box',
     layout: 'horizontal',
-    backgroundColor: COLORS.purple,
-    paddingAll: 'lg',
     spacing: 'md',
     alignItems: 'center',
+    paddingAll: 'lg',
+    paddingBottom: 'sm',
     contents: [
-      { type: 'text', text: '✓', size: 'xxl', weight: 'bold', color: COLORS.white, flex: 0 },
+      {
+        type: 'box',
+        layout: 'vertical',
+        width: '48px',
+        height: '48px',
+        cornerRadius: '24px',
+        backgroundColor: COLORS.purple,
+        justifyContent: 'center',
+        alignItems: 'center',
+        flex: 0,
+        contents: [{ type: 'text', text: '✓', size: 'xl', weight: 'bold', color: COLORS.white, align: 'center' }],
+      },
       {
         type: 'box',
         layout: 'vertical',
         contents: [
-          { type: 'text', text: 'บันทึกสำเร็จ', weight: 'bold', size: 'xl', color: COLORS.white },
+          { type: 'text', text: 'บันทึกสำเร็จ', weight: 'bold', size: 'xxl', color: COLORS.purpleDark },
           {
             type: 'text',
             text: 'เพิ่มรายการงานเข้าในระบบเรียบร้อยแล้วค่ะ',
             size: 'xs',
-            color: COLORS.purpleSoft,
+            color: COLORS.grey,
             wrap: true,
           },
         ],
@@ -76,7 +116,8 @@ export function receiptFlex(job, opts = {}) {
     ],
   };
 
-  const meta = [
+  // Category strip: icon + category, date-time, job number, customer; mascot on the right.
+  const metaText = [
     {
       type: 'text',
       text: `${cat?.icon || '🏪'} ${job.job_name || 'งาน'}`,
@@ -93,18 +134,31 @@ export function receiptFlex(job, opts = {}) {
     },
   ];
   if (job.customer_name) {
-    meta.push({ type: 'text', text: `ลูกค้า: ${job.customer_name}`, size: 'xs', color: COLORS.sub });
+    metaText.push({ type: 'text', text: `ลูกค้า: ${job.customer_name}`, size: 'xs', color: COLORS.sub });
+  }
+
+  const metaContents = [{ type: 'box', layout: 'vertical', flex: 5, spacing: 'xs', contents: metaText }];
+  if (mascotUrl) {
+    metaContents.push({
+      type: 'image',
+      url: mascotUrl,
+      size: '72px',
+      aspectRatio: '1:1',
+      aspectMode: 'cover',
+      align: 'end',
+      flex: 0,
+    });
   }
 
   const bodyContents = [
     {
       type: 'box',
-      layout: 'vertical',
+      layout: 'horizontal',
       backgroundColor: COLORS.purpleSoft,
-      cornerRadius: 'md',
+      cornerRadius: 'lg',
       paddingAll: 'md',
-      spacing: 'xs',
-      contents: meta,
+      alignItems: 'center',
+      contents: metaContents,
     },
     {
       type: 'box',
@@ -117,37 +171,53 @@ export function receiptFlex(job, opts = {}) {
     divider(),
     {
       type: 'box',
-      layout: 'vertical',
+      layout: 'horizontal',
       backgroundColor: COLORS.purpleSoft,
-      cornerRadius: 'md',
+      cornerRadius: 'lg',
       paddingAll: 'md',
-      contents: [moneyRow('รวมทั้งหมด', Number(job.total) || 0, { big: true, color: COLORS.purple })],
+      alignItems: 'center',
+      contents: [
+        { type: 'text', text: 'รวมทั้งหมด', size: 'md', weight: 'bold', color: COLORS.purpleDark, flex: 3 },
+        {
+          type: 'text',
+          text: formatBaht(Number(job.total) || 0),
+          size: 'xxl',
+          weight: 'bold',
+          color: COLORS.purple,
+          align: 'end',
+          flex: 4,
+        },
+      ],
     },
   ];
 
   if (Number(job.paid_amount) > 0) {
-    bodyContents.push(moneyRow('รับแล้ว', Number(job.paid_amount) || 0, { color: COLORS.green, size: 'xs' }));
-    bodyContents.push(moneyRow('คงเหลือ', Number(job.balance_due) || 0, { color: COLORS.red, size: 'xs' }));
+    bodyContents.push({
+      type: 'box',
+      layout: 'horizontal',
+      contents: [
+        { type: 'text', text: `รับแล้ว ${formatBaht(Number(job.paid_amount) || 0)}`, size: 'xs', color: COLORS.green, flex: 1 },
+        { type: 'text', text: `คงเหลือ ${formatBaht(Number(job.balance_due) || 0)}`, size: 'xs', color: COLORS.red, align: 'end', flex: 1 },
+      ],
+    });
   }
 
   const footer = {
     type: 'box',
-    layout: 'horizontal',
+    layout: 'vertical',
     spacing: 'sm',
+    paddingAll: 'lg',
+    paddingTop: 'sm',
     contents: [
       {
-        type: 'button',
-        style: 'secondary',
-        height: 'sm',
-        action: { type: 'postback', label: '📊 ดูสรุปวันนี้', data: 'action=today_summary', displayText: 'สรุปวันนี้' },
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          link('📄 ดูรายงาน (วันนี้) ›', 'today_summary', 'สรุปวันนี้'),
+          { ...link('💰 บันทึกรับเงิน ›', 'record_payment', 'บันทึกรับเงิน'), align: 'end' },
+        ],
       },
-      {
-        type: 'button',
-        style: 'primary',
-        color: COLORS.purple,
-        height: 'sm',
-        action: { type: 'postback', label: '💰 บันทึกรับเงิน', data: 'action=record_payment', displayText: 'บันทึกรับเงิน' },
-      },
+      { type: 'text', text: 'ขอบคุณที่ให้ม่วงจดดูแลงานนะคะ 💜', size: 'xs', color: COLORS.grey, align: 'center' },
     ],
   };
 
@@ -158,8 +228,9 @@ export function receiptFlex(job, opts = {}) {
       ? { hero: { type: 'image', url: heroUrl, size: 'full', aspectRatio: '20:8', aspectMode: 'cover' } }
       : {}),
     header,
-    body: { type: 'box', layout: 'vertical', spacing: 'md', contents: bodyContents },
+    body: { type: 'box', layout: 'vertical', spacing: 'md', paddingTop: 'sm', contents: bodyContents },
     footer,
+    styles: { header: { backgroundColor: COLORS.white }, body: { backgroundColor: COLORS.white } },
   };
 
   return {
