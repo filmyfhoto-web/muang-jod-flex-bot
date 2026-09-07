@@ -80,11 +80,15 @@ npm install
 ### 3) รัน SQL migration
 
 1. ในหน้า Supabase เปิด **SQL Editor → New query**
-2. คัดลอกเนื้อหาทั้งหมดจาก `supabase/migrations/001_initial_schema.sql` วางลงไป
-3. กด **Run**
+2. คัดลอกเนื้อหาทั้งหมดจาก `supabase/migrations/001_initial_schema.sql` วางลงไป กด **Run**
+3. เปิด query ใหม่ คัดลอก `supabase/migrations/002_phase2.sql` วางลงไป กด **Run**
 
-migration จะสร้างตาราง `profiles`, `jobs`, `job_items`, `attachments`, `user_states`,
+migration 001 จะสร้างตาราง `profiles`, `jobs`, `job_items`, `attachments`, `user_states`,
 เปิด Row Level Security และสร้าง Storage bucket ชื่อ `job-evidence` (แบบ private) ให้อัตโนมัติ
+
+migration 002 (Phase 2) จะเพิ่มตาราง `webhook_events` (กันบันทึกซ้ำ), คอลัมน์ `paid_amount`/`balance_due`
+สำหรับรับเงินบางส่วน, ฟังก์ชัน `create_job_with_items()` (บันทึกงาน+รายการแบบ atomic + เลขที่งาน
+`MJ-YYYYMMDD-XXXX` ไม่ซ้ำ) — รันทั้งสองไฟล์ตามลำดับ
 
 ### 4) สร้าง LINE Official Account + Messaging API channel
 

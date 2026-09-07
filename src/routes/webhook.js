@@ -1,33 +1,36 @@
 import express from 'express';
 import linebot from '@line/bot-sdk';
 import { lineConfig } from '../config/line.js';
-
-const { middleware, HTTPError } = linebot;
 import { getOrCreateProfile } from '../services/userService.js';
 import { handleTextMessage } from '../handlers/messageHandler.js';
 import { handleImageMessage } from '../handlers/imageHandler.js';
 import { handlePostback } from '../handlers/postbackHandler.js';
 import { handleFollow } from '../handlers/followHandler.js';
+import { markEventProcessed } from '../services/webhookEventService.js';
+import { reply } from '../services/lineService.js';
+import { logger, maskUserId } from '../services/logger.js';
 
+const { middleware } = linebot;
 const router = express.Router();
 
-// Dispatch a single LINE event to the right handler.
-// Every path starts by resolving the user's own profile — the security anchor.
-async function handleEvent(event) {
-  const lineUserId = event.source?.userId;
-  if (!lineUserId) {
-    console.warn('[webhook] event without userId, skipping:', event.type);
-    return;
+const GENERIC_ERROR = 'ขออภัยค่ะ ระบบมีปัญหาชั่วคราว กรุณาลองใหม่อีกครั้ง 💜';
+
+function actionOf(event) {
+  if (event.type !== 'postback') return undefined;
+  try {
+    return new URLSearchParams(event.postback?.data || '').get('action') || undefined;
+  } catch {
+    return undefined;
   }
+}
 
-  const profile = await getOrCreateProfile(lineUserId);
-
+async function dispatch(event, profile) {
   switch (event.type) {
     case 'message': {
       const mtype = event.message?.type;
       if (mtype === 'text') return handleTextMessage(event, profile);
       if (mtype === 'image' || mtype === 'file') return handleImageMessage(event, profile);
-      console.log(`[webhook] unsupported message type: ${mtype}`);
+      logger.info('webhook.unsupported_message', { mtype });
       return;
     }
     case 'postback':
@@ -35,27 +38,60 @@ async function handleEvent(event) {
     case 'follow':
       return handleFollow(event, profile);
     default:
-      console.log(`[webhook] unhandled event type: ${event.type}`);
+      logger.info('webhook.unhandled_event', { type: event.type });
       return;
   }
 }
 
-// LINE middleware verifies the X-Line-Signature header against the channel secret.
-router.post('/', middleware(lineConfig), async (req, res) => {
-  const events = req.body?.events || [];
-  // Acknowledge quickly so LINE doesn't retry; process afterwards.
-  res.status(200).json({ ok: true });
+// Process one event: dedupe, resolve the owner profile, dispatch, log timing.
+// Every path starts from the event's own user — the per-user security anchor.
+async function processEvent(event) {
+  const started = Date.now();
+  const lineUserId = event.source?.userId;
+  const base = { eventType: event.type, user: maskUserId(lineUserId), action: actionOf(event) };
 
-  for (const event of events) {
-    try {
-      await handleEvent(event);
-    } catch (err) {
-      if (err instanceof HTTPError) {
-        console.error('[webhook] LINE API error:', err.statusCode, err.message);
-      } else {
-        console.error('[webhook] handler error:', err?.message || err);
+  if (!lineUserId) {
+    logger.warn('webhook.no_user', base);
+    return;
+  }
+
+  // Idempotency — skip if this LINE event id was already processed.
+  const { isNew } = await markEventProcessed(event.webhookEventId, event.type);
+  if (!isNew) {
+    logger.info('webhook.skip_duplicate', base);
+    return;
+  }
+
+  try {
+    const profile = await getOrCreateProfile(lineUserId);
+    await dispatch(event, profile);
+    logger.info('webhook.ok', { ...base, ms: Date.now() - started, result: 'success' });
+  } catch (err) {
+    // Log full detail server-side; never send a stack trace to the user.
+    logger.error('webhook.failed', {
+      ...base,
+      ms: Date.now() - started,
+      result: 'failure',
+      message: err?.message,
+      status: err?.statusCode,
+    });
+    if (event.replyToken) {
+      try {
+        await reply(event.replyToken, { type: 'text', text: GENERIC_ERROR });
+      } catch (e2) {
+        logger.error('webhook.error_reply_failed', { message: e2?.message });
       }
     }
+  }
+}
+
+// LINE middleware verifies X-Line-Signature against the channel secret.
+router.post('/', middleware(lineConfig), async (req, res) => {
+  const events = req.body?.events || [];
+  // Acknowledge fast so LINE doesn't retry; process afterwards.
+  res.status(200).json({ ok: true });
+  for (const event of events) {
+    await processEvent(event);
   }
 });
 

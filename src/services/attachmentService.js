@@ -1,10 +1,9 @@
+import { randomUUID } from 'node:crypto';
 import { supabase, STORAGE_BUCKET } from '../config/supabase.js';
 
 const EXT_BY_TYPE = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
-  'image/gif': 'gif',
-  'image/webp': 'webp',
   'application/pdf': 'pdf',
 };
 
@@ -13,10 +12,11 @@ function extFor(fileType, fallback = 'bin') {
 }
 
 // Upload a downloaded LINE file to Supabase Storage and link it to a job.
-// Storage path is namespaced by userId so files are isolated per user.
+// Storage path is namespaced by userId so files are isolated per user, and
+// the filename is a random UUID — never the user's own filename.
 export async function saveAttachment(userId, job, { messageId, buffer, fileType }) {
   const ext = extFor(fileType);
-  const path = `${userId}/${job.id}/${messageId}.${ext}`;
+  const path = `${userId}/${job.id}/${randomUUID()}.${ext}`;
 
   const { error: uploadErr } = await supabase.storage
     .from(STORAGE_BUCKET)

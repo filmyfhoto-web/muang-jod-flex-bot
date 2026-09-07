@@ -1,6 +1,15 @@
 import { formatBaht } from '../utils/currency.js';
 import { formatThaiDate } from '../utils/dates.js';
-import { PURPLE, RED, GREY } from './jobCard.js';
+import { COLORS } from './theme.js';
+import { header } from './components/header.js';
+import { divider } from './components/divider.js';
+import { footerActions } from './components/footerActions.js';
+
+// Amount still owed on a job (balance_due if present, else the full total).
+function outstanding(job) {
+  if (job.balance_due != null) return Number(job.balance_due) || 0;
+  return Number(job.total) || 0;
+}
 
 export function pendingPaymentFlex(jobs) {
   if (!jobs || !jobs.length) {
@@ -15,23 +24,17 @@ export function pendingPaymentFlex(jobs) {
           layout: 'vertical',
           spacing: 'md',
           contents: [
-            { type: 'text', text: '💰 ค้างรับ', weight: 'bold', color: PURPLE },
-            {
-              type: 'text',
-              text: 'ไม่มีงานค้างรับเลยค่ะ เก่งมาก 💜',
-              size: 'sm',
-              color: GREY,
-              wrap: true,
-            },
+            { type: 'text', text: '💰 ค้างรับ', weight: 'bold', color: COLORS.purple },
+            { type: 'text', text: 'ไม่มีงานค้างรับเลยค่ะ เก่งมาก 💜', size: 'sm', color: COLORS.grey, wrap: true },
           ],
         },
       },
     };
   }
 
-  const total = jobs.reduce((sum, j) => sum + (Number(j.total) || 0), 0);
+  const total = jobs.reduce((sum, j) => sum + outstanding(j), 0);
 
-  const jobRows = jobs.slice(0, 15).map((job) => ({
+  const rows = jobs.slice(0, 15).map((job) => ({
     type: 'box',
     layout: 'horizontal',
     contents: [
@@ -41,14 +44,19 @@ export function pendingPaymentFlex(jobs) {
         flex: 5,
         contents: [
           { type: 'text', text: job.job_name || 'งาน', size: 'sm', weight: 'bold', wrap: true },
-          { type: 'text', text: formatThaiDate(job.job_date), size: 'xs', color: GREY },
+          {
+            type: 'text',
+            text: `${formatThaiDate(job.job_date)} · ${job.job_number || ''}`.trim(),
+            size: 'xs',
+            color: COLORS.grey,
+          },
         ],
       },
       {
         type: 'text',
-        text: formatBaht(job.total),
+        text: formatBaht(outstanding(job)),
         size: 'sm',
-        color: RED,
+        color: COLORS.red,
         align: 'end',
         gravity: 'center',
         flex: 3,
@@ -57,8 +65,8 @@ export function pendingPaymentFlex(jobs) {
   }));
 
   const bodyContents = [];
-  jobRows.forEach((r, i) => {
-    if (i > 0) bodyContents.push({ type: 'separator' });
+  rows.forEach((r, i) => {
+    if (i > 0) bodyContents.push(divider());
     bodyContents.push(r);
   });
 
@@ -68,26 +76,13 @@ export function pendingPaymentFlex(jobs) {
     contents: {
       type: 'bubble',
       size: 'mega',
-      header: {
-        type: 'box',
-        layout: 'vertical',
-        backgroundColor: PURPLE,
-        paddingAll: 'lg',
-        contents: [
-          { type: 'text', text: '💰 งานค้างรับ', weight: 'bold', color: '#FFFFFF', size: 'lg' },
-          { type: 'text', text: `${jobs.length} รายการ`, size: 'xs', color: '#EDE9FE' },
-        ],
-      },
-      body: {
-        type: 'box',
-        layout: 'vertical',
-        spacing: 'md',
-        contents: bodyContents,
-      },
+      header: header('💰 งานค้างรับ', `${jobs.length} รายการ`),
+      body: { type: 'box', layout: 'vertical', spacing: 'md', contents: bodyContents },
       footer: {
         type: 'box',
         layout: 'vertical',
         paddingAll: 'lg',
+        spacing: 'md',
         contents: [
           {
             type: 'box',
@@ -99,12 +94,19 @@ export function pendingPaymentFlex(jobs) {
                 text: formatBaht(total),
                 size: 'lg',
                 weight: 'bold',
-                color: RED,
+                color: COLORS.red,
                 align: 'end',
                 flex: 4,
               },
             ],
           },
+          footerActions({
+            primary: {
+              label: '💰 บันทึกรับเงิน',
+              data: 'action=record_payment',
+              displayText: 'บันทึกรับเงิน',
+            },
+          }),
         ],
       },
     },

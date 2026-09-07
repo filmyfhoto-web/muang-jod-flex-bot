@@ -1,10 +1,13 @@
 import { reply } from '../services/lineService.js';
 import { getState, setState, clearState, STATES } from '../services/stateService.js';
-import { getJobById, updateJob } from '../services/jobService.js';
+import { getJobById, updateJob, recordPayment, searchJobs } from '../services/jobService.js';
 import { parseJobText } from '../utils/parser.js';
 import { round2, parsePrice } from '../utils/currency.js';
 import { todayISO } from '../utils/dates.js';
+import { safe, paymentAmountSchema, searchQuerySchema } from '../utils/validation.js';
 import { jobCardMessage, jobPreviewMessage } from '../flex/jobCard.js';
+import { paymentConfirmationFlex } from '../flex/paymentFlex.js';
+import { searchResultsFlex } from '../flex/searchResultsFlex.js';
 
 // Shape a draft (parsed, not-yet-saved) job into the object the flex bubble
 // expects (job_name / job_date / items / total / payment_status).
@@ -82,6 +85,14 @@ export async function handleTextMessage(event, profile) {
     return handleEdit(replyToken, profile, state, text);
   }
 
+  if (current === STATES.WAITING_FOR_PAYMENT) {
+    return handlePaymentAmount(replyToken, profile, state, text);
+  }
+
+  if (current === STATES.WAITING_FOR_SEARCH) {
+    return handleSearch(replyToken, profile, text);
+  }
+
   if (current === STATES.WAITING_FOR_EVIDENCE) {
     return reply(replyToken, {
       type: 'text',
@@ -124,6 +135,48 @@ async function handleNewJob(replyToken, profile, text) {
     },
     jobPreviewMessage(draftToBubble(draft)),
   ]);
+}
+
+async function handlePaymentAmount(replyToken, profile, state, text) {
+  const jobId = state?.context?.jobId;
+  if (!jobId) {
+    await clearState(profile.id);
+    return reply(replyToken, {
+      type: 'text',
+      text: 'ไม่พบงานที่จะบันทึกรับเงินค่ะ ลองกด "บันทึกรับเงิน" ใหม่นะคะ',
+    });
+  }
+
+  const amount = parsePrice(text);
+  const check = safe(paymentAmountSchema, amount);
+  if (!check.ok) {
+    return reply(replyToken, {
+      type: 'text',
+      text: `${check.error}\nพิมพ์จำนวนเงินเป็นตัวเลข เช่น 500 ค่ะ 💜`,
+    });
+  }
+
+  const job = await recordPayment(profile.id, jobId, check.data);
+  await clearState(profile.id);
+
+  if (!job) {
+    return reply(replyToken, { type: 'text', text: 'ไม่พบงานนี้ค่ะ' });
+  }
+
+  return reply(replyToken, [
+    { type: 'text', text: 'บันทึกรับเงินแล้วค่ะ 💜' },
+    paymentConfirmationFlex(job),
+  ]);
+}
+
+async function handleSearch(replyToken, profile, text) {
+  const check = safe(searchQuerySchema, text);
+  if (!check.ok) {
+    return reply(replyToken, { type: 'text', text: check.error });
+  }
+  const jobs = await searchJobs(profile.id, check.data, { limit: 10 });
+  await clearState(profile.id);
+  return reply(replyToken, searchResultsFlex(jobs, check.data));
 }
 
 async function handleEdit(replyToken, profile, state, text) {

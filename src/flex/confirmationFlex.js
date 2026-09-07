@@ -1,6 +1,8 @@
 import { formatBaht } from '../utils/currency.js';
 import { formatThaiDate } from '../utils/dates.js';
-import { PURPLE, RED, GREY } from './jobCard.js';
+import { COLORS } from './theme.js';
+import { divider } from './components/divider.js';
+import { footerActions } from './components/footerActions.js';
 
 // Confirmation card for cancelling a job. Encodes jobId in the postback data.
 export function confirmCancelFlex(job) {
@@ -15,15 +17,9 @@ export function confirmCancelFlex(job) {
         layout: 'vertical',
         spacing: 'md',
         contents: [
-          { type: 'text', text: '🗑 ยืนยันการยกเลิก', weight: 'bold', size: 'md', color: RED },
-          {
-            type: 'text',
-            text: 'ต้องการยกเลิกรายการนี้ใช่ไหมคะ?',
-            size: 'sm',
-            color: '#555555',
-            wrap: true,
-          },
-          { type: 'separator' },
+          { type: 'text', text: '🗑 ยืนยันการยกเลิก', weight: 'bold', size: 'md', color: COLORS.red },
+          { type: 'text', text: 'ต้องการยกเลิกรายการนี้ใช่ไหมคะ?', size: 'sm', color: COLORS.sub, wrap: true },
+          divider(),
           {
             type: 'box',
             layout: 'vertical',
@@ -34,43 +30,25 @@ export function confirmCancelFlex(job) {
                 type: 'text',
                 text: `${formatThaiDate(job.job_date)} · ${job.job_number || ''}`.trim(),
                 size: 'xs',
-                color: GREY,
+                color: COLORS.grey,
               },
-              { type: 'text', text: `ยอดรวม ${formatBaht(job.total)}`, size: 'sm', color: PURPLE },
+              { type: 'text', text: `ยอดรวม ${formatBaht(job.total)}`, size: 'sm', color: COLORS.purple },
             ],
           },
         ],
       },
-      footer: {
-        type: 'box',
-        layout: 'horizontal',
-        spacing: 'sm',
-        contents: [
+      footer: footerActions({
+        secondary: [
+          { label: '❌ ไม่ยกเลิก', data: 'action=cancel_cancel', displayText: 'ไม่ยกเลิก' },
           {
-            type: 'button',
-            style: 'secondary',
-            height: 'sm',
-            action: {
-              type: 'postback',
-              label: '❌ ไม่ยกเลิก',
-              data: 'action=cancel_cancel',
-              displayText: 'ไม่ยกเลิก',
-            },
-          },
-          {
-            type: 'button',
+            label: '✅ ยืนยันยกเลิก',
+            data: `action=confirm_cancel&jobId=${encodeURIComponent(job.id)}`,
+            displayText: 'ยืนยันยกเลิก',
             style: 'primary',
-            color: RED,
-            height: 'sm',
-            action: {
-              type: 'postback',
-              label: '✅ ยืนยันยกเลิก',
-              data: `action=confirm_cancel&jobId=${encodeURIComponent(job.id)}`,
-              displayText: 'ยืนยันยกเลิก',
-            },
+            color: COLORS.red,
           },
         ],
-      },
+      }),
     },
   };
 }

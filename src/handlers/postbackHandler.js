@@ -6,6 +6,8 @@ import { todaySummary } from '../actions/todaySummary.js';
 import { editLatest } from '../actions/editLatest.js';
 import { cancelLatest, confirmCancel, cancelCancel } from '../actions/cancelLatest.js';
 import { pendingPayment } from '../actions/pendingPayment.js';
+import { recordPaymentPrompt } from '../actions/recordPayment.js';
+import { searchJobsPrompt } from '../actions/searchJobs.js';
 import { help } from '../actions/help.js';
 
 // Parse LINE postback data (querystring form) into { action, ...params }.
@@ -49,6 +51,10 @@ export async function handlePostback(event, profile) {
       return cancelCancel(ctx);
     case 'pending_payment':
       return pendingPayment(ctx);
+    case 'record_payment':
+      return recordPaymentPrompt(ctx);
+    case 'search_jobs':
+      return searchJobsPrompt(ctx);
     case 'help':
       return help(ctx);
     default:

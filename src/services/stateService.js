@@ -6,6 +6,8 @@ export const STATES = {
   CONFIRMING_JOB: 'confirming_job', // parsed a draft, waiting for confirm/edit/cancel
   WAITING_FOR_EVIDENCE: 'waiting_for_evidence',
   WAITING_FOR_EDIT: 'waiting_for_edit',
+  WAITING_FOR_PAYMENT: 'waiting_for_payment_amount',
+  WAITING_FOR_SEARCH: 'waiting_for_search',
 };
 
 // Get the current state row for a user (by profile id). Returns null if none.
