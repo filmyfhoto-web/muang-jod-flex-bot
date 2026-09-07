@@ -22,12 +22,31 @@ if (missing.length) {
 
 // Dynamic import AFTER validation so config modules read a populated env.
 const { default: webhookRouter } = await import('./routes/webhook.js');
+const { supabase } = await import('./config/supabase.js');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.get('/', (req, res) => res.send('ม่วงจด LINE Bot กำลังทำงานอยู่ค่ะ 💜'));
-app.get('/health', (req, res) => res.json({ status: 'ok', service: 'muang-jod' }));
+
+// Health: also probes the database so setup problems (migration not run,
+// wrong key) are visible from a browser instead of only in server logs.
+app.get('/health', async (req, res) => {
+  const body = { status: 'ok', service: 'muang-jod', db: 'unknown' };
+  try {
+    const { error } = await supabase.from('profiles').select('id', { count: 'exact', head: true });
+    if (error) {
+      body.db = 'error';
+      body.dbError = `${error.code || ''} ${error.message || ''}`.trim();
+    } else {
+      body.db = 'ok';
+    }
+  } catch (err) {
+    body.db = 'error';
+    body.dbError = err?.message || String(err);
+  }
+  res.json(body);
+});
 
 // Mount webhook. NOTE: no express.json() before this — the LINE middleware
 // needs the raw body to verify the signature.
