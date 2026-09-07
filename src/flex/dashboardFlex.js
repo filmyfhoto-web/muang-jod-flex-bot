@@ -1,50 +1,66 @@
 import { formatBaht } from '../utils/currency.js';
 import { formatThaiDate, formatThaiDateTime } from '../utils/dates.js';
-import { guessCategory } from '../utils/category.js';
-import { COLORS, paymentPresentation } from './theme.js';
+import { jobCategory } from '../utils/category.js';
+import { COLORS } from './theme.js';
 import { divider } from './components/divider.js';
 import { statusBadge } from './components/statusBadge.js';
 import { liffUrl } from '../utils/liff.js';
 
-// "สรุปวันนี้" styled after the dashboard mockup: three stat tiles, an
-// overview with proportion bars, the latest jobs, and a button that opens the
-// LIFF dashboard when one is configured.
+// "สรุปงานวันนี้" as in the mockup: the day's total with its trend against
+// yesterday, a tile per work category, the proportions of the day, and the
+// latest jobs — with a button into the LIFF dashboard when one is configured.
 
-function tile({ icon, label, value, color, bg }) {
+const TREND = { up: { arrow: '↗', color: COLORS.green }, down: { arrow: '↘', color: COLORS.red }, flat: { arrow: '→', color: COLORS.grey } };
+
+function trendLine(trend) {
+  const t = TREND[trend?.direction] || TREND.flat;
+  const text =
+    trend?.percent === null || trend?.percent === undefined
+      ? 'ยังไม่มียอดเมื่อวานให้เทียบ'
+      : `${t.arrow} ${trend.percent > 0 ? '+' : ''}${trend.percent}% จากเมื่อวาน`;
+  return { type: 'text', text, size: 'xs', color: t.color, weight: 'bold' };
+}
+
+// One category tile: icon + name, jobs, money.
+function categoryTile(cat) {
   return {
     type: 'box',
     layout: 'vertical',
-    backgroundColor: bg,
+    backgroundColor: COLORS.greyLight,
     cornerRadius: 'lg',
     paddingAll: 'md',
-    alignItems: 'center',
+    spacing: 'xs',
     flex: 1,
     contents: [
-      { type: 'text', text: icon, size: 'lg', align: 'center' },
-      { type: 'text', text: label, size: 'xs', color: COLORS.sub, align: 'center' },
-      { type: 'text', text: String(value), size: 'xxl', weight: 'bold', color, align: 'center' },
-      { type: 'text', text: 'รายการ', size: 'xxs', color: COLORS.grey, align: 'center' },
+      {
+        type: 'box',
+        layout: 'horizontal',
+        spacing: 'xs',
+        alignItems: 'center',
+        contents: [
+          { type: 'text', text: cat.icon, size: 'sm', flex: 0 },
+          { type: 'text', text: cat.label, size: 'xxs', color: COLORS.sub, wrap: true },
+        ],
+      },
+      { type: 'text', text: `${cat.count} งาน`, size: 'lg', weight: 'bold', color: cat.color },
+      { type: 'text', text: formatBaht(cat.total), size: 'xs', color: COLORS.grey },
     ],
   };
 }
 
-function bar(pct, color) {
-  const filled = Math.max(0, Math.min(100, Math.round(pct)));
-  return {
-    type: 'box',
-    layout: 'horizontal',
-    height: '6px',
-    cornerRadius: 'sm',
-    backgroundColor: COLORS.line,
-    contents: [
-      { type: 'box', layout: 'vertical', flex: Math.max(filled, 0), backgroundColor: color, cornerRadius: 'sm', contents: [] },
-      { type: 'box', layout: 'vertical', flex: Math.max(100 - filled, 0), contents: [] },
-    ].filter((b) => b.flex > 0),
-  };
+// Tiles laid out two per row.
+function categoryTiles(categories) {
+  const rows = [];
+  for (let i = 0; i < categories.length; i += 2) {
+    const pair = categories.slice(i, i + 2).map(categoryTile);
+    if (pair.length === 1) pair.push({ type: 'box', layout: 'vertical', flex: 1, contents: [] });
+    rows.push({ type: 'box', layout: 'horizontal', spacing: 'sm', contents: pair });
+  }
+  return rows;
 }
 
-function overviewRow(label, count, total, color) {
-  const pct = total ? (count / total) * 100 : 0;
+function shareRow(cat) {
+  const filled = Math.max(0, Math.min(100, cat.percent));
   return {
     type: 'box',
     layout: 'vertical',
@@ -54,20 +70,31 @@ function overviewRow(label, count, total, color) {
         type: 'box',
         layout: 'horizontal',
         contents: [
-          { type: 'text', text: `● ${label}`, size: 'sm', color, flex: 3 },
-          { type: 'text', text: `${count} (${Math.round(pct)}%)`, size: 'sm', color: COLORS.sub, align: 'end', flex: 2 },
+          { type: 'text', text: `${cat.icon} ${cat.label}`, size: 'xs', color: COLORS.sub, flex: 3 },
+          { type: 'text', text: `${cat.percent}%`, size: 'xs', color: cat.color, weight: 'bold', align: 'end', flex: 1 },
         ],
       },
-      bar(pct, color),
+      {
+        type: 'box',
+        layout: 'horizontal',
+        height: '6px',
+        cornerRadius: 'sm',
+        backgroundColor: COLORS.line,
+        contents: [
+          { type: 'box', layout: 'vertical', flex: filled, backgroundColor: cat.color, cornerRadius: 'sm', contents: [] },
+          { type: 'box', layout: 'vertical', flex: 100 - filled, contents: [] },
+        ].filter((b) => b.flex > 0),
+      },
     ],
   };
 }
 
 function recentRow(job) {
-  const cat = guessCategory(job.items || []);
-  const p = paymentPresentation(job.payment_status);
-  const when = job.created_at ? formatThaiDateTime(job.created_at).split(' ').slice(-1)[0] : '';
-  const sub = [job.customer_name ? `ลูกค้า: ${job.customer_name}` : null, when].filter(Boolean).join(' · ');
+  const { group, type } = jobCategory(job);
+  const time = job.created_at ? formatThaiDateTime(job.created_at).split(' ').pop() : '';
+  const sub = [type?.label || group.label, job.customer_name ? `· ${job.customer_name}` : '', time ? `· ${time}` : '']
+    .filter(Boolean)
+    .join(' ');
   return {
     type: 'box',
     layout: 'horizontal',
@@ -84,7 +111,7 @@ function recentRow(job) {
         justifyContent: 'center',
         alignItems: 'center',
         flex: 0,
-        contents: [{ type: 'text', text: cat?.icon || '📦', size: 'md', align: 'center' }],
+        contents: [{ type: 'text', text: type?.icon || group.icon, size: 'md', align: 'center' }],
       },
       {
         type: 'box',
@@ -92,7 +119,7 @@ function recentRow(job) {
         flex: 5,
         contents: [
           { type: 'text', text: job.job_name || 'งาน', size: 'sm', weight: 'bold', color: COLORS.ink, wrap: true },
-          { type: 'text', text: sub || job.job_number || ' ', size: 'xxs', color: COLORS.grey },
+          { type: 'text', text: sub, size: 'xxs', color: COLORS.grey, wrap: true },
         ],
       },
       {
@@ -107,12 +134,11 @@ function recentRow(job) {
         ],
       },
     ],
-    action: { type: 'postback', label: p.text, data: `action=recent_jobs`, displayText: 'รายการล่าสุด' },
   };
 }
 
 export function dashboardFlex(dash, opts = {}) {
-  const { summary, counts, recent = [] } = dash;
+  const { summary, counts, categories = [], trend, recent = [] } = dash;
   const total = summary.jobCount || 0;
   const dashUrl = opts.liffUrl !== undefined ? opts.liffUrl : liffUrl({ tab: 'today' });
 
@@ -122,7 +148,7 @@ export function dashboardFlex(dash, opts = {}) {
       layout: 'horizontal',
       alignItems: 'center',
       contents: [
-        { type: 'text', text: '📊 สรุปวันนี้', weight: 'bold', size: 'lg', color: COLORS.purpleDark, flex: 4 },
+        { type: 'text', text: '📊 สรุปงานวันนี้', weight: 'bold', size: 'lg', color: COLORS.purpleDark, flex: 4 },
         {
           type: 'box',
           layout: 'vertical',
@@ -136,67 +162,58 @@ export function dashboardFlex(dash, opts = {}) {
         },
       ],
     },
+    // Headline: the day's money and how it compares with yesterday.
     {
       type: 'box',
-      layout: 'horizontal',
-      spacing: 'sm',
-      contents: [
-        tile({ icon: '🗓️', label: 'งานวันนี้', value: total, color: COLORS.purple, bg: COLORS.purpleSoft }),
-        tile({ icon: '✅', label: 'รับเงินแล้ว', value: counts.paid, color: COLORS.green, bg: '#E7F6EE' }),
-        tile({ icon: '💰', label: 'ค้างรับ', value: counts.pending + counts.partial, color: COLORS.red, bg: '#FCEBEC' }),
-      ],
-    },
-    {
-      type: 'box',
-      layout: 'horizontal',
-      backgroundColor: COLORS.greyLight,
+      layout: 'vertical',
+      backgroundColor: COLORS.purpleSoft,
       cornerRadius: 'lg',
-      paddingAll: 'md',
+      paddingAll: 'lg',
+      spacing: 'xs',
       contents: [
+        { type: 'text', text: 'ยอดวันนี้', size: 'xs', color: COLORS.sub },
+        { type: 'text', text: formatBaht(summary.total), size: 'xxl', weight: 'bold', color: COLORS.purple },
+        trendLine(trend),
         {
           type: 'box',
-          layout: 'vertical',
-          flex: 1,
+          layout: 'horizontal',
+          paddingTop: 'sm',
           contents: [
-            { type: 'text', text: 'ยอดรวม', size: 'xxs', color: COLORS.grey },
-            { type: 'text', text: formatBaht(summary.total), size: 'md', weight: 'bold', color: COLORS.ink },
-          ],
-        },
-        {
-          type: 'box',
-          layout: 'vertical',
-          flex: 1,
-          contents: [
-            { type: 'text', text: 'รับแล้ว', size: 'xxs', color: COLORS.grey, align: 'center' },
-            { type: 'text', text: formatBaht(summary.paid), size: 'md', weight: 'bold', color: COLORS.green, align: 'center' },
-          ],
-        },
-        {
-          type: 'box',
-          layout: 'vertical',
-          flex: 1,
-          contents: [
-            { type: 'text', text: 'ค้างรับ', size: 'xxs', color: COLORS.grey, align: 'end' },
-            { type: 'text', text: formatBaht(summary.pending), size: 'md', weight: 'bold', color: COLORS.red, align: 'end' },
+            { type: 'text', text: `${total} งาน`, size: 'xs', color: COLORS.sub, flex: 1 },
+            { type: 'text', text: `รับแล้ว ${formatBaht(summary.paid)}`, size: 'xs', color: COLORS.green, align: 'center', flex: 2 },
+            { type: 'text', text: `ค้าง ${formatBaht(summary.pending)}`, size: 'xs', color: COLORS.red, align: 'end', flex: 2 },
           ],
         },
       ],
     },
   ];
 
-  if (total > 0) {
-    body.push(
-      { type: 'text', text: 'ภาพรวมงาน', weight: 'bold', size: 'sm', color: COLORS.purpleDark },
-      overviewRow('รับเงินแล้ว', counts.paid, total, COLORS.green),
-      overviewRow('รับบางส่วน', counts.partial, total, COLORS.orange),
-      overviewRow('ค้างรับ', counts.pending, total, COLORS.red)
-    );
+  if (categories.length) {
+    body.push(...categoryTiles(categories.slice(0, 4)));
+    body.push(divider());
+    body.push({ type: 'text', text: 'สัดส่วนงานวันนี้', weight: 'bold', size: 'sm', color: COLORS.purpleDark });
+    body.push(...categories.slice(0, 4).map(shareRow));
   }
 
   body.push(divider());
   if (recent.length) {
     body.push(
-      { type: 'text', text: 'รายการล่าสุด', weight: 'bold', size: 'sm', color: COLORS.purpleDark },
+      {
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: 'รายการล่าสุด', weight: 'bold', size: 'sm', color: COLORS.purpleDark, flex: 3 },
+          {
+            type: 'text',
+            text: 'ดูทั้งหมด ›',
+            size: 'xs',
+            color: COLORS.purple,
+            align: 'end',
+            flex: 2,
+            action: { type: 'postback', label: 'ดูทั้งหมด', data: 'action=recent_jobs', displayText: 'รายการล่าสุด' },
+          },
+        ],
+      },
       ...recent.slice(0, 3).map(recentRow)
     );
   } else {
@@ -229,7 +246,7 @@ export function dashboardFlex(dash, opts = {}) {
         type: 'button',
         style: 'secondary',
         height: 'sm',
-        action: { type: 'postback', label: '📋 รายการล่าสุด', data: 'action=recent_jobs', displayText: 'รายการล่าสุด' },
+        action: { type: 'postback', label: '📈 รายงาน', data: 'action=report_menu', displayText: 'รายงาน' },
       },
       {
         type: 'button',

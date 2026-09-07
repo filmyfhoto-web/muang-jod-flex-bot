@@ -1,68 +1,134 @@
-// Guess a job category from item names so the receipt can show a friendly
-// heading like "งานพิมพ์ / ป้ายโฆษณา" instead of the first item's name.
-// Order matters: earlier categories win when keywords overlap.
+// Two-level work taxonomy: a group ("งานพิมพ์") holding types ("ถ่ายเอกสาร").
+// Jobs are classified automatically from item names; the LIFF form lets the
+// owner correct it. Order matters — earlier entries win when keywords overlap,
+// so put the more specific type first inside each group.
 
-const CATEGORIES = [
+export const CATEGORY_GROUPS = [
   {
-    label: 'งานพิมพ์ / ป้ายโฆษณา',
+    id: 'sign',
+    label: 'งานป้าย',
     icon: '🪧',
-    keys: ['ป้าย', 'ไวนิล', 'แบนเนอร์', 'โฟมบอร์ด', 'ฟิวเจอร์บอร์ด', 'อิงค์เจ็ท', 'โรลอัพ', 'x-stand', 'ตัวอักษร'],
+    color: '#F471B5', // pink, as in the proportions chart
+    types: [
+      { id: 'vinyl', label: 'ป้ายไวนิล', icon: '🪧', keys: ['ไวนิล', 'อิงค์เจ็ท', 'ป้ายผ้า'] },
+      { id: 'foamboard', label: 'โฟมบอร์ด', icon: '🧊', keys: ['โฟมบอร์ด', 'ฟิวเจอร์บอร์ด', 'พีพีบอร์ด'] },
+      { id: 'sticker', label: 'สติ๊กเกอร์', icon: '🏷️', keys: ['สติกเกอร์', 'สติ๊กเกอร์', 'ฉลาก', 'ไดคัท', 'label'] },
+      { id: 'banner', label: 'แบนเนอร์', icon: '🎌', keys: ['แบนเนอร์', 'โรลอัพ', 'x-stand', 'ธง', 'ออกบูธ'] },
+      { id: 'standee', label: 'ป้ายตั้งโต๊ะ', icon: '🪧', keys: ['ตั้งโต๊ะ', 'อะคริลิค', 'พลาสวูด', 'ตัวอักษร', 'ป้าย'] },
+    ],
   },
   {
-    label: 'สติกเกอร์ / ฉลาก',
-    icon: '🏷️',
-    keys: ['สติกเกอร์', 'ฉลาก', 'label'],
-  },
-  {
-    label: 'งานเอกสาร / ถ่ายเอกสาร',
+    id: 'print',
+    label: 'งานพิมพ์',
     icon: '🖨️',
-    keys: ['ถ่ายเอกสาร', 'ปริ้น', 'พิมพ์เอกสาร', 'เข้าเล่ม', 'สแกน', 'เคลือบ', 'นามบัตร', 'ใบปลิว', 'โบรชัวร์', 'แผ่นพับ'],
+    color: '#7C3AED', // purple
+    types: [
+      { id: 'copy', label: 'ถ่ายเอกสาร', icon: '📄', keys: ['ถ่ายเอกสาร', 'ถ่ายเอก', 'copy'] },
+      { id: 'print', label: 'พิมพ์งาน', icon: '📄', keys: ['ปริ้น', 'พิมพ์งาน', 'พิมพ์เอกสาร', 'print', 'ใบปลิว', 'โบรชัวร์', 'แผ่นพับ', 'นามบัตร'] },
+      { id: 'binding', label: 'เข้าเล่ม', icon: '📚', keys: ['เข้าเล่ม', 'สันห่วง', 'สันกาว', 'ไสกาว', 'ปกแข็ง', 'เคลือบ'] },
+      { id: 'photo', label: 'รูปด่วน', icon: '🖼️', keys: ['รูปด่วน', 'อัดรูป', 'ล้างรูป', 'รูปติดบัตร', 'ปริ้นรูป'] },
+      { id: 'scan', label: 'สแกนเอกสาร', icon: '📠', keys: ['สแกน', 'scan'] },
+    ],
   },
   {
+    id: 'design',
     label: 'งานออกแบบ',
     icon: '🎨',
-    keys: ['ออกแบบ', 'ดีไซน์', 'โลโก้', 'artwork', 'อาร์ตเวิร์ค', 'รีทัช'],
+    color: '#60A5FA', // blue
+    types: [
+      { id: 'artwork', label: 'ออกแบบ / อาร์ตเวิร์ก', icon: '🎨', keys: ['ออกแบบ', 'ดีไซน์', 'โลโก้', 'artwork', 'อาร์ตเวิร์ค', 'อาร์ตเวิร์ก', 'รีทัช'] },
+    ],
   },
   {
+    id: 'food',
     label: 'อาหาร & เครื่องดื่ม',
     icon: '☕',
-    keys: ['กาแฟ', 'อาหาร', 'ขนม', 'เครื่องดื่ม', 'ข้าว', 'เบเกอรี่'],
+    color: '#F59E0B',
+    types: [
+      { id: 'food', label: 'อาหาร / เครื่องดื่ม', icon: '☕', keys: ['กาแฟ', 'อาหาร', 'ขนม', 'เครื่องดื่ม', 'ข้าว', 'เบเกอรี่'] },
+    ],
   },
   {
+    id: 'shipping',
     label: 'ค่าจัดส่ง / ขนส่ง',
     icon: '🚚',
-    keys: ['จัดส่ง', 'ขนส่ง', 'ค่าส่ง', 'ค่ารถ', 'แมสเซนเจอร์'],
+    color: '#22A06B',
+    types: [
+      { id: 'shipping', label: 'ค่าจัดส่ง', icon: '🚚', keys: ['จัดส่ง', 'ขนส่ง', 'ค่าส่ง', 'ค่ารถ', 'แมสเซนเจอร์', 'ems', 'kerry'] },
+    ],
   },
 ];
 
-function matchCategory(name) {
+export const OTHER_GROUP = { id: 'other', label: 'งานทั่วไป', icon: '📦', color: '#8E8E93', types: [] };
+
+const ALL_TYPES = CATEGORY_GROUPS.flatMap((g) => g.types.map((t) => ({ ...t, group: g })));
+
+export function findGroup(groupId) {
+  return CATEGORY_GROUPS.find((g) => g.id === groupId) || (groupId === OTHER_GROUP.id ? OTHER_GROUP : null);
+}
+
+export function findType(typeId) {
+  return ALL_TYPES.find((t) => t.id === typeId) || null;
+}
+
+// Classify one item name -> { group, type } or null.
+export function classifyItem(name) {
   const n = String(name || '').toLowerCase();
   if (!n) return null;
-  for (const cat of CATEGORIES) {
-    if (cat.keys.some((k) => n.includes(k))) return cat;
+  for (const type of ALL_TYPES) {
+    if (type.keys.some((k) => n.includes(k))) return { group: type.group, type };
   }
   return null;
 }
 
-// Category of the first item that matches one, or null.
-export function guessCategory(items = []) {
+// Classify a job from its items: the first item that matches decides.
+export function classifyJob(items = []) {
   for (const it of items) {
-    const cat = matchCategory(it?.item_name);
-    if (cat) return cat;
+    const hit = classifyItem(it?.item_name);
+    if (hit) return hit;
   }
   return null;
 }
 
-// Emoji for an item row.
-export function itemIcon(itemName) {
-  return matchCategory(itemName)?.icon || '📦';
+// The database columns a new/edited job should carry.
+export function categoryFields(items = []) {
+  const hit = classifyJob(items);
+  return { category: hit?.group.id || OTHER_GROUP.id, category_type: hit?.type.id || null };
 }
 
-// Job heading: category label when recognised, else derived from the items.
+// Presentation for a stored job (falls back to classifying its items).
+export function jobCategory(job = {}) {
+  const group = findGroup(job.category);
+  const type = findType(job.category_type);
+  if (group) return { group, type: type || null };
+  const hit = classifyJob(job.items || []);
+  return { group: hit?.group || OTHER_GROUP, type: hit?.type || null };
+}
+
+// Heading shown on cards: "งานป้าย / ป้ายไวนิล".
+export function categoryLabel(job = {}) {
+  const { group, type } = jobCategory(job);
+  return type ? `${group.label} / ${type.label}` : group.label;
+}
+
+// --- Compatibility with the earlier flat API -------------------------------
+
+// { label, icon } for the group a job's items belong to, or null.
+export function guessCategory(items = []) {
+  const hit = classifyJob(items);
+  if (!hit) return null;
+  return { ...hit.group, label: `${hit.group.label} / ${hit.type.label}`, groupLabel: hit.group.label, type: hit.type };
+}
+
+export function itemIcon(itemName) {
+  return classifyItem(itemName)?.type.icon || '📦';
+}
+
+// Job heading: the category when recognised, else derived from the items.
 export function deriveJobName(items = []) {
   if (!items.length) return null;
-  const cat = guessCategory(items);
-  if (cat) return cat.label;
+  const hit = classifyJob(items);
+  if (hit) return `${hit.group.label} / ${hit.type.label}`;
   if (items.length === 1) return items[0].item_name;
   return `${items[0].item_name} +${items.length - 1} รายการ`;
 }
