@@ -1,15 +1,25 @@
 {
   "name": "muang-jod-flex-bot",
-  "version": "0.1.0",
-  "private": true,
+  "version": "1.0.0",
+  "description": "LINE Bot for small business task management - ม่วงจดให้",
   "type": "module",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "start": "node src/server.mjs",
-    "dev": "DEMO_MODE=true node --watch src/server.mjs",
-    "test": "node --test",
-    "check": "node --check src/server.mjs && node --test"
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --import ./tests/setup.js --test",
+    "check": "node --check src/server.js",
+    "rich-menu": "node scripts/create-rich-menu.js",
+    "create-rich-menu": "node scripts/create-rich-menu.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "@line/bot-sdk": "^8.0.0",
+    "@supabase/supabase-js": "^2.39.0",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "zod": "^3.23.8"
   }
 }
