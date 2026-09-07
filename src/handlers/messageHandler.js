@@ -11,6 +11,7 @@ import { paymentConfirmationFlex } from '../flex/paymentFlex.js';
 import { searchResultsFlex } from '../flex/searchResultsFlex.js';
 import { resolveMenuCommand, splitLeadingAddJob } from '../utils/menuCommands.js';
 import { parseNaturalJob } from '../utils/nlParser.js';
+import { deriveJobName } from '../utils/category.js';
 import { handlePostback } from './postbackHandler.js';
 
 // Shape a draft (parsed, not-yet-saved) job into the object the flex bubble
@@ -81,11 +82,7 @@ function parseEditPatch(text) {
   return patch;
 }
 
-function deriveJobName(items) {
-  if (!items.length) return null;
-  if (items.length === 1) return items[0].item_name;
-  return `${items[0].item_name} +${items.length - 1} รายการ`;
-}
+// (job naming lives in utils/category.js — category label when recognised)
 
 export async function handleTextMessage(event, profile) {
   const { replyToken } = event;
