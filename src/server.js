@@ -29,6 +29,9 @@ const PORT = process.env.PORT || 3000;
 
 app.get('/', (req, res) => res.send('ม่วงจด LINE Bot กำลังทำงานอยู่ค่ะ 💜'));
 
+// Brand assets (e.g. public/brand/mascot.png) served over HTTPS for Flex images.
+app.use('/brand', express.static('public/brand', { maxAge: '1d' }));
+
 // Health: also probes the database so setup problems (migration not run,
 // wrong key) are visible from a browser instead of only in server logs.
 app.get('/health', async (req, res) => {

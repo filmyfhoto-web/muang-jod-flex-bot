@@ -37,9 +37,14 @@ test('receipt card: structure, content and actions', () => {
   assert.ok(json.includes('action=record_payment'));
 });
 
-test('receipt card: optional hero image and partial-payment rows', () => {
+test('receipt card: optional mascot / hero images and partial-payment rows', () => {
   const withHero = receiptFlex(job, { heroImageUrl: 'https://example.com/hero.png' });
   assert.equal(withHero.contents.hero?.url, 'https://example.com/hero.png');
+
+  const withMascot = receiptFlex(job, { mascotImageUrl: 'https://example.com/dog.png' });
+  assert.ok(JSON.stringify(withMascot).includes('https://example.com/dog.png'));
+  const noMascot = receiptFlex(job, { mascotImageUrl: undefined, heroImageUrl: undefined });
+  assert.ok(!JSON.stringify(noMascot).includes('"type":"image"'));
 
   const partial = receiptFlex({ ...job, paid_amount: 150, balance_due: 250, payment_status: 'partial' });
   const json = JSON.stringify(partial);
