@@ -213,6 +213,19 @@ async function handleEdit(replyToken, profile, state, text) {
     });
   }
 
+  // Keep money fields consistent so "ค้างรับ" stays accurate after an edit:
+  // editing the price recalculates the balance from what's already paid, and
+  // marking a job "paid" settles the balance to zero.
+  const current = await getJobById(profile.id, jobId);
+  if (current) {
+    if (patch.total !== undefined) {
+      Object.assign(patch, derivePaymentFields(patch.total, current.paid_amount));
+    } else if (patch.payment_status === 'paid') {
+      patch.paid_amount = round2(current.total);
+      patch.balance_due = 0;
+    }
+  }
+
   const updated = await updateJob(profile.id, jobId, patch);
   await clearState(profile.id);
 
