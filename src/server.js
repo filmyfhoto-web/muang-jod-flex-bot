@@ -32,6 +32,11 @@ app.get('/', (req, res) => res.send('ม่วงจด LINE Bot กำลัง
 // Brand assets (e.g. public/brand/mascot.png) served over HTTPS for Flex images.
 app.use('/brand', express.static('public/brand', { maxAge: '1d' }));
 
+// LIFF web app (dashboard + edit form) and the JSON API behind it.
+const { default: apiRouter } = await import('./routes/api.js');
+app.use('/app', express.static('public/liff', { maxAge: '5m', extensions: ['html'] }));
+app.use('/api', apiRouter);
+
 // Health: also probes the database so setup problems (migration not run,
 // wrong key, wrong URL) are visible from a browser instead of only in logs.
 // A real GET, not HEAD: a HEAD 404 has no body and reads as success.

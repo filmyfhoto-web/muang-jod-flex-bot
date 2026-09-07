@@ -86,6 +86,18 @@ gcloud run deploy muang-jod \
 
 ---
 
+## เปิดหน้าจัดการงาน (LIFF) — ไม่บังคับ
+
+1. LINE Developers → provider เดียวกับบอต → **Create a LINE Login channel**
+2. แท็บ **LIFF** → **Add**
+   - Endpoint URL: `https://<โดเมนบอต>/app`
+   - Size: **Full**
+   - Scopes: **profile**, **openid**
+3. คัดลอก **LIFF ID** (รูปแบบ `1234567890-AbCdEfGh`) ไปใส่ env `LIFF_ID` แล้ว deploy ใหม่
+4. ปุ่ม "✏️ แก้ไข" บนการ์ดใบเสร็จ และปุ่ม "📊 เปิดแดชบอร์ด" บนการ์ดสรุปวันนี้ จะเปิดหน้านี้ให้
+
+ไม่ตั้ง `LIFF_ID` ก็ใช้งานบอตได้ครบ — ปุ่มแก้ไขจะกลับไปใช้การแก้ผ่านแชตแทน
+
 ## ตรวจหลัง deploy
 
 - [ ] `GET /health` → `{"status":"ok","db":"ok"}`

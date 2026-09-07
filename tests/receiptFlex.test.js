@@ -19,6 +19,24 @@ const job = {
   ],
 };
 
+test('receipt card: edit opens the LIFF form, delete asks the bot first', () => {
+  const withLiff = receiptFlex(
+    { ...job, id: 'job-1' },
+    { editUrl: 'https://liff.line.me/1234567890-abcdefgh?edit=job-1', mascotImageUrl: null, heroImageUrl: undefined }
+  );
+  const json = JSON.stringify(withLiff);
+  assert.ok(json.includes('"uri":"https://liff.line.me/1234567890-abcdefgh?edit=job-1"'));
+  assert.ok(json.includes('action=delete_job&jobId=job-1'));
+
+  // No LIFF configured: the edit button falls back to a postback the chat answers.
+  const noLiff = receiptFlex({ ...job, id: 'job-1' }, { editUrl: null, mascotImageUrl: null });
+  assert.ok(JSON.stringify(noLiff).includes('action=edit_job&jobId=job-1'));
+
+  // A preview (unsaved) job has no id, so no edit/delete buttons at all.
+  const unsaved = receiptFlex(job, { editUrl: null, mascotImageUrl: null });
+  assert.ok(!JSON.stringify(unsaved).includes('delete_job'));
+});
+
 test('receipt card: structure, content and actions', () => {
   const msg = receiptFlex(job, { heroImageUrl: undefined });
   assert.equal(msg.type, 'flex');

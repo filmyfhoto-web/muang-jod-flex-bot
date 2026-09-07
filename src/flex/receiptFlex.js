@@ -4,6 +4,7 @@ import { guessCategory, itemIcon } from '../utils/category.js';
 import { COLORS } from './theme.js';
 import { divider } from './components/divider.js';
 import { brandAssetUrl, MASCOT } from '../utils/brand.js';
+import { liffUrl } from '../utils/liff.js';
 
 // Receipt card styled after the brand mockup: white card, purple circle check,
 // soft-purple category strip (with optional mascot image), thumbnail-style
@@ -207,6 +208,18 @@ export function receiptFlex(job, opts = {}) {
     });
   }
 
+  // ✏️ opens the LIFF edit form for this record when LIFF is configured, and
+  // falls back to a postback the chat flow answers. ❌ always asks first.
+  const editUri = opts.editUrl !== undefined ? opts.editUrl : liffUrl({ edit: job.id });
+  const editAction = editUri
+    ? { type: 'uri', label: '✏️ แก้ไข', uri: editUri }
+    : {
+        type: 'postback',
+        label: '✏️ แก้ไข',
+        data: `action=edit_job&jobId=${encodeURIComponent(job.id || '')}`,
+        displayText: 'แก้ไขรายการ',
+      };
+
   const footer = {
     type: 'box',
     layout: 'vertical',
@@ -222,6 +235,29 @@ export function receiptFlex(job, opts = {}) {
           { ...link('💰 บันทึกรับเงิน ›', 'record_payment', 'บันทึกรับเงิน'), align: 'end' },
         ],
       },
+      ...(job.id
+        ? [
+            {
+              type: 'box',
+              layout: 'horizontal',
+              spacing: 'sm',
+              contents: [
+                { type: 'button', style: 'secondary', height: 'sm', action: editAction },
+                {
+                  type: 'button',
+                  style: 'secondary',
+                  height: 'sm',
+                  action: {
+                    type: 'postback',
+                    label: '❌ ลบ',
+                    data: `action=delete_job&jobId=${encodeURIComponent(job.id)}`,
+                    displayText: 'ลบรายการ',
+                  },
+                },
+              ],
+            },
+          ]
+        : []),
       { type: 'text', text: 'ขอบคุณที่ให้ม่วงจดดูแลงานนะคะ 💜', size: 'xs', color: COLORS.grey, align: 'center' },
     ],
   };
