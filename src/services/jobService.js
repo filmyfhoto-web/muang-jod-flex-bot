@@ -1,6 +1,6 @@
 import { supabase } from '../config/supabase.js';
 import { round2 } from '../utils/currency.js';
-import { todayISO } from '../utils/dates.js';
+import { todayISO, rangeForPeriod } from '../utils/dates.js';
 import { derivePaymentFields } from '../utils/payment.js';
 import { logger } from './logger.js';
 
@@ -343,6 +343,69 @@ export async function searchJobs(userId, query, opts = {}, client = supabase) {
     .slice(0, limit);
 
   return attachItems(matched, client);
+}
+
+// Fetch all of a user's jobs (any status) recorded within a reporting period.
+export async function getJobsInPeriod(userId, period = 'daily', client = supabase) {
+  const range = rangeForPeriod(period);
+  const { data, error } = await client
+    .from('jobs')
+    .select('*')
+    .eq('user_id', userId)
+    .gte('created_at', range.start)
+    .lte('created_at', range.end)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    logger.error('job.period_failed', { message: error.message, period });
+    throw error;
+  }
+  return { rows: data || [], range };
+}
+
+// Pure report aggregation over a set of job rows. Cancelled jobs are counted
+// separately and excluded from sales/averages.
+export function buildReport(rows, meta = {}) {
+  const active = rows.filter((j) => j.status !== 'cancelled');
+  const cancelledCount = rows.length - active.length;
+
+  let totalSales = 0;
+  let paid = 0;
+  let pending = 0;
+  for (const j of active) {
+    const t = Number(j.total) || 0;
+    totalSales += t;
+    const p = j.paid_amount != null ? Number(j.paid_amount) || 0 : j.payment_status === 'paid' ? t : 0;
+    const b = j.balance_due != null ? Number(j.balance_due) || 0 : Math.max(t - p, 0);
+    paid += p;
+    pending += b;
+  }
+
+  const jobCount = active.length;
+  const byCreated = [...active].sort((a, b) =>
+    String(b.created_at).localeCompare(String(a.created_at))
+  );
+  const byValue = [...active].sort((a, b) => (Number(b.total) || 0) - (Number(a.total) || 0));
+
+  return {
+    label: meta.label || '',
+    period: meta.period || null,
+    periodKey: meta.periodKey || null,
+    jobCount,
+    cancelledCount,
+    totalSales: round2(totalSales),
+    paid: round2(paid),
+    pending: round2(pending),
+    avgPerBill: jobCount ? round2(totalSales / jobCount) : 0,
+    recent: byCreated.slice(0, 5),
+    top: byValue.slice(0, 5),
+  };
+}
+
+// Fetch + aggregate a report for a user and period.
+export async function getReport(userId, period = 'daily', client = supabase) {
+  const { rows, range } = await getJobsInPeriod(userId, period, client);
+  return buildReport(rows, range);
 }
 
 // Helper: load items for a list of jobs in one query, then group.

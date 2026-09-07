@@ -19,6 +19,11 @@ export const POSTBACK_ACTIONS = [
   'pending_payment',
   'record_payment',
   'search_jobs',
+  'report_menu',
+  'report_daily',
+  'report_weekly',
+  'report_monthly',
+  'export_csv',
   'help',
 ];
 

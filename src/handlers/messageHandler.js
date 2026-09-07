@@ -8,6 +8,7 @@ import { safe, paymentAmountSchema, searchQuerySchema } from '../utils/validatio
 import { jobCardMessage, jobPreviewMessage } from '../flex/jobCard.js';
 import { paymentConfirmationFlex } from '../flex/paymentFlex.js';
 import { searchResultsFlex } from '../flex/searchResultsFlex.js';
+import { reportMenu } from '../actions/report.js';
 
 // Shape a draft (parsed, not-yet-saved) job into the object the flex bubble
 // expects (job_name / job_date / items / total / payment_status).
@@ -98,6 +99,11 @@ export async function handleTextMessage(event, profile) {
       type: 'text',
       text: 'กำลังรอรูปสลิป/หลักฐานอยู่ค่ะ ส่งรูปมาได้เลยนะคะ 📎',
     });
+  }
+
+  // Idle text command: "รายงาน" / "report" opens the report menu.
+  if (/^\s*(รายงาน|report)\s*$/i.test(text)) {
+    return reportMenu({ replyToken, profile });
   }
 
   // Idle: nudge toward the menu.

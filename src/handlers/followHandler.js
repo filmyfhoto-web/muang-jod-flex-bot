@@ -21,6 +21,7 @@ const QUICK_REPLY = {
     qr('📊 สรุปวันนี้', 'today_summary'),
     qr('💰 ค้างรับ', 'pending_payment'),
     qr('🔍 ค้นหางาน', 'search_jobs'),
+    qr('📈 รายงาน', 'report_menu'),
     qr('❓ วิธีใช้', 'help'),
   ],
 };
