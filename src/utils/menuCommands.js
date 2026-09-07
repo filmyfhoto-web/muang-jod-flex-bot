@@ -9,6 +9,8 @@ const COMMANDS = new Map([
   // 8 core menu buttons
   ['บันทึกงานวันนี้', 'add_job'],
   ['บันทึกงาน', 'add_job'],
+  ['งานวันนี้', 'add_job'],
+  ['จดงาน', 'add_job'],
   ['แนบสลิป/หลักฐาน', 'attach_evidence'],
   ['แนบสลิป', 'attach_evidence'],
   ['แนบหลักฐาน', 'attach_evidence'],
@@ -30,16 +32,34 @@ const COMMANDS = new Map([
   ['report', 'report_menu'],
 ]);
 
-// Normalise: trim, collapse spaces, drop a leading emoji/number decoration,
-// lower-case latin. Returns the action name or null.
-export function resolveMenuCommand(text) {
-  if (!text) return null;
-  const cleaned = String(text)
+function normalise(text) {
+  return String(text ?? '')
     .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, '') // emoji
     .replace(/^\s*\d+[.)]?\s*/, '') // "1. " / "1) " prefixes
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase();
+}
+
+// Normalise: trim, collapse spaces, drop a leading emoji/number decoration,
+// lower-case latin. Returns the action name or null.
+export function resolveMenuCommand(text) {
+  const cleaned = normalise(text);
   if (!cleaned) return null;
   return COMMANDS.get(cleaned) ?? null;
+}
+
+// "งานวันนี้ ป้ายไวนิล 150 บาท" -> { action: 'add_job', rest: 'ป้ายไวนิล 150 บาท' }
+// Only the add-job labels are accepted as a prefix; returns null otherwise.
+export function splitLeadingAddJob(text) {
+  const cleaned = normalise(text);
+  if (!cleaned) return null;
+  for (const [label, action] of COMMANDS) {
+    if (action !== 'add_job') continue;
+    if (cleaned.startsWith(`${label} `)) {
+      const rest = cleaned.slice(label.length).trim();
+      if (rest) return { action, rest };
+    }
+  }
+  return null;
 }

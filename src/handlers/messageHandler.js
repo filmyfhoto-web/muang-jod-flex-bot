@@ -9,7 +9,8 @@ import { safe, paymentAmountSchema, searchQuerySchema } from '../utils/validatio
 import { jobCardMessage, jobPreviewMessage } from '../flex/jobCard.js';
 import { paymentConfirmationFlex } from '../flex/paymentFlex.js';
 import { searchResultsFlex } from '../flex/searchResultsFlex.js';
-import { resolveMenuCommand } from '../utils/menuCommands.js';
+import { resolveMenuCommand, splitLeadingAddJob } from '../utils/menuCommands.js';
+import { parseNaturalJob } from '../utils/nlParser.js';
 import { handlePostback } from './postbackHandler.js';
 
 // Shape a draft (parsed, not-yet-saved) job into the object the flex bubble
@@ -30,7 +31,20 @@ function draftToBubble(draft) {
 }
 
 const DEFAULT_REPLY =
-  'สวัสดีค่ะ 💜 ม่วงจดพร้อมช่วยจดงานให้แล้วค่ะ\nกดเมนูด้านล่างเพื่อเริ่มใช้งานได้เลยนะคะ';
+  'สวัสดีค่ะ 💜 ม่วงจดพร้อมช่วยจดงานให้แล้วค่ะ\n' +
+  'พิมพ์รายการงานมาได้เลย เช่น\nป้ายไวนิล 60x100 150 บาท\n' +
+  'หรือกดเมนูด้านล่างนะคะ';
+
+// Cheap, rule-based check: does this text look like a job entry (has an
+// item with a price)? Used in the idle state so people can just type a job.
+function looksLikeJob(text) {
+  try {
+    const d = parseNaturalJob(text);
+    return d.items.length > 0 && d.total > 0;
+  } catch {
+    return false;
+  }
+}
 
 // Map Thai payment keywords to status values.
 function parsePaymentStatus(value) {
@@ -84,6 +98,12 @@ export async function handleTextMessage(event, profile) {
     return handlePostback({ ...event, postback: { data: `action=${menuAction}` } }, profile);
   }
 
+  // "งานวันนี้ ป้ายไวนิล 150 บาท" — command + details in one message.
+  const leading = splitLeadingAddJob(text);
+  if (leading) {
+    return handleNewJob(replyToken, profile, leading.rest);
+  }
+
   const state = await getState(profile.id);
   const current = state?.state || STATES.IDLE;
 
@@ -112,6 +132,11 @@ export async function handleTextMessage(event, profile) {
       type: 'text',
       text: 'กำลังรอรูปสลิป/หลักฐานอยู่ค่ะ ส่งรูปมาได้เลยนะคะ 📎',
     });
+  }
+
+  // Idle: a message that already looks like a job goes straight to preview.
+  if (looksLikeJob(text)) {
+    return handleNewJob(replyToken, profile, text);
   }
 
   // Idle: nudge toward the menu.
