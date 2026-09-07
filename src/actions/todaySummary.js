@@ -1,8 +1,8 @@
 import { reply } from '../services/lineService.js';
-import { getTodaySummary } from '../services/jobService.js';
-import { todaySummaryFlex } from '../flex/todaySummaryFlex.js';
+import { getDashboard } from '../services/dashboardService.js';
+import { dashboardFlex } from '../flex/dashboardFlex.js';
 
 export async function todaySummary({ replyToken, profile }) {
-  const summary = await getTodaySummary(profile.id);
-  await reply(replyToken, todaySummaryFlex(summary));
+  const dash = await getDashboard(profile.id, { recentLimit: 3 });
+  await reply(replyToken, dashboardFlex(dash));
 }

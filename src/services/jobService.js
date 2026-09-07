@@ -231,6 +231,7 @@ export async function updateJob(userId, jobId, patch, client = supabase) {
     'status',
     'paid_amount',
     'balance_due',
+    'job_date',
     'note',
   ];
   for (const f of fields) {

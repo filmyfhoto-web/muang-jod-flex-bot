@@ -14,6 +14,8 @@ export const POSTBACK_ACTIONS = [
   'today_summary',
   'edit_latest',
   'cancel_latest',
+  'edit_job',
+  'delete_job',
   'confirm_cancel',
   'cancel_cancel',
   'pending_payment',
@@ -48,6 +50,21 @@ export const jobDraftSchema = z.object({
   paymentStatus: z.enum(PAYMENT_STATUSES).default('pending'),
   note: z.string().trim().max(500).nullable().optional(),
 });
+
+// Fields the LIFF edit form may change on an existing job.
+export const jobPatchSchema = z
+  .object({
+    job_name: z.string().trim().min(1, 'ต้องมีชื่องาน').max(200),
+    customer_name: z.string().trim().max(200).nullable(),
+    total: z.coerce.number().min(0, 'ยอดต้องไม่ติดลบ').finite(),
+    paid_amount: z.coerce.number().min(0, 'ยอดต้องไม่ติดลบ').finite(),
+    payment_status: z.enum(PAYMENT_STATUSES),
+    job_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'รูปแบบวันที่ต้องเป็น YYYY-MM-DD'),
+    note: z.string().trim().max(500).nullable(),
+  })
+  .partial()
+  .strict()
+  .refine((p) => Object.keys(p).length > 0, { message: 'ไม่มีข้อมูลที่จะแก้ไข' });
 
 // A payment amount entered by the user.
 export const paymentAmountSchema = z.coerce

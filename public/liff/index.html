@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>ม่วงจดให้ — จัดการงาน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --purple: #7c3aed; --purple-dark: #5b21b6; --purple-soft: #ede9fe; --purple-tint: #f6f2ff;
+    --ink: #1f2937; --sub: #555; --grey: #8e8e93; --line: #ececf0;
+    --green: #22a06b; --green-bg: #e7f6ee; --orange: #e8833a; --orange-bg: #fdf0e6;
+    --red: #e5484d; --red-bg: #fcebec; --white: #fff; --radius: 16px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; background: var(--purple-tint); color: var(--ink);
+    font-family: 'Noto Sans Thai', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 15px; line-height: 1.55; padding-bottom: 32px;
+  }
+  header {
+    background: linear-gradient(135deg, var(--purple) 0%, var(--purple-dark) 100%);
+    color: #fff; padding: 20px 18px 26px; border-radius: 0 0 24px 24px;
+  }
+  .who { display: flex; align-items: center; gap: 12px; }
+  .who img { width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,.25); object-fit: cover; }
+  .who h1 { margin: 0; font-size: 17px; font-weight: 700; }
+  .who p { margin: 0; font-size: 12px; opacity: .85; }
+  main { padding: 0 14px; margin-top: -14px; }
+  .card { background: var(--white); border-radius: var(--radius); padding: 16px; box-shadow: 0 2px 10px rgba(91,33,182,.07); margin-bottom: 14px; }
+  .card h2 { margin: 0 0 12px; font-size: 15px; color: var(--purple-dark); display: flex; justify-content: space-between; align-items: center; }
+  .pill { background: var(--purple-soft); color: var(--purple-dark); font-size: 12px; font-weight: 500; padding: 3px 10px; border-radius: 999px; }
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .tile { border-radius: 12px; padding: 12px 6px; text-align: center; }
+  .tile span { display: block; font-size: 11px; color: var(--sub); }
+  .tile strong { display: block; font-size: 24px; line-height: 1.2; }
+  .t-all { background: var(--purple-soft); } .t-all strong { color: var(--purple); }
+  .t-paid { background: var(--green-bg); } .t-paid strong { color: var(--green); }
+  .t-due { background: var(--red-bg); } .t-due strong { color: var(--red); }
+  .money { display: flex; justify-content: space-between; background: #f5f5f7; border-radius: 12px; padding: 12px; margin-top: 12px; }
+  .money div { flex: 1; } .money div + div { text-align: center; } .money div:last-child { text-align: right; }
+  .money span { display: block; font-size: 11px; color: var(--grey); }
+  .money b { font-size: 15px; }
+  .tabs { display: flex; gap: 8px; margin: 4px 0 12px; }
+  .tabs button { flex: 1; border: 0; padding: 9px; border-radius: 999px; background: var(--white); color: var(--sub); font: inherit; font-size: 13px; font-weight: 500; }
+  .tabs button[aria-selected="true"] { background: var(--purple); color: #fff; }
+  .job { display: flex; gap: 12px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--line); }
+  .job:last-child { border-bottom: 0; }
+  .job .ico { width: 40px; height: 40px; border-radius: 12px; background: var(--purple-soft); display: grid; place-items: center; font-size: 19px; flex: none; }
+  .job .txt { flex: 1; min-width: 0; }
+  .job .txt b { display: block; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .job .txt small { color: var(--grey); font-size: 11.5px; }
+  .job .amt { text-align: right; flex: none; }
+  .job .amt b { display: block; font-size: 14px; }
+  .badge { font-size: 10.5px; font-weight: 500; padding: 2px 8px; border-radius: 999px; display: inline-block; margin-top: 2px; }
+  .b-paid { background: var(--green-bg); color: var(--green); }
+  .b-partial { background: var(--orange-bg); color: var(--orange); }
+  .b-pending { background: var(--red-bg); color: var(--red); }
+  label { display: block; font-size: 12.5px; color: var(--sub); margin: 12px 0 5px; font-weight: 500; }
+  input, select, textarea {
+    width: 100%; font: inherit; font-size: 15px; padding: 11px 12px; border: 1.5px solid var(--line);
+    border-radius: 12px; background: var(--white); color: var(--ink);
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--purple); }
+  .seg { display: flex; gap: 8px; }
+  .seg button { flex: 1; border: 1.5px solid var(--line); background: var(--white); border-radius: 12px; padding: 10px; font: inherit; font-size: 13px; color: var(--sub); }
+  .seg button[aria-pressed="true"] { border-color: var(--purple); background: var(--purple-soft); color: var(--purple-dark); font-weight: 700; }
+  .btn { width: 100%; border: 0; border-radius: 12px; padding: 13px; font: inherit; font-size: 15px; font-weight: 700; margin-top: 16px; }
+  .btn-primary { background: var(--purple); color: #fff; }
+  .btn-danger { background: var(--red-bg); color: var(--red); }
+  .btn-ghost { background: transparent; color: var(--sub); font-weight: 500; }
+  .btn:disabled { opacity: .55; }
+  .empty { text-align: center; color: var(--grey); font-size: 13.5px; padding: 22px 8px; }
+  .toast {
+    position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 20px); opacity: 0;
+    background: var(--ink); color: #fff; padding: 11px 18px; border-radius: 999px; font-size: 13.5px;
+    transition: .25s; pointer-events: none; max-width: 90vw; z-index: 9;
+  }
+  .toast.on { opacity: 1; transform: translate(-50%, 0); }
+  .toast.err { background: var(--red); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <div class="who">
+    <img id="avatar" alt="" />
+    <div><h1 id="name">ม่วงจดให้</h1><p>ผู้ช่วยจดงาน ที่เข้าใจธุรกิจคุณ 💜</p></div>
+  </div>
+</header>
+
+<main>
+  <!-- Dashboard -->
+  <section id="view-dash" hidden>
+    <div class="card">
+      <h2>สรุปวันนี้ <span class="pill" id="today"></span></h2>
+      <div class="tiles">
+        <div class="tile t-all"><span>งานวันนี้</span><strong id="c-all">0</strong><span>รายการ</span></div>
+        <div class="tile t-paid"><span>รับเงินแล้ว</span><strong id="c-paid">0</strong><span>รายการ</span></div>
+        <div class="tile t-due"><span>ค้างรับ</span><strong id="c-due">0</strong><span>รายการ</span></div>
+      </div>
+      <div class="money">
+        <div><span>ยอดรวม</span><b id="m-total">฿0</b></div>
+        <div><span>รับแล้ว</span><b id="m-paid" style="color:var(--green)">฿0</b></div>
+        <div><span>ค้างรับ</span><b id="m-due" style="color:var(--red)">฿0</b></div>
+      </div>
+    </div>
+
+    <div class="tabs" role="tablist">
+      <button role="tab" data-scope="recent" aria-selected="true">รายการล่าสุด</button>
+      <button role="tab" data-scope="pending" aria-selected="false">ค้างรับ</button>
+    </div>
+    <div class="card"><div id="list"><div class="empty">กำลังโหลด…</div></div></div>
+  </section>
+
+  <!-- Edit form -->
+  <section id="view-edit" hidden>
+    <div class="card">
+      <h2>แก้ไขรายการ <span class="pill" id="e-number"></span></h2>
+      <label for="e-name">รายละเอียด</label>
+      <input id="e-name" maxlength="200" />
+      <label for="e-customer">ลูกค้า</label>
+      <input id="e-customer" maxlength="200" placeholder="เช่น พี่นก" />
+      <label>สถานะการเงิน</label>
+      <div class="seg" id="e-status">
+        <button type="button" data-v="pending">ค้างรับ</button>
+        <button type="button" data-v="partial">รับบางส่วน</button>
+        <button type="button" data-v="paid">รับแล้ว</button>
+      </div>
+      <label for="e-total">จำนวนเงิน (บาท)</label>
+      <input id="e-total" type="number" inputmode="decimal" min="0" step="1" />
+      <label for="e-paid">รับมาแล้ว (บาท)</label>
+      <input id="e-paid" type="number" inputmode="decimal" min="0" step="1" />
+      <label for="e-date">วันที่</label>
+      <input id="e-date" type="date" />
+      <label for="e-note">หมายเหตุ (ถ้ามี)</label>
+      <textarea id="e-note" rows="2" maxlength="500" placeholder="เช่น ส่งของวันจันทร์"></textarea>
+
+      <button class="btn btn-primary" id="e-save">บันทึก</button>
+      <button class="btn btn-danger" id="e-delete">ยกเลิกรายการนี้</button>
+      <button class="btn btn-ghost" id="e-back">← กลับหน้ารวม</button>
+    </div>
+  </section>
+
+  <div id="fatal" class="card" hidden><div class="empty" id="fatal-msg"></div></div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const baht = (n) => '฿' + (Number(n) || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
+const ICONS = { 'ป้าย': '🪧', 'สติกเกอร์': '🏷️', 'เอกสาร': '🖨️', 'ออกแบบ': '🎨', 'อาหาร': '☕', 'ส่ง': '🚚' };
+const iconFor = (s) => Object.entries(ICONS).find(([k]) => String(s || '').includes(k))?.[1] || '📦';
+const BADGE = { paid: ['b-paid', 'รับเงินแล้ว'], partial: ['b-partial', 'รับบางส่วน'], pending: ['b-pending', 'ค้างรับ'] };
+
+let token = null, scope = 'recent', current = null;
+
+function toast(msg, isErr) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast on' + (isErr ? ' err' : '');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => (t.className = 'toast'), 2600);
+}
+
+function fatal(msg) {
+  $('view-dash').hidden = true; $('view-edit').hidden = true;
+  $('fatal').hidden = false; $('fatal-msg').textContent = msg;
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch('/api' + path, {
+    ...opts,
+    headers: { Authorization: 'Bearer ' + token, ...(opts.body ? { 'Content-Type': 'application/json' } : {}) },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message || body.error || 'เกิดข้อผิดพลาด');
+  }
+  return res.json();
+}
+
+function jobRow(job) {
+  const [cls, label] = BADGE[job.payment_status] || BADGE.pending;
+  const el = document.createElement('div');
+  el.className = 'job';
+  el.innerHTML =
+    '<div class="ico">' + iconFor(job.job_name) + '</div>' +
+    '<div class="txt"><b></b><small></small></div>' +
+    '<div class="amt"><b></b><span class="badge ' + cls + '">' + label + '</span></div>';
+  el.querySelector('.txt b').textContent = job.job_name || 'งาน';
+  el.querySelector('.txt small').textContent =
+    [job.customer_name ? 'ลูกค้า: ' + job.customer_name : '', job.job_number || ''].filter(Boolean).join(' · ');
+  el.querySelector('.amt b').textContent = baht(job.total);
+  el.onclick = () => openEdit(job.id);
+  return el;
+}
+
+function renderList(jobs) {
+  const list = $('list');
+  list.textContent = '';
+  if (!jobs.length) {
+    list.innerHTML = '<div class="empty">ยังไม่มีรายการค่ะ<br>พิมพ์งานในแชตได้เลยนะคะ 💜</div>';
+    return;
+  }
+  jobs.forEach((j) => list.appendChild(jobRow(j)));
+}
+
+async function loadDash() {
+  const me = await api('/me');
+  if (me.profile.displayName) $('name').textContent = me.profile.displayName;
+  if (me.profile.pictureUrl) $('avatar').src = me.profile.pictureUrl;
+  $('today').textContent = new Date(me.date + 'T00:00:00+07:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+  $('c-all').textContent = me.summary.jobCount;
+  $('c-paid').textContent = me.counts.paid;
+  $('c-due').textContent = me.counts.pending + me.counts.partial;
+  $('m-total').textContent = baht(me.summary.total);
+  $('m-paid').textContent = baht(me.summary.paid);
+  $('m-due').textContent = baht(me.summary.pending);
+  renderList(scope === 'pending' ? me.pending || [] : me.recent || []);
+}
+
+async function reloadList() {
+  renderList((await api('/jobs?scope=' + scope + '&limit=20')).jobs);
+}
+
+function setStatus(v) {
+  [...$('e-status').children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+}
+const getStatus = () => $('e-status').querySelector('[aria-pressed="true"]')?.dataset.v || 'pending';
+
+async function openEdit(id) {
+  const { job } = await api('/jobs/' + id);
+  current = job;
+  $('e-number').textContent = job.job_number || '';
+  $('e-name').value = job.job_name || '';
+  $('e-customer').value = job.customer_name || '';
+  $('e-total').value = Number(job.total) || 0;
+  $('e-paid').value = Number(job.paid_amount) || 0;
+  $('e-date').value = job.job_date || '';
+  $('e-note').value = job.note || '';
+  setStatus(job.payment_status || 'pending');
+  $('view-dash').hidden = true;
+  $('view-edit').hidden = false;
+  scrollTo(0, 0);
+}
+
+async function backToDash() {
+  $('view-edit').hidden = true;
+  $('view-dash').hidden = false;
+  current = null;
+  await loadDash();
+}
+
+$('e-status').onclick = (e) => {
+  const b = e.target.closest('button[data-v]');
+  if (!b) return;
+  setStatus(b.dataset.v);
+  if (b.dataset.v === 'paid') $('e-paid').value = $('e-total').value;
+  if (b.dataset.v === 'pending') $('e-paid').value = 0;
+};
+
+$('e-save').onclick = async () => {
+  const btn = $('e-save');
+  btn.disabled = true;
+  try {
+    await api('/jobs/' + current.id, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        job_name: $('e-name').value.trim(),
+        customer_name: $('e-customer').value.trim() || null,
+        total: Number($('e-total').value) || 0,
+        paid_amount: Number($('e-paid').value) || 0,
+        payment_status: getStatus(),
+        job_date: $('e-date').value || undefined,
+        note: $('e-note').value.trim() || null,
+      }),
+    });
+    toast('บันทึกเรียบร้อยแล้วค่ะ 💜');
+    await backToDash();
+  } catch (err) {
+    toast(err.message, true);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+$('e-delete').onclick = async () => {
+  if (!confirm('ยกเลิกรายการนี้ใช่ไหมคะ?')) return;
+  try {
+    await api('/jobs/' + current.id + '/cancel', { method: 'POST' });
+    toast('ยกเลิกรายการแล้วค่ะ');
+    await backToDash();
+  } catch (err) {
+    toast(err.message, true);
+  }
+};
+
+$('e-back').onclick = backToDash;
+
+document.querySelectorAll('[role="tab"]').forEach((tab) => {
+  tab.onclick = async () => {
+    document.querySelectorAll('[role="tab"]').forEach((t) => t.setAttribute('aria-selected', String(t === tab)));
+    scope = tab.dataset.scope;
+    $('list').innerHTML = '<div class="empty">กำลังโหลด…</div>';
+    try { await reloadList(); } catch (err) { toast(err.message, true); }
+  };
+});
+
+(async function start() {
+  try {
+    const { liffId } = await (await fetch('/api/config')).json();
+    if (!liffId) return fatal('ยังไม่ได้ตั้งค่า LIFF_ID ค่ะ');
+    await liff.init({ liffId });
+    if (!liff.isLoggedIn()) return liff.login({ redirectUri: location.href });
+    token = liff.getAccessToken();
+
+    const editId = new URLSearchParams(location.search).get('edit');
+    if (editId) {
+      await openEdit(editId);
+    } else {
+      $('view-dash').hidden = false;
+      await loadDash();
+    }
+  } catch (err) {
+    fatal(err.message || 'เปิดหน้านี้ไม่สำเร็จค่ะ');
+  }
+})();
+</script>
+</body>
+</html>

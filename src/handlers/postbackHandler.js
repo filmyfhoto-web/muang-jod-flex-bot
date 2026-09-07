@@ -5,6 +5,7 @@ import { recentJobs } from '../actions/recentJobs.js';
 import { todaySummary } from '../actions/todaySummary.js';
 import { editLatest } from '../actions/editLatest.js';
 import { cancelLatest, confirmCancel, cancelCancel } from '../actions/cancelLatest.js';
+import { editJob, deleteJob } from '../actions/jobActions.js';
 import { pendingPayment } from '../actions/pendingPayment.js';
 import { recordPaymentPrompt } from '../actions/recordPayment.js';
 import { searchJobsPrompt } from '../actions/searchJobs.js';
@@ -46,6 +47,10 @@ export async function handlePostback(event, profile) {
       return editLatest(ctx);
     case 'cancel_latest':
       return cancelLatest(ctx);
+    case 'edit_job':
+      return editJob(ctx);
+    case 'delete_job':
+      return deleteJob(ctx);
     case 'confirm_cancel':
       return confirmCancel(ctx);
     case 'cancel_cancel':
