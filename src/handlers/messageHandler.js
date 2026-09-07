@@ -1,9 +1,24 @@
 import { reply } from '../services/lineService.js';
-import { getState, clearState, STATES } from '../services/stateService.js';
-import { createJob, getJobById, updateJob } from '../services/jobService.js';
+import { getState, setState, clearState, STATES } from '../services/stateService.js';
+import { getJobById, updateJob } from '../services/jobService.js';
 import { parseJobText } from '../utils/parser.js';
 import { round2, parsePrice } from '../utils/currency.js';
-import { jobCardMessage } from '../flex/jobCard.js';
+import { todayISO } from '../utils/dates.js';
+import { jobCardMessage, jobPreviewMessage } from '../flex/jobCard.js';
+
+// Shape a draft (parsed, not-yet-saved) job into the object the flex bubble
+// expects (job_name / job_date / items / total / payment_status).
+function draftToBubble(draft) {
+  return {
+    job_name: draft.jobName,
+    job_date: draft.jobDate,
+    job_number: '',
+    payment_status: draft.paymentStatus,
+    total: draft.total,
+    items: draft.items,
+    note: null,
+  };
+}
 
 const DEFAULT_REPLY =
   'สวัสดีค่ะ 💜 ม่วงจดพร้อมช่วยจดงานให้แล้วค่ะ\nกดเมนูด้านล่างเพื่อเริ่มใช้งานได้เลยนะคะ';
@@ -57,7 +72,9 @@ export async function handleTextMessage(event, profile) {
 
   console.log(`[message] user=${profile.id} state=${current}`);
 
-  if (current === STATES.WAITING_FOR_JOB) {
+  // While collecting a new job — or while previewing one — a text message is
+  // (re)parsed into a fresh draft preview.
+  if (current === STATES.WAITING_FOR_JOB || current === STATES.CONFIRMING_JOB) {
     return handleNewJob(replyToken, profile, text);
   }
 
@@ -86,20 +103,26 @@ async function handleNewJob(replyToken, profile, text) {
     });
   }
 
-  const job = await createJob(profile.id, {
+  // Parse only — do NOT save yet. Stash the draft in user_states.context and
+  // show a preview with confirm / edit / cancel buttons.
+  const draft = {
     jobName: deriveJobName(parsed.items),
+    jobDate: todayISO(),
     items: parsed.items,
     subtotal: parsed.subtotal,
     discount: parsed.discount,
     total: parsed.total,
     paymentStatus: 'pending',
-  });
+  };
 
-  await clearState(profile.id);
+  await setState(profile.id, STATES.CONFIRMING_JOB, { draft });
 
   return reply(replyToken, [
-    { type: 'text', text: 'บันทึกให้แล้วค่ะ 💜' },
-    jobCardMessage(job, 'บันทึกงานเรียบร้อย'),
+    {
+      type: 'text',
+      text: 'ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลยค่ะ 💜',
+    },
+    jobPreviewMessage(draftToBubble(draft)),
   ]);
 }
 

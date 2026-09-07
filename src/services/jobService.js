@@ -74,7 +74,18 @@ export async function createJob(userId, payload) {
       .insert(rows)
       .select('*');
     if (itemErr) {
-      console.error('[jobService] insert items failed:', itemErr.message);
+      // Compensating rollback: the Supabase JS client has no multi-statement
+      // transaction, so if items fail we remove the job we just created to
+      // avoid leaving an orphan job with no items.
+      console.error('[jobService] insert items failed, rolling back job:', itemErr.message);
+      const { error: rbErr } = await supabase
+        .from('jobs')
+        .delete()
+        .eq('id', job.id)
+        .eq('user_id', userId);
+      if (rbErr) {
+        console.error('[jobService] rollback delete failed:', rbErr.message);
+      }
       throw itemErr;
     }
     insertedItems = itemData;

@@ -3,6 +3,7 @@ import { supabase } from '../config/supabase.js';
 export const STATES = {
   IDLE: 'idle',
   WAITING_FOR_JOB: 'waiting_for_job',
+  CONFIRMING_JOB: 'confirming_job', // parsed a draft, waiting for confirm/edit/cancel
   WAITING_FOR_EVIDENCE: 'waiting_for_evidence',
   WAITING_FOR_EDIT: 'waiting_for_edit',
 };

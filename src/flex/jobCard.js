@@ -138,3 +138,78 @@ export function jobCardMessage(job, altText = 'รายละเอียดง
     contents: buildJobBubble(job),
   };
 }
+
+// Preview card shown BEFORE saving: the same receipt bubble plus a header
+// hint and confirm / edit / cancel postback buttons in the footer.
+export function jobPreviewMessage(draftJob, altText = 'ตรวจสอบก่อนบันทึก') {
+  const bubble = buildJobBubble(draftJob);
+
+  bubble.header = {
+    type: 'box',
+    layout: 'vertical',
+    contents: [
+      {
+        type: 'text',
+        text: '📋 ตรวจสอบก่อนบันทึก',
+        weight: 'bold',
+        size: 'sm',
+        color: PURPLE,
+      },
+    ],
+  };
+
+  bubble.footer = {
+    type: 'box',
+    layout: 'vertical',
+    spacing: 'sm',
+    contents: [
+      {
+        type: 'button',
+        style: 'primary',
+        color: PURPLE,
+        height: 'sm',
+        action: {
+          type: 'postback',
+          label: '✅ บันทึกงาน',
+          data: 'action=confirm_add_job',
+          displayText: 'บันทึกงาน',
+        },
+      },
+      {
+        type: 'box',
+        layout: 'horizontal',
+        spacing: 'sm',
+        contents: [
+          {
+            type: 'button',
+            style: 'secondary',
+            height: 'sm',
+            action: {
+              type: 'postback',
+              label: '✏️ แก้ไข',
+              data: 'action=edit_new_job',
+              displayText: 'แก้ไข',
+            },
+          },
+          {
+            type: 'button',
+            style: 'secondary',
+            height: 'sm',
+            action: {
+              type: 'postback',
+              label: '❌ ยกเลิก',
+              data: 'action=cancel_new_job',
+              displayText: 'ยกเลิก',
+            },
+          },
+        ],
+      },
+    ],
+  };
+
+  return {
+    type: 'flex',
+    altText,
+    contents: bubble,
+  };
+}
