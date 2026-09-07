@@ -11,6 +11,7 @@
     "dev": "node --watch src/server.js",
     "test": "node --test",
     "check": "node --check src/server.js",
+    "rich-menu": "node scripts/create-rich-menu.js",
     "create-rich-menu": "node scripts/create-rich-menu.js"
   },
   "dependencies": {

@@ -154,18 +154,20 @@ ngrok http 3000
 
 ### 8) สร้าง Rich Menu
 
-1. เตรียมรูป Rich Menu ขนาด **2500 x 1686 px** (.jpg หรือ .png) วางไว้ตาม path ใน `RICH_MENU_IMAGE_PATH`
-   (ค่าเริ่มต้น `./public/rich-menu.jpg`)
+1. เตรียมรูป Rich Menu ขนาด **2500 x 1686 px** (.jpg หรือ .png) วางไว้ที่ `assets/rich-menu.png`
+   (path ตั้งได้ที่ `RICH_MENU_IMAGE_PATH` ใน `.env`, ค่าเริ่มต้น `./assets/rich-menu.png`)
 2. รัน
 
 ```bash
-npm run create-rich-menu
+npm run rich-menu
 ```
 
-สคริปต์จะสร้าง Rich Menu, อัปโหลดรูป และตั้งเป็นเมนูเริ่มต้นให้ผู้ใช้ทุกคน
+สคริปต์จะ **แสดงรายการ Rich Menu เดิมก่อน (ไม่ลบให้อัตโนมัติ)** แล้วสร้างเมนูใหม่, อัปโหลดรูป,
+ตั้งเป็นเมนูเริ่มต้นให้ผู้ใช้ทุกคน และพิมพ์ `richMenuId` ที่สร้างสำเร็จ พร้อมรายงานสถานะทุกขั้นตอน
 
 > ปรับตำแหน่งปุ่มได้ที่ `LAYOUT` และ `BUTTONS` ในไฟล์ `scripts/create-rich-menu.js`
 > ค่า `footerHeight` เผื่อไว้สำหรับแถบตกแต่งด้านล่างที่ไม่ต้องการให้กดได้
+> ถ้าต้องการลบเมนูเดิม ให้ลบเองผ่าน API (`deleteRichMenu(richMenuId)`) — สคริปต์จะไม่ลบให้
 
 ### 9) เพิ่มเพื่อน OA แล้วทดลองใช้
 

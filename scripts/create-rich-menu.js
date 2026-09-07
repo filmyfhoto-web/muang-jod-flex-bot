@@ -22,7 +22,7 @@ const LAYOUT = {
   gutter: 0, // gap between cards, if the artwork has spacing
 };
 
-// 8 buttons, left-to-right, top-to-bottom.
+// 8 buttons, left-to-right, top-to-bottom. Every button is a postback.
 const BUTTONS = [
   { label: 'บันทึกงานวันนี้', data: 'action=add_job' },
   { label: 'แนบสลิป/หลักฐาน', data: 'action=attach_evidence' },
@@ -62,6 +62,23 @@ function buildAreas() {
 
 const CONTENT_TYPES = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png' };
 
+// Wrap an SDK call so that success and failure both report a clear status.
+// The SDK resolves only on a 2xx response and throws linebot.HTTPError
+// (with .statusCode and .body) on anything else — so a resolved promise
+// is itself the "response status OK" check for that request.
+async function step(label, fn) {
+  try {
+    const result = await fn();
+    console.log(`✅ ${label} — status OK`);
+    return result;
+  } catch (err) {
+    const status = err?.statusCode ? ` (HTTP ${err.statusCode})` : '';
+    console.error(`❌ ${label} — ล้มเหลว${status}`);
+    console.error(err?.body || err?.message || err);
+    throw err;
+  }
+}
+
 async function main() {
   const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
   if (!token) {
@@ -69,12 +86,7 @@ async function main() {
     process.exit(1);
   }
 
-  const imagePath = process.env.RICH_MENU_IMAGE_PATH;
-  if (!imagePath) {
-    console.error('❌ ขาด RICH_MENU_IMAGE_PATH ใน .env (path ไปยังรูป Rich Menu 2500x1686)');
-    process.exit(1);
-  }
-
+  const imagePath = process.env.RICH_MENU_IMAGE_PATH || './assets/rich-menu.png';
   const ext = path.extname(imagePath).toLowerCase();
   const contentType = CONTENT_TYPES[ext];
   if (!contentType) {
@@ -87,13 +99,33 @@ async function main() {
     imageBuffer = await readFile(imagePath);
   } catch (err) {
     console.error(`❌ อ่านไฟล์รูปไม่ได้: ${imagePath}`);
-    console.error(err.message);
+    console.error('   วางไฟล์รูป Rich Menu (2500x1686) ไว้ตาม path นี้ หรือแก้ RICH_MENU_IMAGE_PATH ใน .env');
+    console.error(`   (${err.message})`);
     process.exit(1);
   }
 
   const client = new MessagingApiClient({ channelAccessToken: token });
   const blobClient = new MessagingApiBlobClient({ channelAccessToken: token });
 
+  // 1) List existing Rich Menus. We NEVER delete them automatically — just show
+  //    them so you can decide. (Delete manually if you want; see the hint below.)
+  const list = await step('ดึงรายการ Rich Menu เดิม', () => client.getRichMenuList());
+  const existing = list?.richmenus || [];
+  if (existing.length) {
+    console.log(`\n⚠️  พบ Rich Menu เดิมอยู่แล้ว ${existing.length} รายการ (จะไม่ลบให้อัตโนมัติ):`);
+    existing.forEach((m, i) => {
+      console.log(`   ${i + 1}. ${m.richMenuId}  |  name: ${m.name}  |  chatBarText: ${m.chatBarText}`);
+    });
+    console.log(
+      '   ℹ️  ถ้าต้องการลบเมนูเดิม ให้ลบเองผ่าน API: ' +
+        'client.deleteRichMenu(richMenuId) หรือ curl -X DELETE ' +
+        'https://api.line.me/v2/bot/richmenu/{richMenuId}\n'
+    );
+  } else {
+    console.log('ℹ️  ยังไม่มี Rich Menu เดิมในช่องนี้\n');
+  }
+
+  // 2) Build + create the new Rich Menu.
   const richMenu = {
     size: { width: LAYOUT.width, height: LAYOUT.height },
     selected: true,
@@ -102,30 +134,27 @@ async function main() {
     areas: buildAreas(),
   };
 
-  console.log('📐 กำลังสร้าง Rich Menu ด้วย areas:');
+  console.log('📐 พื้นที่กด (tappable areas) ที่จะสร้าง:');
   richMenu.areas.forEach((a, i) => {
     console.log(
-      `   ${i + 1}. ${a.action.displayText} -> ` +
+      `   ${i + 1}. ${a.action.displayText} [${a.action.data}] -> ` +
         `x:${a.bounds.x} y:${a.bounds.y} w:${a.bounds.width} h:${a.bounds.height}`
     );
   });
+  console.log('');
 
-  try {
-    const { richMenuId } = await client.createRichMenu(richMenu);
-    console.log(`✅ สร้าง Rich Menu แล้ว: ${richMenuId}`);
+  const { richMenuId } = await step('สร้าง Rich Menu', () => client.createRichMenu(richMenu));
 
-    const blob = new Blob([imageBuffer], { type: contentType });
-    await blobClient.setRichMenuImage(richMenuId, blob);
-    console.log('✅ อัปโหลดรูป Rich Menu แล้ว');
+  // 3) Upload the image for that Rich Menu.
+  const blob = new Blob([imageBuffer], { type: contentType });
+  await step('อัปโหลดรูป Rich Menu', () => blobClient.setRichMenuImage(richMenuId, blob));
 
-    await client.setDefaultRichMenu(richMenuId);
-    console.log('✅ ตั้งเป็น Rich Menu เริ่มต้นให้ผู้ใช้ทุกคนแล้ว');
-    console.log('\n🎉 เสร็จเรียบร้อยค่ะ เปิด LINE OA แล้วดู Rich Menu ได้เลย 💜');
-  } catch (err) {
-    console.error('❌ สร้าง Rich Menu ไม่สำเร็จ:');
-    console.error(err?.body || err?.message || err);
-    process.exit(1);
-  }
+  // 4) Set it as the default Rich Menu for every user.
+  await step('ตั้งเป็น Rich Menu เริ่มต้น', () => client.setDefaultRichMenu(richMenuId));
+
+  console.log('\n🎉 เสร็จเรียบร้อยค่ะ 💜');
+  console.log(`🆔 richMenuId: ${richMenuId}`);
+  console.log('เปิด LINE OA แล้วดู Rich Menu ได้เลย');
 }
 
-main();
+main().catch(() => process.exit(1));
