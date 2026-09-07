@@ -2,6 +2,7 @@ import { reply } from '../services/lineService.js';
 import { clearState } from '../services/stateService.js';
 import { syncProfile } from '../services/userService.js';
 import { logger } from '../services/logger.js';
+import { brandAssetUrl, MASCOT } from '../utils/brand.js';
 
 const WELCOME = `สวัสดีค่ะ 💜
 ม่วงจดพร้อมช่วยจดงานให้แล้วค่ะ
@@ -38,9 +39,12 @@ export async function handleFollow(event, profile) {
     logger.warn('follow.profile_sync_failed', { message: err?.message });
   }
 
-  await reply(event.replyToken, {
-    type: 'text',
-    text: WELCOME,
-    quickReply: QUICK_REPLY,
-  });
+  await reply(event.replyToken, welcomeMessages());
+}
+
+// The waving mascot leads the greeting when the image is available.
+export function welcomeMessages(mascotUrl = brandAssetUrl(MASCOT.wave)) {
+  const text = { type: 'text', text: WELCOME, quickReply: QUICK_REPLY };
+  if (!mascotUrl) return [text];
+  return [{ type: 'image', originalContentUrl: mascotUrl, previewImageUrl: mascotUrl }, text];
 }

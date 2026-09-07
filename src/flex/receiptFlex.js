@@ -3,6 +3,7 @@ import { formatThaiDateTime } from '../utils/dates.js';
 import { guessCategory, itemIcon } from '../utils/category.js';
 import { COLORS } from './theme.js';
 import { divider } from './components/divider.js';
+import { brandAssetUrl, MASCOT } from '../utils/brand.js';
 
 // Receipt card styled after the brand mockup: white card, purple circle check,
 // soft-purple category strip (with optional mascot image), thumbnail-style
@@ -75,7 +76,11 @@ function link(label, action, displayText) {
 export function receiptFlex(job, opts = {}) {
   const items = job.items || [];
   const cat = guessCategory(items);
-  const mascotUrl = opts.mascotImageUrl ?? process.env.BRAND_MASCOT_IMAGE_URL;
+  // Explicit option (null = none) > env override > the bot's own /brand file.
+  const mascotUrl =
+    opts.mascotImageUrl !== undefined
+      ? opts.mascotImageUrl
+      : process.env.BRAND_MASCOT_IMAGE_URL || brandAssetUrl(MASCOT.clipboard);
   const heroUrl = opts.heroImageUrl ?? process.env.BRAND_HERO_IMAGE_URL;
 
   // ✓ in a purple circle + title/subtitle, on a white background.

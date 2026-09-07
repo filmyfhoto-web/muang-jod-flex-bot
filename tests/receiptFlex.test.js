@@ -43,7 +43,7 @@ test('receipt card: optional mascot / hero images and partial-payment rows', () 
 
   const withMascot = receiptFlex(job, { mascotImageUrl: 'https://example.com/dog.png' });
   assert.ok(JSON.stringify(withMascot).includes('https://example.com/dog.png'));
-  const noMascot = receiptFlex(job, { mascotImageUrl: undefined, heroImageUrl: undefined });
+  const noMascot = receiptFlex(job, { mascotImageUrl: null, heroImageUrl: undefined });
   assert.ok(!JSON.stringify(noMascot).includes('"type":"image"'));
 
   const partial = receiptFlex({ ...job, paid_amount: 150, balance_due: 250, payment_status: 'partial' });
