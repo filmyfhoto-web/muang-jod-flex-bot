@@ -176,6 +176,20 @@ export async function cancelJob(userId, jobId) {
   return updateJob(userId, jobId, { status: 'cancelled' });
 }
 
+// Convenience: patch the user's most recent non-cancelled job.
+export async function updateLatestJob(userId, patch) {
+  const latest = await getLatestJob(userId);
+  if (!latest) return null;
+  return updateJob(userId, latest.id, patch);
+}
+
+// Convenience: soft-delete the user's most recent non-cancelled job.
+export async function cancelLatestJob(userId) {
+  const latest = await getLatestJob(userId);
+  if (!latest) return null;
+  return cancelJob(userId, latest.id);
+}
+
 // Aggregate today's numbers for a user.
 export async function getTodaySummary(userId) {
   const { start, end } = todayRange();
@@ -228,6 +242,9 @@ export async function getPendingJobs(userId) {
   }
   return attachItems(jobs || []);
 }
+
+// Spec-named alias (getPendingPayments) for getPendingJobs.
+export const getPendingPayments = getPendingJobs;
 
 // Helper: load items for a list of jobs in one query, then group.
 async function attachItems(jobs) {

@@ -57,6 +57,9 @@ export async function getOrCreateProfile(lineUserId) {
   return created;
 }
 
+// Spec-named alias (createOrGetProfile) for getOrCreateProfile.
+export const createOrGetProfile = getOrCreateProfile;
+
 // Refresh display name / picture from LINE (best effort).
 export async function syncProfile(profile, lineUserId) {
   const fresh = await getProfile(lineUserId);

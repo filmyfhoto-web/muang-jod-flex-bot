@@ -84,7 +84,7 @@ npm install
 3. กด **Run**
 
 migration จะสร้างตาราง `profiles`, `jobs`, `job_items`, `attachments`, `user_states`,
-เปิด Row Level Security และสร้าง Storage bucket ชื่อ `evidence` (แบบ private) ให้อัตโนมัติ
+เปิด Row Level Security และสร้าง Storage bucket ชื่อ `job-evidence` (แบบ private) ให้อัตโนมัติ
 
 ### 4) สร้าง LINE Official Account + Messaging API channel
 

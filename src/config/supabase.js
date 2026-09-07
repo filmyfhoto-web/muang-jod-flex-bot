@@ -16,4 +16,4 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   },
 });
 
-export const STORAGE_BUCKET = 'evidence';
+export const STORAGE_BUCKET = 'job-evidence';
