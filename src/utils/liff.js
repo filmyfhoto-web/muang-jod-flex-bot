@@ -25,6 +25,18 @@ export function liffUrl(query = {}, env = process.env) {
   return `https://liff.line.me/${id}${qs ? `?${qs}` : ''}`;
 }
 
+// The quick form, as a sheet over the chat.
+//
+// A LIFF app's size (Compact / Tall / Full) belongs to the LIFF ID, not to the
+// URL — so the pop-up card needs its own LIFF app, Size = Tall, pointing at
+// <โดเมน>/app/jot?quick=1. With LIFF_ID_QUICK set the bot links to that; with
+// it unset the same form still opens, just full screen.
+export function quickFormUrl(env = process.env) {
+  const id = String(env.LIFF_ID_QUICK || '').trim();
+  if (/^\d+-[A-Za-z0-9]+$/.test(id)) return `https://liff.line.me/${id}`;
+  return liffPage('jot', { quick: 1 }, env);
+}
+
 // A page inside the LIFF app: LINE appends the path to the endpoint URL, so
 // liffPage('jot') opens <endpoint>/jot — the "กรอกข้อมูลงาน" form.
 export function liffPage(path, query = {}, env = process.env) {

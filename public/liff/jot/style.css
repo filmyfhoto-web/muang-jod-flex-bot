@@ -302,6 +302,69 @@ input.auto { color: var(--accent-text); font-weight: 700; }
 
 .foot { text-align: center; font-size: 12px; color: var(--grey); margin: 0; }
 
+/* ---- ช่องพับเก็บ ------------------------------------------------------- */
+
+.more { margin-bottom: 4px; }
+.more > summary { display: none; } /* โหมดเต็มกางอยู่แล้ว ไม่ต้องมีหัวข้อให้กด */
+
+.link-full { display: none; color: var(--accent-text); text-decoration: none; margin-top: 10px; }
+
+/* ---- โหมดด่วน ----------------------------------------------------------
+   เปิดด้วย ?quick=1 — ตั้งใจให้ LIFF ขนาด Tall เด้งขึ้นมาทับแชตเป็นแผ่นการ์ด
+   จึงตัดทุกอย่างที่ไม่ได้ใช้ตอนจดเร็ว ๆ ออก: บับเบิลแชต การ์ดสรุป แถบหัว
+   เหลือฟอร์มกับแถบยอดรวมด้านล่างที่ติดอยู่กับที่ */
+
+body.quick .bar,
+body.quick .chat,
+body.quick .summary,
+body.quick .sky .skyline { display: none; }
+
+body.quick .handle {
+  display: block;
+  width: 42px;
+  height: 5px;
+  margin: 8px auto 12px;
+  border-radius: 3px;
+  background: #33415c;
+}
+.handle { display: none; }
+
+body.quick main { padding-top: calc(6px + var(--safe-top)); padding-bottom: 108px; }
+body.quick .card { margin-bottom: 10px; }
+body.quick .more > summary {
+  display: block;
+  list-style: none;
+  padding: 11px 0 3px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--accent-text);
+  cursor: pointer;
+}
+body.quick .more > summary::-webkit-details-marker { display: none; }
+body.quick .more > summary::before { content: '＋ '; }
+body.quick .more[open] > summary::before { content: '－ '; }
+body.quick .link-full { display: block; }
+body.quick .foot { margin-bottom: 4px; }
+
+.quickbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px calc(12px + var(--safe-bottom));
+  background: rgba(11, 21, 36, .94);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--line);
+}
+.qb-total { flex: 1; display: flex; flex-direction: column; line-height: 1.2; }
+.qb-total span { font-size: 12px; color: var(--grey); }
+.qb-total b { font-size: 22px; color: var(--accent-text); }
+.quickbar .btn { width: auto; flex: 0 0 auto; padding: 0 24px; }
+
 /* ---- toast ------------------------------------------------------------- */
 
 .toast {

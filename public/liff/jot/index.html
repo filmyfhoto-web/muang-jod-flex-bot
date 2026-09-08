@@ -29,6 +29,9 @@
 </header>
 
 <main>
+  <!-- โหมดด่วน: ขีดจับด้านบนให้รู้ว่านี่คือแผ่นการ์ดที่เด้งขึ้นมาทับแชต -->
+  <div class="handle" aria-hidden="true"></div>
+
   <!-- ข้อความจากบอท: หน้าตาเดียวกับบับเบิลในแชต LINE -->
   <div class="chat">
     <div class="msg">
@@ -77,36 +80,48 @@
   <section class="card" id="form">
     <h2 class="card-head">📝 กรอกข้อมูลงาน</h2>
 
-    <div class="grid-2">
-      <label class="field">
-        <span>ลูกค้า</span>
-        <input id="f-customer" type="text" placeholder="เช่น รพสต.บ้านชี" autocomplete="off" />
-      </label>
-      <label class="field">
-        <span>วันที่</span>
-        <input id="f-date" type="date" />
-      </label>
-    </div>
+    <label class="field">
+      <span>ลูกค้า</span>
+      <input id="f-customer" type="text" placeholder="เช่น รพสต.บ้านชี" autocomplete="off" />
+    </label>
 
     <!-- รายการงานถูกสร้างด้วย JS ทีละใบ -->
     <div id="items"></div>
 
     <button class="btn btn-add" id="btn-add">➕ เพิ่มรายการ</button>
 
-    <div class="grid-2">
-      <label class="field">
-        <span>รับเงินมาแล้ว (บาท)</span>
-        <input id="f-paid" type="number" inputmode="decimal" min="0" step="1" placeholder="เช่น 300" />
-      </label>
+    <!-- ช่องที่ไม่ได้ใช้ทุกครั้ง: โหมดด่วนพับเก็บไว้ก่อน โหมดเต็มกางไว้เลย -->
+    <details class="more" id="more" open>
+      <summary>ใส่เพิ่มได้ · วันที่ · รับเงินมาแล้ว · หมายเหตุ</summary>
+      <div class="grid-2">
+        <label class="field">
+          <span>วันที่</span>
+          <input id="f-date" type="date" />
+        </label>
+        <label class="field">
+          <span>รับเงินมาแล้ว (บาท)</span>
+          <input id="f-paid" type="number" inputmode="decimal" min="0" step="1" placeholder="เช่น 300" />
+        </label>
+      </div>
       <label class="field">
         <span>หมายเหตุ</span>
         <input id="f-note" type="text" maxlength="200" placeholder="เช่น ส่งวันศุกร์" />
       </label>
-    </div>
+    </details>
   </section>
 
   <p class="foot" id="foot">ร่างถูกเก็บไว้ในเครื่องอัตโนมัติ ปิดแล้วเปิดใหม่ก็ยังอยู่ค่ะ</p>
+  <a class="foot link-full" id="link-full" href="./">เปิดแบบเต็มหน้า ›</a>
 </main>
+
+<!-- แถบล่างของโหมดด่วน: ยอดรวมกับปุ่มบันทึกติดอยู่กับที่ ไม่ต้องเลื่อนหา -->
+<div class="quickbar" id="quickbar" hidden>
+  <div class="qb-total">
+    <span>ยอดรวม</span>
+    <b id="qb-total">฿0</b>
+  </div>
+  <button class="btn btn-primary" id="qb-save">✅ บันทึก</button>
+</div>
 
 <div class="toast" id="toast" role="status"></div>
 
