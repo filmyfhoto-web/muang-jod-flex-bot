@@ -22,20 +22,25 @@ const font700 = b64('node_modules/@fontsource/noto-sans-thai/files/noto-sans-tha
 const logo = (await sharp(ROOT + 'public/brand/logo-dark.jpg').resize({ width: 900 }).jpeg({ quality: 90 }).toBuffer())
   .toString('base64');
 
-// Two mascot cut-outs stuck on the brand panel like stickers.
+// Mascot cut-outs, stuck on the corners of a few button cards.
 const cutout = async (file, width) =>
   (await sharp(ROOT + `public/brand/${file}`).resize({ width }).png({ compressionLevel: 9 }).toBuffer()).toString('base64');
-const waveDog = await cutout('mascot-clipboard-wave.png', 420);
-const sleepDog = await cutout('mascot-sleep.png', 560);
+const STICKERS = {
+  0: { img: await cutout('mascot-clipboard-wave.png', 300), cls: 'wave' },
+  3: { img: await cutout('mascot-happy.png', 320), cls: 'happy' },
+  7: { img: await cutout('mascot-sleep.png', 380), cls: 'sleepy' },
+};
 
 // Geometry — mirrored by LAYOUT in create-rich-menu.js.
 const W = 2500, H = 1686;
 const PANEL_W = 860;        // brand panel, not tappable
 const TOP = 26;             // margin above the first row
-const FOOTER_H = 26;        // margin below the last row
-const COLS = 3, ROWS = 3;
+const STRIP_H = 300;        // bottom strip — three more buttons, full width
+const COLS = 4, ROWS = 2;
 const CELL_W = Math.floor((W - PANEL_W) / COLS);
-const CELL_H = Math.floor((H - TOP - FOOTER_H) / ROWS);
+const CELL_H = Math.floor((H - TOP - STRIP_H) / ROWS);
+const STRIP_COLS = 3;
+const STRIP_W = Math.floor(W / STRIP_COLS);
 
 // Flat icons for a dark ground: light bodies, one blue accent each.
 const BLUE = '#2E7DF7', LIGHT = '#E8EDF5', MID = '#AEBACD', DARK = '#0C1220';
@@ -58,6 +63,11 @@ const ICONS = {
   pending: `<rect x="14" y="10" width="56" height="74" rx="9" fill="${LIGHT}"/><rect x="30" y="4" width="24" height="14" rx="6" fill="${MID}"/>
             <path d="M26 34l6 6 12-12M26 54l6 6 12-12" stroke="${BLUE}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
             <circle cx="72" cy="70" r="22" fill="${BLUE}"/><path d="M72 58v12l8 5" stroke="#fff" stroke-width="6" stroke-linecap="round" fill="none"/>`,
+  board: `<rect x="8" y="14" width="84" height="66" rx="10" fill="${LIGHT}"/><rect x="16" y="22" width="30" height="22" rx="5" fill="${BLUE}"/>
+          <rect x="52" y="22" width="24" height="22" rx="5" fill="${MID}"/><rect x="16" y="50" width="60" height="8" rx="4" fill="${MID}"/>
+          <rect x="16" y="63" width="42" height="8" rx="4" fill="${MID}"/><rect x="36" y="84" width="28" height="8" rx="4" fill="${MID}"/>`,
+  bell: `<path d="M50 8a26 26 0 0126 26v18l10 12H14l10-12V34A26 26 0 0150 8z" fill="${LIGHT}"/>
+         <path d="M38 70a12 12 0 0024 0z" fill="${MID}"/><circle cx="76" cy="24" r="14" fill="${BLUE}"/>`,
   bill: `<path d="M20 6h60v82l-10-8-10 8-10-8-10 8-10-8-10 8z" fill="${LIGHT}"/>
          <rect x="32" y="26" width="36" height="6" rx="3" fill="${MID}"/><rect x="32" y="42" width="24" height="6" rx="3" fill="${MID}"/>
          <circle cx="72" cy="64" r="21" fill="${BLUE}"/><text x="72" y="74" font-size="27" font-weight="700" fill="#fff" text-anchor="middle" font-family="sans-serif">฿</text>`,
@@ -74,13 +84,19 @@ const BUTTONS = [
   { icon: 'edit', title: 'แก้ไขล่าสุด', sub: 'แก้ข้อความ / แก้ยอด' },
   { icon: 'trash', title: 'ยกเลิกล่าสุด', sub: 'ลบหรือยกเลิกรายการ' },
   { icon: 'pending', title: 'ค้างรับ & ติดตามงาน', sub: 'งานค้าง / มัดจำ / สถานะ' },
-  { icon: 'bill', title: 'ออกบิล & ใบเสร็จ', sub: 'รวมบิล / รับชำระ / ใบเสร็จ' },
   { icon: 'help', title: 'ช่วยเหลือ', sub: 'วิธีใช้ / ติดต่อเรา' },
+];
+
+// The bottom strip — tappable, unlike the decorative strip it replaces.
+const STRIP = [
+  { icon: 'board', title: 'แดชบอร์ด', sub: 'ดูภาพรวมงานทั้งหมด' },
+  { icon: 'bill', title: 'ออกบิล', sub: 'รวมบิล / รับชำระ / ใบเสร็จ' },
+  { icon: 'bell', title: 'ตั้งแจ้งเตือนงาน', sub: 'ให้ม่วงจดเตือนตามเวลา' },
 ];
 
 // Thai has no spaces inside a word, and Chromium will break one mid-word to
 // make it fit. Size each title so it never has to.
-const titleSize = (t) => (t.length <= 13 ? 48 : t.length <= 17 ? 42 : 38);
+const titleSize = (t) => (t.length <= 11 ? 46 : t.length <= 15 ? 40 : 33);
 
 const cards = BUTTONS.map(
   (b, i) => `<div class="cell" style="grid-column:${(i % COLS) + 1};grid-row:${Math.floor(i / COLS) + 1}">
@@ -90,7 +106,15 @@ const cards = BUTTONS.map(
       <div class="t" style="font-size:${titleSize(b.title)}px">${b.title}</div>
       <div class="s">${b.sub}</div>
       <div class="rule"></div>
+      ${STICKERS[i] ? `<img class="sticker ${STICKERS[i].cls}" src="data:image/png;base64,${STICKERS[i].img}">` : ''}
     </div></div>`
+).join('');
+
+const strip = STRIP.map(
+  (b, i) => `<div class="scard" style="left:${i * STRIP_W + 18}px;width:${STRIP_W - 36}px">
+    <svg class="sic" viewBox="0 0 100 100">${ICONS[b.icon]}</svg>
+    <div><div class="st">${b.title}</div><div class="ss">${b.sub}</div></div>
+  </div>`
 ).join('');
 
 const html = `<!doctype html><html lang="th"><head><meta charset="utf-8"><style>
@@ -102,13 +126,22 @@ body{width:${W}px;height:${H}px;font-family:'NST',sans-serif;overflow:hidden;pos
     radial-gradient(900px 620px at 18% 26%, rgba(46,125,247,.20), transparent 62%),
     radial-gradient(760px 520px at 82% 78%, rgba(46,125,247,.13), transparent 60%),
     linear-gradient(150deg,#080B12 0%,#05070C 55%,#080B12 100%)}
-.panel{position:absolute;left:40px;top:${TOP + 40}px;width:${PANEL_W - 110}px;height:${H - TOP - FOOTER_H - 80}px;
+.panel{position:absolute;left:40px;top:${TOP + 10}px;width:${PANEL_W - 110}px;height:${H - TOP - STRIP_H - 40}px;
   border-radius:46px;background:linear-gradient(160deg,rgba(20,28,44,.94),rgba(8,12,20,.94));
   border:2px solid rgba(46,125,247,.34);box-shadow:0 0 70px rgba(46,125,247,.16) inset,0 18px 44px rgba(0,0,0,.55);
   overflow:visible;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;padding:34px}
 .panel .logo{width:${PANEL_W - 240}px;border-radius:34px}
-.panel .wave{position:absolute;right:-24px;top:-34px;width:220px;filter:drop-shadow(0 10px 20px rgba(0,0,0,.6))}
-.panel .sleepy{position:absolute;left:-6px;bottom:-18px;width:280px;filter:drop-shadow(0 10px 20px rgba(0,0,0,.6))}
+.card .sticker{position:absolute;filter:drop-shadow(0 8px 16px rgba(0,0,0,.65));pointer-events:none}
+.card .wave{right:-14px;top:-40px;width:150px}
+.card .happy{right:-18px;bottom:-10px;width:160px}
+.card .sleepy{right:-14px;bottom:-16px;width:180px}
+.strip{position:absolute;left:0;top:${H - STRIP_H}px;width:${W}px;height:${STRIP_H}px}
+.scard{position:absolute;top:16px;height:${STRIP_H - 40}px;border-radius:34px;display:flex;align-items:center;gap:26px;padding:0 34px;
+  background:linear-gradient(165deg,rgba(20,27,42,.94),rgba(10,14,23,.94));border:2px solid rgba(46,125,247,.30);
+  box-shadow:0 12px 26px rgba(0,0,0,.5)}
+.sic{width:104px;height:104px;flex:none;filter:drop-shadow(0 6px 12px rgba(0,0,0,.55))}
+.st{font-weight:700;font-size:46px;color:#fff;white-space:nowrap}
+.ss{font-weight:400;font-size:28px;color:#93A3BC;margin-top:4px}
 .badge{display:flex;align-items:center;gap:16px;padding:16px 34px;border-radius:999px;
   background:rgba(46,125,247,.13);border:2px solid rgba(46,125,247,.42)}
 .badge .line{padding:8px 20px;border-radius:999px;background:#06C755;color:#fff;font-weight:700;font-size:26px;
@@ -125,16 +158,15 @@ body{width:${W}px;height:${H}px;font-family:'NST',sans-serif;overflow:hidden;pos
   font-weight:700;font-size:30px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(46,125,247,.5)}
 .ic{width:150px;height:150px;filter:drop-shadow(0 8px 14px rgba(0,0,0,.55))}
 .t{font-weight:700;line-height:1.15;color:#fff;white-space:nowrap}
-.s{font-weight:400;font-size:27px;line-height:1.3;color:#93A3BC;max-width:470px}
+.s{font-weight:400;font-size:26px;line-height:1.3;color:#93A3BC;max-width:352px}
 .rule{width:70px;height:5px;border-radius:3px;background:${BLUE};margin-top:10px;box-shadow:0 0 14px rgba(46,125,247,.75)}
 </style></head><body>
 <div class="panel">
   <img class="logo" src="data:image/jpeg;base64,${logo}">
   <div class="badge"><div class="line">LINE</div><span>ผู้ช่วยบันทึกงานวันนี้ใน LINE</span></div>
-  <img class="wave" src="data:image/png;base64,${waveDog}">
-  <img class="sleepy" src="data:image/png;base64,${sleepDog}">
 </div>
 <div class="grid">${cards}</div>
+<div class="strip">${strip}</div>
 </body></html>`;
 
 const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined });
@@ -154,6 +186,7 @@ await sharp(buf).png({ compressionLevel: 9, palette: true }).toFile(out);
 const kb = statSync(out).size / 1024;
 console.log(`rendered ${meta.width}x${meta.height} -> assets/rich-menu.png (${kb.toFixed(0)} KB)`);
 console.log(`tap grid: ${COLS}x${ROWS} cells of ${CELL_W}x${CELL_H} from x=${PANEL_W} y=${TOP}`);
+console.log(`strip: ${STRIP_COLS} cells of ${STRIP_W}x${STRIP_H} from y=${H - STRIP_H}`);
 if (errs.length) {
   console.error('page errors:\n' + errs.join('\n'));
   process.exit(1);
