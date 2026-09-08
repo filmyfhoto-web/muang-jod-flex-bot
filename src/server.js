@@ -90,6 +90,34 @@ app.get('/health', async (req, res) => {
   res.json(body);
 });
 
+// Did LINE actually call us? Every processed event leaves a row, so this
+// separates "LINE is not delivering" from "we are failing to answer" — which
+// look identical from the chat, where both are a bot that says nothing.
+app.get('/health/webhook', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('webhook_events')
+      .select('event_type, processed_at')
+      .order('processed_at', { ascending: false })
+      .limit(5);
+    if (error) throw new Error(`${error.code || ''} ${error.message || ''}`.trim());
+
+    const last = data?.[0];
+    const minutesAgo = last ? Math.round((Date.now() - new Date(last.processed_at)) / 60000) : null;
+    res.json({
+      status: last ? 'ok' : 'no events yet',
+      lastEventAt: last?.processed_at ?? null,
+      minutesAgo,
+      recent: (data || []).map((e) => ({ type: e.event_type, at: e.processed_at })),
+      hint: last
+        ? 'LINE ส่งเข้ามาถึงบอตแล้ว ถ้าบอตยังไม่ตอบ ให้ดู log ใน Render'
+        : 'ยังไม่เคยมี event เข้ามาเลย — ตรวจ Webhook URL, "Use webhook" และโหมดตอบกลับใน OA Manager',
+    });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err?.message || String(err) });
+  }
+});
+
 // Deep health: probes every table the bot writes to, so a half-applied
 // migration shows up as one failing table instead of a generic chat error.
 app.get('/health/db', async (req, res) => {
@@ -118,7 +146,7 @@ app.use((req, res) => {
   res.status(404).json({
     error: 'not found',
     path: req.path,
-    hint: 'path ที่ใช้ได้: /health, /health/db, /admin/rich-menu?key=...',
+    hint: 'path ที่ใช้ได้: /health, /health/webhook, /health/db, /admin/rich-menu?key=...',
   });
 });
 
