@@ -6,75 +6,95 @@
 <title>ม่วงจดให้ — จัดการงาน</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
   :root {
-    --purple: #7c3aed; --purple-dark: #5b21b6; --purple-soft: #ede9fe; --purple-tint: #f6f2ff;
+    --purple: #7c3aed; --purple-dark: #5b21b6; --purple-soft: #ede9fe; --purple-tint: #f7f4ff;
+    --pink: #f471b5; --blue: #60a5fa; --amber: #f59e0b;
     --ink: #1f2937; --sub: #555; --grey: #8e8e93; --line: #ececf0;
     --green: #22a06b; --green-bg: #e7f6ee; --orange: #e8833a; --orange-bg: #fdf0e6;
-    --red: #e5484d; --red-bg: #fcebec; --white: #fff; --radius: 16px;
+    --red: #e5484d; --red-bg: #fcebec; --white: #fff; --r: 18px;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body {
     margin: 0; background: var(--purple-tint); color: var(--ink);
     font-family: 'Noto Sans Thai', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    font-size: 15px; line-height: 1.55; padding-bottom: 32px;
+    font-size: 15px; line-height: 1.5; padding-bottom: 104px;
   }
-  header {
-    background: linear-gradient(135deg, var(--purple) 0%, var(--purple-dark) 100%);
-    color: #fff; padding: 20px 18px 26px; border-radius: 0 0 24px 24px;
-  }
-  .who { display: flex; align-items: center; gap: 12px; }
-  .who img { width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,.25); object-fit: cover; }
-  .who h1 { margin: 0; font-size: 17px; font-weight: 700; }
-  .who p { margin: 0; font-size: 12px; opacity: .85; }
-  main { padding: 0 14px; margin-top: -14px; }
-  .card { background: var(--white); border-radius: var(--radius); padding: 16px; box-shadow: 0 2px 10px rgba(91,33,182,.07); margin-bottom: 14px; }
-  .card h2 { margin: 0 0 12px; font-size: 15px; color: var(--purple-dark); display: flex; justify-content: space-between; align-items: center; }
-  .pill { background: var(--purple-soft); color: var(--purple-dark); font-size: 12px; font-weight: 500; padding: 3px 10px; border-radius: 999px; }
-  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .tile { border-radius: 12px; padding: 12px 6px; text-align: center; }
-  .tile span { display: block; font-size: 11px; color: var(--sub); }
-  .tile strong { display: block; font-size: 24px; line-height: 1.2; }
-  .t-all { background: var(--purple-soft); } .t-all strong { color: var(--purple); }
-  .t-paid { background: var(--green-bg); } .t-paid strong { color: var(--green); }
-  .t-due { background: var(--red-bg); } .t-due strong { color: var(--red); }
-  .money { display: flex; justify-content: space-between; background: #f5f5f7; border-radius: 12px; padding: 12px; margin-top: 12px; }
-  .money div { flex: 1; } .money div + div { text-align: center; } .money div:last-child { text-align: right; }
-  .money span { display: block; font-size: 11px; color: var(--grey); }
-  .money b { font-size: 15px; }
-  .tabs { display: flex; gap: 8px; margin: 4px 0 12px; }
-  .tabs button { flex: 1; border: 0; padding: 9px; border-radius: 999px; background: var(--white); color: var(--sub); font: inherit; font-size: 13px; font-weight: 500; }
-  .tabs button[aria-selected="true"] { background: var(--purple); color: #fff; }
-  .job { display: flex; gap: 12px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--line); }
+  header { padding: 16px 16px 10px; display: flex; align-items: center; gap: 11px; }
+  header img { width: 40px; height: 40px; border-radius: 50%; background: var(--purple-soft); object-fit: cover; }
+  header h1 { margin: 0; font-size: 16px; font-weight: 700; color: var(--purple-dark); }
+  header p { margin: 0; font-size: 11.5px; color: var(--grey); }
+  main { padding: 0 14px; }
+  .card { background: var(--white); border-radius: var(--r); padding: 15px; box-shadow: 0 2px 12px rgba(91,33,182,.08); margin-bottom: 13px; }
+  .card > h2 { margin: 0 0 12px; font-size: 15px; color: var(--ink); display: flex; justify-content: space-between; align-items: center; font-weight: 700; }
+  .card > h2 .date { font-size: 12px; color: var(--grey); font-weight: 500; }
+  .link { font-size: 12.5px; color: var(--purple); font-weight: 600; }
+
+  /* Stat grid — the big total plus one tile per category */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  .stat { background: var(--purple-tint); border-radius: 14px; padding: 12px; }
+  .stat .top { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
+  .stat .ic { width: 28px; height: 28px; border-radius: 9px; background: var(--purple-soft); display: grid; place-items: center; font-size: 15px; flex: none; }
+  .stat .lbl { font-size: 11.5px; color: var(--sub); font-weight: 500; }
+  .stat .big { font-size: 21px; font-weight: 700; color: var(--purple-dark); line-height: 1.25; }
+  .stat .sm { font-size: 12px; color: var(--grey); }
+  .stat .trend { font-size: 11.5px; font-weight: 600; margin-top: 2px; }
+  .up { color: var(--green); } .down { color: var(--red); } .flat { color: var(--grey); }
+
+  /* Donut + legend */
+  .donut { display: flex; align-items: center; gap: 14px; }
+  .donut svg { flex: none; }
+  .legend { flex: 1; min-width: 0; }
+  .legend div { display: flex; align-items: center; gap: 8px; font-size: 12.5px; padding: 3px 0; }
+  .legend .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .legend .nm { flex: 1; color: var(--sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .legend .pc { font-weight: 700; }
+
+  .job { display: flex; gap: 11px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
   .job:last-child { border-bottom: 0; }
-  .job .ico { width: 40px; height: 40px; border-radius: 12px; background: var(--purple-soft); display: grid; place-items: center; font-size: 19px; flex: none; }
+  .job .ic { width: 38px; height: 38px; border-radius: 12px; background: var(--purple-soft); display: grid; place-items: center; font-size: 18px; flex: none; }
   .job .txt { flex: 1; min-width: 0; }
-  .job .txt b { display: block; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .job .txt b { display: block; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .job .txt small { color: var(--grey); font-size: 11.5px; }
   .job .amt { text-align: right; flex: none; }
   .job .amt b { display: block; font-size: 14px; }
-  .badge { font-size: 10.5px; font-weight: 500; padding: 2px 8px; border-radius: 999px; display: inline-block; margin-top: 2px; }
+  .badge { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; display: inline-block; margin-top: 2px; }
   .b-paid { background: var(--green-bg); color: var(--green); }
   .b-partial { background: var(--orange-bg); color: var(--orange); }
   .b-pending { background: var(--red-bg); color: var(--red); }
-  label { display: block; font-size: 12.5px; color: var(--sub); margin: 12px 0 5px; font-weight: 500; }
+
+  label { display: block; font-size: 12.5px; color: var(--sub); margin: 13px 0 5px; font-weight: 600; }
+  label .req { color: var(--red); }
   input, select, textarea {
     width: 100%; font: inherit; font-size: 15px; padding: 11px 12px; border: 1.5px solid var(--line);
-    border-radius: 12px; background: var(--white); color: var(--ink);
+    border-radius: 12px; background: var(--white); color: var(--ink); appearance: none;
   }
+  select { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8'><path d='M1 1l5 5 5-5' stroke='%237c3aed' stroke-width='2' fill='none' stroke-linecap='round'/></svg>"); background-repeat: no-repeat; background-position: right 14px center; }
   input:focus, select:focus, textarea:focus { outline: none; border-color: var(--purple); }
-  .seg { display: flex; gap: 8px; }
-  .seg button { flex: 1; border: 1.5px solid var(--line); background: var(--white); border-radius: 12px; padding: 10px; font: inherit; font-size: 13px; color: var(--sub); }
+  .seg { display: flex; gap: 7px; }
+  .seg button { flex: 1; border: 1.5px solid var(--line); background: var(--white); border-radius: 12px; padding: 10px 4px; font: inherit; font-size: 12.5px; color: var(--sub); }
   .seg button[aria-pressed="true"] { border-color: var(--purple); background: var(--purple-soft); color: var(--purple-dark); font-weight: 700; }
-  .btn { width: 100%; border: 0; border-radius: 12px; padding: 13px; font: inherit; font-size: 15px; font-weight: 700; margin-top: 16px; }
+  .btn { width: 100%; border: 0; border-radius: 13px; padding: 13px; font: inherit; font-size: 15px; font-weight: 700; margin-top: 15px; }
   .btn-primary { background: var(--purple); color: #fff; }
   .btn-danger { background: var(--red-bg); color: var(--red); }
   .btn-ghost { background: transparent; color: var(--sub); font-weight: 500; }
   .btn:disabled { opacity: .55; }
-  .empty { text-align: center; color: var(--grey); font-size: 13.5px; padding: 22px 8px; }
+  .empty { text-align: center; color: var(--grey); font-size: 13.5px; padding: 24px 8px; }
+
+  /* Bottom navigation, as in the mockup */
+  nav {
+    position: fixed; left: 0; right: 0; bottom: 0; background: var(--white);
+    border-top: 1px solid var(--line); display: flex; padding: 7px 4px calc(7px + env(safe-area-inset-bottom));
+    box-shadow: 0 -2px 14px rgba(91,33,182,.06); z-index: 5;
+  }
+  nav button { flex: 1; border: 0; background: none; font: inherit; font-size: 10.5px; color: var(--grey); padding: 3px 0; }
+  nav button span { display: block; font-size: 19px; line-height: 1.25; filter: grayscale(1); opacity: .55; }
+  nav button[aria-selected="true"] { color: var(--purple); font-weight: 700; }
+  nav button[aria-selected="true"] span { filter: none; opacity: 1; }
+
   .toast {
-    position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 20px); opacity: 0;
+    position: fixed; left: 50%; bottom: 96px; transform: translate(-50%, 16px); opacity: 0;
     background: var(--ink); color: #fff; padding: 11px 18px; border-radius: 999px; font-size: 13.5px;
     transition: .25s; pointer-events: none; max-width: 90vw; z-index: 9;
   }
@@ -85,41 +105,73 @@
 </head>
 <body>
 <header>
-  <div class="who">
-    <img id="avatar" alt="" />
-    <div><h1 id="name">ม่วงจดให้</h1><p>ผู้ช่วยจดงาน ที่เข้าใจธุรกิจคุณ 💜</p></div>
-  </div>
+  <img id="avatar" alt="" />
+  <div><h1 id="name">ม่วงจดให้</h1><p>ผู้ช่วยบันทึกงานใน LINE 🐾</p></div>
 </header>
 
 <main>
-  <!-- Dashboard -->
-  <section id="view-dash" hidden>
+  <!-- 1. งานวันนี้ -->
+  <section id="v-today" hidden>
     <div class="card">
-      <h2>สรุปวันนี้ <span class="pill" id="today"></span></h2>
-      <div class="tiles">
-        <div class="tile t-all"><span>งานวันนี้</span><strong id="c-all">0</strong><span>รายการ</span></div>
-        <div class="tile t-paid"><span>รับเงินแล้ว</span><strong id="c-paid">0</strong><span>รายการ</span></div>
-        <div class="tile t-due"><span>ค้างรับ</span><strong id="c-due">0</strong><span>รายการ</span></div>
-      </div>
-      <div class="money">
-        <div><span>ยอดรวม</span><b id="m-total">฿0</b></div>
-        <div><span>รับแล้ว</span><b id="m-paid" style="color:var(--green)">฿0</b></div>
-        <div><span>ค้างรับ</span><b id="m-due" style="color:var(--red)">฿0</b></div>
-      </div>
+      <h2>สรุปงานวันนี้ <span class="date" id="t-date"></span></h2>
+      <div class="grid" id="t-tiles"></div>
     </div>
-
-    <div class="tabs" role="tablist">
-      <button role="tab" data-scope="recent" aria-selected="true">รายการล่าสุด</button>
-      <button role="tab" data-scope="pending" aria-selected="false">ค้างรับ</button>
+    <div class="card" id="t-share-card">
+      <h2>สัดส่วนงานวันนี้</h2>
+      <div class="donut"><div id="t-donut"></div><div class="legend" id="t-legend"></div></div>
     </div>
-    <div class="card"><div id="list"><div class="empty">กำลังโหลด…</div></div></div>
+    <div class="card">
+      <h2>รายการล่าสุด <span class="link" data-go="pending">ดูค้างรับ ›</span></h2>
+      <div id="t-recent"></div>
+    </div>
   </section>
 
-  <!-- Edit form -->
-  <section id="view-edit" hidden>
+  <!-- 2. สรุปรายการ -->
+  <section id="v-report" hidden>
     <div class="card">
-      <h2>แก้ไขรายการ <span class="pill" id="e-number"></span></h2>
-      <label for="e-name">รายละเอียด</label>
+      <h2>สรุปรายการ</h2>
+      <div class="seg" id="r-period">
+        <button type="button" data-v="daily" aria-pressed="true">วันนี้</button>
+        <button type="button" data-v="weekly" aria-pressed="false">7 วัน</button>
+        <button type="button" data-v="monthly" aria-pressed="false">เดือนนี้</button>
+      </div>
+      <div class="grid" id="r-tiles" style="margin-top:13px"></div>
+    </div>
+    <div class="card" id="r-share-card">
+      <h2>สัดส่วนตามประเภทงาน</h2>
+      <div class="donut"><div id="r-donut"></div><div class="legend" id="r-legend"></div></div>
+    </div>
+    <div class="card"><h2>งานยอดสูงสุด</h2><div id="r-top"></div></div>
+  </section>
+
+  <!-- 3. งานค้างรับ -->
+  <section id="v-pending" hidden>
+    <div class="card"><h2>งานค้างรับ <span class="date" id="p-sum"></span></h2><div id="p-list"></div></div>
+  </section>
+
+  <!-- 4. ตั้งค่า -->
+  <section id="v-settings" hidden>
+    <div class="card">
+      <h2>ตั้งค่า</h2>
+      <div class="job"><div class="ic">👤</div><div class="txt"><b id="s-name">—</b><small>บัญชี LINE ที่กำลังใช้งาน</small></div></div>
+      <div class="job"><div class="ic">💜</div><div class="txt"><b>ม่วงจดให้</b><small id="s-ver">ผู้ช่วยบันทึกงานใน LINE</small></div></div>
+      <button class="btn btn-ghost" id="s-close">ปิดหน้าต่าง</button>
+    </div>
+    <div class="card">
+      <h2>วิธีใช้แบบเร็ว</h2>
+      <p style="font-size:13.5px;color:var(--sub);margin:0">
+        พิมพ์งานในแชตได้เลย เช่น<br />
+        <b style="color:var(--purple-dark)">ป้ายไวนิล 60x100 150 บาท</b><br /><br />
+        แตะรายการในหน้านี้เพื่อแก้ไข ปรับราคา เปลี่ยนหมวด หรือยกเลิกงานได้ทันทีค่ะ
+      </p>
+    </div>
+  </section>
+
+  <!-- แก้ไขรายการ -->
+  <section id="v-edit" hidden>
+    <div class="card">
+      <h2>แก้ไขรายการ <span class="date" id="e-number"></span></h2>
+      <label for="e-name">รายละเอียด <span class="req">*</span></label>
       <input id="e-name" maxlength="200" />
       <label for="e-customer">ลูกค้า</label>
       <input id="e-customer" maxlength="200" placeholder="เช่น พี่นก" />
@@ -133,7 +185,7 @@
         <button type="button" data-v="partial">รับบางส่วน</button>
         <button type="button" data-v="paid">รับแล้ว</button>
       </div>
-      <label for="e-total">จำนวนเงิน (บาท)</label>
+      <label for="e-total">จำนวนเงิน (บาท) <span class="req">*</span></label>
       <input id="e-total" type="number" inputmode="decimal" min="0" step="1" />
       <label for="e-paid">รับมาแล้ว (บาท)</label>
       <input id="e-paid" type="number" inputmode="decimal" min="0" step="1" />
@@ -141,15 +193,21 @@
       <input id="e-date" type="date" />
       <label for="e-note">หมายเหตุ (ถ้ามี)</label>
       <textarea id="e-note" rows="2" maxlength="500" placeholder="เช่น ส่งของวันจันทร์"></textarea>
-
-      <button class="btn btn-primary" id="e-save">บันทึก</button>
-      <button class="btn btn-danger" id="e-delete">ยกเลิกรายการนี้</button>
-      <button class="btn btn-ghost" id="e-back">← กลับหน้ารวม</button>
+      <button class="btn btn-primary" id="e-save">✓ บันทึก</button>
+      <button class="btn btn-danger" id="e-delete">🗑 ยกเลิกรายการนี้</button>
+      <button class="btn btn-ghost" id="e-back">← กลับ</button>
     </div>
   </section>
 
   <div id="fatal" class="card" hidden><div class="empty" id="fatal-msg"></div></div>
 </main>
+
+<nav id="nav" hidden>
+  <button data-tab="today" aria-selected="true"><span>🏠</span>งานวันนี้</button>
+  <button data-tab="report" aria-selected="false"><span>📊</span>สรุปรายการ</button>
+  <button data-tab="pending" aria-selected="false"><span>📋</span>งานค้างรับ</button>
+  <button data-tab="settings" aria-selected="false"><span>⚙️</span>ตั้งค่า</button>
+</nav>
 
 <div class="toast" id="toast"></div>
 
@@ -157,11 +215,11 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const baht = (n) => '฿' + (Number(n) || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
-const ICONS = { 'ป้าย': '🪧', 'สติกเกอร์': '🏷️', 'เอกสาร': '🖨️', 'ออกแบบ': '🎨', 'อาหาร': '☕', 'ส่ง': '🚚' };
-const iconFor = (s) => Object.entries(ICONS).find(([k]) => String(s || '').includes(k))?.[1] || '📦';
+const thb = (n) => (Number(n) || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 }) + ' บาท';
 const BADGE = { paid: ['b-paid', 'รับเงินแล้ว'], partial: ['b-partial', 'รับบางส่วน'], pending: ['b-pending', 'ค้างรับ'] };
+const COLORS = { sign: '#f471b5', print: '#7c3aed', design: '#60a5fa', food: '#f59e0b', shipping: '#22a06b', other: '#8e8e93' };
 
-let token = null, scope = 'recent', current = null, groups = [];
+let token = null, groups = [], current = null, tab = 'today', period = 'daily', me = null;
 
 function toast(msg, isErr) {
   const t = $('toast');
@@ -172,8 +230,10 @@ function toast(msg, isErr) {
 }
 
 function fatal(msg) {
-  $('view-dash').hidden = true; $('view-edit').hidden = true;
-  $('fatal').hidden = false; $('fatal-msg').textContent = msg;
+  document.querySelectorAll('main > section').forEach((s) => (s.hidden = true));
+  $('nav').hidden = true;
+  $('fatal').hidden = false;
+  $('fatal-msg').textContent = msg;
 }
 
 async function api(path, opts = {}) {
@@ -188,49 +248,186 @@ async function api(path, opts = {}) {
   return res.json();
 }
 
-function jobRow(job) {
+// --- pieces ---------------------------------------------------------------
+
+function iconOf(job) {
+  const g = groups.find((x) => x.id === job.category);
+  const t = g?.types.find((x) => x.id === job.category_type);
+  return t?.icon || g?.icon || '📦';
+}
+
+function statTile({ icon, label, big, sub, trend }) {
+  const el = document.createElement('div');
+  el.className = 'stat';
+  el.innerHTML =
+    '<div class="top"><div class="ic"></div><div class="lbl"></div></div>' +
+    '<div class="big"></div><div class="sm"></div>';
+  el.querySelector('.ic').textContent = icon;
+  el.querySelector('.lbl').textContent = label;
+  el.querySelector('.big').textContent = big;
+  el.querySelector('.sm').textContent = sub || '';
+  if (trend) {
+    const t = document.createElement('div');
+    t.className = 'trend ' + trend.cls;
+    t.textContent = trend.text;
+    el.appendChild(t);
+  }
+  return el;
+}
+
+function trendOf(trend) {
+  if (!trend || trend.percent === null || trend.percent === undefined) {
+    return { cls: 'flat', text: 'ยังไม่มียอดเมื่อวานให้เทียบ' };
+  }
+  const cls = trend.direction === 'up' ? 'up' : trend.direction === 'down' ? 'down' : 'flat';
+  const arrow = trend.direction === 'up' ? '↗' : trend.direction === 'down' ? '↘' : '→';
+  return { cls, text: arrow + ' ' + (trend.percent > 0 ? '+' : '') + trend.percent + '% จากเมื่อวาน' };
+}
+
+// SVG donut: one arc per category, total in the middle.
+function donut(cats, total) {
+  const R = 46, C = 2 * Math.PI * R, size = 118;
+  let offset = 0;
+  const arcs = cats
+    .filter((c) => c.percent > 0)
+    .map((c) => {
+      const len = (c.percent / 100) * C;
+      const seg =
+        '<circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + R + '" fill="none" stroke="' +
+        (c.color || COLORS[c.id] || '#8e8e93') + '" stroke-width="16" stroke-dasharray="' + len + ' ' + (C - len) +
+        '" stroke-dashoffset="' + -offset + '" transform="rotate(-90 ' + size / 2 + ' ' + size / 2 + ')" />';
+      offset += len;
+      return seg;
+    })
+    .join('');
+  return (
+    '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
+    '<circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + R + '" fill="none" stroke="#f0ecfb" stroke-width="16" />' +
+    arcs +
+    '<text x="50%" y="46%" text-anchor="middle" font-size="10" fill="#8e8e93" font-family="inherit">รวม</text>' +
+    '<text x="50%" y="62%" text-anchor="middle" font-size="14" font-weight="700" fill="#5b21b6" font-family="inherit">' +
+    thb(total) + '</text></svg>'
+  );
+}
+
+function renderLegend(el, cats) {
+  el.textContent = '';
+  cats.forEach((c) => {
+    const row = document.createElement('div');
+    row.innerHTML = '<i class="dot"></i><span class="nm"></span><span class="pc"></span>';
+    const color = c.color || COLORS[c.id] || '#8e8e93';
+    row.querySelector('.dot').style.background = color;
+    row.querySelector('.nm').textContent = c.icon + ' ' + c.label;
+    row.querySelector('.pc').textContent = c.percent + '%';
+    row.querySelector('.pc').style.color = color;
+    el.appendChild(row);
+  });
+}
+
+function jobRow(job, opts = {}) {
   const [cls, label] = BADGE[job.payment_status] || BADGE.pending;
   const el = document.createElement('div');
   el.className = 'job';
   el.innerHTML =
-    '<div class="ico">' + iconFor(job.job_name) + '</div>' +
-    '<div class="txt"><b></b><small></small></div>' +
+    '<div class="ic"></div><div class="txt"><b></b><small></small></div>' +
     '<div class="amt"><b></b><span class="badge ' + cls + '">' + label + '</span></div>';
+  el.querySelector('.ic').textContent = iconOf(job);
   el.querySelector('.txt b').textContent = job.job_name || 'งาน';
   el.querySelector('.txt small').textContent =
-    [job.customer_name ? 'ลูกค้า: ' + job.customer_name : '', job.job_number || ''].filter(Boolean).join(' · ');
+    [job.customer_name || '', opts.showDate ? job.job_date : '', job.job_number || ''].filter(Boolean).join(' · ');
   el.querySelector('.amt b').textContent = baht(job.total);
   el.onclick = () => openEdit(job.id);
   return el;
 }
 
-function renderList(jobs) {
-  const list = $('list');
-  list.textContent = '';
+function renderJobs(el, jobs, emptyMsg, opts) {
+  el.textContent = '';
   if (!jobs.length) {
-    list.innerHTML = '<div class="empty">ยังไม่มีรายการค่ะ<br>พิมพ์งานในแชตได้เลยนะคะ 💜</div>';
+    el.innerHTML = '<div class="empty">' + emptyMsg + '</div>';
     return;
   }
-  jobs.forEach((j) => list.appendChild(jobRow(j)));
+  jobs.forEach((j) => el.appendChild(jobRow(j, opts)));
 }
 
-async function loadDash() {
-  const me = await api('/me');
-  if (me.profile.displayName) $('name').textContent = me.profile.displayName;
+// --- views ----------------------------------------------------------------
+
+async function loadToday() {
+  me = await api('/me');
+  if (me.profile.displayName) {
+    $('name').textContent = me.profile.displayName;
+    $('s-name').textContent = me.profile.displayName;
+  }
   if (me.profile.pictureUrl) $('avatar').src = me.profile.pictureUrl;
-  $('today').textContent = new Date(me.date + 'T00:00:00+07:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
-  $('c-all').textContent = me.summary.jobCount;
-  $('c-paid').textContent = me.counts.paid;
-  $('c-due').textContent = me.counts.pending + me.counts.partial;
-  $('m-total').textContent = baht(me.summary.total);
-  $('m-paid').textContent = baht(me.summary.paid);
-  $('m-due').textContent = baht(me.summary.pending);
-  renderList(scope === 'pending' ? me.pending || [] : me.recent || []);
+
+  $('t-date').textContent = new Date(me.date + 'T00:00:00+07:00').toLocaleDateString('th-TH', {
+    day: 'numeric', month: 'short', year: 'numeric',
+  });
+
+  const tiles = $('t-tiles');
+  tiles.textContent = '';
+  tiles.appendChild(
+    statTile({
+      icon: '🧾', label: 'ยอดวันนี้',
+      big: thb(me.summary.total), sub: me.summary.jobCount + ' งาน',
+      trend: trendOf(me.trend),
+    })
+  );
+  me.categories.slice(0, 3).forEach((c) =>
+    tiles.appendChild(statTile({ icon: c.icon, label: c.label, big: c.count + ' งาน', sub: thb(c.total) }))
+  );
+
+  const has = me.categories.length > 0;
+  $('t-share-card').hidden = !has;
+  if (has) {
+    $('t-donut').innerHTML = donut(me.categories, me.summary.total);
+    renderLegend($('t-legend'), me.categories);
+  }
+
+  renderJobs($('t-recent'), me.recent || [], 'วันนี้ยังไม่มีงานค่ะ<br>พิมพ์รายการงานในแชตได้เลยนะคะ 💜');
 }
 
-async function reloadList() {
-  renderList((await api('/jobs?scope=' + scope + '&limit=20')).jobs);
+async function loadReport() {
+  const r = await api('/report?period=' + period);
+  const tiles = $('r-tiles');
+  tiles.textContent = '';
+  tiles.appendChild(statTile({ icon: '🧾', label: 'ยอดรวม', big: thb(r.totalSales), sub: r.jobCount + ' งาน' }));
+  tiles.appendChild(statTile({ icon: '✅', label: 'รับเงินแล้ว', big: thb(r.paid), sub: r.label || '' }));
+  tiles.appendChild(statTile({ icon: '💰', label: 'ค้างรับ', big: thb(r.pending), sub: '' }));
+  tiles.appendChild(statTile({ icon: '📊', label: 'เฉลี่ยต่อบิล', big: thb(r.avgPerBill), sub: '' }));
+
+  const has = (r.categories || []).length > 0;
+  $('r-share-card').hidden = !has;
+  if (has) {
+    $('r-donut').innerHTML = donut(r.categories, r.totalSales);
+    renderLegend($('r-legend'), r.categories);
+  }
+  renderJobs($('r-top'), r.top || [], 'ยังไม่มีงานในช่วงนี้ค่ะ', { showDate: true });
 }
+
+async function loadPending() {
+  const { jobs } = await api('/jobs?scope=pending');
+  const due = jobs.reduce((s, j) => s + (Number(j.balance_due) || 0), 0);
+  $('p-sum').textContent = jobs.length ? jobs.length + ' งาน · ' + thb(due) : '';
+  renderJobs($('p-list'), jobs, 'ไม่มีงานค้างรับค่ะ เก่งมาก 💜', { showDate: true });
+}
+
+const LOADERS = { today: loadToday, report: loadReport, pending: loadPending, settings: async () => {} };
+
+async function show(name) {
+  tab = name;
+  document.querySelectorAll('main > section').forEach((s) => (s.hidden = true));
+  $('v-' + name).hidden = false;
+  $('nav').hidden = false;
+  document.querySelectorAll('nav button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+  scrollTo(0, 0);
+  try {
+    await LOADERS[name]();
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+// --- edit -----------------------------------------------------------------
 
 function fillGroups(groupId) {
   const sel = $('e-group');
@@ -256,31 +453,6 @@ function setStatus(v) {
 }
 const getStatus = () => $('e-status').querySelector('[aria-pressed="true"]')?.dataset.v || 'pending';
 
-async function openEdit(id) {
-  const { job } = await api('/jobs/' + id);
-  current = job;
-  $('e-number').textContent = job.job_number || '';
-  $('e-name').value = job.job_name || '';
-  $('e-customer').value = job.customer_name || '';
-  $('e-total').value = Number(job.total) || 0;
-  $('e-paid').value = Number(job.paid_amount) || 0;
-  $('e-date').value = job.job_date || '';
-  $('e-note').value = job.note || '';
-  fillGroups(job.category || 'other');
-  fillTypes($('e-group').value, job.category_type || '');
-  setStatus(job.payment_status || 'pending');
-  $('view-dash').hidden = true;
-  $('view-edit').hidden = false;
-  scrollTo(0, 0);
-}
-
-async function backToDash() {
-  $('view-edit').hidden = true;
-  $('view-dash').hidden = false;
-  current = null;
-  await loadDash();
-}
-
 $('e-status').onclick = (e) => {
   const b = e.target.closest('button[data-v]');
   if (!b) return;
@@ -288,6 +460,29 @@ $('e-status').onclick = (e) => {
   if (b.dataset.v === 'paid') $('e-paid').value = $('e-total').value;
   if (b.dataset.v === 'pending') $('e-paid').value = 0;
 };
+
+async function openEdit(id) {
+  try {
+    const { job } = await api('/jobs/' + id);
+    current = job;
+    $('e-number').textContent = job.job_number || '';
+    $('e-name').value = job.job_name || '';
+    $('e-customer').value = job.customer_name || '';
+    $('e-total').value = Number(job.total) || 0;
+    $('e-paid').value = Number(job.paid_amount) || 0;
+    $('e-date').value = job.job_date || '';
+    $('e-note').value = job.note || '';
+    fillGroups(job.category || 'other');
+    fillTypes($('e-group').value, job.category_type || '');
+    setStatus(job.payment_status || 'pending');
+    document.querySelectorAll('main > section').forEach((s) => (s.hidden = true));
+    $('v-edit').hidden = false;
+    $('nav').hidden = false;
+    scrollTo(0, 0);
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
 
 $('e-save').onclick = async () => {
   const btn = $('e-save');
@@ -308,7 +503,7 @@ $('e-save').onclick = async () => {
       }),
     });
     toast('บันทึกเรียบร้อยแล้วค่ะ 💜');
-    await backToDash();
+    await show(tab === 'edit' ? 'today' : tab);
   } catch (err) {
     toast(err.message, true);
   } finally {
@@ -321,39 +516,40 @@ $('e-delete').onclick = async () => {
   try {
     await api('/jobs/' + current.id + '/cancel', { method: 'POST' });
     toast('ยกเลิกรายการแล้วค่ะ');
-    await backToDash();
+    await show('today');
   } catch (err) {
     toast(err.message, true);
   }
 };
 
-$('e-back').onclick = backToDash;
+$('e-back').onclick = () => show(tab === 'edit' ? 'today' : tab);
+$('s-close').onclick = () => (liff.isInClient() ? liff.closeWindow() : show('today'));
 
-document.querySelectorAll('[role="tab"]').forEach((tab) => {
-  tab.onclick = async () => {
-    document.querySelectorAll('[role="tab"]').forEach((t) => t.setAttribute('aria-selected', String(t === tab)));
-    scope = tab.dataset.scope;
-    $('list').innerHTML = '<div class="empty">กำลังโหลด…</div>';
-    try { await reloadList(); } catch (err) { toast(err.message, true); }
-  };
-});
+document.querySelectorAll('nav button').forEach((b) => (b.onclick = () => show(b.dataset.tab)));
+document.querySelectorAll('[data-go]').forEach((el) => (el.onclick = () => show(el.dataset.go)));
+$('r-period').onclick = async (e) => {
+  const b = e.target.closest('button[data-v]');
+  if (!b) return;
+  [...$('r-period').children].forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  period = b.dataset.v;
+  try { await loadReport(); } catch (err) { toast(err.message, true); }
+};
 
 (async function start() {
   try {
     const cfg = await (await fetch('/api/config')).json();
     groups = cfg.categories || [];
-    const liffId = cfg.liffId;
-    if (!liffId) return fatal('ยังไม่ได้ตั้งค่า LIFF_ID ค่ะ');
-    await liff.init({ liffId });
+    if (!cfg.liffId) return fatal('ยังไม่ได้ตั้งค่า LIFF_ID ค่ะ — ดูขั้นตอนใน DEPLOYMENT.md');
+    await liff.init({ liffId: cfg.liffId });
     if (!liff.isLoggedIn()) return liff.login({ redirectUri: location.href });
     token = liff.getAccessToken();
 
     const editId = new URLSearchParams(location.search).get('edit');
     if (editId) {
+      $('nav').hidden = false;
       await openEdit(editId);
     } else {
-      $('view-dash').hidden = false;
-      await loadDash();
+      await show(new URLSearchParams(location.search).get('tab') === 'pending' ? 'pending' : 'today');
     }
   } catch (err) {
     fatal(err.message || 'เปิดหน้านี้ไม่สำเร็จค่ะ');
