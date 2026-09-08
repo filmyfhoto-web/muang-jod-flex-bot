@@ -18,9 +18,14 @@ const b64 = (p) => readFileSync(ROOT + p).toString('base64');
 const font400 = b64('node_modules/@fontsource/noto-sans-thai/files/noto-sans-thai-thai-400-normal.woff2');
 const font700 = b64('node_modules/@fontsource/noto-sans-thai/files/noto-sans-thai-thai-700-normal.woff2');
 
-// The brand lockup (mascot + wordmark) already sits on a dark ground.
-const logo = (await sharp(ROOT + 'public/brand/logo-dark.jpg').resize({ width: 900 }).jpeg({ quality: 90 }).toBuffer())
-  .toString('base64');
+// The brand lockup (mascot + wordmark) already sits on a dark ground. Its own
+// dead margin above the mascot and below the tagline is trimmed here so the
+// panel can show the artwork itself as large as the design does.
+const logo = (await sharp(ROOT + 'public/brand/logo-dark.jpg')
+  .resize({ width: 900 })
+  .extract({ left: 0, top: 80, width: 900, height: 755 })
+  .jpeg({ quality: 90 })
+  .toBuffer()).toString('base64');
 
 // Geometry — mirrored by LAYOUT in create-rich-menu.js.
 const W = 2500, H = 1686;
@@ -30,6 +35,7 @@ const STRIP_H = 300;        // bottom strip — three more buttons, full width
 const COLS = 4, ROWS = 2;
 const CELL_W = Math.floor((W - PANEL_W) / COLS);
 const CELL_H = Math.floor((H - TOP - STRIP_H) / ROWS);
+const PANEL_H = 1150;       // brand panel, centred in the space beside the grid
 const STRIP_COLS = 3;
 const STRIP_W = Math.floor(W / STRIP_COLS);
 
@@ -116,11 +122,16 @@ body{width:${W}px;height:${H}px;font-family:'NST',sans-serif;overflow:hidden;pos
     radial-gradient(900px 620px at 18% 26%, rgba(46,125,247,.20), transparent 62%),
     radial-gradient(760px 520px at 82% 78%, rgba(46,125,247,.13), transparent 60%),
     linear-gradient(150deg,#080B12 0%,#05070C 55%,#080B12 100%)}
-.panel{position:absolute;left:40px;top:${TOP + 10}px;width:${PANEL_W - 110}px;height:${H - TOP - STRIP_H - 40}px;
+.panel{position:absolute;left:40px;top:${TOP + Math.round((H - TOP - STRIP_H - PANEL_H) / 2)}px;
+  width:${PANEL_W - 110}px;height:${PANEL_H}px;
   border-radius:46px;background:linear-gradient(160deg,rgba(20,28,44,.94),rgba(8,12,20,.94));
   border:2px solid rgba(46,125,247,.34);box-shadow:0 0 70px rgba(46,125,247,.16) inset,0 18px 44px rgba(0,0,0,.55);
-  overflow:visible;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:36px;padding:24px}
-.panel .logo{width:100%;border-radius:34px}
+  overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;padding:24px 0}
+/* Wider than the panel on purpose: the artwork's own side margins are what
+   gets clipped, so the mascot and wordmark read as large as in the design.
+   The mask fades its square edge into the panel instead of showing a seam. */
+.panel .logo{width:${Math.round((PANEL_W - 110) * 1.37)}px;flex:none;
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 70px,#000 calc(100% - 46px),transparent 100%)}
 .strip{position:absolute;left:0;top:${H - STRIP_H}px;width:${W}px;height:${STRIP_H}px}
 .scard{position:absolute;top:16px;height:${STRIP_H - 40}px;border-radius:34px;display:flex;align-items:center;gap:26px;padding:0 34px;
   background:linear-gradient(165deg,rgba(20,27,42,.94),rgba(10,14,23,.94));border:2px solid rgba(46,125,247,.30);
