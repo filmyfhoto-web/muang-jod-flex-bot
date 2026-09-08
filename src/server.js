@@ -43,14 +43,23 @@ app.use('/r', receiptRouter);
 
 // Owner-only setup page (installing the Rich Menu). Serves 404 unless
 // ADMIN_TOKEN is set and the request carries it.
-const { default: adminRouter } = await import('./routes/admin.js');
+const { default: adminRouter, adminToken } = await import('./routes/admin.js');
 app.use('/admin', adminRouter);
 
 // Health: also probes the database so setup problems (migration not run,
 // wrong key, wrong URL) are visible from a browser instead of only in logs.
 // A real GET, not HEAD: a HEAD 404 has no body and reads as success.
 app.get('/health', async (req, res) => {
-  const body = { status: 'ok', service: 'muang-jod', db: 'unknown' };
+  // `build` and `admin` answer the question a plain 404 cannot: is the running
+  // code the code you just pushed, and is the setup page switched on? Without
+  // them "not found" could equally mean an old build or a mistyped key.
+  const body = {
+    status: 'ok',
+    service: 'muang-jod',
+    build: (process.env.RENDER_GIT_COMMIT || 'local').slice(0, 7),
+    admin: adminToken() ? 'on' : 'off',
+    db: 'unknown',
+  };
   try {
     const { error } = await supabase.from('profiles').select('id').limit(1);
     if (error) {
