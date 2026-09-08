@@ -125,7 +125,7 @@ body{width:${W}px;height:${H}px;font-family:'NST',sans-serif;overflow:hidden;pos
 .scard{position:absolute;top:16px;height:${STRIP_H - 40}px;border-radius:34px;display:flex;align-items:center;gap:26px;padding:0 34px;
   background:linear-gradient(165deg,rgba(20,27,42,.94),rgba(10,14,23,.94));border:2px solid rgba(46,125,247,.30);
   box-shadow:0 12px 26px rgba(0,0,0,.5)}
-.sic{width:104px;height:104px;flex:none;filter:drop-shadow(0 6px 12px rgba(0,0,0,.55))}
+.sic{width:130px;height:130px;flex:none;filter:drop-shadow(0 6px 12px rgba(0,0,0,.55))}
 .st{font-weight:700;font-size:46px;color:#fff;white-space:nowrap}
 .ss{font-weight:400;font-size:28px;color:#93A3BC;margin-top:4px}
 .badge{display:flex;align-items:center;gap:16px;padding:16px 34px;border-radius:999px;
@@ -142,7 +142,7 @@ body{width:${W}px;height:${H}px;font-family:'NST',sans-serif;overflow:hidden;pos
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
 .num{position:absolute;left:22px;top:20px;width:52px;height:52px;border-radius:16px;background:${BLUE};
   font-weight:700;font-size:30px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(46,125,247,.5)}
-.ic{width:150px;height:150px;filter:drop-shadow(0 8px 14px rgba(0,0,0,.55))}
+.ic{width:230px;height:230px;filter:drop-shadow(0 8px 14px rgba(0,0,0,.55))}
 .t{font-weight:700;line-height:1.15;color:#fff;white-space:nowrap}
 .s{font-weight:400;font-size:26px;line-height:1.3;color:#93A3BC;max-width:352px}
 .rule{width:70px;height:5px;border-radius:3px;background:${BLUE};margin-top:10px;box-shadow:0 0 14px rgba(46,125,247,.75)}
