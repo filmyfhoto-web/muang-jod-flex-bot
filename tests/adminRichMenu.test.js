@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { adminToken, keyMatches } from '../src/routes/admin.js';
+import { adminToken, keyMatches, readKey } from '../src/routes/admin.js';
 import { installRichMenu, RICH_MENU_NAME } from '../src/services/richMenuInstaller.js';
 import { buildAreas } from '../scripts/create-rich-menu.js';
 
@@ -12,6 +12,23 @@ test('the page stays off until a long enough ADMIN_TOKEN is set', () => {
   assert.equal(adminToken({ ADMIN_TOKEN: '   ' }), null, 'blank: off');
   assert.equal(adminToken({ ADMIN_TOKEN: 'short' }), null, 'a guessable token is not accepted');
   assert.equal(adminToken({ ADMIN_TOKEN: 'a'.repeat(16) }), 'a'.repeat(16));
+});
+
+test('the key is read from a header, Basic auth, or the query — in that order', () => {
+  const req = (headers = {}, query = {}) => ({
+    get: (name) => headers[name.toLowerCase()],
+    query,
+  });
+  const basic = (user, pass) => `Basic ${Buffer.from(`${user}:${pass}`).toString('base64')}`;
+
+  assert.equal(readKey(req({ 'x-admin-token': 'from-header' }, { key: 'from-query' })), 'from-header');
+  assert.equal(readKey(req({ authorization: basic('admin', 'from-basic') })), 'from-basic');
+  assert.equal(readKey(req({}, { key: 'from-query' })), 'from-query');
+  assert.equal(readKey(req()), '', 'nothing supplied');
+
+  // The username is ignored, and a password containing a colon survives.
+  assert.equal(readKey(req({ authorization: basic('', 'a:b:c') })), 'a:b:c');
+  assert.equal(readKey(req({ authorization: 'Basic !!not-base64!!' })), '');
 });
 
 test('the key has to match exactly, and a wrong length is rejected not thrown', () => {

@@ -26,9 +26,23 @@ export function keyMatches(given, expected) {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-function keyOf(req) {
+// The key may arrive three ways. Basic auth is the one that works on a phone:
+// the browser shows a password box, so the token never has to survive being
+// pasted into a URL — which is where it kept getting mangled.
+export function readKey(req) {
   const header = req.get('x-admin-token');
   if (typeof header === 'string' && header) return header;
+
+  const auth = req.get('authorization') || '';
+  const basic = /^Basic\s+(\S+)$/i.exec(auth);
+  if (basic) {
+    // Base64 decoding is lenient and turns rubbish into rubbish, so require
+    // the "user:password" shape rather than passing whatever came out along.
+    const decoded = Buffer.from(basic[1], 'base64').toString('utf8');
+    const colon = decoded.indexOf(':');
+    return colon === -1 ? '' : decoded.slice(colon + 1); // any username; the password is the token
+  }
+
   const q = req.query?.key;
   return typeof q === 'string' ? q : '';
 }
@@ -45,14 +59,24 @@ router.use((req, res, next) => {
       hint: `ตั้งค่า ADMIN_TOKEN (อย่างน้อย ${MIN_TOKEN_LENGTH} ตัวอักษร) ก่อนใช้หน้านี้`,
     });
   }
-  if (!keyMatches(keyOf(req), expected)) {
-    logger.warn('admin.denied', { path: req.path });
-    return res.status(404).json({ error: 'not found' });
+  const given = readKey(req);
+  if (!given) {
+    // Nothing supplied — ask the browser for it rather than guessing.
+    res.set('WWW-Authenticate', 'Basic realm="muang-jod", charset="UTF-8"');
+    return res.status(401).json({ error: 'unauthorized', hint: 'ใส่รหัสในช่องรหัสผ่าน (ชื่อผู้ใช้ปล่อยว่างได้)' });
+  }
+  if (!keyMatches(given, expected)) {
+    logger.warn('admin.denied', { path: req.path, givenLength: given.length });
+    res.set('WWW-Authenticate', 'Basic realm="muang-jod", charset="UTF-8"');
+    // The length of what arrived, never the token: a 0 means the key never
+    // reached the server at all, and a wrong length means it was mangled on
+    // the way — which a bare "not found" could not tell apart.
+    return res.status(401).json({ error: 'wrong key', receivedKeyLength: given.length });
   }
   return next();
 });
 
-const PAGE = (key, body) => `<!doctype html><html lang="th"><head><meta charset="utf-8">
+const PAGE = (action, body) => `<!doctype html><html lang="th"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>ม่วงจด · ตั้งค่าเมนู</title>
 <style>
 :root{color-scheme:dark}
@@ -67,13 +91,13 @@ button:active{opacity:.85}
 .ok{color:#4ADE80}.bad{color:#F87171}
 code{background:#0B111C;padding:2px 6px;border-radius:5px;font-size:13px;word-break:break-all}
 </style></head><body><div class="card">${body}
-<form method="post" action="?key=${encodeURIComponent(key)}"><button>ติดตั้งเมนูขึ้น LINE</button></form>
+<form method="post" action="${escapeHtml(action)}"><button>ติดตั้งเมนูขึ้น LINE</button></form>
 </div></body></html>`;
 
 router.get('/rich-menu', (req, res) => {
   res.type('html').send(
     PAGE(
-      keyOf(req),
+      req.originalUrl,
       `<h1>ตั้งค่า Rich Menu</h1>
        <p>กดปุ่มด้านล่างเพื่ออัปโหลดเมนูล่าสุดขึ้น LINE และตั้งเป็นเมนูเริ่มต้น
           เมนูเก่าของม่วงจดจะถูกลบให้อัตโนมัติค่ะ</p>`
@@ -86,7 +110,7 @@ router.post('/rich-menu', async (req, res) => {
     const result = await installRichMenu();
     res.type('html').send(
       PAGE(
-        keyOf(req),
+        req.originalUrl,
         `<h1 class="ok">✅ เสร็จเรียบร้อยค่ะ</h1>
          <p>ติดตั้งเมนู ${result.areas} ปุ่มแล้ว ลบเมนูเก่า ${result.removed.length} อัน<br>
             <code>${escapeHtml(result.richMenuId)}</code><br><br>
@@ -98,7 +122,7 @@ router.post('/rich-menu', async (req, res) => {
     logger.error('admin.rich_menu_failed', { message: detail });
     res.status(500).type('html').send(
       PAGE(
-        keyOf(req),
+        req.originalUrl,
         `<h1 class="bad">❌ ไม่สำเร็จ</h1><p><code>${escapeHtml(String(detail).slice(0, 500))}</code></p>`
       )
     );
