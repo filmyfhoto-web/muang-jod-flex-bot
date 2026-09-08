@@ -42,7 +42,17 @@
 7. เอา `https://muang-jod.onrender.com/webhook` ไปใส่ใน
    **LINE Developers → Messaging API → Webhook URL** → **Verify** → เปิด **Use webhook = ON**
 8. ปิด **Auto-reply / Greeting** ใน LINE Official Account Manager (กันชนกับบอต)
-9. สร้าง Rich Menu: รันในเครื่องครั้งเดียว (ต้องมี `assets/rich-menu.png` 2500×1686 และ token ใน `.env`)
+9. สร้าง Rich Menu — เลือกวิธีใดวิธีหนึ่ง
+
+   **ก. จากเบราว์เซอร์ (ไม่ต้องใช้ Terminal)**
+   - เพิ่ม env var `ADMIN_TOKEN` (ยาวอย่างน้อย 16 ตัว ตั้งเองได้ เช่นสุ่มมา 1 ชุด)
+   - เปิด `https://muang-jod.onrender.com/admin/rich-menu?key=<ADMIN_TOKEN>`
+   - กดปุ่ม **ติดตั้งเมนูขึ้น LINE**
+
+   หน้านี้เปลี่ยนเมนูที่ผู้ใช้ทุกคนเห็น จึงเปิดเฉพาะเมื่อมี `ADMIN_TOKEN`
+   และต้องส่ง key มาถูกเท่านั้น นอกนั้นตอบ 404 เสมอ
+
+   **ข. จากเครื่องตัวเอง** (ต้องมี `assets/rich-menu.png` 2500×1686 และ token ใน `.env`)
    ```bash
    npm run rich-menu
    ```

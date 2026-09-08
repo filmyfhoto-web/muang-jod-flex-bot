@@ -41,6 +41,11 @@ app.use('/api', apiRouter);
 // Printable receipt, readable by anyone holding the bill's share token.
 app.use('/r', receiptRouter);
 
+// Owner-only setup page (installing the Rich Menu). Serves 404 unless
+// ADMIN_TOKEN is set and the request carries it.
+const { default: adminRouter } = await import('./routes/admin.js');
+app.use('/admin', adminRouter);
+
 // Health: also probes the database so setup problems (migration not run,
 // wrong key, wrong URL) are visible from a browser instead of only in logs.
 // A real GET, not HEAD: a HEAD 404 has no body and reads as success.
