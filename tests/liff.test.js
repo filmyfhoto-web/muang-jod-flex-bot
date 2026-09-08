@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { liffId, liffChannelId, liffUrl } from '../src/utils/liff.js';
+import { liffId, liffChannelId, liffUrl, liffPage } from '../src/utils/liff.js';
 import { verifyLineAccessToken } from '../src/routes/api.js';
 import { safe, jobPatchSchema } from '../src/utils/validation.js';
 
@@ -61,4 +61,17 @@ test('jobPatchSchema: accepts a partial edit, rejects junk and unknown fields', 
   assert.ok(!safe(jobPatchSchema, { job_date: '7/9/2026' }).ok);
   assert.ok(!safe(jobPatchSchema, { user_id: 'someone-else' }).ok); // strict
   assert.ok(!safe(jobPatchSchema, { job_name: '' }).ok);
+});
+
+test('liffPage points at a page inside the LIFF app, and stays null without an id', () => {
+  const env = { LIFF_ID: '1234567890-abcdefgh' };
+  assert.equal(liffPage('jot', {}, env), 'https://liff.line.me/1234567890-abcdefgh/jot');
+  assert.equal(liffPage('/jot/', {}, env), 'https://liff.line.me/1234567890-abcdefgh/jot', 'slashes trimmed');
+  assert.equal(
+    liffPage('jot', { tab: 'today' }, env),
+    'https://liff.line.me/1234567890-abcdefgh/jot?tab=today',
+    'the query stays after the path'
+  );
+  assert.equal(liffPage('', {}, env), 'https://liff.line.me/1234567890-abcdefgh', 'no path: the app root');
+  assert.equal(liffPage('jot', {}, {}), null, 'no LIFF_ID configured');
 });

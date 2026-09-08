@@ -11,9 +11,13 @@ import {
   getJobsInPeriod,
   buildReport,
 } from '../services/jobService.js';
+import { createJob } from '../services/jobService.js';
+import { saveAttachment } from '../services/attachmentService.js';
 import { derivePaymentFields } from '../utils/payment.js';
 import { round2 } from '../utils/currency.js';
-import { safe, jobPatchSchema, paymentAmountSchema } from '../utils/validation.js';
+import { deriveJobName } from '../utils/category.js';
+import { todayISO } from '../utils/dates.js';
+import { safe, jobPatchSchema, jobCreateSchema, paymentAmountSchema } from '../utils/validation.js';
 import { liffId, liffChannelId } from '../utils/liff.js';
 import { CATEGORY_GROUPS, OTHER_GROUP } from '../utils/category.js';
 import { logger, maskUserId } from '../services/logger.js';
@@ -57,11 +61,36 @@ function bearer(req) {
   return m ? m[1].trim() : null;
 }
 
+// A photo from the form, as a data: URL. Only the two types the storage
+// bucket already knows, and small enough that the browser must downscale
+// first — the client does that, this is the backstop.
+const IMAGE_TYPES = { 'image/jpeg': true, 'image/png': true };
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_IMAGES = 4;
+
+export function decodeDataUrl(value) {
+  const m = /^data:([a-z]+\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=\s]+)$/i.exec(String(value || ''));
+  if (!m) return { error: 'ไฟล์แนบไม่ถูกต้อง' };
+  const fileType = m[1].toLowerCase();
+  if (!IMAGE_TYPES[fileType]) return { error: 'แนบได้เฉพาะรูป JPG หรือ PNG' };
+  const buffer = Buffer.from(m[2].replace(/\s+/g, ''), 'base64');
+  if (!buffer.length) return { error: 'ไฟล์แนบว่างเปล่า' };
+  if (buffer.length > MAX_IMAGE_BYTES) return { error: 'รูปใหญ่เกิน 5 MB' };
+  return { buffer, fileType };
+}
+
 export function createApiRouter(deps = {}) {
   const verify = deps.verify || verifyLineAccessToken;
   const resolveProfile = deps.resolveProfile || getOrCreateProfile;
+  const create = deps.createJob || createJob;
+  const attach = deps.saveAttachment || saveAttachment;
   const router = express.Router();
-  router.use(express.json({ limit: '64kb' }));
+  // Everything is small JSON except the one route that carries a photo.
+  router.use((req, res, next) =>
+    (req.method === 'POST' && req.path === '/jobs'
+      ? express.json({ limit: '8mb' })
+      : express.json({ limit: '64kb' }))(req, res, next)
+  );
 
   router.get('/config', (req, res) => {
     res.json({
@@ -121,6 +150,64 @@ export function createApiRouter(deps = {}) {
       const jobs =
         scope === 'pending' ? await getPendingJobs(req.profile.id) : await getRecentJobs(req.profile.id, limit);
       res.json({ jobs });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Create a job from the LIFF form. The browser sends the rows; the money is
+  // added up here, so a tampered or simply stale total can't be saved.
+  router.post('/jobs', async (req, res, next) => {
+    try {
+      const { image, images, ...body } = req.body || {};
+      const check = safe(jobCreateSchema, body);
+      if (!check.ok) return res.status(400).json({ error: 'invalid', message: check.error });
+
+      // Decode before saving: a job with an unusable attachment should fail
+      // as a whole, not leave a saved job the photo never reached.
+      const sent = [...(Array.isArray(images) ? images : []), image].filter(Boolean).slice(0, MAX_IMAGES);
+      const files = [];
+      for (const one of sent) {
+        const file = decodeDataUrl(one);
+        if (file.error) return res.status(400).json({ error: 'invalid', message: file.error });
+        files.push(file);
+      }
+
+      const draft = check.data;
+      const items = draft.items.map((it) => ({
+        ...it,
+        total: round2(it.total ?? Number(it.unit_price) * Number(it.quantity)),
+      }));
+      const subtotal = round2(items.reduce((sum, it) => sum + (Number(it.total) || 0), 0));
+      const discount = round2(Math.min(draft.discount, subtotal));
+      const total = round2(subtotal - discount);
+
+      const job = await create(req.profile.id, {
+        jobName: draft.jobName?.trim() || deriveJobName(items),
+        customerName: draft.customerName || null,
+        jobDate: draft.jobDate || todayISO(),
+        items,
+        subtotal,
+        discount,
+        total,
+        paidAmount: round2(Math.min(draft.paidAmount, total)),
+        note: draft.note || null,
+      });
+
+      // The job is saved by now. A failed upload must not throw that away, so
+      // it is reported alongside the job rather than as an error.
+      let attached = 0;
+      for (const file of files) {
+        try {
+          await attach(req.profile.id, job, { messageId: null, buffer: file.buffer, fileType: file.fileType });
+          attached += 1;
+        } catch (err) {
+          logger.warn('api.attachment_failed', { jobId: job.id, message: err?.message });
+        }
+      }
+
+      logger.info('api.job_created', { user: maskUserId(req.profile.line_user_id), jobId: job.id });
+      res.status(201).json({ job, attached, attachmentsFailed: files.length - attached });
     } catch (err) {
       next(err);
     }

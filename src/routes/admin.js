@@ -103,7 +103,7 @@ body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:c
 .card{width:100%;max-width:420px;background:#121A2A;border:1px solid #24344F;border-radius:20px;padding:28px}
 h1{font-size:21px;margin:0 0 6px}
 p{color:#93A3BC;font-size:15px;line-height:1.6;margin:0 0 20px}
-button{width:100%;padding:16px;font-size:17px;font-weight:600;color:#fff;background:#7C3AED;
+button{width:100%;padding:16px;font-size:17px;font-weight:600;color:#fff;background:#2E7DF7;
   border:0;border-radius:12px;cursor:pointer}
 button:active{opacity:.85}
 .ok{color:#4ADE80}.bad{color:#F87171}

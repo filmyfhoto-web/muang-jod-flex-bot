@@ -27,7 +27,7 @@ for (const pose of POSES) {
 // card's own surface and tint from src/flex/theme.js; a white strip would read
 // as a hole punched in the top of a dark card.
 const W = 1040, H = 416, BAND = 250;
-const SURFACE = '#121A2A', EDGE = '#1B2537', RULE = '#7C3AED';
+const SURFACE = '#121A2A', EDGE = '#1B2537', RULE = '#2E7DF7';
 const backdrop = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
   <rect width="${W}" height="${H}" fill="${SURFACE}"/>
   <rect x="0" y="${BAND}" width="${W}" height="${H - BAND}" fill="${EDGE}"/>

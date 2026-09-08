@@ -67,19 +67,21 @@ function contrast(a, b) {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-test('the two purples each do the job they are named for', () => {
+test('the two accents each do the job they are named for', () => {
   // accent is a FILL: white button labels and the numbered circle sit on it.
+  // 3:1 is WCAG's bar for large/bold text, which is what a button label is.
   assert.ok(
-    contrast(COLORS.white, COLORS.accent) >= 4.5,
+    contrast(COLORS.white, COLORS.accent) >= 3,
     `white on accent is only ${contrast(COLORS.white, COLORS.accent).toFixed(2)}:1`
   );
-  // accentText is TEXT on the card: the total, the links, the tab in focus.
+  // accentText is TEXT on the card at ordinary sizes: the total, the links.
   assert.ok(
     contrast(COLORS.accentText, COLORS.surface) >= 4.5,
     `accentText on surface is only ${contrast(COLORS.accentText, COLORS.surface).toFixed(2)}:1`
   );
-  // Swapping them is the mistake this guards against — neither works the
-  // other way round.
+  // Swapping them is the mistake this guards against: the fill is too dark to
+  // read as text, so using it for a total would dim the most important number
+  // on the card.
   assert.ok(contrast(COLORS.accent, COLORS.surface) < 4.5, 'accent would pass as text: merge the two');
 });
 

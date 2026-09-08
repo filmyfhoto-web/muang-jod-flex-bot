@@ -61,6 +61,23 @@ export const jobDraftSchema = z.object({
   note: z.string().trim().max(500).nullable().optional(),
 });
 
+// A job the LIFF form asks the server to create. Deliberately NOT the same as
+// jobDraftSchema: the browser sends what the person typed (items, customer,
+// deposit) and the server does the arithmetic itself — a total that arrived
+// over the wire is a number nobody checked.
+export const jobCreateSchema = z.object({
+  jobName: z.string().trim().max(200).nullable().optional(),
+  customerName: z.string().trim().max(200).nullable().optional(),
+  jobDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'รูปแบบวันที่ต้องเป็น YYYY-MM-DD')
+    .optional(),
+  items: z.array(jobItemSchema).min(1, 'ต้องมีอย่างน้อย 1 รายการ').max(50, 'รายการเยอะเกินไป'),
+  discount: z.coerce.number().min(0).default(0),
+  paidAmount: z.coerce.number().min(0).default(0),
+  note: z.string().trim().max(500).nullable().optional(),
+});
+
 // Fields the LIFF edit form may change on an existing job.
 export const jobPatchSchema = z
   .object({

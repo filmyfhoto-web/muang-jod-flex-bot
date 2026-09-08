@@ -24,3 +24,14 @@ export function liffUrl(query = {}, env = process.env) {
   ).toString();
   return `https://liff.line.me/${id}${qs ? `?${qs}` : ''}`;
 }
+
+// A page inside the LIFF app: LINE appends the path to the endpoint URL, so
+// liffPage('jot') opens <endpoint>/jot — the "กรอกข้อมูลงาน" form.
+export function liffPage(path, query = {}, env = process.env) {
+  const base = liffUrl(query, env);
+  if (!base) return null;
+  const clean = String(path || '').replace(/^\/+|\/+$/g, '');
+  if (!clean) return base;
+  const [head, qs] = base.split('?');
+  return `${head}/${clean}${qs ? `?${qs}` : ''}`;
+}

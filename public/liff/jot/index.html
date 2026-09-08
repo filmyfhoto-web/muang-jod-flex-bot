@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0B1524" />
+<title>ม่วงจดให้ — บันทึกงาน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<!-- ฉากหลังกลางคืน: พระจันทร์ ดาว และเงาตึก วาดด้วย CSS ล้วน ไม่มีไฟล์รูป -->
+<div class="sky" aria-hidden="true">
+  <div class="moon"></div>
+  <div class="stars"></div>
+  <div class="skyline"></div>
+</div>
+
+<header class="bar">
+  <button class="back" id="btn-close" aria-label="ปิดหน้านี้">‹</button>
+  <img class="avatar" src="/brand/ui/happy.png" alt="" />
+  <div class="who">
+    <strong>ม่วงจดให้ 🐶</strong>
+    <span id="bar-sub">บันทึกงานพิมพ์ / ป้ายโฆษณา</span>
+  </div>
+</header>
+
+<main>
+  <!-- ข้อความจากบอท: หน้าตาเดียวกับบับเบิลในแชต LINE -->
+  <div class="chat">
+    <div class="msg">
+      <img class="pic" src="/brand/ui/happy.png" alt="ม่วงจด" />
+      <div class="bubble">ได้ค่ะ พิมพ์รายละเอียดงานใหม่มาได้เลย ม่วงจดจะจัดรายการให้ใหม่ค่ะ ✏️</div>
+    </div>
+    <div class="msg">
+      <span class="pic ghost" aria-hidden="true"></span>
+      <div class="bubble">ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด “บันทึกงาน” ได้เลยค่ะ 💜</div>
+    </div>
+  </div>
+
+  <!-- ส่วนที่ 1 — การ์ดสรุป อัปเดตตามที่พิมพ์ในฟอร์มทันที -->
+  <section class="card summary" id="summary" aria-live="polite">
+    <h2 class="card-head">📋 ตรวจสอบก่อนบันทึก</h2>
+
+    <div class="sum-top">
+      <div class="sum-name" id="s-name">งานป้าย / ป้ายไวนิล</div>
+      <span class="chip pending" id="s-status">ค้างรับ</span>
+    </div>
+    <div class="sum-meta" id="s-date">—</div>
+    <div class="sum-meta" id="s-customer" hidden></div>
+
+    <hr class="rule" />
+    <ol class="rows" id="s-rows"></ol>
+    <hr class="rule" />
+
+    <div class="sum-total">
+      <span>ยอดรวม</span>
+      <b id="s-total">฿0</b>
+    </div>
+    <div class="sum-paid" id="s-paid" hidden>
+      <span>รับแล้ว</span><b id="s-paid-amount">฿0</b>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="btn-save">✅ บันทึกงาน</button>
+      <div class="pair">
+        <button class="btn btn-ghost" id="btn-edit">✏️ แก้ไข</button>
+        <button class="btn btn-ghost" id="btn-reset">❌ ยกเลิก</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ส่วนที่ 2 — ฟอร์มจริง -->
+  <section class="card" id="form">
+    <h2 class="card-head">📝 กรอกข้อมูลงาน</h2>
+
+    <div class="grid-2">
+      <label class="field">
+        <span>ลูกค้า</span>
+        <input id="f-customer" type="text" placeholder="เช่น รพสต.บ้านชี" autocomplete="off" />
+      </label>
+      <label class="field">
+        <span>วันที่</span>
+        <input id="f-date" type="date" />
+      </label>
+    </div>
+
+    <!-- รายการงานถูกสร้างด้วย JS ทีละใบ -->
+    <div id="items"></div>
+
+    <button class="btn btn-add" id="btn-add">➕ เพิ่มรายการ</button>
+
+    <div class="grid-2">
+      <label class="field">
+        <span>รับเงินมาแล้ว (บาท)</span>
+        <input id="f-paid" type="number" inputmode="decimal" min="0" step="1" placeholder="เช่น 300" />
+      </label>
+      <label class="field">
+        <span>หมายเหตุ</span>
+        <input id="f-note" type="text" maxlength="200" placeholder="เช่น ส่งวันศุกร์" />
+      </label>
+    </div>
+  </section>
+
+  <p class="foot" id="foot">ร่างถูกเก็บไว้ในเครื่องอัตโนมัติ ปิดแล้วเปิดใหม่ก็ยังอยู่ค่ะ</p>
+</main>
+
+<div class="toast" id="toast" role="status"></div>
+
+<!-- แม่แบบของรายการหนึ่งใบ โคลนด้วย JS -->
+<template id="tpl-item">
+  <article class="item">
+    <div class="item-head">
+      <span class="num">1</span>
+      <span class="item-title">รายการที่ 1</span>
+      <button class="icon-btn del" type="button" aria-label="ลบรายการนี้">🗑</button>
+    </div>
+
+    <label class="field">
+      <span>ชื่อ</span>
+      <input class="i-name" type="text" placeholder="เช่น ป้ายหน้าร้าน" autocomplete="off" />
+    </label>
+
+    <label class="field">
+      <span>รายละเอียด</span>
+      <input class="i-detail" type="text" placeholder="เช่น ป้ายไวนิล 60x100" autocomplete="off" />
+    </label>
+
+    <div class="grid-2">
+      <label class="field">
+        <span>ราคา (บาท)</span>
+        <input class="i-price" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 150" />
+      </label>
+      <label class="field">
+        <span>จำนวน</span>
+        <input class="i-qty" type="number" inputmode="decimal" min="0" step="1" placeholder="เช่น 1" />
+      </label>
+    </div>
+
+    <div class="grid-2">
+      <label class="field">
+        <span>ตรมละ (บาท)</span>
+        <input class="i-rate" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 165" />
+      </label>
+      <label class="field">
+        <span>ยอดรวม (บาท)</span>
+        <input class="i-total" type="number" inputmode="decimal" min="0" step="0.01" placeholder="ระบบจะคำนวณให้อัตโนมัติ" />
+      </label>
+    </div>
+
+    <p class="hint area-hint" hidden></p>
+
+    <div class="field">
+      <span class="lbl">แนบรูป</span>
+      <label class="drop">
+        <input class="i-file" type="file" accept="image/*" hidden />
+        <span class="drop-ic">🖼</span>
+        <span class="drop-text">แตะเพื่อแนบรูป<small>ไม่บังคับ</small></span>
+      </label>
+      <div class="preview" hidden>
+        <img alt="รูปที่แนบ" />
+        <button class="icon-btn rm" type="button" aria-label="เอารูปออก">✕</button>
+      </div>
+    </div>
+  </article>
+</template>
+
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script src="./script.js"></script>
+</body>
+</html>
