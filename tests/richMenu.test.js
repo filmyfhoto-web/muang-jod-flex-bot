@@ -29,6 +29,7 @@ test('the artwork and the tap areas describe the same geometry', () => {
   assert.equal(nOf('W'), LAYOUT.width);
   assert.equal(nOf('H'), LAYOUT.height);
   assert.equal(nOf('PANEL_W'), LAYOUT.marginLeft);
+  assert.equal(nOf('RIGHT'), LAYOUT.marginRight);
   assert.equal(nOf('TOP'), LAYOUT.marginTop);
   assert.equal(nOf('STRIP_H'), LAYOUT.stripHeight);
   assert.equal(nOf('COLS'), LAYOUT.cols);

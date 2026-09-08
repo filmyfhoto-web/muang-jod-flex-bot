@@ -19,7 +19,7 @@ const LAYOUT = {
   cols: 4,
   rows: 2,
   marginLeft: 860, // brand panel to the left of the grid (not tappable)
-  marginRight: 0,
+  marginRight: 40, // margin after the last column, matching the panel's on the left
   marginTop: 26, // margin above the first row
   stripHeight: 300, // bottom strip — tappable, see STRIP below
   stripCols: 3,
