@@ -1,7 +1,11 @@
 import { round2 } from './currency.js';
+import { parseAreaPricing, areaItem } from './area.js';
 
-const SIZE_RE = /(\d+(?:\.\d+)?\s*[xX×]\s*\d+(?:\.\d+)?(?:\s*[xX×]\s*\d+(?:\.\d+)?)?)/;
+const SIZE_RE = /(\d+(?:\.\d+)?\s*[xX×*]\s*\d+(?:\.\d+)?(?:\s*[xX×*]\s*\d+(?:\.\d+)?)?)/;
 const UNIT_WORDS = ['ชิ้น', 'อัน', 'ใบ', 'แผ่น', 'ตัว', 'ม้วน', 'กล่อง', 'ชุด', 'เมตร', 'ตร.ม.', 'ตารางเมตร'];
+// หน่วยนับ "ผืน/ป้าย" ใช้เฉพาะบรรทัดที่คิดราคาแบบตารางเมตร
+const PIECE_WORDS = ['ผืน', 'ป้าย', 'แผ่น', 'ชิ้น', 'อัน', 'ใบ', 'ชุด'];
+const PIECE_RE = new RegExp(`(\\d+)\\s*(?:${PIECE_WORDS.join('|')})`);
 const QTY_RE = new RegExp(
   `(?:[x×]\\s*(\\d+))|(?:จำนวน\\s*(\\d+))|(\\d+)\\s*(?:${UNIT_WORDS.join('|')})`,
   'i'
@@ -23,10 +27,32 @@ function detectUnit(line) {
   return null;
 }
 
+function cleanName(working) {
+  return working
+    .replace(/บาท|฿|baht/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 // Parse a single line into a job item, or null if nothing useful found.
 export function parseLine(rawLine) {
   const line = String(rawLine).trim();
   if (!line) return null;
+
+  // ราคาต่อตารางเมตรมาก่อน — บรรทัดแบบ "ไวนิล 160*300 ตรมละ 165" ต้องคิด
+  // พื้นที่ให้ ไม่ใช่อ่าน 165 เป็นราคาทั้งผืน
+  const area = parseAreaPricing(line);
+  if (area) {
+    let rest = area.rest;
+    let pieces = 1;
+    const pieceMatch = rest.match(PIECE_RE);
+    if (pieceMatch) {
+      pieces = Number(pieceMatch[1]) || 1;
+      rest = rest.replace(pieceMatch[0], ' ');
+    }
+    const itemName = cleanName(rest) || (area.sizeLabel ? `รายการ ${area.sizeLabel}` : 'รายการ');
+    return areaItem(area, { itemName, pieces });
+  }
 
   let working = line;
 
@@ -70,10 +96,7 @@ export function parseLine(rawLine) {
   }
 
   // 4) Item name = whatever text remains
-  let itemName = working
-    .replace(/บาท|฿|baht/gi, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  let itemName = cleanName(working);
   if (!itemName) itemName = size ? `รายการ ${size}` : 'รายการ';
 
   const total = round2(unitPrice * quantity);

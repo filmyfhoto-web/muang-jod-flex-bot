@@ -36,6 +36,7 @@ function draftToBubble(draft) {
 const DEFAULT_REPLY =
   'สวัสดีค่ะ 💜 ม่วงจดพร้อมช่วยจดงานให้แล้วค่ะ\n' +
   'พิมพ์รายการงานมาได้เลย เช่น\nป้ายไวนิล 60x100 150 บาท\n' +
+  'หรือคิดเป็นตารางเมตร\nไวนิล 160x300 ตรมละ 165\n' +
   'หรือกดเมนูด้านล่างนะคะ';
 
 // Cheap, rule-based check: does this text look like a job entry (has an
@@ -154,7 +155,10 @@ async function handleNewJob(replyToken, profile, text) {
   if (!parsed.items.length) {
     return reply(replyToken, {
       type: 'text',
-      text: 'ขออภัยค่ะ อ่านรายการไม่ออกเลย ลองพิมพ์แบบนี้นะคะ\nป้ายไวนิล 60x100 150 บาท 💜',
+      text:
+        'ขออภัยค่ะ อ่านรายการไม่ออกเลย ลองพิมพ์แบบนี้นะคะ\n' +
+        'ป้ายไวนิล 60x100 150 บาท\n' +
+        'หรือ ไวนิล 160x300 ตรมละ 165 💜',
     });
   }
 

@@ -1,5 +1,6 @@
 import { parseJobText } from './parser.js';
 import { round2 } from './currency.js';
+import { parseAreaPricing, areaItem } from './area.js';
 
 // Rule-based natural-language extractor. Understands short Thai shopkeeper
 // notes like:
@@ -11,6 +12,25 @@ const UNIT_WORDS = ['ป้าย', 'ชิ้น', 'อัน', 'ใบ', 'แ�
 // Note: short honorifics like "ป้า"/"อา" are intentionally excluded — they
 // collide with common words ("ป้าย" = sign), causing false customer matches.
 const HONORIFICS = ['พี่', 'คุณ', 'น้อง', 'เจ๊', 'เฮีย', 'ลุง'];
+// ลูกค้าที่เป็นหน่วยงาน — "รพสตบ้านชี", "โรงเรียนบ้านหนอง", "อบต.นาดี"
+// เรียงยาวไปสั้น เพื่อให้ "รพ.สต." ชนะ "รพ."
+const ORG_PREFIXES = [
+  'รพ\\.?\\s?สต\\.?',
+  'โรงพยาบาลส่งเสริมสุขภาพตำบล',
+  'โรงพยาบาล',
+  'รพ\\.',
+  'โรงเรียน',
+  'ร\\.?ร\\.',
+  'มหาวิทยาลัย',
+  'เทศบาล',
+  'อบต\\.?',
+  'อบจ\\.?',
+  'สำนักงาน',
+  'บริษัท',
+  'หจก\\.?',
+  'วัด',
+  'ร้าน',
+];
 
 function toNumber(s) {
   const v = parseFloat(String(s ?? '').replace(/,/g, ''));
@@ -26,18 +46,43 @@ function extractPaid(text) {
   return { paidAmount: toNumber(m[1]), rest: text.replace(m[0], ' ') };
 }
 
-// Pull out a customer name: an honorific + name (พี่นก), else "ร้าน<name>".
+// คำที่ตามหลังคำนำหน้าแล้วแปลว่า "ไม่ใช่ชื่อ" — กัน "ป้ายวัดขนาด 2x3"
+// กลายเป็นลูกค้าชื่อ "วัดขนาด"
+const NOT_A_NAME = /^(ขนาด|ราคา|จำนวน|ไวนิล|สติกเกอร์|ป้าย|งาน|ทำ|ละ|ค่า|กว้าง|ยาว)/;
+
+// Pull out a customer name: an honorific + name (พี่นก), an organisation
+// (รพสตบ้านชี, โรงเรียนบ้านหนอง), else "ร้าน<name>".
 function extractCustomer(text) {
   const honor = new RegExp(`(${HONORIFICS.join('|')})\\s*([ก-๙A-Za-z]{1,20})`);
   const m = text.match(honor);
-  if (m) {
+  if (m && !NOT_A_NAME.test(m[2])) {
     return { customerName: `${m[1]}${m[2]}`.replace(/\s+/g, ''), rest: text.replace(m[0], ' ') };
   }
-  const shop = text.match(/ร้าน\s*([ก-๙A-Za-z]{2,20})/);
-  if (shop) {
-    return { customerName: `ร้าน${shop[1]}`, rest: text.replace(shop[0], ' ') };
+
+  const org = text.match(new RegExp(`(${ORG_PREFIXES.join('|')})\\s*([ก-๙A-Za-z]{2,20})`));
+  if (org && !NOT_A_NAME.test(org[2])) {
+    return { customerName: `${org[1]}${org[2]}`.replace(/\s+/g, ''), rest: text.replace(org[0], ' ') };
   }
+
   return { customerName: null, rest: text };
+}
+
+function cleanItemName(working) {
+  return working
+    .replace(/วันนี้|เมื่อวาน|พรุ่งนี้|ทำ|ทํา|งาน|ให้|ค่ะ|คะ|ครับ|นะ|บาท|฿/g, ' ')
+    .replace(/ร้าน/g, ' ')
+    .replace(/\d[\d,]*(?:\.\d+)?/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// จำนวนผืน/ป้ายในบรรทัดที่คิดราคาแบบตารางเมตร
+function extractPieces(working) {
+  const byUnit = working.match(new RegExp(`(\\d+)\\s*(${UNIT_WORDS.join('|')})`));
+  if (byUnit) return { pieces: toNumber(byUnit[1]) || 1, rest: working.replace(byUnit[0], ' ') };
+  const byX = working.match(/(?:x|×|จำนวน)\s*(\d+)/i);
+  if (byX) return { pieces: toNumber(byX[1]) || 1, rest: working.replace(byX[0], ' ') };
+  return { pieces: 1, rest: working };
 }
 
 // Parse a single free-form line into one item, understanding "ป้ายละ 350"
@@ -45,8 +90,16 @@ function extractCustomer(text) {
 function parseSingleLine(line) {
   let working = ` ${String(line || '').replace(/\s+/g, ' ').trim()} `;
 
+  // "ไวนิล ขนาด 160*300 ตรมละ 165" — คิดพื้นที่ให้ก่อน ไม่งั้น "ละ 165"
+  // จะถูกอ่านเป็นราคาต่อชิ้น
+  const area = parseAreaPricing(working);
+  if (area) {
+    const { pieces, rest } = extractPieces(area.rest);
+    return areaItem(area, { itemName: cleanItemName(rest) || 'งานป้าย', pieces });
+  }
+
   let size = null;
-  const sizeM = working.match(/(\d+(?:\.\d+)?\s*[xX×]\s*\d+(?:\.\d+)?)/);
+  const sizeM = working.match(/(\d+(?:\.\d+)?\s*[xX×*]\s*\d+(?:\.\d+)?)/);
   if (sizeM) {
     size = sizeM[1].replace(/\s+/g, '');
     working = working.replace(sizeM[1], ' ');
@@ -95,12 +148,7 @@ function parseSingleLine(line) {
   if (quantity <= 0) quantity = 1;
   if (unitPrice == null) unitPrice = 0;
 
-  let itemName = working
-    .replace(/วันนี้|เมื่อวาน|พรุ่งนี้|ทำ|ทํา|งาน|ให้|ค่ะ|คะ|ครับ|นะ|บาท|฿/g, ' ')
-    .replace(/ร้าน/g, ' ')
-    .replace(/\d[\d,]*(?:\.\d+)?/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  let itemName = cleanItemName(working);
   if (!itemName) itemName = unitWord || 'งาน';
 
   return {
