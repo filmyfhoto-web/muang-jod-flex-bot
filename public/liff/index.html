@@ -26,7 +26,19 @@
   header h1 { margin: 0; font-size: 16px; font-weight: 700; color: var(--purple-dark); }
   header p { margin: 0; font-size: 11.5px; color: var(--grey); }
   main { padding: 0 14px; }
-  .card { background: var(--white); border-radius: var(--r); padding: 15px; box-shadow: 0 2px 12px rgba(91,33,182,.08); margin-bottom: 13px; }
+  .card { position: relative; background: var(--white); border-radius: var(--r); padding: 15px; box-shadow: 0 2px 12px rgba(91,33,182,.08); margin-bottom: 13px; }
+
+  /* Die-cut mascots that sit IN the layout rather than on top of it. `behind`
+     tucks the body under the card's own background so only the head and paws
+     clear the edge; `front` lets a paw or a tail drape over it. Neither can be
+     tapped, and both stay clear of the numbers and buttons. */
+  .peek { position: absolute; pointer-events: none; user-select: none; }
+  .peek.behind { z-index: -1; }
+  .peek.front { z-index: 2; filter: drop-shadow(0 5px 9px rgba(91,33,182,.22)); }
+  /* A card the mascot rests against keeps room for it, so it never sits on a
+     row's amount or badge. */
+  .card.mascot-foot { padding-bottom: 46px; }
+  @media (max-width: 340px) { .peek { display: none; } }
   .card > h2 { margin: 0 0 12px; font-size: 15px; color: var(--ink); display: flex; justify-content: space-between; align-items: center; font-weight: 700; }
   .card > h2 .date { font-size: 12px; color: var(--grey); font-weight: 500; }
   .link { font-size: 12.5px; color: var(--purple); font-weight: 600; }
@@ -113,6 +125,7 @@
   <!-- 1. งานวันนี้ -->
   <section id="v-today" hidden>
     <div class="card">
+      <img class="peek behind" src="/brand/ui/peek.png" alt="" style="right:14px;top:-46px;width:76px" />
       <h2>สรุปงานวันนี้ <span class="date" id="t-date"></span></h2>
       <div class="grid" id="t-tiles"></div>
     </div>
@@ -120,15 +133,17 @@
       <h2>สัดส่วนงานวันนี้</h2>
       <div class="donut"><div id="t-donut"></div><div class="legend" id="t-legend"></div></div>
     </div>
-    <div class="card">
+    <div class="card mascot-foot">
       <h2>รายการล่าสุด <span class="link" data-go="pending">ดูค้างรับ ›</span></h2>
       <div id="t-recent"></div>
+      <img class="peek front" src="/brand/ui/rest.png" alt="" style="right:10px;bottom:-14px;width:88px" />
     </div>
   </section>
 
   <!-- 2. สรุปรายการ -->
   <section id="v-report" hidden>
     <div class="card">
+      <img class="peek behind" src="/brand/ui/happy.png" alt="" style="right:12px;top:-44px;width:74px" />
       <h2>สรุปรายการ</h2>
       <div class="seg" id="r-period">
         <button type="button" data-v="daily" aria-pressed="true">วันนี้</button>
@@ -146,7 +161,10 @@
 
   <!-- 3. งานค้างรับ -->
   <section id="v-pending" hidden>
-    <div class="card"><h2>งานค้างรับ <span class="date" id="p-sum"></span></h2><div id="p-list"></div></div>
+    <div class="card">
+      <img class="peek behind" src="/brand/ui/sit.png" alt="" style="right:12px;top:-52px;width:70px" />
+      <h2>งานค้างรับ <span class="date" id="p-sum"></span></h2><div id="p-list"></div>
+    </div>
   </section>
 
   <!-- 4. ตั้งค่า -->
@@ -158,6 +176,7 @@
       <button class="btn btn-ghost" id="s-close">ปิดหน้าต่าง</button>
     </div>
     <div class="card">
+      <img class="peek behind" src="/brand/ui/wave.png" alt="" style="right:12px;top:-50px;width:68px" />
       <h2>วิธีใช้แบบเร็ว</h2>
       <p style="font-size:13.5px;color:var(--sub);margin:0">
         พิมพ์งานในแชตได้เลย เช่น<br />
@@ -170,6 +189,7 @@
   <!-- แก้ไขรายการ -->
   <section id="v-edit" hidden>
     <div class="card">
+      <img class="peek behind" src="/brand/ui/pen.png" alt="" style="right:12px;top:-56px;width:66px" />
       <h2>แก้ไขรายการ <span class="date" id="e-number"></span></h2>
       <label for="e-name">รายละเอียด <span class="req">*</span></label>
       <input id="e-name" maxlength="200" />
