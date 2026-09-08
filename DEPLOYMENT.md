@@ -37,16 +37,20 @@
    - **Instance Type:** Free ก็ได้ (แต่จะ sleep เมื่อไม่มีทราฟฟิก — งานจริงแนะนำ Starter)
 4. ไปที่แท็บ **Environment** → เพิ่ม env vars ทุกตัวจากตารางด้านบน
 5. กด **Create Web Service** รอ build เสร็จ จะได้ URL เช่น
-   `https://muang-jod.onrender.com`
-6. ทดสอบ health: เปิด `https://muang-jod.onrender.com/health` ต้องได้ `{"status":"ok"}`
-7. เอา `https://muang-jod.onrender.com/webhook` ไปใส่ใน
+   `https://<ชื่อ-service>.onrender.com` — **ชื่อจริงอยู่บนหน้า service ใน Render**
+   (เช่นถ้าตั้งชื่อ service ว่า `muang-jod-flex-bot` URL ก็คือ
+   `https://muang-jod-flex-bot.onrender.com`) ทุกลิงก์ข้างล่างให้แทน
+   `<โดเมนบอต>` ด้วยค่านี้
+6. ทดสอบ health: เปิด `<โดเมนบอต>/health` ต้องได้ `{"status":"ok", ..., "line":"ok"}`
+   (`line` บอกว่า LINE ยังรับ token อยู่ไหม, `build` บอกว่า deploy ถึง commit ไหนแล้ว)
+7. เอา `<โดเมนบอต>/webhook` ไปใส่ใน
    **LINE Developers → Messaging API → Webhook URL** → **Verify** → เปิด **Use webhook = ON**
 8. ปิด **Auto-reply / Greeting** ใน LINE Official Account Manager (กันชนกับบอต)
 9. สร้าง Rich Menu — เลือกวิธีใดวิธีหนึ่ง
 
    **ก. จากเบราว์เซอร์ (ไม่ต้องใช้ Terminal)**
    - เพิ่ม env var `ADMIN_TOKEN` (ยาวอย่างน้อย 16 ตัว ตั้งเองได้ เช่นสุ่มมา 1 ชุด)
-   - เปิด `https://muang-jod.onrender.com/admin/rich-menu`
+   - เปิด `<โดเมนบอต>/admin/rich-menu`
    - เบราว์เซอร์จะขึ้นช่องให้กรอกรหัส — **ชื่อผู้ใช้ปล่อยว่าง** ใส่ `ADMIN_TOKEN` ในช่องรหัสผ่าน
    - กดปุ่ม **ติดตั้งเมนูขึ้น LINE**
 
