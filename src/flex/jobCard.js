@@ -5,6 +5,7 @@ import { moneyRow } from './components/moneyRow.js';
 import { divider } from './components/divider.js';
 import { statusBadge } from './components/statusBadge.js';
 import { footerActions } from './components/footerActions.js';
+import { categoryLabel } from '../utils/category.js';
 
 // Backward-compatible colour re-exports (older modules import these here).
 export const PURPLE = COLORS.purple;
@@ -23,12 +24,33 @@ export function paymentLabel(status) {
 export function buildJobBubble(job) {
   const items = job.items || [];
 
-  const itemRows = items.slice(0, 8).map((it) => {
+  // Numbered rows, as in the "พิมพ์งานพร้อมราคา" mockup: ① ป้ายไวนิล … 150
+  const itemRows = items.slice(0, 8).map((it, i) => {
     const qty = Number(it.quantity) || 1;
     const pieces = [it.item_name];
     if (it.size) pieces.push(it.size);
     const label = pieces.join(' ') + (qty > 1 ? ` x${qty}` : '');
-    return moneyRow(label, Number(it.total) || 0, { color: COLORS.ink, bold: false });
+    return {
+      type: 'box',
+      layout: 'horizontal',
+      spacing: 'sm',
+      alignItems: 'center',
+      contents: [
+        {
+          type: 'box',
+          layout: 'vertical',
+          width: '20px',
+          height: '20px',
+          cornerRadius: '10px',
+          backgroundColor: COLORS.purple,
+          justifyContent: 'center',
+          alignItems: 'center',
+          flex: 0,
+          contents: [{ type: 'text', text: String(i + 1), size: 'xxs', weight: 'bold', color: COLORS.white, align: 'center' }],
+        },
+        moneyRow(label, Number(it.total) || 0, { color: COLORS.ink, bold: false }),
+      ],
+    };
   });
 
   if (!itemRows.length) {
@@ -42,7 +64,7 @@ export function buildJobBubble(job) {
       contents: [
         {
           type: 'text',
-          text: job.job_name || 'งาน',
+          text: job.job_name || categoryLabel(job),
           weight: 'bold',
           size: 'md',
           color: COLORS.purpleDark,
@@ -83,11 +105,25 @@ export function buildJobBubble(job) {
     });
   }
 
-  return {
+  const bubble = {
     type: 'bubble',
     size: 'kilo',
     body: { type: 'box', layout: 'vertical', spacing: 'md', contents: bodyContents },
   };
+
+  // A saved job carries its own ✏️ / 🗑 / 🗂 actions, as in the mockup's
+  // "รายการล่าสุด" card. A draft (no id yet) gets its own footer instead.
+  if (job.id) {
+    bubble.footer = footerActions({
+      secondary: [
+        { label: '✏️ แก้ไข', data: `action=edit_job&jobId=${encodeURIComponent(job.id)}`, displayText: 'แก้ไขรายการ' },
+        { label: '🗑 ยกเลิก', data: `action=delete_job&jobId=${encodeURIComponent(job.id)}`, displayText: 'ยกเลิกรายการ' },
+        { label: '🗂 หมวด', data: `action=pick_category&jobId=${encodeURIComponent(job.id)}`, displayText: 'เลือกหมวด' },
+      ],
+    });
+  }
+
+  return bubble;
 }
 
 // Wrap a single bubble as a sendable flex message.
@@ -97,7 +133,7 @@ export function jobCardMessage(job, altText = 'รายละเอียดง
 
 // Preview card shown BEFORE saving: receipt bubble + header + action buttons.
 export function jobPreviewMessage(draftJob, altText = 'ตรวจสอบก่อนบันทึก') {
-  const bubble = buildJobBubble(draftJob);
+  const bubble = buildJobBubble({ ...draftJob, id: undefined });
   bubble.header = {
     type: 'box',
     layout: 'vertical',

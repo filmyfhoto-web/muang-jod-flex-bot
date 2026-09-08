@@ -30,6 +30,9 @@ const COMMANDS = new Map([
   ['ค้นหา', 'search_jobs'],
   ['รายงาน', 'report_menu'],
   ['report', 'report_menu'],
+  ['เลือกหมวด', 'pick_category'],
+  ['หมวดงาน', 'pick_category'],
+  ['เปลี่ยนหมวด', 'pick_category'],
 ]);
 
 function normalise(text) {
