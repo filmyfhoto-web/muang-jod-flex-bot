@@ -106,4 +106,9 @@ app.listen(PORT, async () => {
     const { startReminderDispatcher } = await import('./services/reminderDispatcher.js');
     startReminderDispatcher();
   }
+
+  // Hosts that sleep an idle instance leave the first tap of the day
+  // unanswered and reminders unsent. KEEP_ALIVE=0 turns this off.
+  const { startKeepAlive } = await import('./services/keepAlive.js');
+  startKeepAlive();
 });

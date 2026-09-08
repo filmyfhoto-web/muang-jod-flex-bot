@@ -18,7 +18,7 @@ function trendLine(trend) {
     trend?.percent === null || trend?.percent === undefined
       ? 'ยังไม่มียอดเมื่อวานให้เทียบ'
       : `${t.arrow} ${trend.percent > 0 ? '+' : ''}${trend.percent}% จากเมื่อวาน`;
-  return { type: 'text', text, size: 'xs', color: t.color, weight: 'bold' };
+  return { type: 'text', text, size: 'md', color: t.color, weight: 'bold' };
 }
 
 // One category tile: icon + name, jobs, money.
@@ -38,12 +38,12 @@ function categoryTile(cat) {
         spacing: 'xs',
         alignItems: 'center',
         contents: [
-          { type: 'text', text: cat.icon, size: 'sm', flex: 0 },
-          { type: 'text', text: cat.label, size: 'xxs', color: COLORS.sub, wrap: true },
+          { type: 'text', text: cat.icon, size: 'xxl', flex: 0 },
+          { type: 'text', text: cat.label, size: 'sm', color: COLORS.sub, wrap: true },
         ],
       },
-      { type: 'text', text: `${cat.count} งาน`, size: 'lg', weight: 'bold', color: cat.color },
-      { type: 'text', text: formatBaht(cat.total), size: 'xs', color: COLORS.grey },
+      { type: 'text', text: `${cat.count} งาน`, size: 'xxl', weight: 'bold', color: cat.color },
+      { type: 'text', text: formatBaht(cat.total), size: 'md', color: COLORS.grey },
     ],
   };
 }
@@ -70,14 +70,14 @@ function shareRow(cat) {
         type: 'box',
         layout: 'horizontal',
         contents: [
-          { type: 'text', text: `${cat.icon} ${cat.label}`, size: 'xs', color: COLORS.sub, flex: 3 },
-          { type: 'text', text: `${cat.percent}%`, size: 'xs', color: cat.color, weight: 'bold', align: 'end', flex: 1 },
+          { type: 'text', text: `${cat.icon} ${cat.label}`, size: 'md', color: COLORS.sub, flex: 3 },
+          { type: 'text', text: `${cat.percent}%`, size: 'md', color: cat.color, weight: 'bold', align: 'end', flex: 1 },
         ],
       },
       {
         type: 'box',
         layout: 'horizontal',
-        height: '6px',
+        height: '10px',
         cornerRadius: 'sm',
         backgroundColor: COLORS.line,
         contents: [
@@ -104,22 +104,22 @@ function recentRow(job) {
       {
         type: 'box',
         layout: 'vertical',
-        width: '36px',
-        height: '36px',
+        width: '54px',
+        height: '54px',
         cornerRadius: 'md',
         backgroundColor: COLORS.purpleSoft,
         justifyContent: 'center',
         alignItems: 'center',
         flex: 0,
-        contents: [{ type: 'text', text: type?.icon || group.icon, size: 'md', align: 'center' }],
+        contents: [{ type: 'text', text: type?.icon || group.icon, size: 'xxl', align: 'center' }],
       },
       {
         type: 'box',
         layout: 'vertical',
         flex: 5,
         contents: [
-          { type: 'text', text: job.job_name || 'งาน', size: 'sm', weight: 'bold', color: COLORS.ink, wrap: true },
-          { type: 'text', text: sub, size: 'xxs', color: COLORS.grey, wrap: true },
+          { type: 'text', text: job.job_name || 'งาน', size: 'lg', weight: 'bold', color: COLORS.ink, wrap: true },
+          { type: 'text', text: sub, size: 'sm', color: COLORS.grey, wrap: true },
         ],
       },
       {
@@ -129,7 +129,7 @@ function recentRow(job) {
         alignItems: 'flex-end',
         spacing: 'xs',
         contents: [
-          { type: 'text', text: formatBaht(Number(job.total) || 0), size: 'sm', weight: 'bold', color: COLORS.ink, align: 'end' },
+          { type: 'text', text: formatBaht(Number(job.total) || 0), size: 'lg', weight: 'bold', color: COLORS.ink, align: 'end' },
           statusBadge(job.payment_status),
         ],
       },
@@ -148,7 +148,7 @@ export function dashboardFlex(dash, opts = {}) {
       layout: 'horizontal',
       alignItems: 'center',
       contents: [
-        { type: 'text', text: '📊 สรุปงานวันนี้', weight: 'bold', size: 'lg', color: COLORS.purpleDark, flex: 4 },
+        { type: 'text', text: '📊 สรุปงานวันนี้', weight: 'bold', size: 'xxl', color: COLORS.purpleDark, flex: 4 },
         {
           type: 'box',
           layout: 'vertical',
@@ -158,7 +158,7 @@ export function dashboardFlex(dash, opts = {}) {
           paddingStart: 'md',
           paddingEnd: 'md',
           flex: 0,
-          contents: [{ type: 'text', text: formatThaiDate(summary.date), size: 'xs', color: COLORS.purpleDark, weight: 'bold' }],
+          contents: [{ type: 'text', text: formatThaiDate(summary.date), size: 'md', color: COLORS.purpleDark, weight: 'bold' }],
         },
       ],
     },
@@ -171,17 +171,17 @@ export function dashboardFlex(dash, opts = {}) {
       paddingAll: 'lg',
       spacing: 'xs',
       contents: [
-        { type: 'text', text: 'ยอดวันนี้', size: 'xs', color: COLORS.sub },
-        { type: 'text', text: formatBaht(summary.total), size: 'xxl', weight: 'bold', color: COLORS.purple },
+        { type: 'text', text: 'ยอดวันนี้', size: 'md', color: COLORS.sub },
+        { type: 'text', text: formatBaht(summary.total), size: '4xl', weight: 'bold', color: COLORS.purple },
         trendLine(trend),
         {
           type: 'box',
           layout: 'horizontal',
           paddingTop: 'sm',
           contents: [
-            { type: 'text', text: `${total} งาน`, size: 'xs', color: COLORS.sub, flex: 1 },
-            { type: 'text', text: `รับแล้ว ${formatBaht(summary.paid)}`, size: 'xs', color: COLORS.green, align: 'center', flex: 2 },
-            { type: 'text', text: `ค้าง ${formatBaht(summary.pending)}`, size: 'xs', color: COLORS.red, align: 'end', flex: 2 },
+            { type: 'text', text: `${total} งาน`, size: 'md', color: COLORS.sub, flex: 1 },
+            { type: 'text', text: `รับแล้ว ${formatBaht(summary.paid)}`, size: 'md', color: COLORS.green, align: 'center', flex: 2 },
+            { type: 'text', text: `ค้าง ${formatBaht(summary.pending)}`, size: 'md', color: COLORS.red, align: 'end', flex: 2 },
           ],
         },
       ],
@@ -191,7 +191,7 @@ export function dashboardFlex(dash, opts = {}) {
   if (categories.length) {
     body.push(...categoryTiles(categories.slice(0, 4)));
     body.push(divider());
-    body.push({ type: 'text', text: 'สัดส่วนงานวันนี้', weight: 'bold', size: 'sm', color: COLORS.purpleDark });
+    body.push({ type: 'text', text: 'สัดส่วนงานวันนี้', weight: 'bold', size: 'lg', color: COLORS.purpleDark });
     body.push(...categories.slice(0, 4).map(shareRow));
   }
 
@@ -202,11 +202,11 @@ export function dashboardFlex(dash, opts = {}) {
         type: 'box',
         layout: 'horizontal',
         contents: [
-          { type: 'text', text: 'รายการล่าสุด', weight: 'bold', size: 'sm', color: COLORS.purpleDark, flex: 3 },
+          { type: 'text', text: 'รายการล่าสุด', weight: 'bold', size: 'lg', color: COLORS.purpleDark, flex: 3 },
           {
             type: 'text',
             text: 'ดูทั้งหมด ›',
-            size: 'xs',
+            size: 'md',
             color: COLORS.purple,
             align: 'end',
             flex: 2,
@@ -220,7 +220,7 @@ export function dashboardFlex(dash, opts = {}) {
     body.push({
       type: 'text',
       text: 'วันนี้ยังไม่มีงานค่ะ พิมพ์รายการงานมาได้เลยนะคะ 💜',
-      size: 'sm',
+      size: 'lg',
       color: COLORS.grey,
       align: 'center',
       wrap: true,
@@ -233,7 +233,7 @@ export function dashboardFlex(dash, opts = {}) {
       type: 'button',
       style: 'primary',
       color: COLORS.purple,
-      height: 'sm',
+      height: 'md',
       action: { type: 'uri', label: '📊 เปิดแดชบอร์ด', uri: dashUrl },
     });
   }
@@ -245,13 +245,13 @@ export function dashboardFlex(dash, opts = {}) {
       {
         type: 'button',
         style: 'secondary',
-        height: 'sm',
+        height: 'md',
         action: { type: 'postback', label: '📈 รายงาน', data: 'action=report_menu', displayText: 'รายงาน' },
       },
       {
         type: 'button',
         style: 'secondary',
-        height: 'sm',
+        height: 'md',
         action: { type: 'postback', label: '💰 ค้างรับ', data: 'action=pending_payment', displayText: 'ค้างรับ' },
       },
     ],

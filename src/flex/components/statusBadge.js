@@ -13,7 +13,7 @@ export function statusBadge(paymentStatus) {
     paddingEnd: 'sm',
     flex: 0,
     contents: [
-      { type: 'text', text: p.text, size: 'xs', color: p.color, weight: 'bold', align: 'center' },
+      { type: 'text', text: p.text, size: 'sm', color: p.color, weight: 'bold', align: 'center' },
     ],
   };
 }

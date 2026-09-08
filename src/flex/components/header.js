@@ -5,10 +5,10 @@ export function header(title, subtitle, opts = {}) {
   const bg = opts.bg || COLORS.purple;
   const fg = opts.color || COLORS.white;
   const contents = [
-    { type: 'text', text: title, weight: 'bold', color: fg, size: opts.size || 'lg', wrap: true },
+    { type: 'text', text: title, weight: 'bold', color: fg, size: opts.size || 'xl', wrap: true },
   ];
   if (subtitle) {
-    contents.push({ type: 'text', text: subtitle, size: 'xs', color: COLORS.purpleSoft, wrap: true });
+    contents.push({ type: 'text', text: subtitle, size: 'md', color: COLORS.purpleSoft, wrap: true });
   }
   return {
     type: 'box',
