@@ -8,6 +8,7 @@ export const STATES = {
   WAITING_FOR_EVIDENCE: 'waiting_for_evidence',
   WAITING_FOR_EDIT: 'waiting_for_edit',
   WAITING_FOR_PAYMENT: 'waiting_for_payment_amount',
+  WAITING_FOR_BILL_PAYMENT: 'waiting_for_bill_payment_amount',
   WAITING_FOR_SEARCH: 'waiting_for_search',
 };
 
