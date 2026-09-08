@@ -23,6 +23,16 @@ test('picker step 2: the chosen group\'s types, plus a way back', () => {
   assert.ok(json.includes('โฟมบอร์ด'));
   assert.ok(json.includes('action=pick_category&group=sign&type=vinyl&jobId=job-1'));
   assert.ok(json.includes('เลือกประเภทงานใหม่'));
+
+  // Human descriptions, as in the mockup — not the matching keywords.
+  assert.ok(json.includes('ขนาดตามต้องการ / งานด่วน'));
+  assert.ok(json.includes('สติ๊กเกอร์ไดคัท / ฉลากสินค้า'));
+  assert.ok(!json.includes('อิงค์เจ็ท'), 'keywords must not leak into the picker');
+
+  const print = JSON.stringify(categoryTypesFlex('print'));
+  assert.ok(print.includes('เลือกประเภทงานพิมพ์ที่ต้องการ'));
+  assert.ok(print.includes('ขาวดำ / สี / จำนวนหลายชุด'));
+  assert.ok(print.includes('สแกนเป็นไฟล์ PDF / JPG'));
 });
 
 test('picker step 2: a group with no types can still be chosen', () => {

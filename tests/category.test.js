@@ -76,6 +76,10 @@ test('every group and type has an id, label, icon — and unique ids', () => {
     groupIds.add(g.id);
     for (const t of g.types) {
       assert.ok(t.id && t.label && t.icon && t.keys.length, `type ${t.id} incomplete`);
+      // The picker shows this to a shop owner, so it must read as a
+      // description, never as the keyword list used for matching.
+      assert.ok(t.hint, `type ${t.id} has no hint`);
+      assert.ok(!t.keys.includes(t.hint), `type ${t.id} hint looks like a keyword`);
       assert.ok(!typeIds.has(t.id), `duplicate type id ${t.id}`);
       typeIds.add(t.id);
     }

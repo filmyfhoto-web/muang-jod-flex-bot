@@ -105,7 +105,8 @@ export function categoryTypesFlex(groupId, jobId) {
     row({
       icon: t.icon,
       label: t.label,
-      hint: t.keys.slice(0, 3).join(' / '),
+      // A human description, as in the mockup — never the matching keywords.
+      hint: t.hint || '',
       data: `action=pick_category&group=${group.id}&type=${t.id}${q}`,
     })
   );
