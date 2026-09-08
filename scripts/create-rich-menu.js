@@ -6,10 +6,10 @@ import linebot from '@line/bot-sdk';
 const { MessagingApiClient, MessagingApiBlobClient } = linebot.messagingApi;
 
 // ------------------------------------------------------------
-// Rich Menu layout config — edit these to fine-tune tappable areas.
-// The image is 2500 x 1686 with 8 menu cards (4 columns x 2 rows).
-// A footer strip at the bottom may hold decoration that should NOT
-// be tappable, so we reserve FOOTER_HEIGHT and only map the 8 cards.
+// Rich Menu layout config — must match assets/rich-menu.png, which is drawn
+// by scripts/build-rich-menu.mjs. The image is 2500 x 1686: a header strip
+// (mascot + notes), then 8 cards in 4 columns x 2 rows, then a footer strip
+// (wordmark). Header and footer are decoration and stay untappable.
 // ------------------------------------------------------------
 const LAYOUT = {
   width: 2500,
@@ -17,8 +17,8 @@ const LAYOUT = {
   cols: 4,
   rows: 2,
   marginX: 0, // left/right margin around the grid
-  marginTop: 0, // top margin above the first row
-  footerHeight: 186, // bottom strip reserved for decoration (not tappable)
+  marginTop: 150, // header strip above the first row (not tappable)
+  footerHeight: 150, // bottom strip reserved for decoration (not tappable)
   gutter: 0, // gap between cards, if the artwork has spacing
 };
 
