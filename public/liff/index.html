@@ -83,7 +83,18 @@
   .b-partial { background: var(--orange-bg); color: var(--orange); }
   .b-pending { background: var(--red-bg); color: var(--red); }
 
+  /* Edit form. The delete button belongs in the header next to the title, not
+     as a full-width red slab under Save where it is one mis-tap from it. */
+  .card > h2 .icon-btn {
+    width: 36px; height: 36px; border: 0; border-radius: 11px; flex: none;
+    background: var(--red-bg); color: var(--red); font-size: 16px; line-height: 1;
+  }
+  .card > h2 .head-right { display: flex; align-items: center; gap: 10px; }
+
   label { display: block; font-size: 12.5px; color: var(--sub); margin: 13px 0 5px; font-weight: 600; }
+  /* An amount reads as money when the unit sits beside the box, not inside the label. */
+  .with-unit { display: flex; align-items: center; gap: 9px; }
+  .with-unit .unit { font-size: 15px; color: var(--grey); flex: none; }
   label .req { color: var(--red); }
   input, select, textarea {
     width: 100%; font: inherit; font-size: 15px; padding: 11px 12px; border: 1.5px solid var(--line);
@@ -92,7 +103,7 @@
   select { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8'><path d='M1 1l5 5 5-5' stroke='%232e7df7' stroke-width='2' fill='none' stroke-linecap='round'/></svg>"); background-repeat: no-repeat; background-position: right 14px center; }
   input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
   .seg { display: flex; gap: 7px; }
-  .seg button { flex: 1; border: 1.5px solid var(--line); background: var(--tint); border-radius: 12px; padding: 10px 4px; font: inherit; font-size: 12.5px; color: var(--sub); }
+  .seg button { flex: 1; border: 1.5px solid var(--line); background: var(--tint); border-radius: 12px; padding: 13px 4px; font: inherit; font-size: 13.5px; font-weight: 600; color: var(--sub); }
   .seg button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-dim); color: var(--white); font-weight: 700; }
   .btn { width: 100%; border: 0; border-radius: 13px; padding: 13px; font: inherit; font-size: 15px; font-weight: 700; margin-top: 15px; }
   .btn-primary { background: var(--accent); color: #fff; }
@@ -197,7 +208,12 @@
   <section id="v-edit" hidden>
     <div class="card">
       <img class="peek behind" src="/brand/ui/pen.png" alt="" style="right:12px;top:-56px;width:66px" />
-      <h2>แก้ไขรายการ <span class="date" id="e-number"></span></h2>
+      <h2>แก้ไขรายการ
+        <span class="head-right">
+          <span class="date" id="e-number"></span>
+          <button type="button" class="icon-btn" id="e-delete" aria-label="ยกเลิกรายการนี้">🗑</button>
+        </span>
+      </h2>
       <label for="e-name">รายละเอียด <span class="req">*</span></label>
       <input id="e-name" maxlength="200" />
       <label for="e-customer">ลูกค้า</label>
@@ -212,16 +228,15 @@
         <button type="button" data-v="partial">รับบางส่วน</button>
         <button type="button" data-v="paid">รับแล้ว</button>
       </div>
-      <label for="e-total">จำนวนเงิน (บาท) <span class="req">*</span></label>
-      <input id="e-total" type="number" inputmode="decimal" min="0" step="1" />
-      <label for="e-paid">รับมาแล้ว (บาท)</label>
-      <input id="e-paid" type="number" inputmode="decimal" min="0" step="1" />
+      <label for="e-total">จำนวนเงิน <span class="req">*</span></label>
+      <div class="with-unit"><input id="e-total" type="number" inputmode="decimal" min="0" step="1" /><span class="unit">฿</span></div>
+      <label for="e-paid">รับมาแล้ว</label>
+      <div class="with-unit"><input id="e-paid" type="number" inputmode="decimal" min="0" step="1" /><span class="unit">฿</span></div>
       <label for="e-date">วันที่</label>
       <input id="e-date" type="date" />
       <label for="e-note">หมายเหตุ (ถ้ามี)</label>
       <textarea id="e-note" rows="2" maxlength="500" placeholder="เช่น ส่งของวันจันทร์"></textarea>
-      <button class="btn btn-primary" id="e-save">✓ บันทึก</button>
-      <button class="btn btn-danger" id="e-delete">🗑 ยกเลิกรายการนี้</button>
+      <button class="btn btn-primary" id="e-save">บันทึก</button>
       <button class="btn btn-ghost" id="e-back">← กลับ</button>
     </div>
   </section>
