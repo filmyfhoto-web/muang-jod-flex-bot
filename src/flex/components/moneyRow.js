@@ -9,11 +9,11 @@ export function moneyRow(label, amount, opts = {}) {
     type: 'box',
     layout: 'horizontal',
     contents: [
-      { type: 'text', text: label, size: opts.size || 'sm', color: COLORS.sub, flex: 4 },
+      { type: 'text', text: label, size: opts.size || 'md', color: COLORS.sub, flex: 4 },
       {
         type: 'text',
         text: value,
-        size: opts.big ? 'lg' : opts.size || 'sm',
+        size: opts.big ? 'xxl' : opts.size || 'md',
         weight: opts.bold === false ? 'regular' : 'bold',
         color: opts.color || COLORS.ink,
         align: 'end',

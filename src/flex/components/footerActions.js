@@ -4,7 +4,7 @@ function button(btn) {
   return {
     type: 'button',
     style: btn.style || 'secondary',
-    height: btn.height || 'sm',
+    height: btn.height || 'md',
     ...(btn.color ? { color: btn.color } : {}),
     action: {
       type: 'postback',

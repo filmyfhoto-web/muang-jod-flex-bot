@@ -39,14 +39,14 @@ export function buildJobBubble(job) {
         {
           type: 'box',
           layout: 'vertical',
-          width: '20px',
-          height: '20px',
-          cornerRadius: '10px',
+          width: '30px',
+          height: '30px',
+          cornerRadius: '15px',
           backgroundColor: COLORS.purple,
           justifyContent: 'center',
           alignItems: 'center',
           flex: 0,
-          contents: [{ type: 'text', text: String(i + 1), size: 'xxs', weight: 'bold', color: COLORS.white, align: 'center' }],
+          contents: [{ type: 'text', text: String(i + 1), size: 'md', weight: 'bold', color: COLORS.white, align: 'center' }],
         },
         moneyRow(label, Number(it.total) || 0, { color: COLORS.ink, bold: false }),
       ],
@@ -54,7 +54,7 @@ export function buildJobBubble(job) {
   });
 
   if (!itemRows.length) {
-    itemRows.push({ type: 'text', text: 'ไม่มีรายการสินค้า', size: 'sm', color: COLORS.grey });
+    itemRows.push({ type: 'text', text: 'ไม่มีรายการสินค้า', size: 'md', color: COLORS.grey });
   }
 
   const bodyContents = [
@@ -66,7 +66,7 @@ export function buildJobBubble(job) {
           type: 'text',
           text: job.job_name || categoryLabel(job),
           weight: 'bold',
-          size: 'md',
+          size: 'xl',
           color: COLORS.purpleDark,
           flex: 5,
           wrap: true,
@@ -77,11 +77,11 @@ export function buildJobBubble(job) {
     {
       type: 'text',
       text: `${formatThaiDate(job.job_date)} · ${job.job_number || ''}`.trim(),
-      size: 'xs',
+      size: 'sm',
       color: COLORS.grey,
     },
     ...(job.customer_name
-      ? [{ type: 'text', text: `ลูกค้า: ${job.customer_name}`, size: 'xs', color: COLORS.sub }]
+      ? [{ type: 'text', text: `ลูกค้า: ${job.customer_name}`, size: 'sm', color: COLORS.sub }]
       : []),
     divider(),
     { type: 'box', layout: 'vertical', spacing: 'sm', contents: itemRows },
@@ -91,15 +91,15 @@ export function buildJobBubble(job) {
 
   // Show payment progress when partially paid.
   if (Number(job.paid_amount) > 0 && job.payment_status !== 'paid') {
-    bodyContents.push(moneyRow('รับแล้ว', Number(job.paid_amount) || 0, { color: COLORS.green, size: 'xs' }));
-    bodyContents.push(moneyRow('คงเหลือ', Number(job.balance_due) || 0, { color: COLORS.red, size: 'xs' }));
+    bodyContents.push(moneyRow('รับแล้ว', Number(job.paid_amount) || 0, { color: COLORS.green, size: 'md' }));
+    bodyContents.push(moneyRow('คงเหลือ', Number(job.balance_due) || 0, { color: COLORS.red, size: 'md' }));
   }
 
   if (job.note) {
     bodyContents.push({
       type: 'text',
       text: `📝 ${job.note}`,
-      size: 'xs',
+      size: 'sm',
       color: COLORS.grey,
       wrap: true,
     });
@@ -107,7 +107,7 @@ export function buildJobBubble(job) {
 
   const bubble = {
     type: 'bubble',
-    size: 'kilo',
+    size: 'mega',
     body: { type: 'box', layout: 'vertical', spacing: 'md', contents: bodyContents },
   };
 
@@ -137,7 +137,7 @@ export function jobPreviewMessage(draftJob, altText = 'ตรวจสอบก�
   bubble.header = {
     type: 'box',
     layout: 'vertical',
-    contents: [{ type: 'text', text: '📋 ตรวจสอบก่อนบันทึก', weight: 'bold', size: 'sm', color: COLORS.purple }],
+    contents: [{ type: 'text', text: '📋 ตรวจสอบก่อนบันทึก', weight: 'bold', size: 'lg', color: COLORS.purple }],
   };
   bubble.footer = footerActions({
     primary: { label: '✅ บันทึกงาน', data: 'action=confirm_add_job', displayText: 'บันทึกงาน' },

@@ -10,7 +10,7 @@ export function todaySummaryFlex(summary) {
     altText: `สรุปวันนี้ ${summary.jobCount} งาน`,
     contents: {
       type: 'bubble',
-      size: 'kilo',
+      size: 'mega',
       header: header('📊 สรุปวันนี้', formatThaiDate(summary.date)),
       body: {
         type: 'box',
@@ -31,7 +31,7 @@ export function todaySummaryFlex(summary) {
           {
             type: 'text',
             text: summary.jobCount ? 'สู้ ๆ นะคะ วันนี้ทำได้ดีมากค่ะ 💜' : 'วันนี้ยังไม่มีงานค่ะ',
-            size: 'xs',
+            size: 'md',
             color: COLORS.grey,
             align: 'center',
             wrap: true,
