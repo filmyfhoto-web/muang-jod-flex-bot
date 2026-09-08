@@ -96,6 +96,17 @@ app.get('/health/db', async (req, res) => {
 // needs the raw body to verify the signature.
 app.use('/webhook', webhookRouter);
 
+// Nothing matched. Express's own 404 in production is the bare words "Not
+// Found", which does not say whether the path was wrong or the route missing —
+// so say which path arrived here.
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'not found',
+    path: req.path,
+    hint: 'path ที่ใช้ได้: /health, /health/db, /admin/rich-menu?key=...',
+  });
+});
+
 // Signature / parse error handler for the webhook.
 app.use((err, req, res, next) => {
   if (err instanceof SignatureValidationFailed) {
