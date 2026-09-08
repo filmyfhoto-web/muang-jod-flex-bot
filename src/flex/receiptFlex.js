@@ -23,7 +23,7 @@ function thumb(emoji) {
     width: '44px',
     height: '44px',
     cornerRadius: 'md',
-    backgroundColor: COLORS.purpleSoft,
+    backgroundColor: COLORS.tint,
     justifyContent: 'center',
     alignItems: 'center',
     flex: 0,
@@ -68,7 +68,7 @@ function link(label, action, displayText) {
     type: 'text',
     text: label,
     size: 'sm',
-    color: COLORS.purple,
+    color: COLORS.accent,
     weight: 'bold',
     action: { type: 'postback', label: displayText, data: `action=${action}`, displayText },
   };
@@ -102,7 +102,7 @@ export function receiptFlex(job, opts = {}) {
         width: '48px',
         height: '48px',
         cornerRadius: '24px',
-        backgroundColor: COLORS.purple,
+        backgroundColor: COLORS.accent,
         justifyContent: 'center',
         alignItems: 'center',
         flex: 0,
@@ -112,7 +112,7 @@ export function receiptFlex(job, opts = {}) {
         type: 'box',
         layout: 'vertical',
         contents: [
-          { type: 'text', text: 'บันทึกสำเร็จ', weight: 'bold', size: 'xxl', color: COLORS.purpleDark },
+          { type: 'text', text: 'บันทึกสำเร็จ', weight: 'bold', size: 'xxl', color: COLORS.title },
           {
             type: 'text',
             text: 'เพิ่มรายการงานเข้าในระบบเรียบร้อยแล้วค่ะ',
@@ -132,7 +132,7 @@ export function receiptFlex(job, opts = {}) {
       text: `${type?.icon || group.icon} ${job.job_name || categoryLabel(job)}`,
       weight: 'bold',
       size: 'md',
-      color: COLORS.purpleDark,
+      color: COLORS.title,
       wrap: true,
     },
     {
@@ -163,7 +163,7 @@ export function receiptFlex(job, opts = {}) {
     {
       type: 'box',
       layout: 'horizontal',
-      backgroundColor: COLORS.purpleSoft,
+      backgroundColor: COLORS.tint,
       cornerRadius: 'lg',
       paddingAll: 'md',
       alignItems: 'center',
@@ -181,18 +181,18 @@ export function receiptFlex(job, opts = {}) {
     {
       type: 'box',
       layout: 'horizontal',
-      backgroundColor: COLORS.purpleSoft,
+      backgroundColor: COLORS.tint,
       cornerRadius: 'lg',
       paddingAll: 'md',
       alignItems: 'center',
       contents: [
-        { type: 'text', text: 'รวมทั้งหมด', size: 'md', weight: 'bold', color: COLORS.purpleDark, flex: 3 },
+        { type: 'text', text: 'รวมทั้งหมด', size: 'md', weight: 'bold', color: COLORS.title, flex: 3 },
         {
           type: 'text',
           text: formatBaht(Number(job.total) || 0),
           size: 'xxl',
           weight: 'bold',
-          color: COLORS.purple,
+          color: COLORS.accent,
           align: 'end',
           flex: 4,
         },
@@ -274,7 +274,7 @@ export function receiptFlex(job, opts = {}) {
     header,
     body: { type: 'box', layout: 'vertical', spacing: 'md', paddingTop: 'sm', contents: bodyContents },
     footer,
-    styles: { header: { backgroundColor: COLORS.white }, body: { backgroundColor: COLORS.white } },
+    styles: { header: { backgroundColor: COLORS.surface }, body: { backgroundColor: COLORS.surface } },
   };
 
   return {

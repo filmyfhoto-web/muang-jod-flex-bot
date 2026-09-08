@@ -1,5 +1,6 @@
 import linebot from '@line/bot-sdk';
 import { lineConfig } from '../config/line.js';
+import { themedContents } from '../flex/theme.js';
 
 const { MessagingApiClient, MessagingApiBlobClient } = linebot.messagingApi;
 
@@ -11,8 +12,14 @@ const blobClient = new MessagingApiBlobClient({
   channelAccessToken: lineConfig.channelAccessToken,
 });
 
+// Flex gives a bubble a white background unless told otherwise, so the card's
+// surface is stamped on here rather than in each builder — one place to get it
+// right, and a new card cannot forget. A builder that sets its own `styles`
+// still wins.
 function toArray(messages) {
-  return Array.isArray(messages) ? messages : [messages];
+  return (Array.isArray(messages) ? messages : [messages]).map((m) =>
+    m?.type === 'flex' ? { ...m, contents: themedContents(m.contents) } : m
+  );
 }
 
 // Reply to an event using its replyToken.

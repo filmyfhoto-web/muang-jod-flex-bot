@@ -32,7 +32,7 @@ export function confirmCancelFlex(job) {
                 size: 'xs',
                 color: COLORS.grey,
               },
-              { type: 'text', text: `ยอดรวม ${formatBaht(job.total)}`, size: 'sm', color: COLORS.purple },
+              { type: 'text', text: `ยอดรวม ${formatBaht(job.total)}`, size: 'sm', color: COLORS.accent },
             ],
           },
         ],

@@ -1,4 +1,5 @@
-import { buildJobBubble, PURPLE } from './jobCard.js';
+import { buildJobBubble } from './jobCard.js';
+import { COLORS, themed } from './theme.js';
 
 // Carousel of recent jobs. Falls back to a friendly empty-state bubble.
 export function recentJobsFlex(jobs) {
@@ -6,7 +7,7 @@ export function recentJobsFlex(jobs) {
     return {
       type: 'flex',
       altText: 'ยังไม่มีรายการงาน',
-      contents: {
+      contents: themed({
         type: 'bubble',
         size: 'kilo',
         body: {
@@ -14,17 +15,17 @@ export function recentJobsFlex(jobs) {
           layout: 'vertical',
           spacing: 'md',
           contents: [
-            { type: 'text', text: 'ยังไม่มีรายการงานค่ะ 💜', weight: 'bold', color: PURPLE },
+            { type: 'text', text: 'ยังไม่มีรายการงานค่ะ 💜', weight: 'bold', color: COLORS.title },
             {
               type: 'text',
               text: 'กด "บันทึกงานวันนี้" เพื่อเริ่มจดงานแรกได้เลยค่ะ',
               size: 'sm',
-              color: '#8E8E93',
+              color: COLORS.grey,
               wrap: true,
             },
           ],
         },
-      },
+      }),
     };
   }
 

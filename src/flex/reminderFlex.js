@@ -19,7 +19,7 @@ export function remindPickerFlex(job) {
   }));
 
   const body = [
-    { type: 'text', text: '⏰ ตั้งแจ้งเตือนงาน', weight: 'bold', size: 'lg', color: COLORS.purpleDark },
+    { type: 'text', text: '⏰ ตั้งแจ้งเตือนงาน', weight: 'bold', size: 'lg', color: COLORS.title },
     {
       type: 'text',
       text: job ? 'จะให้ม่วงจดเตือนเรื่องงานนี้เมื่อไหร่ดีคะ' : 'จะให้ม่วงจดเตือนคุณเมื่อไหร่ดีคะ',
@@ -33,12 +33,12 @@ export function remindPickerFlex(job) {
     body.push(divider(), {
       type: 'box',
       layout: 'vertical',
-      backgroundColor: COLORS.purpleSoft,
+      backgroundColor: COLORS.tint,
       cornerRadius: 'lg',
       paddingAll: 'md',
       spacing: 'xs',
       contents: [
-        { type: 'text', text: job.job_name || 'งาน', size: 'sm', weight: 'bold', color: COLORS.purpleDark, wrap: true },
+        { type: 'text', text: job.job_name || 'งาน', size: 'sm', weight: 'bold', color: COLORS.title, wrap: true },
         {
           type: 'text',
           text: `${job.customer_name ? `ลูกค้า: ${job.customer_name} · ` : ''}${formatBaht(Number(job.total) || 0)}`,
@@ -58,7 +58,7 @@ export function remindPickerFlex(job) {
       size: 'mega',
       body: { type: 'box', layout: 'vertical', spacing: 'md', paddingAll: 'lg', contents: body },
       footer: { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: 'lg', paddingTop: 'none', contents: buttons },
-      styles: { body: { backgroundColor: COLORS.white }, footer: { backgroundColor: COLORS.white } },
+      styles: { body: { backgroundColor: COLORS.surface }, footer: { backgroundColor: COLORS.surface } },
     },
   };
 }
@@ -77,13 +77,13 @@ export function reminderSetFlex(reminder, job) {
         spacing: 'md',
         paddingAll: 'lg',
         contents: [
-          { type: 'text', text: '⏰ ตั้งเตือนให้แล้วค่ะ', weight: 'bold', size: 'md', color: COLORS.purpleDark },
+          { type: 'text', text: '⏰ ตั้งเตือนให้แล้วค่ะ', weight: 'bold', size: 'md', color: COLORS.title },
           {
             type: 'text',
             text: formatThaiDateTime(reminder.remind_at),
             size: 'xl',
             weight: 'bold',
-            color: COLORS.purple,
+            color: COLORS.accent,
             wrap: true,
           },
           divider(),

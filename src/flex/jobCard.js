@@ -8,14 +8,6 @@ import { footerActions } from './components/footerActions.js';
 import { categoryLabel } from '../utils/category.js';
 import { brandAssetUrl } from '../utils/brand.js';
 
-// Backward-compatible colour re-exports (older modules import these here).
-export const PURPLE = COLORS.purple;
-export const PURPLE_DARK = COLORS.purpleDark;
-export const GREY = COLORS.grey;
-export const GREEN = COLORS.green;
-export const ORANGE = COLORS.orange;
-export const RED = COLORS.red;
-
 export function paymentLabel(status) {
   const p = paymentPresentation(status);
   return { text: p.text, color: p.color };
@@ -52,7 +44,7 @@ export function buildJobBubble(job) {
           width: '30px',
           height: '30px',
           cornerRadius: '15px',
-          backgroundColor: COLORS.purple,
+          backgroundColor: COLORS.accent,
           justifyContent: 'center',
           alignItems: 'center',
           flex: 0,
@@ -77,7 +69,7 @@ export function buildJobBubble(job) {
           text: job.job_name || categoryLabel(job),
           weight: 'bold',
           size: 'xl',
-          color: COLORS.purpleDark,
+          color: COLORS.title,
           flex: 5,
           wrap: true,
         },
@@ -96,7 +88,7 @@ export function buildJobBubble(job) {
     divider(),
     { type: 'box', layout: 'vertical', spacing: 'sm', contents: itemRows },
     divider(),
-    moneyRow('ยอดรวม', Number(job.total) || 0, { color: COLORS.purple, big: true }),
+    moneyRow('ยอดรวม', Number(job.total) || 0, { color: COLORS.accent, big: true }),
   ];
 
   // Show payment progress when partially paid.
@@ -150,7 +142,7 @@ export function jobPreviewMessage(draftJob, altText = 'ตรวจสอบก�
   bubble.header = {
     type: 'box',
     layout: 'vertical',
-    contents: [{ type: 'text', text: '📋 ตรวจสอบก่อนบันทึก', weight: 'bold', size: 'lg', color: COLORS.purple }],
+    contents: [{ type: 'text', text: '📋 ตรวจสอบก่อนบันทึก', weight: 'bold', size: 'lg', color: COLORS.accent }],
   };
   bubble.footer = footerActions({
     primary: { label: '✅ บันทึกงาน', data: 'action=confirm_add_job', displayText: 'บันทึกงาน' },

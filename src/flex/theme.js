@@ -1,30 +1,57 @@
-// ม่วงจด Flex design system — pastel purple / white / light grey.
+// ม่วงจด Flex design system — the dark navy and blue of the Rich Menu.
 // Single source of truth for colours so cards stay consistent.
+//
+// The names are what each colour is FOR, not what it looks like: the brand's
+// purple survives in the wordmark and the mascot, while every surface the bot
+// draws follows the menu.
 
 export const COLORS = {
-  purple: '#7C3AED', // primary
-  purpleDark: '#5B21B6',
-  purpleSoft: '#EDE9FE', // pastel lavender background
-  white: '#FFFFFF',
-  ink: '#1F2937', // primary text
-  sub: '#555555', // secondary text
-  grey: '#8E8E93', // muted
-  greyLight: '#F5F5F7', // surface
-  line: '#ECECF0', // separators
-  green: '#22A06B',
-  orange: '#E8833A',
-  red: '#E5484D',
+  accent: '#2E7DF7', // primary — buttons, rules, the emphasised number
+  title: '#E8EDF5', // headings
+  tint: '#1B2537', // a panel inside a card: stat tiles, badges, icon chips
+  surface: '#121A2A', // the card itself
+  line: '#25324A', // separators and card borders
+
+  ink: '#E8EDF5', // primary text
+  sub: '#AEBACD', // secondary text
+  grey: '#8494A8', // muted text
+
+  white: '#FFFFFF', // literal white — text sitting on the accent colour
+
+  // Status colours, lifted so they read on a dark surface.
+  green: '#4ADE80',
+  orange: '#FBBF24',
+  red: '#F87171',
 };
+
+// Flex gives a bubble a white background unless told otherwise, and a white
+// card with light text is unreadable — so every bubble gets its surface set.
+// Only sections the bubble actually has are styled.
+export function themed(bubble) {
+  const styles = {};
+  for (const part of ['header', 'body', 'footer']) {
+    if (bubble[part]) styles[part] = { backgroundColor: COLORS.surface };
+  }
+  return { ...bubble, styles: { ...styles, ...(bubble.styles || {}) } };
+}
+
+// The same, for a bubble or every bubble in a carousel.
+export function themedContents(contents) {
+  if (contents?.type === 'carousel') {
+    return { ...contents, contents: (contents.contents || []).map(themed) };
+  }
+  return contents?.type === 'bubble' ? themed(contents) : contents;
+}
 
 // Payment status -> label + colour (used by badges and rows).
 export function paymentPresentation(status) {
   switch (status) {
     case 'paid':
-      return { text: 'รับเงินแล้ว', color: COLORS.green, bg: '#E7F6EE' };
+      return { text: 'รับเงินแล้ว', color: COLORS.green, bg: '#12301F' };
     case 'partial':
-      return { text: 'รับบางส่วน', color: COLORS.orange, bg: '#FDF0E6' };
+      return { text: 'รับบางส่วน', color: COLORS.orange, bg: '#33270D' };
     case 'pending':
     default:
-      return { text: 'ค้างรับ', color: COLORS.red, bg: '#FCEBEC' };
+      return { text: 'ค้างรับ', color: COLORS.red, bg: '#3A1C21' };
   }
 }

@@ -23,12 +23,15 @@ for (const pose of POSES) {
   console.log(`${to.padEnd(30)} ${(size / 1024).toFixed(0)} KB`);
 }
 
-// 20:8 — the ratio receiptFlex declares for a bubble hero.
+// 20:8 — the ratio receiptFlex declares for a bubble hero. The colours are the
+// card's own surface and tint from src/flex/theme.js; a white strip would read
+// as a hole punched in the top of a dark card.
 const W = 1040, H = 416, BAND = 250;
+const SURFACE = '#121A2A', EDGE = '#1B2537', RULE = '#2E7DF7';
 const backdrop = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
-  <rect width="${W}" height="${H}" fill="#FFFFFF"/>
-  <rect x="0" y="${BAND}" width="${W}" height="${H - BAND}" fill="#EDE9FE"/>
-  <rect x="0" y="${BAND}" width="${W}" height="6" fill="#C4B5FD"/>
+  <rect width="${W}" height="${H}" fill="${SURFACE}"/>
+  <rect x="0" y="${BAND}" width="${W}" height="${H - BAND}" fill="${EDGE}"/>
+  <rect x="0" y="${BAND}" width="${W}" height="5" fill="${RULE}"/>
 </svg>`;
 
 const dog = await sharp('public/brand/mascot-peek.png').resize({ height: 320 }).toBuffer();
