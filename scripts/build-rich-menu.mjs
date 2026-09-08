@@ -32,8 +32,9 @@ const W = 2500, H = 1686;
 const PANEL_W = 860;        // brand panel, not tappable
 const TOP = 26;             // margin above the first row
 const STRIP_H = 300;        // bottom strip — three more buttons, full width
+const RIGHT = 40;           // margin after the last column, to match the panel's
 const COLS = 4, ROWS = 2;
-const CELL_W = Math.floor((W - PANEL_W) / COLS);
+const CELL_W = Math.floor((W - PANEL_W - RIGHT) / COLS);
 const CELL_H = Math.floor((H - TOP - STRIP_H) / ROWS);
 const PANEL_H = 1150;       // brand panel, centred in the space beside the grid
 const STRIP_COLS = 3;
@@ -73,34 +74,34 @@ const ICONS = {
          <path d="M40 74h28a10 10 0 0110 10v2a10 10 0 01-10 10H52l-12 8z" fill="${BLUE}"/>`,
 };
 
+// `title` is written as the lines it should break into: Thai has no spaces, so
+// left to itself Chromium splits a word mid-syllable. Subtitles are kept short
+// enough for one line — on a phone the card is about 90px wide, and anything
+// longer is decoration nobody can read.
 const BUTTONS = [
-  { icon: 'add', title: 'บันทึกงานวันนี้', sub: 'จดงาน / รับเงิน / รายรับ' },
-  { icon: 'slip', title: 'แนบสลิป/หลักฐาน', sub: 'รูปสลิป / ใบเสร็จ / เอกสาร' },
-  { icon: 'recent', title: 'รายการล่าสุด', sub: 'ดูรายการที่บันทึก' },
-  { icon: 'chart', title: 'สรุปวันนี้', sub: 'ยอดรับ / ยอดค้าง / งานวันนี้' },
-  { icon: 'edit', title: 'แก้ไขล่าสุด', sub: 'แก้ข้อความ / แก้ยอด' },
-  { icon: 'trash', title: 'ยกเลิกล่าสุด', sub: 'ลบหรือยกเลิกรายการ' },
-  { icon: 'pending', title: 'ค้างรับ & ติดตามงาน', sub: 'งานค้าง / มัดจำ / สถานะ' },
-  { icon: 'help', title: 'ช่วยเหลือ', sub: 'วิธีใช้ / ติดต่อเรา' },
+  { icon: 'add', title: ['บันทึกงาน', 'วันนี้'], sub: 'จดงาน / รับเงิน' },
+  { icon: 'slip', title: ['แนบสลิป/', 'หลักฐาน'], sub: 'สลิป / ใบเสร็จ' },
+  { icon: 'recent', title: ['รายการ', 'ล่าสุด'], sub: 'ดูงานที่บันทึก' },
+  { icon: 'chart', title: ['สรุปวันนี้'], sub: 'ยอดรับ / ยอดค้าง' },
+  { icon: 'edit', title: ['แก้ไข', 'ล่าสุด'], sub: 'แก้ข้อความ / ยอด' },
+  { icon: 'trash', title: ['ยกเลิก', 'ล่าสุด'], sub: 'ลบรายการล่าสุด' },
+  { icon: 'pending', title: ['ค้างรับ &', 'ติดตามงาน'], sub: 'งานค้าง / มัดจำ' },
+  { icon: 'help', title: ['ช่วยเหลือ'], sub: 'วิธีใช้ / ติดต่อ' },
 ];
 
 // The bottom strip — tappable, unlike the decorative strip it replaces.
 const STRIP = [
   { icon: 'board', title: 'แดชบอร์ด', sub: 'ดูภาพรวมงานทั้งหมด' },
-  { icon: 'bill', title: 'ออกบิล', sub: 'รวมบิล / รับชำระ / ใบเสร็จ' },
-  { icon: 'bell', title: 'ตั้งแจ้งเตือนงาน', sub: 'ให้ม่วงจดเตือนตามเวลา' },
+  { icon: 'bill', title: 'ออกบิล', sub: 'รวมบิล / รับชำระ' },
+  { icon: 'bell', title: 'ตั้งแจ้งเตือนงาน', sub: 'เตือนตามเวลาที่ตั้ง' },
 ];
-
-// Thai has no spaces inside a word, and Chromium will break one mid-word to
-// make it fit. Size each title so it never has to.
-const titleSize = (t) => (t.length <= 11 ? 46 : t.length <= 15 ? 40 : 33);
 
 const cards = BUTTONS.map(
   (b, i) => `<div class="cell" style="grid-column:${(i % COLS) + 1};grid-row:${Math.floor(i / COLS) + 1}">
     <div class="card">
       <div class="num">${i + 1}</div>
       <svg class="ic" viewBox="0 0 100 100">${ICONS[b.icon]}</svg>
-      <div class="t" style="font-size:${titleSize(b.title)}px">${b.title}</div>
+      <div class="t">${b.title.join('<br>')}</div>
       <div class="s">${b.sub}</div>
       <div class="rule"></div>
     </div></div>`
@@ -136,26 +137,27 @@ body{width:${W}px;height:${H}px;font-family:'NST',sans-serif;overflow:hidden;pos
 .scard{position:absolute;top:16px;height:${STRIP_H - 40}px;border-radius:34px;display:flex;align-items:center;gap:26px;padding:0 34px;
   background:linear-gradient(165deg,rgba(20,27,42,.94),rgba(10,14,23,.94));border:2px solid rgba(46,125,247,.30);
   box-shadow:0 12px 26px rgba(0,0,0,.5)}
-.sic{width:130px;height:130px;flex:none;filter:drop-shadow(0 6px 12px rgba(0,0,0,.55))}
-.st{font-weight:700;font-size:46px;color:#fff;white-space:nowrap}
-.ss{font-weight:400;font-size:28px;color:#93A3BC;margin-top:4px}
+.sic{width:150px;height:150px;flex:none;filter:drop-shadow(0 6px 12px rgba(0,0,0,.55))}
+.st{font-weight:700;font-size:60px;color:#fff;white-space:nowrap}
+.ss{font-weight:400;font-size:38px;color:#93A3BC;margin-top:4px}
 .badge{display:flex;align-items:center;gap:16px;padding:16px 34px;border-radius:999px;
   background:rgba(46,125,247,.13);border:2px solid rgba(46,125,247,.42)}
 .badge .line{padding:8px 20px;border-radius:999px;background:#06C755;color:#fff;font-weight:700;font-size:26px;
   display:flex;align-items:center;justify-content:center;letter-spacing:1px}
-.badge span{font-size:34px;color:#D8E4F7}
-.grid{position:absolute;left:${PANEL_W}px;top:${TOP}px;width:${W - PANEL_W}px;height:${CELL_H * ROWS}px;
+.badge span{font-size:40px;color:#D8E4F7}
+.grid{position:absolute;left:${PANEL_W}px;top:${TOP}px;width:${CELL_W * COLS}px;height:${CELL_H * ROWS}px;
   display:grid;grid-template-columns:repeat(${COLS},${CELL_W}px);grid-template-rows:repeat(${ROWS},${CELL_H}px)}
-.cell{padding:18px 16px;display:flex}
-.card{position:relative;flex:1;border-radius:34px;padding:30px 20px 34px;text-align:center;
+.cell{padding:18px 14px;display:flex}
+.card{position:relative;flex:1;border-radius:34px;padding:30px 14px 34px;text-align:center;
   background:linear-gradient(165deg,rgba(20,27,42,.92),rgba(10,14,23,.92));
   border:2px solid rgba(120,150,200,.20);box-shadow:0 14px 30px rgba(0,0,0,.45);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
 .num{position:absolute;left:22px;top:20px;width:52px;height:52px;border-radius:16px;background:${BLUE};
   font-weight:700;font-size:30px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(46,125,247,.5)}
-.ic{width:230px;height:230px;filter:drop-shadow(0 8px 14px rgba(0,0,0,.55))}
-.t{font-weight:700;line-height:1.15;color:#fff;white-space:nowrap}
-.s{font-weight:400;font-size:26px;line-height:1.3;color:#93A3BC;max-width:352px}
+.ic{width:220px;height:220px;filter:drop-shadow(0 8px 14px rgba(0,0,0,.55))}
+.t{font-weight:700;font-size:56px;line-height:1.18;color:#fff;white-space:nowrap;
+  min-height:132px;display:flex;flex-direction:column;justify-content:center}
+.s{font-weight:400;font-size:36px;line-height:1.3;color:#93A3BC;white-space:nowrap}
 .rule{width:70px;height:5px;border-radius:3px;background:${BLUE};margin-top:10px;box-shadow:0 0 14px rgba(46,125,247,.75)}
 </style></head><body>
 <div class="panel">
@@ -182,7 +184,7 @@ await sharp(buf).png({ compressionLevel: 9, palette: true }).toFile(out);
 
 const kb = statSync(out).size / 1024;
 console.log(`rendered ${meta.width}x${meta.height} -> assets/rich-menu.png (${kb.toFixed(0)} KB)`);
-console.log(`tap grid: ${COLS}x${ROWS} cells of ${CELL_W}x${CELL_H} from x=${PANEL_W} y=${TOP}`);
+console.log(`tap grid: ${COLS}x${ROWS} cells of ${CELL_W}x${CELL_H} from x=${PANEL_W} y=${TOP} (right margin ${RIGHT})`);
 console.log(`strip: ${STRIP_COLS} cells of ${STRIP_W}x${STRIP_H} from y=${H - STRIP_H}`);
 if (errs.length) {
   console.error('page errors:\n' + errs.join('\n'));
