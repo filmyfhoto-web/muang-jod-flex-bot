@@ -22,15 +22,6 @@ const font700 = b64('node_modules/@fontsource/noto-sans-thai/files/noto-sans-tha
 const logo = (await sharp(ROOT + 'public/brand/logo-dark.jpg').resize({ width: 900 }).jpeg({ quality: 90 }).toBuffer())
   .toString('base64');
 
-// Mascot cut-outs, stuck on the corners of a few button cards.
-const cutout = async (file, width) =>
-  (await sharp(ROOT + `public/brand/${file}`).resize({ width }).png({ compressionLevel: 9 }).toBuffer()).toString('base64');
-const STICKERS = {
-  0: { img: await cutout('mascot-clipboard-wave.png', 300), cls: 'wave' },
-  3: { img: await cutout('mascot-happy.png', 320), cls: 'happy' },
-  7: { img: await cutout('mascot-sleep.png', 380), cls: 'sleepy' },
-};
-
 // Geometry — mirrored by LAYOUT in create-rich-menu.js.
 const W = 2500, H = 1686;
 const PANEL_W = 860;        // brand panel, not tappable
@@ -106,7 +97,6 @@ const cards = BUTTONS.map(
       <div class="t" style="font-size:${titleSize(b.title)}px">${b.title}</div>
       <div class="s">${b.sub}</div>
       <div class="rule"></div>
-      ${STICKERS[i] ? `<img class="sticker ${STICKERS[i].cls}" src="data:image/png;base64,${STICKERS[i].img}">` : ''}
     </div></div>`
 ).join('');
 
@@ -129,12 +119,8 @@ body{width:${W}px;height:${H}px;font-family:'NST',sans-serif;overflow:hidden;pos
 .panel{position:absolute;left:40px;top:${TOP + 10}px;width:${PANEL_W - 110}px;height:${H - TOP - STRIP_H - 40}px;
   border-radius:46px;background:linear-gradient(160deg,rgba(20,28,44,.94),rgba(8,12,20,.94));
   border:2px solid rgba(46,125,247,.34);box-shadow:0 0 70px rgba(46,125,247,.16) inset,0 18px 44px rgba(0,0,0,.55);
-  overflow:visible;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;padding:34px}
-.panel .logo{width:${PANEL_W - 240}px;border-radius:34px}
-.card .sticker{position:absolute;filter:drop-shadow(0 8px 16px rgba(0,0,0,.65));pointer-events:none}
-.card .wave{right:-14px;top:-40px;width:150px}
-.card .happy{right:-18px;bottom:-10px;width:160px}
-.card .sleepy{right:-14px;bottom:-16px;width:180px}
+  overflow:visible;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:36px;padding:24px}
+.panel .logo{width:100%;border-radius:34px}
 .strip{position:absolute;left:0;top:${H - STRIP_H}px;width:${W}px;height:${STRIP_H}px}
 .scard{position:absolute;top:16px;height:${STRIP_H - 40}px;border-radius:34px;display:flex;align-items:center;gap:26px;padding:0 34px;
   background:linear-gradient(165deg,rgba(20,27,42,.94),rgba(10,14,23,.94));border:2px solid rgba(46,125,247,.30);
