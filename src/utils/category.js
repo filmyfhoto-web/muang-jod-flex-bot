@@ -21,7 +21,7 @@ export const CATEGORY_GROUPS = [
     id: 'print',
     label: 'งานพิมพ์',
     icon: '🖨️',
-    color: '#7C3AED', // purple
+    color: '#A78BFA', // purple
     types: [
       { id: 'copy', label: 'ถ่ายเอกสาร', icon: '📄', hint: 'ขาวดำ / สี / จำนวนหลายชุด', keys: ['ถ่ายเอกสาร', 'ถ่ายเอก', 'copy'] },
       { id: 'print', label: 'พิมพ์งาน', icon: '📄', hint: 'ไฟล์เอกสาร / ไฟล์ PDF / งานด่วน', keys: ['ปริ้น', 'พิมพ์งาน', 'พิมพ์เอกสาร', 'print', 'ใบปลิว', 'โบรชัวร์', 'แผ่นพับ', 'นามบัตร'] },
@@ -52,14 +52,14 @@ export const CATEGORY_GROUPS = [
     id: 'shipping',
     label: 'ค่าจัดส่ง / ขนส่ง',
     icon: '🚚',
-    color: '#22A06B',
+    color: '#34D399',
     types: [
       { id: 'shipping', label: 'ค่าจัดส่ง', icon: '🚚', hint: 'ส่งของ / ค่ารถ / แมสเซนเจอร์', keys: ['จัดส่ง', 'ขนส่ง', 'ค่าส่ง', 'ค่ารถ', 'แมสเซนเจอร์', 'ems', 'kerry'] },
     ],
   },
 ];
 
-export const OTHER_GROUP = { id: 'other', label: 'งานทั่วไป', icon: '📦', color: '#8E8E93', types: [] };
+export const OTHER_GROUP = { id: 'other', label: 'งานทั่วไป', icon: '📦', color: '#94A3B8', types: [] };
 
 const ALL_TYPES = CATEGORY_GROUPS.flatMap((g) => g.types.map((t) => ({ ...t, group: g })));
 

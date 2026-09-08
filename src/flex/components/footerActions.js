@@ -20,7 +20,7 @@ function button(btn) {
 export function footerActions({ primary, secondary = [] } = {}) {
   const contents = [];
   if (primary) {
-    contents.push(button({ style: 'primary', color: COLORS.purple, ...primary }));
+    contents.push(button({ style: 'primary', color: COLORS.accent, ...primary }));
   }
   if (secondary.length) {
     contents.push({

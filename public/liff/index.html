@@ -8,25 +8,32 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
+  /* The Rich Menu's palette. Names say what a colour is for, not what it looks
+     like, so the app and the chat cards can move together. */
   :root {
-    --purple: #7c3aed; --purple-dark: #5b21b6; --purple-soft: #ede9fe; --purple-tint: #f7f4ff;
-    --pink: #f471b5; --blue: #60a5fa; --amber: #f59e0b;
-    --ink: #1f2937; --sub: #555; --grey: #8e8e93; --line: #ececf0;
-    --green: #22a06b; --green-bg: #e7f6ee; --orange: #e8833a; --orange-bg: #fdf0e6;
-    --red: #e5484d; --red-bg: #fcebec; --white: #fff; --r: 18px;
+    color-scheme: dark;
+    --accent: #2e7df7; --accent-dim: #1c4fa0;
+    --bg: #080b12; --surface: #121a2a; --tint: #1b2537; --line: #25324a;
+    --ink: #e8edf5; --sub: #aebacd; --grey: #8494a8; --white: #fff;
+    --pink: #f471b5; --blue: #60a5fa; --amber: #fbbf24;
+    --green: #4ade80; --green-bg: #12301f;
+    --orange: #fbbf24; --orange-bg: #33270d;
+    --red: #f87171; --red-bg: #3a1c21;
+    --shadow: rgba(0, 0, 0, .45);
+    --r: 18px;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body {
-    margin: 0; background: var(--purple-tint); color: var(--ink);
+    margin: 0; background: var(--bg); color: var(--ink);
     font-family: 'Noto Sans Thai', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     font-size: 15px; line-height: 1.5; padding-bottom: 104px;
   }
   header { padding: 16px 16px 10px; display: flex; align-items: center; gap: 11px; }
-  header img { width: 40px; height: 40px; border-radius: 50%; background: var(--purple-soft); object-fit: cover; }
-  header h1 { margin: 0; font-size: 16px; font-weight: 700; color: var(--purple-dark); }
+  header img { width: 40px; height: 40px; border-radius: 50%; background: var(--tint); object-fit: cover; }
+  header h1 { margin: 0; font-size: 16px; font-weight: 700; color: var(--ink); }
   header p { margin: 0; font-size: 11.5px; color: var(--grey); }
   main { padding: 0 14px; }
-  .card { position: relative; background: var(--white); border-radius: var(--r); padding: 15px; box-shadow: 0 2px 12px rgba(91,33,182,.08); margin-bottom: 13px; }
+  .card { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 15px; box-shadow: 0 2px 14px var(--shadow); margin-bottom: 13px; }
 
   /* Die-cut mascots that sit IN the layout rather than on top of it. `behind`
      tucks the body under the card's own background so only the head and paws
@@ -34,22 +41,22 @@
      tapped, and both stay clear of the numbers and buttons. */
   .peek { position: absolute; pointer-events: none; user-select: none; }
   .peek.behind { z-index: -1; }
-  .peek.front { z-index: 2; filter: drop-shadow(0 5px 9px rgba(91,33,182,.22)); }
+  .peek.front { z-index: 2; filter: drop-shadow(0 5px 9px rgba(0, 0, 0, .55)); }
   /* A card the mascot rests against keeps room for it, so it never sits on a
      row's amount or badge. */
   .card.mascot-foot { padding-bottom: 46px; }
   @media (max-width: 340px) { .peek { display: none; } }
   .card > h2 { margin: 0 0 12px; font-size: 15px; color: var(--ink); display: flex; justify-content: space-between; align-items: center; font-weight: 700; }
   .card > h2 .date { font-size: 12px; color: var(--grey); font-weight: 500; }
-  .link { font-size: 12.5px; color: var(--purple); font-weight: 600; }
+  .link { font-size: 12.5px; color: var(--accent); font-weight: 600; }
 
   /* Stat grid — the big total plus one tile per category */
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
-  .stat { background: var(--purple-tint); border-radius: 14px; padding: 12px; }
+  .stat { background: var(--tint); border-radius: 14px; padding: 12px; }
   .stat .top { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
-  .stat .ic { width: 28px; height: 28px; border-radius: 9px; background: var(--purple-soft); display: grid; place-items: center; font-size: 15px; flex: none; }
+  .stat .ic { width: 28px; height: 28px; border-radius: 9px; background: var(--surface); display: grid; place-items: center; font-size: 15px; flex: none; }
   .stat .lbl { font-size: 11.5px; color: var(--sub); font-weight: 500; }
-  .stat .big { font-size: 21px; font-weight: 700; color: var(--purple-dark); line-height: 1.25; }
+  .stat .big { font-size: 21px; font-weight: 700; color: var(--accent); line-height: 1.25; }
   .stat .sm { font-size: 12px; color: var(--grey); }
   .stat .trend { font-size: 11.5px; font-weight: 600; margin-top: 2px; }
   .up { color: var(--green); } .down { color: var(--red); } .flat { color: var(--grey); }
@@ -65,7 +72,7 @@
 
   .job { display: flex; gap: 11px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
   .job:last-child { border-bottom: 0; }
-  .job .ic { width: 38px; height: 38px; border-radius: 12px; background: var(--purple-soft); display: grid; place-items: center; font-size: 18px; flex: none; }
+  .job .ic { width: 38px; height: 38px; border-radius: 12px; background: var(--tint); display: grid; place-items: center; font-size: 18px; flex: none; }
   .job .txt { flex: 1; min-width: 0; }
   .job .txt b { display: block; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .job .txt small { color: var(--grey); font-size: 11.5px; }
@@ -80,15 +87,15 @@
   label .req { color: var(--red); }
   input, select, textarea {
     width: 100%; font: inherit; font-size: 15px; padding: 11px 12px; border: 1.5px solid var(--line);
-    border-radius: 12px; background: var(--white); color: var(--ink); appearance: none;
+    border-radius: 12px; background: var(--tint); color: var(--ink); appearance: none;
   }
-  select { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8'><path d='M1 1l5 5 5-5' stroke='%237c3aed' stroke-width='2' fill='none' stroke-linecap='round'/></svg>"); background-repeat: no-repeat; background-position: right 14px center; }
-  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--purple); }
+  select { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8'><path d='M1 1l5 5 5-5' stroke='%232e7df7' stroke-width='2' fill='none' stroke-linecap='round'/></svg>"); background-repeat: no-repeat; background-position: right 14px center; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
   .seg { display: flex; gap: 7px; }
-  .seg button { flex: 1; border: 1.5px solid var(--line); background: var(--white); border-radius: 12px; padding: 10px 4px; font: inherit; font-size: 12.5px; color: var(--sub); }
-  .seg button[aria-pressed="true"] { border-color: var(--purple); background: var(--purple-soft); color: var(--purple-dark); font-weight: 700; }
+  .seg button { flex: 1; border: 1.5px solid var(--line); background: var(--tint); border-radius: 12px; padding: 10px 4px; font: inherit; font-size: 12.5px; color: var(--sub); }
+  .seg button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-dim); color: var(--white); font-weight: 700; }
   .btn { width: 100%; border: 0; border-radius: 13px; padding: 13px; font: inherit; font-size: 15px; font-weight: 700; margin-top: 15px; }
-  .btn-primary { background: var(--purple); color: #fff; }
+  .btn-primary { background: var(--accent); color: #fff; }
   .btn-danger { background: var(--red-bg); color: var(--red); }
   .btn-ghost { background: transparent; color: var(--sub); font-weight: 500; }
   .btn:disabled { opacity: .55; }
@@ -96,18 +103,18 @@
 
   /* Bottom navigation, as in the mockup */
   nav {
-    position: fixed; left: 0; right: 0; bottom: 0; background: var(--white);
+    position: fixed; left: 0; right: 0; bottom: 0; background: var(--surface);
     border-top: 1px solid var(--line); display: flex; padding: 7px 4px calc(7px + env(safe-area-inset-bottom));
-    box-shadow: 0 -2px 14px rgba(91,33,182,.06); z-index: 5;
+    box-shadow: 0 -2px 14px var(--shadow); z-index: 5;
   }
   nav button { flex: 1; border: 0; background: none; font: inherit; font-size: 10.5px; color: var(--grey); padding: 3px 0; }
   nav button span { display: block; font-size: 19px; line-height: 1.25; filter: grayscale(1); opacity: .55; }
-  nav button[aria-selected="true"] { color: var(--purple); font-weight: 700; }
+  nav button[aria-selected="true"] { color: var(--accent); font-weight: 700; }
   nav button[aria-selected="true"] span { filter: none; opacity: 1; }
 
   .toast {
     position: fixed; left: 50%; bottom: 96px; transform: translate(-50%, 16px); opacity: 0;
-    background: var(--ink); color: #fff; padding: 11px 18px; border-radius: 999px; font-size: 13.5px;
+    background: var(--tint); color: var(--ink); border: 1px solid var(--line); padding: 11px 18px; border-radius: 999px; font-size: 13.5px;
     transition: .25s; pointer-events: none; max-width: 90vw; z-index: 9;
   }
   .toast.on { opacity: 1; transform: translate(-50%, 0); }
@@ -180,7 +187,7 @@
       <h2>วิธีใช้แบบเร็ว</h2>
       <p style="font-size:13.5px;color:var(--sub);margin:0">
         พิมพ์งานในแชตได้เลย เช่น<br />
-        <b style="color:var(--purple-dark)">ป้ายไวนิล 60x100 150 บาท</b><br /><br />
+        <b style="color:var(--accent)">ป้ายไวนิล 60x100 150 บาท</b><br /><br />
         แตะรายการในหน้านี้เพื่อแก้ไข ปรับราคา เปลี่ยนหมวด หรือยกเลิกงานได้ทันทีค่ะ
       </p>
     </div>
@@ -237,7 +244,7 @@ const $ = (id) => document.getElementById(id);
 const baht = (n) => '฿' + (Number(n) || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
 const thb = (n) => (Number(n) || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 }) + ' บาท';
 const BADGE = { paid: ['b-paid', 'รับเงินแล้ว'], partial: ['b-partial', 'รับบางส่วน'], pending: ['b-pending', 'ค้างรับ'] };
-const COLORS = { sign: '#f471b5', print: '#7c3aed', design: '#60a5fa', food: '#f59e0b', shipping: '#22a06b', other: '#8e8e93' };
+const COLORS = { sign: '#f471b5', print: '#a78bfa', design: '#60a5fa', food: '#fbbf24', shipping: '#34d399', other: '#94a3b8' };
 
 let token = null, groups = [], current = null, tab = 'today', period = 'daily', me = null;
 
@@ -314,7 +321,7 @@ function donut(cats, total) {
       const len = (c.percent / 100) * C;
       const seg =
         '<circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + R + '" fill="none" stroke="' +
-        (c.color || COLORS[c.id] || '#8e8e93') + '" stroke-width="16" stroke-dasharray="' + len + ' ' + (C - len) +
+        (c.color || COLORS[c.id] || '#94a3b8') + '" stroke-width="16" stroke-dasharray="' + len + ' ' + (C - len) +
         '" stroke-dashoffset="' + -offset + '" transform="rotate(-90 ' + size / 2 + ' ' + size / 2 + ')" />';
       offset += len;
       return seg;
@@ -322,10 +329,10 @@ function donut(cats, total) {
     .join('');
   return (
     '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
-    '<circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + R + '" fill="none" stroke="#f0ecfb" stroke-width="16" />' +
+    '<circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + R + '" fill="none" stroke="#1b2537" stroke-width="16" />' +
     arcs +
-    '<text x="50%" y="46%" text-anchor="middle" font-size="10" fill="#8e8e93" font-family="inherit">รวม</text>' +
-    '<text x="50%" y="62%" text-anchor="middle" font-size="14" font-weight="700" fill="#5b21b6" font-family="inherit">' +
+    '<text x="50%" y="46%" text-anchor="middle" font-size="10" fill="#8494a8" font-family="inherit">รวม</text>' +
+    '<text x="50%" y="62%" text-anchor="middle" font-size="14" font-weight="700" fill="#e8edf5" font-family="inherit">' +
     thb(total) + '</text></svg>'
   );
 }
@@ -335,7 +342,7 @@ function renderLegend(el, cats) {
   cats.forEach((c) => {
     const row = document.createElement('div');
     row.innerHTML = '<i class="dot"></i><span class="nm"></span><span class="pc"></span>';
-    const color = c.color || COLORS[c.id] || '#8e8e93';
+    const color = c.color || COLORS[c.id] || '#94a3b8';
     row.querySelector('.dot').style.background = color;
     row.querySelector('.nm').textContent = c.icon + ' ' + c.label;
     row.querySelector('.pc').textContent = c.percent + '%';

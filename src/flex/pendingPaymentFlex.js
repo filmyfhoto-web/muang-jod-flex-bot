@@ -24,7 +24,7 @@ export function pendingPaymentFlex(jobs) {
           layout: 'vertical',
           spacing: 'md',
           contents: [
-            { type: 'text', text: '💰 ค้างรับ', weight: 'bold', color: COLORS.purple },
+            { type: 'text', text: '💰 ค้างรับ', weight: 'bold', color: COLORS.accent },
             { type: 'text', text: 'ไม่มีงานค้างรับเลยค่ะ เก่งมาก 💜', size: 'sm', color: COLORS.grey, wrap: true },
           ],
         },

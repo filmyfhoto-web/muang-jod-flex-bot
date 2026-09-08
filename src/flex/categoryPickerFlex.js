@@ -11,7 +11,7 @@ function row({ icon, label, hint, data }) {
     spacing: 'md',
     alignItems: 'center',
     paddingAll: 'md',
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.surface,
     cornerRadius: 'lg',
     borderWidth: '1px',
     borderColor: COLORS.line,
@@ -23,7 +23,7 @@ function row({ icon, label, hint, data }) {
         width: '38px',
         height: '38px',
         cornerRadius: 'md',
-        backgroundColor: COLORS.purpleSoft,
+        backgroundColor: COLORS.tint,
         justifyContent: 'center',
         alignItems: 'center',
         flex: 0,
@@ -38,7 +38,7 @@ function row({ icon, label, hint, data }) {
           ...(hint ? [{ type: 'text', text: hint, size: 'xxs', color: COLORS.grey, wrap: true }] : []),
         ],
       },
-      { type: 'text', text: '›', size: 'lg', color: COLORS.purple, align: 'end', flex: 0 },
+      { type: 'text', text: '›', size: 'lg', color: COLORS.accent, align: 'end', flex: 0 },
     ],
   };
 }
@@ -52,17 +52,17 @@ function bubble({ title, subtitle, rows, footer }) {
       layout: 'vertical',
       spacing: 'md',
       paddingAll: 'lg',
-      backgroundColor: COLORS.white,
+      backgroundColor: COLORS.surface,
       contents: [
         {
           type: 'box',
           layout: 'vertical',
-          backgroundColor: COLORS.purpleSoft,
+          backgroundColor: COLORS.tint,
           cornerRadius: 'lg',
           paddingAll: 'md',
           spacing: 'xs',
           contents: [
-            { type: 'text', text: title, size: 'lg', weight: 'bold', color: COLORS.purpleDark, wrap: true },
+            { type: 'text', text: title, size: 'lg', weight: 'bold', color: COLORS.title, wrap: true },
             { type: 'text', text: subtitle, size: 'xs', color: COLORS.sub, wrap: true },
           ],
         },

@@ -17,7 +17,7 @@ export function todaySummaryFlex(summary) {
         layout: 'vertical',
         spacing: 'md',
         contents: [
-          moneyRow('จำนวนงานทั้งหมด', `${summary.jobCount} งาน`, { color: COLORS.purpleDark }),
+          moneyRow('จำนวนงานทั้งหมด', `${summary.jobCount} งาน`, { color: COLORS.title }),
           divider(),
           moneyRow('ยอดรวมทั้งหมด', summary.total, { color: COLORS.ink }),
           moneyRow('รับเงินแล้ว', summary.paid, { color: COLORS.green }),

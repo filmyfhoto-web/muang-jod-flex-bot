@@ -29,7 +29,7 @@ function jobLine(job, index) {
         width: '20px',
         height: '20px',
         cornerRadius: '10px',
-        backgroundColor: COLORS.purple,
+        backgroundColor: COLORS.accent,
         justifyContent: 'center',
         alignItems: 'center',
         flex: 0,
@@ -63,18 +63,18 @@ function moneyBlock(bill) {
     {
       type: 'box',
       layout: 'horizontal',
-      backgroundColor: COLORS.purpleSoft,
+      backgroundColor: COLORS.tint,
       cornerRadius: 'lg',
       paddingAll: 'md',
       alignItems: 'center',
       contents: [
-        { type: 'text', text: 'รวมทั้งสิ้น', size: 'md', weight: 'bold', color: COLORS.purpleDark, flex: 3 },
+        { type: 'text', text: 'รวมทั้งสิ้น', size: 'md', weight: 'bold', color: COLORS.title, flex: 3 },
         {
           type: 'text',
           text: formatBaht(Number(bill.total) || 0),
           size: 'xxl',
           weight: 'bold',
-          color: COLORS.purple,
+          color: COLORS.accent,
           align: 'end',
           flex: 4,
         },
@@ -104,7 +104,7 @@ export function billFlex(bill, opts = {}) {
     {
       type: 'button',
       style: 'primary',
-      color: COLORS.purple,
+      color: COLORS.accent,
       height: 'sm',
       action: {
         type: 'postback',
@@ -134,14 +134,14 @@ export function billFlex(bill, opts = {}) {
         layout: 'vertical',
         spacing: 'md',
         paddingAll: 'lg',
-        backgroundColor: COLORS.white,
+        backgroundColor: COLORS.surface,
         contents: [
           {
             type: 'box',
             layout: 'horizontal',
             alignItems: 'center',
             contents: [
-              { type: 'text', text: '🧾 บิลรวมรายการ', weight: 'bold', size: 'lg', color: COLORS.purpleDark, flex: 4 },
+              { type: 'text', text: '🧾 บิลรวมรายการ', weight: 'bold', size: 'lg', color: COLORS.title, flex: 4 },
               statusBadge(bill.payment_status),
             ],
           },
@@ -172,7 +172,7 @@ export function billFlex(bill, opts = {}) {
         ],
       },
       footer: { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: 'lg', paddingTop: 'none', contents: footer },
-      styles: { body: { backgroundColor: COLORS.white }, footer: { backgroundColor: COLORS.white } },
+      styles: { body: { backgroundColor: COLORS.surface }, footer: { backgroundColor: COLORS.surface } },
     },
   };
 }
@@ -191,7 +191,7 @@ export function billReceiptFlex(bill, opts = {}) {
       width: '48px',
       height: '48px',
       cornerRadius: '24px',
-      backgroundColor: settled ? COLORS.purple : COLORS.orange,
+      backgroundColor: settled ? COLORS.accent : COLORS.orange,
       justifyContent: 'center',
       alignItems: 'center',
       flex: 0,
@@ -206,7 +206,7 @@ export function billReceiptFlex(bill, opts = {}) {
           text: settled ? 'ออกใบเสร็จแล้ว' : 'รับชำระบางส่วน',
           weight: 'bold',
           size: 'xl',
-          color: COLORS.purpleDark,
+          color: COLORS.title,
           wrap: true,
         },
         { type: 'text', text: settled ? 'ขอบคุณที่ชำระเงินค่ะ 💜' : `ยังค้าง ${formatBaht(Number(bill.balance_due) || 0)}`, size: 'xs', color: COLORS.grey, wrap: true },
@@ -222,7 +222,7 @@ export function billReceiptFlex(bill, opts = {}) {
     footer.push({
       type: 'button',
       style: 'primary',
-      color: COLORS.purple,
+      color: COLORS.accent,
       height: 'sm',
       action: { type: 'uri', label: '🧾 เปิด/ส่งใบเสร็จ', uri: url },
     });
@@ -247,19 +247,19 @@ export function billReceiptFlex(bill, opts = {}) {
         layout: 'vertical',
         spacing: 'md',
         paddingAll: 'lg',
-        backgroundColor: COLORS.white,
+        backgroundColor: COLORS.surface,
         contents: [
           { type: 'box', layout: 'horizontal', spacing: 'md', alignItems: 'center', contents: head },
           divider(),
           {
             type: 'box',
             layout: 'vertical',
-            backgroundColor: COLORS.purpleSoft,
+            backgroundColor: COLORS.tint,
             cornerRadius: 'lg',
             paddingAll: 'md',
             spacing: 'xs',
             contents: [
-              { type: 'text', text: bill.bill_number || '', size: 'sm', weight: 'bold', color: COLORS.purpleDark },
+              { type: 'text', text: bill.bill_number || '', size: 'sm', weight: 'bold', color: COLORS.title },
               {
                 type: 'text',
                 text: `${bill.customer_name ? `ลูกค้า: ${bill.customer_name} · ` : ''}${(bill.jobs || []).length} รายการ`,
@@ -289,7 +289,7 @@ export function billReceiptFlex(bill, opts = {}) {
         ],
       },
       footer: { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: 'lg', paddingTop: 'none', contents: footer },
-      styles: { body: { backgroundColor: COLORS.white }, footer: { backgroundColor: COLORS.white } },
+      styles: { body: { backgroundColor: COLORS.surface }, footer: { backgroundColor: COLORS.surface } },
     },
   };
 }
@@ -327,7 +327,7 @@ export function billCustomersFlex(customers = []) {
           { type: 'text', text: `${c.jobCount} งาน · ค้าง ${formatBaht(c.due)}`, size: 'xxs', color: COLORS.grey },
         ],
       },
-      { type: 'text', text: formatBaht(c.total), size: 'sm', weight: 'bold', color: COLORS.purple, align: 'end', flex: 3 },
+      { type: 'text', text: formatBaht(c.total), size: 'sm', weight: 'bold', color: COLORS.accent, align: 'end', flex: 3 },
     ],
   }));
 
@@ -342,17 +342,17 @@ export function billCustomersFlex(customers = []) {
         layout: 'vertical',
         spacing: 'md',
         paddingAll: 'lg',
-        backgroundColor: COLORS.white,
+        backgroundColor: COLORS.surface,
         contents: [
           {
             type: 'box',
             layout: 'vertical',
-            backgroundColor: COLORS.purpleSoft,
+            backgroundColor: COLORS.tint,
             cornerRadius: 'lg',
             paddingAll: 'md',
             spacing: 'xs',
             contents: [
-              { type: 'text', text: '🧾 ออกบิล', size: 'lg', weight: 'bold', color: COLORS.purpleDark },
+              { type: 'text', text: '🧾 ออกบิล', size: 'lg', weight: 'bold', color: COLORS.title },
               { type: 'text', text: 'เลือกลูกค้า แล้วม่วงจดจะรวมงานที่ยังไม่ได้ออกบิลให้ค่ะ', size: 'xs', color: COLORS.sub, wrap: true },
             ],
           },

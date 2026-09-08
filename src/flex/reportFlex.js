@@ -6,7 +6,7 @@ import { divider } from './components/divider.js';
 
 function listSection(title, jobs) {
   const contents = [
-    { type: 'text', text: title, size: 'sm', weight: 'bold', color: COLORS.purpleDark },
+    { type: 'text', text: title, size: 'sm', weight: 'bold', color: COLORS.title },
   ];
   if (!jobs.length) {
     contents.push({ type: 'text', text: '— ไม่มีข้อมูล —', size: 'xs', color: COLORS.grey });
@@ -46,7 +46,7 @@ export function reportCardFlex(report) {
         layout: 'vertical',
         spacing: 'md',
         contents: [
-          moneyRow('จำนวนงาน', `${report.jobCount} งาน`, { color: COLORS.purpleDark }),
+          moneyRow('จำนวนงาน', `${report.jobCount} งาน`, { color: COLORS.title }),
           moneyRow('ยอดขายรวม', report.totalSales, { color: COLORS.ink }),
           moneyRow('รับเงินแล้ว', report.paid, { color: COLORS.green }),
           moneyRow('ค้างรับ', report.pending, { color: COLORS.red }),
@@ -65,7 +65,7 @@ export function reportCardFlex(report) {
           {
             type: 'button',
             style: 'primary',
-            color: COLORS.purple,
+            color: COLORS.accent,
             height: 'sm',
             action: {
               type: 'postback',
@@ -106,7 +106,7 @@ export function reportMenuFlex() {
           {
             type: 'button',
             style: 'primary',
-            color: COLORS.purple,
+            color: COLORS.accent,
             height: 'sm',
             action: {
               type: 'postback',

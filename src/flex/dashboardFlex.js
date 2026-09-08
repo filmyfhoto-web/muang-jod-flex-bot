@@ -26,7 +26,7 @@ function categoryTile(cat) {
   return {
     type: 'box',
     layout: 'vertical',
-    backgroundColor: COLORS.greyLight,
+    backgroundColor: COLORS.tint,
     cornerRadius: 'lg',
     paddingAll: 'md',
     spacing: 'xs',
@@ -107,7 +107,7 @@ function recentRow(job) {
         width: '54px',
         height: '54px',
         cornerRadius: 'md',
-        backgroundColor: COLORS.purpleSoft,
+        backgroundColor: COLORS.tint,
         justifyContent: 'center',
         alignItems: 'center',
         flex: 0,
@@ -148,17 +148,17 @@ export function dashboardFlex(dash, opts = {}) {
       layout: 'horizontal',
       alignItems: 'center',
       contents: [
-        { type: 'text', text: '📊 สรุปงานวันนี้', weight: 'bold', size: 'xxl', color: COLORS.purpleDark, flex: 4 },
+        { type: 'text', text: '📊 สรุปงานวันนี้', weight: 'bold', size: 'xxl', color: COLORS.title, flex: 4 },
         {
           type: 'box',
           layout: 'vertical',
-          backgroundColor: COLORS.purpleSoft,
+          backgroundColor: COLORS.tint,
           cornerRadius: 'xxl',
           paddingAll: 'xs',
           paddingStart: 'md',
           paddingEnd: 'md',
           flex: 0,
-          contents: [{ type: 'text', text: formatThaiDate(summary.date), size: 'md', color: COLORS.purpleDark, weight: 'bold' }],
+          contents: [{ type: 'text', text: formatThaiDate(summary.date), size: 'md', color: COLORS.title, weight: 'bold' }],
         },
       ],
     },
@@ -166,13 +166,13 @@ export function dashboardFlex(dash, opts = {}) {
     {
       type: 'box',
       layout: 'vertical',
-      backgroundColor: COLORS.purpleSoft,
+      backgroundColor: COLORS.tint,
       cornerRadius: 'lg',
       paddingAll: 'lg',
       spacing: 'xs',
       contents: [
         { type: 'text', text: 'ยอดวันนี้', size: 'md', color: COLORS.sub },
-        { type: 'text', text: formatBaht(summary.total), size: '4xl', weight: 'bold', color: COLORS.purple },
+        { type: 'text', text: formatBaht(summary.total), size: '4xl', weight: 'bold', color: COLORS.accent },
         trendLine(trend),
         {
           type: 'box',
@@ -191,7 +191,7 @@ export function dashboardFlex(dash, opts = {}) {
   if (categories.length) {
     body.push(...categoryTiles(categories.slice(0, 4)));
     body.push(divider());
-    body.push({ type: 'text', text: 'สัดส่วนงานวันนี้', weight: 'bold', size: 'lg', color: COLORS.purpleDark });
+    body.push({ type: 'text', text: 'สัดส่วนงานวันนี้', weight: 'bold', size: 'lg', color: COLORS.title });
     body.push(...categories.slice(0, 4).map(shareRow));
   }
 
@@ -202,12 +202,12 @@ export function dashboardFlex(dash, opts = {}) {
         type: 'box',
         layout: 'horizontal',
         contents: [
-          { type: 'text', text: 'รายการล่าสุด', weight: 'bold', size: 'lg', color: COLORS.purpleDark, flex: 3 },
+          { type: 'text', text: 'รายการล่าสุด', weight: 'bold', size: 'lg', color: COLORS.title, flex: 3 },
           {
             type: 'text',
             text: 'ดูทั้งหมด ›',
             size: 'md',
-            color: COLORS.purple,
+            color: COLORS.accent,
             align: 'end',
             flex: 2,
             action: { type: 'postback', label: 'ดูทั้งหมด', data: 'action=recent_jobs', displayText: 'รายการล่าสุด' },
@@ -232,7 +232,7 @@ export function dashboardFlex(dash, opts = {}) {
     footerContents.push({
       type: 'button',
       style: 'primary',
-      color: COLORS.purple,
+      color: COLORS.accent,
       height: 'md',
       action: { type: 'uri', label: '📊 เปิดแดชบอร์ด', uri: dashUrl },
     });
@@ -265,7 +265,7 @@ export function dashboardFlex(dash, opts = {}) {
       size: 'mega',
       body: { type: 'box', layout: 'vertical', spacing: 'md', paddingAll: 'lg', contents: body },
       footer: { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: 'lg', paddingTop: 'none', contents: footerContents },
-      styles: { body: { backgroundColor: COLORS.white }, footer: { backgroundColor: COLORS.white } },
+      styles: { body: { backgroundColor: COLORS.surface }, footer: { backgroundColor: COLORS.surface } },
     },
   };
 }
