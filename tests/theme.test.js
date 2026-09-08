@@ -53,7 +53,7 @@ test('themedContents reaches every bubble in a carousel, and passes anything els
   assert.deepEqual(themedContents({ type: 'box' }), { type: 'box' }, 'not a bubble: untouched');
 });
 
-// WCAG relative luminance + contrast, so the two purples can be checked
+// WCAG relative luminance + contrast, so the two accents can be checked
 // rather than eyeballed.
 function luminance(hex) {
   const [r, g, b] = [1, 3, 5].map((i) => {
