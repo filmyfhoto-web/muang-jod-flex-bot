@@ -8,6 +8,8 @@ import { cancelLatest, confirmCancel, cancelCancel } from '../actions/cancelLate
 import { editJob, deleteJob } from '../actions/jobActions.js';
 import { pickCategory } from '../actions/pickCategory.js';
 import { createBillAction, billPaymentPrompt, viewReceipt } from '../actions/bill.js';
+import { remindPrompt, setReminder, cancelReminderAction, listReminders } from '../actions/reminder.js';
+import { openDashboard } from '../actions/dashboard.js';
 import { pendingPayment } from '../actions/pendingPayment.js';
 import { recordPaymentPrompt } from '../actions/recordPayment.js';
 import { searchJobsPrompt } from '../actions/searchJobs.js';
@@ -61,6 +63,16 @@ export async function handlePostback(event, profile) {
       return billPaymentPrompt(ctx);
     case 'view_receipt':
       return viewReceipt(ctx);
+    case 'open_dashboard':
+      return openDashboard(ctx);
+    case 'remind_job':
+      return remindPrompt(ctx);
+    case 'set_reminder':
+      return setReminder(ctx);
+    case 'cancel_reminder':
+      return cancelReminderAction(ctx);
+    case 'my_reminders':
+      return listReminders(ctx);
     case 'confirm_cancel':
       return confirmCancel(ctx);
     case 'cancel_cancel':

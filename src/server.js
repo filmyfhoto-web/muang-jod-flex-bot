@@ -96,7 +96,14 @@ app.use((err, req, res, next) => {
   return res.status(500).json({ error: 'internal error' });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`💜 ม่วงจด LINE Bot listening on port ${PORT}`);
   console.log(`   Webhook URL: <your-domain>/webhook`);
+
+  // Reminders are sent from this process on a timer. REMINDER_DISPATCH=0 turns
+  // it off (e.g. when running more than one instance and only one should send).
+  if (String(process.env.REMINDER_DISPATCH ?? '1') !== '0') {
+    const { startReminderDispatcher } = await import('./services/reminderDispatcher.js');
+    startReminderDispatcher();
+  }
 });

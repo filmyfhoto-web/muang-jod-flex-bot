@@ -1,29 +1,32 @@
 import 'dotenv/config';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import linebot from '@line/bot-sdk';
 
 const { MessagingApiClient, MessagingApiBlobClient } = linebot.messagingApi;
 
 // ------------------------------------------------------------
 // Rich Menu layout config — must match assets/rich-menu.png, which is drawn
-// by scripts/build-rich-menu.mjs. The image is 2500 x 1686: a brand panel down
-// the left, then 9 cards in 3 columns x 3 rows to its right. The panel is
-// decoration and stays untappable.
+// by scripts/build-rich-menu.mjs. The image is 2500 x 1686:
+//   - a brand panel down the left (decoration, not tappable)
+//   - 8 cards in 4 columns x 2 rows to its right
+//   - a strip of 3 cards across the bottom, full width
 // ------------------------------------------------------------
 const LAYOUT = {
   width: 2500,
   height: 1686,
-  cols: 3,
-  rows: 3,
+  cols: 4,
+  rows: 2,
   marginLeft: 860, // brand panel to the left of the grid (not tappable)
   marginRight: 0,
   marginTop: 26, // margin above the first row
-  footerHeight: 26, // margin below the last row
+  stripHeight: 300, // bottom strip — tappable, see STRIP below
+  stripCols: 3,
   gutter: 0, // gap between cards, if the artwork has spacing
 };
 
-// 9 buttons, left-to-right, top-to-bottom. Every button is a postback.
+// The 4 x 2 grid, left-to-right, top-to-bottom.
 const BUTTONS = [
   { label: 'บันทึกงานวันนี้', data: 'action=add_job' },
   { label: 'แนบสลิป/หลักฐาน', data: 'action=attach_evidence' },
@@ -32,35 +35,56 @@ const BUTTONS = [
   { label: 'แก้ไขล่าสุด', data: 'action=edit_latest' },
   { label: 'ยกเลิกล่าสุด', data: 'action=cancel_latest' },
   { label: 'ค้างรับ & ติดตามงาน', data: 'action=pending_payment' },
-  { label: 'ออกบิล & ใบเสร็จ', data: 'action=create_bill' },
   { label: 'ช่วยเหลือ', data: 'action=help' },
 ];
 
-// Compute the 8 tappable areas from LAYOUT.
-function buildAreas() {
+// The bottom strip, left-to-right.
+const STRIP = [
+  { label: 'แดชบอร์ด', data: 'action=open_dashboard' },
+  { label: 'ออกบิล', data: 'action=create_bill' },
+  { label: 'ตั้งแจ้งเตือนงาน', data: 'action=remind_job' },
+];
+
+function area(btn, bounds) {
+  return {
+    bounds,
+    action: {
+      type: 'postback',
+      label: btn.label.slice(0, 20),
+      data: btn.data,
+      displayText: btn.label,
+    },
+  };
+}
+
+// Compute the 11 tappable areas from LAYOUT: the grid, then the bottom strip.
+export function buildAreas() {
   const gridWidth = LAYOUT.width - LAYOUT.marginLeft - LAYOUT.marginRight;
-  const gridHeight = LAYOUT.height - LAYOUT.marginTop - LAYOUT.footerHeight;
+  const gridHeight = LAYOUT.height - LAYOUT.marginTop - LAYOUT.stripHeight;
   const cellW = Math.floor((gridWidth - LAYOUT.gutter * (LAYOUT.cols - 1)) / LAYOUT.cols);
   const cellH = Math.floor((gridHeight - LAYOUT.gutter * (LAYOUT.rows - 1)) / LAYOUT.rows);
 
-  const areas = [];
-  BUTTONS.forEach((btn, i) => {
-    const col = i % LAYOUT.cols;
-    const row = Math.floor(i / LAYOUT.cols);
-    const x = LAYOUT.marginLeft + col * (cellW + LAYOUT.gutter);
-    const y = LAYOUT.marginTop + row * (cellH + LAYOUT.gutter);
-    areas.push({
-      bounds: { x, y, width: cellW, height: cellH },
-      action: {
-        type: 'postback',
-        label: btn.label.slice(0, 20),
-        data: btn.data,
-        displayText: btn.label,
-      },
-    });
+  const areas = BUTTONS.map((btn, i) =>
+    area(btn, {
+      x: LAYOUT.marginLeft + (i % LAYOUT.cols) * (cellW + LAYOUT.gutter),
+      y: LAYOUT.marginTop + Math.floor(i / LAYOUT.cols) * (cellH + LAYOUT.gutter),
+      width: cellW,
+      height: cellH,
+    })
+  );
+
+  const stripW = Math.floor(LAYOUT.width / LAYOUT.stripCols);
+  const stripY = LAYOUT.height - LAYOUT.stripHeight;
+  STRIP.forEach((btn, i) => {
+    // The last column absorbs the rounding so the strip reaches the edge.
+    const width = i === LAYOUT.stripCols - 1 ? LAYOUT.width - stripW * i : stripW;
+    areas.push(area(btn, { x: stripW * i, y: stripY, width, height: LAYOUT.stripHeight }));
   });
+
   return areas;
 }
+
+export { LAYOUT, BUTTONS, STRIP };
 
 const CONTENT_TYPES = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png' };
 
@@ -159,4 +183,7 @@ async function main() {
   console.log('เปิด LINE OA แล้วดู Rich Menu ได้เลย');
 }
 
-main().catch(() => process.exit(1));
+// Only upload when run as a script — importing this file (tests do) must not
+// touch the LINE API.
+const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (invokedDirectly) main().catch(() => process.exit(1));

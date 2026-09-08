@@ -2,73 +2,75 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolveMenuCommand } from '../src/utils/menuCommands.js';
+import { POSTBACK_ACTIONS } from '../src/utils/validation.js';
+import { buildAreas, LAYOUT, BUTTONS, STRIP } from '../scripts/create-rich-menu.js';
 
-// The Rich Menu is artwork plus a list of tappable rectangles, and the two are
-// kept in step by hand. These guard the ways that pairing silently breaks.
+// The Rich Menu is artwork plus a list of tappable rectangles, kept in step by
+// hand. These guard the ways that pairing silently breaks.
 
-const script = readFileSync(new URL('../scripts/create-rich-menu.js', import.meta.url), 'utf8');
 const builder = readFileSync(new URL('../scripts/build-rich-menu.mjs', import.meta.url), 'utf8');
+const nOf = (key) => Number(new RegExp(`${key} = (\\d+)`).exec(builder)?.[1]);
 
-const num = (src, key) => Number(new RegExp(`${key}:\\s*(\\d+)`).exec(src)?.[1]);
-const LAYOUT = {
-  width: num(script, 'width'),
-  height: num(script, 'height'),
-  cols: num(script, 'cols'),
-  rows: num(script, 'rows'),
-  marginLeft: num(script, 'marginLeft'),
-  marginRight: num(script, 'marginRight'),
-  marginTop: num(script, 'marginTop'),
-  footerHeight: num(script, 'footerHeight'),
-};
+test('every button reaches a handler, by tap and by text', () => {
+  const all = [...BUTTONS, ...STRIP];
+  assert.equal(all.length, LAYOUT.cols * LAYOUT.rows + LAYOUT.stripCols);
 
-// Every label printed on a card must reach a handler. A Rich Menu built in OA
-// Manager sends these as plain text, so a typo here is a dead button.
-const LABELS = [...script.matchAll(/label:\s*'([^']+)'/g)].map((m) => m[1]);
-
-test('every Rich Menu button label resolves to an action', () => {
-  assert.equal(LABELS.length, LAYOUT.cols * LAYOUT.rows, 'one label per grid cell');
-  for (const label of LABELS) {
-    assert.ok(resolveMenuCommand(label), `"${label}" resolves to no action`);
+  for (const btn of all) {
+    const action = /action=([a-z_]+)/.exec(btn.data)?.[1];
+    // A postback whose action the router does not know is a dead button.
+    assert.ok(POSTBACK_ACTIONS.includes(action), `${btn.label}: unknown action "${action}"`);
+    // A menu built in OA Manager sends the label as text instead, so that
+    // path has to land on the same action.
+    assert.equal(resolveMenuCommand(btn.label), action, `${btn.label}: text does not resolve to ${action}`);
   }
 });
 
-test('the artwork and the tap grid describe the same geometry', () => {
-  const b = {
-    W: num(builder, 'W = 2500') || Number(/const W = (\d+)/.exec(builder)?.[1]),
-    H: Number(/H = (\d+)/.exec(builder)?.[1]),
-    panel: Number(/PANEL_W = (\d+)/.exec(builder)?.[1]),
-    top: Number(/TOP = (\d+)/.exec(builder)?.[1]),
-    footer: Number(/FOOTER_H = (\d+)/.exec(builder)?.[1]),
-    cols: Number(/COLS = (\d+)/.exec(builder)?.[1]),
-    rows: Number(/ROWS = (\d+)/.exec(builder)?.[1]),
-  };
-  assert.equal(b.W, LAYOUT.width);
-  assert.equal(b.H, LAYOUT.height);
-  assert.equal(b.panel, LAYOUT.marginLeft);
-  assert.equal(b.top, LAYOUT.marginTop);
-  assert.equal(b.footer, LAYOUT.footerHeight);
-  assert.equal(b.cols, LAYOUT.cols);
-  assert.equal(b.rows, LAYOUT.rows);
+test('the artwork and the tap areas describe the same geometry', () => {
+  assert.equal(nOf('W'), LAYOUT.width);
+  assert.equal(nOf('H'), LAYOUT.height);
+  assert.equal(nOf('PANEL_W'), LAYOUT.marginLeft);
+  assert.equal(nOf('TOP'), LAYOUT.marginTop);
+  assert.equal(nOf('STRIP_H'), LAYOUT.stripHeight);
+  assert.equal(nOf('COLS'), LAYOUT.cols);
+  assert.equal(nOf('ROWS'), LAYOUT.rows);
+  assert.equal(nOf('STRIP_COLS'), LAYOUT.stripCols);
 });
 
-test('the tap areas tile the grid and stay inside the image', () => {
-  const gridW = LAYOUT.width - LAYOUT.marginLeft - LAYOUT.marginRight;
-  const gridH = LAYOUT.height - LAYOUT.marginTop - LAYOUT.footerHeight;
-  const cellW = Math.floor(gridW / LAYOUT.cols);
-  const cellH = Math.floor(gridH / LAYOUT.rows);
+test('the areas stay inside the image, never overlap, and are big enough to tap', () => {
+  const areas = buildAreas();
+  assert.equal(areas.length, BUTTONS.length + STRIP.length);
 
-  // LINE requires at least 1px; anything under a finger's width is a bug.
-  assert.ok(cellW >= 200 && cellH >= 200, `cells too small: ${cellW}x${cellH}`);
-
-  const seen = new Set();
-  for (let i = 0; i < LAYOUT.cols * LAYOUT.rows; i += 1) {
-    const x = LAYOUT.marginLeft + (i % LAYOUT.cols) * cellW;
-    const y = LAYOUT.marginTop + Math.floor(i / LAYOUT.cols) * cellH;
-    assert.ok(x >= LAYOUT.marginLeft, 'area starts left of the grid');
-    assert.ok(x + cellW <= LAYOUT.width, 'area runs past the right edge');
-    assert.ok(y + cellH <= LAYOUT.height, 'area runs past the bottom edge');
-    const key = `${x},${y}`;
-    assert.ok(!seen.has(key), `two areas share the corner ${key}`);
-    seen.add(key);
+  for (const { bounds, action } of areas) {
+    assert.ok(bounds.width >= 200 && bounds.height >= 200, `${action.displayText}: ${bounds.width}x${bounds.height} too small`);
+    assert.ok(bounds.x >= 0 && bounds.y >= 0, `${action.displayText}: starts outside the image`);
+    assert.ok(bounds.x + bounds.width <= LAYOUT.width, `${action.displayText}: runs past the right edge`);
+    assert.ok(bounds.y + bounds.height <= LAYOUT.height, `${action.displayText}: runs past the bottom edge`);
   }
+
+  // No two rectangles may share a pixel — LINE would take whichever it likes.
+  for (let i = 0; i < areas.length; i += 1) {
+    for (let j = i + 1; j < areas.length; j += 1) {
+      const a = areas[i].bounds;
+      const b = areas[j].bounds;
+      const apart =
+        a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y;
+      assert.ok(apart, `${areas[i].action.displayText} overlaps ${areas[j].action.displayText}`);
+    }
+  }
+});
+
+test('the grid clears the brand panel and the strip reaches both edges', () => {
+  const areas = buildAreas();
+  const grid = areas.slice(0, BUTTONS.length);
+  const strip = areas.slice(BUTTONS.length);
+
+  for (const a of grid) {
+    assert.ok(a.bounds.x >= LAYOUT.marginLeft, `${a.action.displayText} sits on the brand panel`);
+    assert.ok(a.bounds.y + a.bounds.height <= LAYOUT.height - LAYOUT.stripHeight, 'grid runs into the strip');
+  }
+
+  assert.equal(strip[0].bounds.x, 0);
+  const last = strip[strip.length - 1].bounds;
+  assert.equal(last.x + last.width, LAYOUT.width, 'the strip leaves a gap at the right edge');
+  assert.ok(strip.every((a) => a.bounds.y === LAYOUT.height - LAYOUT.stripHeight));
 });
