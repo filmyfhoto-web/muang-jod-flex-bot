@@ -9,6 +9,8 @@ import { safe, paymentAmountSchema, searchQuerySchema } from '../utils/validatio
 import { jobCardMessage, jobPreviewMessage } from '../flex/jobCard.js';
 import { paymentConfirmationFlex } from '../flex/paymentFlex.js';
 import { searchResultsFlex } from '../flex/searchResultsFlex.js';
+import { billReceiptFlex } from '../flex/billFlex.js';
+import { recordBillPayment } from '../services/billService.js';
 import { resolveMenuCommand, splitLeadingAddJob } from '../utils/menuCommands.js';
 import { parseNaturalJob } from '../utils/nlParser.js';
 import { deriveJobName } from '../utils/category.js';
@@ -120,6 +122,10 @@ export async function handleTextMessage(event, profile) {
     return handlePaymentAmount(replyToken, profile, state, text);
   }
 
+  if (current === STATES.WAITING_FOR_BILL_PAYMENT) {
+    return handleBillPaymentAmount(replyToken, profile, state, text);
+  }
+
   if (current === STATES.WAITING_FOR_SEARCH) {
     return handleSearch(replyToken, profile, text);
   }
@@ -208,6 +214,37 @@ async function handlePaymentAmount(replyToken, profile, state, text) {
   return reply(replyToken, [
     { type: 'text', text: 'บันทึกรับเงินแล้วค่ะ 💜' },
     paymentConfirmationFlex(job),
+  ]);
+}
+
+async function handleBillPaymentAmount(replyToken, profile, state, text) {
+  const billId = state?.context?.billId;
+  if (!billId) {
+    await clearState(profile.id);
+    return reply(replyToken, {
+      type: 'text',
+      text: 'ไม่พบบิลที่จะรับชำระค่ะ ลองกด "ออกบิล" ใหม่นะคะ',
+    });
+  }
+
+  const check = safe(paymentAmountSchema, parsePrice(text));
+  if (!check.ok) {
+    return reply(replyToken, {
+      type: 'text',
+      text: `${check.error}\nพิมพ์จำนวนเงินเป็นตัวเลข เช่น 500 ค่ะ 💜`,
+    });
+  }
+
+  const bill = await recordBillPayment(profile.id, billId, check.data);
+  await clearState(profile.id);
+
+  if (!bill) {
+    return reply(replyToken, { type: 'text', text: 'ไม่พบบิลนี้ค่ะ' });
+  }
+
+  return reply(replyToken, [
+    { type: 'text', text: 'บันทึกรับชำระแล้วค่ะ 💜' },
+    billReceiptFlex(bill),
   ]);
 }
 

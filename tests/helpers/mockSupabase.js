@@ -60,6 +60,10 @@ class Query {
     this.filters.push({ kind: 'in', col, val: vals });
     return this;
   }
+  is(col, val) {
+    this.filters.push({ kind: 'is', col, val });
+    return this;
+  }
   gte(col, val) {
     this.filters.push({ kind: 'gte', col, val });
     return this;
@@ -90,6 +94,7 @@ class Query {
       this.filters.every((f) => {
         if (f.kind === 'eq') return row[f.col] === f.val;
         if (f.kind === 'in') return f.val.includes(row[f.col]);
+        if (f.kind === 'is') return f.val === null ? row[f.col] == null : row[f.col] === f.val;
         if (f.kind === 'gte') return row[f.col] >= f.val;
         if (f.kind === 'lte') return row[f.col] <= f.val;
         if (f.kind === 'or') {
@@ -216,6 +221,7 @@ export function createMockSupabase(seed = {}) {
       attachments: seed.attachments || [],
       user_states: seed.user_states || [],
       webhook_events: seed.webhook_events || [],
+      bills: seed.bills || [],
     },
     failUpsert: seed.failUpsert || false,
     uniques: {
@@ -223,6 +229,7 @@ export function createMockSupabase(seed = {}) {
       webhook_events: [['line_event_id']],
       jobs: [['user_id', 'job_number']],
       user_states: [['user_id']],
+      bills: [['user_id', 'bill_number']],
     },
   };
 

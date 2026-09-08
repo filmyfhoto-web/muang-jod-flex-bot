@@ -34,8 +34,12 @@ app.use('/brand', express.static('public/brand', { maxAge: '1d' }));
 
 // LIFF web app (dashboard + edit form) and the JSON API behind it.
 const { default: apiRouter } = await import('./routes/api.js');
+const { default: receiptRouter } = await import('./routes/receipt.js');
 app.use('/app', express.static('public/liff', { maxAge: '5m', extensions: ['html'] }));
 app.use('/api', apiRouter);
+
+// Printable receipt, readable by anyone holding the bill's share token.
+app.use('/r', receiptRouter);
 
 // Health: also probes the database so setup problems (migration not run,
 // wrong key, wrong URL) are visible from a browser instead of only in logs.
