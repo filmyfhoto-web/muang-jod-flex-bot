@@ -42,7 +42,7 @@ test('receipt card: structure, content and actions', () => {
   assert.equal(msg.type, 'flex');
   assert.equal(msg.contents.type, 'bubble');
   assert.equal(msg.contents.size, 'mega');
-  assert.equal(msg.contents.hero, undefined); // no hero without a URL
+  assert.equal(msg.contents.hero, undefined); // nothing to point at, so no hero
 
   const json = JSON.stringify(msg);
   assert.ok(json.includes('บันทึกสำเร็จ'));
@@ -53,6 +53,29 @@ test('receipt card: structure, content and actions', () => {
   assert.ok(json.includes('ลูกค้า: พี่นก'));
   assert.ok(json.includes('action=today_summary'));
   assert.ok(json.includes('action=record_payment'));
+});
+
+test('receipt card: the mascot strip is the hero unless something else is chosen', () => {
+  // Flex cannot let an image overflow its bubble, so the mascot resting on the
+  // card's rim is a pre-rendered strip served from the bot's own /brand.
+  const prev = process.env.PUBLIC_BASE_URL;
+  process.env.PUBLIC_BASE_URL = 'https://bot.example.com';
+  try {
+    const msg = receiptFlex(job);
+    assert.equal(msg.contents.hero?.url, 'https://bot.example.com/brand/ui/card-hero.png');
+    assert.equal(msg.contents.hero.aspectRatio, '20:8');
+
+    // An explicit null still means "no hero at all".
+    assert.equal(receiptFlex(job, { heroImageUrl: null }).contents.hero, undefined);
+    // And an override still wins over the default.
+    assert.equal(
+      receiptFlex(job, { heroImageUrl: 'https://example.com/other.png' }).contents.hero.url,
+      'https://example.com/other.png'
+    );
+  } finally {
+    if (prev === undefined) delete process.env.PUBLIC_BASE_URL;
+    else process.env.PUBLIC_BASE_URL = prev;
+  }
 });
 
 test('receipt card: optional mascot / hero images and partial-payment rows', () => {

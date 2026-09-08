@@ -1,0 +1,42 @@
+// Rebuilds public/brand/ui/ from the full-size mascot cut-outs.
+//
+//   npm i --no-save sharp
+//   node scripts/build-ui-mascots.mjs
+//
+// Two kinds of output:
+//   <pose>.png     — the cut-out at 260px, small enough to load several of on
+//                    a phone, used by the LIFF page where CSS can tuck the
+//                    body behind a card.
+//   card-hero.png  — the same trick baked into one image, because Flex has no
+//                    z-index and an image cannot overflow its bubble.
+import sharp from 'sharp';
+
+const POSES = ['peek', 'rest', 'hello', 'pen', 'wave', 'sit', 'sleep', 'happy'];
+const OUT = 'public/brand/ui';
+
+for (const pose of POSES) {
+  const to = `${OUT}/${pose}.png`;
+  const { size } = await sharp(`public/brand/mascot-${pose}.png`)
+    .resize({ width: 260, withoutEnlargement: true })
+    .png({ compressionLevel: 9, palette: true, quality: 88 })
+    .toFile(to);
+  console.log(`${to.padEnd(30)} ${(size / 1024).toFixed(0)} KB`);
+}
+
+// 20:8 — the ratio receiptFlex declares for a bubble hero.
+const W = 1040, H = 416, BAND = 250;
+const backdrop = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
+  <rect width="${W}" height="${H}" fill="#FFFFFF"/>
+  <rect x="0" y="${BAND}" width="${W}" height="${H - BAND}" fill="#EDE9FE"/>
+  <rect x="0" y="${BAND}" width="${W}" height="6" fill="#C4B5FD"/>
+</svg>`;
+
+const dog = await sharp('public/brand/mascot-peek.png').resize({ height: 320 }).toBuffer();
+const { width, height } = await sharp(dog).metadata();
+const hero = await sharp(Buffer.from(backdrop))
+  // Straddling the band is what sells it: head above the edge, paws over it.
+  .composite([{ input: dog, left: W - width - 84, top: BAND - height + 78 }])
+  .png({ compressionLevel: 9, palette: true })
+  .toBuffer();
+await sharp(hero).toFile(`${OUT}/card-hero.png`);
+console.log(`${OUT}/card-hero.png`.padEnd(30) + ` ${(hero.length / 1024).toFixed(0)} KB  ${W}x${H}`);

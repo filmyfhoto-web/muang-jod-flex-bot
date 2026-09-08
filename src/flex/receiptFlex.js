@@ -82,7 +82,10 @@ export function receiptFlex(job, opts = {}) {
     opts.mascotImageUrl !== undefined
       ? opts.mascotImageUrl
       : process.env.BRAND_MASCOT_IMAGE_URL || brandAssetUrl(MASCOT.clipboard);
-  const heroUrl = opts.heroImageUrl ?? process.env.BRAND_HERO_IMAGE_URL;
+  const heroUrl =
+    opts.heroImageUrl !== undefined
+      ? opts.heroImageUrl
+      : process.env.BRAND_HERO_IMAGE_URL || brandAssetUrl('ui/card-hero.png');
 
   // ✓ in a purple circle + title/subtitle, on a white background.
   const header = {

@@ -6,6 +6,7 @@ import { divider } from './components/divider.js';
 import { statusBadge } from './components/statusBadge.js';
 import { footerActions } from './components/footerActions.js';
 import { categoryLabel } from '../utils/category.js';
+import { brandAssetUrl } from '../utils/brand.js';
 
 // Backward-compatible colour re-exports (older modules import these here).
 export const PURPLE = COLORS.purple;
@@ -18,6 +19,15 @@ export const RED = COLORS.red;
 export function paymentLabel(status) {
   const p = paymentPresentation(status);
   return { text: p.text, color: p.color };
+}
+
+// A strip drawn ahead of time with the mascot resting its paws on a lavender
+// edge. Flex has no z-index and cannot let an image overflow its bubble, so a
+// mascot that appears to sit on the card's rim has to be baked into one image.
+// Carousels skip it: eight copies of the same strip is noise, not charm.
+function heroStrip() {
+  const url = brandAssetUrl('ui/card-hero.png');
+  return url ? { type: 'image', url, size: 'full', aspectRatio: '20:8', aspectMode: 'cover' } : null;
 }
 
 // Build a single job bubble. Reused as a standalone card and inside carousels.
@@ -128,7 +138,10 @@ export function buildJobBubble(job) {
 
 // Wrap a single bubble as a sendable flex message.
 export function jobCardMessage(job, altText = 'รายละเอียดงาน') {
-  return { type: 'flex', altText, contents: buildJobBubble(job) };
+  const bubble = buildJobBubble(job);
+  const hero = heroStrip();
+  if (hero) bubble.hero = hero;
+  return { type: 'flex', altText, contents: bubble };
 }
 
 // Preview card shown BEFORE saving: receipt bubble + header + action buttons.
