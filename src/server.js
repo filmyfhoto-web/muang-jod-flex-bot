@@ -95,6 +95,12 @@ app.get('/health', async (req, res) => {
   body.secret = secret.ok ? 'ok' : `bad: ${secret.why} (ยาว ${secret.length})`;
   if (secret.trimmed) body.secretHadWhitespace = true;
 
+  // Without a LIFF id the dashboard has nowhere to open, and the bot quietly
+  // falls back to a chat card — worth seeing here rather than wondering why
+  // the button does something else.
+  const { liffId } = await import('./utils/liff.js');
+  body.liff = liffId() ? 'on' : 'off';
+
   res.json(body);
 });
 
