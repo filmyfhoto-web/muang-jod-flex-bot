@@ -1,6 +1,6 @@
 import express from 'express';
 import { getOrCreateProfile } from '../services/userService.js';
-import { getDashboard } from '../services/dashboardService.js';
+import { getDashboard, breakdownByCategory } from '../services/dashboardService.js';
 import {
   getRecentJobs,
   getPendingJobs,
@@ -8,6 +8,8 @@ import {
   updateJob,
   cancelJob,
   recordPayment,
+  getJobsInPeriod,
+  buildReport,
 } from '../services/jobService.js';
 import { derivePaymentFields } from '../utils/payment.js';
 import { round2 } from '../utils/currency.js';
@@ -95,6 +97,18 @@ export function createApiRouter(deps = {}) {
         profile: { id: req.profile.id, displayName: req.profile.display_name, pictureUrl: req.profile.picture_url },
         ...dash,
       });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Report for a period, with the same category split the dashboard uses.
+  router.get('/report', async (req, res, next) => {
+    try {
+      const period = ['daily', 'weekly', 'monthly'].includes(req.query.period) ? req.query.period : 'daily';
+      const { rows, range } = await getJobsInPeriod(req.profile.id, period);
+      const active = (rows || []).filter((j) => j.status !== 'cancelled');
+      res.json({ ...buildReport(rows || [], range), categories: breakdownByCategory(active) });
     } catch (err) {
       next(err);
     }
