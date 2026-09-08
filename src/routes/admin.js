@@ -76,6 +76,24 @@ router.use((req, res, next) => {
   return next();
 });
 
+// LINE's own status codes, said in the terms of what to go and fix. Without
+// this the page just repeats "status code 401", which does not point anywhere.
+function lineErrorHint(err) {
+  switch (err?.statusCode ?? err?.status) {
+    case 401:
+      return 'LINE ปฏิเสธ token — <b>LINE_CHANNEL_ACCESS_TOKEN ใน Render ไม่ตรงกับตัวที่ใช้อยู่</b> ' +
+        'ถ้าเพิ่งกด Reissue ที่ LINE Developers ตัวเก่าจะใช้ไม่ได้ทันที ให้ก็อปตัวใหม่มาใส่ใน Render แล้ว Save';
+    case 403:
+      return 'token ใช้ได้ แต่ช่องนี้ไม่มีสิทธิ์ตั้ง Rich Menu — ตรวจว่าเป็น channel แบบ Messaging API';
+    case 400:
+      return 'LINE ไม่รับข้อมูลที่ส่งไป — ดูรายละเอียดด้านล่าง';
+    case 413:
+      return 'ไฟล์รูปใหญ่เกิน 1 MB';
+    default:
+      return 'รายละเอียดจาก LINE:';
+  }
+}
+
 const PAGE = (action, body) => `<!doctype html><html lang="th"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>ม่วงจด · ตั้งค่าเมนู</title>
 <style>
@@ -123,7 +141,8 @@ router.post('/rich-menu', async (req, res) => {
     res.status(500).type('html').send(
       PAGE(
         req.originalUrl,
-        `<h1 class="bad">❌ ไม่สำเร็จ</h1><p><code>${escapeHtml(String(detail).slice(0, 500))}</code></p>`
+        `<h1 class="bad">❌ ไม่สำเร็จ</h1>
+         <p>${lineErrorHint(err)}<br><br><code>${escapeHtml(String(detail).slice(0, 500))}</code></p>`
       )
     );
   }
