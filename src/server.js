@@ -59,6 +59,7 @@ app.get('/health', async (req, res) => {
     build: (process.env.RENDER_GIT_COMMIT || 'local').slice(0, 7),
     admin: adminToken() ? 'on' : 'off',
     db: 'unknown',
+    line: 'unknown',
   };
   try {
     const { error } = await supabase.from('profiles').select('id').limit(1);
@@ -72,6 +73,20 @@ app.get('/health', async (req, res) => {
     body.db = 'error';
     body.dbError = err?.message || String(err);
   }
+
+  // The channel token is the other thing that silently stops the bot: LINE
+  // invalidates the old one the moment a new one is issued, and from the chat
+  // that looks exactly like a bot that has nothing to say.
+  try {
+    const { client } = await import('./services/lineService.js');
+    const info = await client.getBotInfo();
+    body.line = 'ok';
+    body.botName = info?.displayName;
+  } catch (err) {
+    body.line = 'error';
+    body.lineError = `${err?.statusCode ?? err?.status ?? ''} ${err?.message || ''}`.trim();
+  }
+
   res.json(body);
 });
 
