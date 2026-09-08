@@ -6,6 +6,10 @@
 // Matching is exact (after trimming) so ordinary job text is never hijacked.
 
 const COMMANDS = new Map([
+  // the mascot panel on the Rich Menu
+  ['ม่วงจด', 'home'],
+  ['หน้าแรก', 'home'],
+  ['เริ่มใช้งาน', 'home'],
   // 8 core menu buttons
   ['บันทึกงานวันนี้', 'add_job'],
   ['บันทึกงาน', 'add_job'],

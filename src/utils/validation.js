@@ -5,6 +5,7 @@ export const JOB_STATUSES = ['active', 'completed', 'cancelled'];
 
 // Known postback actions. Kept in sync with postbackHandler's router.
 export const POSTBACK_ACTIONS = [
+  'home',
   'add_job',
   'confirm_add_job',
   'edit_new_job',

@@ -9,7 +9,7 @@ const { MessagingApiClient, MessagingApiBlobClient } = linebot.messagingApi;
 // ------------------------------------------------------------
 // Rich Menu layout config — must match assets/rich-menu.png, which is drawn
 // by scripts/build-rich-menu.mjs. The image is 2500 x 1686:
-//   - a brand panel down the left (decoration, not tappable)
+//   - a brand panel down the left — tappable, opens the home card
 //   - 8 cards in 4 columns x 2 rows to its right
 //   - a strip of 3 cards across the bottom, full width
 // ------------------------------------------------------------
@@ -18,7 +18,7 @@ const LAYOUT = {
   height: 1686,
   cols: 4,
   rows: 2,
-  marginLeft: 860, // brand panel to the left of the grid (not tappable)
+  marginLeft: 860, // brand panel to the left of the grid — tappable, see PANEL
   marginRight: 40, // margin after the last column, matching the panel's on the left
   marginTop: 26, // margin above the first row
   stripHeight: 300, // bottom strip — tappable, see STRIP below
@@ -37,6 +37,11 @@ const BUTTONS = [
   { label: 'ค้างรับ & ติดตามงาน', data: 'action=pending_payment' },
   { label: 'ช่วยเหลือ', data: 'action=help' },
 ];
+
+// The mascot panel down the left. It looked like decoration, so it was not
+// tappable — but it is the biggest thing on the menu and the first thing
+// anyone presses.
+const PANEL = { label: 'ม่วงจด', data: 'action=home' };
 
 // The bottom strip, left-to-right.
 const STRIP = [
@@ -57,7 +62,8 @@ function area(btn, bounds) {
   };
 }
 
-// Compute the 11 tappable areas from LAYOUT: the grid, then the bottom strip.
+// Compute the 12 tappable areas from LAYOUT: the grid, the bottom strip, then
+// the brand panel.
 export function buildAreas() {
   const gridWidth = LAYOUT.width - LAYOUT.marginLeft - LAYOUT.marginRight;
   const gridHeight = LAYOUT.height - LAYOUT.marginTop - LAYOUT.stripHeight;
@@ -81,10 +87,13 @@ export function buildAreas() {
     areas.push(area(btn, { x: stripW * i, y: stripY, width, height: LAYOUT.stripHeight }));
   });
 
+  // Everything left of the grid and above the strip.
+  areas.push(area(PANEL, { x: 0, y: 0, width: LAYOUT.marginLeft, height: stripY }));
+
   return areas;
 }
 
-export { LAYOUT, BUTTONS, STRIP };
+export { LAYOUT, BUTTONS, STRIP, PANEL };
 
 const CONTENT_TYPES = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png' };
 
