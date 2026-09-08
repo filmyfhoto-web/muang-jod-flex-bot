@@ -25,7 +25,16 @@ const SYSTEM_PROMPT = `คุณคือตัวช่วยแยกข้อ
   "paidAmount": number              // ยอดที่รับมาแล้ว ถ้าไม่มีให้ 0
 }
 ตัวอย่าง: "วันนี้ทำป้ายร้านพี่นก 2 ป้าย ป้ายละ 350 รับมาแล้ว 300"
--> {"customerName":"พี่นก","items":[{"item_name":"ป้าย","size":null,"quantity":2,"unit":"ป้าย","unit_price":350}],"paidAmount":300}`;
+-> {"customerName":"พี่นก","items":[{"item_name":"ป้าย","size":null,"quantity":2,"unit":"ป้าย","unit_price":350}],"paidAmount":300}
+
+กฎสำคัญ: ถ้าคิดราคาเป็น "ตารางเมตรละ" (ตรมละ / ตร.ม.ละ / บาทต่อตารางเมตร)
+ให้คำนวณพื้นที่เอง แล้วส่ง quantity = พื้นที่รวมเป็นตารางเมตร, unit = "ตร.ม.",
+unit_price = ราคาต่อตารางเมตร
+ขนาดที่ไม่ใส่หน่วย ถ้าตัวเลขตั้งแต่ 20 ขึ้นไปคือเซนติเมตร ต่ำกว่า 20 คือเมตร
+ถ้าใส่หน่วยมา (ซม./ม./นิ้ว/ฟุต) ให้เชื่อหน่วยนั้น และใส่หน่วยกำกับใน size ด้วย
+ตัวอย่าง: "รพสตบ้านชี ไวนิล ขนาด 160*300 ตรมละ 165 บาท"
+-> {"customerName":"รพสตบ้านชี","items":[{"item_name":"ไวนิล","size":"160x300 ซม.","quantity":4.8,"unit":"ตร.ม.","unit_price":165}],"paidAmount":0}
+(160 ซม. = 1.6 ม., 300 ซม. = 3 ม. -> 1.6 × 3 = 4.8 ตร.ม. -> 4.8 × 165 = 792 บาท)`;
 
 // Pull the first balanced JSON object out of a model response.
 function extractJsonObject(str) {

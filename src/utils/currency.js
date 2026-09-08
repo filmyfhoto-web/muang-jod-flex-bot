@@ -20,3 +20,9 @@ export function parsePrice(text) {
 export function round2(n) {
   return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 }
+
+// A plain number with no trailing zeros: 4.80 -> "4.8", 160 -> "160".
+// Used where a quantity sits inside a sentence ("4.8 ตร.ม. × 165").
+export function numText(n) {
+  return String(round2(n));
+}

@@ -1,8 +1,9 @@
 const TZ = 'Asia/Bangkok';
 
-// Returns today's date in Bangkok timezone as YYYY-MM-DD.
-export function todayISO() {
-  const now = new Date();
+// Returns today's date in Bangkok timezone as YYYY-MM-DD. `now` is injectable
+// so callers that already have an instant ("what day is it for this reminder?")
+// stay consistent with it instead of re-reading the wall clock.
+export function todayISO(now = new Date()) {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: TZ,
     year: 'numeric',

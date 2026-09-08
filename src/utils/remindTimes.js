@@ -22,7 +22,8 @@ export function resolveRemindAt(choiceId, now = new Date()) {
   const choice = findChoice(choiceId);
   if (!choice) return null;
 
-  const base = addDays(todayISO(), choice.days);
+  // "วันนี้" ต้องเป็นวันเดียวกับ `now` ที่ส่งเข้ามา ไม่ใช่นาฬิกาเครื่อง
+  const base = addDays(todayISO(now), choice.days);
   const at = new Date(`${base}T${String(choice.hour).padStart(2, '0')}:00:00+07:00`);
   if (at.getTime() > now.getTime()) return at;
 

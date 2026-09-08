@@ -1,4 +1,4 @@
-import { formatBaht } from '../utils/currency.js';
+import { formatBaht, numText } from '../utils/currency.js';
 import { formatThaiDate } from '../utils/dates.js';
 import { COLORS, paymentPresentation } from './theme.js';
 import { moneyRow } from './components/moneyRow.js';
@@ -31,7 +31,12 @@ export function buildJobBubble(job) {
     const qty = Number(it.quantity) || 1;
     const pieces = [it.item_name];
     if (it.size) pieces.push(it.size);
-    const label = pieces.join(' ') + (qty > 1 ? ` x${qty}` : '');
+    let label = pieces.join(' ');
+    // งานคิดตามพื้นที่ต้องเห็นวิธีคิด: "ไวนิล 160x300 ซม. · 4.8 ตร.ม. × 165"
+    if (qty !== 1) {
+      const rate = Number(it.unit_price) > 0 ? ` × ${numText(it.unit_price)}` : '';
+      label += it.unit ? ` · ${numText(qty)} ${it.unit}${rate}` : ` x${numText(qty)}`;
+    }
     return {
       type: 'box',
       layout: 'horizontal',
