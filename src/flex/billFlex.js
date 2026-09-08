@@ -74,7 +74,7 @@ function moneyBlock(bill) {
           text: formatBaht(Number(bill.total) || 0),
           size: 'xxl',
           weight: 'bold',
-          color: COLORS.accent,
+          color: COLORS.accentText,
           align: 'end',
           flex: 4,
         },
@@ -104,7 +104,7 @@ export function billFlex(bill, opts = {}) {
     {
       type: 'button',
       style: 'primary',
-      color: COLORS.accent,
+      color: COLORS.accentText,
       height: 'sm',
       action: {
         type: 'postback',
@@ -222,7 +222,7 @@ export function billReceiptFlex(bill, opts = {}) {
     footer.push({
       type: 'button',
       style: 'primary',
-      color: COLORS.accent,
+      color: COLORS.accentText,
       height: 'sm',
       action: { type: 'uri', label: '🧾 เปิด/ส่งใบเสร็จ', uri: url },
     });
@@ -327,7 +327,7 @@ export function billCustomersFlex(customers = []) {
           { type: 'text', text: `${c.jobCount} งาน · ค้าง ${formatBaht(c.due)}`, size: 'xxs', color: COLORS.grey },
         ],
       },
-      { type: 'text', text: formatBaht(c.total), size: 'sm', weight: 'bold', color: COLORS.accent, align: 'end', flex: 3 },
+      { type: 'text', text: formatBaht(c.total), size: 'sm', weight: 'bold', color: COLORS.accentText, align: 'end', flex: 3 },
     ],
   }));
 

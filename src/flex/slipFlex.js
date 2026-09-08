@@ -75,7 +75,7 @@ export function slipReceiptFlex(job, opts = {}) {
     },
     divider(),
     field('🏪', 'ร้านค้า', job.customer_name || job.job_name || '—'),
-    field('💰', 'ยอดชำระ', formatBaht(Number(job.total) || 0), { big: true, color: COLORS.accent }),
+    field('💰', 'ยอดชำระ', formatBaht(Number(job.total) || 0), { big: true, color: COLORS.accentText }),
     field('📅', 'วันที่', formatThaiDate(job.job_date)),
     field('🏷️', 'หมวด', type ? `${group.label} / ${type.label}` : categoryLabel(job)),
     field('📎', 'ไฟล์แนบ', opts.attached === false ? 'ยังไม่ได้แนบ' : 'สลิป / ใบเสร็จ'),

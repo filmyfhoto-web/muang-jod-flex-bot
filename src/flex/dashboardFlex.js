@@ -172,7 +172,7 @@ export function dashboardFlex(dash, opts = {}) {
       spacing: 'xs',
       contents: [
         { type: 'text', text: 'ยอดวันนี้', size: 'md', color: COLORS.sub },
-        { type: 'text', text: formatBaht(summary.total), size: '4xl', weight: 'bold', color: COLORS.accent },
+        { type: 'text', text: formatBaht(summary.total), size: '4xl', weight: 'bold', color: COLORS.accentText },
         trendLine(trend),
         {
           type: 'box',
@@ -207,7 +207,7 @@ export function dashboardFlex(dash, opts = {}) {
             type: 'text',
             text: 'ดูทั้งหมด ›',
             size: 'md',
-            color: COLORS.accent,
+            color: COLORS.accentText,
             align: 'end',
             flex: 2,
             action: { type: 'postback', label: 'ดูทั้งหมด', data: 'action=recent_jobs', displayText: 'รายการล่าสุด' },
@@ -232,7 +232,7 @@ export function dashboardFlex(dash, opts = {}) {
     footerContents.push({
       type: 'button',
       style: 'primary',
-      color: COLORS.accent,
+      color: COLORS.accentText,
       height: 'md',
       action: { type: 'uri', label: '📊 เปิดแดชบอร์ด', uri: dashUrl },
     });

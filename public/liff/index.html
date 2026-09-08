@@ -12,7 +12,9 @@
      like, so the app and the chat cards can move together. */
   :root {
     color-scheme: dark;
-    --accent: #2e7df7; --accent-dim: #1c4fa0;
+    /* สองม่วง: --accent เป็นพื้นของปุ่ม (ตัวหนังสือขาวต้องอ่านออก)
+       --accent-text เป็นม่วงที่ใช้เป็น 'ตัวหนังสือ' บนพื้นเข้ม */
+    --accent: #7c3aed; --accent-text: #a78bfa; --accent-dim: #3b2470;
     --bg: #080b12; --surface: #121a2a; --tint: #1b2537; --line: #25324a;
     --ink: #e8edf5; --sub: #aebacd; --grey: #8494a8; --white: #fff;
     --pink: #f471b5; --blue: #60a5fa; --amber: #fbbf24;
@@ -48,7 +50,7 @@
   @media (max-width: 340px) { .peek { display: none; } }
   .card > h2 { margin: 0 0 12px; font-size: 15px; color: var(--ink); display: flex; justify-content: space-between; align-items: center; font-weight: 700; }
   .card > h2 .date { font-size: 12px; color: var(--grey); font-weight: 500; }
-  .link { font-size: 12.5px; color: var(--accent); font-weight: 600; }
+  .link { font-size: 12.5px; color: var(--accent-text); font-weight: 600; }
 
   /* Stat grid — the big total plus one tile per category */
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
@@ -56,7 +58,7 @@
   .stat .top { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
   .stat .ic { width: 28px; height: 28px; border-radius: 9px; background: var(--surface); display: grid; place-items: center; font-size: 15px; flex: none; }
   .stat .lbl { font-size: 11.5px; color: var(--sub); font-weight: 500; }
-  .stat .big { font-size: 21px; font-weight: 700; color: var(--accent); line-height: 1.25; }
+  .stat .big { font-size: 21px; font-weight: 700; color: var(--accent-text); line-height: 1.25; }
   .stat .sm { font-size: 12px; color: var(--grey); }
   .stat .trend { font-size: 11.5px; font-weight: 600; margin-top: 2px; }
   .up { color: var(--green); } .down { color: var(--red); } .flat { color: var(--grey); }
@@ -100,11 +102,11 @@
     width: 100%; font: inherit; font-size: 15px; padding: 11px 12px; border: 1.5px solid var(--line);
     border-radius: 12px; background: var(--tint); color: var(--ink); appearance: none;
   }
-  select { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8'><path d='M1 1l5 5 5-5' stroke='%232e7df7' stroke-width='2' fill='none' stroke-linecap='round'/></svg>"); background-repeat: no-repeat; background-position: right 14px center; }
-  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  select { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8'><path d='M1 1l5 5 5-5' stroke='%23a78bfa' stroke-width='2' fill='none' stroke-linecap='round'/></svg>"); background-repeat: no-repeat; background-position: right 14px center; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent-text); }
   .seg { display: flex; gap: 7px; }
   .seg button { flex: 1; border: 1.5px solid var(--line); background: var(--tint); border-radius: 12px; padding: 13px 4px; font: inherit; font-size: 13.5px; font-weight: 600; color: var(--sub); }
-  .seg button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-dim); color: var(--white); font-weight: 700; }
+  .seg button[aria-pressed="true"] { border-color: var(--accent-text); background: var(--accent-dim); color: var(--white); font-weight: 700; }
   .btn { width: 100%; border: 0; border-radius: 13px; padding: 13px; font: inherit; font-size: 15px; font-weight: 700; margin-top: 15px; }
   .btn-primary { background: var(--accent); color: #fff; }
   .btn-danger { background: var(--red-bg); color: var(--red); }
@@ -120,7 +122,7 @@
   }
   nav button { flex: 1; border: 0; background: none; font: inherit; font-size: 10.5px; color: var(--grey); padding: 3px 0; }
   nav button span { display: block; font-size: 19px; line-height: 1.25; filter: grayscale(1); opacity: .55; }
-  nav button[aria-selected="true"] { color: var(--accent); font-weight: 700; }
+  nav button[aria-selected="true"] { color: var(--accent-text); font-weight: 700; }
   nav button[aria-selected="true"] span { filter: none; opacity: 1; }
 
   .toast {
@@ -198,7 +200,7 @@
       <h2>วิธีใช้แบบเร็ว</h2>
       <p style="font-size:13.5px;color:var(--sub);margin:0">
         พิมพ์งานในแชตได้เลย เช่น<br />
-        <b style="color:var(--accent)">ป้ายไวนิล 60x100 150 บาท</b><br /><br />
+        <b style="color:var(--accent-text)">ป้ายไวนิล 60x100 150 บาท</b><br /><br />
         แตะรายการในหน้านี้เพื่อแก้ไข ปรับราคา เปลี่ยนหมวด หรือยกเลิกงานได้ทันทีค่ะ
       </p>
     </div>

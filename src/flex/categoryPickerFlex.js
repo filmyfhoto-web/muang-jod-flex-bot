@@ -38,7 +38,7 @@ function row({ icon, label, hint, data }) {
           ...(hint ? [{ type: 'text', text: hint, size: 'xxs', color: COLORS.grey, wrap: true }] : []),
         ],
       },
-      { type: 'text', text: '›', size: 'lg', color: COLORS.accent, align: 'end', flex: 0 },
+      { type: 'text', text: '›', size: 'lg', color: COLORS.accentText, align: 'end', flex: 0 },
     ],
   };
 }

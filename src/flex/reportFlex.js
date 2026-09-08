@@ -65,7 +65,7 @@ export function reportCardFlex(report) {
           {
             type: 'button',
             style: 'primary',
-            color: COLORS.accent,
+            color: COLORS.accentText,
             height: 'sm',
             action: {
               type: 'postback',
@@ -106,7 +106,7 @@ export function reportMenuFlex() {
           {
             type: 'button',
             style: 'primary',
-            color: COLORS.accent,
+            color: COLORS.accentText,
             height: 'sm',
             action: {
               type: 'postback',
