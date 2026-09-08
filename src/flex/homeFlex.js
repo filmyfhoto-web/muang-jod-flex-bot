@@ -56,7 +56,7 @@ export function homeFlex(summary = {}, opts = {}) {
       spacing: 'md',
       margin: 'lg',
       contents: [
-        stat('ยอดวันนี้', formatBaht(summary.total || 0), COLORS.accent),
+        stat('ยอดวันนี้', formatBaht(summary.total || 0), COLORS.accentText),
         stat('งาน', `${summary.jobCount || 0}`, COLORS.ink),
         stat('ค้างรับ', formatBaht(summary.pending || 0), COLORS.red),
       ],

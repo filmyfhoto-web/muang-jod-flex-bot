@@ -68,7 +68,7 @@ function link(label, action, displayText) {
     type: 'text',
     text: label,
     size: 'sm',
-    color: COLORS.accent,
+    color: COLORS.accentText,
     weight: 'bold',
     action: { type: 'postback', label: displayText, data: `action=${action}`, displayText },
   };
@@ -192,7 +192,7 @@ export function receiptFlex(job, opts = {}) {
           text: formatBaht(Number(job.total) || 0),
           size: 'xxl',
           weight: 'bold',
-          color: COLORS.accent,
+          color: COLORS.accentText,
           align: 'end',
           flex: 4,
         },

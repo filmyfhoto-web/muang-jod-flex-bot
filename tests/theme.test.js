@@ -53,6 +53,36 @@ test('themedContents reaches every bubble in a carousel, and passes anything els
   assert.deepEqual(themedContents({ type: 'box' }), { type: 'box' }, 'not a bubble: untouched');
 });
 
+// WCAG relative luminance + contrast, so the two purples can be checked
+// rather than eyeballed.
+function luminance(hex) {
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+function contrast(a, b) {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+test('the two purples each do the job they are named for', () => {
+  // accent is a FILL: white button labels and the numbered circle sit on it.
+  assert.ok(
+    contrast(COLORS.white, COLORS.accent) >= 4.5,
+    `white on accent is only ${contrast(COLORS.white, COLORS.accent).toFixed(2)}:1`
+  );
+  // accentText is TEXT on the card: the total, the links, the tab in focus.
+  assert.ok(
+    contrast(COLORS.accentText, COLORS.surface) >= 4.5,
+    `accentText on surface is only ${contrast(COLORS.accentText, COLORS.surface).toFixed(2)}:1`
+  );
+  // Swapping them is the mistake this guards against — neither works the
+  // other way round.
+  assert.ok(contrast(COLORS.accent, COLORS.surface) < 4.5, 'accent would pass as text: merge the two');
+});
+
 test('every colour is a hex value, and the status colours differ from each other', () => {
   for (const [name, value] of Object.entries(COLORS)) {
     assert.match(value, /^#[0-9A-Fa-f]{6}$/, `${name} is not a hex colour`);

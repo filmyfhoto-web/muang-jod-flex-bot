@@ -15,7 +15,7 @@ export function searchResultsFlex(jobs, query) {
           layout: 'vertical',
           spacing: 'md',
           contents: [
-            { type: 'text', text: '🔍 ไม่พบงานที่ค้นหา', weight: 'bold', color: COLORS.accent },
+            { type: 'text', text: '🔍 ไม่พบงานที่ค้นหา', weight: 'bold', color: COLORS.accentText },
             {
               type: 'text',
               text: query ? `ไม่พบงานที่ตรงกับ "${query}" ค่ะ` : 'ลองพิมพ์คำค้นใหม่นะคะ',

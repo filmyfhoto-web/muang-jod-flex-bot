@@ -83,7 +83,7 @@ export function reminderSetFlex(reminder, job) {
             text: formatThaiDateTime(reminder.remind_at),
             size: 'xl',
             weight: 'bold',
-            color: COLORS.accent,
+            color: COLORS.accentText,
             wrap: true,
           },
           divider(),

@@ -93,7 +93,7 @@ export function buildJobBubble(job) {
     divider(),
     { type: 'box', layout: 'vertical', spacing: 'sm', contents: itemRows },
     divider(),
-    moneyRow('ยอดรวม', Number(job.total) || 0, { color: COLORS.accent, big: true }),
+    moneyRow('ยอดรวม', Number(job.total) || 0, { color: COLORS.accentText, big: true }),
   ];
 
   // Show payment progress when partially paid.
@@ -147,7 +147,7 @@ export function jobPreviewMessage(draftJob, altText = 'ตรวจสอบก�
   bubble.header = {
     type: 'box',
     layout: 'vertical',
-    contents: [{ type: 'text', text: '📋 ตรวจสอบก่อนบันทึก', weight: 'bold', size: 'lg', color: COLORS.accent }],
+    contents: [{ type: 'text', text: '📋 ตรวจสอบก่อนบันทึก', weight: 'bold', size: 'lg', color: COLORS.accentText }],
   };
   bubble.footer = footerActions({
     primary: { label: '✅ บันทึกงาน', data: 'action=confirm_add_job', displayText: 'บันทึกงาน' },
