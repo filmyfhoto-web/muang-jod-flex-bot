@@ -87,6 +87,14 @@ app.get('/health', async (req, res) => {
     body.lineError = `${err?.statusCode ?? err?.status ?? ''} ${err?.message || ''}`.trim();
   }
 
+  // The secret is separate from the token and fails separately: a wrong one
+  // makes every webhook fail its signature, so LINE gets a 401 and stops
+  // delivering. Report its shape — never the value.
+  const { channelSecretShape } = await import('./config/line.js');
+  const secret = channelSecretShape();
+  body.secret = secret.ok ? 'ok' : `bad: ${secret.why} (ยาว ${secret.length})`;
+  if (secret.trimmed) body.secretHadWhitespace = true;
+
   res.json(body);
 });
 
@@ -153,8 +161,16 @@ app.use((req, res) => {
 // Signature / parse error handler for the webhook.
 app.use((err, req, res, next) => {
   if (err instanceof SignatureValidationFailed) {
-    console.error('[server] invalid LINE signature');
-    return res.status(401).json({ error: 'invalid signature' });
+    // LINE stops delivering after this, so name the cause rather than the symptom:
+    // the signature is computed from LINE_CHANNEL_SECRET, not the access token.
+    console.error(
+      '[server] invalid LINE signature — LINE_CHANNEL_SECRET does not match this channel ' +
+        '(it is on the Basic settings tab, not Messaging API)'
+    );
+    return res.status(401).json({
+      error: 'invalid signature',
+      hint: 'LINE_CHANNEL_SECRET ไม่ตรงกับ channel นี้ — ดูที่ LINE Developers > Basic settings > Channel secret',
+    });
   }
   if (err instanceof JSONParseError) {
     console.error('[server] JSON parse error:', err.message);
