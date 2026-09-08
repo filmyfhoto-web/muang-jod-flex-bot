@@ -1,4 +1,5 @@
 import express from 'express';
+import { escapeHtml } from '../utils/html.js';
 import { getBillByToken } from '../services/billService.js';
 import { formatBaht } from '../utils/currency.js';
 import { formatThaiDate, formatThaiDateTime } from '../utils/dates.js';
@@ -11,10 +12,8 @@ import { logger } from '../services/logger.js';
 // here is user-scoped, nothing but this bill is reachable, and the page is
 // marked noindex so a shared link never turns up in a search engine.
 
-const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-export function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>"']/g, (c) => ESCAPES[c]);
-}
+
+export { escapeHtml };
 
 export function renderReceiptHtml(bill) {
   const jobs = bill.jobs || [];
