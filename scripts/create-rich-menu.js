@@ -7,22 +7,23 @@ const { MessagingApiClient, MessagingApiBlobClient } = linebot.messagingApi;
 
 // ------------------------------------------------------------
 // Rich Menu layout config — must match assets/rich-menu.png, which is drawn
-// by scripts/build-rich-menu.mjs. The image is 2500 x 1686: a header strip
-// (mascot + notes), then 8 cards in 4 columns x 2 rows, then a footer strip
-// (wordmark). Header and footer are decoration and stay untappable.
+// by scripts/build-rich-menu.mjs. The image is 2500 x 1686: a brand panel down
+// the left, then 9 cards in 3 columns x 3 rows to its right. The panel is
+// decoration and stays untappable.
 // ------------------------------------------------------------
 const LAYOUT = {
   width: 2500,
   height: 1686,
-  cols: 4,
-  rows: 2,
-  marginX: 0, // left/right margin around the grid
-  marginTop: 150, // header strip above the first row (not tappable)
-  footerHeight: 150, // bottom strip reserved for decoration (not tappable)
+  cols: 3,
+  rows: 3,
+  marginLeft: 860, // brand panel to the left of the grid (not tappable)
+  marginRight: 0,
+  marginTop: 26, // margin above the first row
+  footerHeight: 26, // margin below the last row
   gutter: 0, // gap between cards, if the artwork has spacing
 };
 
-// 8 buttons, left-to-right, top-to-bottom. Every button is a postback.
+// 9 buttons, left-to-right, top-to-bottom. Every button is a postback.
 const BUTTONS = [
   { label: 'บันทึกงานวันนี้', data: 'action=add_job' },
   { label: 'แนบสลิป/หลักฐาน', data: 'action=attach_evidence' },
@@ -30,13 +31,14 @@ const BUTTONS = [
   { label: 'สรุปวันนี้', data: 'action=today_summary' },
   { label: 'แก้ไขล่าสุด', data: 'action=edit_latest' },
   { label: 'ยกเลิกล่าสุด', data: 'action=cancel_latest' },
-  { label: 'ค้างรับ', data: 'action=pending_payment' },
+  { label: 'ค้างรับ & ติดตามงาน', data: 'action=pending_payment' },
+  { label: 'ออกบิล & ใบเสร็จ', data: 'action=create_bill' },
   { label: 'ช่วยเหลือ', data: 'action=help' },
 ];
 
 // Compute the 8 tappable areas from LAYOUT.
 function buildAreas() {
-  const gridWidth = LAYOUT.width - LAYOUT.marginX * 2;
+  const gridWidth = LAYOUT.width - LAYOUT.marginLeft - LAYOUT.marginRight;
   const gridHeight = LAYOUT.height - LAYOUT.marginTop - LAYOUT.footerHeight;
   const cellW = Math.floor((gridWidth - LAYOUT.gutter * (LAYOUT.cols - 1)) / LAYOUT.cols);
   const cellH = Math.floor((gridHeight - LAYOUT.gutter * (LAYOUT.rows - 1)) / LAYOUT.rows);
@@ -45,7 +47,7 @@ function buildAreas() {
   BUTTONS.forEach((btn, i) => {
     const col = i % LAYOUT.cols;
     const row = Math.floor(i / LAYOUT.cols);
-    const x = LAYOUT.marginX + col * (cellW + LAYOUT.gutter);
+    const x = LAYOUT.marginLeft + col * (cellW + LAYOUT.gutter);
     const y = LAYOUT.marginTop + row * (cellH + LAYOUT.gutter);
     areas.push({
       bounds: { x, y, width: cellW, height: cellH },
