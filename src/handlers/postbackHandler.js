@@ -10,6 +10,7 @@ import { pickCategory } from '../actions/pickCategory.js';
 import { createBillAction, billPaymentPrompt, viewReceipt } from '../actions/bill.js';
 import { remindPrompt, setReminder, cancelReminderAction, listReminders } from '../actions/reminder.js';
 import { openDashboard } from '../actions/dashboard.js';
+import { home } from '../actions/home.js';
 import { pendingPayment } from '../actions/pendingPayment.js';
 import { recordPaymentPrompt } from '../actions/recordPayment.js';
 import { searchJobsPrompt } from '../actions/searchJobs.js';
@@ -63,6 +64,8 @@ export async function handlePostback(event, profile) {
       return billPaymentPrompt(ctx);
     case 'view_receipt':
       return viewReceipt(ctx);
+    case 'home':
+      return home(ctx);
     case 'open_dashboard':
       return openDashboard(ctx);
     case 'remind_job':

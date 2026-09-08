@@ -11,6 +11,7 @@ import { paymentConfirmationFlex } from '../src/flex/paymentFlex.js';
 import { reportMenuFlex } from '../src/flex/reportFlex.js';
 import { recentJobsFlex } from '../src/flex/recentJobsFlex.js';
 import { jobCardMessage, jobPreviewMessage } from '../src/flex/jobCard.js';
+import { homeFlex } from '../src/flex/homeFlex.js';
 
 // A card that keeps Flex's white default is unreadable in this palette, so the
 // surface being stamped on every bubble is the thing that must not regress.
@@ -104,6 +105,7 @@ test('every card the bot sends comes out on the dark surface', () => {
     recentEmpty: recentJobsFlex([]),
     jobCard: jobCardMessage(JOB),
     jobPreview: jobPreviewMessage(JOB),
+    home: homeFlex({ date: '2026-09-08', total: 150, jobCount: 1, pending: 150 }),
   };
 
   for (const [name, message] of Object.entries(cards)) {

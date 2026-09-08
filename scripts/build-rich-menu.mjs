@@ -145,6 +145,8 @@ body{width:${W}px;height:${H}px;font-family:'NST',sans-serif;overflow:hidden;pos
 .badge .line{padding:8px 20px;border-radius:999px;background:#06C755;color:#fff;font-weight:700;font-size:26px;
   display:flex;align-items:center;justify-content:center;letter-spacing:1px}
 .badge span{font-size:40px;color:#D8E4F7}
+/* The panel is tappable; nothing about a picture says so on its own. */
+.tap{font-size:32px;color:#7F8DA5;margin-top:-8px}
 .grid{position:absolute;left:${PANEL_W}px;top:${TOP}px;width:${CELL_W * COLS}px;height:${CELL_H * ROWS}px;
   display:grid;grid-template-columns:repeat(${COLS},${CELL_W}px);grid-template-rows:repeat(${ROWS},${CELL_H}px)}
 .cell{padding:18px 14px;display:flex}
@@ -163,6 +165,7 @@ body{width:${W}px;height:${H}px;font-family:'NST',sans-serif;overflow:hidden;pos
 <div class="panel">
   <img class="logo" src="data:image/jpeg;base64,${logo}">
   <div class="badge"><div class="line">LINE</div><span>ผู้ช่วยบันทึกงานวันนี้ใน LINE</span></div>
+  <div class="tap">แตะรูปน้องหมา เปิดหน้าแรก</div>
 </div>
 <div class="grid">${cards}</div>
 <div class="strip">${strip}</div>
