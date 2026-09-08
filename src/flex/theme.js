@@ -1,15 +1,15 @@
-// ม่วงจด Flex design system — dark surfaces, brand purple on top.
+// ม่วงจด Flex design system — the dark navy and bright blue of the Rich Menu.
 // Single source of truth for colours so cards stay consistent.
 //
-// The names are what each colour is FOR, not what it looks like. Two purples,
-// because one cannot do both jobs on a dark card: `accent` is deep enough for
-// white text to sit on it (a button, a filled circle), `accentText` is light
-// enough to be read as text on the surface. Swapping them makes the button
-// label wash out or the total go dim.
+// The names are what each colour is FOR, not what it looks like. Two blues,
+// because one cannot do both jobs on a dark card: `accent` is the button fill
+// that white labels sit on, `accentText` is light enough to be READ as text on
+// the surface. Swapping them makes the button label wash out or the total go
+// dim. The brand's purple lives in the wordmark and the mascot.
 
 export const COLORS = {
-  accent: '#7C3AED', // filled things — buttons, badges, the numbered circle
-  accentText: '#A78BFA', // purple as TEXT on the dark surface: totals, links
+  accent: '#2E7DF7', // filled things — buttons, badges, the numbered circle
+  accentText: '#60A5FA', // blue as TEXT on the dark surface: totals, links
   title: '#E8EDF5', // headings
   tint: '#1B2537', // a panel inside a card: stat tiles, badges, icon chips
   surface: '#121A2A', // the card itself

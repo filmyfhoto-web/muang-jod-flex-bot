@@ -41,7 +41,7 @@ const STRIP_COLS = 3;
 const STRIP_W = Math.floor(W / STRIP_COLS);
 
 // Flat icons for a dark ground: light bodies, one blue accent each.
-const ACCENT = '#8B5CF6', LIGHT = '#E8EDF5', MID = '#AEBACD', DARK = '#0C1220';
+const ACCENT = '#2E7DF7', LIGHT = '#E8EDF5', MID = '#AEBACD', DARK = '#0C1220';
 const ICONS = {
   add: `<rect x="14" y="10" width="56" height="72" rx="9" fill="${LIGHT}"/>
         <rect x="26" y="26" width="32" height="6" rx="3" fill="${MID}"/><rect x="26" y="40" width="32" height="6" rx="3" fill="${MID}"/><rect x="26" y="54" width="20" height="6" rx="3" fill="${MID}"/>
@@ -120,13 +120,13 @@ const html = `<!doctype html><html lang="th"><head><meta charset="utf-8"><style>
 *{box-sizing:border-box;margin:0}
 body{width:${W}px;height:${H}px;font-family:'NST',sans-serif;overflow:hidden;position:relative;color:#fff;
   background:
-    radial-gradient(900px 620px at 18% 26%, rgba(139,92,246,.20), transparent 62%),
-    radial-gradient(760px 520px at 82% 78%, rgba(139,92,246,.13), transparent 60%),
+    radial-gradient(900px 620px at 18% 26%, rgba(46,125,247,.20), transparent 62%),
+    radial-gradient(760px 520px at 82% 78%, rgba(46,125,247,.13), transparent 60%),
     linear-gradient(150deg,#080B12 0%,#05070C 55%,#080B12 100%)}
 .panel{position:absolute;left:40px;top:${TOP + Math.round((H - TOP - STRIP_H - PANEL_H) / 2)}px;
   width:${PANEL_W - 110}px;height:${PANEL_H}px;
   border-radius:46px;background:linear-gradient(160deg,rgba(20,28,44,.94),rgba(8,12,20,.94));
-  border:2px solid rgba(139,92,246,.34);box-shadow:0 0 70px rgba(139,92,246,.16) inset,0 18px 44px rgba(0,0,0,.55);
+  border:2px solid rgba(46,125,247,.34);box-shadow:0 0 70px rgba(46,125,247,.16) inset,0 18px 44px rgba(0,0,0,.55);
   overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;padding:24px 0}
 /* Wider than the panel on purpose: the artwork's own side margins are what
    gets clipped, so the mascot and wordmark read as large as in the design.
@@ -135,13 +135,13 @@ body{width:${W}px;height:${H}px;font-family:'NST',sans-serif;overflow:hidden;pos
   -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 70px,#000 calc(100% - 46px),transparent 100%)}
 .strip{position:absolute;left:0;top:${H - STRIP_H}px;width:${W}px;height:${STRIP_H}px}
 .scard{position:absolute;top:16px;height:${STRIP_H - 40}px;border-radius:34px;display:flex;align-items:center;gap:26px;padding:0 34px;
-  background:linear-gradient(165deg,rgba(20,27,42,.94),rgba(10,14,23,.94));border:2px solid rgba(139,92,246,.30);
+  background:linear-gradient(165deg,rgba(20,27,42,.94),rgba(10,14,23,.94));border:2px solid rgba(46,125,247,.30);
   box-shadow:0 12px 26px rgba(0,0,0,.5)}
 .sic{width:150px;height:150px;flex:none;filter:drop-shadow(0 6px 12px rgba(0,0,0,.55))}
 .st{font-weight:700;font-size:60px;color:#fff;white-space:nowrap}
 .ss{font-weight:400;font-size:38px;color:#93A3BC;margin-top:4px}
 .badge{display:flex;align-items:center;gap:16px;padding:16px 34px;border-radius:999px;
-  background:rgba(139,92,246,.13);border:2px solid rgba(139,92,246,.42)}
+  background:rgba(46,125,247,.13);border:2px solid rgba(46,125,247,.42)}
 .badge .line{padding:8px 20px;border-radius:999px;background:#06C755;color:#fff;font-weight:700;font-size:26px;
   display:flex;align-items:center;justify-content:center;letter-spacing:1px}
 .badge span{font-size:40px;color:#D8E4F7}
@@ -155,12 +155,12 @@ body{width:${W}px;height:${H}px;font-family:'NST',sans-serif;overflow:hidden;pos
   border:2px solid rgba(120,150,200,.20);box-shadow:0 14px 30px rgba(0,0,0,.45);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
 .num{position:absolute;left:22px;top:20px;width:52px;height:52px;border-radius:16px;background:${ACCENT};
-  font-weight:700;font-size:30px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(139,92,246,.5)}
+  font-weight:700;font-size:30px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(46,125,247,.5)}
 .ic{width:220px;height:220px;filter:drop-shadow(0 8px 14px rgba(0,0,0,.55))}
 .t{font-weight:700;font-size:56px;line-height:1.18;color:#fff;white-space:nowrap;
   min-height:132px;display:flex;flex-direction:column;justify-content:center}
 .s{font-weight:400;font-size:36px;line-height:1.3;color:#93A3BC;white-space:nowrap}
-.rule{width:70px;height:5px;border-radius:3px;background:${ACCENT};margin-top:10px;box-shadow:0 0 14px rgba(139,92,246,.75)}
+.rule{width:70px;height:5px;border-radius:3px;background:${ACCENT};margin-top:10px;box-shadow:0 0 14px rgba(46,125,247,.75)}
 </style></head><body>
 <div class="panel">
   <img class="logo" src="data:image/jpeg;base64,${logo}">
