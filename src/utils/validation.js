@@ -16,6 +16,7 @@ export const POSTBACK_ACTIONS = [
   'cancel_latest',
   'edit_job',
   'delete_job',
+  'pick_category',
   'confirm_cancel',
   'cancel_cancel',
   'pending_payment',

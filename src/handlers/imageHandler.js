@@ -1,7 +1,9 @@
 import { reply, getMessageContentBuffer } from '../services/lineService.js';
 import { getState, clearState, STATES } from '../services/stateService.js';
-import { getLatestJob, getJobById } from '../services/jobService.js';
+import { getLatestJob, getJobById, createJob } from '../services/jobService.js';
 import { saveAttachment } from '../services/attachmentService.js';
+import { readSlip } from '../services/visionService.js';
+import { slipReceiptFlex } from '../flex/slipFlex.js';
 import { logger } from '../services/logger.js';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
@@ -26,21 +28,18 @@ export async function handleImageMessage(event, profile) {
   const message = event.message;
   const state = await getState(profile.id);
   const current = state?.state || STATES.IDLE;
+  const attaching = current === STATES.WAITING_FOR_EVIDENCE;
 
   // Resolve the target job: explicit from state, else the latest one.
   let job = null;
-  if (current === STATES.WAITING_FOR_EVIDENCE && state?.context?.jobId) {
+  if (attaching && state?.context?.jobId) {
     job = await getJobById(profile.id, state.context.jobId);
   }
   if (!job) job = await getLatestJob(profile.id);
 
-  if (!job) {
-    if (current === STATES.WAITING_FOR_EVIDENCE) await clearState(profile.id);
-    return reply(replyToken, {
-      type: 'text',
-      text: 'ยังไม่มีงานให้แนบหลักฐานเลยค่ะ ลองบันทึกงานก่อนนะคะ 💜',
-    });
-  }
+  // With no job to attach to, an unreadable image has nowhere to go — but a
+  // readable slip becomes its own job below, so don't bail out yet.
+  const nowhereToAttach = !job;
 
   let buffer;
   try {
@@ -73,6 +72,44 @@ export async function handleImageMessage(event, profile) {
     });
   }
 
+  // Unless the user explicitly asked to attach evidence to an existing job,
+  // try to read the slip and record it as a job of its own.
+  if (!attaching) {
+    const slip = await readSlip(buffer, fileType);
+    if (slip) {
+      const created = await createJob(profile.id, {
+        jobName: slip.merchantName ? `สลิป ${slip.merchantName}` : 'บันทึกจากสลิป',
+        customerName: slip.merchantName,
+        jobDate: slip.date || undefined,
+        items: slip.items,
+        subtotal: slip.subtotal,
+        discount: slip.discount,
+        total: slip.total,
+        paidAmount: slip.total, // a slip is proof the money moved
+        note: 'บันทึกจากสลิป/หลักฐาน',
+      });
+
+      let attached = true;
+      try {
+        await saveAttachment(profile.id, created, { messageId: message.id, buffer, fileType });
+      } catch (err) {
+        // The job is already saved; say so rather than losing it over a file.
+        attached = false;
+        logger.error('image.slip_attach_failed', { message: err?.message });
+      }
+
+      return reply(replyToken, slipReceiptFlex(created, { attached }));
+    }
+  }
+
+  if (nowhereToAttach) {
+    if (attaching) await clearState(profile.id);
+    return reply(replyToken, {
+      type: 'text',
+      text: 'ยังไม่มีงานให้แนบหลักฐานเลยค่ะ ลองบันทึกงานก่อนนะคะ 💜',
+    });
+  }
+
   try {
     await saveAttachment(profile.id, job, { messageId: message.id, buffer, fileType });
   } catch (err) {
@@ -83,7 +120,7 @@ export async function handleImageMessage(event, profile) {
     });
   }
 
-  if (current === STATES.WAITING_FOR_EVIDENCE) await clearState(profile.id);
+  if (attaching) await clearState(profile.id);
 
   return reply(replyToken, {
     type: 'text',
