@@ -101,6 +101,11 @@ app.get('/health', async (req, res) => {
   const { liffId } = await import('./utils/liff.js');
   body.liff = liffId() ? 'on' : 'off';
 
+  // Reading a photographed slip or work order needs the Anthropic key. Without
+  // it the bot still works — it just attaches the picture instead of reading
+  // it — and that difference is invisible from the chat.
+  body.vision = process.env.ANTHROPIC_API_KEY ? 'on' : 'off';
+
   res.json(body);
 });
 

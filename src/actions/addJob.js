@@ -1,6 +1,7 @@
-import { reply } from '../services/lineService.js';
+import { reply, getMessageContentBuffer } from '../services/lineService.js';
 import { getState, setState, clearState, STATES } from '../services/stateService.js';
 import { createJob, getRecentJobs } from '../services/jobService.js';
+import { saveAttachment } from '../services/attachmentService.js';
 import { receiptFlex } from '../flex/receiptFlex.js';
 import { formCardsMessage, greetingTexts } from '../flex/formCardFlex.js';
 import { quickFormUrl, liffUrl } from '../utils/liff.js';
@@ -44,10 +45,26 @@ export async function addJob({ replyToken, profile }) {
   ]);
 }
 
+// A draft read off a photographed document has that picture waiting for it.
+// Nothing is downloaded until the draft is confirmed, so a cancelled draft
+// costs no storage; a failure here never loses the job, which is already saved.
+async function attachHeldPicture(userId, job, held) {
+  if (!held?.messageId) return true;
+  try {
+    const buffer = await getMessageContentBuffer(held.messageId);
+    await saveAttachment(userId, job, { messageId: held.messageId, buffer, fileType: held.fileType });
+    return true;
+  } catch (err) {
+    logger.warn('addJob.attach_failed', { message: err?.message });
+    return false;
+  }
+}
+
 // postback action=confirm_add_job — commit the draft from context to the DB.
 export async function confirmAddJob({ replyToken, profile }) {
   const st = await getState(profile.id);
   const draft = st?.context?.draft;
+  const held = st?.context?.attachment;
 
   if (st?.state !== STATES.CONFIRMING_JOB || !draft) {
     return reply(replyToken, {
@@ -68,10 +85,16 @@ export async function confirmAddJob({ replyToken, profile }) {
     });
   }
 
+  const attached = await attachHeldPicture(profile.id, job, held);
   await clearState(profile.id);
 
   // Receipt-style "บันทึกสำเร็จ" card.
-  return reply(replyToken, receiptFlex(job));
+  return reply(replyToken, [
+    receiptFlex(job),
+    ...(attached
+      ? []
+      : [{ type: 'text', text: 'บันทึกงานแล้วค่ะ แต่แนบรูปเอกสารไม่สำเร็จ ส่งรูปเข้ามาใหม่อีกครั้งได้นะคะ 💜' }]),
+  ]);
 }
 
 // postback action=edit_new_job — go back to collecting a fresh description.

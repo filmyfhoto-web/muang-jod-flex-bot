@@ -14,24 +14,8 @@ import { recordBillPayment } from '../services/billService.js';
 import { resolveMenuCommand, splitLeadingAddJob } from '../utils/menuCommands.js';
 import { parseNaturalJob } from '../utils/nlParser.js';
 import { deriveJobName } from '../utils/category.js';
+import { makeDraft, draftToBubble, priceDraft, parseBarePrice } from '../utils/jobDraft.js';
 import { handlePostback } from './postbackHandler.js';
-
-// Shape a draft (parsed, not-yet-saved) job into the object the flex bubble
-// expects (job_name / job_date / items / total / payment_status).
-function draftToBubble(draft) {
-  return {
-    job_name: draft.jobName,
-    customer_name: draft.customerName || null,
-    job_date: draft.jobDate,
-    job_number: '',
-    payment_status: draft.paymentStatus,
-    total: draft.total,
-    paid_amount: draft.paidAmount || 0,
-    balance_due: draft.balanceDue || 0,
-    items: draft.items,
-    note: null,
-  };
-}
 
 const DEFAULT_REPLY =
   'สวัสดีค่ะ 💜 ม่วงจดพร้อมช่วยจดงานให้แล้วค่ะ\n' +
@@ -109,6 +93,13 @@ export async function handleTextMessage(event, profile) {
 
   console.log(`[message] user=${profile.id} state=${current}`);
 
+  // A bare number while a priceless draft is on screen is the price for it —
+  // the answer to "ในเอกสารไม่มีราคา พิมพ์ราคามาได้เลย".
+  if (current === STATES.CONFIRMING_JOB) {
+    const priced = await handleDraftPrice(replyToken, profile, state, text);
+    if (priced) return priced;
+  }
+
   // While collecting a new job — or while previewing one — a text message is
   // (re)parsed into a fresh draft preview.
   if (current === STATES.WAITING_FOR_JOB || current === STATES.CONFIRMING_JOB) {
@@ -147,6 +138,25 @@ export async function handleTextMessage(event, profile) {
   return reply(replyToken, { type: 'text', text: DEFAULT_REPLY });
 }
 
+// A draft with no price is what a photographed job sheet usually leaves —
+// the paper says what to make, not what to charge. Answering it with a bare
+// number fills the price in rather than starting the whole job over.
+//
+// Returns null when the message is anything else, so the normal re-parse runs.
+async function handleDraftPrice(replyToken, profile, state, text) {
+  const amount = parseBarePrice(text);
+  const draft = state?.context?.draft;
+  const priced = amount && draft ? priceDraft(draft, amount) : null;
+  if (!priced) return null;
+
+  await setState(profile.id, STATES.CONFIRMING_JOB, { ...state.context, draft: priced });
+
+  return reply(replyToken, [
+    { type: 'text', text: 'ใส่ราคาให้แล้วค่ะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลย 💜' },
+    jobPreviewMessage(draftToBubble(priced)),
+  ]);
+}
+
 async function handleNewJob(replyToken, profile, text) {
   // Natural-language understanding: customer, items, quantity, price, and any
   // amount already received — via the AI layer when configured, else rules.
@@ -164,19 +174,16 @@ async function handleNewJob(replyToken, profile, text) {
 
   // Parse only — do NOT save yet. Stash the draft in user_states.context and
   // show a preview with confirm / edit / cancel buttons.
-  const pay = derivePaymentFields(parsed.total, parsed.paidAmount);
-  const draft = {
+  const draft = makeDraft({
     jobName: deriveJobName(parsed.items),
-    customerName: parsed.customerName || null,
+    customerName: parsed.customerName,
     jobDate: todayISO(),
     items: parsed.items,
     subtotal: parsed.subtotal,
     discount: parsed.discount || 0,
     total: parsed.total,
-    paidAmount: pay.paid_amount,
-    balanceDue: pay.balance_due,
-    paymentStatus: pay.payment_status,
-  };
+    paidAmount: parsed.paidAmount,
+  });
 
   await setState(profile.id, STATES.CONFIRMING_JOB, { draft });
 
