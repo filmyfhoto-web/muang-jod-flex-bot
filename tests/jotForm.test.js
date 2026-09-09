@@ -68,3 +68,20 @@ test('both web pages use the same accent as the cards in chat', () => {
     assert.equal(accentTextOf(source), COLORS.accentText.toLowerCase(), `${name}: accent-text drifted`);
   }
 });
+
+test('quick mode is a sheet: no chat, no summary card, a total bar that stays put', () => {
+  assert.ok(html.includes('id="quickbar"') && html.includes('id="qb-save"'), 'no quick save bar');
+  assert.ok(html.includes('class="handle"'), 'no sheet handle');
+  assert.ok(html.includes('id="more"'), 'the extra fields are not collapsible');
+
+  assert.ok(js.includes("get('quick') === '1'"), 'nothing reads ?quick=1');
+  assert.ok(js.includes("classList.add('quick')"));
+
+  // The three things quick mode has to hide, and the bar it puts in their place.
+  for (const rule of ['body.quick .bar', 'body.quick .chat', 'body.quick .summary', '.quickbar {']) {
+    assert.ok(css.includes(rule), `missing style: ${rule}`);
+  }
+  // The bar is fixed to the bottom, and the page leaves room so it covers nothing.
+  assert.match(css, /\.quickbar\s*\{[^}]*position:\s*fixed/);
+  assert.match(css, /body\.quick main\s*\{[^}]*padding-bottom:\s*\d+px/);
+});

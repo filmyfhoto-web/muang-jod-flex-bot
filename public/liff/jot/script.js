@@ -323,6 +323,7 @@ function renderSummary() {
   const total = grandTotal();
   const paid = Math.min(state.paid, total);
   $('#s-total').textContent = baht(total);
+  $('#qb-total').textContent = baht(total);
   $('#s-name').textContent =
     state.items.map((i) => i.name).find(Boolean) || (filled ? 'งานใหม่' : 'ยังไม่ได้ตั้งชื่องาน');
   $('#s-date').textContent = thaiDate(state.date);
@@ -399,9 +400,7 @@ async function save() {
   if (!payload.items.length) return toast('ยังไม่มีรายการให้บันทึกค่ะ', 'err');
   if (!payload.items.some((i) => i.total > 0)) return toast('ยังไม่ได้ใส่ราคาเลยค่ะ', 'err');
 
-  const btn = $('#btn-save');
-  btn.disabled = true;
-  btn.textContent = 'กำลังบันทึก…';
+  const restore = busySaveButtons();
 
   try {
     if (!token) {
@@ -434,9 +433,24 @@ async function save() {
   } catch (err) {
     toast(err.message || 'บันทึกไม่สำเร็จค่ะ', 'err');
   } finally {
-    btn.disabled = false;
-    btn.textContent = '✅ บันทึกงาน';
+    restore();
   }
+}
+
+// ปุ่มบันทึกมีสองที่ — บนการ์ดสรุป และบนแถบล่างของโหมดด่วน กดค้างทั้งคู่
+// ระหว่างส่ง แล้วคืนป้ายเดิมให้ทีหลัง
+function busySaveButtons() {
+  const before = [$('#btn-save'), $('#qb-save')].map((el) => ({ el, label: el.textContent }));
+  for (const { el } of before) {
+    el.disabled = true;
+    el.textContent = 'กำลังบันทึก…';
+  }
+  return () => {
+    for (const { el, label } of before) {
+      el.disabled = false;
+      el.textContent = label;
+    }
+  };
 }
 
 function clearForm() {
@@ -486,6 +500,20 @@ $('#btn-close').onclick = () => {
   if (window.liff && liff.isInClient && liff.isInClient()) liff.closeWindow();
   else history.length > 1 ? history.back() : (location.href = '/app/');
 };
+
+$('#qb-save').onclick = save;
+
+/* โหมดด่วน (?quick=1) — ตั้งใจให้เปิดผ่าน LIFF ขนาด Tall จะได้เด้งขึ้นมาเป็น
+ * แผ่นการ์ดทับแชต ไม่ต้องออกไปหน้าเต็ม ตัดแชตกับการ์ดสรุปออก เหลือฟอร์มกับ
+ * แถบยอดรวมด้านล่าง */
+const quick = new URLSearchParams(location.search).get('quick') === '1';
+if (quick) {
+  document.body.classList.add('quick');
+  $('#quickbar').hidden = false;
+  $('#more').open = false;
+  $('#form .card-head').textContent = '⚡ จดด่วน';
+  document.title = 'จดด่วน — ม่วงจดให้';
+}
 
 (async function start() {
   if (!loadDraft()) state.items = [blankItem()];

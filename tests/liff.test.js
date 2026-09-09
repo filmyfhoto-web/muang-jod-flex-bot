@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { liffId, liffChannelId, liffUrl, liffPage } from '../src/utils/liff.js';
+import { liffId, liffChannelId, liffUrl, liffPage, quickFormUrl } from '../src/utils/liff.js';
 import { verifyLineAccessToken } from '../src/routes/api.js';
 import { safe, jobPatchSchema } from '../src/utils/validation.js';
 
@@ -74,4 +74,19 @@ test('liffPage points at a page inside the LIFF app, and stays null without an i
   );
   assert.equal(liffPage('', {}, env), 'https://liff.line.me/1234567890-abcdefgh', 'no path: the app root');
   assert.equal(liffPage('jot', {}, {}), null, 'no LIFF_ID configured');
+});
+
+test('the quick form opens its own LIFF app when one is configured', () => {
+  const both = { LIFF_ID: '1234567890-abcdefgh', LIFF_ID_QUICK: '9999999999-quickone' };
+  assert.equal(quickFormUrl(both), 'https://liff.line.me/9999999999-quickone', 'the Tall sheet wins');
+
+  // Without a second LIFF app the same form still opens — full screen, and
+  // still in quick layout, so the link never dead-ends.
+  assert.equal(
+    quickFormUrl({ LIFF_ID: '1234567890-abcdefgh' }),
+    'https://liff.line.me/1234567890-abcdefgh/jot?quick=1'
+  );
+  assert.equal(quickFormUrl({ LIFF_ID: '1234567890-abcdefgh', LIFF_ID_QUICK: 'nonsense' }), 
+    'https://liff.line.me/1234567890-abcdefgh/jot?quick=1', 'a malformed id is ignored, not used');
+  assert.equal(quickFormUrl({}), null, 'no LIFF at all');
 });

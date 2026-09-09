@@ -2,7 +2,7 @@ import { reply } from '../services/lineService.js';
 import { getState, setState, clearState, STATES } from '../services/stateService.js';
 import { createJob } from '../services/jobService.js';
 import { receiptFlex } from '../flex/receiptFlex.js';
-import { liffPage } from '../utils/liff.js';
+import { quickFormUrl } from '../utils/liff.js';
 
 const PROMPT = `📝 บันทึกงานใหม่
 
@@ -25,7 +25,7 @@ const PROMPT = `📝 บันทึกงานใหม่
 // the job — so it is offered, not forced.
 export async function addJob({ replyToken, profile }) {
   await setState(profile.id, STATES.WAITING_FOR_JOB, {});
-  const form = liffPage('jot');
+  const form = quickFormUrl();
   const text = form ? `${PROMPT}\n\nหรือกรอกเป็นฟอร์มก็ได้ค่ะ 👉 ${form}` : PROMPT;
   await reply(replyToken, { type: 'text', text });
 }

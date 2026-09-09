@@ -2,7 +2,7 @@ import { formatBaht } from '../utils/currency.js';
 import { formatThaiDate } from '../utils/dates.js';
 import { COLORS } from './theme.js';
 import { brandAssetUrl } from '../utils/brand.js';
-import { liffUrl } from '../utils/liff.js';
+import { liffUrl, quickFormUrl } from '../utils/liff.js';
 
 // The card behind the mascot on the Rich Menu: a greeting, the day in three
 // numbers, and the four things people actually open the bot to do. It is the
@@ -32,9 +32,14 @@ function button(label, data, opts = {}) {
   };
 }
 
+function linkButton(label, uri) {
+  return { type: 'button', style: 'secondary', height: 'md', action: { type: 'uri', label, uri } };
+}
+
 export function homeFlex(summary = {}, opts = {}) {
   const name = String(opts.displayName || '').trim();
   const dashUrl = opts.liffUrl !== undefined ? opts.liffUrl : liffUrl({ tab: 'today' });
+  const quick = opts.quickUrl !== undefined ? opts.quickUrl : quickFormUrl();
   const hero = opts.heroImageUrl !== undefined ? opts.heroImageUrl : brandAssetUrl('ui/card-hero.png');
 
   const body = [
@@ -76,15 +81,13 @@ export function homeFlex(summary = {}, opts = {}) {
     },
   ];
 
-  // The dashboard button only exists when there is somewhere for it to go.
-  if (dashUrl) {
-    footer.push({
-      type: 'button',
-      style: 'secondary',
-      height: 'md',
-      action: { type: 'uri', label: '📋 เปิดแดชบอร์ด', uri: dashUrl },
-    });
-  }
+  // The two web links, side by side. Each appears only when it resolves — with
+  // no LIFF configured the card is still a working card, just shorter.
+  const links = [];
+  if (quick) links.push(linkButton('⚡ จดด่วน', quick));
+  if (dashUrl) links.push(linkButton('📋 แดชบอร์ด', dashUrl));
+  if (links.length === 1) footer.push(links[0]);
+  else if (links.length === 2) footer.push({ type: 'box', layout: 'horizontal', spacing: 'sm', contents: links });
 
   const bubble = {
     type: 'bubble',
