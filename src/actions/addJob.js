@@ -1,7 +1,10 @@
 import { reply } from '../services/lineService.js';
 import { getState, setState, clearState, STATES } from '../services/stateService.js';
-import { createJob } from '../services/jobService.js';
+import { createJob, getRecentJobs } from '../services/jobService.js';
 import { receiptFlex } from '../flex/receiptFlex.js';
+import { formCardsMessage, greetingTexts } from '../flex/formCardFlex.js';
+import { quickFormUrl, liffUrl } from '../utils/liff.js';
+import { logger } from '../services/logger.js';
 
 const PROMPT = `📝 บันทึกงานใหม่
 
@@ -17,11 +20,28 @@ const PROMPT = `📝 บันทึกงานใหม่
 
 ม่วงจดจะช่วยจัดรายการให้ค่ะ 💜`;
 
-// Triggered by postback action=add_job. Prompt, then wait for the job text.
-// Typing it into the chat is the whole flow — nothing else is pushed here.
+// Triggered by postback action=add_job: the greeting, the cards, and the note
+// on how to type it instead.
+//
+// The state machine is left waiting for job text either way — the card is a
+// picture of the form with a way through to it, and typing the job straight
+// into the chat still works exactly as before. That is the fast path and it
+// stays the default.
 export async function addJob({ replyToken, profile }) {
   await setState(profile.id, STATES.WAITING_FOR_JOB, {});
-  await reply(replyToken, { type: 'text', text: PROMPT });
+
+  let recent = [];
+  try {
+    recent = await getRecentJobs(profile.id, 4);
+  } catch (err) {
+    logger.warn('addJob.recent_failed', { message: err?.message });
+  }
+
+  await reply(replyToken, [
+    ...greetingTexts(profile.display_name),
+    formCardsMessage({ formUrl: quickFormUrl(), dashboardUrl: liffUrl({ tab: 'today' }), recent }),
+    { type: 'text', text: PROMPT },
+  ]);
 }
 
 // postback action=confirm_add_job — commit the draft from context to the DB.
