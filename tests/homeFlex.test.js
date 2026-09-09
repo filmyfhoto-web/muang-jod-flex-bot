@@ -34,19 +34,21 @@ test('the dashboard link and the mascot appear only when they resolve', () => {
   assert.ok(!JSON.stringify(without).includes('เปิดแดชบอร์ด'), 'no LIFF, no dashboard link');
 
   const with_ = homeFlex(SUMMARY, {
-    mascotImageUrl: 'https://bot.example.com/brand/ui/happy.png',
+    mascotImageUrl: 'https://bot.example.com/brand/ui/nap.png',
     liffUrl: 'https://liff.line.me/1234567890-AbCdEfGh?tab=today',
   });
   assert.ok(JSON.stringify(with_).includes('liff.line.me'));
 
-  // The dog sits on the greeting's line — one row, not a band above it.
+  // The dog sits on the greeting's line, in the space to its right that was
+  // otherwise empty — one row, not a band above it.
   const [top] = with_.contents.body.contents;
   assert.equal(top.layout, 'horizontal');
-  const [image, texts] = top.contents;
+  const [texts, image] = top.contents;
+  assert.ok(JSON.stringify(texts).includes('ม่วงจดพร้อมช่วยแล้ว'), 'the greeting comes first');
   assert.equal(image.type, 'image');
-  assert.equal(image.url, 'https://bot.example.com/brand/ui/happy.png');
-  assert.equal(image.size, 'xxs', 'anything bigger and it is a band again');
-  assert.ok(JSON.stringify(texts).includes('ม่วงจดพร้อมช่วยแล้ว'), 'the greeting is beside it');
+  assert.equal(image.url, 'https://bot.example.com/brand/ui/nap.png');
+  assert.equal(image.size, 'xs', 'anything bigger and it is a band again');
+  assert.equal(image.flex, 0, 'the image must not steal width from the greeting');
 });
 
 test('an empty day still renders, since a new user taps the mascot first', () => {

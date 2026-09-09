@@ -35,10 +35,10 @@ function button(label, data, opts = {}) {
 export function homeFlex(summary = {}, opts = {}) {
   const name = String(opts.displayName || '').trim();
   const dashUrl = opts.liffUrl !== undefined ? opts.liffUrl : liffUrl({ tab: 'today' });
-  const mascot = opts.mascotImageUrl !== undefined ? opts.mascotImageUrl : brandAssetUrl('ui/happy.png');
+  const mascot = opts.mascotImageUrl !== undefined ? opts.mascotImageUrl : brandAssetUrl('ui/nap.png');
 
-  // น้องหมาอยู่บรรทัดเดียวกับคำทักทาย ไม่ใช่แถบเต็มความกว้างด้านบน — แถบนั้น
-  // กินความสูงไปหนึ่งในสามของการ์ดโดยไม่ได้บอกอะไรเพิ่ม
+  // น้องหมานอนอยู่มุมขวาของบรรทัดทักทาย — ที่ตรงนั้นเดิมว่างเปล่า และรูปนอน
+  // เป็นแนวนอน จึงพอดีกับความสูงของสองบรรทัดโดยไม่ดันการ์ดให้ยาวขึ้นเลย
   const greeting = {
     type: 'box',
     layout: 'vertical',
@@ -63,8 +63,8 @@ export function homeFlex(summary = {}, opts = {}) {
           spacing: 'sm',
           alignItems: 'center',
           contents: [
-            { type: 'image', url: mascot, size: 'xxs', flex: 0, aspectMode: 'fit' },
             { ...greeting, flex: 1 },
+            { type: 'image', url: mascot, size: 'xs', flex: 0, aspectMode: 'fit', align: 'end' },
           ],
         }
       : greeting,
