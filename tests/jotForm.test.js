@@ -66,9 +66,8 @@ test('the dashboard keeps the chat cards\' accent, and so does the jot page\'s n
   assert.equal(accentOf(dashboard), COLORS.accent.toLowerCase(), 'dashboard: accent drifted from theme.js');
   assert.equal(accentTextOf(dashboard), COLORS.accentText.toLowerCase(), 'dashboard: accent-text drifted');
 
-  // The jot form leads with the violet the mockup asked for, so only its night
-  // block has to match the cards in chat — that is the one meant to sit next
-  // to them.
+  // The form opens from a card in chat, so its default (night) is the one that
+  // has to match those cards. The violet block is the alternate look.
   const night = /body\.night\s*\{([\s\S]*?)\}/.exec(css)?.[1];
   assert.ok(night, 'the night theme block is gone');
   assert.equal(accentOf(night), COLORS.accent.toLowerCase(), 'night accent drifted from theme.js');
@@ -89,8 +88,8 @@ test('the cards swipe sideways, with dots that follow', () => {
 });
 
 test('both themes are one stylesheet, switched by a class', () => {
-  assert.ok(js.includes("params.get('theme') === 'night'"), 'nothing reads ?theme=night');
-  assert.ok(js.includes("classList.add('night')"));
+  assert.ok(js.includes("params.get('theme') === 'violet'"), 'nothing reads ?theme=violet');
+  assert.ok(js.includes("classList.add('night')"), 'the night theme is never applied');
   // Every colour has to come from a token, or switching the class leaves
   // stragglers behind in the other theme's palette.
   const body = css.slice(css.indexOf('* { box-sizing'));

@@ -1,30 +1,20 @@
 import { formatBaht } from '../utils/currency.js';
 import { formatThaiDate } from '../utils/dates.js';
 import { brandAssetUrl } from '../utils/brand.js';
+import { COLORS } from './theme.js';
 
-// การ์ด "กรอกข้อมูลงานได้เลย" ที่อยู่ในแชตจริง ๆ ตามแบบที่ออกไว้ — พื้นขาว
-// หัวการ์ดม่วง น้องหมาโผล่มุมขวา และแถวที่หน้าตาเหมือนช่องกรอก ปัดซ้าย-ขวา
+// การ์ด "กรอกข้อมูลงานได้เลย" ที่อยู่ในแชตจริง ๆ ตามแบบที่ออกไว้ — พื้นกรมท่า
+// หัวการ์ดชิปฟ้า น้องหมาโผล่มุมขวา และแถวที่หน้าตาเหมือนช่องกรอก ปัดซ้าย-ขวา
 // ได้ด้วย carousel ของ LINE เอง
 //
 // ข้อจำกัดที่ต้องพูดให้ชัด: Flex Message **พิมพ์ลงไปตรง ๆ ไม่ได้** LINE ไม่มี
 // ช่องรับข้อความในการ์ด แถวที่เห็นจึงเป็นปุ่มที่แตะแล้วเปิดฟอร์มจริง (LIFF)
 // ให้พิมพ์ต่อ — การ์ดนี้คือหน้าตาและทางเข้า ไม่ใช่ที่กรอก
 //
-// สีของการ์ดนี้เป็นชุดม่วง-ขาว จงใจไม่ใช้ COLORS ของธีมมืด เพราะแบบที่ขอมา
-// เป็นการ์ดสว่าง (ดู tests/formCard.test.js ที่คุมไว้ว่าห้ามโดนธีมมืดทับ)
-
-const VIOLET = '#7C3AED';
-const VIOLET_DEEP = '#6D28D9';
-const VIOLET_SOFT = '#EDE7FB';
-const CARD = '#FFFFFF';
-const FIELD = '#F7F4FF';
-const LINE_SOFT = '#E6DDF7';
-const INK = '#2F2545';
-const SUB = '#5B4D7A';
-const GREY = '#8B7FA8';
+// สีมาจาก theme.js ชุดเดียวกับการ์ดอื่นทั้งบอท — พื้นกรมท่า ปุ่มฟ้า ตามแบบ
 
 // ชิปไอคอนสี่เหลี่ยมมนหน้าช่อง เหมือนในแบบ
-function iconChip(emoji, { size = '30px', bg = VIOLET_SOFT, text = 'sm', color = INK } = {}) {
+function iconChip(emoji, { size = '30px', bg = COLORS.tint, text = 'sm', color = COLORS.ink } = {}) {
   return {
     type: 'box',
     layout: 'vertical',
@@ -45,7 +35,7 @@ function field(label, emoji, placeholder, opts = {}) {
   const box = {
     type: 'box',
     layout: 'horizontal',
-    backgroundColor: FIELD,
+    backgroundColor: COLORS.tint,
     cornerRadius: 'lg',
     paddingAll: 'md',
     spacing: 'sm',
@@ -56,7 +46,7 @@ function field(label, emoji, placeholder, opts = {}) {
         type: 'text',
         text: placeholder,
         size: 'sm',
-        color: opts.value ? INK : GREY,
+        color: opts.value ? COLORS.ink : COLORS.grey,
         weight: opts.value ? 'bold' : 'regular',
         wrap: false,
         gravity: 'center',
@@ -70,7 +60,7 @@ function field(label, emoji, placeholder, opts = {}) {
     layout: 'vertical',
     spacing: 'xs',
     flex: opts.flex ?? 1,
-    contents: [{ type: 'text', text: label, size: 'xs', weight: 'bold', color: SUB }, box],
+    contents: [{ type: 'text', text: label, size: 'xs', weight: 'bold', color: COLORS.sub }, box],
   };
 }
 
@@ -81,14 +71,14 @@ function pair(left, right) {
 // หัวการ์ด: ชิปไอคอนม่วง + ชื่อ/คำโปรย + น้องหมามุมขวา
 function cardHead(title, subtitle, emoji, mascot) {
   const contents = [
-    iconChip(emoji, { size: '46px', bg: VIOLET, text: 'xl' }),
+    iconChip(emoji, { size: '46px', bg: COLORS.accent, text: 'xl', color: COLORS.white }),
     {
       type: 'box',
       layout: 'vertical',
       flex: 1,
       contents: [
-        { type: 'text', text: title, size: 'lg', weight: 'bold', color: VIOLET_DEEP, wrap: true },
-        { type: 'text', text: subtitle, size: 'xxs', color: GREY, wrap: true },
+        { type: 'text', text: title, size: 'lg', weight: 'bold', color: COLORS.accentText, wrap: true },
+        { type: 'text', text: subtitle, size: 'xxs', color: COLORS.grey, wrap: true },
       ],
     },
   ];
@@ -103,7 +93,7 @@ function button(label, opts) {
     type: 'button',
     style: opts.primary ? 'primary' : 'secondary',
     height: 'sm',
-    ...(opts.primary ? { color: VIOLET } : {}),
+    ...(opts.primary ? { color: COLORS.accent } : {}),
     action: opts.uri
       ? { type: 'uri', label, uri: opts.uri }
       : { type: 'postback', label, data: opts.data, displayText: opts.displayText || label },
@@ -118,7 +108,7 @@ function formBubble(formUrl) {
   const body = [
     cardHead('กรอกข้อมูลงานได้เลย', 'บันทึกงานพิมพ์ / ป้ายโฆษณา ของคุณ', '📋', mascot),
     ...(open
-      ? [{ type: 'text', text: 'แตะช่องไหนก็ได้ เพื่อเปิดฟอร์มกรอกค่ะ 💜', size: 'xxs', color: VIOLET_DEEP }]
+      ? [{ type: 'text', text: 'แตะช่องไหนก็ได้ เพื่อเปิดฟอร์มกรอกค่ะ 💜', size: 'xxs', color: COLORS.accentText }]
       : []),
     field('ชื่อ', '👤', 'เช่น ป้ายหน้าร้าน', { uri: open }),
     field('รายละเอียด', '📄', 'เช่น ป้ายไวนิล 60x120 ซม.', { uri: open }),
@@ -150,8 +140,8 @@ function formBubble(formUrl) {
         button('➕ พิมพ์เอง', { data: 'action=add_job', displayText: 'บันทึกงานวันนี้' }),
       ],
     },
-    // การ์ดนี้ต้องสว่างตามแบบ จึงกำหนดพื้นเอง — themed() จะไม่ทับของที่ตั้งไว้แล้ว
-    styles: { body: { backgroundColor: CARD }, footer: { backgroundColor: CARD } },
+    // ประกาศพื้นไว้ตรงนี้ให้ชัด แม้ themed() ตอนส่งจะประทับให้อยู่แล้ว
+    styles: { body: { backgroundColor: COLORS.surface }, footer: { backgroundColor: COLORS.surface } },
   };
 }
 
@@ -163,23 +153,23 @@ function recentBubble(jobs = [], dashboardUrl) {
     spacing: 'sm',
     alignItems: 'center',
     contents: [
-      iconChip(String(i + 1), { size: '26px', bg: VIOLET, text: 'xs', color: CARD }),
+      iconChip(String(i + 1), { size: '26px', bg: COLORS.accent, text: 'xs', color: COLORS.white }),
       {
         type: 'box',
         layout: 'vertical',
         flex: 1,
         contents: [
-          { type: 'text', text: job.job_name || 'งาน', size: 'sm', color: INK, weight: 'bold', wrap: false },
-          { type: 'text', text: formatThaiDate(job.job_date), size: 'xxs', color: GREY },
+          { type: 'text', text: job.job_name || 'งาน', size: 'sm', color: COLORS.ink, weight: 'bold', wrap: false },
+          { type: 'text', text: formatThaiDate(job.job_date), size: 'xxs', color: COLORS.grey },
         ],
       },
-      { type: 'text', text: formatBaht(job.total || 0), size: 'sm', weight: 'bold', color: VIOLET_DEEP, flex: 0 },
+      { type: 'text', text: formatBaht(job.total || 0), size: 'sm', weight: 'bold', color: COLORS.accentText, flex: 0 },
     ],
     ...(job.id ? { action: { type: 'postback', label: 'ดูงาน', data: `action=edit_job&jobId=${encodeURIComponent(job.id)}`, displayText: 'ดูรายละเอียดงาน' } } : {}),
   }));
 
   if (!rows.length) {
-    rows.push({ type: 'text', text: 'ยังไม่มีงานที่จดไว้ค่ะ', size: 'sm', color: GREY, wrap: true });
+    rows.push({ type: 'text', text: 'ยังไม่มีงานที่จดไว้ค่ะ', size: 'sm', color: COLORS.grey, wrap: true });
   }
 
   const footer = [];
@@ -196,7 +186,7 @@ function recentBubble(jobs = [], dashboardUrl) {
       paddingAll: 'lg',
       contents: [
         cardHead('รายการงานของคุณ', 'งานพิมพ์ / ป้ายที่จดไว้ล่าสุด', '📄', null),
-        { type: 'separator', color: LINE_SOFT },
+        { type: 'separator', color: COLORS.line },
         { type: 'box', layout: 'vertical', spacing: 'md', contents: rows },
       ],
     },
@@ -208,7 +198,7 @@ function recentBubble(jobs = [], dashboardUrl) {
       paddingTop: 'none',
       contents: footer,
     },
-    styles: { body: { backgroundColor: CARD }, footer: { backgroundColor: CARD } },
+    styles: { body: { backgroundColor: COLORS.surface }, footer: { backgroundColor: COLORS.surface } },
   };
 }
 
