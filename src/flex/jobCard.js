@@ -19,7 +19,7 @@ export function paymentLabel(status) {
 // Carousels skip it: eight copies of the same strip is noise, not charm.
 function heroStrip() {
   const url = brandAssetUrl('ui/card-hero.png');
-  return url ? { type: 'image', url, size: 'full', aspectRatio: '20:8', aspectMode: 'cover' } : null;
+  return url ? { type: 'image', url, size: 'full', aspectRatio: '20:5', aspectMode: 'cover' } : null;
 }
 
 // Build a single job bubble. Reused as a standalone card and inside carousels.

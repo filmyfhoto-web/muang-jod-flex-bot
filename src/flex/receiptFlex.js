@@ -269,7 +269,7 @@ export function receiptFlex(job, opts = {}) {
     type: 'bubble',
     size: 'mega',
     ...(heroUrl
-      ? { hero: { type: 'image', url: heroUrl, size: 'full', aspectRatio: '20:8', aspectMode: 'cover' } }
+      ? { hero: { type: 'image', url: heroUrl, size: 'full', aspectRatio: '20:5', aspectMode: 'cover' } }
       : {}),
     header,
     body: { type: 'box', layout: 'vertical', spacing: 'md', paddingTop: 'sm', contents: bodyContents },
