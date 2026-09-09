@@ -1,6 +1,7 @@
 import { formatBaht, numText } from '../utils/currency.js';
 import { formatThaiDate } from '../utils/dates.js';
 import { brandAssetUrl } from '../utils/brand.js';
+import { dueText } from './components/dueLine.js';
 
 // การ์ด "กรอกข้อมูลงานได้เลย" ที่อยู่ในแชตจริง ๆ ตามแบบที่ออกไว้ — การ์ดขาว
 // หัวการ์ดชิปน้ำเงิน น้องหมาโผล่มุมขวา และแถวที่หน้าตาเหมือนช่องกรอก
@@ -165,6 +166,19 @@ function formBubble(formUrl) {
   };
 }
 
+function dueOf(job) {
+  const due = dueText(job.due_date);
+  if (!due) return null;
+  return {
+    type: 'text',
+    text: due.text,
+    size: 'xxs',
+    weight: due.late || due.soon ? 'bold' : 'regular',
+    color: due.late ? '#DC2626' : due.soon ? '#B45309' : SUB,
+    wrap: false,
+  };
+}
+
 // การ์ดใบที่สอง — งานที่จดไว้แล้ว ภาษาเดียวกับใบแรก
 //
 // `failed` แยก "ยังไม่เคยจด" ออกจาก "ดึงรายการไม่สำเร็จ" — สองอย่างนี้หน้าตา
@@ -184,7 +198,8 @@ function recentBubble(jobs = [], dashboardUrl, { failed = false, today = null } 
         flex: 1,
         contents: [
           { type: 'text', text: job.job_name || 'งาน', size: 'sm', color: INK, weight: 'bold', wrap: false },
-          { type: 'text', text: formatThaiDate(job.job_date), size: 'xxs', color: GREY },
+          // เมื่อมีวันนัดรับ วันนัดสำคัญกว่าวันที่จด — นั่นคือเส้นตายของงาน
+          dueOf(job) || { type: 'text', text: formatThaiDate(job.job_date), size: 'xxs', color: GREY },
         ],
       },
       { type: 'text', text: formatBaht(job.total || 0), size: 'sm', weight: 'bold', color: BLUE_DEEP, flex: 0 },

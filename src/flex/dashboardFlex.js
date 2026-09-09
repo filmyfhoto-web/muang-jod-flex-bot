@@ -2,6 +2,7 @@ import { formatBaht } from '../utils/currency.js';
 import { formatThaiDate, formatThaiDateTime } from '../utils/dates.js';
 import { jobCategory } from '../utils/category.js';
 import { COLORS } from './theme.js';
+import { dueLine } from './components/dueLine.js';
 import { divider } from './components/divider.js';
 import { statusBadge } from './components/statusBadge.js';
 import { liffUrl } from '../utils/liff.js';
@@ -124,6 +125,7 @@ function recentRow(job) {
         contents: [
           { type: 'text', text: job.job_name || 'งาน', size: 'sm', weight: 'bold', color: COLORS.ink, wrap: true },
           { type: 'text', text: sub, size: 'xxs', color: COLORS.grey, wrap: true },
+          ...(dueLine(job.due_date, { size: 'xxs' }) ? [dueLine(job.due_date, { size: 'xxs' })] : []),
         ],
       },
       {

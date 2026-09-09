@@ -198,3 +198,16 @@ test('an attachment that did not stick is said out loud, in the chat too', async
   assert.equal(body.attachmentsFailed, 1);
   assert.ok(JSON.stringify(s.calls.pushed[0].messages).includes('แนบรูปไม่สำเร็จ'));
 });
+
+
+test('the pickup date the form sends reaches createJob', async (t) => {
+  const s = await serve();
+  t.after(() => s.close());
+
+  await s.post({ items: [{ item_name: 'ป้าย', quantity: 1, unit_price: 150 }], dueDate: '2026-09-20' });
+  assert.equal(s.calls.created[0].draft.dueDate, '2026-09-20');
+
+  // No pickup date is a normal job, not a broken one.
+  await s.post({ items: [{ item_name: 'ป้าย', quantity: 1, unit_price: 150 }] });
+  assert.equal(s.calls.created[1].draft.dueDate, null);
+});

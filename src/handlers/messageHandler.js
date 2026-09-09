@@ -15,7 +15,7 @@ import { resolveMenuCommand, splitLeadingAddJob } from '../utils/menuCommands.js
 import { parseNaturalJob } from '../utils/nlParser.js';
 import { deriveJobName } from '../utils/category.js';
 import { makeDraft, draftToBubble, priceDraft, parseBarePrice } from '../utils/jobDraft.js';
-import { extractDate } from '../utils/thaiDate.js';
+import { extractDate, extractDueDate } from '../utils/thaiDate.js';
 import { handlePostback } from './postbackHandler.js';
 
 const DEFAULT_REPLY =
@@ -159,9 +159,11 @@ async function handleDraftPrice(replyToken, profile, state, text) {
 }
 
 async function handleNewJob(replyToken, profile, text) {
-  // "10 กันยา ไก่ทอดน้ำปลา 278" — the date is lifted off the front first, both
-  // to back-date the job and to keep "กันยา" out of the item name.
-  const when = extractDate(text);
+  // Two different dates can be in one message and they mean opposite things.
+  // The pickup date is the one wearing a label ("นัดรับ 15 ก.ย."), so it comes
+  // off first; whatever bare date is left is when the job is being recorded.
+  const due = extractDueDate(text);
+  const when = extractDate(due.rest);
 
   // Natural-language understanding: customer, items, quantity, price, and any
   // amount already received — via the AI layer when configured, else rules.
@@ -183,6 +185,7 @@ async function handleNewJob(replyToken, profile, text) {
     jobName: deriveJobName(parsed.items),
     customerName: parsed.customerName,
     jobDate: when.date || todayISO(),
+    dueDate: due.date,
     items: parsed.items,
     subtotal: parsed.subtotal,
     discount: parsed.discount || 0,

@@ -132,3 +132,87 @@ export function extractDate(text, now = new Date()) {
 
   return { date: null, rest: original.trim() };
 }
+
+/* ------------------------------------------------------- วันนัดรับ/ส่งงาน */
+
+// วันนัดรับเป็นคนละเรื่องกับวันที่จด: จดวันนี้ นัดรับอีกสิบวันข้างหน้าก็ได้
+// จึงต้องมีคำกำกับเสมอ ("นัดรับ 15 ก.ย.") ไม่ใช่วันที่ลอย ๆ ที่ต้นข้อความ
+const DUE_WORDS = '(?:นัดรับ|นัดส่ง|กำหนดรับ|กำหนดส่ง|รับงาน|ส่งงาน|วันรับ|วันส่ง|รับก่อน|ส่งก่อน|เอาวันที่|นัด|รับ|ส่ง)';
+
+// ปีที่ไม่ได้บอกของ "วันนัด" คือวันที่กำลังจะมาถึง — กลับด้านกับวันที่จด
+// ซึ่งหมายถึงวันที่เพิ่งผ่านมา ย้อนหลังได้ไม่เกินสองสามวันเผื่อพิมพ์พลาด
+const BACKWARD_GRACE_DAYS = 3;
+
+function resolveFutureYear(month, day, today) {
+  const thisYear = Number(today.slice(0, 4));
+  const candidate = iso(thisYear, month, day);
+  if (!candidate) return null;
+  if (candidate >= addDays(today, -BACKWARD_GRACE_DAYS)) return candidate;
+  return iso(thisYear + 1, month, day);
+}
+
+// รูปแบบวันที่ที่ยอมรับหลังคำว่า "นัดรับ" — ต้องชัดเจนพอที่จะไม่ปนกับเงิน
+// "รับมาแล้ว 300" จึงไม่ถูกอ่านเป็นวันที่ เพราะ 300 เฉย ๆ ไม่ใช่รูปแบบไหนเลย
+function dueMatchers(today) {
+  return [
+    // นัดรับ 15 ก.ย. 68
+    (t) => {
+      const re = new RegExp(`^\\s*(\\d{1,2})\\s*(${MONTH_PATTERN})\\s*(\\d{2,4})?`);
+      const m = re.exec(t);
+      if (!m) return null;
+      const month = monthOf(m[2]);
+      const day = Number(m[1]);
+      const date = m[3] ? iso(gregorianYear(m[3]), month, day) : resolveFutureYear(month, day, today);
+      return date ? [date, m[0]] : null;
+    },
+    // นัดรับ 15/9 · 15/9/2569
+    (t) => {
+      const m = /^\s*(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?(?=\s|$)/.exec(t);
+      if (!m) return null;
+      const day = Number(m[1]);
+      const month = Number(m[2]);
+      const date = m[3] ? iso(gregorianYear(m[3]), month, day) : resolveFutureYear(month, day, today);
+      return date ? [date, m[0]] : null;
+    },
+    // นัดรับ มะรืน — ก่อน "พรุ่งนี้" ไม่ได้ แต่คนละคำกัน จึงไม่ชนกัน
+    (t) => {
+      const m = /^\s*(มะรืน(นี้)?|วันมะรืน)/.exec(t);
+      return m ? [addDays(today, 2), m[0]] : null;
+    },
+    (t) => {
+      const m = /^\s*(พรุ่งนี้|พรุ่งนี|วันพรุ่งนี้)/.exec(t);
+      return m ? [addDays(today, 1), m[0]] : null;
+    },
+    // นัดรับ อีก 3 วัน
+    (t) => {
+      const m = /^\s*(?:อีก\s*)?(\d{1,2})\s*วัน(?:ข้างหน้า|ถัดไป)?/.exec(t);
+      return m ? [addDays(today, Number(m[1])), m[0]] : null;
+    },
+    (t) => {
+      const m = /^\s*วันนี้/.exec(t);
+      return m ? [today, m[0]] : null;
+    },
+  ];
+}
+
+// Returns { date, rest }: the pickup date the message named (null when none),
+// and the message with that phrase — keyword included — cut out of it.
+export function extractDueDate(text, now = new Date()) {
+  const original = String(text ?? '');
+  const today = todayISO(now);
+  const re = new RegExp(`${DUE_WORDS}\\s*`, 'g');
+
+  for (const hit of original.matchAll(re)) {
+    const after = original.slice(hit.index + hit[0].length);
+    for (const match of dueMatchers(today)) {
+      const found = match(after);
+      if (!found) continue;
+      const [date, phrase] = found;
+      const cut = hit[0] + phrase;
+      const rest = original.replace(cut, ' ').replace(/\s+/g, ' ').trim();
+      return { date, rest };
+    }
+  }
+
+  return { date: null, rest: original.trim() };
+}

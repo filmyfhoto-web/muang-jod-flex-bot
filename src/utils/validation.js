@@ -72,6 +72,12 @@ export const jobCreateSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'รูปแบบวันที่ต้องเป็น YYYY-MM-DD')
     .optional(),
+  // วันนัดรับ/ส่งงาน — คนละอย่างกับ jobDate ซึ่งคือวันที่จด ว่างได้
+  dueDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'รูปแบบวันที่ต้องเป็น YYYY-MM-DD')
+    .nullable()
+    .optional(),
   items: z.array(jobItemSchema).min(1, 'ต้องมีอย่างน้อย 1 รายการ').max(50, 'รายการเยอะเกินไป'),
   discount: z.coerce.number().min(0).default(0),
   paidAmount: z.coerce.number().min(0).default(0),
@@ -87,6 +93,10 @@ export const jobPatchSchema = z
     paid_amount: z.coerce.number().min(0, 'ยอดต้องไม่ติดลบ').finite(),
     payment_status: z.enum(PAYMENT_STATUSES),
     job_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'รูปแบบวันที่ต้องเป็น YYYY-MM-DD'),
+    due_date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'รูปแบบวันที่ต้องเป็น YYYY-MM-DD')
+      .nullable(),
     category: z.string().trim().max(40).nullable(),
     category_type: z.string().trim().max(40).nullable(),
     note: z.string().trim().max(500).nullable(),
