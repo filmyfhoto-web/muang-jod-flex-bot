@@ -96,8 +96,11 @@ export function areaSqm({ width, height, unit }) {
   return round2(width * factor * (height * factor));
 }
 
+// ป้ายขนาดบนใบเสร็จ: กว้าง คูณ ยาว เท่านั้น เขียนแบบเดียวกับฟอร์มจดด่วน
+// (public/liff/jot/script.js) เพื่อให้งานเดียวกันหน้าตาเหมือนกันไม่ว่าจะจด
+// มาทางไหน — tests/area.test.js คุมไว้ว่าสองที่ต้องตรงกัน
 export function sizeLabel({ width, height, unit }) {
-  return `${numText(width)}x${numText(height)} ${UNIT_LABELS[unit] || ''}`.trim();
+  return `${numText(width)} × ${numText(height)} ${UNIT_LABELS[unit] || ''}`.trim();
 }
 
 // อ่านบรรทัดที่คิดราคาแบบตารางเมตร — คืน null ถ้าไม่ใช่แบบนั้น
@@ -143,17 +146,28 @@ export function parseAreaPricing(rawLine) {
   };
 }
 
-// สร้างรายการงานหนึ่งบรรทัดจากผลด้านบน — จำนวน = ตารางเมตรทั้งหมด
-// (พื้นที่ต่อผืน × จำนวนผืน) หน่วยเป็น ตร.ม. ราคาต่อหน่วยคือเรตต่อตารางเมตร
+// สร้างรายการงานหนึ่งบรรทัดจากผลด้านบน
+//
+// เรตต่อตารางเมตรเป็นวิธีคิดของร้าน ไม่ใช่สิ่งที่ลูกค้าต้องเห็น บรรทัดที่ออก
+// ไปจึงเป็น "ขนาด · จำนวนชิ้น · ราคาต่อชิ้น" เหมือนงานอื่นทุกประเภท ส่วนพื้นที่
+// กับเรตไปอยู่ในหมายเหตุผ่าน areaWorking() ซึ่งขึ้นเฉพาะการ์ดของร้าน
 export function areaItem(area, { itemName, pieces = 1 } = {}) {
   const count = Number(pieces) > 0 ? Number(pieces) : 1;
-  const quantity = round2(area.sqm * count);
+  const perPiece = round2(area.sqm * area.rate);
   return {
     item_name: itemName || 'งานป้าย',
     size: area.sizeLabel,
-    quantity,
-    unit: SQM_UNIT,
-    unit_price: round2(area.rate),
-    total: round2(quantity * area.rate),
+    quantity: count,
+    unit: null,
+    unit_price: perPiece,
+    total: round2(perPiece * count),
   };
+}
+
+// วิธีคิดของร้าน หนึ่งบรรทัด — "ไวนิล: 4.8 ตร.ม. × 165 = 792"
+export function areaWorking(area, { itemName, pieces = 1 } = {}) {
+  const count = Number(pieces) > 0 ? Number(pieces) : 1;
+  const perPiece = round2(area.sqm * area.rate);
+  const each = count > 1 ? ` ต่อชิ้น × ${numText(count)} ชิ้น` : '';
+  return `${itemName || 'งานป้าย'}: ${numText(area.sqm)} ${SQM_UNIT} × ${numText(area.rate)} = ${numText(perPiece)}${each}`;
 }

@@ -7,17 +7,35 @@ import { todayISO } from './dates.js';
 // off a photographed document both go through here, so the preview and the
 // eventual row look the same whichever way the job arrived.
 
+// A square-metre job arrives carrying `working` — "4.8 ตร.ม. × 165 = 792", how
+// the shop got to the price. That is the shop's business, not the customer's,
+// so it comes off the item here (where every path builds its draft) and goes
+// into the note, which only the shop's own job card renders.
+function liftWorkings(items) {
+  const lines = [];
+  const clean = items.map((it) => {
+    if (!it?.working) return it;
+    lines.push(it.working);
+    const { working, ...rest } = it;
+    return rest;
+  });
+  return { items: clean, workings: lines };
+}
+
 export function makeDraft({
   jobName,
   customerName = null,
   jobDate,
-  items = [],
+  items: rawItems = [],
   subtotal,
   discount = 0,
   total,
   paidAmount = 0,
   note = null,
 }) {
+  const { items, workings } = liftWorkings(rawItems);
+  const fullNote =
+    [note, workings.length ? `คิดตาม ตร.ม. — ${workings.join(' | ')}` : ''].filter(Boolean).join('\n') || null;
   const sum = round2(items.reduce((s, it) => s + (Number(it.total) || 0), 0));
   const net = round2(total ?? sum - discount);
   const pay = derivePaymentFields(net, paidAmount);
@@ -32,7 +50,7 @@ export function makeDraft({
     paidAmount: pay.paid_amount,
     balanceDue: pay.balance_due,
     paymentStatus: pay.payment_status,
-    ...(note ? { note } : {}),
+    ...(fullNote ? { note: fullNote } : {}),
   };
 }
 
@@ -67,8 +85,8 @@ export function parseBarePrice(text) {
 //
 // Only a single-line draft can be priced this way: with two lines there is no
 // way to tell which one the number belongs to, and guessing would put money on
-// the card that the user never said. The number is the line's TOTAL, so an
-// area job (4.8 ตร.ม.) comes back with the right rate per square metre.
+// the card that the user never said. The number is the line's TOTAL, so a line
+// of four pieces comes back priced correctly per piece.
 export function priceDraft(draft, price) {
   const amount = round2(Number(price) || 0);
   if (!(amount > 0) || draft.total > 0 || draft.items.length !== 1) return null;

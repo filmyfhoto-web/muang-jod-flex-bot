@@ -1,5 +1,5 @@
 import { round2 } from './currency.js';
-import { parseAreaPricing, areaItem } from './area.js';
+import { parseAreaPricing, areaItem, areaWorking } from './area.js';
 
 const SIZE_RE = /(\d+(?:\.\d+)?\s*[xX×*]\s*\d+(?:\.\d+)?(?:\s*[xX×*]\s*\d+(?:\.\d+)?)?)/;
 const UNIT_WORDS = ['ชิ้น', 'อัน', 'ใบ', 'แผ่น', 'ตัว', 'ม้วน', 'กล่อง', 'ชุด', 'เมตร', 'ตร.ม.', 'ตารางเมตร'];
@@ -51,7 +51,10 @@ export function parseLine(rawLine) {
       rest = rest.replace(pieceMatch[0], ' ');
     }
     const itemName = cleanName(rest) || (area.sizeLabel ? `รายการ ${area.sizeLabel}` : 'รายการ');
-    return areaItem(area, { itemName, pieces });
+    const item = areaItem(area, { itemName, pieces });
+    // ติดวิธีคิดไว้กับรายการ ให้ผู้เรียกเก็บลงหมายเหตุ ไม่ใช่ลงใบเสร็จ
+    item.working = areaWorking(area, { itemName, pieces });
+    return item;
   }
 
   let working = line;
