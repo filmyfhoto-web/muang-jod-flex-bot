@@ -4,6 +4,7 @@ import { lineConfig } from '../config/line.js';
 import { getOrCreateProfile } from '../services/userService.js';
 import { handleTextMessage } from '../handlers/messageHandler.js';
 import { handleImageMessage } from '../handlers/imageHandler.js';
+import { handleAudioMessage } from '../handlers/audioHandler.js';
 import { handlePostback } from '../handlers/postbackHandler.js';
 import { handleFollow } from '../handlers/followHandler.js';
 import { markEventProcessed } from '../services/webhookEventService.js';
@@ -53,6 +54,7 @@ async function dispatch(event, profile) {
       const mtype = event.message?.type;
       if (mtype === 'text') return handleTextMessage(event, profile);
       if (mtype === 'image' || mtype === 'file') return handleImageMessage(event, profile);
+      if (mtype === 'audio') return handleAudioMessage(event, profile);
       logger.info('webhook.unsupported_message', { mtype });
       return;
     }
