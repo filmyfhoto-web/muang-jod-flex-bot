@@ -64,7 +64,7 @@ export function homeFlex(summary = {}, opts = {}) {
           alignItems: 'center',
           contents: [
             { ...greeting, flex: 1 },
-            { type: 'image', url: mascot, size: 'xs', flex: 0, aspectMode: 'fit', align: 'end' },
+            { type: 'image', url: mascot, size: 'md', flex: 0, aspectMode: 'fit', align: 'end' },
           ],
         }
       : greeting,

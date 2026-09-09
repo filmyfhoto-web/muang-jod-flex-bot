@@ -47,7 +47,7 @@ test('the dashboard link and the mascot appear only when they resolve', () => {
   assert.ok(JSON.stringify(texts).includes('ม่วงจดพร้อมช่วยแล้ว'), 'the greeting comes first');
   assert.equal(image.type, 'image');
   assert.equal(image.url, 'https://bot.example.com/brand/ui/nap.png');
-  assert.equal(image.size, 'xs', 'anything bigger and it is a band again');
+  assert.equal(image.size, 'md', 'ท่านอนกว้าง 100px สูงราว 53px — ยังพอ ๆ กับสองบรรทัดข้าง ๆ');
   assert.equal(image.flex, 0, 'the image must not steal width from the greeting');
 });
 
