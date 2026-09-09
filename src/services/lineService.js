@@ -1,6 +1,7 @@
 import linebot from '@line/bot-sdk';
 import { lineConfig } from '../config/line.js';
 import { themedContents } from '../flex/theme.js';
+import { withQuickReply } from '../flex/quickReply.js';
 
 const { MessagingApiClient, MessagingApiBlobClient } = linebot.messagingApi;
 
@@ -12,14 +13,19 @@ const blobClient = new MessagingApiBlobClient({
   channelAccessToken: lineConfig.channelAccessToken,
 });
 
-// Flex gives a bubble a white background unless told otherwise, so the card's
-// surface is stamped on here rather than in each builder — one place to get it
-// right, and a new card cannot forget. A builder that sets its own `styles`
-// still wins.
+// Two things every outgoing message gets, stamped here rather than in each
+// builder — one place to get right, and a new card cannot forget:
+//
+//   1) the card surface, because Flex defaults a bubble to white
+//   2) the quick-reply bar, which is the only always-visible way to reach the
+//      menu on LINE for desktop
+//
+// A builder that sets its own `styles` or `quickReply` still wins.
 function toArray(messages) {
-  return (Array.isArray(messages) ? messages : [messages]).map((m) =>
+  const themed = (Array.isArray(messages) ? messages : [messages]).map((m) =>
     m?.type === 'flex' ? { ...m, contents: themedContents(m.contents) } : m
   );
+  return withQuickReply(themed);
 }
 
 // Reply to an event using its replyToken.
