@@ -5,10 +5,15 @@ import { COLORS } from './theme.js';
 import { divider } from './components/divider.js';
 import { statusBadge } from './components/statusBadge.js';
 import { liffUrl } from '../utils/liff.js';
+import { brandAssetUrl } from '../utils/brand.js';
 
 // "สรุปงานวันนี้" as in the mockup: the day's total with its trend against
 // yesterday, a tile per work category, the proportions of the day, and the
 // latest jobs — with a button into the LIFF dashboard when one is configured.
+//
+// Sized to be read on a phone without scrolling the card: the napping dog sits
+// on the title's line the way it does on the home card, and every heading is a
+// step smaller than it reads on a desktop mock.
 
 const TREND = { up: { arrow: '↗', color: COLORS.green }, down: { arrow: '↘', color: COLORS.red }, flat: { arrow: '→', color: COLORS.grey } };
 
@@ -18,7 +23,7 @@ function trendLine(trend) {
     trend?.percent === null || trend?.percent === undefined
       ? 'ยังไม่มียอดเมื่อวานให้เทียบ'
       : `${t.arrow} ${trend.percent > 0 ? '+' : ''}${trend.percent}% จากเมื่อวาน`;
-  return { type: 'text', text, size: 'md', color: t.color, weight: 'bold' };
+  return { type: 'text', text, size: 'xxs', color: t.color, weight: 'bold' };
 }
 
 // One category tile: icon + name, jobs, money.
@@ -27,9 +32,8 @@ function categoryTile(cat) {
     type: 'box',
     layout: 'vertical',
     backgroundColor: COLORS.tint,
-    cornerRadius: 'lg',
-    paddingAll: 'md',
-    spacing: 'xs',
+    cornerRadius: 'md',
+    paddingAll: 'sm',
     flex: 1,
     contents: [
       {
@@ -38,12 +42,12 @@ function categoryTile(cat) {
         spacing: 'xs',
         alignItems: 'center',
         contents: [
-          { type: 'text', text: cat.icon, size: 'xxl', flex: 0 },
-          { type: 'text', text: cat.label, size: 'sm', color: COLORS.sub, wrap: true },
+          { type: 'text', text: cat.icon, size: 'lg', flex: 0 },
+          { type: 'text', text: cat.label, size: 'xxs', color: COLORS.sub, wrap: true },
         ],
       },
-      { type: 'text', text: `${cat.count} งาน`, size: 'xxl', weight: 'bold', color: cat.color },
-      { type: 'text', text: formatBaht(cat.total), size: 'md', color: COLORS.grey },
+      { type: 'text', text: `${cat.count} งาน`, size: 'md', weight: 'bold', color: cat.color },
+      { type: 'text', text: formatBaht(cat.total), size: 'xxs', color: COLORS.grey },
     ],
   };
 }
@@ -141,25 +145,25 @@ export function dashboardFlex(dash, opts = {}) {
   const { summary, counts, categories = [], trend, recent = [] } = dash;
   const total = summary.jobCount || 0;
   const dashUrl = opts.liffUrl !== undefined ? opts.liffUrl : liffUrl({ tab: 'today' });
+  const mascot = opts.mascotImageUrl !== undefined ? opts.mascotImageUrl : brandAssetUrl('ui/nap.png');
 
   const body = [
     {
       type: 'box',
       layout: 'horizontal',
+      spacing: 'sm',
       alignItems: 'center',
       contents: [
-        { type: 'text', text: '📊 สรุปงานวันนี้', weight: 'bold', size: 'xxl', color: COLORS.title, flex: 4 },
         {
           type: 'box',
           layout: 'vertical',
-          backgroundColor: COLORS.tint,
-          cornerRadius: 'xxl',
-          paddingAll: 'xs',
-          paddingStart: 'md',
-          paddingEnd: 'md',
-          flex: 0,
-          contents: [{ type: 'text', text: formatThaiDate(summary.date), size: 'md', color: COLORS.title, weight: 'bold' }],
+          flex: 1,
+          contents: [
+            { type: 'text', text: '📊 สรุปงานวันนี้', weight: 'bold', size: 'md', color: COLORS.title, wrap: true },
+            { type: 'text', text: formatThaiDate(summary.date), size: 'xxs', color: COLORS.grey },
+          ],
         },
+        ...(mascot ? [{ type: 'image', url: mascot, size: 'md', flex: 0, aspectMode: 'fit', align: 'end' }] : []),
       ],
     },
     // Headline: the day's money and how it compares with yesterday.
@@ -167,21 +171,20 @@ export function dashboardFlex(dash, opts = {}) {
       type: 'box',
       layout: 'vertical',
       backgroundColor: COLORS.tint,
-      cornerRadius: 'lg',
-      paddingAll: 'lg',
-      spacing: 'xs',
+      cornerRadius: 'md',
+      paddingAll: 'md',
       contents: [
-        { type: 'text', text: 'ยอดวันนี้', size: 'md', color: COLORS.sub },
-        { type: 'text', text: formatBaht(summary.total), size: '4xl', weight: 'bold', color: COLORS.accentText },
+        { type: 'text', text: 'ยอดวันนี้', size: 'xxs', color: COLORS.sub },
+        { type: 'text', text: formatBaht(summary.total), size: 'xl', weight: 'bold', color: COLORS.accentText },
         trendLine(trend),
         {
           type: 'box',
           layout: 'horizontal',
           paddingTop: 'sm',
           contents: [
-            { type: 'text', text: `${total} งาน`, size: 'md', color: COLORS.sub, flex: 1 },
-            { type: 'text', text: `รับแล้ว ${formatBaht(summary.paid)}`, size: 'md', color: COLORS.green, align: 'center', flex: 2 },
-            { type: 'text', text: `ค้าง ${formatBaht(summary.pending)}`, size: 'md', color: COLORS.red, align: 'end', flex: 2 },
+            { type: 'text', text: `${total} งาน`, size: 'xxs', color: COLORS.sub, flex: 1 },
+            { type: 'text', text: `รับแล้ว ${formatBaht(summary.paid)}`, size: 'xxs', color: COLORS.green, align: 'center', flex: 2 },
+            { type: 'text', text: `ค้าง ${formatBaht(summary.pending)}`, size: 'xxs', color: COLORS.red, align: 'end', flex: 2 },
           ],
         },
       ],
@@ -191,7 +194,7 @@ export function dashboardFlex(dash, opts = {}) {
   if (categories.length) {
     body.push(...categoryTiles(categories.slice(0, 4)));
     body.push(divider());
-    body.push({ type: 'text', text: 'สัดส่วนงานวันนี้', weight: 'bold', size: 'lg', color: COLORS.title });
+    body.push({ type: 'text', text: 'สัดส่วนงานวันนี้', weight: 'bold', size: 'sm', color: COLORS.title });
     body.push(...categories.slice(0, 4).map(shareRow));
   }
 
@@ -202,11 +205,11 @@ export function dashboardFlex(dash, opts = {}) {
         type: 'box',
         layout: 'horizontal',
         contents: [
-          { type: 'text', text: 'รายการล่าสุด', weight: 'bold', size: 'lg', color: COLORS.title, flex: 3 },
+          { type: 'text', text: 'รายการล่าสุด', weight: 'bold', size: 'sm', color: COLORS.title, flex: 3 },
           {
             type: 'text',
             text: 'ดูทั้งหมด ›',
-            size: 'md',
+            size: 'xs',
             color: COLORS.accentText,
             align: 'end',
             flex: 2,
@@ -220,7 +223,7 @@ export function dashboardFlex(dash, opts = {}) {
     body.push({
       type: 'text',
       text: 'วันนี้ยังไม่มีงานค่ะ พิมพ์รายการงานมาได้เลยนะคะ 💜',
-      size: 'lg',
+      size: 'xs',
       color: COLORS.grey,
       align: 'center',
       wrap: true,
@@ -232,8 +235,8 @@ export function dashboardFlex(dash, opts = {}) {
     footerContents.push({
       type: 'button',
       style: 'primary',
-      color: COLORS.accentText,
-      height: 'md',
+      color: COLORS.accent,
+      height: 'sm',
       action: { type: 'uri', label: '📊 เปิดแดชบอร์ด', uri: dashUrl },
     });
   }
@@ -245,13 +248,13 @@ export function dashboardFlex(dash, opts = {}) {
       {
         type: 'button',
         style: 'secondary',
-        height: 'md',
+        height: 'sm',
         action: { type: 'postback', label: '📈 รายงาน', data: 'action=report_menu', displayText: 'รายงาน' },
       },
       {
         type: 'button',
         style: 'secondary',
-        height: 'md',
+        height: 'sm',
         action: { type: 'postback', label: '💰 ค้างรับ', data: 'action=pending_payment', displayText: 'ค้างรับ' },
       },
     ],
@@ -263,8 +266,8 @@ export function dashboardFlex(dash, opts = {}) {
     contents: {
       type: 'bubble',
       size: 'mega',
-      body: { type: 'box', layout: 'vertical', spacing: 'md', paddingAll: 'lg', contents: body },
-      footer: { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: 'lg', paddingTop: 'none', contents: footerContents },
+      body: { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: 'md', contents: body },
+      footer: { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: 'md', paddingTop: 'none', contents: footerContents },
       styles: { body: { backgroundColor: COLORS.surface }, footer: { backgroundColor: COLORS.surface } },
     },
   };
