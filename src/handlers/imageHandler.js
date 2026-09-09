@@ -1,9 +1,12 @@
 import { reply, getMessageContentBuffer } from '../services/lineService.js';
-import { getState, clearState, STATES } from '../services/stateService.js';
+import { getState, setState, clearState, STATES } from '../services/stateService.js';
 import { getLatestJob, getJobById, createJob } from '../services/jobService.js';
 import { saveAttachment } from '../services/attachmentService.js';
-import { readSlip } from '../services/visionService.js';
+import { readImage } from '../services/visionService.js';
 import { slipReceiptFlex } from '../flex/slipFlex.js';
+import { jobPreviewMessage } from '../flex/jobCard.js';
+import { makeDraft, draftToBubble } from '../utils/jobDraft.js';
+import { deriveJobName } from '../utils/category.js';
 import { logger } from '../services/logger.js';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
@@ -38,7 +41,7 @@ export async function handleImageMessage(event, profile) {
   if (!job) job = await getLatestJob(profile.id);
 
   // With no job to attach to, an unreadable image has nowhere to go — but a
-  // readable slip becomes its own job below, so don't bail out yet.
+  // readable slip or job sheet makes its own job below, so don't bail out yet.
   const nowhereToAttach = !job;
 
   let buffer;
@@ -73,9 +76,44 @@ export async function handleImageMessage(event, profile) {
   }
 
   // Unless the user explicitly asked to attach evidence to an existing job,
-  // try to read the slip and record it as a job of its own.
+  // try to read the paper: a slip becomes a job of its own, a job sheet
+  // becomes a draft to check first.
   if (!attaching) {
-    const slip = await readSlip(buffer, fileType);
+    const read = await readImage(buffer, fileType);
+
+    // A work order is a proposal, not a fact — the paper says what to make,
+    // not that it was agreed or paid for. So it goes through the same preview
+    // and the same "✅ บันทึกงาน" button a typed job does, with the picture
+    // held aside to attach once the draft is confirmed.
+    if (read?.kind === 'job') {
+      const draft = makeDraft({
+        jobName: read.jobName || deriveJobName(read.items),
+        customerName: read.customerName,
+        jobDate: read.date || undefined,
+        items: read.items,
+        subtotal: read.subtotal,
+        total: read.total,
+        note: 'อ่านจากรูปเอกสาร',
+      });
+
+      await setState(profile.id, STATES.CONFIRMING_JOB, {
+        draft,
+        attachment: { messageId: message.id, fileType },
+      });
+
+      const askPrice = !(draft.total > 0) && draft.items.length === 1;
+      return reply(replyToken, [
+        {
+          type: 'text',
+          text: askPrice
+            ? 'อ่านจากรูปได้แล้วค่ะ แต่ในเอกสารไม่มีราคา 💜\nพิมพ์ราคามาได้เลย เช่น 1500 แล้วม่วงจดจะใส่ให้ค่ะ'
+            : 'อ่านจากรูปได้แล้วค่ะ ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลย 💜',
+        },
+        jobPreviewMessage(draftToBubble(draft)),
+      ]);
+    }
+
+    const slip = read?.kind === 'slip' ? read : null;
     if (slip) {
       const created = await createJob(profile.id, {
         jobName: slip.merchantName ? `สลิป ${slip.merchantName}` : 'บันทึกจากสลิป',
