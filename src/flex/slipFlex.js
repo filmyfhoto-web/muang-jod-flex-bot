@@ -61,13 +61,13 @@ export function slipReceiptFlex(job, opts = {}) {
           justifyContent: 'center',
           alignItems: 'center',
           flex: 0,
-          contents: [{ type: 'text', text: '✓', size: 'xl', weight: 'bold', color: COLORS.white, align: 'center' }],
+          contents: [{ type: 'text', text: '✓', size: 'md', weight: 'bold', color: COLORS.white, align: 'center' }],
         },
         {
           type: 'box',
           layout: 'vertical',
           contents: [
-            { type: 'text', text: 'บันทึกจากหลักฐานสำเร็จ', weight: 'bold', size: 'lg', color: COLORS.title, wrap: true },
+            { type: 'text', text: 'บันทึกจากหลักฐานสำเร็จ', weight: 'bold', size: 'md', color: COLORS.title, wrap: true },
             { type: 'text', text: 'ระบบอ่านข้อมูลและสรุปให้แล้วค่ะ', size: 'xs', color: COLORS.grey, wrap: true },
           ],
         },

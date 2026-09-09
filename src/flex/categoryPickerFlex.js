@@ -27,7 +27,7 @@ function row({ icon, label, hint, data }) {
         justifyContent: 'center',
         alignItems: 'center',
         flex: 0,
-        contents: [{ type: 'text', text: icon, size: 'lg', align: 'center' }],
+        contents: [{ type: 'text', text: icon, size: 'md', align: 'center' }],
       },
       {
         type: 'box',
@@ -38,7 +38,7 @@ function row({ icon, label, hint, data }) {
           ...(hint ? [{ type: 'text', text: hint, size: 'xxs', color: COLORS.grey, wrap: true }] : []),
         ],
       },
-      { type: 'text', text: '›', size: 'lg', color: COLORS.accentText, align: 'end', flex: 0 },
+      { type: 'text', text: '›', size: 'md', color: COLORS.accentText, align: 'end', flex: 0 },
     ],
   };
 }
@@ -62,7 +62,7 @@ function bubble({ title, subtitle, rows, footer }) {
           paddingAll: 'md',
           spacing: 'xs',
           contents: [
-            { type: 'text', text: title, size: 'lg', weight: 'bold', color: COLORS.title, wrap: true },
+            { type: 'text', text: title, size: 'md', weight: 'bold', color: COLORS.title, wrap: true },
             { type: 'text', text: subtitle, size: 'xs', color: COLORS.sub, wrap: true },
           ],
         },

@@ -5,7 +5,7 @@ export function header(title, subtitle, opts = {}) {
   const bg = opts.bg || COLORS.accent;
   const fg = opts.color || COLORS.white;
   const contents = [
-    { type: 'text', text: title, weight: 'bold', color: fg, size: opts.size || 'xl', wrap: true },
+    { type: 'text', text: title, weight: 'bold', color: fg, size: opts.size || 'lg', wrap: true },
   ];
   if (subtitle) {
     contents.push({ type: 'text', text: subtitle, size: 'md', color: COLORS.tint, wrap: true });

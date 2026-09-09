@@ -42,7 +42,7 @@ function categoryTile(cat) {
         spacing: 'xs',
         alignItems: 'center',
         contents: [
-          { type: 'text', text: cat.icon, size: 'lg', flex: 0 },
+          { type: 'text', text: cat.icon, size: 'md', flex: 0 },
           { type: 'text', text: cat.label, size: 'xxs', color: COLORS.sub, wrap: true },
         ],
       },
@@ -108,22 +108,22 @@ function recentRow(job) {
       {
         type: 'box',
         layout: 'vertical',
-        width: '54px',
-        height: '54px',
+        width: '34px',
+        height: '34px',
         cornerRadius: 'md',
         backgroundColor: COLORS.tint,
         justifyContent: 'center',
         alignItems: 'center',
         flex: 0,
-        contents: [{ type: 'text', text: type?.icon || group.icon, size: 'xxl', align: 'center' }],
+        contents: [{ type: 'text', text: type?.icon || group.icon, size: 'sm', align: 'center' }],
       },
       {
         type: 'box',
         layout: 'vertical',
         flex: 5,
         contents: [
-          { type: 'text', text: job.job_name || 'งาน', size: 'lg', weight: 'bold', color: COLORS.ink, wrap: true },
-          { type: 'text', text: sub, size: 'sm', color: COLORS.grey, wrap: true },
+          { type: 'text', text: job.job_name || 'งาน', size: 'sm', weight: 'bold', color: COLORS.ink, wrap: true },
+          { type: 'text', text: sub, size: 'xxs', color: COLORS.grey, wrap: true },
         ],
       },
       {
@@ -133,7 +133,7 @@ function recentRow(job) {
         alignItems: 'flex-end',
         spacing: 'xs',
         contents: [
-          { type: 'text', text: formatBaht(Number(job.total) || 0), size: 'lg', weight: 'bold', color: COLORS.ink, align: 'end' },
+          { type: 'text', text: formatBaht(Number(job.total) || 0), size: 'sm', weight: 'bold', color: COLORS.ink, align: 'end' },
           statusBadge(job.payment_status),
         ],
       },
@@ -175,7 +175,7 @@ export function dashboardFlex(dash, opts = {}) {
       paddingAll: 'md',
       contents: [
         { type: 'text', text: 'ยอดวันนี้', size: 'xxs', color: COLORS.sub },
-        { type: 'text', text: formatBaht(summary.total), size: 'xl', weight: 'bold', color: COLORS.accentText },
+        { type: 'text', text: formatBaht(summary.total), size: 'lg', weight: 'bold', color: COLORS.accentText },
         trendLine(trend),
         {
           type: 'box',
