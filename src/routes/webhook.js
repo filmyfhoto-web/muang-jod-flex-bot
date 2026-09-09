@@ -7,7 +7,7 @@ import { handleImageMessage } from '../handlers/imageHandler.js';
 import { handlePostback } from '../handlers/postbackHandler.js';
 import { handleFollow } from '../handlers/followHandler.js';
 import { markEventProcessed } from '../services/webhookEventService.js';
-import { reply } from '../services/lineService.js';
+import { reply, rememberReplyTarget } from '../services/lineService.js';
 import { logger, maskUserId } from '../services/logger.js';
 
 const { middleware } = linebot;
@@ -86,6 +86,10 @@ async function processEvent(event) {
   }
 
   try {
+    // So a refused reply token can still reach this user as a push, instead of
+    // the bot going quiet on them.
+    rememberReplyTarget(event.replyToken, lineUserId);
+
     const profile = await getOrCreateProfile(lineUserId);
     await dispatch(event, profile);
     logger.info('webhook.ok', { ...base, ms: Date.now() - started, result: 'success' });

@@ -28,13 +28,54 @@ function toArray(messages) {
   return withQuickReply(themed);
 }
 
+// A reply token is good for about a minute and for one use. Reading a
+// photographed document means downloading it and asking a model about it, and
+// on a slow day that can outlast the token — at which point the bot says
+// NOTHING, which is the one outcome a user cannot tell apart from a broken
+// bot. So remember who each token belongs to, and if replying is refused,
+// push the same messages instead. Late beats silent.
+//
+// Bounded and short-lived: tokens are useless after a minute anyway, and this
+// must never become a way for a busy day to eat the process's memory.
+const REPLY_TARGET_TTL_MS = 5 * 60 * 1000;
+const MAX_REPLY_TARGETS = 500;
+const replyTargets = new Map();
+
+export function rememberReplyTarget(replyToken, userId) {
+  if (!replyToken || !userId) return;
+  if (replyTargets.size >= MAX_REPLY_TARGETS) {
+    // Insertion-ordered, so the oldest is the first key.
+    replyTargets.delete(replyTargets.keys().next().value);
+  }
+  replyTargets.set(replyToken, { userId, at: Date.now() });
+}
+
+function takeReplyTarget(replyToken) {
+  const hit = replyTargets.get(replyToken);
+  replyTargets.delete(replyToken);
+  if (!hit || Date.now() - hit.at > REPLY_TARGET_TTL_MS) return null;
+  return hit.userId;
+}
+
 // Reply to an event using its replyToken.
 export async function reply(replyToken, messages) {
   try {
     await client.replyMessage({ replyToken, messages: toArray(messages) });
+    replyTargets.delete(replyToken);
   } catch (err) {
     console.error('[lineService] reply failed:', err?.body || err?.message || err);
-    throw err;
+
+    const userId = takeReplyTarget(replyToken);
+    if (!userId) throw err;
+
+    try {
+      await client.pushMessage({ to: userId, messages: toArray(messages) });
+      console.warn('[lineService] reply token was refused; pushed instead');
+      return;
+    } catch (pushErr) {
+      console.error('[lineService] push fallback failed:', pushErr?.body || pushErr?.message || pushErr);
+      throw err; // the original failure is the useful one
+    }
   }
 }
 
