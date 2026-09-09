@@ -72,10 +72,7 @@ function parseEditPatch(text) {
 
 // (job naming lives in utils/category.js — category label when recognised)
 
-// `heard` is set when the message arrived as a voice note: the transcript is
-// echoed back on the paths where the user cannot otherwise tell what the bot
-// thought it heard.
-export async function handleTextMessage(event, profile, { heard = null } = {}) {
+export async function handleTextMessage(event, profile) {
   const { replyToken } = event;
   const text = event.message?.text || '';
 
@@ -89,7 +86,7 @@ export async function handleTextMessage(event, profile, { heard = null } = {}) {
   // "งานวันนี้ ป้ายไวนิล 150 บาท" — command + details in one message.
   const leading = splitLeadingAddJob(text);
   if (leading) {
-    return handleNewJob(replyToken, profile, leading.rest, heard);
+    return handleNewJob(replyToken, profile, leading.rest);
   }
 
   const state = await getState(profile.id);
@@ -107,7 +104,7 @@ export async function handleTextMessage(event, profile, { heard = null } = {}) {
   // While collecting a new job — or while previewing one — a text message is
   // (re)parsed into a fresh draft preview.
   if (current === STATES.WAITING_FOR_JOB || current === STATES.CONFIRMING_JOB) {
-    return handleNewJob(replyToken, profile, text, heard);
+    return handleNewJob(replyToken, profile, text);
   }
 
   if (current === STATES.WAITING_FOR_EDIT) {
@@ -135,11 +132,11 @@ export async function handleTextMessage(event, profile, { heard = null } = {}) {
 
   // Idle: a message that already looks like a job goes straight to preview.
   if (looksLikeJob(text)) {
-    return handleNewJob(replyToken, profile, text, heard);
+    return handleNewJob(replyToken, profile, text);
   }
 
   // Idle: nudge toward the menu.
-  return reply(replyToken, { type: 'text', text: heardLine(heard) + DEFAULT_REPLY });
+  return reply(replyToken, { type: 'text', text: DEFAULT_REPLY });
 }
 
 // A draft with no price is what a photographed job sheet usually leaves —
@@ -161,13 +158,7 @@ async function handleDraftPrice(replyToken, profile, state, text) {
   ]);
 }
 
-// A voice note has to show its working: the user never sees the words the
-// transcriber produced, so a wrong reading looks like a broken bot.
-function heardLine(heard) {
-  return heard ? `🎤 ได้ยินว่า “${heard}”\n\n` : '';
-}
-
-async function handleNewJob(replyToken, profile, text, heard = null) {
+async function handleNewJob(replyToken, profile, text) {
   // "10 กันยา ไก่ทอดน้ำปลา 278" — the date is lifted off the front first, both
   // to back-date the job and to keep "กันยา" out of the item name.
   const when = extractDate(text);
@@ -180,7 +171,6 @@ async function handleNewJob(replyToken, profile, text, heard = null) {
     return reply(replyToken, {
       type: 'text',
       text:
-        heardLine(heard) +
         'ขออภัยค่ะ อ่านรายการไม่ออกเลย ลองพิมพ์แบบนี้นะคะ\n' +
         'ป้ายไวนิล 60x100 150 บาท\n' +
         'หรือ ไวนิล 160x300 ตรมละ 165 💜',
@@ -205,7 +195,7 @@ async function handleNewJob(replyToken, profile, text, heard = null) {
   return reply(replyToken, [
     {
       type: 'text',
-      text: heardLine(heard) + 'ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลยค่ะ 💜',
+      text: 'ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลยค่ะ 💜',
     },
     jobPreviewMessage(draftToBubble(draft)),
   ]);

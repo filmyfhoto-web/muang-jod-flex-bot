@@ -1,6 +1,6 @@
 import { todayISO, addDays } from './dates.js';
 
-// Pull a spoken or typed Thai date out of the front of a job description, so
+// Pull a Thai date off the front of a job description, so
 // "10 กันยา ไก่ทอดน้ำปลา 278" records on the 10th instead of today — and so
 // "กันยา" never ends up inside the item name.
 
@@ -21,7 +21,7 @@ const MONTHS = [
   ['ธันวาคม', 'ธ.ค.', 'ธันวา'],
 ];
 
-// "ก.ย." spoken through a transcriber often comes back as "กย" — accept both.
+// "ก.ย." typed in a hurry comes out as "กย" — accept it with or without dots.
 const MONTH_ALTERNATIVES = MONTHS.flatMap((names, i) =>
   names.flatMap((name) => {
     const bare = name.replace(/\./g, '');
