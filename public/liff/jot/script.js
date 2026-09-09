@@ -75,6 +75,7 @@ let seq = 0;
 const state = {
   customer: '',
   date: todayISO(),
+  due: '', // วันนัดรับงาน — ว่างได้ แปลว่าไม่ได้นัดวันไว้
   paid: 0,
   note: '',
   items: [],
@@ -402,7 +403,10 @@ function renderSummary() {
   $('#qb-total').textContent = baht(total);
   $('#s-name').textContent =
     state.items.map((i) => i.name).find(Boolean) || (filled ? 'งานใหม่' : 'ยังไม่ได้ตั้งชื่องาน');
-  $('#s-date').textContent = thaiDate(state.date);
+  // วันนัดรับสำคัญกว่าวันที่จดในสายตาคนทำงาน จึงขึ้นก่อนเมื่อมี
+  $('#s-date').textContent = state.due
+    ? `📅 นัดรับ ${thaiDate(state.due)} · จดวันที่ ${thaiDate(state.date)}`
+    : thaiDate(state.date);
 
   const cust = $('#s-customer');
   cust.textContent = 'ลูกค้า: ' + state.customer;
@@ -466,6 +470,7 @@ function toPayload() {
     jobName: null, // ให้เซิร์ฟเวอร์ตั้งชื่อจากหมวดของรายการ เหมือนทางแชต
     customerName: state.customer.trim() || null,
     jobDate: state.date,
+    dueDate: state.due || null,
     items,
     paidAmount: Math.min(state.paid, grandTotal()),
     note: note || null,
@@ -534,6 +539,7 @@ function busySaveButtons() {
 function clearForm() {
   state.customer = '';
   state.date = todayISO();
+  state.due = '';
   state.paid = 0;
   state.note = '';
   state.items = [blankItem()];
@@ -545,6 +551,7 @@ function clearForm() {
 function syncHeaderFields() {
   $('#f-customer').value = state.customer;
   $('#f-date').value = state.date;
+  $('#f-due').value = state.due || '';
   $('#f-paid').value = state.paid || '';
   $('#f-note').value = state.note;
 }
@@ -553,6 +560,7 @@ function syncHeaderFields() {
 
 $('#f-customer').oninput = (e) => { state.customer = e.target.value; renderSummary(); saveDraft(); };
 $('#f-date').onchange = (e) => { state.date = e.target.value || todayISO(); renderSummary(); saveDraft(); };
+$('#f-due').onchange = (e) => { state.due = e.target.value || ''; renderSummary(); saveDraft(); };
 $('#f-paid').oninput = (e) => { state.paid = num(e.target.value); renderSummary(); saveDraft(); };
 $('#f-note').oninput = (e) => { state.note = e.target.value; saveDraft(); };
 

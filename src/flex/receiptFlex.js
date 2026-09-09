@@ -5,6 +5,7 @@ import { COLORS } from './theme.js';
 import { divider } from './components/divider.js';
 import { brandAssetUrl, MASCOT } from '../utils/brand.js';
 import { liffUrl } from '../utils/liff.js';
+import { dueLine } from './components/dueLine.js';
 
 // Receipt card styled after the brand mockup: white card, purple circle check,
 // soft-purple category strip (with optional mascot image), thumbnail-style
@@ -194,6 +195,8 @@ export function receiptFlex(job, opts = {}) {
   if (job.customer_name) {
     metaText.push({ type: 'text', text: `ลูกค้า: ${job.customer_name}`, size: 'xs', color: COLORS.sub });
   }
+  const due = dueLine(job.due_date);
+  if (due) metaText.push(due);
 
   const metaContents = [{ type: 'box', layout: 'vertical', flex: 5, spacing: 'xs', contents: metaText }];
   if (mascotUrl) {

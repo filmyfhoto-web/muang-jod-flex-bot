@@ -78,6 +78,12 @@ export async function createJob(userId, payload, client = supabase) {
     category_type: payload.categoryType ?? categoryFields(items).category_type,
   };
 
+  // The pickup date is stamped on AFTER the row exists rather than inserted
+  // with it. The RPC does not know the column, and neither does a database
+  // where migration 007 has not been run yet — and a job must not be lost
+  // over a date the shop can always fill in later.
+  const dueDate = /^\d{4}-\d{2}-\d{2}$/.test(String(payload.dueDate || '')) ? payload.dueDate : null;
+
   const itemRows = items.map((it) => ({
     item_name: it.item_name,
     size: it.size ?? null,
@@ -106,17 +112,18 @@ export async function createJob(userId, payload, client = supabase) {
     let job = Array.isArray(rpc.data) ? rpc.data[0] : rpc.data;
     // The RPC predates categories; stamp them on afterwards. Derived metadata,
     // so a failure here must never lose the job that was just created.
-    if (job && !job.category) {
-      const { data: recat, error: recatErr } = await client
+    const stamp = { ...(job && !job.category ? cat : {}), ...(dueDate ? { due_date: dueDate } : {}) };
+    if (job && Object.keys(stamp).length) {
+      const { data: restamped, error: stampErr } = await client
         .from('jobs')
-        .update(cat)
+        .update(stamp)
         .eq('id', job.id)
         .eq('user_id', userId)
         .select('*')
         .maybeSingle();
-      if (recatErr) logger.warn('job.category_stamp_failed', { message: recatErr.message });
-      else if (recat) job = recat;
-      else job = { ...job, ...cat };
+      if (stampErr) logger.warn('job.stamp_failed', { message: stampErr.message });
+      else if (restamped) job = restamped;
+      else job = { ...job, ...stamp };
     }
     const [withItems] = await attachItems([job], client);
     logger.info('job.created', { via: 'rpc', jobNumber: job.job_number });
@@ -163,6 +170,18 @@ export async function createJob(userId, payload, client = supabase) {
     if (error.code === '23505' && attempt < 25) continue; // job_number race — retry
     logger.error('job.insert_failed', { code: error.code, message: error.message });
     throw error;
+  }
+
+  if (dueDate) {
+    const { data: dated, error: dueErr } = await client
+      .from('jobs')
+      .update({ due_date: dueDate })
+      .eq('id', job.id)
+      .eq('user_id', userId)
+      .select('*')
+      .maybeSingle();
+    if (dueErr) logger.warn('job.due_stamp_failed', { message: dueErr.message });
+    else if (dated) job = dated;
   }
 
   let insertedItems = [];

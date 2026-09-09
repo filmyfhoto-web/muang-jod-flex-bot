@@ -7,6 +7,7 @@ import { statusBadge } from './components/statusBadge.js';
 import { footerActions } from './components/footerActions.js';
 import { categoryLabel } from '../utils/category.js';
 import { brandAssetUrl } from '../utils/brand.js';
+import { dueLine } from './components/dueLine.js';
 
 export function paymentLabel(status) {
   const p = paymentPresentation(status);
@@ -91,6 +92,7 @@ export function buildJobBubble(job) {
     ...(job.customer_name
       ? [{ type: 'text', text: `ลูกค้า: ${job.customer_name}`, size: 'sm', color: COLORS.sub }]
       : []),
+    ...(dueLine(job.due_date, { size: 'sm' }) ? [dueLine(job.due_date, { size: 'sm' })] : []),
     divider(),
     { type: 'box', layout: 'vertical', spacing: 'sm', contents: itemRows },
     divider(),

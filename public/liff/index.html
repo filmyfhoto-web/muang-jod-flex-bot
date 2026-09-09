@@ -234,8 +234,10 @@
       <div class="with-unit"><input id="e-total" type="number" inputmode="decimal" min="0" step="1" /><span class="unit">฿</span></div>
       <label for="e-paid">รับมาแล้ว</label>
       <div class="with-unit"><input id="e-paid" type="number" inputmode="decimal" min="0" step="1" /><span class="unit">฿</span></div>
-      <label for="e-date">วันที่</label>
+      <label for="e-date">วันที่จด</label>
       <input id="e-date" type="date" />
+      <label for="e-due">วันรับงาน (นัดรับ / ส่งก่อน)</label>
+      <input id="e-due" type="date" />
       <label for="e-note">หมายเหตุ (ถ้ามี)</label>
       <textarea id="e-note" rows="2" maxlength="500" placeholder="เช่น ส่งของวันจันทร์"></textarea>
       <button class="btn btn-primary" id="e-save">บันทึก</button>
@@ -515,6 +517,7 @@ async function openEdit(id) {
     $('e-total').value = Number(job.total) || 0;
     $('e-paid').value = Number(job.paid_amount) || 0;
     $('e-date').value = job.job_date || '';
+    $('e-due').value = job.due_date || '';
     $('e-note').value = job.note || '';
     fillGroups(job.category || 'other');
     fillTypes($('e-group').value, job.category_type || '');
@@ -541,6 +544,8 @@ $('e-save').onclick = async () => {
         paid_amount: Number($('e-paid').value) || 0,
         payment_status: getStatus(),
         job_date: $('e-date').value || undefined,
+        // ว่างได้ และ "ว่าง" ต้องหมายถึงลบวันนัดออก ไม่ใช่ไม่ส่งไปเลย
+        due_date: $('e-due').value || null,
         category: $('e-group').value,
         category_type: $('e-type').value || null,
         note: $('e-note').value.trim() || null,

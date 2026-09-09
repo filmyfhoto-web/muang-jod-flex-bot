@@ -91,7 +91,7 @@
       <span class="chip-ic">🧾</span>
       <div class="titles">
         <h2>ข้อมูลงาน</h2>
-        <p>ลูกค้า วันที่ และยอดที่รับมาแล้ว</p>
+        <p>ลูกค้า วันนัดรับ และยอดที่รับมาแล้ว</p>
       </div>
     </div>
 
@@ -102,12 +102,20 @@
       </span>
     </label>
 
+    <!-- วันนัดรับอยู่นอกกล่อง "ใส่เพิ่มได้" เพราะเป็นเส้นตายของงาน ไม่ใช่ของเสริม -->
+    <label class="field">
+      <span>วันรับงาน <em class="tag-bill">นัดรับ / ส่งก่อน</em></span>
+      <span class="input-wrap"><i class="ic">📅</i>
+        <input id="f-due" type="date" />
+      </span>
+    </label>
+
     <details class="more" id="more" open>
-      <summary>ใส่เพิ่มได้ · วันที่ · รับเงินมาแล้ว · หมายเหตุ</summary>
+      <summary>ใส่เพิ่มได้ · วันที่จด · รับเงินมาแล้ว · หมายเหตุ</summary>
       <div class="grid-2">
         <label class="field">
-          <span>วันที่</span>
-          <span class="input-wrap"><i class="ic">📅</i>
+          <span>วันที่จด</span>
+          <span class="input-wrap"><i class="ic">🗓</i>
             <input id="f-date" type="date" />
           </span>
         </label>

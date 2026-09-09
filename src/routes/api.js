@@ -214,6 +214,7 @@ export function createApiRouter(deps = {}) {
         jobName: draft.jobName?.trim() || deriveJobName(items),
         customerName: draft.customerName || null,
         jobDate: draft.jobDate || todayISO(),
+        dueDate: draft.dueDate || null,
         items,
         subtotal,
         discount,
