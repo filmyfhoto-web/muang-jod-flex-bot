@@ -72,7 +72,7 @@ function moneyBlock(bill) {
         {
           type: 'text',
           text: formatBaht(Number(bill.total) || 0),
-          size: 'xxl',
+          size: 'lg',
           weight: 'bold',
           color: COLORS.accentText,
           align: 'end',
@@ -141,7 +141,7 @@ export function billFlex(bill, opts = {}) {
             layout: 'horizontal',
             alignItems: 'center',
             contents: [
-              { type: 'text', text: '🧾 บิลรวมรายการ', weight: 'bold', size: 'lg', color: COLORS.title, flex: 4 },
+              { type: 'text', text: '🧾 บิลรวมรายการ', weight: 'bold', size: 'md', color: COLORS.title, flex: 4 },
               statusBadge(bill.payment_status),
             ],
           },
@@ -195,7 +195,7 @@ export function billReceiptFlex(bill, opts = {}) {
       justifyContent: 'center',
       alignItems: 'center',
       flex: 0,
-      contents: [{ type: 'text', text: settled ? '✓' : '💰', size: 'xl', weight: 'bold', color: COLORS.white, align: 'center' }],
+      contents: [{ type: 'text', text: settled ? '✓' : '💰', size: 'md', weight: 'bold', color: COLORS.white, align: 'center' }],
     },
     {
       type: 'box',
@@ -205,7 +205,7 @@ export function billReceiptFlex(bill, opts = {}) {
           type: 'text',
           text: settled ? 'ออกใบเสร็จแล้ว' : 'รับชำระบางส่วน',
           weight: 'bold',
-          size: 'xl',
+          size: 'md',
           color: COLORS.title,
           wrap: true,
         },
@@ -283,7 +283,7 @@ export function billReceiptFlex(bill, opts = {}) {
             layout: 'horizontal',
             contents: [
               { type: 'text', text: 'รับชำระแล้ว', size: 'sm', color: COLORS.sub, flex: 3 },
-              { type: 'text', text: formatBaht(Number(bill.paid_amount) || 0), size: 'lg', weight: 'bold', color: p.color, align: 'end', flex: 3 },
+              { type: 'text', text: formatBaht(Number(bill.paid_amount) || 0), size: 'md', weight: 'bold', color: p.color, align: 'end', flex: 3 },
             ],
           },
         ],
@@ -352,7 +352,7 @@ export function billCustomersFlex(customers = []) {
             paddingAll: 'md',
             spacing: 'xs',
             contents: [
-              { type: 'text', text: '🧾 ออกบิล', size: 'lg', weight: 'bold', color: COLORS.title },
+              { type: 'text', text: '🧾 ออกบิล', size: 'md', weight: 'bold', color: COLORS.title },
               { type: 'text', text: 'เลือกลูกค้า แล้วม่วงจดจะรวมงานที่ยังไม่ได้ออกบิลให้ค่ะ', size: 'xs', color: COLORS.sub, wrap: true },
             ],
           },

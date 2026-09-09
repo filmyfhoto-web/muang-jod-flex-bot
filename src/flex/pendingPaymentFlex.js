@@ -92,7 +92,7 @@ export function pendingPaymentFlex(jobs) {
               {
                 type: 'text',
                 text: formatBaht(total),
-                size: 'lg',
+                size: 'md',
                 weight: 'bold',
                 color: COLORS.red,
                 align: 'end',

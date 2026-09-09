@@ -19,7 +19,7 @@ export function remindPickerFlex(job) {
   }));
 
   const body = [
-    { type: 'text', text: '⏰ ตั้งแจ้งเตือนงาน', weight: 'bold', size: 'lg', color: COLORS.title },
+    { type: 'text', text: '⏰ ตั้งแจ้งเตือนงาน', weight: 'bold', size: 'md', color: COLORS.title },
     {
       type: 'text',
       text: job ? 'จะให้ม่วงจดเตือนเรื่องงานนี้เมื่อไหร่ดีคะ' : 'จะให้ม่วงจดเตือนคุณเมื่อไหร่ดีคะ',
@@ -81,7 +81,7 @@ export function reminderSetFlex(reminder, job) {
           {
             type: 'text',
             text: formatThaiDateTime(reminder.remind_at),
-            size: 'xl',
+            size: 'md',
             weight: 'bold',
             color: COLORS.accentText,
             wrap: true,

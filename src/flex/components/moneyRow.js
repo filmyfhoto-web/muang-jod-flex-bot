@@ -13,7 +13,7 @@ export function moneyRow(label, amount, opts = {}) {
       {
         type: 'text',
         text: value,
-        size: opts.big ? 'xxl' : opts.size || 'md',
+        size: opts.big ? 'lg' : opts.size || 'sm',
         weight: opts.bold === false ? 'regular' : 'bold',
         color: opts.color || COLORS.ink,
         align: 'end',

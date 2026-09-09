@@ -74,7 +74,7 @@ export function buildJobBubble(job) {
           type: 'text',
           text: job.job_name || categoryLabel(job),
           weight: 'bold',
-          size: 'xl',
+          size: 'md',
           color: COLORS.title,
           flex: 5,
           wrap: true,
@@ -148,7 +148,7 @@ export function jobPreviewMessage(draftJob, altText = 'ตรวจสอบก�
   bubble.header = {
     type: 'box',
     layout: 'vertical',
-    contents: [{ type: 'text', text: '📋 ตรวจสอบก่อนบันทึก', weight: 'bold', size: 'lg', color: COLORS.accentText }],
+    contents: [{ type: 'text', text: '📋 ตรวจสอบก่อนบันทึก', weight: 'bold', size: 'md', color: COLORS.accentText }],
   };
   bubble.footer = footerActions({
     primary: { label: '✅ บันทึกงาน', data: 'action=confirm_add_job', displayText: 'บันทึกงาน' },

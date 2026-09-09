@@ -155,3 +155,49 @@ test('every card the bot sends comes out on the card surface', () => {
     }
   }
 });
+
+// Flex text sizes, smallest first. LINE has larger ones (xl…5xl) and the cards
+// used to reach for them; on a phone that turns a job name into two lines of
+// headline and pushes the card off the screen.
+const SIZES = ['xxs', 'xs', 'sm', 'md', 'lg', 'xl', 'xxl', '3xl', '4xl', '5xl'];
+const BIGGEST_ALLOWED = SIZES.indexOf('lg');
+
+function textSizesIn(node, found = []) {
+  if (Array.isArray(node)) {
+    for (const n of node) textSizesIn(n, found);
+    return found;
+  }
+  if (!node || typeof node !== 'object') return found;
+  if (node.type === 'text' && typeof node.size === 'string') found.push(node.size);
+  for (const value of Object.values(node)) {
+    if (value && typeof value === 'object') textSizesIn(value, found);
+  }
+  return found;
+}
+
+test('nothing on a card is set in headline type', () => {
+  const cards = {
+    todaySummary: todaySummaryFlex({ date: '2026-09-08', jobCount: 1, total: 150, paid: 0, pending: 150 }),
+    confirmCancel: confirmCancelFlex(JOB),
+    categoryGroups: categoryGroupsFlex('job-1'),
+    categoryTypes: categoryTypesFlex('print', 'job-1'),
+    remindPicker: remindPickerFlex(JOB),
+    reminderSet: reminderSetFlex({ id: 'r1', message: 'ทวงงาน', remind_at: '2026-09-09T02:00:00Z' }, JOB),
+    pending: pendingPaymentFlex([JOB]),
+    search: searchResultsFlex([JOB], 'ป้าย'),
+    payment: paymentConfirmationFlex(JOB),
+    reportMenu: reportMenuFlex(),
+    recent: recentJobsFlex([JOB]),
+    jobCard: jobCardMessage(JOB),
+    jobPreview: jobPreviewMessage(JOB),
+    home: homeFlex({ date: '2026-09-08', total: 150, jobCount: 1, pending: 150 }),
+  };
+
+  for (const [name, message] of Object.entries(cards)) {
+    for (const size of textSizesIn(themedContents(message.contents))) {
+      const rank = SIZES.indexOf(size);
+      assert.ok(rank > -1, `${name}: "${size}" is not a Flex text size`);
+      assert.ok(rank <= BIGGEST_ALLOWED, `${name}: text at "${size}" is bigger than lg`);
+    }
+  }
+});

@@ -27,7 +27,7 @@ function thumb(emoji) {
     justifyContent: 'center',
     alignItems: 'center',
     flex: 0,
-    contents: [{ type: 'text', text: emoji, size: 'lg', align: 'center' }],
+    contents: [{ type: 'text', text: emoji, size: 'md', align: 'center' }],
   };
 }
 
@@ -148,20 +148,20 @@ export function receiptFlex(job, opts = {}) {
       {
         type: 'box',
         layout: 'vertical',
-        width: '48px',
-        height: '48px',
-        cornerRadius: '24px',
+        width: '38px',
+        height: '38px',
+        cornerRadius: '19px',
         backgroundColor: COLORS.accent,
         justifyContent: 'center',
         alignItems: 'center',
         flex: 0,
-        contents: [{ type: 'text', text: '✓', size: 'xl', weight: 'bold', color: COLORS.white, align: 'center' }],
+        contents: [{ type: 'text', text: '✓', size: 'md', weight: 'bold', color: COLORS.white, align: 'center' }],
       },
       {
         type: 'box',
         layout: 'vertical',
         contents: [
-          { type: 'text', text: 'บันทึกสำเร็จ', weight: 'bold', size: 'xxl', color: COLORS.title },
+          { type: 'text', text: 'บันทึกสำเร็จ', weight: 'bold', size: 'lg', color: COLORS.title },
           {
             type: 'text',
             text: 'เพิ่มรายการงานเข้าในระบบเรียบร้อยแล้วค่ะ',
@@ -239,7 +239,7 @@ export function receiptFlex(job, opts = {}) {
         {
           type: 'text',
           text: formatBaht(Number(job.total) || 0),
-          size: 'xxl',
+          size: 'lg',
           weight: 'bold',
           color: COLORS.accentText,
           align: 'end',
