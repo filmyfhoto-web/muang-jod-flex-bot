@@ -7,22 +7,11 @@ import { formCardsMessage, greetingTexts } from '../flex/formCardFlex.js';
 import { quickFormUrl, liffUrl } from '../utils/liff.js';
 import { logger } from '../services/logger.js';
 
-const PROMPT = `📝 บันทึกงานใหม่
-
-พิมพ์รายละเอียดงานได้เลยค่ะ
-
-ตัวอย่าง:
-ป้ายไวนิล 60x100 150 บาท
-โฟมบอร์ด 40x60 250 บาท
-
-คิดเป็นตารางเมตรก็ได้ค่ะ พิมพ์ขนาดกับเรตมา ม่วงจดคูณให้เอง
-รพสตบ้านชี ไวนิล 160x300 ตรมละ 165
-(ตัวเลขไม่ใส่หน่วย = เซนติเมตร → 4.8 ตร.ม. = 792 บาท)
-
-ม่วงจดจะช่วยจัดรายการให้ค่ะ 💜`;
-
-// Triggered by postback action=add_job: the greeting, the cards, and the note
-// on how to type it instead.
+// Triggered by postback action=add_job: the greeting and the cards.
+//
+// No wall of instructions follows them. The card carries a "พิมพ์เอง" button
+// and the chat is a chat — a page of examples is what you write when the UI
+// cannot speak for itself, and it pushed the card off the screen.
 //
 // The state machine is left waiting for job text either way — the card is a
 // picture of the form with a way through to it, and typing the job straight
@@ -41,7 +30,6 @@ export async function addJob({ replyToken, profile }) {
   await reply(replyToken, [
     ...greetingTexts(profile.display_name),
     formCardsMessage({ formUrl: quickFormUrl(), dashboardUrl: liffUrl({ tab: 'today' }), recent }),
-    { type: 'text', text: PROMPT },
   ]);
 }
 
