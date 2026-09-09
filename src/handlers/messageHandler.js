@@ -15,6 +15,7 @@ import { resolveMenuCommand, splitLeadingAddJob } from '../utils/menuCommands.js
 import { parseNaturalJob } from '../utils/nlParser.js';
 import { deriveJobName } from '../utils/category.js';
 import { makeDraft, draftToBubble, priceDraft, parseBarePrice } from '../utils/jobDraft.js';
+import { extractDate } from '../utils/thaiDate.js';
 import { handlePostback } from './postbackHandler.js';
 
 const DEFAULT_REPLY =
@@ -71,7 +72,10 @@ function parseEditPatch(text) {
 
 // (job naming lives in utils/category.js — category label when recognised)
 
-export async function handleTextMessage(event, profile) {
+// `heard` is set when the message arrived as a voice note: the transcript is
+// echoed back on the paths where the user cannot otherwise tell what the bot
+// thought it heard.
+export async function handleTextMessage(event, profile, { heard = null } = {}) {
   const { replyToken } = event;
   const text = event.message?.text || '';
 
@@ -85,7 +89,7 @@ export async function handleTextMessage(event, profile) {
   // "งานวันนี้ ป้ายไวนิล 150 บาท" — command + details in one message.
   const leading = splitLeadingAddJob(text);
   if (leading) {
-    return handleNewJob(replyToken, profile, leading.rest);
+    return handleNewJob(replyToken, profile, leading.rest, heard);
   }
 
   const state = await getState(profile.id);
@@ -103,7 +107,7 @@ export async function handleTextMessage(event, profile) {
   // While collecting a new job — or while previewing one — a text message is
   // (re)parsed into a fresh draft preview.
   if (current === STATES.WAITING_FOR_JOB || current === STATES.CONFIRMING_JOB) {
-    return handleNewJob(replyToken, profile, text);
+    return handleNewJob(replyToken, profile, text, heard);
   }
 
   if (current === STATES.WAITING_FOR_EDIT) {
@@ -131,11 +135,11 @@ export async function handleTextMessage(event, profile) {
 
   // Idle: a message that already looks like a job goes straight to preview.
   if (looksLikeJob(text)) {
-    return handleNewJob(replyToken, profile, text);
+    return handleNewJob(replyToken, profile, text, heard);
   }
 
   // Idle: nudge toward the menu.
-  return reply(replyToken, { type: 'text', text: DEFAULT_REPLY });
+  return reply(replyToken, { type: 'text', text: heardLine(heard) + DEFAULT_REPLY });
 }
 
 // A draft with no price is what a photographed job sheet usually leaves —
@@ -157,15 +161,26 @@ async function handleDraftPrice(replyToken, profile, state, text) {
   ]);
 }
 
-async function handleNewJob(replyToken, profile, text) {
+// A voice note has to show its working: the user never sees the words the
+// transcriber produced, so a wrong reading looks like a broken bot.
+function heardLine(heard) {
+  return heard ? `🎤 ได้ยินว่า “${heard}”\n\n` : '';
+}
+
+async function handleNewJob(replyToken, profile, text, heard = null) {
+  // "10 กันยา ไก่ทอดน้ำปลา 278" — the date is lifted off the front first, both
+  // to back-date the job and to keep "กันยา" out of the item name.
+  const when = extractDate(text);
+
   // Natural-language understanding: customer, items, quantity, price, and any
   // amount already received — via the AI layer when configured, else rules.
-  const parsed = await extractJobDraft(text);
+  const parsed = await extractJobDraft(when.rest);
 
   if (!parsed.items.length) {
     return reply(replyToken, {
       type: 'text',
       text:
+        heardLine(heard) +
         'ขออภัยค่ะ อ่านรายการไม่ออกเลย ลองพิมพ์แบบนี้นะคะ\n' +
         'ป้ายไวนิล 60x100 150 บาท\n' +
         'หรือ ไวนิล 160x300 ตรมละ 165 💜',
@@ -177,7 +192,7 @@ async function handleNewJob(replyToken, profile, text) {
   const draft = makeDraft({
     jobName: deriveJobName(parsed.items),
     customerName: parsed.customerName,
-    jobDate: todayISO(),
+    jobDate: when.date || todayISO(),
     items: parsed.items,
     subtotal: parsed.subtotal,
     discount: parsed.discount || 0,
@@ -190,7 +205,7 @@ async function handleNewJob(replyToken, profile, text) {
   return reply(replyToken, [
     {
       type: 'text',
-      text: 'ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลยค่ะ 💜',
+      text: heardLine(heard) + 'ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลยค่ะ 💜',
     },
     jobPreviewMessage(draftToBubble(draft)),
   ]);
