@@ -569,10 +569,9 @@ if (quick) {
   document.title = 'จดด่วน — ม่วงจดให้';
 }
 
-// ธีม: กรมท่าเป็นค่าเริ่มต้น ให้เข้าชุดกับการ์ดในแชตที่กดเข้ามา
-// ?theme=violet ได้ชุดม่วงพาสเทลการ์ดขาว
-const violet = params.get('theme') === 'violet';
-if (!violet) {
+// ธีม: ขาว-น้ำเงินเป็นค่าเริ่มต้น ให้เข้าชุดกับการ์ดในแชตที่กดเข้ามา
+// ?theme=night ได้โทนกรมท่ากลางคืน
+if (params.get('theme') === 'night') {
   document.body.classList.add('night');
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#0b1524');
 }
