@@ -32,7 +32,8 @@ export function buildJobBubble(job) {
     const pieces = [it.item_name];
     if (it.size) pieces.push(it.size);
     let label = pieces.join(' ');
-    // งานคิดตามพื้นที่ต้องเห็นวิธีคิด: "ไวนิล 160x300 ซม. · 4.8 ตร.ม. × 165"
+    // หลายชิ้นต้องเห็นว่ากี่ชิ้น ชิ้นละเท่าไหร่: "ไวนิล 160 × 300 ซม. x2"
+    // เรตต่อตารางเมตรไม่มาถึงตรงนี้ — มันอยู่ในหมายเหตุ ไม่ใช่ในรายการ
     if (qty !== 1) {
       const rate = Number(it.unit_price) > 0 ? ` × ${numText(it.unit_price)}` : '';
       label += it.unit ? ` · ${numText(qty)} ${it.unit}${rate}` : ` x${numText(qty)}`;

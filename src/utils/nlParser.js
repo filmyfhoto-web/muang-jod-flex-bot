@@ -1,6 +1,6 @@
 import { parseJobText } from './parser.js';
 import { round2 } from './currency.js';
-import { parseAreaPricing, areaItem } from './area.js';
+import { parseAreaPricing, areaItem, areaWorking } from './area.js';
 
 // Rule-based natural-language extractor. Understands short Thai shopkeeper
 // notes like:
@@ -95,7 +95,11 @@ function parseSingleLine(line) {
   const area = parseAreaPricing(working);
   if (area) {
     const { pieces, rest } = extractPieces(area.rest);
-    return areaItem(area, { itemName: cleanItemName(rest) || 'งานป้าย', pieces });
+    const itemName = cleanItemName(rest) || 'งานป้าย';
+    const item = areaItem(area, { itemName, pieces });
+    // ติดวิธีคิดไว้กับรายการ ให้ผู้เรียกเก็บลงหมายเหตุ ไม่ใช่ลงใบเสร็จ
+    item.working = areaWorking(area, { itemName, pieces });
+    return item;
   }
 
   let size = null;
