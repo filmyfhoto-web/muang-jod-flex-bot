@@ -1,4 +1,4 @@
-import { formatBaht } from '../utils/currency.js';
+import { formatBaht, numText } from '../utils/currency.js';
 import { formatThaiDate } from '../utils/dates.js';
 import { brandAssetUrl } from '../utils/brand.js';
 
@@ -164,7 +164,7 @@ function formBubble(formUrl) {
 // `failed` แยก "ยังไม่เคยจด" ออกจาก "ดึงรายการไม่สำเร็จ" — สองอย่างนี้หน้าตา
 // เหมือนกันจากในแชต แต่คนละเรื่องกันสิ้นเชิง การ์ดที่บอกว่าไม่มีงานทั้งที่มี
 // คือการ์ดที่โกหก
-function recentBubble(jobs = [], dashboardUrl, { failed = false } = {}) {
+function recentBubble(jobs = [], dashboardUrl, { failed = false, today = null } = {}) {
   const rows = jobs.slice(0, 4).map((job, i) => ({
     type: 'box',
     layout: 'horizontal',
@@ -212,6 +212,24 @@ function recentBubble(jobs = [], dashboardUrl, { failed = false } = {}) {
       paddingAll: 'lg',
       contents: [
         cardHead('รายการงานของคุณ', 'งานพิมพ์ / ป้ายที่จดไว้ล่าสุด', '📄', null),
+        // The same day tally the receipt shows, so the two cards agree about
+        // where you are rather than each telling half the story.
+        ...(today && Number(today.jobCount) > 0
+          ? [
+              {
+                type: 'box',
+                layout: 'horizontal',
+                backgroundColor: FIELD,
+                cornerRadius: 'lg',
+                paddingAll: 'md',
+                alignItems: 'center',
+                contents: [
+                  { type: 'text', text: `วันนี้จดไปแล้ว ${numText(today.jobCount)} งาน`, size: 'xs', color: SUB, flex: 5 },
+                  { type: 'text', text: formatBaht(Number(today.total) || 0), size: 'md', weight: 'bold', color: BLUE_DEEP, align: 'end', flex: 4 },
+                ],
+              },
+            ]
+          : []),
         { type: 'separator', color: LINE_SOFT },
         // A carousel stretches every bubble to the tallest one, and the form
         // beside this is long — so one line of text sat at the top of a white
@@ -254,13 +272,19 @@ export function greetingTexts(displayName) {
 }
 
 // การ์ดทั้งชุด: ปัดซ้าย-ขวาได้ด้วย carousel ของ LINE เอง
-export function formCardsMessage({ formUrl = null, dashboardUrl = null, recent = [], recentFailed = false } = {}) {
+export function formCardsMessage({
+  formUrl = null,
+  dashboardUrl = null,
+  recent = [],
+  recentFailed = false,
+  today = null,
+} = {}) {
   return {
     type: 'flex',
     altText: 'กรอกข้อมูลงานได้เลย',
     contents: {
       type: 'carousel',
-      contents: [formBubble(formUrl), recentBubble(recent, dashboardUrl, { failed: recentFailed })],
+      contents: [formBubble(formUrl), recentBubble(recent, dashboardUrl, { failed: recentFailed, today })],
     },
   };
 }

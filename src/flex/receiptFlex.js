@@ -1,4 +1,4 @@
-import { formatBaht } from '../utils/currency.js';
+import { formatBaht, numText } from '../utils/currency.js';
 import { formatThaiDateTime } from '../utils/dates.js';
 import { jobCategory, categoryLabel, itemIcon } from '../utils/category.js';
 import { COLORS } from './theme.js';
@@ -71,6 +71,55 @@ function link(label, action, displayText) {
     color: COLORS.accentText,
     weight: 'bold',
     action: { type: 'postback', label: displayText, data: `action=${action}`, displayText },
+  };
+}
+
+// "วันนี้จดไปแล้ว 3 งาน — ฿1,250", with the accent rule under it that makes it
+// read as a tally rather than another line of the bill above.
+function runningTotal(today) {
+  const pending = Number(today.pending) || 0;
+  return {
+    type: 'box',
+    layout: 'vertical',
+    spacing: 'xs',
+    contents: [
+      {
+        type: 'box',
+        layout: 'horizontal',
+        alignItems: 'center',
+        contents: [
+          {
+            type: 'text',
+            text: `วันนี้จดไปแล้ว ${numText(today.jobCount)} งาน`,
+            size: 'sm',
+            color: COLORS.sub,
+            flex: 5,
+          },
+          {
+            type: 'text',
+            text: formatBaht(Number(today.total) || 0),
+            size: 'lg',
+            weight: 'bold',
+            color: COLORS.accentText,
+            align: 'end',
+            flex: 4,
+          },
+        ],
+      },
+      {
+        type: 'box',
+        layout: 'vertical',
+        height: '3px',
+        backgroundColor: COLORS.accent,
+        cornerRadius: 'md',
+        // Empty contents is how the dashboard draws its bars too — a coloured
+        // box with nothing in it, rather than the deprecated filler component.
+        contents: [],
+      },
+      ...(pending > 0
+        ? [{ type: 'text', text: `ยังค้างรับ ${formatBaht(pending)}`, size: 'xxs', color: COLORS.orange }]
+        : []),
+    ],
   };
 }
 
@@ -209,6 +258,14 @@ export function receiptFlex(job, opts = {}) {
         { type: 'text', text: `คงเหลือ ${formatBaht(Number(job.balance_due) || 0)}`, size: 'xs', color: COLORS.red, align: 'end', flex: 1 },
       ],
     });
+  }
+
+  // The running total for the day, under the one job just saved. "Saved" on
+  // its own tells you nothing about where you are — this is the line that
+  // answers "so what have I got down so far today?" without another tap.
+  const today = opts.today;
+  if (today && Number(today.jobCount) > 0) {
+    bodyContents.push(divider(), runningTotal(today));
   }
 
   // ✏️ opens the LIFF edit form for this record when LIFF is configured, and
