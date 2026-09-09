@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#0B1524" />
+<meta name="theme-color" content="#efe9fb" />
 <title>ม่วงจดให้ — บันทึกงาน</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -12,7 +12,7 @@
 </head>
 <body>
 
-<!-- ฉากหลังกลางคืน: พระจันทร์ ดาว และเงาตึก วาดด้วย CSS ล้วน ไม่มีไฟล์รูป -->
+<!-- ฉากหลังกลางคืน ใช้เฉพาะธีม night (?theme=night) ธีมม่วงไม่แสดง -->
 <div class="sky" aria-hidden="true">
   <div class="moon"></div>
   <div class="stars"></div>
@@ -29,27 +29,36 @@
 </header>
 
 <main>
-  <!-- โหมดด่วน: ขีดจับด้านบนให้รู้ว่านี่คือแผ่นการ์ดที่เด้งขึ้นมาทับแชต -->
   <div class="handle" aria-hidden="true"></div>
 
   <!-- ข้อความจากบอท: หน้าตาเดียวกับบับเบิลในแชต LINE -->
   <div class="chat">
     <div class="msg">
       <img class="pic" src="/brand/ui/happy.png" alt="ม่วงจด" />
-      <div class="bubble">ได้ค่ะ พิมพ์รายละเอียดงานใหม่มาได้เลย ม่วงจดจะจัดรายการให้ใหม่ค่ะ ✏️</div>
+      <div class="bubble" id="hello">สวัสดีค่ะ 💜<br />นี่คือรายการงานของคุณ เลื่อนดูรายการได้เลยค่ะ</div>
     </div>
     <div class="msg">
       <span class="pic ghost" aria-hidden="true"></span>
-      <div class="bubble">ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด “บันทึกงาน” ได้เลยค่ะ 💜</div>
+      <div class="bubble">เลื่อนการ์ดซ้าย-ขวา เพื่อเลือกงาน แล้วกรอกข้อมูลได้เลยนะคะ 💜</div>
     </div>
   </div>
 
-  <!-- ส่วนที่ 1 — การ์ดสรุป อัปเดตตามที่พิมพ์ในฟอร์มทันที -->
+  <!-- รายการงาน: การ์ดเรียงกันแนวนอน ปัดซ้าย-ขวาได้ (scroll-snap) -->
+  <div class="track" id="items" tabindex="-1"></div>
+  <div class="dots" id="dots" role="tablist" aria-label="เลือกรายการ"></div>
+
+  <!-- การ์ดสรุป อัปเดตตามที่พิมพ์ทันที -->
   <section class="card summary" id="summary" aria-live="polite">
-    <h2 class="card-head">📋 ตรวจสอบก่อนบันทึก</h2>
+    <div class="card-top">
+      <span class="chip-ic">📋</span>
+      <div class="titles">
+        <h2>ตรวจสอบก่อนบันทึก</h2>
+        <p>รวมทุกรายการในงานนี้</p>
+      </div>
+    </div>
 
     <div class="sum-top">
-      <div class="sum-name" id="s-name">งานป้าย / ป้ายไวนิล</div>
+      <div class="sum-name" id="s-name">ยังไม่ได้ตั้งชื่องาน</div>
       <span class="chip pending" id="s-status">ค้างรับ</span>
     </div>
     <div class="sum-meta" id="s-date">—</div>
@@ -68,7 +77,7 @@
     </div>
 
     <div class="actions">
-      <button class="btn btn-primary" id="btn-save">✅ บันทึกงาน</button>
+      <button class="btn btn-primary" id="btn-save">💾 บันทึกงาน</button>
       <div class="pair">
         <button class="btn btn-ghost" id="btn-edit">✏️ แก้ไข</button>
         <button class="btn btn-ghost" id="btn-reset">❌ ยกเลิก</button>
@@ -76,36 +85,44 @@
     </div>
   </section>
 
-  <!-- ส่วนที่ 2 — ฟอร์มจริง -->
-  <section class="card" id="form">
-    <h2 class="card-head">📝 กรอกข้อมูลงาน</h2>
+  <!-- ข้อมูลระดับ "งาน" ไม่ใช่ระดับรายการ จึงอยู่นอกการ์ดที่ปัด -->
+  <section class="card" id="job">
+    <div class="card-top">
+      <span class="chip-ic">🧾</span>
+      <div class="titles">
+        <h2>ข้อมูลงาน</h2>
+        <p>ลูกค้า วันที่ และยอดที่รับมาแล้ว</p>
+      </div>
+    </div>
 
     <label class="field">
       <span>ลูกค้า</span>
-      <input id="f-customer" type="text" placeholder="เช่น รพสต.บ้านชี" autocomplete="off" />
+      <span class="input-wrap"><i class="ic">👤</i>
+        <input id="f-customer" type="text" placeholder="เช่น รพสต.บ้านชี" autocomplete="off" />
+      </span>
     </label>
 
-    <!-- รายการงานถูกสร้างด้วย JS ทีละใบ -->
-    <div id="items"></div>
-
-    <button class="btn btn-add" id="btn-add">➕ เพิ่มรายการ</button>
-
-    <!-- ช่องที่ไม่ได้ใช้ทุกครั้ง: โหมดด่วนพับเก็บไว้ก่อน โหมดเต็มกางไว้เลย -->
     <details class="more" id="more" open>
       <summary>ใส่เพิ่มได้ · วันที่ · รับเงินมาแล้ว · หมายเหตุ</summary>
       <div class="grid-2">
         <label class="field">
           <span>วันที่</span>
-          <input id="f-date" type="date" />
+          <span class="input-wrap"><i class="ic">📅</i>
+            <input id="f-date" type="date" />
+          </span>
         </label>
         <label class="field">
           <span>รับเงินมาแล้ว (บาท)</span>
-          <input id="f-paid" type="number" inputmode="decimal" min="0" step="1" placeholder="เช่น 300" />
+          <span class="input-wrap"><i class="ic">💰</i>
+            <input id="f-paid" type="number" inputmode="decimal" min="0" step="1" placeholder="เช่น 300" />
+          </span>
         </label>
       </div>
       <label class="field">
         <span>หมายเหตุ</span>
-        <input id="f-note" type="text" maxlength="200" placeholder="เช่น ส่งวันศุกร์" />
+        <span class="input-wrap"><i class="ic">📝</i>
+          <input id="f-note" type="text" maxlength="200" placeholder="เช่น ส่งวันศุกร์" />
+        </span>
       </label>
     </details>
   </section>
@@ -114,71 +131,98 @@
   <a class="foot link-full" id="link-full" href="./">เปิดแบบเต็มหน้า ›</a>
 </main>
 
-<!-- แถบล่างของโหมดด่วน: ยอดรวมกับปุ่มบันทึกติดอยู่กับที่ ไม่ต้องเลื่อนหา -->
+<!-- แถบล่างของโหมดด่วน -->
 <div class="quickbar" id="quickbar" hidden>
   <div class="qb-total">
     <span>ยอดรวม</span>
     <b id="qb-total">฿0</b>
   </div>
-  <button class="btn btn-primary" id="qb-save">✅ บันทึก</button>
+  <button class="btn btn-primary" id="qb-save">💾 บันทึก</button>
 </div>
 
 <div class="toast" id="toast" role="status"></div>
 
-<!-- แม่แบบของรายการหนึ่งใบ โคลนด้วย JS -->
+<!-- แม่แบบของการ์ดหนึ่งใบ โคลนด้วย JS -->
 <template id="tpl-item">
-  <article class="item">
-    <div class="item-head">
-      <span class="num">1</span>
-      <span class="item-title">รายการที่ 1</span>
+  <article class="card item">
+    <div class="card-top">
+      <span class="chip-ic">📋</span>
+      <div class="titles">
+        <h2 class="item-title">กรอกข้อมูลงานได้เลย</h2>
+        <p>บันทึกงานพิมพ์ / ป้ายโฆษณา ของคุณ</p>
+      </div>
       <button class="icon-btn del" type="button" aria-label="ลบรายการนี้">🗑</button>
+    </div>
+
+    <!-- น้องหมาโผล่มุมการ์ดพร้อมบับเบิลชวนกรอก ตามแบบที่ให้มา -->
+    <div class="mascot" aria-hidden="true">
+      <img src="/brand/ui/peek.png" alt="" />
+      <span class="say">กรอกได้เลย<br />เดี๋ยวม่วงจดให้<br />นะคะ 💜</span>
     </div>
 
     <label class="field">
       <span>ชื่อ</span>
-      <input class="i-name" type="text" placeholder="เช่น ป้ายหน้าร้าน" autocomplete="off" />
+      <span class="input-wrap"><i class="ic">👤</i>
+        <input class="i-name" type="text" placeholder="เช่น ป้ายหน้าร้าน" autocomplete="off" />
+      </span>
     </label>
 
     <label class="field">
       <span>รายละเอียด</span>
-      <input class="i-detail" type="text" placeholder="เช่น ป้ายไวนิล 60x100" autocomplete="off" />
+      <span class="input-wrap"><i class="ic">📄</i>
+        <input class="i-detail" type="text" placeholder="เช่น ป้ายไวนิล 60x120 ซม." autocomplete="off" />
+      </span>
     </label>
 
     <div class="grid-2">
       <label class="field">
         <span>ราคา (บาท)</span>
-        <input class="i-price" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 150" />
+        <span class="input-wrap"><i class="ic">🏷</i>
+          <input class="i-price" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 700" />
+        </span>
       </label>
       <label class="field">
         <span>จำนวน</span>
-        <input class="i-qty" type="number" inputmode="decimal" min="0" step="1" placeholder="เช่น 1" />
+        <span class="input-wrap"><i class="ic">📦</i>
+          <input class="i-qty" type="number" inputmode="decimal" min="0" step="1" placeholder="เช่น 2" />
+        </span>
       </label>
     </div>
 
     <div class="grid-2">
       <label class="field">
         <span>ตรมละ (บาท)</span>
-        <input class="i-rate" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 165" />
+        <span class="input-wrap"><i class="ic">🧮</i>
+          <input class="i-rate" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 165" />
+        </span>
       </label>
-      <label class="field">
-        <span>ยอดรวม (บาท)</span>
-        <input class="i-total" type="number" inputmode="decimal" min="0" step="0.01" placeholder="ระบบจะคำนวณให้อัตโนมัติ" />
-      </label>
+      <div class="field">
+        <span>แนบรูป</span>
+        <label class="drop">
+          <input class="i-file" type="file" accept="image/*" hidden />
+          <span class="drop-ic">🖼</span>
+          <span class="drop-text">แตะเพื่อแนบรูป<small>ไม่บังคับ</small></span>
+        </label>
+      </div>
     </div>
+
+    <div class="preview" hidden>
+      <img alt="รูปที่แนบ" />
+      <button class="icon-btn rm" type="button" aria-label="เอารูปออก">✕</button>
+    </div>
+
+    <label class="field">
+      <span>ยอดรวม (บาท)</span>
+      <span class="input-wrap"><i class="ic">Σ</i>
+        <input class="i-total" type="number" inputmode="decimal" min="0" step="0.01" placeholder="ระบบจะคำนวณให้อัตโนมัติ" />
+      </span>
+    </label>
 
     <p class="hint area-hint" hidden></p>
 
-    <div class="field">
-      <span class="lbl">แนบรูป</span>
-      <label class="drop">
-        <input class="i-file" type="file" accept="image/*" hidden />
-        <span class="drop-ic">🖼</span>
-        <span class="drop-text">แตะเพื่อแนบรูป<small>ไม่บังคับ</small></span>
-      </label>
-      <div class="preview" hidden>
-        <img alt="รูปที่แนบ" />
-        <button class="icon-btn rm" type="button" aria-label="เอารูปออก">✕</button>
-      </div>
+    <div class="pair card-actions">
+      <button class="btn btn-primary act-save" type="button">💾 บันทึก</button>
+      <button class="btn btn-soft act-add" type="button">➕ เพิ่มรายการ</button>
     </div>
   </article>
 </template>

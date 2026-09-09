@@ -28,9 +28,9 @@ test('the form guesses centimetres at the same size the bot does', () => {
 test('every field the brief asks for is on the page, with its example text', () => {
   const fields = [
     ['i-name', 'เช่น ป้ายหน้าร้าน'],
-    ['i-detail', 'เช่น ป้ายไวนิล 60x100'],
-    ['i-price', 'เช่น 150'],
-    ['i-qty', 'เช่น 1'],
+    ['i-detail', 'เช่น ป้ายไวนิล 60x120 ซม.'],
+    ['i-price', 'เช่น 700'],
+    ['i-qty', 'เช่น 2'],
     ['i-rate', 'เช่น 165'],
     ['i-total', 'ระบบจะคำนวณให้อัตโนมัติ'],
   ];
@@ -59,14 +59,45 @@ test('the page saves through the real API, not into thin air', () => {
   assert.ok(js.includes('liff.init'), 'never initialises LIFF');
 });
 
-test('both web pages use the same accent as the cards in chat', () => {
+test('the dashboard keeps the chat cards\' accent, and so does the jot page\'s night theme', () => {
   const accentOf = (source) => /--accent:\s*(#[0-9a-f]{6})/i.exec(source)?.[1]?.toLowerCase();
   const accentTextOf = (source) => /--accent-text:\s*(#[0-9a-f]{6})/i.exec(source)?.[1]?.toLowerCase();
 
-  for (const [name, source] of [['jot/style.css', css], ['index.html', dashboard]]) {
-    assert.equal(accentOf(source), COLORS.accent.toLowerCase(), `${name}: accent drifted from theme.js`);
-    assert.equal(accentTextOf(source), COLORS.accentText.toLowerCase(), `${name}: accent-text drifted`);
-  }
+  assert.equal(accentOf(dashboard), COLORS.accent.toLowerCase(), 'dashboard: accent drifted from theme.js');
+  assert.equal(accentTextOf(dashboard), COLORS.accentText.toLowerCase(), 'dashboard: accent-text drifted');
+
+  // The jot form leads with the violet the mockup asked for, so only its night
+  // block has to match the cards in chat — that is the one meant to sit next
+  // to them.
+  const night = /body\.night\s*\{([\s\S]*?)\}/.exec(css)?.[1];
+  assert.ok(night, 'the night theme block is gone');
+  assert.equal(accentOf(night), COLORS.accent.toLowerCase(), 'night accent drifted from theme.js');
+  assert.equal(accentTextOf(night), COLORS.accentText.toLowerCase(), 'night accent-text drifted');
+});
+
+test('the cards swipe sideways, with dots that follow', () => {
+  assert.ok(html.includes('class="track"') && html.includes('id="dots"'), 'no carousel markup');
+  // Snap is what makes a swipe land on one card instead of halfway between two.
+  assert.match(css, /\.track\s*\{[^}]*scroll-snap-type:\s*x mandatory/);
+  assert.match(css, /\.track > \.item\s*\{[^}]*scroll-snap-align/);
+
+  assert.ok(js.includes('function renderDots'), 'the dots are never built');
+  assert.ok(js.includes("itemsBox.addEventListener('scroll'"), 'the dots do not follow a swipe');
+  assert.ok(js.includes('function scrollToCard'), 'a dot cannot jump to its card');
+  // Buttons live on every card in the mockup, so both must do something.
+  assert.ok(js.includes("$('.act-save', el).onclick") && js.includes("$('.act-add', el).onclick"));
+});
+
+test('both themes are one stylesheet, switched by a class', () => {
+  assert.ok(js.includes("params.get('theme') === 'night'"), 'nothing reads ?theme=night');
+  assert.ok(js.includes("classList.add('night')"));
+  // Every colour has to come from a token, or switching the class leaves
+  // stragglers behind in the other theme's palette.
+  const body = css.slice(css.indexOf('* { box-sizing'));
+  const literals = body.match(/(?<!-)#[0-9a-f]{3,8}\b/gi) || [];
+  const allowed = /^#(0a1220|0c1526|091120|16324f|0e2136|0b1524|fdf6d8|e8dfa8|fff)$/i; // night sky art only
+  const strays = literals.filter((hex) => !allowed.test(hex));
+  assert.deepEqual(strays, [], `hard-coded colours outside the token blocks: ${strays.join(', ')}`);
 });
 
 test('quick mode is a sheet: no chat, no summary card, a total bar that stays put', () => {
