@@ -1,8 +1,10 @@
 import { reply } from '../services/lineService.js';
 import { getState, setState, clearState, STATES } from '../services/stateService.js';
-import { createJob } from '../services/jobService.js';
+import { createJob, getRecentJobs } from '../services/jobService.js';
 import { receiptFlex } from '../flex/receiptFlex.js';
-import { quickFormUrl } from '../utils/liff.js';
+import { formCardsMessage, greetingTexts } from '../flex/formCardFlex.js';
+import { quickFormUrl, liffUrl } from '../utils/liff.js';
+import { logger } from '../services/logger.js';
 
 const PROMPT = `📝 บันทึกงานใหม่
 
@@ -18,16 +20,32 @@ const PROMPT = `📝 บันทึกงานใหม่
 
 ม่วงจดจะช่วยจัดรายการให้ค่ะ 💜`;
 
-// Triggered by postback action=add_job. Prompt user then wait for job text.
+// Triggered by postback action=add_job. Show the form cards, then wait for
+// whatever the person does next.
 //
-// Typing is the fast path and stays the default. The form is for the times
-// pricing has to be picked apart field by field — or when a photo goes with
-// the job — so it is offered, not forced.
+// Two ways in, and the state machine is left open for both: the card is a
+// picture of the form with a way through to it, and typing the job straight
+// into the chat still works exactly as before — that is the fast path and it
+// stays the default.
 export async function addJob({ replyToken, profile }) {
   await setState(profile.id, STATES.WAITING_FOR_JOB, {});
-  const form = quickFormUrl();
-  const text = form ? `${PROMPT}\n\nหรือกรอกเป็นฟอร์มก็ได้ค่ะ 👉 ${form}` : PROMPT;
-  await reply(replyToken, { type: 'text', text });
+
+  let recent = [];
+  try {
+    recent = await getRecentJobs(profile.id, 4);
+  } catch (err) {
+    logger.warn('addJob.recent_failed', { message: err?.message });
+  }
+
+  await reply(replyToken, [
+    ...greetingTexts(profile.display_name),
+    formCardsMessage({
+      formUrl: quickFormUrl(),
+      dashboardUrl: liffUrl({ tab: 'today' }),
+      recent,
+    }),
+    { type: 'text', text: PROMPT },
+  ]);
 }
 
 // postback action=confirm_add_job — commit the draft from context to the DB.
