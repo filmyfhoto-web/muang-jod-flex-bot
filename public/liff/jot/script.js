@@ -169,9 +169,62 @@ const itemsBox = $('#items');
 function renderItems() {
   itemsBox.textContent = '';
   state.items.forEach((item, i) => itemsBox.appendChild(itemCard(item, i)));
+  renderDots();
   renderSummary();
   saveDraft();
 }
+
+/* จุดใต้การ์ด: บอกว่ามีกี่รายการและอยู่ใบไหน กดกระโดดไปใบนั้นได้
+ * ใบเดียวไม่ต้องมีจุด เพราะไม่มีอะไรให้เลื่อนไป */
+function renderDots() {
+  const dots = $('#dots');
+  dots.textContent = '';
+  if (state.items.length < 2) return;
+
+  state.items.forEach((item, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.role = 'tab';
+    b.setAttribute('aria-label', 'รายการที่ ' + (i + 1));
+    b.setAttribute('aria-selected', String(i === currentCard()));
+    b.onclick = () => scrollToCard(i);
+    dots.appendChild(b);
+  });
+}
+
+// การ์ดใบที่อยู่กลางจอตอนนี้
+function currentCard() {
+  const cards = [...itemsBox.children];
+  if (cards.length < 2) return 0;
+  const middle = itemsBox.scrollLeft + itemsBox.clientWidth / 2;
+  let best = 0;
+  let bestGap = Infinity;
+  cards.forEach((card, i) => {
+    const gap = Math.abs(card.offsetLeft + card.offsetWidth / 2 - middle);
+    if (gap < bestGap) {
+      bestGap = gap;
+      best = i;
+    }
+  });
+  return best;
+}
+
+function scrollToCard(index) {
+  const card = itemsBox.children[index];
+  if (card) itemsBox.scrollTo({ left: card.offsetLeft - itemsBox.offsetLeft, behavior: 'smooth' });
+}
+
+// อัปเดตจุดตอนปัด — rAF กันไม่ให้คำนวณทุกพิกเซลที่เลื่อน
+let dotTick = false;
+itemsBox.addEventListener('scroll', () => {
+  if (dotTick) return;
+  dotTick = true;
+  requestAnimationFrame(() => {
+    dotTick = false;
+    const active = currentCard();
+    [...$('#dots').children].forEach((dot, i) => dot.setAttribute('aria-selected', String(i === active)));
+  });
+});
 
 function itemCard(item, index) {
   const el = $('#tpl-item').content.firstElementChild.cloneNode(true);
@@ -185,9 +238,11 @@ function itemCard(item, index) {
   const file = $('.i-file', el);
   const preview = $('.preview', el);
 
-  $('.num', el).textContent = String(index + 1);
-  $('.item-title', el).textContent = 'รายการที่ ' + (index + 1);
+  // ใบแรกใช้พาดหัวชวนกรอกตามแบบ ใบถัด ๆ ไปบอกว่าเป็นรายการที่เท่าไหร่
+  $('.item-title', el).textContent = index === 0 ? 'กรอกข้อมูลงานได้เลย' : 'รายการที่ ' + (index + 1);
   $('.del', el).hidden = state.items.length < 2;
+  $('.act-save', el).onclick = save;
+  $('.act-add', el).onclick = addItem;
 
   name.value = item.name;
   detail.value = item.detail;
@@ -216,7 +271,6 @@ function itemCard(item, index) {
       hint.hidden = true;
     }
 
-    $('.item-title', el).textContent = 'รายการที่ ' + (index + 1);
     renderSummary();
     saveDraft();
   }
@@ -478,17 +532,17 @@ $('#f-date').onchange = (e) => { state.date = e.target.value || todayISO(); rend
 $('#f-paid').oninput = (e) => { state.paid = num(e.target.value); renderSummary(); saveDraft(); };
 $('#f-note').oninput = (e) => { state.note = e.target.value; saveDraft(); };
 
-$('#btn-add').onclick = () => {
+// เพิ่มการ์ดใบใหม่แล้วเลื่อนไปหาเลย ไม่ต้องปัดเอง
+function addItem() {
   state.items.push(blankItem());
   renderItems();
-  itemsBox.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  $('.i-name', itemsBox.lastElementChild)?.focus();
-};
+  scrollToCard(state.items.length - 1);
+}
 
 $('#btn-save').onclick = save;
 $('#btn-edit').onclick = () => {
-  $('#form').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  $('#f-customer').focus();
+  itemsBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('.i-name', itemsBox.children[currentCard()])?.focus();
 };
 $('#btn-reset').onclick = () => {
   if (confirm('ล้างที่กรอกไว้ทั้งหมดไหมคะ?')) {
@@ -506,13 +560,19 @@ $('#qb-save').onclick = save;
 /* โหมดด่วน (?quick=1) — ตั้งใจให้เปิดผ่าน LIFF ขนาด Tall จะได้เด้งขึ้นมาเป็น
  * แผ่นการ์ดทับแชต ไม่ต้องออกไปหน้าเต็ม ตัดแชตกับการ์ดสรุปออก เหลือฟอร์มกับ
  * แถบยอดรวมด้านล่าง */
-const quick = new URLSearchParams(location.search).get('quick') === '1';
+const params = new URLSearchParams(location.search);
+const quick = params.get('quick') === '1';
 if (quick) {
   document.body.classList.add('quick');
   $('#quickbar').hidden = false;
   $('#more').open = false;
-  $('#form .card-head').textContent = '⚡ จดด่วน';
   document.title = 'จดด่วน — ม่วงจดให้';
+}
+
+// ธีม: ม่วงพาสเทลเป็นค่าเริ่มต้น ?theme=night ได้โทนกรมท่าเหมือนการ์ดในแชต
+if (params.get('theme') === 'night') {
+  document.body.classList.add('night');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#0b1524');
 }
 
 (async function start() {
