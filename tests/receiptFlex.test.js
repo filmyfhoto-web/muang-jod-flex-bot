@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { receiptFlex } from '../src/flex/receiptFlex.js';
 import { formatBaht } from '../src/utils/currency.js';
 
@@ -55,6 +56,18 @@ test('receipt card: structure, content and actions', () => {
   assert.ok(json.includes('action=record_payment'));
 });
 
+// สัดส่วนจริงของแถบมาสคอต อ่านจากหัวไฟล์ PNG (IHDR)
+function heroRatio() {
+  const buf = readFileSync(new URL('../public/brand/ui/card-hero.png', import.meta.url));
+  return buf.readUInt32BE(16) / buf.readUInt32BE(20);
+}
+
+// "20:5" -> 4 — เทียบเป็นตัวเลข เพราะ 20:5 กับ 4:1 คือสัดส่วนเดียวกัน
+function declaredRatio(aspectRatio) {
+  const [w, h] = String(aspectRatio).split(':').map(Number);
+  return w / h;
+}
+
 test('receipt card: the mascot strip is the hero unless something else is chosen', () => {
   // Flex cannot let an image overflow its bubble, so the mascot resting on the
   // card's rim is a pre-rendered strip served from the bot's own /brand.
@@ -63,7 +76,14 @@ test('receipt card: the mascot strip is the hero unless something else is chosen
   try {
     const msg = receiptFlex(job);
     assert.equal(msg.contents.hero?.url, 'https://bot.example.com/brand/ui/card-hero.png');
-    assert.equal(msg.contents.hero.aspectRatio, '20:8');
+    // The ratio has to match the strip that was actually drawn, or LINE crops
+    // the mascot's head off. Read it from the file rather than trusting a
+    // number typed here.
+    assert.equal(
+      declaredRatio(msg.contents.hero.aspectRatio),
+      heroRatio(),
+      `hero declares ${msg.contents.hero.aspectRatio}, but the strip is not that shape`
+    );
 
     // An explicit null still means "no hero at all".
     assert.equal(receiptFlex(job, { heroImageUrl: null }).contents.hero, undefined);

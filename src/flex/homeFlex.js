@@ -14,26 +14,22 @@ function stat(label, value, color) {
     type: 'box',
     layout: 'vertical',
     flex: 1,
-    spacing: 'xs',
     contents: [
-      { type: 'text', text: label, size: 'sm', color: COLORS.grey },
-      { type: 'text', text: value, size: 'lg', weight: 'bold', color, wrap: true },
+      { type: 'text', text: label, size: 'xxs', color: COLORS.grey },
+      { type: 'text', text: value, size: 'md', weight: 'bold', color, wrap: true },
     ],
   };
 }
 
+// ปุ่มเตี้ยทั้งการ์ด: นี่คือหน้าแรก ไม่ใช่หน้ารายละเอียด ยิ่งสั้นยิ่งกดง่าย
 function button(label, data, opts = {}) {
   return {
     type: 'button',
     style: opts.primary ? 'primary' : 'secondary',
-    height: 'md',
+    height: 'sm',
     ...(opts.primary ? { color: COLORS.accent } : {}),
     action: { type: 'postback', label, data, displayText: opts.displayText || label },
   };
-}
-
-function linkButton(label, uri) {
-  return { type: 'button', style: 'secondary', height: 'md', action: { type: 'uri', label, uri } };
 }
 
 export function homeFlex(summary = {}, opts = {}) {
@@ -46,19 +42,19 @@ export function homeFlex(summary = {}, opts = {}) {
       type: 'text',
       text: name ? `สวัสดีค่ะ คุณ${name} 💜` : 'ม่วงจดพร้อมช่วยแล้วค่ะ 💜',
       weight: 'bold',
-      size: 'xl',
+      size: 'lg',
       color: COLORS.title,
       wrap: true,
     },
-    { type: 'text', text: formatThaiDate(summary.date), size: 'md', color: COLORS.grey },
+    { type: 'text', text: formatThaiDate(summary.date), size: 'xxs', color: COLORS.grey },
     {
       type: 'box',
       layout: 'horizontal',
       backgroundColor: COLORS.tint,
-      cornerRadius: 'lg',
-      paddingAll: 'lg',
-      spacing: 'md',
-      margin: 'lg',
+      cornerRadius: 'md',
+      paddingAll: 'md',
+      spacing: 'sm',
+      margin: 'md',
       contents: [
         stat('ยอดวันนี้', formatBaht(summary.total || 0), COLORS.accentText),
         stat('งาน', `${summary.jobCount || 0}`, COLORS.ink),
@@ -80,16 +76,29 @@ export function homeFlex(summary = {}, opts = {}) {
     },
   ];
 
-  // The dashboard button only exists when there is somewhere for it to go.
-  if (dashUrl) footer.push(linkButton('📋 เปิดแดชบอร์ด', dashUrl));
+  // แดชบอร์ดเป็นลิงก์ตัวหนังสือ ไม่ใช่ปุ่ม — ประหยัดไปทั้งแถว และคนที่มาหน้านี้
+  // ส่วนใหญ่มากดสามปุ่มบน ไม่ได้มาเปิดเว็บ
+  if (dashUrl) {
+    footer.push({
+      type: 'text',
+      text: '📋 เปิดแดชบอร์ด ›',
+      size: 'xs',
+      weight: 'bold',
+      color: COLORS.accentText,
+      align: 'center',
+      margin: 'sm',
+      action: { type: 'uri', label: 'เปิดแดชบอร์ด', uri: dashUrl },
+    });
+  }
 
   const bubble = {
     type: 'bubble',
     size: 'mega',
-    body: { type: 'box', layout: 'vertical', paddingAll: 'lg', contents: body },
-    footer: { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: 'lg', paddingTop: 'none', contents: footer },
+    body: { type: 'box', layout: 'vertical', paddingAll: 'md', contents: body },
+    footer: { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: 'md', paddingTop: 'none', contents: footer },
   };
-  if (hero) bubble.hero = { type: 'image', url: hero, size: 'full', aspectRatio: '20:8', aspectMode: 'cover' };
+  // แถบมาสคอตเตี้ยลงจาก 20:8 เหลือ 20:5 — ยังเห็นน้องหมาเต็มตัว แต่กินที่น้อยลง
+  if (hero) bubble.hero = { type: 'image', url: hero, size: 'full', aspectRatio: '20:5', aspectMode: 'cover' };
 
   return { type: 'flex', altText: 'ม่วงจดพร้อมช่วยแล้วค่ะ', contents: bubble };
 }

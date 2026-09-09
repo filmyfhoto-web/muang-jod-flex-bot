@@ -23,10 +23,11 @@ for (const pose of POSES) {
   console.log(`${to.padEnd(30)} ${(size / 1024).toFixed(0)} KB`);
 }
 
-// 20:8 — the ratio receiptFlex declares for a bubble hero. The colours are the
-// card's own surface and tint from src/flex/theme.js; a white strip would read
-// as a hole punched in the top of a dark card.
-const W = 1040, H = 416, BAND = 250;
+// 20:5 — the ratio the bubble heroes declare. Was 20:8; the home card was too
+// tall on a phone, and the strip is the easiest third to give back. The colours
+// are the card's own surface and tint from src/flex/theme.js; a white strip
+// would read as a hole punched in the top of a dark card.
+const W = 1040, H = 260, BAND = 156;
 const SURFACE = '#121A2A', EDGE = '#1B2537', RULE = '#7C3AED';
 const backdrop = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
   <rect width="${W}" height="${H}" fill="${SURFACE}"/>
@@ -34,11 +35,11 @@ const backdrop = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="$
   <rect x="0" y="${BAND}" width="${W}" height="5" fill="${RULE}"/>
 </svg>`;
 
-const dog = await sharp('public/brand/mascot-peek.png').resize({ height: 320 }).toBuffer();
+const dog = await sharp('public/brand/mascot-peek.png').resize({ height: 200 }).toBuffer();
 const { width, height } = await sharp(dog).metadata();
 const hero = await sharp(Buffer.from(backdrop))
   // Straddling the band is what sells it: head above the edge, paws over it.
-  .composite([{ input: dog, left: W - width - 84, top: BAND - height + 78 }])
+  .composite([{ input: dog, left: W - width - 60, top: BAND - height + 50 }])
   .png({ compressionLevel: 9, palette: true })
   .toBuffer();
 await sharp(hero).toFile(`${OUT}/card-hero.png`);
