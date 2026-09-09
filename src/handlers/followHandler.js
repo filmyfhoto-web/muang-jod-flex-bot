@@ -11,24 +11,6 @@ const WELCOME = `สวัสดีค่ะ 💜
 เช่น  ป้ายไวนิล 60x100 150 บาท
 หรือกดเมนู "บันทึกงานวันนี้" ด้านล่างนะคะ`;
 
-function qr(label, action) {
-  return {
-    type: 'action',
-    action: { type: 'postback', label, data: `action=${action}`, displayText: label },
-  };
-}
-
-const QUICK_REPLY = {
-  items: [
-    qr('📝 บันทึกงาน', 'add_job'),
-    qr('📊 สรุปวันนี้', 'today_summary'),
-    qr('💰 ค้างรับ', 'pending_payment'),
-    qr('🔍 ค้นหางาน', 'search_jobs'),
-    qr('📈 รายงาน', 'report_menu'),
-    qr('❓ วิธีใช้', 'help'),
-  ],
-};
-
 // New follower / unblock: greet, refresh profile (best effort), reset state.
 export async function handleFollow(event, profile) {
   await clearState(profile.id);
@@ -44,9 +26,11 @@ export async function handleFollow(event, profile) {
   await reply(event.replyToken, welcomeMessages());
 }
 
-// The waving mascot leads the greeting when the image is available.
+// The waving mascot leads the greeting when the image is available. The
+// quick-reply bar is not set here — the send path puts it on the last message
+// of every reply, and this greeting is no exception.
 export function welcomeMessages(mascotUrl = brandAssetUrl(MASCOT.wave)) {
-  const text = { type: 'text', text: WELCOME, quickReply: QUICK_REPLY };
+  const text = { type: 'text', text: WELCOME };
   if (!mascotUrl) return [text];
   return [{ type: 'image', originalContentUrl: mascotUrl, previewImageUrl: mascotUrl }, text];
 }
