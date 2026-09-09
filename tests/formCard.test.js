@@ -92,6 +92,19 @@ test('the second card shows real jobs, and says so when there are none', () => {
   assert.ok(broken.some((t) => t.includes('ดึงรายการไม่สำเร็จ')));
   assert.ok(!broken.some((t) => t.includes('ยังไม่มีงานที่จดไว้')));
 
+  // The day tally is the same line the receipt shows, so the two cards agree.
+  const tallied = textsOf(
+    formCardsMessage({ formUrl: FORM, recent: [JOB], today: { jobCount: 3, total: 1250 } })
+  );
+  assert.ok(tallied.some((t) => t.includes('วันนี้จดไปแล้ว 3 งาน')));
+  assert.ok(tallied.includes('฿1,250'));
+
+  // No tally read, or nothing saved today: the line is left off, not zeroed.
+  for (const today of [null, { jobCount: 0, total: 0 }]) {
+    const none = textsOf(formCardsMessage({ formUrl: FORM, recent: [JOB], today }));
+    assert.ok(!none.some((t) => t.includes('วันนี้จดไปแล้ว')), JSON.stringify(today));
+  }
+
   // Only four fit before the card gets too tall to read.
   const many = Array.from({ length: 9 }, (_, i) => ({ ...JOB, id: 'j' + i, job_name: 'งาน ' + i }));
   const shown = textsOf(formCardsMessage({ formUrl: FORM, recent: many })).filter((t) => t.startsWith('งาน '));

@@ -1,6 +1,6 @@
 import { reply, getMessageContentBuffer } from '../services/lineService.js';
 import { getState, setState, clearState, STATES } from '../services/stateService.js';
-import { createJob, getRecentJobs } from '../services/jobService.js';
+import { createJob, getRecentJobs, getTodaySummary } from '../services/jobService.js';
 import { saveAttachment } from '../services/attachmentService.js';
 import { receiptFlex } from '../flex/receiptFlex.js';
 import { formCardsMessage, greetingTexts } from '../flex/formCardFlex.js';
@@ -38,8 +38,20 @@ export async function addJob({ replyToken, profile }) {
       dashboardUrl: liffUrl({ tab: 'today' }),
       recent,
       recentFailed,
+      today: await todayTally(profile.id),
     }),
   ]);
+}
+
+// The day's running total, or null. Never throws: a tally is a nice-to-have
+// line on a card, and it must not be able to take the card down with it.
+async function todayTally(userId) {
+  try {
+    return await getTodaySummary(userId);
+  } catch (err) {
+    logger.warn('addJob.today_failed', { message: err?.message });
+    return null;
+  }
 }
 
 // A draft read off a photographed document has that picture waiting for it.
@@ -85,9 +97,10 @@ export async function confirmAddJob({ replyToken, profile }) {
   const attached = await attachHeldPicture(profile.id, job, held);
   await clearState(profile.id);
 
-  // Receipt-style "บันทึกสำเร็จ" card.
+  // Receipt-style "บันทึกสำเร็จ" card, with the day's tally under it so the
+  // answer to "what have I got down today?" arrives with the confirmation.
   return reply(replyToken, [
-    receiptFlex(job),
+    receiptFlex(job, { today: await todayTally(profile.id) }),
     ...(attached
       ? []
       : [{ type: 'text', text: 'บันทึกงานแล้วค่ะ แต่แนบรูปเอกสารไม่สำเร็จ ส่งรูปเข้ามาใหม่อีกครั้งได้นะคะ 💜' }]),

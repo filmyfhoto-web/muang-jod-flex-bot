@@ -112,3 +112,25 @@ test('receipt card: optional mascot / hero images and partial-payment rows', () 
   assert.ok(json.includes('รับแล้ว'));
   assert.ok(json.includes('คงเหลือ'));
 });
+
+
+test('the receipt carries the day\'s running total, and never invents one', () => {
+  const json = (opts) => JSON.stringify(receiptFlex(job, opts));
+
+  // "Saved" alone does not say where you are. The tally is what does.
+  const tallied = json({ today: { date: '2026-09-09', jobCount: 3, total: 1250, paid: 850, pending: 400 } });
+  assert.ok(tallied.includes('วันนี้จดไปแล้ว 3 งาน'));
+  assert.ok(tallied.includes('฿1,250'));
+  assert.ok(tallied.includes('ยังค้างรับ ฿400'));
+
+  // Nothing outstanding: no line about it.
+  const clear = json({ today: { date: '2026-09-09', jobCount: 1, total: 150, paid: 150, pending: 0 } });
+  assert.ok(clear.includes('วันนี้จดไปแล้ว 1 งาน'));
+  assert.ok(!clear.includes('ยังค้างรับ'));
+
+  // A tally that could not be read is left off rather than shown as zero —
+  // "0 งาน" under a job you just saved is a card contradicting itself.
+  for (const opts of [{}, { today: null }, { today: { jobCount: 0, total: 0 } }]) {
+    assert.ok(!json(opts).includes('วันนี้จดไปแล้ว'), JSON.stringify(opts));
+  }
+});
