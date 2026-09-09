@@ -85,6 +85,13 @@ test('the second card shows real jobs, and says so when there are none', () => {
   const empty = textsOf(formCardsMessage({ formUrl: FORM, recent: [] }));
   assert.ok(empty.some((t) => t.includes('ยังไม่มีงานที่จดไว้')));
 
+  // "Nothing saved yet" and "could not read your jobs" look identical from the
+  // chat and mean opposite things — the second must never wear the first's
+  // words, or a database blip reads as a wiped account.
+  const broken = textsOf(formCardsMessage({ formUrl: FORM, recent: [], recentFailed: true }));
+  assert.ok(broken.some((t) => t.includes('ดึงรายการไม่สำเร็จ')));
+  assert.ok(!broken.some((t) => t.includes('ยังไม่มีงานที่จดไว้')));
+
   // Only four fit before the card gets too tall to read.
   const many = Array.from({ length: 9 }, (_, i) => ({ ...JOB, id: 'j' + i, job_name: 'งาน ' + i }));
   const shown = textsOf(formCardsMessage({ formUrl: FORM, recent: many })).filter((t) => t.startsWith('งาน '));

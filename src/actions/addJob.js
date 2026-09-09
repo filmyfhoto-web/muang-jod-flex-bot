@@ -20,16 +20,25 @@ import { logger } from '../services/logger.js';
 export async function addJob({ replyToken, profile }) {
   await setState(profile.id, STATES.WAITING_FOR_JOB, {});
 
+  // A failed read must not come back as "you have nothing" — that is the same
+  // card the user sees on their first day, and it is a lie on any other day.
   let recent = [];
+  let recentFailed = false;
   try {
     recent = await getRecentJobs(profile.id, 4);
   } catch (err) {
+    recentFailed = true;
     logger.warn('addJob.recent_failed', { message: err?.message });
   }
 
   await reply(replyToken, [
     ...greetingTexts(profile.display_name),
-    formCardsMessage({ formUrl: quickFormUrl(), dashboardUrl: liffUrl({ tab: 'today' }), recent }),
+    formCardsMessage({
+      formUrl: quickFormUrl(),
+      dashboardUrl: liffUrl({ tab: 'today' }),
+      recent,
+      recentFailed,
+    }),
   ]);
 }
 

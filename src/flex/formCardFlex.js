@@ -160,7 +160,11 @@ function formBubble(formUrl) {
 }
 
 // การ์ดใบที่สอง — งานที่จดไว้แล้ว ภาษาเดียวกับใบแรก
-function recentBubble(jobs = [], dashboardUrl) {
+//
+// `failed` แยก "ยังไม่เคยจด" ออกจาก "ดึงรายการไม่สำเร็จ" — สองอย่างนี้หน้าตา
+// เหมือนกันจากในแชต แต่คนละเรื่องกันสิ้นเชิง การ์ดที่บอกว่าไม่มีงานทั้งที่มี
+// คือการ์ดที่โกหก
+function recentBubble(jobs = [], dashboardUrl, { failed = false } = {}) {
   const rows = jobs.slice(0, 4).map((job, i) => ({
     type: 'box',
     layout: 'horizontal',
@@ -183,7 +187,15 @@ function recentBubble(jobs = [], dashboardUrl) {
   }));
 
   if (!rows.length) {
-    rows.push({ type: 'text', text: 'ยังไม่มีงานที่จดไว้ค่ะ', size: 'sm', color: GREY, wrap: true });
+    rows.push({
+      type: 'text',
+      text: failed
+        ? 'ดึงรายการไม่สำเร็จค่ะ 😢\nกด "🕘 รายการล่าสุด" ดูอีกครั้งได้นะคะ'
+        : 'ยังไม่มีงานที่จดไว้ค่ะ\nจดงานแรกจากการ์ดข้าง ๆ ได้เลย 💜',
+      size: 'sm',
+      color: GREY,
+      wrap: true,
+    });
   }
 
   const footer = [];
@@ -201,7 +213,17 @@ function recentBubble(jobs = [], dashboardUrl) {
       contents: [
         cardHead('รายการงานของคุณ', 'งานพิมพ์ / ป้ายที่จดไว้ล่าสุด', '📄', null),
         { type: 'separator', color: LINE_SOFT },
-        { type: 'box', layout: 'vertical', spacing: 'md', contents: rows },
+        // A carousel stretches every bubble to the tallest one, and the form
+        // beside this is long — so one line of text sat at the top of a white
+        // desert. Filling the space puts it in the middle of the card instead.
+        {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'md',
+          flex: 1,
+          ...(jobs.length ? {} : { justifyContent: 'center' }),
+          contents: rows,
+        },
       ],
     },
     footer: {
@@ -232,13 +254,13 @@ export function greetingTexts(displayName) {
 }
 
 // การ์ดทั้งชุด: ปัดซ้าย-ขวาได้ด้วย carousel ของ LINE เอง
-export function formCardsMessage({ formUrl = null, dashboardUrl = null, recent = [] } = {}) {
+export function formCardsMessage({ formUrl = null, dashboardUrl = null, recent = [], recentFailed = false } = {}) {
   return {
     type: 'flex',
     altText: 'กรอกข้อมูลงานได้เลย',
     contents: {
       type: 'carousel',
-      contents: [formBubble(formUrl), recentBubble(recent, dashboardUrl)],
+      contents: [formBubble(formUrl), recentBubble(recent, dashboardUrl, { failed: recentFailed })],
     },
   };
 }
