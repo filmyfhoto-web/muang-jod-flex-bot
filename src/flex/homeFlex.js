@@ -35,24 +35,45 @@ function button(label, data, opts = {}) {
 export function homeFlex(summary = {}, opts = {}) {
   const name = String(opts.displayName || '').trim();
   const dashUrl = opts.liffUrl !== undefined ? opts.liffUrl : liffUrl({ tab: 'today' });
-  const hero = opts.heroImageUrl !== undefined ? opts.heroImageUrl : brandAssetUrl('ui/card-hero.png');
+  const mascot = opts.mascotImageUrl !== undefined ? opts.mascotImageUrl : brandAssetUrl('ui/happy.png');
+
+  // น้องหมาอยู่บรรทัดเดียวกับคำทักทาย ไม่ใช่แถบเต็มความกว้างด้านบน — แถบนั้น
+  // กินความสูงไปหนึ่งในสามของการ์ดโดยไม่ได้บอกอะไรเพิ่ม
+  const greeting = {
+    type: 'box',
+    layout: 'vertical',
+    contents: [
+      {
+        type: 'text',
+        text: name ? `สวัสดีค่ะ คุณ${name} 💜` : 'ม่วงจดพร้อมช่วยแล้วค่ะ 💜',
+        weight: 'bold',
+        size: 'md',
+        color: COLORS.title,
+        wrap: true,
+      },
+      { type: 'text', text: formatThaiDate(summary.date), size: 'xxs', color: COLORS.grey },
+    ],
+  };
 
   const body = [
-    {
-      type: 'text',
-      text: name ? `สวัสดีค่ะ คุณ${name} 💜` : 'ม่วงจดพร้อมช่วยแล้วค่ะ 💜',
-      weight: 'bold',
-      size: 'lg',
-      color: COLORS.title,
-      wrap: true,
-    },
-    { type: 'text', text: formatThaiDate(summary.date), size: 'xxs', color: COLORS.grey },
+    mascot
+      ? {
+          type: 'box',
+          layout: 'horizontal',
+          spacing: 'sm',
+          alignItems: 'center',
+          contents: [
+            { type: 'image', url: mascot, size: 'xxs', flex: 0, aspectMode: 'fit' },
+            { ...greeting, flex: 1 },
+          ],
+        }
+      : greeting,
     {
       type: 'box',
       layout: 'horizontal',
       backgroundColor: COLORS.tint,
       cornerRadius: 'md',
-      paddingAll: 'md',
+      paddingAll: 'sm',
       spacing: 'sm',
       margin: 'md',
       contents: [
@@ -97,8 +118,5 @@ export function homeFlex(summary = {}, opts = {}) {
     body: { type: 'box', layout: 'vertical', paddingAll: 'md', contents: body },
     footer: { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: 'md', paddingTop: 'none', contents: footer },
   };
-  // แถบมาสคอตเตี้ยลงจาก 20:8 เหลือ 20:5 — ยังเห็นน้องหมาเต็มตัว แต่กินที่น้อยลง
-  if (hero) bubble.hero = { type: 'image', url: hero, size: 'full', aspectRatio: '20:5', aspectMode: 'cover' };
-
   return { type: 'flex', altText: 'ม่วงจดพร้อมช่วยแล้วค่ะ', contents: bubble };
 }
