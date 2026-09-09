@@ -1,35 +1,36 @@
-// ม่วงจด Flex design system — the dark navy and bright blue of the Rich Menu.
+// ม่วงจด Flex design system — white cards, blue accents.
 // Single source of truth for colours so cards stay consistent.
 //
 // The names are what each colour is FOR, not what it looks like. Two blues,
-// because one cannot do both jobs on a dark card: `accent` is the button fill
-// that white labels sit on, `accentText` is light enough to be READ as text on
-// the surface. Swapping them makes the button label wash out or the total go
-// dim. The brand's purple lives in the wordmark and the mascot.
+// because one cannot do both jobs: `accent` is the button FILL that white
+// labels sit on, `accentText` is the blue that is READ as text on the card.
+// The fill is too heavy for a line of text and the text blue is too pale
+// behind white labels. The brand's purple lives in the wordmark and the mascot.
 
 export const COLORS = {
-  accent: '#2E7DF7', // filled things — buttons, badges, the numbered circle
-  accentText: '#60A5FA', // blue as TEXT on the dark surface: totals, links
-  title: '#E8EDF5', // headings
-  tint: '#1B2537', // a panel inside a card: stat tiles, badges, icon chips
-  surface: '#121A2A', // the card itself
-  line: '#25324A', // separators and card borders
+  accent: '#1C4FD8', // filled things — buttons, badges, the numbered circle
+  accentText: '#17357E', // blue as TEXT on the white card: totals, links
+  title: '#17357E', // headings
+  tint: '#F2F6FF', // a panel inside a card: stat tiles, badges, icon chips
+  surface: '#FFFFFF', // the card itself
+  line: '#DCE3F5', // separators and card borders
 
-  ink: '#E8EDF5', // primary text
-  sub: '#AEBACD', // secondary text
-  grey: '#8494A8', // muted text
+  ink: '#1B2540', // primary text
+  sub: '#3D4C73', // secondary text
+  grey: '#8794B4', // muted text
 
   white: '#FFFFFF', // literal white — text sitting on the accent colour
 
-  // Status colours, lifted so they read on a dark surface.
-  green: '#4ADE80',
-  orange: '#FBBF24',
-  red: '#F87171',
+  // Status colours, darkened so they read on a white surface.
+  green: '#15803D',
+  orange: '#B45309',
+  red: '#DC2626',
 };
 
-// Flex gives a bubble a white background unless told otherwise, and a white
-// card with light text is unreadable — so every bubble gets its surface set.
-// Only sections the bubble actually has are styled.
+// Flex gives a bubble a white background unless told otherwise. That happens
+// to be the surface now, but it is still set explicitly: the surface is one
+// value here, and a card should not quietly depend on LINE's default matching
+// it. Only sections the bubble actually has are styled.
 export function themed(bubble) {
   const styles = {};
   for (const part of ['header', 'body', 'footer']) {
@@ -46,15 +47,17 @@ export function themedContents(contents) {
   return contents?.type === 'bubble' ? themed(contents) : contents;
 }
 
-// Payment status -> label + colour (used by badges and rows).
+// Payment status -> label + colour (used by badges and rows). The backgrounds
+// are the palest tint of each status: enough to read as a chip on white, not
+// enough to fight the text sitting on it.
 export function paymentPresentation(status) {
   switch (status) {
     case 'paid':
-      return { text: 'รับเงินแล้ว', color: COLORS.green, bg: '#12301F' };
+      return { text: 'รับเงินแล้ว', color: COLORS.green, bg: '#E7F7EE' };
     case 'partial':
-      return { text: 'รับบางส่วน', color: COLORS.orange, bg: '#33270D' };
+      return { text: 'รับบางส่วน', color: COLORS.orange, bg: '#FDF1DC' };
     case 'pending':
     default:
-      return { text: 'ค้างรับ', color: COLORS.red, bg: '#3A1C21' };
+      return { text: 'ค้างรับ', color: COLORS.red, bg: '#FDEAEA' };
   }
 }

@@ -67,22 +67,23 @@ function contrast(a, b) {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-test('the two accents each do the job they are named for', () => {
+test('every colour on the card can actually be read on it', () => {
   // accent is a FILL: white button labels and the numbered circle sit on it.
-  // 3:1 is WCAG's bar for large/bold text, which is what a button label is.
   assert.ok(
-    contrast(COLORS.white, COLORS.accent) >= 3,
+    contrast(COLORS.white, COLORS.accent) >= 4.5,
     `white on accent is only ${contrast(COLORS.white, COLORS.accent).toFixed(2)}:1`
   );
-  // accentText is TEXT on the card at ordinary sizes: the total, the links.
-  assert.ok(
-    contrast(COLORS.accentText, COLORS.surface) >= 4.5,
-    `accentText on surface is only ${contrast(COLORS.accentText, COLORS.surface).toFixed(2)}:1`
-  );
-  // Swapping them is the mistake this guards against: the fill is too dark to
-  // read as text, so using it for a total would dim the most important number
-  // on the card.
-  assert.ok(contrast(COLORS.accent, COLORS.surface) < 4.5, 'accent would pass as text: merge the two');
+
+  // Everything that is TEXT on the card, at the sizes cards actually use.
+  for (const name of ['accentText', 'title', 'ink', 'sub', 'green', 'orange', 'red']) {
+    const ratio = contrast(COLORS[name], COLORS.surface);
+    assert.ok(ratio >= 4.5, `${name} on the card is only ${ratio.toFixed(2)}:1`);
+  }
+  // grey is for small print — 3:1 is the floor before it stops being text.
+  assert.ok(contrast(COLORS.grey, COLORS.surface) >= 3, 'grey is invisible on the card');
+
+  // The tint panel sits on the card, so the two must not be the same colour.
+  assert.notEqual(COLORS.tint, COLORS.surface, 'the inner panel would disappear');
 });
 
 test('every colour is a hex value, and the status colours differ from each other', () => {
@@ -99,10 +100,10 @@ test('every colour is a hex value, and the status colours differ from each other
 });
 
 
-// The real cards, put through the same transform the send path applies. A
-// bubble that keeps Flex's white default would be light text on white — the
-// one way this palette can fail outright, and not visible from a unit test of
-// any single builder.
+// The real cards, put through the same transform the send path applies. The
+// surface is set explicitly on every bubble rather than left to LINE's default
+// — a card that relies on that default silently breaks the day the palette
+// moves, and that is not visible from a unit test of any single builder.
 const JOB = {
   id: 'job-1',
   job_number: 'MJ-0001',
@@ -120,7 +121,7 @@ function bubblesOf(message) {
   return c?.type === 'carousel' ? c.contents : [c];
 }
 
-test('every card the bot sends comes out on the dark surface', () => {
+test('every card the bot sends comes out on the card surface', () => {
   const cards = {
     todaySummary: todaySummaryFlex({ date: '2026-09-08', jobCount: 1, total: 150, paid: 0, pending: 150 }),
     confirmCancel: confirmCancelFlex(JOB),
@@ -149,12 +150,7 @@ test('every card the bot sends comes out on the dark surface', () => {
       assert.equal(
         bubble.styles?.body?.backgroundColor,
         COLORS.surface,
-        `${name}: body would render on Flex's white default`
-      );
-      // Nothing may paint a white panel under the light text either.
-      assert.ok(
-        !JSON.stringify(bubble).includes('"backgroundColor":"#FFFFFF"'),
-        `${name}: a white background survived`
+        `${name}: body is not on the card surface`
       );
     }
   }

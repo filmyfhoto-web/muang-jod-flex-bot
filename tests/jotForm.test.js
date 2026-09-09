@@ -59,19 +59,20 @@ test('the page saves through the real API, not into thin air', () => {
   assert.ok(js.includes('liff.init'), 'never initialises LIFF');
 });
 
-test('the dashboard keeps the chat cards\' accent, and so does the jot page\'s night theme', () => {
+test('the form page opens in the same colours as the card it came from', () => {
   const accentOf = (source) => /--accent:\s*(#[0-9a-f]{6})/i.exec(source)?.[1]?.toLowerCase();
   const accentTextOf = (source) => /--accent-text:\s*(#[0-9a-f]{6})/i.exec(source)?.[1]?.toLowerCase();
 
-  assert.equal(accentOf(dashboard), COLORS.accent.toLowerCase(), 'dashboard: accent drifted from theme.js');
-  assert.equal(accentTextOf(dashboard), COLORS.accentText.toLowerCase(), 'dashboard: accent-text drifted');
+  // Only the default theme is checked: the page is reached by tapping a card,
+  // and arriving in a different palette is the jarring part. `body.night` is a
+  // deliberate alternate with its own values.
+  const root = /:root\s*\{([\s\S]*?)\n\}/.exec(css)?.[1];
+  assert.ok(root, 'the default token block is gone');
+  assert.equal(accentOf(root), COLORS.accent.toLowerCase(), 'accent drifted from theme.js');
+  assert.equal(accentTextOf(root), COLORS.accentText.toLowerCase(), 'accent-text drifted from theme.js');
 
-  // The form opens from a card in chat, so its default (night) is the one that
-  // has to match those cards. The violet block is the alternate look.
-  const night = /body\.night\s*\{([\s\S]*?)\}/.exec(css)?.[1];
-  assert.ok(night, 'the night theme block is gone');
-  assert.equal(accentOf(night), COLORS.accent.toLowerCase(), 'night accent drifted from theme.js');
-  assert.equal(accentTextOf(night), COLORS.accentText.toLowerCase(), 'night accent-text drifted');
+  // The dashboard keeps its own darker identity, but must still declare both.
+  assert.ok(accentOf(dashboard) && accentTextOf(dashboard), 'the dashboard lost a token');
 });
 
 test('the cards swipe sideways, with dots that follow', () => {
@@ -88,7 +89,7 @@ test('the cards swipe sideways, with dots that follow', () => {
 });
 
 test('both themes are one stylesheet, switched by a class', () => {
-  assert.ok(js.includes("params.get('theme') === 'violet'"), 'nothing reads ?theme=violet');
+  assert.ok(js.includes("params.get('theme') === 'night'"), 'nothing reads ?theme=night');
   assert.ok(js.includes("classList.add('night')"), 'the night theme is never applied');
   // Every colour has to come from a token, or switching the class leaves
   // stragglers behind in the other theme's palette.

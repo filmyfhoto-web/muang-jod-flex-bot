@@ -1,32 +1,35 @@
 /* ม่วงจดให้ — หน้าบันทึกงาน
  *
  * สองธีมอยู่ในไฟล์เดียว สลับด้วยคลาสบน body อย่างเดียว:
- *   ค่าเริ่มต้น  — ม่วงพาสเทล การ์ดขาว ตามแบบที่ให้มา
- *   body.night   — กรมท่ากลางคืน สีเดียวกับการ์ดในแชต (?theme=night)
+ *   ค่าเริ่มต้น  — การ์ดขาว ปุ่มน้ำเงิน สีชุดเดียวกับการ์ดในแชต (src/flex/theme.js)
+ *   body.night   — กรมท่ากลางคืน (?theme=night)
  * ทุกสีในไฟล์นี้อ้าง var() ทั้งหมด เปลี่ยนธีมจึงไม่ต้องแก้ที่อื่นเลย
+ *
+ * ค่าใน :root ต้องตรงกับ COLORS ใน theme.js — หน้านี้เปิดจากการ์ดในแชต
+ * เปิดมาแล้วเจอคนละโทนคือสะดุด มีเทสต์คุมไว้ใน tests/jotForm.test.js
  */
 
 :root {
-  /* ---- ธีมม่วง (ค่าเริ่มต้น) ---- */
-  --accent: #7c3aed;        /* พื้นของปุ่มหลัก ตัวหนังสือขาวทับได้ */
-  --accent-2: #6d28d9;      /* ปลายไล่สีของปุ่ม/ชิปไอคอน */
-  --accent-text: #6d28d9;   /* ม่วงที่ใช้เป็นตัวหนังสือบนพื้นอ่อน */
-  --accent-soft: #ede7fb;   /* ปุ่มรอง ชิป พื้นอ่อน ๆ */
+  /* ---- ธีมขาว-น้ำเงิน (ค่าเริ่มต้น) ---- */
+  --accent: #1c4fd8;        /* พื้นของปุ่มหลัก ตัวหนังสือขาวทับได้ */
+  --accent-2: #17357e;      /* ปลายไล่สีของปุ่ม/ชิปไอคอน */
+  --accent-text: #17357e;   /* น้ำเงินที่ใช้เป็นตัวหนังสือบนพื้นขาว */
+  --accent-soft: #dce7fb;   /* ปุ่มรอง ชิป พื้นอ่อน ๆ */
 
-  --page: #efe9fb;          /* พื้นหลังทั้งหน้า */
+  --page: #eef3fd;          /* พื้นหลังทั้งหน้า */
   --surface: #ffffff;       /* การ์ด */
-  --tint: #f7f4ff;          /* ช่องกรอก / กล่องย่อยในการ์ด */
-  --line: #e6ddf7;          /* เส้นขอบ */
+  --tint: #f2f6ff;          /* ช่องกรอก / กล่องย่อยในการ์ด */
+  --line: #dce3f5;          /* เส้นขอบ */
 
-  --ink: #2f2545;           /* ตัวหนังสือหลัก */
-  --sub: #5b4d7a;           /* ป้ายกำกับช่อง */
-  --grey: #8b7fa8;          /* ตัวหนังสือจาง */
+  --ink: #1b2540;           /* ตัวหนังสือหลัก */
+  --sub: #3d4c73;           /* ป้ายกำกับช่อง */
+  --grey: #8794b4;          /* ตัวหนังสือจาง */
   --white: #ffffff;
 
   --bubble: #ffffff;        /* บับเบิลของบอท */
-  --bubble-ink: #2f2545;
+  --bubble-ink: #1b2540;
 
-  --green: #16a34a;
+  --green: #15803d;
   --green-bg: #e7f7ee;
   --amber: #b45309;
   --amber-bg: #fdf1dc;
@@ -34,8 +37,8 @@
   --red-bg: #fdeaea;
 
   --radius: 20px;
-  --shadow: 0 10px 26px rgba(76, 42, 140, .12);
-  --shadow-lg: 0 16px 38px rgba(76, 42, 140, .18);
+  --shadow: 0 10px 26px rgba(23, 53, 126, .12);
+  --shadow-lg: 0 16px 38px rgba(23, 53, 126, .18);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -199,7 +202,7 @@ main > *:not(.track):not(.dots) { margin-left: 14px; margin-right: 14px; }
 
 /* น้องหมาโผล่มุมขวาบนของการ์ด พร้อมบับเบิลชวนกรอก */
 .mascot { position: absolute; top: 4px; right: 6px; width: 100px; text-align: center; pointer-events: none; }
-.mascot img { width: 66px; display: block; margin: 0 auto; filter: drop-shadow(0 5px 9px rgba(60, 30, 110, .25)); }
+.mascot img { width: 66px; display: block; margin: 0 auto; filter: drop-shadow(0 5px 9px rgba(23, 53, 126, .25)); }
 .mascot .say {
   display: inline-block;
   margin-top: -8px;
