@@ -11,8 +11,10 @@ import {
   getJobsInPeriod,
   buildReport,
 } from '../services/jobService.js';
-import { createJob } from '../services/jobService.js';
+import { createJob, getTodaySummary } from '../services/jobService.js';
 import { saveAttachment } from '../services/attachmentService.js';
+import { push } from '../services/lineService.js';
+import { receiptFlex } from '../flex/receiptFlex.js';
 import { derivePaymentFields } from '../utils/payment.js';
 import { round2 } from '../utils/currency.js';
 import { deriveJobName } from '../utils/category.js';
@@ -84,6 +86,32 @@ export function createApiRouter(deps = {}) {
   const resolveProfile = deps.resolveProfile || getOrCreateProfile;
   const create = deps.createJob || createJob;
   const attach = deps.saveAttachment || saveAttachment;
+  const send = deps.push || push;
+  const todaySoFar = deps.getTodaySummary || getTodaySummary;
+  // Tell the chat about a job saved from the form. Never throws: the job is
+  // already saved, and a chat that missed the news must not turn into a failed
+  // save the user then repeats.
+  async function announce(profile, job, attachmentsFailed) {
+    const to = profile?.line_user_id;
+    if (!to) return;
+    try {
+      let today = null;
+      try {
+        today = await todaySoFar(profile.id);
+      } catch (err) {
+        logger.warn('api.today_failed', { message: err?.message });
+      }
+      await send(to, [
+        receiptFlex(job, { today }),
+        ...(attachmentsFailed > 0
+          ? [{ type: 'text', text: `บันทึกงานแล้วค่ะ แต่แนบรูปไม่สำเร็จ ${attachmentsFailed} รูป ลองส่งรูปเข้าแชตอีกครั้งได้นะคะ 💜` }]
+          : []),
+      ]);
+    } catch (err) {
+      logger.warn('api.announce_failed', { jobId: job?.id, message: err?.message });
+    }
+  }
+
   const router = express.Router();
   // Everything is small JSON except the one route that carries a photo.
   router.use((req, res, next) =>
@@ -206,8 +234,15 @@ export function createApiRouter(deps = {}) {
         }
       }
 
+      // Saving from the form is a web request, not a chat message, so there is
+      // no reply token and nothing lands in the chat by itself — the job just
+      // silently exists. Push the same receipt the chat flow shows, so a job
+      // looks the same wherever it was jotted, and the chat stays the record.
+      const failed = files.length - attached;
+      await announce(req.profile, job, failed);
+
       logger.info('api.job_created', { user: maskUserId(req.profile.line_user_id), jobId: job.id });
-      res.status(201).json({ job, attached, attachmentsFailed: files.length - attached });
+      res.status(201).json({ job, attached, attachmentsFailed: failed });
     } catch (err) {
       next(err);
     }

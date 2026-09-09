@@ -18,7 +18,7 @@ const PNG =
 // Spin the router up on a real port: it is the only way to exercise the body
 // parser, the auth middleware and the handler the way express will run them.
 async function serve(deps = {}) {
-  const calls = { created: [], attached: [] };
+  const calls = { created: [], attached: [], pushed: [] };
   const app = express();
   app.use(
     '/api',
@@ -33,6 +33,10 @@ async function serve(deps = {}) {
         calls.attached.push({ userId, jobId: job.id, fileType: file.fileType, bytes: file.buffer.length });
         return { id: 'att-1' };
       },
+      push: async (to, messages) => {
+        calls.pushed.push({ to, messages });
+      },
+      getTodaySummary: async () => ({ date: '2026-09-09', jobCount: 3, total: 1250, paid: 0, pending: 1250 }),
       ...deps,
     })
   );
@@ -141,4 +145,56 @@ test('decodeDataUrl accepts only the two image types storage knows', () => {
   // A photo straight off a phone, un-shrunk, is refused rather than stored.
   const huge = 'data:image/jpeg;base64,' + 'A'.repeat(8 * 1024 * 1024);
   assert.match(decodeDataUrl(huge).error, /5 MB/);
+});
+
+
+// Saving from the form is a web request with no reply token, so nothing lands
+// in the chat on its own. The chat is where the shop keeps its record, and a
+// job that only exists in the database looks, from the chat, like a save that
+// did not happen.
+test('a job saved from the form is announced in the chat', async (t) => {
+  const s = await serve();
+  t.after(() => s.close());
+
+  const { status } = await s.post({ items: [{ item_name: 'ป้ายไวนิล', quantity: 1, unit_price: 150 }] });
+  assert.equal(status, 201);
+
+  assert.equal(s.calls.pushed.length, 1, 'nothing reached the chat');
+  const [sent] = s.calls.pushed;
+  assert.equal(sent.to, 'U-line', 'pushed to the wrong place');
+
+  const json = JSON.stringify(sent.messages);
+  assert.ok(json.includes('บันทึกสำเร็จ'), 'not the receipt card');
+  assert.ok(json.includes('ป้ายไวนิล'));
+  assert.ok(json.includes('วันนี้จดไปแล้ว 3 งาน'), 'the day tally is missing');
+});
+
+test('a chat that cannot be reached never fails a job that is already saved', async (t) => {
+  const s = await serve({
+    push: async () => {
+      throw new Error('429 too many pushes');
+    },
+  });
+  t.after(() => s.close());
+
+  const { status, body } = await s.post({ items: [{ item_name: 'ป้าย', quantity: 1, unit_price: 150 }] });
+  assert.equal(status, 201, 'a failed push must not read as a failed save');
+  assert.equal(body.job.total, 150);
+});
+
+test('an attachment that did not stick is said out loud, in the chat too', async (t) => {
+  const s = await serve({
+    saveAttachment: async () => {
+      throw new Error('storage down');
+    },
+  });
+  t.after(() => s.close());
+
+  const { status, body } = await s.post({
+    items: [{ item_name: 'ป้าย', quantity: 1, unit_price: 150 }],
+    images: [PNG],
+  });
+  assert.equal(status, 201);
+  assert.equal(body.attachmentsFailed, 1);
+  assert.ok(JSON.stringify(s.calls.pushed[0].messages).includes('แนบรูปไม่สำเร็จ'));
 });
