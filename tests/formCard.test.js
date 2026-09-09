@@ -1,13 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { formCardsMessage, greetingTexts } from '../src/flex/formCardFlex.js';
-import { themedContents } from '../src/flex/theme.js';
+import { COLORS, themedContents } from '../src/flex/theme.js';
 import { POSTBACK_ACTIONS } from '../src/utils/validation.js';
 
-// The card people actually see in chat. It is the one card in the bot that is
-// deliberately light — the design asked for white cards on violet — so the
-// thing most likely to break it is the send path stamping the dark surface on
-// every bubble.
+// The card people actually see in chat: the form's shape, in the bot's own
+// navy-and-blue. Nothing here can be rendered in a test, so what is guarded is
+// what silently breaks — a card LINE would reject, a row that leads nowhere,
+// and colours drifting away from the rest of the cards.
 
 const FORM = 'https://liff.line.me/1234567890-quick';
 const DASH = 'https://liff.line.me/1234567890-abcdefgh?tab=today';
@@ -23,14 +23,18 @@ const walk = (node, out = []) => {
 };
 const textsOf = (node) => walk(node).filter((n) => n.type === 'text').map((n) => n.text);
 
-test('the card survives the send path with its light background intact', () => {
+test('the card comes out on the same surface as every other card', () => {
   const message = formCardsMessage({ formUrl: FORM });
   const themed = themedContents(message.contents);
 
   for (const bubble of themed.contents) {
-    assert.equal(bubble.styles.body.backgroundColor, '#FFFFFF', 'the dark theme overwrote the card');
-    assert.equal(bubble.styles.footer.backgroundColor, '#FFFFFF');
+    assert.equal(bubble.styles.body.backgroundColor, COLORS.surface);
+    assert.equal(bubble.styles.footer.backgroundColor, COLORS.surface);
   }
+
+  // Light text on a light panel is the way this card fails outright, so no
+  // part of it may paint white behind the writing.
+  assert.ok(!JSON.stringify(themed).includes('"backgroundColor":"#FFFFFF"'), 'a white panel survived');
 });
 
 test('it is a carousel — that is what makes it swipe left and right in chat', () => {
