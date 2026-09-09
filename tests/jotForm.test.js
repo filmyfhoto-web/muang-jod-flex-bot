@@ -28,10 +28,12 @@ test('the form guesses centimetres at the same size the bot does', () => {
 test('every field the brief asks for is on the page, with its example text', () => {
   const fields = [
     ['i-name', 'เช่น ป้ายหน้าร้าน'],
-    ['i-detail', 'เช่น ป้ายไวนิล 60x120 ซม.'],
-    ['i-price', 'เช่น 700'],
-    ['i-qty', 'เช่น 2'],
+    ['i-detail', 'เช่น ป้ายไวนิล ตอกตาไก่'],
+    ['i-w', '160'],
+    ['i-h', '300'],
+    ['i-qty', '1'],
     ['i-rate', 'เช่น 165'],
+    ['i-price', 'เช่น 700'],
     ['i-total', 'ระบบจะคำนวณให้อัตโนมัติ'],
   ];
   for (const [cls, placeholder] of fields) {
@@ -40,10 +42,35 @@ test('every field the brief asks for is on the page, with its example text', () 
   }
   assert.ok(html.includes('type="file"') && html.includes('แตะเพื่อแนบรูป'), 'no image field');
 
+  // Width and length are their own boxes now: nobody should have to type an
+  // "x" for the form to understand a size.
+  assert.ok(html.includes('<span>กว้าง</span>') && html.includes('<span>ยาว</span>'), 'size is not split');
+  assert.ok(html.includes('class="i-unit"'), 'no unit picker');
+  assert.ok(!html.includes('60x120'), 'the old "type it with an x" example is still there');
+
   // The two cards the brief describes, and the buttons on them.
   for (const label of ['ตรวจสอบก่อนบันทึก', 'บันทึกงาน', 'แก้ไข', 'ยกเลิก', 'เพิ่มรายการ']) {
     assert.ok(html.includes(label), `missing button/heading: ${label}`);
   }
+});
+
+test('the rate is the shop\'s own working, and the price is what the customer sees', () => {
+  // The bill price is whatever the shop typed — never the rate calculation.
+  // These two lines are what keep the two numbers from swapping places.
+  assert.match(js, /const price = item\.priceManual \? item\.price : suggested \|\| item\.price;/);
+  assert.ok(js.includes('unit_price: round2(price)'), 'the item carries the shop price');
+  assert.ok(!/unit_price: round2\(item\.rate\)/.test(js), 'the rate must not be sold as a unit price');
+
+  // What goes on the receipt as the size: width × length and its unit. No rate.
+  assert.match(js, /label: `\$\{numText\(width\)\} × \$\{numText\(height\)\} \$\{UNIT_LABELS\[unit\]\}`/);
+  assert.ok(js.includes('quantity: qty'), 'quantity is pieces, not square metres');
+  assert.ok(!js.includes("unit: 'ตร.ม.'"), 'square metres must not become the billed unit');
+
+  // The working is kept, but only where the shop looks: the note, which no
+  // customer-facing card renders.
+  assert.ok(js.includes('คิดตาม ตร.ม.'), 'the working is thrown away entirely');
+  assert.ok(js.includes('🔒 ร้านเห็นคนเดียว'), 'the hint does not say who can see it');
+  assert.ok(!html.includes('readOnly'), 'the price box must stay typable');
 });
 
 test('inputs are 16px or more, so iOS does not zoom the page on focus', () => {

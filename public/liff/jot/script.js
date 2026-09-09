@@ -15,6 +15,8 @@ const num = (v) => {
   return Number.isFinite(n) ? n : 0;
 };
 const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+// 4.80 -> "4.8", 160 -> "160" — ขนาดบนใบเสร็จไม่ควรมีศูนย์ห้อยท้าย
+const numText = (n) => String(round2(n));
 const todayISO = () =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date());
 
@@ -30,53 +32,40 @@ function toast(text, kind) {
 
 /* กติกาเดียวกับที่บอทใช้ตอนอ่านข้อความ (src/utils/area.js) — แก้ที่ไหน
  * ต้องแก้อีกที่ด้วย เทสต์ tests/jotForm.test.js คุมไว้ว่าเลข 20 ต้องตรงกัน:
- * ขนาดที่ไม่ใส่หน่วย ถ้าตัวเลขตั้งแต่ 20 ขึ้นไปคือเซนติเมตร ต่ำกว่านั้นคือเมตร */
+ * ขนาดที่ไม่ใส่หน่วย ถ้าตัวเลขตั้งแต่ 20 ขึ้นไปคือเซนติเมตร ต่ำกว่านั้นคือเมตร
+ * ในฟอร์มมีช่องหน่วยให้เลือกอยู่แล้ว กติกานี้จึงเหลือไว้เป็นค่าตั้งต้นเท่านั้น */
 const CM_THRESHOLD = 20;
 const UNIT_FACTORS = { cm: 0.01, m: 1, inch: 0.0254, ft: 0.3048 };
 const UNIT_LABELS = { cm: 'ซม.', m: 'ม.', inch: 'นิ้ว', ft: 'ฟุต' };
 
-const UNIT_RE = '(?:เซนติเมตร|ซ\\.?ม\\.?|cm|นิ้ว|inch|"|ฟุต|ft|เมตร|ม\\.?|m)';
-const SIZE_RE = new RegExp(
-  `(\\d+(?:\\.\\d+)?)\\s*(${UNIT_RE})?\\s*[x×X*✕]\\s*(\\d+(?:\\.\\d+)?)\\s*(${UNIT_RE})?`,
-  'i'
-);
-
-function classifyUnit(token) {
-  if (!token) return null;
-  const t = String(token).toLowerCase().replace(/[.\s]/g, '');
-  if (t === 'ซม' || t === 'เซนติเมตร' || t === 'cm') return 'cm';
-  if (t === 'ม' || t === 'เมตร' || t === 'm') return 'm';
-  if (t === 'นิ้ว' || t === 'inch' || t === '"') return 'inch';
-  if (t === 'ฟุต' || t === 'ft') return 'ft';
-  return null;
-}
-
-// อ่านขนาดจากช่อง "รายละเอียด" คืนพื้นที่ต่อชิ้นเป็นตารางเมตร
-function readSize(text) {
-  const m = SIZE_RE.exec(String(text || ''));
-  if (!m) return null;
-  const width = num(m[1]);
-  const height = num(m[3]);
+// ขนาดมาจากช่อง กว้าง/ยาว/หน่วย ตรง ๆ — ไม่ต้องพิมพ์ x ให้ระบบเดาอีกแล้ว
+function readSize(item) {
+  const width = num(item.w);
+  const height = num(item.h);
   if (!(width > 0) || !(height > 0)) return null;
-  const unit =
-    classifyUnit(m[2]) ||
-    classifyUnit(m[4]) ||
-    (width < CM_THRESHOLD && height < CM_THRESHOLD ? 'm' : 'cm');
+  const unit = UNIT_FACTORS[item.unit] ? item.unit : 'cm';
   const f = UNIT_FACTORS[unit];
   return {
     width,
     height,
     unit,
     sqm: round2(width * f * (height * f)),
-    label: `${width}x${height} ${UNIT_LABELS[unit]}`,
+    // ป้ายบนใบเสร็จ: กว้าง คูณ ยาว เท่านั้น ไม่มีเรตต่อตารางเมตรติดไปด้วย
+    label: `${numText(width)} × ${numText(height)} ${UNIT_LABELS[unit]}`,
   };
 }
 
 /* -------------------------------------------------------------- โครงข้อมูล */
 
 /* หนึ่งรายการ = หนึ่งการ์ดในฟอร์ม
- *   { id, name, detail, price, qty, rate, total, totalManual, image }
- * price  — ราคาต่อชิ้น (ถ้ากรอก "ตรมละ" และมีขนาด จะคำนวณให้)
+ *   { id, name, detail, w, h, unit, qty, rate, price, priceManual, total, totalManual, image }
+ *
+ * แยกให้ชัดว่าเลขไหนของใคร:
+ *   rate   — "ตรมละ" ของร้าน ใช้คิดว่าควรตั้งราคาเท่าไหร่ ไม่ขึ้นใบเสร็จ
+ *   price  — ราคาต่อชิ้นที่ร้านตั้งเอง อันนี้แหละที่ลูกค้าเห็น
+ * ตอนยังไม่แตะช่องราคา ระบบเติมยอดที่คิดจากเรตให้เป็นตัวตั้งต้น พอพิมพ์ทับ
+ * (priceManual = true) ของร้านชนะตลอด เรตจะเปลี่ยนยังไงก็ไม่ไปยุ่งกับมันอีก
+ *
  * total  — ราคา × จำนวน จนกว่าจะพิมพ์ทับเอง (totalManual = true)
  * image  — data URL ของรูปที่ย่อแล้ว หรือ null
  */
@@ -93,16 +82,34 @@ const state = {
 
 function blankItem() {
   seq += 1;
-  return { id: 'it' + seq, name: '', detail: '', price: 0, qty: 1, rate: 0, total: 0, totalManual: false, image: null };
+  return {
+    id: 'it' + seq,
+    name: '',
+    detail: '',
+    w: 0,
+    h: 0,
+    unit: 'cm',
+    qty: 1,
+    rate: 0,
+    price: 0,
+    priceManual: false,
+    total: 0,
+    totalManual: false,
+    image: null,
+  };
 }
 
-// ยอดของรายการหนึ่ง: พื้นที่ × เรต ถ้าคิดเป็นตารางเมตร ไม่งั้นราคา × จำนวน
+// ยอดของรายการหนึ่ง
+//
+// suggested คือยอดที่คิดจากเรตต่อตารางเมตร — ตัวช่วยของร้าน ไม่ใช่ราคาขาย
+// ราคาขายคือ price เสมอ (ตั้งต้นด้วย suggested จนกว่าร้านจะพิมพ์ทับ)
 function computeItem(item) {
-  const size = item.rate > 0 ? readSize(item.detail) : null;
+  const size = readSize(item);
   const qty = item.qty > 0 ? item.qty : 1;
-  const price = size ? round2(size.sqm * item.rate) : item.price;
+  const suggested = size && item.rate > 0 ? round2(size.sqm * item.rate) : 0;
+  const price = item.priceManual ? item.price : suggested || item.price;
   const total = item.totalManual ? item.total : round2(price * qty);
-  return { size, qty, price, total };
+  return { size, qty, suggested, price, total };
 }
 
 const grandTotal = () => round2(state.items.reduce((s, it) => s + computeItem(it).total, 0));
@@ -230,6 +237,9 @@ function itemCard(item, index) {
   const el = $('#tpl-item').content.firstElementChild.cloneNode(true);
   const name = $('.i-name', el);
   const detail = $('.i-detail', el);
+  const w = $('.i-w', el);
+  const h = $('.i-h', el);
+  const unit = $('.i-unit', el);
   const price = $('.i-price', el);
   const qty = $('.i-qty', el);
   const rate = $('.i-rate', el);
@@ -246,27 +256,34 @@ function itemCard(item, index) {
 
   name.value = item.name;
   detail.value = item.detail;
+  w.value = item.w || '';
+  h.value = item.h || '';
+  unit.value = item.unit || 'cm';
   qty.value = item.qty || '';
   rate.value = item.rate || '';
 
-  // ช่องที่ระบบคิดให้ ใส่ค่าไว้เลยและกันไม่ให้พิมพ์ทับ จะได้ไม่ขัดกันเอง
+  // ราคาพิมพ์ทับได้เสมอ — มันคือราคาขายของร้าน ไม่ใช่ช่องที่ระบบยึดไว้
   function paint() {
-    const { size, price: p, total: t } = computeItem(item);
+    const { size, suggested, price: p, total: t } = computeItem(item);
 
-    price.value = p || '';
-    price.readOnly = Boolean(size);
-    price.classList.toggle('auto', Boolean(size));
+    if (!item.priceManual) price.value = p || '';
+    price.classList.toggle('auto', !item.priceManual && suggested > 0);
 
     total.value = item.totalManual ? item.total || '' : t || '';
     total.classList.toggle('auto', !item.totalManual);
 
-    if (size) {
+    // บรรทัดนี้เป็นของร้านล้วน ๆ ไม่มีอะไรจากตรงนี้ไปโผล่บนใบเสร็จ
+    if (size && suggested > 0) {
       hint.hidden = false;
       hint.textContent =
-        `${size.label} = ${size.sqm} ตร.ม. × ${item.rate} = ${baht(round2(size.sqm * item.rate))} ต่อผืน`;
+        `🔒 ร้านเห็นคนเดียว · ${size.sqm} ตร.ม. × ${numText(item.rate)} = ${baht(suggested)} ต่อชิ้น` +
+        (item.priceManual ? ' (ตั้งราคาเองแล้ว)' : ' — เติมให้ในช่องราคาแล้ว');
     } else if (item.rate > 0) {
       hint.hidden = false;
-      hint.textContent = 'ใส่ขนาดในช่องรายละเอียด เช่น 160x300 แล้วม่วงจดจะคิดพื้นที่ให้ค่ะ';
+      hint.textContent = '🔒 ใส่กว้างกับยาวด้วยนะคะ ม่วงจดจะคิดพื้นที่ให้';
+    } else if (size) {
+      hint.hidden = false;
+      hint.textContent = `${size.label} · ${size.sqm} ตร.ม. ต่อชิ้น`;
     } else {
       hint.hidden = true;
     }
@@ -277,9 +294,17 @@ function itemCard(item, index) {
 
   name.oninput = () => { item.name = name.value; paint(); };
   detail.oninput = () => { item.detail = detail.value; paint(); };
+  w.oninput = () => { item.w = num(w.value); paint(); };
+  h.oninput = () => { item.h = num(h.value); paint(); };
+  unit.onchange = () => { item.unit = unit.value; paint(); };
   qty.oninput = () => { item.qty = num(qty.value); paint(); };
   rate.oninput = () => { item.rate = num(rate.value); paint(); };
-  price.oninput = () => { item.price = num(price.value); paint(); };
+  price.oninput = () => {
+    // ล้างช่องราคาทิ้ง = กลับไปใช้ยอดที่คิดจากเรตให้เป็นตัวตั้งต้นอีกครั้ง
+    item.priceManual = price.value.trim() !== '';
+    item.price = num(price.value);
+    paint();
+  };
   total.oninput = () => {
     // พิมพ์ยอดรวมเองเมื่อไหร่ ให้ยอดนั้นชนะการคำนวณ ล้างช่องแล้วกลับมาคิดเอง
     item.totalManual = total.value.trim() !== '';
@@ -350,13 +375,10 @@ function renderSummary() {
     t.className = 't';
     t.textContent = label || 'รายการ';
     const sub = document.createElement('small');
-    sub.textContent = size
-      ? `${size.label} · ${round2(size.sqm * qty)} ตร.ม. × ${item.rate}`
-      : qty > 1
-        ? `${qty} ชิ้น × ${baht(price)}`
-        : item.detail && item.name
-          ? item.detail
-          : '';
+    // สรุปพูดภาษาเดียวกับใบเสร็จ: ขนาดกับจำนวน ไม่มีเรตต่อตารางเมตร
+    sub.textContent = [size ? size.label : '', qty > 1 ? `${qty} ชิ้น × ${baht(price)}` : '']
+      .filter(Boolean)
+      .join(' · ') || (item.detail && item.name ? item.detail : '');
     if (sub.textContent) t.appendChild(sub);
 
     const v = document.createElement('span');
@@ -414,37 +436,39 @@ let token = null; // โทเคนของ LIFF — ไม่มีเมื�
 // แปลงสิ่งที่กรอกเป็นรูปแบบที่ API รับ (เหมือนที่บอทสร้างจากข้อความในแชต)
 function toPayload() {
   const items = [];
+  const workings = [];
   for (const item of state.items) {
-    const { size, qty, price, total } = computeItem(item);
+    const { size, qty, suggested, price, total } = computeItem(item);
     const label = (item.name || item.detail || '').trim();
     if (!label && !(total > 0)) continue;
-    items.push(
-      size
-        ? {
-            item_name: label || 'งานป้าย',
-            size: size.label,
-            quantity: round2(size.sqm * qty),
-            unit: 'ตร.ม.',
-            unit_price: round2(item.rate),
-            total,
-          }
-        : {
-            item_name: label || 'รายการ',
-            size: item.name && item.detail ? item.detail.slice(0, 100) : null,
-            quantity: qty,
-            unit: null,
-            unit_price: round2(price),
-            total,
-          }
-    );
+
+    // ใบเสร็จเห็นแค่นี้: ชื่อ · ขนาด (กว้าง × ยาว) · จำนวนชิ้น · ราคาที่ร้านตั้ง
+    items.push({
+      item_name: label || 'รายการ',
+      size: size ? size.label : item.name && item.detail ? item.detail.slice(0, 100) : null,
+      quantity: qty,
+      unit: null,
+      unit_price: round2(price),
+      total,
+    });
+
+    // ส่วนวิธีคิดของร้านไปอยู่ในหมายเหตุ ซึ่งไม่ขึ้นทั้งใบเสร็จและบิลลูกค้า
+    if (size && item.rate > 0) {
+      workings.push(`${label || 'รายการ'}: ${size.sqm} ตร.ม. × ${numText(item.rate)} = ${suggested}`);
+    }
   }
+
+  const note = [state.note.trim(), workings.length ? 'คิดตาม ตร.ม. — ' + workings.join(' | ') : '']
+    .filter(Boolean)
+    .join('\n');
+
   return {
     jobName: null, // ให้เซิร์ฟเวอร์ตั้งชื่อจากหมวดของรายการ เหมือนทางแชต
     customerName: state.customer.trim() || null,
     jobDate: state.date,
     items,
     paidAmount: Math.min(state.paid, grandTotal()),
-    note: state.note.trim() || null,
+    note: note || null,
     images: state.items.map((i) => i.image).filter(Boolean).slice(0, 4),
   };
 }
