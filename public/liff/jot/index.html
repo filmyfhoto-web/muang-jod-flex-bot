@@ -170,40 +170,67 @@
     <label class="field">
       <span>รายละเอียด</span>
       <span class="input-wrap"><i class="ic">📄</i>
-        <input class="i-detail" type="text" placeholder="เช่น ป้ายไวนิล 60x120 ซม." autocomplete="off" />
+        <input class="i-detail" type="text" placeholder="เช่น ป้ายไวนิล ตอกตาไก่" autocomplete="off" />
       </span>
     </label>
 
-    <div class="grid-2">
+    <div class="grid-3">
       <label class="field">
-        <span>ราคา (บาท)</span>
-        <span class="input-wrap"><i class="ic">🏷</i>
-          <input class="i-price" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 700" />
+        <span>กว้าง</span>
+        <span class="input-wrap"><i class="ic">↔</i>
+          <input class="i-w" type="number" inputmode="decimal" min="0" step="0.01" placeholder="160" />
+        </span>
+      </label>
+      <label class="field">
+        <span>ยาว</span>
+        <span class="input-wrap"><i class="ic">↕</i>
+          <input class="i-h" type="number" inputmode="decimal" min="0" step="0.01" placeholder="300" />
         </span>
       </label>
       <label class="field">
         <span>จำนวน</span>
         <span class="input-wrap"><i class="ic">📦</i>
-          <input class="i-qty" type="number" inputmode="decimal" min="0" step="1" placeholder="เช่น 2" />
+          <input class="i-qty" type="number" inputmode="decimal" min="0" step="1" placeholder="1" />
         </span>
       </label>
     </div>
 
     <div class="grid-2">
       <label class="field">
+        <span>หน่วย</span>
+        <span class="input-wrap"><i class="ic">📐</i>
+          <select class="i-unit">
+            <option value="cm">เซนติเมตร</option>
+            <option value="m">เมตร</option>
+            <option value="inch">นิ้ว</option>
+            <option value="ft">ฟุต</option>
+          </select>
+        </span>
+      </label>
+      <label class="field">
         <span>ตรมละ (บาท)</span>
         <span class="input-wrap"><i class="ic">🧮</i>
           <input class="i-rate" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 165" />
         </span>
       </label>
-      <div class="field">
-        <span>แนบรูป</span>
-        <label class="drop">
-          <input class="i-file" type="file" accept="image/*" hidden />
-          <span class="drop-ic">🖼</span>
-          <span class="drop-text">แตะเพื่อแนบรูป<small>ไม่บังคับ</small></span>
-        </label>
-      </div>
+    </div>
+
+    <p class="hint area-hint" hidden></p>
+
+    <label class="field">
+      <span>ราคา (บาท) <em class="tag-bill">โชว์ในใบเสร็จ</em></span>
+      <span class="input-wrap"><i class="ic">🏷</i>
+        <input class="i-price" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 700" />
+      </span>
+    </label>
+
+    <div class="field">
+      <span>แนบรูป</span>
+      <label class="drop">
+        <input class="i-file" type="file" accept="image/*" hidden />
+        <span class="drop-ic">🖼</span>
+        <span class="drop-text">แตะเพื่อแนบรูป<small>ไม่บังคับ</small></span>
+      </label>
     </div>
 
     <div class="preview" hidden>
@@ -217,8 +244,6 @@
         <input class="i-total" type="number" inputmode="decimal" min="0" step="0.01" placeholder="ระบบจะคำนวณให้อัตโนมัติ" />
       </span>
     </label>
-
-    <p class="hint area-hint" hidden></p>
 
     <div class="pair card-actions">
       <button class="btn btn-primary act-save" type="button">💾 บันทึก</button>

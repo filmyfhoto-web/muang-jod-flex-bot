@@ -314,6 +314,12 @@ main > *:not(.track):not(.dots) { margin-left: 14px; margin-right: 14px; }
 .field { display: block; margin-bottom: 12px; }
 .field > span:first-child { display: block; font-size: 13px; font-weight: 600; color: var(--sub); margin-bottom: 6px; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+/* กว้าง / ยาว / จำนวน อยู่แถวเดียวกัน จะได้เห็นว่ามันเป็นเรื่องเดียวกัน */
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+/* สามช่องบนจอแคบต้องไม่บีบจนไอคอนกินที่หมด — ตัวเลขสำคัญกว่าไอคอน
+ * (เขียนให้ specificity ชนะกฎช่องกรอกทั่วไปที่อยู่ถัดลงไป ไม่งั้นเลขโดนบัง) */
+.grid-3 .input-wrap .ic { display: none; }
+.grid-3 input[type='number'] { padding-left: 13px; padding-right: 13px; text-align: center; }
 
 /* ไอคอนนำหน้าช่องกรอก ตามแบบที่ให้มา */
 .input-wrap { position: relative; display: block; }
@@ -337,7 +343,8 @@ main > *:not(.track):not(.dots) { margin-left: 14px; margin-right: 14px; }
 
 input[type='text'],
 input[type='number'],
-input[type='date'] {
+input[type='date'],
+select {
   width: 100%;
   min-height: 50px;
   padding: 12px 13px 12px 44px;
@@ -349,16 +356,42 @@ input[type='date'] {
   border-radius: 14px;
   appearance: none;
 }
+/* ลูกศรขึ้น-ลงของช่องตัวเลขกินความกว้างที่ช่องแคบ ๆ ไม่มีให้เสีย */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button { appearance: none; margin: 0; }
+input[type='number'] { -moz-appearance: textfield; }
+
 input::placeholder { color: var(--grey); font-size: 14.5px; }
-input:focus { outline: none; border-color: var(--accent); background: var(--surface); }
+input:focus, select:focus { outline: none; border-color: var(--accent); background: var(--surface); }
 input.auto { color: var(--accent-text); font-weight: 700; }
 input[readonly] { background: var(--accent-soft); }
+
+/* ป้ายเล็ก ๆ บอกว่าช่องนี้แหละที่ลูกค้าจะเห็น */
+.tag-bill {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-text);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 2px 8px;
+  margin-left: 6px;
+}
 
 .icon-btn { border: 0; background: none; color: var(--grey); font-size: 17px; line-height: 1; padding: 6px; cursor: pointer; }
 .icon-btn:hover { color: var(--red); }
 .item .del { position: relative; z-index: 2; }
 
 .hint { margin: -4px 0 12px; font-size: 12.5px; font-weight: 600; color: var(--accent-text); }
+/* วิธีคิดของร้าน — คนละเรื่องกับตัวเลขที่ลูกค้าเห็น จึงหน้าตาไม่เหมือนกัน */
+.area-hint {
+  background: var(--tint);
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  padding: 8px 11px;
+  color: var(--sub);
+  font-weight: 600;
+}
 
 .drop {
   display: flex; align-items: center; gap: 10px;
