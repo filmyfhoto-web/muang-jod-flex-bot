@@ -106,11 +106,6 @@ app.get('/health', async (req, res) => {
   // it — and that difference is invisible from the chat.
   body.vision = process.env.ANTHROPIC_API_KEY ? 'on' : 'off';
 
-  // Same for voice notes, which need a transcriber — and which one, since the
-  // bot takes whichever key is set.
-  const { transcriberName } = await import('./services/transcriptionService.js');
-  body.voice = transcriberName() || 'off';
-
   res.json(body);
 });
 
