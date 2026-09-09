@@ -11,7 +11,7 @@
 //                    z-index and an image cannot overflow its bubble.
 import sharp from 'sharp';
 
-const POSES = ['peek', 'rest', 'hello', 'pen', 'wave', 'sit', 'sleep', 'happy'];
+const POSES = ['peek', 'rest', 'hello', 'pen', 'wave', 'sit', 'sleep', 'happy', 'nap'];
 const OUT = 'public/brand/ui';
 
 for (const pose of POSES) {
