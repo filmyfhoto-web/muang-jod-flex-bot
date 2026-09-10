@@ -78,7 +78,7 @@ const NOT_A_NAME =
 
 // Pull out a customer name: an honorific + name (พี่นก), an organisation
 // (รพสตบ้านชี, โรงเรียนบ้านหนอง), else "ร้าน<name>".
-function extractCustomer(text) {
+export function extractCustomer(text) {
   const honor = new RegExp(`(${HONORIFICS.join('|')})\\s*([ก-๙A-Za-z]{1,20})`);
   const m = text.match(honor);
   if (m && !NOT_A_NAME.test(m[2])) {

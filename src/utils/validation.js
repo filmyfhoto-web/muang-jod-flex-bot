@@ -19,6 +19,8 @@ export const POSTBACK_ACTIONS = [
   'delete_job',
   'pick_category',
   'create_bill',
+  'bill_all',
+  'bill_job',
   'bill_payment',
   'view_receipt',
   'open_dashboard',

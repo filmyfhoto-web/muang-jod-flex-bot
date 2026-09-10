@@ -8,10 +8,15 @@ import {
   getLatestBill,
 } from '../services/billService.js';
 import { getJobById } from '../services/jobService.js';
-import { billFlex, billCustomersFlex, billReceiptFlex } from '../flex/billFlex.js';
+import { billFlex, billCustomersFlex, billJobsFlex, billReceiptFlex } from '../flex/billFlex.js';
 
 // action=create_bill — no customer yet: show who has unbilled work.
-//                      with customer: bill everything of theirs at once.
+//                      with customer: show that customer's jobs to choose from.
+//
+// Picking a customer used to bill every job they had waiting, in one lump. A
+// shop that finishes one of three jobs and wants to hand over a receipt for it
+// could not: the other two were dragged onto the same bill. So the choice is
+// the shop's now — a job to bill it on its own, or รวมทุกงาน to combine.
 export async function createBillAction({ replyToken, profile, params }) {
   const customer = params?.customer;
 
@@ -30,8 +35,29 @@ export async function createBillAction({ replyToken, profile, params }) {
     });
   }
 
+  // One job is not a choice — asking which of the one they meant is a tap for
+  // nothing, so bill it.
+  if (jobs.length === 1) return billJobs(replyToken, profile.id, jobs, customerName);
+
+  return reply(replyToken, billJobsFlex(customerName, jobs));
+}
+
+// action=bill_all&customer=… — the old behaviour, kept where it belongs: as a
+// choice at the bottom of the job list rather than the only thing that happens.
+export async function billAllForCustomer({ replyToken, profile, params }) {
+  const customer = params?.customer;
+  const customerName = customer === '' || customer === undefined ? null : customer;
+  const jobs = await getBillableJobs(profile.id, { customerName });
+  if (!jobs.length) {
+    return reply(replyToken, { type: 'text', text: 'ไม่มีงานที่รอออกบิลของลูกค้ารายนี้แล้วค่ะ 💜' });
+  }
+  return billJobs(replyToken, profile.id, jobs, customerName);
+}
+
+// Make one bill out of these jobs and show it.
+async function billJobs(replyToken, userId, jobs, customerName) {
   const bill = await createBill(
-    profile.id,
+    userId,
     jobs.map((j) => j.id),
     { customerName }
   );
@@ -40,7 +66,13 @@ export async function createBillAction({ replyToken, profile, params }) {
   }
 
   return reply(replyToken, [
-    { type: 'text', text: `รวม ${bill.jobs.length} รายการเป็นบิลเดียวให้แล้วค่ะ 💜` },
+    {
+      type: 'text',
+      text:
+        bill.jobs.length === 1
+          ? 'ออกบิลให้งานนี้แล้วค่ะ 💜'
+          : `รวม ${bill.jobs.length} รายการเป็นบิลเดียวให้แล้วค่ะ 💜`,
+    },
     billFlex(bill),
   ]);
 }
