@@ -19,7 +19,9 @@ const font400 = b64('node_modules/@fontsource/noto-sans-thai/files/noto-sans-tha
 const font700 = b64('node_modules/@fontsource/noto-sans-thai/files/noto-sans-thai-thai-700-normal.woff2');
 
 // Cut-outs on transparent ground, so they sit on a card without a seam.
-const dogPen = b64('public/brand/mascot-pen.png');
+// The clipboard-and-pen pose, closest to the design's dog holding a checklist.
+// mascot-pen.png is the same dog sitting side-on with only a pencil.
+const dogPen = b64('public/brand/mascot.png');
 const dogHappy = b64('public/brand/mascot-happy.png');
 
 // ---------------------------------------------------------------- geometry --
