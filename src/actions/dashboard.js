@@ -18,5 +18,8 @@ export async function openDashboard({ replyToken, profile }) {
     ]);
   }
 
-  return reply(replyToken, [dashboardFlex(dash), { type: 'text', text: `เปิดแดชบอร์ดเต็มจอได้ที่นี่ค่ะ\n${url}` }]);
+  // No link message after the card: the card's own "📊 เปิดแดชบอร์ด" button
+  // goes to the same place, and a raw URL under it only earns a link preview
+  // nobody asked for.
+  return reply(replyToken, dashboardFlex(dash));
 }
