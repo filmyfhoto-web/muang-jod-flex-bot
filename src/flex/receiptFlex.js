@@ -4,7 +4,7 @@ import { jobCategory, categoryLabel, itemIcon } from '../utils/category.js';
 import { COLORS } from './theme.js';
 import { divider } from './components/divider.js';
 import { brandAssetUrl, MASCOT } from '../utils/brand.js';
-import { liffUrl } from '../utils/liff.js';
+import { liffUrl, quickFormUrl } from '../utils/liff.js';
 import { dueLine } from './components/dueLine.js';
 import { joinMeta } from './components/metaLine.js';
 
@@ -133,10 +133,12 @@ export function receiptFlex(job, opts = {}) {
     opts.mascotImageUrl !== undefined
       ? opts.mascotImageUrl
       : process.env.BRAND_MASCOT_IMAGE_URL || brandAssetUrl(MASCOT.clipboard);
-  const heroUrl =
-    opts.heroImageUrl !== undefined
-      ? opts.heroImageUrl
-      : process.env.BRAND_HERO_IMAGE_URL || brandAssetUrl('ui/card-hero.png');
+  // No hero strip on this card. It carries the same dog as the mascot in the
+  // panel below it, so the card showed the dog twice — and the strip is a
+  // dark-navy asset left from the dark theme, which now reads as a black band
+  // cut through a white card. The mascot in the panel is the one that stays.
+  // An explicit heroImageUrl still wins, for a caller that wants one back.
+  const heroUrl = opts.heroImageUrl !== undefined ? opts.heroImageUrl : null;
 
   // ✓ in a purple circle + title/subtitle, on a white background.
   const header = {
@@ -284,6 +286,17 @@ export function receiptFlex(job, opts = {}) {
         displayText: 'แก้ไขรายการ',
       };
 
+  const addMoreUrl =
+    opts.addMoreUrl !== undefined ? opts.addMoreUrl : quickFormUrl({ customer: job.customer_name });
+  const addMoreAction = addMoreUrl
+    ? { type: 'uri', label: '➕ เพิ่มงานอีก', uri: addMoreUrl }
+    : {
+        type: 'postback',
+        label: '➕ เพิ่มงานอีก',
+        data: `action=add_more&customer=${encodeURIComponent(job.customer_name || '')}`,
+        displayText: job.customer_name ? `เพิ่มงานอีกของ ${job.customer_name}` : 'เพิ่มงานอีก',
+      };
+
   const footer = {
     type: 'box',
     layout: 'vertical',
@@ -291,20 +304,17 @@ export function receiptFlex(job, opts = {}) {
     paddingAll: 'lg',
     paddingTop: 'sm',
     contents: [
-      // One customer often brings several jobs in one visit. Without this the
-      // shop has to go back to the menu and re-type the customer's name for
-      // every one of them.
+      // One customer often brings several jobs in one visit. This opens the
+      // form straight away with the name already in it — the shop asked to add
+      // the next job in the form rather than being sent back to the chat to
+      // type it. Without a LIFF app configured it falls back to that chat path,
+      // which still remembers the customer.
       {
         type: 'button',
         style: 'primary',
         color: COLORS.accent,
         height: 'sm',
-        action: {
-          type: 'postback',
-          label: '➕ เพิ่มงานอีก',
-          data: `action=add_more&customer=${encodeURIComponent(job.customer_name || '')}`,
-          displayText: job.customer_name ? `เพิ่มงานอีกของ ${job.customer_name}` : 'เพิ่มงานอีก',
-        },
+        action: addMoreAction,
       },
       {
         type: 'box',
