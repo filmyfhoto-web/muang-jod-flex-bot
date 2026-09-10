@@ -1,4 +1,6 @@
 import { readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import linebot from '@line/bot-sdk';
 import { lineConfig } from '../config/line.js';
 import { buildAreas, LAYOUT } from '../../scripts/create-rich-menu.js';
@@ -12,7 +14,21 @@ import { logger } from './logger.js';
 const { MessagingApiClient, MessagingApiBlobClient } = linebot.messagingApi;
 
 export const RICH_MENU_NAME = 'muang-jod-main';
-const IMAGE_PATH = process.env.RICH_MENU_IMAGE_PATH || './assets/rich-menu.png';
+
+// The artwork is a JPEG now: two photographic cut-outs over wide gradients came
+// to ~1.5 MB as a PNG, over LINE's 1 MB cap. This used to name the .png
+// outright, so after that change the install button threw ENOENT and the menu
+// silently never appeared. Look for whichever file is actually there, and take
+// the content type from its name rather than assuming.
+const ROOT = fileURLToPath(new URL('../../', import.meta.url));
+const CANDIDATES = ['assets/rich-menu.jpg', 'assets/rich-menu.png'];
+
+export function resolveImage(env = process.env, root = ROOT) {
+  const override = String(env.RICH_MENU_IMAGE_PATH ?? '').trim();
+  const path = override || CANDIDATES.map((c) => root + c).find((c) => existsSync(c)) || root + CANDIDATES[0];
+  const contentType = /\.png$/i.test(path) ? 'image/png' : 'image/jpeg';
+  return { path, contentType };
+}
 
 function clients(deps = {}) {
   if (deps.client && deps.blobClient) return deps;
@@ -29,7 +45,8 @@ function clients(deps = {}) {
 // else's and is left alone.
 export async function installRichMenu(deps = {}) {
   const { client, blobClient } = clients(deps);
-  const readImage = deps.readImage || (() => readFile(IMAGE_PATH));
+  const { path, contentType } = deps.image || resolveImage();
+  const readImage = deps.readImage || (() => readFile(path));
 
   const image = await readImage();
 
@@ -42,7 +59,7 @@ export async function installRichMenu(deps = {}) {
   };
 
   const { richMenuId } = await client.createRichMenu(richMenu);
-  await blobClient.setRichMenuImage(richMenuId, new Blob([image], { type: 'image/png' }));
+  await blobClient.setRichMenuImage(richMenuId, new Blob([image], { type: deps.contentType || contentType }));
   await client.setDefaultRichMenu(richMenuId);
 
   const removed = [];
@@ -58,6 +75,6 @@ export async function installRichMenu(deps = {}) {
     logger.warn('richmenu.cleanup_failed', { message: err?.message });
   }
 
-  logger.info('richmenu.installed', { richMenuId, areas: richMenu.areas.length, removed: removed.length });
+  logger.info('richmenu.installed', { richMenuId, areas: richMenu.areas.length, removed: removed.length, image: path });
   return { richMenuId, areas: richMenu.areas.length, removed };
 }
