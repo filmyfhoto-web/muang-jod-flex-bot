@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { adminToken, keyMatches, readKey } from '../src/routes/admin.js';
-import { installRichMenu, RICH_MENU_NAME } from '../src/services/richMenuInstaller.js';
+import { installRichMenu, resolveImage, RICH_MENU_NAME } from '../src/services/richMenuInstaller.js';
+import { existsSync, statSync } from 'node:fs';
 import { buildAreas } from '../scripts/create-rich-menu.js';
 
 // The page installs a menu every user of the bot then sees, so the guard on it
@@ -79,7 +80,9 @@ test('installing uploads the image, sets the default, and sweeps up our old menu
   assert.equal(line.calls.created.areas.length, buildAreas().length, 'the CLI and the page install the same areas');
   assert.deepEqual(line.calls.created.size, { width: 2500, height: 1686 });
   assert.equal(line.calls.image.id, result.richMenuId, 'the image goes to the menu just created');
-  assert.equal(line.calls.image.type, 'image/png');
+  // Whatever the artwork actually is — hardcoding png here is what let the
+  // rename slip through unnoticed.
+  assert.equal(line.calls.image.type, resolveImage({}).contentType);
   assert.equal(line.calls.def, result.richMenuId, 'and that menu becomes the default');
 
   assert.deepEqual(line.calls.deleted, ['rm-old'], 'only our own old menu is removed');
@@ -95,4 +98,26 @@ test('a menu that cannot be swept up does not fail the install', async () => {
   const result = await installRichMenu({ ...line, readImage: async () => Buffer.from('PNGDATA') });
   assert.equal(line.calls.def, result.richMenuId, 'the new menu is live regardless');
   assert.deepEqual(result.removed, []);
+});
+
+test('the artwork the installer will upload actually exists', () => {
+  // The other tests here stub readImage, so when the artwork was renamed from
+  // .png to .jpg they all still passed while the install button threw ENOENT
+  // and the menu silently never appeared. This one touches the real file.
+  const { path, contentType } = resolveImage({});
+  assert.ok(existsSync(path), `installer points at ${path}, which is not there`);
+  assert.equal(contentType, /\.png$/i.test(path) ? 'image/png' : 'image/jpeg');
+
+  // LINE rejects anything over 1 MB, and the upload is the only place that
+  // would tell you — after the menu row has already been created.
+  const kb = statSync(path).size / 1024;
+  assert.ok(kb <= 1024, `${path} is ${kb.toFixed(0)} KB, over LINE's 1024 KB limit`);
+});
+
+test('an explicit RICH_MENU_IMAGE_PATH wins, and sets its own content type', () => {
+  assert.deepEqual(resolveImage({ RICH_MENU_IMAGE_PATH: '/tmp/menu.png' }), {
+    path: '/tmp/menu.png',
+    contentType: 'image/png',
+  });
+  assert.equal(resolveImage({ RICH_MENU_IMAGE_PATH: '/tmp/menu.jpg' }).contentType, 'image/jpeg');
 });
