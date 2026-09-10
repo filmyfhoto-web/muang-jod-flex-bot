@@ -196,6 +196,23 @@
       <button class="btn btn-ghost" id="s-close">ปิดหน้าต่าง</button>
     </div>
     <div class="card">
+      <h2>ข้อมูลร้าน <span class="date">ขึ้นหัวใบเสร็จ</span></h2>
+      <label for="sh-name">ชื่อร้าน</label>
+      <input id="sh-name" maxlength="200" placeholder="เช่น ร้านม่วงป้ายโฆษณา" />
+      <label for="sh-phone">เบอร์โทร</label>
+      <input id="sh-phone" maxlength="200" inputmode="tel" placeholder="เช่น 081-234-5678" />
+      <label for="sh-address">ที่อยู่</label>
+      <textarea id="sh-address" rows="2" maxlength="500" placeholder="เช่น 99 ม.4 ต.บ้านชี อ.บ้านหมี่ จ.ลพบุรี"></textarea>
+      <label for="sh-tax">เลขประจำตัวผู้เสียภาษี</label>
+      <input id="sh-tax" maxlength="200" inputmode="numeric" placeholder="ไม่ใส่ก็ได้ค่ะ" />
+      <label for="sh-footer">ข้อความท้ายใบเสร็จ</label>
+      <textarea id="sh-footer" rows="2" maxlength="500" placeholder="เช่น ขอบคุณที่อุดหนุนค่ะ / เลขบัญชี ..."></textarea>
+      <button class="btn btn-primary" id="sh-save">บันทึกข้อมูลร้าน</button>
+      <p style="font-size:12.5px;color:var(--grey);margin:10px 0 0">
+        เว้นว่างได้ทุกช่อง ช่องที่ว่างจะไม่ขึ้นในใบเสร็จค่ะ
+      </p>
+    </div>
+    <div class="card">
       <img class="peek behind" src="/brand/ui/wave.png" alt="" style="right:12px;top:-50px;width:68px" />
       <h2>วิธีใช้แบบเร็ว</h2>
       <p style="font-size:13.5px;color:var(--sub);margin:0">
@@ -457,7 +474,40 @@ async function loadPending() {
   renderJobs($('p-list'), jobs, 'ไม่มีงานค้างรับค่ะ เก่งมาก 💜', { showDate: true });
 }
 
-const LOADERS = { today: loadToday, report: loadReport, pending: loadPending, settings: async () => {} };
+// ข้อมูลร้านขึ้นหัวใบเสร็จ โหลดตอนเปิดแท็บตั้งค่า ไม่ใช่ตอนเปิดแอป เพราะ
+// หน้าอื่นไม่ได้ใช้
+async function loadSettings() {
+  const { shop } = await api('/shop');
+  $('sh-name').value = shop.shop_name || '';
+  $('sh-phone').value = shop.phone || '';
+  $('sh-address').value = shop.address || '';
+  $('sh-tax').value = shop.tax_id || '';
+  $('sh-footer').value = shop.footer_note || '';
+}
+
+$('sh-save').onclick = async () => {
+  const btn = $('sh-save');
+  btn.disabled = true;
+  try {
+    await api('/shop', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        shop_name: $('sh-name').value.trim(),
+        phone: $('sh-phone').value.trim(),
+        address: $('sh-address').value.trim(),
+        tax_id: $('sh-tax').value.trim(),
+        footer_note: $('sh-footer').value.trim(),
+      }),
+    });
+    toast('บันทึกข้อมูลร้านแล้วค่ะ 💜');
+  } catch (err) {
+    toast(err.message, true);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+const LOADERS = { today: loadToday, report: loadReport, pending: loadPending, settings: loadSettings };
 
 async function show(name) {
   tab = name;

@@ -23,6 +23,7 @@ import { safe, jobPatchSchema, jobCreateSchema, paymentAmountSchema } from '../u
 import { liffId, liffChannelId } from '../utils/liff.js';
 import { CATEGORY_GROUPS, OTHER_GROUP } from '../utils/category.js';
 import { logger, maskUserId } from '../services/logger.js';
+import { getShopProfile, saveShopProfile, SHOP_FIELDS } from '../services/shopService.js';
 
 // JSON API behind the LIFF dashboard. Every request carries the LIFF access
 // token; LINE tells us which channel issued it and whose it is, and from that
@@ -154,6 +155,27 @@ export function createApiRouter(deps = {}) {
         profile: { id: req.profile.id, displayName: req.profile.display_name, pictureUrl: req.profile.picture_url },
         ...dash,
       });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // The shop's own details, for the receipt letterhead.
+  router.get('/shop', async (req, res, next) => {
+    try {
+      res.json({ shop: await getShopProfile(req.profile.id) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.patch('/shop', async (req, res, next) => {
+    try {
+      const patch = {};
+      for (const f of SHOP_FIELDS) {
+        if (f in (req.body || {})) patch[f] = req.body[f];
+      }
+      res.json({ shop: await saveShopProfile(req.profile.id, patch) });
     } catch (err) {
       next(err);
     }
