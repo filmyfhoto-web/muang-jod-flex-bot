@@ -41,3 +41,28 @@ test('never hijacks ordinary job text', () => {
   assert.equal(resolveMenuCommand(''), null);
   assert.equal(resolveMenuCommand(null), null);
 });
+
+test('a menu whose buttons send text still reaches every handler', () => {
+  // A Rich Menu can be built with "send message" actions instead of postbacks —
+  // the artwork's own labels arrive as ordinary chat text. Every button on the
+  // 9-area menu has to land somewhere, or it looks like the bot ignored a tap.
+  const buttons = {
+    'จดงาน': 'add_job',
+    'รายการล่าสุด/แก้ไข': 'recent_jobs',
+    'บันทึก/แนบสลิป': 'attach_evidence',
+    'งานค้าง': 'pending_payment',
+    'หมวดงาน': 'pick_category',
+    'ออกใบเสร็จ': 'create_bill',
+    'ตั้งค่า': 'open_dashboard',
+    'ช่วยเหลือ': 'help',
+    'แจ้งเตือนงาน': 'remind_job',
+    'ม่วงจดให้': 'home',
+  };
+  for (const [label, action] of Object.entries(buttons)) {
+    assert.equal(resolveMenuCommand(label), action, `${label} does not reach ${action}`);
+  }
+
+  // The small captions printed under a heading, in case those are sent instead.
+  assert.equal(resolveMenuCommand('ดูงานทั้งหมด'), 'recent_jobs');
+  assert.equal(resolveMenuCommand('ปรับแต่งแอป'), 'open_dashboard');
+});
