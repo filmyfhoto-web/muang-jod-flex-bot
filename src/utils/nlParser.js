@@ -11,7 +11,30 @@ import { parseAreaPricing, areaItem, areaWorking } from './area.js';
 const UNIT_WORDS = ['ป้าย', 'ชิ้น', 'อัน', 'ใบ', 'แผ่น', 'ตัว', 'ม้วน', 'กล่อง', 'ชุด', 'เมตร', 'ผืน', 'โหล', 'คู่'];
 // Note: short honorifics like "ป้า"/"อา" are intentionally excluded — they
 // collide with common words ("ป้าย" = sign), causing false customer matches.
-const HONORIFICS = ['พี่', 'คุณ', 'น้อง', 'เจ๊', 'เฮีย', 'ลุง'];
+// Longest first: "ผู้ใหญ่" has to win before anything shorter inside it can.
+// "ป้า" needs the guard — every second job here is a ป้าย, and "ป้ายไวนิล"
+// would otherwise be read as a customer called "ยไวนิล".
+const HONORIFICS = [
+  'ผู้ใหญ่',
+  'กำนัน',
+  'ท่าน',
+  'พี่',
+  'คุณ',
+  'น้อง',
+  'เจ๊',
+  'เฮีย',
+  'ลุง',
+  'ยาย',
+  'แม่',
+  'พ่อ',
+  'ครู',
+  'หมอ',
+  'ผอ\\.?',
+  // Both need guards against words this shop says all day: "หน้าร้าน" is not
+  // an aunt called ร้าน, and "ป้ายไวนิล" is not an aunt called ยไวนิล.
+  '(?<!ห)น้า',
+  'ป้า(?!ย)',
+];
 // ลูกค้าที่เป็นหน่วยงาน — "รพสตบ้านชี", "โรงเรียนบ้านหนอง", "อบต.นาดี"
 // เรียงยาวไปสั้น เพื่อให้ "รพ.สต." ชนะ "รพ."
 const ORG_PREFIXES = [
@@ -48,7 +71,10 @@ function extractPaid(text) {
 
 // คำที่ตามหลังคำนำหน้าแล้วแปลว่า "ไม่ใช่ชื่อ" — กัน "ป้ายวัดขนาด 2x3"
 // กลายเป็นลูกค้าชื่อ "วัดขนาด"
-const NOT_A_NAME = /^(ขนาด|ราคา|จำนวน|ไวนิล|สติกเกอร์|ป้าย|งาน|ทำ|ละ|ค่า|กว้าง|ยาว)/;
+// A second line of defence: even if an honorific matches by accident, these
+// are words about the work, never a person's name.
+const NOT_A_NAME =
+  /^(ขนาด|ราคา|จำนวน|ไวนิล|สติกเกอร์|สติ๊กเกอร์|ป้าย|งาน|ทำ|ละ|ค่า|กว้าง|ยาว|หน้า|ร้าน|พิมพ์|โฟม|สี|ตรา|บาท)/;
 
 // Pull out a customer name: an honorific + name (พี่นก), an organisation
 // (รพสตบ้านชี, โรงเรียนบ้านหนอง), else "ร้าน<name>".

@@ -290,6 +290,21 @@ export function receiptFlex(job, opts = {}) {
     paddingAll: 'lg',
     paddingTop: 'sm',
     contents: [
+      // One customer often brings several jobs in one visit. Without this the
+      // shop has to go back to the menu and re-type the customer's name for
+      // every one of them.
+      {
+        type: 'button',
+        style: 'primary',
+        color: COLORS.accent,
+        height: 'sm',
+        action: {
+          type: 'postback',
+          label: '➕ เพิ่มงานอีก',
+          data: `action=add_more&customer=${encodeURIComponent(job.customer_name || '')}`,
+          displayText: job.customer_name ? `เพิ่มงานอีกของ ${job.customer_name}` : 'เพิ่มงานอีก',
+        },
+      },
       {
         type: 'box',
         layout: 'horizontal',
