@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createMockSupabase } from './helpers/mockSupabase.js';
 import { getDashboard, breakdownByCategory, trendVs } from '../src/services/dashboardService.js';
 import { dashboardFlex } from '../src/flex/dashboardFlex.js';
@@ -138,4 +139,15 @@ test('dashboardFlex: empty day says so and omits the dashboard button without LI
   assert.ok(json.includes('วันนี้ยังไม่มีงาน'));
   assert.ok(!json.includes('สัดส่วนงานวันนี้')); // nothing to split
   assert.ok(!json.includes('"type":"uri"'));
+});
+
+test('the dashboard card goes out on its own, without a URL under it', () => {
+  // The card already carries a "📊 เปิดแดชบอร์ด" button to the same place.
+  // A raw link under it only bought a link preview nobody asked for.
+  const action = readFileSync(new URL('../src/actions/dashboard.js', import.meta.url), 'utf8');
+  assert.ok(!action.includes('เปิดแดชบอร์ดเต็มจอ'), 'the link message is back');
+  assert.match(action, /return reply\(replyToken, dashboardFlex\(dash\)\);/);
+
+  // Without LIFF there is no web view to open, so that path keeps its note.
+  assert.match(action, /if \(!url\)/);
 });
