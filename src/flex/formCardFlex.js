@@ -27,7 +27,7 @@ const SUB = '#3D4C73';
 const GREY = '#8794B4';
 
 // ชิปไอคอนสี่เหลี่ยมมนหน้าช่อง เหมือนในแบบ
-function iconChip(emoji, { size = '24px', bg = BLUE_SOFT, text = 'xs', color = BLUE_DEEP } = {}) {
+function iconChip(emoji, { size = '20px', bg = BLUE_SOFT, text = 'xxs', color = BLUE_DEEP } = {}) {
   return {
     type: 'box',
     layout: 'vertical',
@@ -52,17 +52,18 @@ function field(label, emoji, placeholder, opts = {}) {
     cornerRadius: 'lg',
     borderWidth: '1px',
     borderColor: LINE_SOFT,
-    // แน่นกว่านี้ไม่ได้แล้ว: ช่องกรอกสิบช่องบนการ์ดใบเดียว ทุก px ที่ประหยัด
-    // ได้คือหนึ่งบรรทัดที่ไม่ตกจอ
-    paddingAll: 'sm',
-    spacing: 'sm',
+    // แถวพวกนี้เป็น "รูปของฟอร์ม" ไม่ใช่ฟอร์ม พิมพ์ลงไปไม่ได้อยู่แล้ว
+    // จึงต้องการแค่พออ่านออก ไม่ต้องใหญ่พอให้นิ้วกด — ทุก px ที่ประหยัดได้
+    // คือหนึ่งบรรทัดที่ไม่ตกจอ
+    paddingAll: 'xs',
+    spacing: 'xs',
     alignItems: 'center',
     contents: [
       iconChip(emoji),
       {
         type: 'text',
         text: placeholder,
-        size: 'sm',
+        size: 'xs',
         color: opts.value ? INK : GREY,
         weight: opts.value ? 'bold' : 'regular',
         wrap: false,
@@ -88,7 +89,7 @@ function pair(left, right) {
 // หัวการ์ด: ชิปไอคอนม่วง + ชื่อ/คำโปรย + น้องหมามุมขวา
 function cardHead(title, subtitle, emoji, mascot) {
   const contents = [
-    iconChip(emoji, { size: '38px', bg: BLUE, text: 'lg', color: CARD }),
+    iconChip(emoji, { size: '34px', bg: BLUE, text: 'md', color: CARD }),
     {
       type: 'box',
       layout: 'vertical',
@@ -149,7 +150,7 @@ function formBubble(formUrl) {
   return {
     type: 'bubble',
     size: 'mega',
-    body: { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: 'md', contents: body },
+    body: { type: 'box', layout: 'vertical', spacing: 'xs', paddingAll: 'md', contents: body },
     footer: {
       type: 'box',
       layout: 'horizontal',
