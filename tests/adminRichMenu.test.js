@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { adminToken, keyMatches, readKey } from '../src/routes/admin.js';
-import { installRichMenu, resolveImage, getRichMenuStatus, RICH_MENU_NAME } from '../src/services/richMenuInstaller.js';
+import { installRichMenu, resolveImage, getRichMenuStatus, ensureRichMenu, menuIsCurrent, RICH_MENU_NAME } from '../src/services/richMenuInstaller.js';
 import { existsSync, statSync } from 'node:fs';
 import { buildAreas } from '../scripts/create-rich-menu.js';
 
@@ -172,4 +172,83 @@ test('a channel with no default at all is reported, not thrown', async () => {
 
   const empty = await getRichMenuStatus(fakeStatus({}));
   assert.deepEqual(empty.menus, []);
+});
+
+test('boot installs the menu only when the live one does not match', async () => {
+  const current = {
+    menus: [{ id: 'rm-1', name: RICH_MENU_NAME, size: { width: 2500, height: 1686 }, areas: buildAreas().length, isDefault: true }],
+    expected: { name: RICH_MENU_NAME, size: { width: 2500, height: 1686 }, areas: buildAreas().length },
+  };
+  assert.equal(menuIsCurrent(current), true, 'same name, size and area count');
+
+  // The old menu: same name and size, twelve areas instead of nine.
+  const stale = { ...current, menus: [{ ...current.menus[0], areas: 12 }] };
+  assert.equal(menuIsCurrent(stale), false, 'a different area count is a different menu');
+
+  // Nothing set as default, and somebody else's menu, are both "not ours".
+  assert.equal(menuIsCurrent({ ...current, menus: [{ ...current.menus[0], isDefault: false }] }), false);
+  assert.equal(menuIsCurrent({ ...current, menus: [{ ...current.menus[0], name: 'other-bot' }] }), false);
+  assert.equal(menuIsCurrent({ menus: [], expected: current.expected }), false);
+});
+
+test('boot never lets a menu failure stop the bot', async () => {
+  // The bot answering messages matters more than its menu being current.
+  const exploding = {
+    client: {
+      getRichMenuList: async () => {
+        throw new Error('LINE is down');
+      },
+      getDefaultRichMenuId: async () => null,
+    },
+    blobClient: {},
+  };
+  const result = await ensureRichMenu({}, exploding);
+  assert.ok(result.error, 'the failure is reported, not thrown');
+});
+
+test('boot does nothing when the menu is already live, or when switched off', async () => {
+  const line = fakeLine();
+  const live = {
+    ...line,
+    client: {
+      ...line.client,
+      getRichMenuList: async () => ({
+        richmenus: [
+          { richMenuId: 'rm-live', name: RICH_MENU_NAME, size: { width: 2500, height: 1686 }, areas: buildAreas() },
+        ],
+      }),
+      getDefaultRichMenuId: async () => ({ richMenuId: 'rm-live' }),
+    },
+  };
+
+  const skipped = await ensureRichMenu({}, live);
+  assert.equal(skipped.skipped, 'already current');
+  assert.equal(line.calls.created, null, 'a restart must not re-upload the same menu');
+
+  const off = await ensureRichMenu({ RICH_MENU_AUTO_INSTALL: '0' }, live);
+  assert.equal(off.skipped, 'disabled');
+});
+
+test('boot installs when the live menu is the old one', async () => {
+  const line = fakeLine([{ richMenuId: 'rm-old', name: RICH_MENU_NAME }]);
+  const stale = {
+    ...line,
+    client: {
+      ...line.client,
+      getRichMenuList: async () => ({
+        richmenus: [
+          // The old menu: right name, twelve areas.
+          { richMenuId: 'rm-old', name: RICH_MENU_NAME, size: { width: 2500, height: 1686 }, areas: new Array(12) },
+        ],
+      }),
+      getDefaultRichMenuId: async () => ({ richMenuId: 'rm-old' }),
+    },
+    readImage: async () => Buffer.from('IMAGEDATA'),
+  };
+
+  const result = await ensureRichMenu({}, stale);
+
+  assert.ok(result.richMenuId, 'a menu was installed');
+  assert.equal(line.calls.created.areas.length, buildAreas().length, 'the current areas went up');
+  assert.equal(line.calls.def, result.richMenuId, 'and it was made the default');
 });

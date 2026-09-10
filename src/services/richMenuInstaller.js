@@ -68,6 +68,61 @@ export async function getRichMenuStatus(deps = {}) {
   return { defaultId, menus, expected: { name: RICH_MENU_NAME, size: LAYOUT, areas: buildAreas().length } };
 }
 
+// Is LINE already showing the menu this build ships?
+//
+// The menu is identified by its shape, not by an id we store: the id changes
+// every install, and the thing that actually matters is whether what the shop
+// sees matches what the code draws. A different area count is the reliable
+// tell — the old menu had 12 where this one has 9.
+export function menuIsCurrent(status) {
+  const active = status?.menus?.find((m) => m.isDefault);
+  if (!active) return false;
+  return (
+    active.name === status.expected.name &&
+    active.areas === status.expected.areas &&
+    active.size?.width === status.expected.size.width &&
+    active.size?.height === status.expected.size.height
+  );
+}
+
+// Install the menu on boot when it is not already the live one.
+//
+// Every other way in costs the shop a step somewhere else — an env var to set,
+// a page to find, a terminal to open — and each of those is a place to get
+// stuck. The bot already holds the channel token, so it can just do this.
+//
+// Safe to run on every boot: it looks first and does nothing when the live menu
+// already matches, so a restart is not an upload. It never throws — a menu that
+// failed to install must not stop the bot from answering messages.
+// RICH_MENU_AUTO_INSTALL=0 turns it off.
+export async function ensureRichMenu(env = process.env, deps = {}) {
+  if (String(env.RICH_MENU_AUTO_INSTALL ?? '1') === '0') {
+    logger.info('richmenu.auto_skipped', { reason: 'disabled' });
+    return { skipped: 'disabled' };
+  }
+
+  try {
+    const status = await getRichMenuStatus(deps);
+    if (menuIsCurrent(status)) {
+      logger.info('richmenu.auto_ok', { richMenuId: status.defaultId });
+      return { skipped: 'already current', richMenuId: status.defaultId };
+    }
+
+    const active = status.menus.find((m) => m.isDefault);
+    logger.info('richmenu.auto_installing', {
+      was: active ? `${active.name} · ${active.areas} areas` : 'none',
+      want: `${status.expected.name} · ${status.expected.areas} areas`,
+    });
+
+    const result = await installRichMenu(deps);
+    logger.info('richmenu.auto_installed', { richMenuId: result.richMenuId, areas: result.areas });
+    return result;
+  } catch (err) {
+    logger.error('richmenu.auto_failed', { message: err?.body ? JSON.stringify(err.body) : err?.message });
+    return { error: err?.message || String(err) };
+  }
+}
+
 // Create the menu, upload its image, make it the default, then clear away the
 // menus this bot created before. Only menus carrying our own name are removed,
 // and never the one just installed — anything else in the channel is somebody
