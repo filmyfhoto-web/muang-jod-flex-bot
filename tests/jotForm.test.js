@@ -163,3 +163,16 @@ test('quick mode is a sheet: no chat, no summary card, a total bar that stays pu
   assert.match(css, /\.quickbar\s*\{[^}]*position:\s*fixed/);
   assert.match(css, /body\.quick main\s*\{[^}]*padding-bottom:\s*\d+px/);
 });
+
+test('the dashboard opens whichever tab the link asks for', () => {
+  // The rich menu links straight to ?tab=settings and ?tab=pending. The page
+  // used to accept only 'pending' and send everything else to งานวันนี้, so
+  // the ตั้งค่า button would have opened the wrong screen.
+  const tabs = [...dashboard.matchAll(/data-tab="([a-z]+)"/g)].map((m) => m[1]);
+  assert.deepEqual([...new Set(tabs)].sort(), ['pending', 'report', 'settings', 'today']);
+
+  const list = /const TABS = \[([^\]]+)\]/.exec(dashboard);
+  assert.ok(list, 'no list of tabs the URL may name');
+  const allowed = [...list[1].matchAll(/'([a-z]+)'/g)].map((m) => m[1]);
+  assert.deepEqual(allowed.sort(), [...new Set(tabs)].sort(), 'a tab exists that a link cannot reach');
+});

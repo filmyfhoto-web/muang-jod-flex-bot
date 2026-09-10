@@ -26,6 +26,19 @@ export function richMenuObject() {
 const OUT = new URL('../assets/richmenu.json', import.meta.url);
 
 if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
-  writeFileSync(OUT, `${JSON.stringify(richMenuObject(), null, 2)}\n`);
-  console.log(`wrote assets/richmenu.json (${richMenuObject().areas.length} areas)`);
+  const menu = richMenuObject();
+  writeFileSync(OUT, `${JSON.stringify(menu, null, 2)}\n`);
+  console.log(`wrote assets/richmenu.json (${menu.areas.length} areas)`);
+
+  // Buttons that open a page do so directly when LIFF is configured, and fall
+  // back to a postback when it is not. Whichever this run saw is now baked
+  // into the file, so say which it was rather than let it be discovered later
+  // on a phone.
+  const links = menu.areas.filter((a) => a.action.type === 'uri').length;
+  console.log(
+    links
+      ? `   ${links} ปุ่มเปิดหน้าเว็บตรง ๆ (uri) — มาจาก LIFF_ID ที่ตั้งไว้ใน env`
+      : '   ⚠️ ไม่มี LIFF_ID ใน env — ทุกปุ่มเป็น postback ให้บอตตอบ ' +
+          'ถ้าอยากได้ปุ่มที่เปิดหน้าเว็บเลย ให้ตั้ง LIFF_ID แล้วรันใหม่'
+  );
 }

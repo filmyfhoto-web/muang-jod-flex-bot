@@ -648,7 +648,12 @@ $('r-period').onclick = async (e) => {
       $('nav').hidden = false;
       await openEdit(editId);
     } else {
-      await show(new URLSearchParams(location.search).get('tab') === 'pending' ? 'pending' : 'today');
+      // ?tab=… ต้องรับได้ทุกแท็บที่มีจริง ไม่ใช่แค่ pending — ปุ่ม "ตั้งค่า"
+      // บนริชเมนูลิงก์มาที่ ?tab=settings ตรง ๆ ถ้าตกไปหน้า "งานวันนี้"
+      // เท่ากับปุ่มพาไปผิดที่
+      const TABS = ['today', 'report', 'pending', 'settings'];
+      const want = new URLSearchParams(location.search).get('tab');
+      await show(TABS.includes(want) ? want : 'today');
     }
   } catch (err) {
     fatal(err.message || 'เปิดหน้านี้ไม่สำเร็จค่ะ');

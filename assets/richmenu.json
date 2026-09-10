@@ -17,8 +17,7 @@
       "action": {
         "type": "postback",
         "label": "จดงาน",
-        "data": "action=add_job",
-        "displayText": "จดงาน"
+        "data": "action=add_job"
       }
     },
     {
@@ -31,8 +30,7 @@
       "action": {
         "type": "postback",
         "label": "รายการล่าสุด/แก้ไข",
-        "data": "action=recent_jobs",
-        "displayText": "รายการล่าสุด/แก้ไข"
+        "data": "action=recent_jobs"
       }
     },
     {
@@ -45,8 +43,7 @@
       "action": {
         "type": "postback",
         "label": "บันทึก/แนบสลิป",
-        "data": "action=attach_evidence",
-        "displayText": "บันทึก/แนบสลิป"
+        "data": "action=attach_evidence"
       }
     },
     {
@@ -59,8 +56,7 @@
       "action": {
         "type": "postback",
         "label": "งานค้าง",
-        "data": "action=pending_payment",
-        "displayText": "งานค้าง"
+        "data": "action=pending_payment"
       }
     },
     {
@@ -73,8 +69,7 @@
       "action": {
         "type": "postback",
         "label": "หมวดงาน",
-        "data": "action=pick_category",
-        "displayText": "หมวดงาน"
+        "data": "action=pick_category"
       }
     },
     {
@@ -87,8 +82,7 @@
       "action": {
         "type": "postback",
         "label": "ออกใบเสร็จ",
-        "data": "action=create_bill",
-        "displayText": "ออกใบเสร็จ"
+        "data": "action=create_bill"
       }
     },
     {
@@ -101,8 +95,7 @@
       "action": {
         "type": "postback",
         "label": "ตั้งค่า",
-        "data": "action=open_dashboard",
-        "displayText": "ตั้งค่า"
+        "data": "action=open_dashboard"
       }
     },
     {
@@ -115,8 +108,7 @@
       "action": {
         "type": "postback",
         "label": "ช่วยเหลือ",
-        "data": "action=help",
-        "displayText": "ช่วยเหลือ"
+        "data": "action=help"
       }
     },
     {
@@ -129,8 +121,7 @@
       "action": {
         "type": "postback",
         "label": "ม่วงจดให้",
-        "data": "action=home",
-        "displayText": "ม่วงจดให้"
+        "data": "action=home"
       }
     }
   ]

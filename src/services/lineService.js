@@ -25,7 +25,27 @@ function toArray(messages) {
   const themed = (Array.isArray(messages) ? messages : [messages]).map((m) =>
     m?.type === 'flex' ? { ...m, contents: themedContents(m.contents) } : m
   );
-  return withQuickReply(themed);
+  return withQuickReply(themed).map(withoutEcho);
+}
+
+// A postback's `displayText` posts the button's own label into the chat as if
+// the shop had typed it, so every tap left a line of its own words sitting
+// above the answer to it. The shop asked for a tap to just do the thing.
+//
+// Done here rather than at each of the forty-odd buttons: it is one rule about
+// how this bot's buttons behave, and a rule kept in forty places is a rule that
+// is already broken in one of them.
+export function withoutEcho(value) {
+  if (Array.isArray(value)) return value.map(withoutEcho);
+  if (!value || typeof value !== 'object') return value;
+
+  const out = {};
+  for (const [key, v] of Object.entries(value)) {
+    // `text` is the same field under a different name on older payloads.
+    if (value.type === 'postback' && (key === 'displayText' || key === 'text')) continue;
+    out[key] = withoutEcho(v);
+  }
+  return out;
 }
 
 // A reply token is good for about a minute and for one use. Reading a
