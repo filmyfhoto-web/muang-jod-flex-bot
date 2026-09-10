@@ -451,7 +451,9 @@ export async function getReport(userId, period = 'daily', client = supabase) {
 }
 
 // Helper: load items for a list of jobs in one query, then group.
-async function attachItems(jobs, client = supabase) {
+// Exported because a bill needs them too: a job holding three lines shows on
+// the receipt as one amount unless the receipt can see what it is made of.
+export async function attachItems(jobs, client = supabase) {
   if (!jobs.length) return [];
   const ids = jobs.map((j) => j.id);
   const { data: items, error } = await client
