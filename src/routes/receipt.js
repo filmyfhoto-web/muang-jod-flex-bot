@@ -1,6 +1,7 @@
 import express from 'express';
 import { escapeHtml } from '../utils/html.js';
 import { getBillByToken } from '../services/billService.js';
+import { getShopProfile, hasShopDetails } from '../services/shopService.js';
 import { formatBaht } from '../utils/currency.js';
 import { formatThaiDate, formatThaiDateTime } from '../utils/dates.js';
 import { logger } from '../services/logger.js';
@@ -89,7 +90,11 @@ const RECEIPT_IMAGE_JS = String.raw`
     // — the separator used to land on the date's baseline and strike it out.
     var rowsH = rows.reduce(function (s, r) { return s + 18 + r.lines.length * 26 + 33 + 1; }, 0);
     if (!rows.length) rowsH = 60;
-    var h = P + 104 + 114 + rowsH + 22 + 96 + 54 + 14 + P;
+    // ที่อยู่/เบอร์/เลขภาษีของร้าน และข้อความท้ายใบ ต้องกินความสูงของกระดาษ
+    // ด้วย ไม่งั้นมันจะถูกวาดทับขอบล่าง
+    var headExtra = data.shop.lines.length ? data.shop.lines.length * 20 + 6 : 0;
+    var footExtra = data.shop.footer ? 26 : 0;
+    var h = P + 104 + headExtra + 114 + rowsH + 22 + 96 + 54 + 14 + footExtra + P;
     return { rows: rows, rowsH: rowsH, sheetH: h };
   }
 
@@ -125,11 +130,25 @@ const RECEIPT_IMAGE_JS = String.raw`
     font(ctx, '700', 27);
     ctx.fillStyle = C.dark;
     ctx.fillText(data.title, INNER + 68, y + 26);
-    font(ctx, '400', 16);
-    ctx.fillStyle = C.grey;
-    ctx.fillText('ม่วงจดให้ · ผู้ช่วยบันทึกงานใน LINE', INNER + 68, y + 50);
+    // ชื่อร้านมาก่อนชื่อผู้ช่วย ใบเสร็จที่ยื่นให้ลูกค้าต้องบอกว่ามาจากร้านไหน
+    if (data.shop.name) {
+      font(ctx, '700', 18);
+      ctx.fillStyle = C.ink;
+    } else {
+      font(ctx, '400', 16);
+      ctx.fillStyle = C.grey;
+    }
+    ctx.fillText(data.shop.name || 'ม่วงจดให้ · ผู้ช่วยบันทึกงานใน LINE', INNER + 68, y + 50);
 
     y += 76;
+    if (data.shop.lines.length) {
+      font(ctx, '400', 15);
+      ctx.fillStyle = C.grey;
+      data.shop.lines.forEach(function (line, i) {
+        wrap(ctx, line, CW).slice(0, 1).forEach(function (l) { ctx.fillText(l, INNER, y + 14 + i * 20); });
+      });
+      y += data.shop.lines.length * 20 + 6;
+    }
     ctx.fillStyle = C.line;
     ctx.fillRect(INNER, y, CW, 1);
     y += 28;
@@ -209,6 +228,12 @@ const RECEIPT_IMAGE_JS = String.raw`
     ctx.fillStyle = C.grey;
     ctx.textAlign = 'center';
     ctx.fillText('ขอบคุณที่ใช้บริการค่ะ 💜', W / 2, y);
+    if (data.shop.footer) {
+      y += 26;
+      font(ctx, '400', 15);
+      ctx.fillStyle = C.grey;
+      wrap(ctx, data.shop.footer, CW).slice(0, 1).forEach(function (l) { ctx.fillText(l, W / 2, y); });
+    }
     ctx.textAlign = 'left';
 
     return cv.toDataURL('image/png');
@@ -250,10 +275,15 @@ function jsonScript(value) {
 
 // What the canvas needs to draw the receipt, so the picture and the page are
 // built from one set of numbers rather than two.
-function receiptData(bill) {
+function receiptData(bill, shop = {}) {
   const paid = bill.payment_status === 'paid';
   return {
     paid,
+    shop: {
+      name: shop.shop_name || null,
+      lines: [shop.address, shop.phone ? `โทร. ${shop.phone}` : null, shop.tax_id ? `เลขประจำตัวผู้เสียภาษี ${shop.tax_id}` : null].filter(Boolean),
+      footer: shop.footer_note || null,
+    },
     title: paid ? 'ใบเสร็จรับเงิน' : 'ใบแจ้งยอด',
     number: bill.bill_number || '-',
     date: formatThaiDateTime(bill.issued_at || bill.created_at),
@@ -269,7 +299,7 @@ function receiptData(bill) {
   };
 }
 
-export function renderReceiptHtml(bill) {
+export function renderReceiptHtml(bill, shop = {}) {
   const jobs = bill.jobs || [];
   const paid = bill.payment_status === 'paid';
   const rows = jobs
@@ -315,6 +345,9 @@ export function renderReceiptHtml(bill) {
   .paid{color:var(--green);font-weight:600}
   .due{color:var(--red);font-weight:600}
   footer{margin-top:20px;text-align:center;color:var(--grey);font-size:12px}
+  .head .who{font-size:14px;color:var(--ink);font-weight:700}
+  .shopinfo{margin-top:10px;color:var(--grey);font-size:12px;line-height:1.7}
+  .shopfoot{margin-top:6px;white-space:pre-wrap}
   .print{display:block;width:100%;margin-top:18px;padding:12px;border:0;border-radius:12px;background:var(--purple);color:#fff;font:inherit;font-weight:700}
   .print:disabled{opacity:.6}
   @media print{body{background:#fff;padding:0}.sheet{box-shadow:none;border-radius:0;max-width:none}.print,.shot{display:none}}
@@ -339,9 +372,22 @@ export function renderReceiptHtml(bill) {
       <div class="mark">${paid ? '✓' : '฿'}</div>
       <div>
         <h1>${paid ? 'ใบเสร็จรับเงิน' : 'ใบแจ้งยอด'}</h1>
-        <p>ม่วงจดให้ · ผู้ช่วยบันทึกงานใน LINE</p>
+        <p class="who">${escapeHtml(shop.shop_name || 'ม่วงจดให้ · ผู้ช่วยบันทึกงานใน LINE')}</p>
       </div>
     </div>
+
+    ${
+      hasShopDetails(shop) && (shop.address || shop.phone || shop.tax_id)
+        ? `<div class="shopinfo">${[
+            shop.address,
+            shop.phone ? `โทร. ${shop.phone}` : '',
+            shop.tax_id ? `เลขประจำตัวผู้เสียภาษี ${shop.tax_id}` : '',
+          ]
+            .filter(Boolean)
+            .map((line) => `<div>${escapeHtml(line)}</div>`)
+            .join('')}</div>`
+        : ''
+    }
 
     <div class="meta">
       <div><b>เลขที่</b>${escapeHtml(bill.bill_number || '-')}</div>
@@ -358,7 +404,9 @@ export function renderReceiptHtml(bill) {
     </div>
 
     <button class="print" id="make">📸 บันทึกใบเสร็จเป็นรูป</button>
-    <footer>ขอบคุณที่ใช้บริการค่ะ 💜</footer>
+    <footer>ขอบคุณที่ใช้บริการค่ะ 💜${
+      shop.footer_note ? `<div class="shopfoot">${escapeHtml(shop.footer_note)}</div>` : ''
+    }</footer>
   </div>
 
   <div class="shot" id="shot" hidden>
@@ -370,7 +418,7 @@ export function renderReceiptHtml(bill) {
     </div>
   </div>
 
-<script id="bill-data" type="application/json">${jsonScript(receiptData(bill))}</script>
+<script id="bill-data" type="application/json">${jsonScript(receiptData(bill, shop))}</script>
 <script>${RECEIPT_IMAGE_JS}</script>
 </body>
 </html>`;
@@ -386,7 +434,11 @@ router.get('/:token', async (req, res) => {
     }
     res.set('X-Robots-Tag', 'noindex, nofollow');
     res.set('Cache-Control', 'no-store');
-    res.type('html').send(renderReceiptHtml(bill));
+    // The letterhead belongs to whoever issued the bill, and this page is
+    // read by the customer with no login — so the shop is looked up from the
+    // bill's own owner, never from a session.
+    const shop = await getShopProfile(bill.user_id);
+    res.type('html').send(renderReceiptHtml(bill, shop));
   } catch (err) {
     logger.error('receipt.render_failed', { message: err?.message });
     res.status(500).type('html').send('<!doctype html><meta charset="utf-8"><p>เปิดใบเสร็จไม่สำเร็จค่ะ</p>');
