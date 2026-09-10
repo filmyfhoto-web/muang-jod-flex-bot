@@ -31,10 +31,19 @@ export function liffUrl(query = {}, env = process.env) {
 // URL — so the pop-up card needs its own LIFF app, Size = Tall, pointing at
 // <โดเมน>/app/jot?quick=1. With LIFF_ID_QUICK set the bot links to that; with
 // it unset the same form still opens, just full screen.
-export function quickFormUrl(env = process.env) {
+// `query` rides through to the form — LINE appends a liff.line.me URL's query
+// string to the endpoint, so `{ customer: 'ผู้ใหญ่สมศรี' }` reaches the page
+// either way and the form opens with the name already filled in.
+export function quickFormUrl(query = {}, env = process.env) {
+  const clean = Object.fromEntries(
+    Object.entries(query).filter(([, v]) => v !== undefined && v !== null && String(v) !== '')
+  );
   const id = String(env.LIFF_ID_QUICK || '').trim();
-  if (/^\d+-[A-Za-z0-9]+$/.test(id)) return `https://liff.line.me/${id}`;
-  return liffPage('jot', { quick: 1 }, env);
+  if (/^\d+-[A-Za-z0-9]+$/.test(id)) {
+    const qs = new URLSearchParams(clean).toString();
+    return `https://liff.line.me/${id}${qs ? `?${qs}` : ''}`;
+  }
+  return liffPage('jot', { quick: 1, ...clean }, env);
 }
 
 // A page inside the LIFF app: LINE appends the path to the endpoint URL, so

@@ -610,6 +610,16 @@ if (params.get('theme') === 'night') {
 
 (async function start() {
   if (!loadDraft()) state.items = [blankItem()];
+
+  // ?customer=… — มาจากปุ่ม "เพิ่มงานอีก" บนการ์ดที่เพิ่งบันทึก ลูกค้าคนเดิม
+  // สั่งหลายงานในรอบเดียวจะได้ไม่ต้องพิมพ์ชื่อซ้ำ ชื่อที่ส่งมาชนะร่างเก่าเสมอ
+  // เพราะเป็นการบอกชัด ๆ ว่ากำลังจดของใคร
+  const fromCard = (params.get('customer') || '').trim();
+  if (fromCard) {
+    state.customer = fromCard.slice(0, 200);
+    saveDraft();
+  }
+
   syncHeaderFields();
   renderItems();
 

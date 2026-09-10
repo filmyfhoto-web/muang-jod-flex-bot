@@ -78,15 +78,37 @@ test('liffPage points at a page inside the LIFF app, and stays null without an i
 
 test('the quick form opens its own LIFF app when one is configured', () => {
   const both = { LIFF_ID: '1234567890-abcdefgh', LIFF_ID_QUICK: '9999999999-quickone' };
-  assert.equal(quickFormUrl(both), 'https://liff.line.me/9999999999-quickone', 'the Tall sheet wins');
+  assert.equal(quickFormUrl({}, both), 'https://liff.line.me/9999999999-quickone', 'the Tall sheet wins');
 
   // Without a second LIFF app the same form still opens — full screen, and
   // still in quick layout, so the link never dead-ends.
   assert.equal(
-    quickFormUrl({ LIFF_ID: '1234567890-abcdefgh' }),
+    quickFormUrl({}, { LIFF_ID: '1234567890-abcdefgh' }),
     'https://liff.line.me/1234567890-abcdefgh/jot?quick=1'
   );
-  assert.equal(quickFormUrl({ LIFF_ID: '1234567890-abcdefgh', LIFF_ID_QUICK: 'nonsense' }), 
+  assert.equal(quickFormUrl({}, { LIFF_ID: '1234567890-abcdefgh', LIFF_ID_QUICK: 'nonsense' }),
     'https://liff.line.me/1234567890-abcdefgh/jot?quick=1', 'a malformed id is ignored, not used');
-  assert.equal(quickFormUrl({}), null, 'no LIFF at all');
+  assert.equal(quickFormUrl({}, {}), null, 'no LIFF at all');
+});
+
+test('the quick form can be opened with the customer already filled in', () => {
+  // "เพิ่มงานอีก" on a saved job opens the form for the same customer, so a
+  // shop taking three jobs from one person types the name once.
+  const both = { LIFF_ID: '1234567890-abcdefgh', LIFF_ID_QUICK: '9999999999-quickone' };
+  assert.equal(
+    quickFormUrl({ customer: 'ผู้ใหญ่สมศรี' }, both),
+    'https://liff.line.me/9999999999-quickone?customer=' + encodeURIComponent('ผู้ใหญ่สมศรี')
+  );
+
+  // Same name, the full-screen fallback.
+  assert.ok(
+    quickFormUrl({ customer: 'ผู้ใหญ่สมศรี' }, { LIFF_ID: '1234567890-abcdefgh' })
+      .includes('customer=' + encodeURIComponent('ผู้ใหญ่สมศรี'))
+  );
+
+  // An empty or missing name adds nothing — a stray "?customer=" would put an
+  // empty name into the form and look like a bug to the shop.
+  for (const customer of [undefined, null, '']) {
+    assert.equal(quickFormUrl({ customer }, both), 'https://liff.line.me/9999999999-quickone');
+  }
 });

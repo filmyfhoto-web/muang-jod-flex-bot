@@ -1,6 +1,5 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { receiptFlex } from '../src/flex/receiptFlex.js';
 import { formatBaht } from '../src/utils/currency.js';
 
@@ -56,42 +55,36 @@ test('receipt card: structure, content and actions', () => {
   assert.ok(json.includes('action=record_payment'));
 });
 
-// สัดส่วนจริงของแถบมาสคอต อ่านจากหัวไฟล์ PNG (IHDR)
-function heroRatio() {
-  const buf = readFileSync(new URL('../public/brand/ui/card-hero.png', import.meta.url));
-  return buf.readUInt32BE(16) / buf.readUInt32BE(20);
+// Every image url in a bubble, so a test can count the dogs.
+function imageUrls(node, out = []) {
+  if (Array.isArray(node)) node.forEach((n) => imageUrls(n, out));
+  else if (node && typeof node === 'object') {
+    if (node.type === 'image' && node.url) out.push(node.url);
+    Object.values(node).forEach((v) => v && typeof v === 'object' && imageUrls(v, out));
+  }
+  return out;
 }
 
-// "20:5" -> 4 — เทียบเป็นตัวเลข เพราะ 20:5 กับ 4:1 คือสัดส่วนเดียวกัน
-function declaredRatio(aspectRatio) {
-  const [w, h] = String(aspectRatio).split(':').map(Number);
-  return w / h;
-}
-
-test('receipt card: the mascot strip is the hero unless something else is chosen', () => {
-  // Flex cannot let an image overflow its bubble, so the mascot resting on the
-  // card's rim is a pre-rendered strip served from the bot's own /brand.
+test('receipt card: the dog appears once, and no hero strip', () => {
+  // The hero strip carries the same dog as the mascot in the panel below it,
+  // so keeping both showed the dog twice — and the strip is a dark-navy asset
+  // from the old dark theme, a black band cut through a white card.
   const prev = process.env.PUBLIC_BASE_URL;
   process.env.PUBLIC_BASE_URL = 'https://bot.example.com';
   try {
     const msg = receiptFlex(job);
-    assert.equal(msg.contents.hero?.url, 'https://bot.example.com/brand/ui/card-hero.png');
-    // The ratio has to match the strip that was actually drawn, or LINE crops
-    // the mascot's head off. Read it from the file rather than trusting a
-    // number typed here.
-    assert.equal(
-      declaredRatio(msg.contents.hero.aspectRatio),
-      heroRatio(),
-      `hero declares ${msg.contents.hero.aspectRatio}, but the strip is not that shape`
-    );
+    assert.equal(msg.contents.hero, undefined, 'no hero strip');
 
-    // An explicit null still means "no hero at all".
-    assert.equal(receiptFlex(job, { heroImageUrl: null }).contents.hero, undefined);
-    // And an override still wins over the default.
+    const dogs = imageUrls(msg.contents);
+    assert.equal(dogs.length, 1, `expected one mascot, got ${dogs.length}: ${dogs.join(', ')}`);
+    assert.ok(!dogs.some((u) => u.includes('card-hero')), 'the dark hero strip is gone');
+
+    // A caller that wants a hero back can still pass one.
     assert.equal(
       receiptFlex(job, { heroImageUrl: 'https://example.com/other.png' }).contents.hero.url,
       'https://example.com/other.png'
     );
+    assert.equal(receiptFlex(job, { heroImageUrl: null }).contents.hero, undefined);
   } finally {
     if (prev === undefined) delete process.env.PUBLIC_BASE_URL;
     else process.env.PUBLIC_BASE_URL = prev;

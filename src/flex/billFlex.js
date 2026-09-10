@@ -6,6 +6,7 @@ import { divider } from './components/divider.js';
 import { statusBadge } from './components/statusBadge.js';
 import { brandAssetUrl, MASCOT } from '../utils/brand.js';
 import { publicBaseUrl } from '../utils/brand.js';
+import { linkRow } from './components/footerActions.js';
 
 // Cards for the last two steps of the flow: รวมรายการลงบิล -> รับชำระและออกใบเสร็จ.
 
@@ -32,7 +33,9 @@ export function shareReceiptUrl(bill, opts = {}) {
   return `https://line.me/R/share?text=${encodeURIComponent(lines.join('\n'))}`;
 }
 
-// The two buttons a finished receipt needs: look at it, and send it on.
+// The two things a finished receipt needs: look at it, and send it on. Words,
+// not slabs — three stacked full-width buttons made the card's footer taller
+// than the bill it belonged to.
 function receiptButtons(bill, opts = {}) {
   // opts carries baseUrl through, so a card built for a different host (or for
   // a test) shares the link that host would actually serve.
@@ -40,18 +43,10 @@ function receiptButtons(bill, opts = {}) {
   if (!url) return [];
   const share = opts.shareUrl !== undefined ? opts.shareUrl : shareReceiptUrl(bill, opts);
   return [
-    { type: 'button', style: 'secondary', height: 'sm', action: { type: 'uri', label: '🧾 เปิดใบเสร็จ', uri: url } },
-    ...(share
-      ? [
-          {
-            type: 'button',
-            style: 'primary',
-            color: COLORS.accent,
-            height: 'sm',
-            action: { type: 'uri', label: '📤 ส่งให้ลูกค้า', uri: share },
-          },
-        ]
-      : []),
+    linkRow([
+      { label: '🧾 เปิดใบเสร็จ', uri: url },
+      ...(share ? [{ label: '📤 ส่งให้ลูกค้า', uri: share }] : []),
+    ]),
   ];
 }
 

@@ -21,7 +21,7 @@ function button(btn) {
 
 // A tappable word rather than a filled block — for the actions that are worth
 // offering but not worth a button's weight.
-function linkAction(btn) {
+export function linkAction(btn) {
   return {
     type: 'text',
     text: btn.label,
@@ -32,6 +32,17 @@ function linkAction(btn) {
     flex: 1,
     wrap: true,
     action: actionOf(btn),
+  };
+}
+
+// A row of those links, for a card that builds its own footer.
+export function linkRow(links = []) {
+  return {
+    type: 'box',
+    layout: 'horizontal',
+    spacing: 'md',
+    paddingTop: 'xs',
+    contents: links.map(linkAction),
   };
 }
 
