@@ -1,6 +1,6 @@
 import express from 'express';
 import { timingSafeEqual } from 'node:crypto';
-import { installRichMenu } from '../services/richMenuInstaller.js';
+import { installRichMenu, getRichMenuStatus } from '../services/richMenuInstaller.js';
 import { escapeHtml } from '../utils/html.js';
 import { logger } from '../services/logger.js';
 
@@ -108,17 +108,67 @@ button{width:100%;padding:16px;font-size:17px;font-weight:600;color:#fff;backgro
 button:active{opacity:.85}
 .ok{color:#4ADE80}.bad{color:#F87171}
 code{background:#0B111C;padding:2px 6px;border-radius:5px;font-size:13px;word-break:break-all}
+h2{font-size:15px;margin:22px 0 8px;color:#93A3BC;font-weight:600}
+.dim{color:#7C8CA6;font-size:13px}
+.menus{list-style:none;padding:0;margin:0 0 20px}
+.menus li{background:#0B111C;border:1px solid #24344F;border-radius:12px;padding:12px;margin-bottom:8px;
+  font-size:14px;line-height:1.6}
 </style></head><body><div class="card">${body}
 <form method="post" action="${escapeHtml(action)}"><button>ติดตั้งเมนูขึ้น LINE</button></form>
 </div></body></html>`;
 
-router.get('/rich-menu', (req, res) => {
+// A phone cannot tell "never installed" from "installed but cached" from
+// "something else is the default". This says which one it is.
+function statusBlock(status) {
+  if (!status) return '';
+  if (status.error) {
+    return `<p class="bad">อ่านสถานะจาก LINE ไม่ได้: ${escapeHtml(status.error)}</p>`;
+  }
+  if (!status.menus.length) {
+    return '<p class="bad">ตอนนี้ LINE <b>ยังไม่มีเมนูเลย</b> — ยังไม่เคยติดตั้งสำเร็จค่ะ</p>';
+  }
+
+  const rows = status.menus
+    .map((m) => {
+      const mark = m.isDefault ? '<span class="ok">● ใช้อยู่</span>' : '<span class="dim">○ ไม่ได้ใช้</span>';
+      const shape = `${m.size?.width}x${m.size?.height} · ${m.areas} ปุ่ม`;
+      return `<li>${mark} <b>${escapeHtml(m.name || '(ไม่มีชื่อ)')}</b><br>
+              <span class="dim">${escapeHtml(shape)}</span><br>
+              <code>${escapeHtml(m.id)}</code></li>`;
+    })
+    .join('');
+
+  const active = status.menus.find((m) => m.isDefault);
+  let verdict;
+  if (!active) {
+    verdict = '<p class="bad">มีเมนูอยู่ แต่ <b>ยังไม่ได้ตั้งเป็นเมนูเริ่มต้น</b> — กดปุ่มด้านล่างอีกครั้งค่ะ</p>';
+  } else if (active.areas !== status.expected.areas) {
+    verdict = `<p class="bad">เมนูที่ใช้อยู่มี ${active.areas} ปุ่ม แต่เมนูล่าสุดมี ${status.expected.areas} ปุ่ม
+               — <b>ยังเป็นเมนูเก่า</b> กดปุ่มด้านล่างเพื่อติดตั้งตัวใหม่ค่ะ</p>`;
+  } else {
+    verdict = `<p class="ok">เมนูล่าสุดติดตั้งแล้วค่ะ (${active.areas} ปุ่ม)<br>
+               <span class="dim">ถ้าบนมือถือยังเป็นอันเก่า ให้ปิดแอป LINE แล้วเปิดใหม่ — LINE แคชรูปเมนูไว้</span></p>`;
+  }
+
+  return `${verdict}<ul class="menus">${rows}</ul>`;
+}
+
+router.get('/rich-menu', async (req, res) => {
+  let status = null;
+  try {
+    status = await getRichMenuStatus();
+  } catch (err) {
+    status = { error: err?.body ? JSON.stringify(err.body) : err?.message || String(err) };
+  }
+
   res.type('html').send(
     PAGE(
       req.originalUrl,
       `<h1>ตั้งค่า Rich Menu</h1>
        <p>กดปุ่มด้านล่างเพื่ออัปโหลดเมนูล่าสุดขึ้น LINE และตั้งเป็นเมนูเริ่มต้น
-          เมนูเก่าของม่วงจดจะถูกลบให้อัตโนมัติค่ะ</p>`
+          เมนูเก่าของม่วงจดจะถูกลบให้อัตโนมัติค่ะ</p>
+       <h2>สถานะตอนนี้</h2>
+       ${statusBlock(status)}`
     )
   );
 });

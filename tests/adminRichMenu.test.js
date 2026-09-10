@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { adminToken, keyMatches, readKey } from '../src/routes/admin.js';
-import { installRichMenu, resolveImage, RICH_MENU_NAME } from '../src/services/richMenuInstaller.js';
+import { installRichMenu, resolveImage, getRichMenuStatus, RICH_MENU_NAME } from '../src/services/richMenuInstaller.js';
 import { existsSync, statSync } from 'node:fs';
 import { buildAreas } from '../scripts/create-rich-menu.js';
 
@@ -120,4 +120,56 @@ test('an explicit RICH_MENU_IMAGE_PATH wins, and sets its own content type', () 
     contentType: 'image/png',
   });
   assert.equal(resolveImage({ RICH_MENU_IMAGE_PATH: '/tmp/menu.jpg' }).contentType, 'image/jpeg');
+});
+
+function fakeStatus({ menus = [], defaultId = null } = {}) {
+  return {
+    client: {
+      getRichMenuList: async () => ({ richmenus: menus }),
+      getDefaultRichMenuId: async () => {
+        if (!defaultId) throw Object.assign(new Error('not found'), { statusCode: 404 });
+        return { richMenuId: defaultId };
+      },
+    },
+    blobClient: {},
+  };
+}
+
+test('status says which menu LINE is actually using', async () => {
+  const status = await getRichMenuStatus(
+    fakeStatus({
+      defaultId: 'rm-old',
+      menus: [
+        { richMenuId: 'rm-old', name: RICH_MENU_NAME, size: { width: 2500, height: 1686 }, areas: new Array(12) },
+        { richMenuId: 'rm-other', name: 'someone-else', size: { width: 2500, height: 843 }, areas: new Array(2) },
+      ],
+    })
+  );
+
+  assert.equal(status.defaultId, 'rm-old');
+  assert.equal(status.menus.length, 2);
+
+  const active = status.menus.find((m) => m.isDefault);
+  assert.equal(active.id, 'rm-old');
+  assert.equal(active.isOurs, true);
+  // The stale menu has 12 areas where the current one has 9, which is what
+  // lets the page say "still the old menu" instead of guessing.
+  assert.equal(active.areas, 12);
+  assert.equal(status.expected.areas, buildAreas().length);
+  assert.notEqual(active.areas, status.expected.areas);
+
+  assert.equal(status.menus.find((m) => m.id === 'rm-other').isOurs, false);
+});
+
+test('a channel with no default at all is reported, not thrown', async () => {
+  // LINE answers 404 rather than an empty value, which would otherwise take
+  // the whole page down instead of telling the shop what is wrong.
+  const status = await getRichMenuStatus(
+    fakeStatus({ menus: [{ richMenuId: 'rm-1', name: RICH_MENU_NAME, size: {}, areas: [] }] })
+  );
+  assert.equal(status.defaultId, null);
+  assert.equal(status.menus.every((m) => !m.isDefault), true);
+
+  const empty = await getRichMenuStatus(fakeStatus({}));
+  assert.deepEqual(empty.menus, []);
 });

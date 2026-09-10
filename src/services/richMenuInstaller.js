@@ -39,6 +39,35 @@ function clients(deps = {}) {
   };
 }
 
+// What LINE actually has right now. "ริชเมนูไม่เปลี่ยน" has several causes that
+// look identical from the phone — the install never ran, it installed but the
+// app is showing a cached menu, or something else in the channel is set as the
+// default. Guessing between them from a screenshot is not possible; this reads
+// the answer out of LINE.
+export async function getRichMenuStatus(deps = {}) {
+  const { client } = clients(deps);
+  const [list, defaultId] = await Promise.all([
+    client.getRichMenuList(),
+    // A channel with no default set answers 404 rather than an empty value.
+    client.getDefaultRichMenuId().then(
+      (r) => r?.richMenuId ?? r ?? null,
+      () => null
+    ),
+  ]);
+
+  const menus = (list?.richmenus || []).map((m) => ({
+    id: m.richMenuId,
+    name: m.name,
+    size: m.size,
+    chatBarText: m.chatBarText,
+    areas: (m.areas || []).length,
+    isDefault: m.richMenuId === defaultId,
+    isOurs: m.name === RICH_MENU_NAME,
+  }));
+
+  return { defaultId, menus, expected: { name: RICH_MENU_NAME, size: LAYOUT, areas: buildAreas().length } };
+}
+
 // Create the menu, upload its image, make it the default, then clear away the
 // menus this bot created before. Only menus carrying our own name are removed,
 // and never the one just installed — anything else in the channel is somebody
