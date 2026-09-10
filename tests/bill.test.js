@@ -12,7 +12,8 @@ import {
   recordBillPayment,
   getOpenBills,
 } from '../src/services/billService.js';
-import { billFlex, billReceiptFlex, billCustomersFlex, receiptUrl } from '../src/flex/billFlex.js';
+import { billFlex, billReceiptFlex, billCustomersFlex, receiptUrl, shareReceiptUrl } from '../src/flex/billFlex.js';
+import { jobCardMessage, jobPreviewMessage } from '../src/flex/jobCard.js';
 import { renderReceiptHtml, escapeHtml } from '../src/routes/receipt.js';
 import { todayISO } from '../src/utils/dates.js';
 
@@ -210,4 +211,61 @@ test('receipt page: renders the bill and escapes what customers typed', async ()
   // An unpaid bill is a statement, not a receipt.
   assert.ok(renderReceiptHtml({ ...bill, payment_status: 'pending', jobs: [] }).includes('ใบแจ้งยอด'));
   assert.equal(escapeHtml(`<a href="x">&'`), '&lt;a href=&quot;x&quot;&gt;&amp;&#39;');
+});
+
+
+test('a finished receipt can be handed to the customer without a push', () => {
+  // The shop sends it themselves through LINE's own friend picker, so the bot
+  // never needs to know who the customer is on LINE, and never spends a push.
+  const bill = {
+    id: 'b1',
+    bill_number: 'MJ-B-20260910-0001',
+    customer_name: 'รพ.สต.บ้านชี',
+    total: 1200,
+    paid_amount: 1200,
+    balance_due: 0,
+    payment_status: 'paid',
+    created_at: '2026-09-10T03:00:00Z',
+    share_token: 'tok123',
+    jobs: [],
+  };
+  const url = shareReceiptUrl(bill, { baseUrl: 'https://bot.example' });
+  assert.ok(url.startsWith('https://line.me/R/share?text='), 'not the LINE share picker');
+
+  const text = decodeURIComponent(url.slice('https://line.me/R/share?text='.length));
+  assert.match(text, /ใบเสร็จรับเงิน/);
+  assert.match(text, /MJ-B-20260910-0001/);
+  assert.match(text, /รพ\.สต\.บ้านชี/);
+  assert.match(text, /฿1,200/);
+  assert.ok(text.includes('https://bot.example/r/tok123'), 'the receipt link is missing');
+
+  // Both cards offer it, and both also keep the plain "open it" button.
+  for (const card of [billFlex(bill, { baseUrl: 'https://bot.example' }), billReceiptFlex(bill, { baseUrl: 'https://bot.example' })]) {
+    const json = JSON.stringify(card);
+    assert.ok(json.includes('📤 ส่งให้ลูกค้า'), 'no share button');
+    assert.ok(json.includes('🧾 เปิดใบเสร็จ'), 'no open button');
+  }
+
+  // With no public URL there is no link to share, so neither button appears
+  // rather than one that goes nowhere.
+  const nowhere = JSON.stringify(billReceiptFlex(bill, { baseUrl: null }));
+  assert.ok(!nowhere.includes('ส่งให้ลูกค้า'));
+  assert.ok(!nowhere.includes('เปิดใบเสร็จ'));
+});
+
+test('a saved job can be billed on its own, from its own card', () => {
+  const job = {
+    id: 'job-9',
+    job_name: 'ป้ายไวนิล',
+    job_date: '2026-09-10',
+    total: 792,
+    payment_status: 'pending',
+    items: [],
+  };
+  const json = JSON.stringify(jobCardMessage(job));
+  assert.ok(json.includes('action=bill_job&jobId=job-9'), 'no per-job receipt button');
+  assert.ok(json.includes('🧾 ออกใบเสร็จ'));
+
+  // A draft has no id and nothing to bill yet.
+  assert.ok(!JSON.stringify(jobPreviewMessage(job)).includes('bill_job'));
 });

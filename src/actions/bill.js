@@ -7,6 +7,7 @@ import {
   getBillById,
   getLatestBill,
 } from '../services/billService.js';
+import { getJobById } from '../services/jobService.js';
 import { billFlex, billCustomersFlex, billReceiptFlex } from '../flex/billFlex.js';
 
 // action=create_bill — no customer yet: show who has unbilled work.
@@ -75,4 +76,34 @@ export async function viewReceipt({ replyToken, profile, params }) {
   }
   await clearState(profile.id);
   return reply(replyToken, billReceiptFlex(bill));
+}
+
+// action=bill_job&jobId=… — a receipt for this one job, from its own card.
+//
+// The customer picker bills everything a customer has waiting at once, which
+// is right when the shop settles up. This is the other half: one job, one
+// receipt, handed over as the work is handed over.
+export async function billOneJob({ replyToken, profile, params }) {
+  const jobId = params?.jobId;
+  const job = jobId ? await getJobById(profile.id, jobId) : null;
+  if (!job) {
+    return reply(replyToken, { type: 'text', text: 'ไม่พบงานนี้ค่ะ' });
+  }
+  if (job.bill_id) {
+    const existing = await getBillById(profile.id, job.bill_id);
+    return reply(replyToken, [
+      { type: 'text', text: 'งานนี้ออกบิลไปแล้วค่ะ นี่คือบิลเดิมนะคะ 💜' },
+      ...(existing ? [billFlex(existing)] : []),
+    ]);
+  }
+
+  const bill = await createBill(profile.id, [job.id], { customerName: job.customer_name ?? null });
+  if (!bill) {
+    return reply(replyToken, { type: 'text', text: 'ออกบิลไม่สำเร็จค่ะ ลองใหม่อีกครั้งนะคะ' });
+  }
+
+  return reply(replyToken, [
+    { type: 'text', text: 'ออกบิลให้งานนี้แล้วค่ะ กด "📤 ส่งให้ลูกค้า" เพื่อส่งต่อในไลน์ได้เลย 💜' },
+    billFlex(bill),
+  ]);
 }
