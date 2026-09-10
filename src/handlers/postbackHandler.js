@@ -7,7 +7,7 @@ import { editLatest } from '../actions/editLatest.js';
 import { cancelLatest, confirmCancel, cancelCancel } from '../actions/cancelLatest.js';
 import { editJob, deleteJob } from '../actions/jobActions.js';
 import { pickCategory } from '../actions/pickCategory.js';
-import { createBillAction, billPaymentPrompt, viewReceipt } from '../actions/bill.js';
+import { createBillAction, billOneJob, billPaymentPrompt, viewReceipt } from '../actions/bill.js';
 import { remindPrompt, setReminder, cancelReminderAction, listReminders } from '../actions/reminder.js';
 import { openDashboard } from '../actions/dashboard.js';
 import { home } from '../actions/home.js';
@@ -58,6 +58,8 @@ export async function handlePostback(event, profile) {
       return deleteJob(ctx);
     case 'pick_category':
       return pickCategory(ctx);
+    case 'bill_job':
+      return billOneJob(ctx);
     case 'create_bill':
       return createBillAction(ctx);
     case 'bill_payment':

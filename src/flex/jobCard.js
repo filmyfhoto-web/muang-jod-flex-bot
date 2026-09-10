@@ -125,6 +125,11 @@ export function buildJobBubble(job) {
   // "รายการล่าสุด" card. A draft (no id yet) gets its own footer instead.
   if (job.id) {
     bubble.footer = footerActions({
+      primary: {
+        label: '🧾 ออกใบเสร็จ',
+        data: `action=bill_job&jobId=${encodeURIComponent(job.id)}`,
+        displayText: 'ออกใบเสร็จงานนี้',
+      },
       secondary: [
         { label: '✏️ แก้ไข', data: `action=edit_job&jobId=${encodeURIComponent(job.id)}`, displayText: 'แก้ไขรายการ' },
         { label: '🗑 ยกเลิก', data: `action=delete_job&jobId=${encodeURIComponent(job.id)}`, displayText: 'ยกเลิกรายการ' },

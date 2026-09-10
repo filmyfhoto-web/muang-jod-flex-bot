@@ -15,6 +15,46 @@ export function receiptUrl(bill, opts = {}) {
   return `${base}/r/${bill.share_token}`;
 }
 
+// "Send it to the customer" without the bot needing to know who the customer
+// is or spending a push on them. LINE's share URL opens the shop's own friend
+// picker with the message already written; they choose the chat and send.
+export function shareReceiptUrl(bill, opts = {}) {
+  const url = receiptUrl(bill, opts);
+  if (!url) return null;
+  const lines = [
+    'ใบเสร็จรับเงิน 🧾',
+    `เลขที่ ${bill.bill_number || ''}`.trim(),
+    ...(bill.customer_name ? [`ลูกค้า: ${bill.customer_name}`] : []),
+    `ยอด ${formatBaht(Number(bill.total) || 0)}`,
+    '',
+    url,
+  ];
+  return `https://line.me/R/share?text=${encodeURIComponent(lines.join('\n'))}`;
+}
+
+// The two buttons a finished receipt needs: look at it, and send it on.
+function receiptButtons(bill, opts = {}) {
+  // opts carries baseUrl through, so a card built for a different host (or for
+  // a test) shares the link that host would actually serve.
+  const url = opts.receiptUrl !== undefined ? opts.receiptUrl : receiptUrl(bill, opts);
+  if (!url) return [];
+  const share = opts.shareUrl !== undefined ? opts.shareUrl : shareReceiptUrl(bill, opts);
+  return [
+    { type: 'button', style: 'secondary', height: 'sm', action: { type: 'uri', label: '🧾 เปิดใบเสร็จ', uri: url } },
+    ...(share
+      ? [
+          {
+            type: 'button',
+            style: 'primary',
+            color: COLORS.accent,
+            height: 'sm',
+            action: { type: 'uri', label: '📤 ส่งให้ลูกค้า', uri: share },
+          },
+        ]
+      : []),
+  ];
+}
+
 function jobLine(job, index) {
   const { group, type } = jobCategory(job);
   return {
@@ -98,7 +138,6 @@ function moneyBlock(bill) {
 // The bill itself: what is on it, what it comes to, and how to settle it.
 export function billFlex(bill, opts = {}) {
   const jobs = bill.jobs || [];
-  const url = opts.receiptUrl !== undefined ? opts.receiptUrl : receiptUrl(bill);
 
   const footer = [
     {
@@ -114,14 +153,7 @@ export function billFlex(bill, opts = {}) {
       },
     },
   ];
-  if (url) {
-    footer.push({
-      type: 'button',
-      style: 'secondary',
-      height: 'sm',
-      action: { type: 'uri', label: '🧾 เปิดใบเสร็จ', uri: url },
-    });
-  }
+  footer.push(...receiptButtons(bill, opts));
 
   return {
     type: 'flex',
@@ -180,7 +212,6 @@ export function billFlex(bill, opts = {}) {
 // The receipt, once the bill is settled.
 export function billReceiptFlex(bill, opts = {}) {
   const p = paymentPresentation(bill.payment_status);
-  const url = opts.receiptUrl !== undefined ? opts.receiptUrl : receiptUrl(bill);
   const mascot = opts.mascotImageUrl !== undefined ? opts.mascotImageUrl : brandAssetUrl(MASCOT.clipboard);
   const settled = bill.payment_status === 'paid';
 
@@ -217,19 +248,15 @@ export function billReceiptFlex(bill, opts = {}) {
     head.push({ type: 'image', url: mascot, size: '56px', aspectRatio: '1:1', aspectMode: 'cover', align: 'end', flex: 0 });
   }
 
-  const footer = [];
-  if (url) {
-    footer.push({
-      type: 'button',
-      style: 'primary',
-      color: COLORS.accentText,
-      height: 'sm',
-      action: { type: 'uri', label: '🧾 เปิด/ส่งใบเสร็จ', uri: url },
-    });
-  }
+  const footer = receiptButtons(bill, opts);
+  // Only point at the button when there IS one — with no public URL there is
+  // nothing to press, and telling the shop to press it would be a lie.
+  const settledNote = footer.length
+    ? 'กดปุ่มส่งต่อ แล้วเลือกแชตลูกค้าได้เลยค่ะ'
+    : 'ชำระครบแล้วค่ะ ขอบคุณนะคะ 💜';
   footer.push({
     type: 'text',
-    text: settled ? 'ส่งลิงก์ใบเสร็จให้ลูกค้าได้เลยค่ะ' : 'กดรับชำระอีกครั้งเมื่อได้เงินส่วนที่เหลือนะคะ',
+    text: settled ? settledNote : 'กดรับชำระอีกครั้งเมื่อได้เงินส่วนที่เหลือนะคะ',
     size: 'xs',
     color: COLORS.grey,
     align: 'center',
