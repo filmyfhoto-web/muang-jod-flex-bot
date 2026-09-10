@@ -17,6 +17,11 @@ const COMMANDS = new Map([
   ['บันทึก/แนบสลิป', 'attach_evidence'],
   ['งานค้าง', 'pending_payment'],
   ['ตั้งค่า', 'open_dashboard'],
+  // The small captions printed under a button. A menu whose buttons send text
+  // can be built to send either line, and a shop reading the artwork may type
+  // the caption rather than the heading.
+  ['ดูงานทั้งหมด', 'recent_jobs'],
+  ['ปรับแต่งแอป', 'open_dashboard'],
   // 8 core menu buttons
   ['บันทึกงานวันนี้', 'add_job'],
   ['บันทึกงาน', 'add_job'],
@@ -57,6 +62,7 @@ const COMMANDS = new Map([
   ['ตั้งแจ้งเตือนงาน', 'remind_job'],
   ['ตั้งเตือน', 'remind_job'],
   ['แจ้งเตือน', 'remind_job'],
+  ['แจ้งเตือนงาน', 'remind_job'],
   ['การแจ้งเตือน', 'my_reminders'],
   ['เลือกหมวด', 'pick_category'],
   ['หมวดงาน', 'pick_category'],
