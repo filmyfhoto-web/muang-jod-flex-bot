@@ -8,7 +8,12 @@ import { parseAreaPricing, areaItem, areaWorking } from './area.js';
 // -> customer=พี่นก, qty=2, unit_price=350, total=700, paid=300
 // This is the always-on engine and the fallback for the optional LLM layer.
 
-const UNIT_WORDS = ['ป้าย', 'ชิ้น', 'อัน', 'ใบ', 'แผ่น', 'ตัว', 'ม้วน', 'กล่อง', 'ชุด', 'เมตร', 'ผืน', 'โหล', 'คู่'];
+// A unit missing from here is not a cosmetic problem: "สติ๊กเกอร์ 20 ดวง
+// ดวงละ 15" was read as one piece at 15 baht instead of twenty at 300.
+const UNIT_WORDS = [
+  'ป้าย', 'ชิ้น', 'อัน', 'ใบ', 'แผ่น', 'ตัว', 'ม้วน', 'กล่อง', 'ชุด', 'เมตร', 'ผืน', 'โหล', 'คู่',
+  'ดวง', 'เล่ม', 'ห่อ', 'ถุง', 'แพ็ค', 'แพ็ก', 'กิโล', 'โล',
+];
 // Note: short honorifics like "ป้า"/"อา" are intentionally excluded — they
 // collide with common words ("ป้าย" = sign), causing false customer matches.
 // Longest first: "ผู้ใหญ่" has to win before anything shorter inside it can.
@@ -93,12 +98,32 @@ export function extractCustomer(text) {
   return { customerName: null, rest: text };
 }
 
+// Units left stranded once the size has been lifted out: "ป้ายไวนิล 200x100 ซม."
+// keeps its size in its own field, so the bare "ซม." that stays behind is not
+// part of the name. Matched as whole tokens, never as substrings — Thai has no
+// word spacing, and stripping a bare "ม" would turn "โฟมบอร์ด" into "โฟบอร์ด".
+const LEFTOVER_UNITS = new Set([
+  'ซม', 'ซม.', 'ซ.ม.', 'ซ.ม', 'เซนติเมตร',
+  'มม', 'มม.', 'มิลลิเมตร',
+  'ม.', 'เมตร', 'ตร.ม.', 'ตร.ม', 'ตรม', 'ตรม.', 'ตารางเมตร',
+  'นิ้ว', 'ฟุต', 'หลา',
+]);
+
 function cleanItemName(working) {
-  return working
+  const stripped = working
     .replace(/วันนี้|เมื่อวาน|พรุ่งนี้|ทำ|ทํา|งาน|ให้|ค่ะ|คะ|ครับ|นะ|บาท|฿/g, ' ')
     .replace(/ร้าน/g, ' ')
     .replace(/\d[\d,]*(?:\.\d+)?/g, ' ')
+    // "ไวนิล = 0.80X1.80 165" left the "=" sitting in the name once the numbers
+    // went. Separators are how the shop writes, never part of what they made.
+    .replace(/[=＝+*/|~<>]+/g, ' ')
     .replace(/\s+/g, ' ')
+    .trim();
+
+  return stripped
+    .split(' ')
+    .filter((word) => word && !LEFTOVER_UNITS.has(word))
+    .join(' ')
     .trim();
 }
 
