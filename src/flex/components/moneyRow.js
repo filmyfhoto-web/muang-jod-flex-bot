@@ -9,7 +9,9 @@ export function moneyRow(label, amount, opts = {}) {
     type: 'box',
     layout: 'horizontal',
     contents: [
-      { type: 'text', text: label, size: opts.size || 'md', color: COLORS.sub, flex: 4 },
+      // wrap, always: a job called "สั่งป้ายไวนิลหน้างานสีดำ" turned into
+      // "สั่งป้ายไวนิลหน้…" and the shop could not tell which job it was.
+      { type: 'text', text: label, size: opts.size || 'md', color: COLORS.sub, flex: 4, wrap: true },
       {
         type: 'text',
         text: value,
