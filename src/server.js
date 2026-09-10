@@ -206,4 +206,10 @@ app.listen(PORT, async () => {
   // unanswered and reminders unsent. KEEP_ALIVE=0 turns this off.
   const { startKeepAlive } = await import('./services/keepAlive.js');
   startKeepAlive();
+
+  // Put the current Rich Menu live if it is not already. Does nothing when it
+  // matches, so this is not an upload on every restart. RICH_MENU_AUTO_INSTALL=0
+  // turns it off; /admin/rich-menu still installs on demand either way.
+  const { ensureRichMenu } = await import('./services/richMenuInstaller.js');
+  ensureRichMenu();
 });
