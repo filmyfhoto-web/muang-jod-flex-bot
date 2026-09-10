@@ -250,10 +250,19 @@ function itemCard(item, index) {
   const preview = $('.preview', el);
 
   // ใบแรกใช้พาดหัวชวนกรอกตามแบบ ใบถัด ๆ ไปบอกว่าเป็นรายการที่เท่าไหร่
+  const count = state.items.length;
   $('.item-title', el).textContent = index === 0 ? 'กรอกข้อมูลงานได้เลย' : 'รายการที่ ' + (index + 1);
-  $('.del', el).hidden = state.items.length < 2;
+  // มีหลายรายการแล้วต้องบอกว่ากี่รายการ ไม่งั้นการ์ดที่เลื่อนหายไปข้าง ๆ
+  // เท่ากับไม่มีอยู่จริงสำหรับคนกรอก
+  $('.item-sub', el).textContent =
+    count > 1 ? `รายการที่ ${index + 1} จาก ${count}` : 'บันทึกงานพิมพ์ / ป้ายโฆษณา ของคุณ';
+  $('.del', el).hidden = count < 2;
+  // น้องหมานั่งทับมุมที่ปุ่มลบอยู่ พอมีหลายรายการปุ่มลบจึงอ่านไม่ออก — คำชวน
+  // กรอกมีค่าตอนใบแรกใบเดียว ปุ่มลบมีค่ากว่าเมื่อมีรายการให้ลบ
+  $('.mascot', el).hidden = count > 1;
   $('.act-save', el).onclick = save;
-  $('.act-add', el).onclick = addItem;
+  // ปุ่มเพิ่มรายการมีสองที่ — บนหัวการ์ดและท้ายการ์ด — ต้องผูกให้ครบทั้งคู่
+  el.querySelectorAll('.act-add').forEach((b) => (b.onclick = addItem));
 
   name.value = item.name;
   detail.value = item.detail;

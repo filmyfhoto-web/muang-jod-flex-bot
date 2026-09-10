@@ -112,7 +112,27 @@ test('the cards swipe sideways, with dots that follow', () => {
   assert.ok(js.includes("itemsBox.addEventListener('scroll'"), 'the dots do not follow a swipe');
   assert.ok(js.includes('function scrollToCard'), 'a dot cannot jump to its card');
   // Buttons live on every card in the mockup, so both must do something.
-  assert.ok(js.includes("$('.act-save', el).onclick") && js.includes("$('.act-add', el).onclick"));
+  assert.ok(js.includes("$('.act-save', el).onclick"), 'the save button on a card is not wired');
+  // Two add buttons now — the pill on the card head and the one at the foot —
+  // so wiring by querySelector would leave the visible one dead.
+  assert.match(js, /querySelectorAll\('\.act-add'\)/, 'only one add button gets wired');
+});
+
+test('adding a second item is reachable without scrolling the card', () => {
+  // A shop takes several jobs from one customer in one go. The only add button
+  // used to sit at the foot of the card, past ten fields — on a phone that is
+  // 970px down, so it may as well not exist, and the shop reported the form
+  // could not do more than one job.
+  const adds = html.match(/class="[^"]*\bact-add\b[^"]*"/g) || [];
+  assert.ok(adds.length >= 2, 'the add button is only at the foot of the card again');
+
+  const head = html.indexOf('act-add');
+  const firstField = html.indexOf('class="i-name"');
+  assert.ok(head > 0 && head < firstField, 'no add button above the fields');
+
+  // The mascot sits in the corner the delete button occupies, so with more
+  // than one item the way to remove one has to stay readable.
+  assert.match(js, /\$\('\.mascot', el\)\.hidden/, 'the mascot still covers the delete button');
 });
 
 test('both themes are one stylesheet, switched by a class', () => {
