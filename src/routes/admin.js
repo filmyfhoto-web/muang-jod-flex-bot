@@ -145,6 +145,12 @@ function statusBlock(status) {
   } else if (active.areas !== status.expected.areas) {
     verdict = `<p class="bad">เมนูที่ใช้อยู่มี ${active.areas} ปุ่ม แต่เมนูล่าสุดมี ${status.expected.areas} ปุ่ม
                — <b>ยังเป็นเมนูเก่า</b> กดปุ่มด้านล่างเพื่อติดตั้งตัวใหม่ค่ะ</p>`;
+  } else if (active.name !== status.expected.name) {
+    // Same number of buttons, different picture. Saying "ติดตั้งแล้ว" here is
+    // how the shop was told everything was fine while looking at the old
+    // artwork — the button count is the same in both, only the name differs.
+    verdict = `<p class="bad">ปุ่มเท่ากัน แต่ <b>รูปเมนูยังเป็นอันเก่า</b>
+               — กดปุ่มด้านล่างเพื่อติดตั้งรูปใหม่ค่ะ</p>`;
   } else {
     verdict = `<p class="ok">เมนูล่าสุดติดตั้งแล้วค่ะ (${active.areas} ปุ่ม)<br>
                <span class="dim">ถ้าบนมือถือยังเป็นอันเก่า ให้ปิดแอป LINE แล้วเปิดใหม่ — LINE แคชรูปเมนูไว้</span></p>`;

@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import linebot from '@line/bot-sdk';
 import { lineConfig } from '../config/line.js';
@@ -14,6 +15,37 @@ import { logger } from './logger.js';
 const { MessagingApiClient, MessagingApiBlobClient } = linebot.messagingApi;
 
 export const RICH_MENU_NAME = 'muang-jod-main';
+
+// The menu's name carries a fingerprint of what it is made of: the number of
+// tap areas and a hash of the artwork.
+//
+// Without the artwork in it, a new picture over the same 9 areas is
+// indistinguishable from the menu already installed — which is exactly what
+// happened: the shop's own design shipped, boot compared name/areas/size, found
+// them identical, and installed nothing. LINE gives no way to read an installed
+// menu's image back, so the name is where this has to live.
+let fingerprintCache = null;
+
+export function imageFingerprint(path = resolveImage().path) {
+  if (fingerprintCache?.path === path) return fingerprintCache.hash;
+  let hash;
+  try {
+    hash = createHash('sha256').update(readFileSync(path)).digest('hex').slice(0, 10);
+  } catch {
+    // No artwork to hash is a problem the install itself will report; naming
+    // the menu for it must not be what throws.
+    hash = 'noimage';
+  }
+  fingerprintCache = { path, hash };
+  return hash;
+}
+
+export function expectedMenuName(areas, path) {
+  return `${RICH_MENU_NAME}-${areas}-${imageFingerprint(path)}`;
+}
+
+// Menus this bot installed, whatever artwork they carried at the time.
+const isOurMenu = (name) => String(name || '').startsWith(RICH_MENU_NAME);
 
 // The artwork is a JPEG now: two photographic cut-outs over wide gradients came
 // to ~1.5 MB as a PNG, over LINE's 1 MB cap. This used to name the .png
@@ -62,10 +94,11 @@ export async function getRichMenuStatus(deps = {}) {
     chatBarText: m.chatBarText,
     areas: (m.areas || []).length,
     isDefault: m.richMenuId === defaultId,
-    isOurs: m.name === RICH_MENU_NAME,
+    isOurs: isOurMenu(m.name),
   }));
 
-  return { defaultId, menus, expected: { name: RICH_MENU_NAME, size: LAYOUT, areas: buildAreas().length } };
+  const areas = buildAreas().length;
+  return { defaultId, menus, expected: { name: expectedMenuName(areas), size: LAYOUT, areas } };
 }
 
 // Is LINE already showing the menu this build ships?
@@ -137,7 +170,7 @@ export async function installRichMenu(deps = {}) {
   const richMenu = {
     size: { width: LAYOUT.width, height: LAYOUT.height },
     selected: true,
-    name: RICH_MENU_NAME,
+    name: expectedMenuName(buildAreas().length, path),
     chatBarText: 'เมนูม่วงจด',
     areas: buildAreas(),
   };
@@ -150,7 +183,9 @@ export async function installRichMenu(deps = {}) {
   try {
     const list = await client.getRichMenuList();
     for (const menu of list?.richmenus || []) {
-      if (menu.richMenuId === richMenuId || menu.name !== RICH_MENU_NAME) continue;
+      // Match the prefix, not the exact name: ours now carry a fingerprint, so
+      // the menu being replaced never has the same name as the new one.
+      if (menu.richMenuId === richMenuId || !isOurMenu(menu.name)) continue;
       await client.deleteRichMenu(menu.richMenuId);
       removed.push(menu.richMenuId);
     }

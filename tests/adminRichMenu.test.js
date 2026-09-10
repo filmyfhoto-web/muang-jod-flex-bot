@@ -1,7 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { adminToken, keyMatches, readKey } from '../src/routes/admin.js';
-import { installRichMenu, resolveImage, getRichMenuStatus, ensureRichMenu, menuIsCurrent, RICH_MENU_NAME } from '../src/services/richMenuInstaller.js';
+import {
+  installRichMenu,
+  resolveImage,
+  getRichMenuStatus,
+  ensureRichMenu,
+  menuIsCurrent,
+  imageFingerprint,
+  expectedMenuName,
+  RICH_MENU_NAME,
+} from '../src/services/richMenuInstaller.js';
 import { existsSync, statSync } from 'node:fs';
 import { buildAreas } from '../scripts/create-rich-menu.js';
 
@@ -76,7 +85,8 @@ test('installing uploads the image, sets the default, and sweeps up our old menu
 
   const result = await installRichMenu({ ...line, readImage: async () => Buffer.from('PNGDATA') });
 
-  assert.equal(line.calls.created.name, RICH_MENU_NAME);
+  assert.equal(line.calls.created.name, expectedMenuName(buildAreas().length));
+  assert.ok(line.calls.created.name.startsWith(RICH_MENU_NAME), 'still recognisably ours');
   assert.equal(line.calls.created.areas.length, buildAreas().length, 'the CLI and the page install the same areas');
   assert.deepEqual(line.calls.created.size, { width: 2500, height: 1686 });
   assert.equal(line.calls.image.id, result.richMenuId, 'the image goes to the menu just created');
@@ -175,9 +185,10 @@ test('a channel with no default at all is reported, not thrown', async () => {
 });
 
 test('boot installs the menu only when the live one does not match', async () => {
+  const name = expectedMenuName(buildAreas().length);
   const current = {
-    menus: [{ id: 'rm-1', name: RICH_MENU_NAME, size: { width: 2500, height: 1686 }, areas: buildAreas().length, isDefault: true }],
-    expected: { name: RICH_MENU_NAME, size: { width: 2500, height: 1686 }, areas: buildAreas().length },
+    menus: [{ id: 'rm-1', name, size: { width: 2500, height: 1686 }, areas: buildAreas().length, isDefault: true }],
+    expected: { name, size: { width: 2500, height: 1686 }, areas: buildAreas().length },
   };
   assert.equal(menuIsCurrent(current), true, 'same name, size and area count');
 
@@ -189,6 +200,36 @@ test('boot installs the menu only when the live one does not match', async () =>
   assert.equal(menuIsCurrent({ ...current, menus: [{ ...current.menus[0], isDefault: false }] }), false);
   assert.equal(menuIsCurrent({ ...current, menus: [{ ...current.menus[0], name: 'other-bot' }] }), false);
   assert.equal(menuIsCurrent({ menus: [], expected: current.expected }), false);
+});
+
+test('a menu drawn from different artwork is stale, even with the same buttons', async () => {
+  // The bug this exists for: shipping the shop's own picture changed nothing
+  // but the image — same nine areas, same size, same name — so boot compared
+  // those three, found them equal, and installed nothing. The shop kept seeing
+  // the previous artwork and there was no way to tell from the phone.
+  //
+  // LINE cannot hand back the image of an installed menu, so the only place a
+  // "which picture is this" can live is the menu's name.
+  const areas = buildAreas().length;
+  const size = { width: 2500, height: 1686 };
+  const expected = { name: expectedMenuName(areas), size, areas };
+
+  const sameArtwork = { expected, menus: [{ id: 'rm-1', name: expected.name, size, areas, isDefault: true }] };
+  assert.equal(menuIsCurrent(sameArtwork), true);
+
+  const otherArtwork = {
+    expected,
+    menus: [{ id: 'rm-1', name: `${RICH_MENU_NAME}-${areas}-0000000000`, size, areas, isDefault: true }],
+  };
+  assert.equal(menuIsCurrent(otherArtwork), false, 'a new picture over the same buttons must reinstall');
+});
+
+test('the fingerprint follows the file, and a missing file does not throw', () => {
+  const real = imageFingerprint(resolveImage({}).path);
+  assert.match(real, /^[0-9a-f]{10}$/, 'ten hex characters of sha256');
+  assert.notEqual(imageFingerprint('/nowhere/rich-menu.jpg'), real, 'a different file, a different name');
+  assert.equal(imageFingerprint('/nowhere/rich-menu.jpg'), 'noimage', 'naming the menu must not be what fails');
+  assert.equal(expectedMenuName(9, resolveImage({}).path), `${RICH_MENU_NAME}-9-${real}`);
 });
 
 test('boot never lets a menu failure stop the bot', async () => {
@@ -214,7 +255,14 @@ test('boot does nothing when the menu is already live, or when switched off', as
       ...line.client,
       getRichMenuList: async () => ({
         richmenus: [
-          { richMenuId: 'rm-live', name: RICH_MENU_NAME, size: { width: 2500, height: 1686 }, areas: buildAreas() },
+          {
+            richMenuId: 'rm-live',
+            // Named for the artwork this build actually ships, which is what
+            // makes it the same menu rather than merely the same shape.
+            name: expectedMenuName(buildAreas().length),
+            size: { width: 2500, height: 1686 },
+            areas: buildAreas(),
+          },
         ],
       }),
       getDefaultRichMenuId: async () => ({ richMenuId: 'rm-live' }),
