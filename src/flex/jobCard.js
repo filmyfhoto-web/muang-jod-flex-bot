@@ -190,8 +190,9 @@ export function buildJobBubble(job) {
         data: `action=bill_job&jobId=${encodeURIComponent(job.id)}`,
         displayText: 'ออกใบเสร็จงานนี้',
       },
-      // ✏️ and ✕ are up beside the name now; the footer keeps what is left.
-      secondary: [
+      // ✏️ and ✕ are up beside the name now. Re-categorising is a once-in-a-
+      // while correction, so it goes as a word, not a slab of grey.
+      links: [
         { label: '🗂 เลือกหมวด', data: `action=pick_category&jobId=${encodeURIComponent(job.id)}`, displayText: 'เลือกหมวด' },
       ],
     });
@@ -216,11 +217,14 @@ export function jobPreviewMessage(draftJob, altText = 'ตรวจสอบก�
     layout: 'vertical',
     contents: [{ type: 'text', text: '📋 ตรวจสอบก่อนบันทึก', weight: 'bold', size: 'md', color: COLORS.accentText }],
   };
+  // Saving is the one thing this card is for; แก้ไข and ยกเลิก are the ways
+  // out, and nothing is in the database yet, so they cost nothing to offer
+  // quietly. Two more grey slabs under the button doubled the card's footer.
   bubble.footer = footerActions({
     primary: { label: '✅ บันทึกงาน', data: 'action=confirm_add_job', displayText: 'บันทึกงาน' },
-    secondary: [
+    links: [
       { label: '✏️ แก้ไข', data: 'action=edit_new_job', displayText: 'แก้ไข' },
-      { label: '❌ ยกเลิก', data: 'action=cancel_new_job', displayText: 'ยกเลิก' },
+      { label: '❌ ยกเลิก', data: 'action=cancel_new_job', displayText: 'ยกเลิก', color: COLORS.red },
     ],
   });
   return { type: 'flex', altText, contents: bubble };

@@ -314,18 +314,33 @@ export function receiptFlex(job, opts = {}) {
           { ...link('💰 บันทึกรับเงิน ›', 'record_payment', 'บันทึกรับเงิน'), align: 'end' },
         ],
       },
+      // Words, not slabs. Two grey blocks here sat directly under two rows of
+      // links and a filled button, and made the footer taller than the bill.
       ...(job.id
         ? [
             {
               type: 'box',
               layout: 'horizontal',
-              spacing: 'sm',
+              spacing: 'md',
               contents: [
-                { type: 'button', style: 'secondary', height: 'sm', action: editAction },
                 {
-                  type: 'button',
-                  style: 'secondary',
-                  height: 'sm',
+                  type: 'text',
+                  text: '✏️ แก้ไข',
+                  size: 'sm',
+                  weight: 'bold',
+                  color: COLORS.accentText,
+                  align: 'center',
+                  flex: 1,
+                  action: editAction,
+                },
+                {
+                  type: 'text',
+                  text: '❌ ลบ',
+                  size: 'sm',
+                  weight: 'bold',
+                  color: COLORS.red,
+                  align: 'center',
+                  flex: 1,
                   action: {
                     type: 'postback',
                     label: '❌ ลบ',
