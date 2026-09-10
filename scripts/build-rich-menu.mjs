@@ -1,4 +1,4 @@
-// Draws assets/rich-menu.png — the 2500x1686 Rich Menu artwork — with headless
+// Draws assets/rich-menu.jpg — the 2500x1686 Rich Menu artwork — with headless
 // Chromium, so the layout below stays the single source of truth for it.
 //
 // The three tools it needs are not runtime dependencies of the bot, so install
@@ -6,9 +6,9 @@
 //   npm i --no-save playwright @fontsource/noto-sans-thai sharp
 //   node scripts/build-rich-menu.mjs
 //
-// Geometry must stay in step with LAYOUT in create-rich-menu.js: the brand
-// panel on the left and the strip along the bottom are decoration and sit
-// outside the tappable grid.
+// Geometry must stay in step with LAYOUT in create-rich-menu.js. Every cell
+// here is tappable, the brand footer included — the old menu had a decorative
+// panel that people pressed anyway.
 import { chromium } from 'playwright';
 import { readFileSync, statSync } from 'node:fs';
 import sharp from 'sharp';
@@ -18,157 +18,187 @@ const b64 = (p) => readFileSync(ROOT + p).toString('base64');
 const font400 = b64('node_modules/@fontsource/noto-sans-thai/files/noto-sans-thai-thai-400-normal.woff2');
 const font700 = b64('node_modules/@fontsource/noto-sans-thai/files/noto-sans-thai-thai-700-normal.woff2');
 
-// The brand lockup (mascot + wordmark) already sits on a dark ground. Its own
-// dead margin above the mascot and below the tagline is trimmed here so the
-// panel can show the artwork itself as large as the design does.
-const logo = (await sharp(ROOT + 'public/brand/logo-dark.jpg')
-  .resize({ width: 900 })
-  .extract({ left: 0, top: 80, width: 900, height: 755 })
-  .jpeg({ quality: 90 })
-  .toBuffer()).toString('base64');
+// Cut-outs on transparent ground, so they sit on a card without a seam.
+const dogPen = b64('public/brand/mascot-pen.png');
+const dogHappy = b64('public/brand/mascot-happy.png');
 
-// Geometry — mirrored by LAYOUT in create-rich-menu.js.
+// ---------------------------------------------------------------- geometry --
+// Light cards on a deep navy ground: one big "จดงาน" panel down the left with
+// a 2x2 of cards beside it, a row of three under both, and the brand footer.
 const W = 2500, H = 1686;
-const PANEL_W = 860;        // brand panel, not tappable
-const TOP = 26;             // margin above the first row
-const STRIP_H = 300;        // bottom strip — three more buttons, full width
-const RIGHT = 40;           // margin after the last column, to match the panel's
-const COLS = 4, ROWS = 2;
-const CELL_W = Math.floor((W - PANEL_W - RIGHT) / COLS);
-const CELL_H = Math.floor((H - TOP - STRIP_H) / ROWS);
-const PANEL_H = 1150;       // brand panel, centred in the space beside the grid
-const STRIP_COLS = 3;
-const STRIP_W = Math.floor(W / STRIP_COLS);
+const PAD = 68;
+const GAP_X = 42, GAP_Y = 36;
 
-// Flat icons for a dark ground: light bodies, one blue accent each.
-const ACCENT = '#2E7DF7', LIGHT = '#E8EDF5', MID = '#AEBACD', DARK = '#0C1220';
+const LEFT_X = PAD, LEFT_W = 1175;
+const COL1_X = LEFT_X + LEFT_W + GAP_X;      // 1285
+const COL_W = 552;
+const COL2_X = COL1_X + COL_W + GAP_X;       // 1879
+
+const ROW1_Y = 36, ROW_H = 455;
+const ROW2_Y = ROW1_Y + ROW_H + GAP_Y;       // 527
+const BIG_Y = ROW1_Y, BIG_H = ROW_H * 2 + GAP_Y; // 946 — spans both right rows
+
+const ROW3_Y = ROW2_Y + ROW_H + GAP_Y;       // 1018
+const ROW3_H = 400;
+const FOOT_Y = ROW3_Y + ROW3_H;              // 1418
+const FOOT_H = H - FOOT_Y;                   // 268
+
+// ------------------------------------------------------------------ colours --
+const NAVY = '#17357E', INK = '#1B2540', SUB = '#3D4C73';
+const BLUE = '#2E7DF7', PURPLE = '#7C3AED', RED = '#E5484D', GREEN = '#22A06B';
+
+// Flat icons for light cards: a filled body plus one accent, as in the design.
 const ICONS = {
-  add: `<rect x="14" y="10" width="56" height="72" rx="9" fill="${LIGHT}"/>
-        <rect x="26" y="26" width="32" height="6" rx="3" fill="${MID}"/><rect x="26" y="40" width="32" height="6" rx="3" fill="${MID}"/><rect x="26" y="54" width="20" height="6" rx="3" fill="${MID}"/>
-        <circle cx="72" cy="70" r="22" fill="${ACCENT}"/><rect x="69" y="59" width="6" height="22" rx="3" fill="#fff"/><rect x="61" y="67" width="22" height="6" rx="3" fill="#fff"/>`,
-  slip: `<rect x="14" y="10" width="56" height="72" rx="9" fill="${LIGHT}"/>
-         <circle cx="34" cy="32" r="8" fill="#FBBF24"/><path d="M20 68l16-20 11 13 9-9 14 16z" fill="${MID}"/>
-         <circle cx="72" cy="70" r="22" fill="${ACCENT}"/><path d="M72 60v20M64 68l8-8 8 8" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`,
-  recent: `<path d="M50 8c24 0 42 16 42 36S74 80 50 80c-6 0-11-1-16-2L14 90l6-19C13 65 8 55 8 44 8 24 26 8 50 8z" fill="${LIGHT}"/>
-           <circle cx="50" cy="42" r="21" fill="none" stroke="${ACCENT}" stroke-width="6"/>
-           <path d="M50 30v13l9 6" stroke="${ACCENT}" stroke-width="6" stroke-linecap="round" fill="none"/>`,
-  chart: `<rect x="10" y="52" width="17" height="36" rx="5" fill="${ACCENT}"/><rect x="34" y="30" width="17" height="58" rx="5" fill="${LIGHT}"/>
-          <path d="M74 26a30 30 0 11-30 30h30z" fill="${MID}"/><path d="M74 26v30h30A30 30 0 0074 26z" fill="${ACCENT}"/>`,
-  edit: `<path d="M16 78l6-19L64 17a10 10 0 0114 14L46 72z" fill="${LIGHT}"/><path d="M60 21l14 14" stroke="${ACCENT}" stroke-width="7" stroke-linecap="round"/>
-         <rect x="12" y="88" width="76" height="7" rx="3.5" fill="${ACCENT}"/>`,
-  trash: `<rect x="24" y="28" width="52" height="62" rx="9" fill="${LIGHT}"/><rect x="16" y="16" width="68" height="13" rx="6.5" fill="${MID}"/><rect x="41" y="7" width="18" height="10" rx="5" fill="${MID}"/>
-          <rect x="37" y="42" width="6" height="32" rx="3" fill="${DARK}"/><rect x="47" y="42" width="6" height="32" rx="3" fill="${DARK}"/><rect x="57" y="42" width="6" height="32" rx="3" fill="${DARK}"/>`,
-  pending: `<rect x="14" y="10" width="56" height="74" rx="9" fill="${LIGHT}"/><rect x="30" y="4" width="24" height="14" rx="6" fill="${MID}"/>
-            <path d="M26 34l6 6 12-12M26 54l6 6 12-12" stroke="${ACCENT}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-            <circle cx="72" cy="70" r="22" fill="${ACCENT}"/><path d="M72 58v12l8 5" stroke="#fff" stroke-width="6" stroke-linecap="round" fill="none"/>`,
-  board: `<rect x="8" y="14" width="84" height="66" rx="10" fill="${LIGHT}"/><rect x="16" y="22" width="30" height="22" rx="5" fill="${ACCENT}"/>
-          <rect x="52" y="22" width="24" height="22" rx="5" fill="${MID}"/><rect x="16" y="50" width="60" height="8" rx="4" fill="${MID}"/>
-          <rect x="16" y="63" width="42" height="8" rx="4" fill="${MID}"/><rect x="36" y="84" width="28" height="8" rx="4" fill="${MID}"/>`,
-  bell: `<path d="M50 8a26 26 0 0126 26v18l10 12H14l10-12V34A26 26 0 0150 8z" fill="${LIGHT}"/>
-         <path d="M38 70a12 12 0 0024 0z" fill="${MID}"/><circle cx="76" cy="24" r="14" fill="${ACCENT}"/>`,
-  bill: `<path d="M20 6h60v82l-10-8-10 8-10-8-10 8-10-8-10 8z" fill="${LIGHT}"/>
-         <rect x="32" y="26" width="36" height="6" rx="3" fill="${MID}"/><rect x="32" y="42" width="24" height="6" rx="3" fill="${MID}"/>
-         <circle cx="72" cy="64" r="21" fill="${ACCENT}"/><text x="72" y="74" font-size="27" font-weight="700" fill="#fff" text-anchor="middle" font-family="sans-serif">฿</text>`,
-  help: `<path d="M18 56V44a32 32 0 0164 0v12" stroke="${LIGHT}" stroke-width="9" fill="none" stroke-linecap="round"/>
-         <rect x="6" y="52" width="20" height="30" rx="10" fill="${LIGHT}"/><rect x="74" y="52" width="20" height="30" rx="10" fill="${LIGHT}"/>
-         <path d="M40 74h28a10 10 0 0110 10v2a10 10 0 01-10 10H52l-12 8z" fill="${ACCENT}"/>`,
+  recent: `<rect x="12" y="14" width="76" height="60" rx="14" fill="none" stroke="${BLUE}" stroke-width="7"/>
+           <path d="M34 74l-6 16 22-16z" fill="${BLUE}"/>
+           <circle cx="50" cy="44" r="19" fill="none" stroke="${BLUE}" stroke-width="7"/>
+           <path d="M50 33v12l9 6" stroke="${BLUE}" stroke-width="7" stroke-linecap="round" fill="none"/>`,
+  slip: `<rect x="10" y="10" width="66" height="80" rx="14" fill="none" stroke="${BLUE}" stroke-width="7"/>
+         <circle cx="30" cy="32" r="8" fill="#F5A524"/>
+         <path d="M16 72l18-22 12 14 10-10 14 18z" fill="#AEBACD"/>
+         <circle cx="78" cy="70" r="21" fill="${BLUE}"/>
+         <path d="M78 60v20M69 69l9-9 9 9" stroke="#fff" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`,
+  pending: `<rect x="8" y="24" width="70" height="52" rx="13" fill="${RED}"/>
+            <circle cx="26" cy="42" r="5.5" fill="#fff"/><circle cx="26" cy="60" r="5.5" fill="#fff"/>
+            <rect x="38" y="37" width="30" height="9" rx="4.5" fill="#fff"/>
+            <rect x="38" y="55" width="22" height="9" rx="4.5" fill="#fff"/>
+            <circle cx="76" cy="70" r="21" fill="#fff" stroke="${RED}" stroke-width="5"/>
+            <path d="M76 59v12l8 5" stroke="${RED}" stroke-width="6" stroke-linecap="round" fill="none"/>`,
+  category: `<path d="M50 8a42 42 0 1042 42H50z" fill="${GREEN}"/>
+             <path d="M50 8v42h42A42 42 0 0050 8z" fill="#EDE9FE"/>
+             <path d="M50 8v42h30A42 42 0 0050 8z" fill="${PURPLE}"/>`,
+  receipt: `<path d="M50 86S14 64 14 40a20 20 0 0136-12 20 20 0 0136 12c0 24-36 46-36 46z" fill="${PURPLE}"/>`,
+  // A body plus four bars crossing it reads as eight teeth, and stays clean at
+  // this size — a hand-written gear outline turned into a blob.
+  settings: `<g fill="${PURPLE}"><circle cx="50" cy="50" r="33"/>
+             <rect x="43" y="6" width="14" height="88" rx="7"/>
+             <rect x="43" y="6" width="14" height="88" rx="7" transform="rotate(45 50 50)"/>
+             <rect x="43" y="6" width="14" height="88" rx="7" transform="rotate(90 50 50)"/>
+             <rect x="43" y="6" width="14" height="88" rx="7" transform="rotate(135 50 50)"/></g>
+             <circle cx="50" cy="50" r="14" fill="#fff"/>`,
+  help: `<path d="M16 58V46a34 34 0 0168 0v12" stroke="${PURPLE}" stroke-width="10" fill="none" stroke-linecap="round"/>
+         <rect x="4" y="54" width="22" height="34" rx="11" fill="${PURPLE}"/>
+         <rect x="74" y="54" width="22" height="34" rx="11" fill="${PURPLE}"/>`,
 };
 
-// `title` is written as the lines it should break into: Thai has no spaces, so
-// left to itself Chromium splits a word mid-syllable. Subtitles are kept short
-// enough for one line — on a phone the card is about 90px wide, and anything
-// longer is decoration nobody can read.
-const BUTTONS = [
-  { icon: 'add', title: ['บันทึกงาน', 'วันนี้'], sub: 'จดงาน / รับเงิน' },
-  { icon: 'slip', title: ['แนบสลิป/', 'หลักฐาน'], sub: 'สลิป / ใบเสร็จ' },
-  { icon: 'recent', title: ['รายการ', 'ล่าสุด'], sub: 'ดูงานที่บันทึก' },
-  { icon: 'chart', title: ['สรุปวันนี้'], sub: 'ยอดรับ / ยอดค้าง' },
-  { icon: 'edit', title: ['แก้ไข', 'ล่าสุด'], sub: 'แก้ข้อความ / ยอด' },
-  { icon: 'trash', title: ['ยกเลิก', 'ล่าสุด'], sub: 'ลบรายการล่าสุด' },
-  { icon: 'pending', title: ['ค้างรับ &', 'ติดตามงาน'], sub: 'งานค้าง / มัดจำ' },
-  { icon: 'help', title: ['ช่วยเหลือ'], sub: 'วิธีใช้ / ติดต่อ' },
+// ------------------------------------------------------------------- cards --
+// Order matters: it is the order of AREAS in create-rich-menu.js.
+const SMALL = [
+  { icon: 'recent', title: 'รายการล่าสุด/แก้ไข', x: COL1_X, y: ROW1_Y, w: COL_W, h: ROW_H, bg: 'card-pale' },
+  { icon: 'slip', title: 'บันทึก/แนบสลิป', x: COL2_X, y: ROW1_Y, w: COL_W, h: ROW_H, bg: 'card-pale' },
+  { icon: 'pending', title: 'งานค้าง', sub: 'ดูงานทั้งหมด', x: COL1_X, y: ROW2_Y, w: COL_W, h: ROW_H, bg: 'card-pink', big: true },
+  { icon: 'category', title: 'หมวดงาน', x: COL1_X, y: ROW2_Y, w: COL_W, h: ROW_H, bg: 'card-green', big: true, at: 'col2' },
+  { icon: 'settings', title: 'ตั้งค่า', sub: 'ปรับแต่งแอป', x: COL1_X, y: ROW3_Y, w: COL_W, h: ROW3_H, bg: 'card-pale', row: true },
+  { icon: 'help', title: 'ช่วยเหลือ', sub: 'แจ้งเตือนงาน', x: COL2_X, y: ROW3_Y, w: COL_W, h: ROW3_H, bg: 'card-pale', row: true },
 ];
+// The two that sit in the second right-hand column / third row are placed by x
+// above; fix the ones flagged so the list reads in visual order.
+SMALL[3].x = COL2_X;
 
-// The bottom strip — tappable, unlike the decorative strip it replaces.
-const STRIP = [
-  { icon: 'board', title: 'แดชบอร์ด', sub: 'ดูภาพรวมงานทั้งหมด' },
-  { icon: 'bill', title: 'ออกบิล', sub: 'รวมบิล / รับชำระ' },
-  { icon: 'bell', title: 'ตั้งแจ้งเตือนงาน', sub: 'เตือนตามเวลาที่ตั้ง' },
-];
-
-const cards = BUTTONS.map(
-  (b, i) => `<div class="cell" style="grid-column:${(i % COLS) + 1};grid-row:${Math.floor(i / COLS) + 1}">
-    <div class="card">
-      <div class="num">${i + 1}</div>
-      <svg class="ic" viewBox="0 0 100 100">${ICONS[b.icon]}</svg>
-      <div class="t">${b.title.join('<br>')}</div>
-      <div class="s">${b.sub}</div>
-      <div class="rule"></div>
-    </div></div>`
-).join('');
-
-const strip = STRIP.map(
-  (b, i) => `<div class="scard" style="left:${i * STRIP_W + 18}px;width:${STRIP_W - 36}px">
-    <svg class="sic" viewBox="0 0 100 100">${ICONS[b.icon]}</svg>
-    <div><div class="st">${b.title}</div><div class="ss">${b.sub}</div></div>
-  </div>`
-).join('');
+const card = (c) => `
+  <div class="card ${c.bg} ${c.row ? 'wide' : ''}" style="left:${c.x}px;top:${c.y}px;width:${c.w}px;height:${c.h}px">
+    <svg class="ic ${c.big ? 'ic-lg' : ''}" viewBox="0 0 100 100">${ICONS[c.icon]}</svg>
+    <div class="t ${c.big ? 't-lg' : ''}">${c.title}</div>
+    ${c.sub ? `<div class="s">${c.sub}</div>` : ''}
+  </div>`;
 
 const html = `<!doctype html><html lang="th"><head><meta charset="utf-8"><style>
 @font-face{font-family:'NST';src:url(data:font/woff2;base64,${font400}) format('woff2');font-weight:400}
 @font-face{font-family:'NST';src:url(data:font/woff2;base64,${font700}) format('woff2');font-weight:700}
 *{box-sizing:border-box;margin:0}
-body{width:${W}px;height:${H}px;font-family:'NST',sans-serif;overflow:hidden;position:relative;color:#fff;
+body{width:${W}px;height:${H}px;font-family:'NST',sans-serif;overflow:hidden;position:relative;
   background:
-    radial-gradient(900px 620px at 18% 26%, rgba(46,125,247,.20), transparent 62%),
-    radial-gradient(760px 520px at 82% 78%, rgba(46,125,247,.13), transparent 60%),
-    linear-gradient(150deg,#080B12 0%,#05070C 55%,#080B12 100%)}
-.panel{position:absolute;left:40px;top:${TOP + Math.round((H - TOP - STRIP_H - PANEL_H) / 2)}px;
-  width:${PANEL_W - 110}px;height:${PANEL_H}px;
-  border-radius:46px;background:linear-gradient(160deg,rgba(20,28,44,.94),rgba(8,12,20,.94));
-  border:2px solid rgba(46,125,247,.34);box-shadow:0 0 70px rgba(46,125,247,.16) inset,0 18px 44px rgba(0,0,0,.55);
-  overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;padding:24px 0}
-/* Wider than the panel on purpose: the artwork's own side margins are what
-   gets clipped, so the mascot and wordmark read as large as in the design.
-   The mask fades its square edge into the panel instead of showing a seam. */
-.panel .logo{width:${Math.round((PANEL_W - 110) * 1.37)}px;flex:none;
-  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 70px,#000 calc(100% - 46px),transparent 100%)}
-.strip{position:absolute;left:0;top:${H - STRIP_H}px;width:${W}px;height:${STRIP_H}px}
-.scard{position:absolute;top:16px;height:${STRIP_H - 40}px;border-radius:34px;display:flex;align-items:center;gap:26px;padding:0 34px;
-  background:linear-gradient(165deg,rgba(20,27,42,.94),rgba(10,14,23,.94));border:2px solid rgba(46,125,247,.30);
-  box-shadow:0 12px 26px rgba(0,0,0,.5)}
-.sic{width:150px;height:150px;flex:none;filter:drop-shadow(0 6px 12px rgba(0,0,0,.55))}
-.st{font-weight:700;font-size:60px;color:#fff;white-space:nowrap}
-.ss{font-weight:400;font-size:38px;color:#93A3BC;margin-top:4px}
-.badge{display:flex;align-items:center;gap:16px;padding:16px 34px;border-radius:999px;
-  background:rgba(46,125,247,.13);border:2px solid rgba(46,125,247,.42)}
-.badge .line{padding:8px 20px;border-radius:999px;background:#06C755;color:#fff;font-weight:700;font-size:26px;
-  display:flex;align-items:center;justify-content:center;letter-spacing:1px}
-.badge span{font-size:40px;color:#D8E4F7}
-/* The panel is tappable; nothing about a picture says so on its own. */
-.tap{font-size:32px;color:#7F8DA5;margin-top:-8px}
-.grid{position:absolute;left:${PANEL_W}px;top:${TOP}px;width:${CELL_W * COLS}px;height:${CELL_H * ROWS}px;
-  display:grid;grid-template-columns:repeat(${COLS},${CELL_W}px);grid-template-rows:repeat(${ROWS},${CELL_H}px)}
-.cell{padding:18px 14px;display:flex}
-.card{position:relative;flex:1;border-radius:34px;padding:30px 14px 34px;text-align:center;
-  background:linear-gradient(165deg,rgba(20,27,42,.92),rgba(10,14,23,.92));
-  border:2px solid rgba(120,150,200,.20);box-shadow:0 14px 30px rgba(0,0,0,.45);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
-.num{position:absolute;left:22px;top:20px;width:52px;height:52px;border-radius:16px;background:${ACCENT};
-  font-weight:700;font-size:30px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(46,125,247,.5)}
-.ic{width:220px;height:220px;filter:drop-shadow(0 8px 14px rgba(0,0,0,.55))}
-.t{font-weight:700;font-size:56px;line-height:1.18;color:#fff;white-space:nowrap;
-  min-height:132px;display:flex;flex-direction:column;justify-content:center}
-.s{font-weight:400;font-size:36px;line-height:1.3;color:#93A3BC;white-space:nowrap}
-.rule{width:70px;height:5px;border-radius:3px;background:${ACCENT};margin-top:10px;box-shadow:0 0 14px rgba(46,125,247,.75)}
+    radial-gradient(1100px 760px at 22% 30%, rgba(58,120,220,.30), transparent 64%),
+    radial-gradient(900px 620px at 84% 76%, rgba(46,110,210,.20), transparent 62%),
+    linear-gradient(158deg,#1B3E86 0%,#153366 52%,#10264E 100%)}
+
+.card{position:absolute;border-radius:40px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:18px;padding:28px;text-align:center;
+  box-shadow:0 16px 34px rgba(0,0,0,.26)}
+.card-pale{background:linear-gradient(168deg,#FFFFFF 0%,#EAF2FE 100%)}
+.card-pink{background:linear-gradient(168deg,#FBD3D7 0%,#F6BEC5 100%)}
+.card-green{background:linear-gradient(168deg,#D6F0DE 0%,#C3E7D0 100%)}
+/* The bottom row is short and wide, so its icon sits beside the words. */
+.card.wide{flex-direction:row;gap:34px;justify-content:center}
+.card.wide .ic{margin:0}
+.card.wide .stack{text-align:left}
+.ic{width:180px;height:180px;flex:none}
+.ic-lg{width:200px;height:200px}
+.t{font-weight:700;font-size:58px;line-height:1.15;color:${NAVY};white-space:nowrap}
+.t-lg{font-size:76px}
+.s{font-weight:400;font-size:40px;color:${SUB};white-space:nowrap}
+
+/* จดงาน — the big panel. Everything else is one tap; this is the one people
+   look for, so it gets the room, the mascot and the wordmark. */
+.big{position:absolute;left:${LEFT_X}px;top:${BIG_Y}px;width:${LEFT_W}px;height:${BIG_H}px;
+  border-radius:44px;background:linear-gradient(150deg,#F4F9FF 0%,#E4EEFC 60%,#F7FBFF 100%);
+  box-shadow:0 18px 40px rgba(0,0,0,.28);overflow:hidden}
+.big h1{position:absolute;left:64px;top:34px;font-size:196px;font-weight:700;color:${NAVY};line-height:1}
+.big .lead{position:absolute;left:70px;top:262px;font-size:56px;font-weight:400;color:${SUB};line-height:1.35}
+.big .plus{position:absolute;left:74px;top:452px;width:150px;height:150px;border-radius:50%;
+  background:${BLUE};box-shadow:0 12px 26px rgba(46,125,247,.45)}
+.big .plus::before,.big .plus::after{content:'';position:absolute;background:#fff;border-radius:8px}
+.big .plus::before{left:50%;top:34px;width:14px;height:82px;margin-left:-7px}
+.big .plus::after{top:50%;left:34px;height:14px;width:82px;margin-top:-7px}
+.big .dog{position:absolute;right:22px;bottom:96px;height:660px}
+/* The wordmark, drawn rather than pasted, so it stays sharp at this size. */
+.mark{position:absolute;right:56px;bottom:26px;display:flex;align-items:center;gap:6px;
+  padding:16px 40px;border-radius:26px;background:#11224A;box-shadow:0 10px 24px rgba(0,0,0,.35)}
+.mark b{font-size:66px;font-weight:700;line-height:1}
+.mark .m1{color:#A78BFA}
+.mark .m2{color:#fff}
+
+/* ออกใบเสร็จ — wide, and the only lavender card. */
+.bill{position:absolute;left:${LEFT_X}px;top:${ROW3_Y}px;width:${LEFT_W}px;height:${ROW3_H}px;
+  border-radius:40px;background:linear-gradient(150deg,#EFE7FB 0%,#E1D5F7 100%);
+  box-shadow:0 16px 34px rgba(0,0,0,.26);display:flex;align-items:center;gap:34px;padding:0 40px;overflow:hidden}
+.bill .disc{width:150px;height:150px;border-radius:50%;background:#F3EDFF;
+  display:flex;align-items:center;justify-content:center;flex:none}
+.bill .disc svg{width:96px;height:96px}
+.bill .txt{flex:1}
+.bill .bt{font-weight:700;font-size:76px;color:${NAVY};line-height:1.1;white-space:nowrap}
+.bill .bs{font-weight:400;font-size:40px;color:${SUB};margin-top:6px;white-space:nowrap}
+.bill .dog2{height:330px;flex:none;margin-bottom:-18px}
+
+/* Brand footer — tappable, and it says so by being the wordmark. */
+.foot{position:absolute;left:0;top:${FOOT_Y}px;width:${W}px;height:${FOOT_H}px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+.foot .fw{font-weight:700;font-size:74px;color:#fff;letter-spacing:.5px}
+.foot .ft{font-weight:400;font-size:40px;color:#B9C9E6}
 </style></head><body>
-<div class="panel">
-  <img class="logo" src="data:image/jpeg;base64,${logo}">
-  <div class="badge"><div class="line">LINE</div><span>ผู้ช่วยบันทึกงานวันนี้ใน LINE</span></div>
-  <div class="tap">แตะรูปน้องหมา เปิดหน้าแรก</div>
+
+<div class="big">
+  <h1>จดงาน</h1>
+  <div class="lead">จดงานง่ายๆ<br>แค่ไม่กี่ขั้นตอน</div>
+  <div class="plus"></div>
+  <img class="dog" src="data:image/png;base64,${dogPen}">
+  <div class="mark"><b class="m1">ม่วง</b><b class="m2">จดให้</b></div>
 </div>
-<div class="grid">${cards}</div>
-<div class="strip">${strip}</div>
+
+${SMALL.filter((c) => !c.row).map(card).join('')}
+
+<div class="bill">
+  <div class="disc"><svg viewBox="0 0 100 100">${ICONS.receipt}</svg></div>
+  <div class="txt">
+    <div class="bt">ออกใบเสร็จ</div>
+    <div class="bs">สร้างใบเสร็จได้ทันที</div>
+  </div>
+  <img class="dog2" src="data:image/png;base64,${dogHappy}">
+</div>
+
+${SMALL.filter((c) => c.row)
+  .map(
+    (c) => `<div class="card ${c.bg} wide" style="left:${c.x}px;top:${c.y}px;width:${c.w}px;height:${c.h}px">
+      <svg class="ic" viewBox="0 0 100 100">${ICONS[c.icon]}</svg>
+      <div class="stack"><div class="t">${c.title}</div><div class="s">${c.sub}</div></div>
+    </div>`
+  )
+  .join('')}
+
+<div class="foot">
+  <div class="fw">ม่วงจดให้ 🐾</div>
+  <div class="ft">จดงานให้ · จดเงินให้ · อยู่ข้างคุณเสมอ</div>
+</div>
 </body></html>`;
 
 const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined });
@@ -181,14 +211,18 @@ await page.waitForTimeout(500);
 const buf = await page.screenshot({ type: 'png' });
 await browser.close();
 
-const out = ROOT + 'assets/rich-menu.png';
+// JPEG, not PNG. The menu is two photographic cut-outs over wide gradients: as
+// a PNG it lands at ~1.5 MB, and squeezing that under LINE's 1 MB cap with a
+// 256-colour palette put visible blotches in the smooth card backgrounds.
+const out = ROOT + 'assets/rich-menu.jpg';
 const meta = await sharp(buf).metadata();
-await sharp(buf).png({ compressionLevel: 9, palette: true }).toFile(out);
+await sharp(buf).jpeg({ quality: 92, chromaSubsampling: '4:4:4', mozjpeg: true }).toFile(out);
 
 const kb = statSync(out).size / 1024;
-console.log(`rendered ${meta.width}x${meta.height} -> assets/rich-menu.png (${kb.toFixed(0)} KB)`);
-console.log(`tap grid: ${COLS}x${ROWS} cells of ${CELL_W}x${CELL_H} from x=${PANEL_W} y=${TOP} (right margin ${RIGHT})`);
-console.log(`strip: ${STRIP_COLS} cells of ${STRIP_W}x${STRIP_H} from y=${H - STRIP_H}`);
+console.log(`rendered ${meta.width}x${meta.height} -> assets/rich-menu.jpg (${kb.toFixed(0)} KB)`);
+console.log(`big: ${LEFT_X},${BIG_Y} ${LEFT_W}x${BIG_H} · bill: ${LEFT_X},${ROW3_Y} ${LEFT_W}x${ROW3_H}`);
+console.log(`cols: ${COL1_X} / ${COL2_X} width ${COL_W} · rows: ${ROW1_Y} / ${ROW2_Y} height ${ROW_H} · row3 ${ROW3_Y} height ${ROW3_H}`);
+console.log(`footer: y=${FOOT_Y} height ${FOOT_H}`);
 if (errs.length) {
   console.error('page errors:\n' + errs.join('\n'));
   process.exit(1);

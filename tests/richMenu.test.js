@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolveMenuCommand } from '../src/utils/menuCommands.js';
 import { POSTBACK_ACTIONS } from '../src/utils/validation.js';
-import { buildAreas, LAYOUT, BUTTONS, STRIP, PANEL } from '../scripts/create-rich-menu.js';
+import { buildAreas, LAYOUT, BUTTONS, FOOTER } from '../scripts/create-rich-menu.js';
 
 // The Rich Menu is artwork plus a list of tappable rectangles, kept in step by
 // hand. These guard the ways that pairing silently breaks.
@@ -12,8 +12,8 @@ const builder = readFileSync(new URL('../scripts/build-rich-menu.mjs', import.me
 const nOf = (key) => Number(new RegExp(`${key} = (\\d+)`).exec(builder)?.[1]);
 
 test('every button reaches a handler, by tap and by text', () => {
-  const all = [...BUTTONS, ...STRIP, PANEL];
-  assert.equal(all.length, LAYOUT.cols * LAYOUT.rows + LAYOUT.stripCols + 1);
+  const all = [...BUTTONS, FOOTER];
+  assert.equal(all.length, 9, 'eight cards and the brand footer');
 
   for (const btn of all) {
     const action = /action=([a-z_]+)/.exec(btn.data)?.[1];
@@ -25,21 +25,26 @@ test('every button reaches a handler, by tap and by text', () => {
   }
 });
 
+const config = readFileSync(new URL('../scripts/create-rich-menu.js', import.meta.url), 'utf8');
+const cOf = (key) => Number(new RegExp(`${key} = (\\d+)`).exec(config)?.[1]);
+
 test('the artwork and the tap areas describe the same geometry', () => {
+  // Both files declare the grid independently; edit one alone and the buttons
+  // drift off the cards they are drawn on.
+  for (const key of ['PAD', 'GAP_X', 'GAP_Y', 'LEFT_W', 'COL_W', 'ROW_H', 'ROW3_H', 'ROW1_Y']) {
+    const drawn = nOf(key);
+    const tapped = cOf(key);
+    assert.ok(Number.isFinite(drawn), `${key} not declared in build-rich-menu.mjs`);
+    assert.ok(Number.isFinite(tapped), `${key} not declared in create-rich-menu.js`);
+    assert.equal(tapped, drawn, `${key}: artwork says ${drawn}, tap areas say ${tapped}`);
+  }
   assert.equal(nOf('W'), LAYOUT.width);
   assert.equal(nOf('H'), LAYOUT.height);
-  assert.equal(nOf('PANEL_W'), LAYOUT.marginLeft);
-  assert.equal(nOf('RIGHT'), LAYOUT.marginRight);
-  assert.equal(nOf('TOP'), LAYOUT.marginTop);
-  assert.equal(nOf('STRIP_H'), LAYOUT.stripHeight);
-  assert.equal(nOf('COLS'), LAYOUT.cols);
-  assert.equal(nOf('ROWS'), LAYOUT.rows);
-  assert.equal(nOf('STRIP_COLS'), LAYOUT.stripCols);
 });
 
 test('the areas stay inside the image, never overlap, and are big enough to tap', () => {
   const areas = buildAreas();
-  assert.equal(areas.length, BUTTONS.length + STRIP.length + 1);
+  assert.equal(areas.length, BUTTONS.length + 1);
 
   for (const { bounds, action } of areas) {
     assert.ok(bounds.width >= 200 && bounds.height >= 200, `${action.displayText}: ${bounds.width}x${bounds.height} too small`);
@@ -60,32 +65,28 @@ test('the areas stay inside the image, never overlap, and are big enough to tap'
   }
 });
 
-test('the grid clears the brand panel and the strip reaches both edges', () => {
+test('the areas cover the whole image, so no press lands on nothing', () => {
   const areas = buildAreas();
-  const grid = areas.slice(0, BUTTONS.length);
-  const strip = areas.slice(BUTTONS.length, BUTTONS.length + STRIP.length);
+  const covered = areas.reduce((sum, a) => sum + a.bounds.width * a.bounds.height, 0);
+  assert.equal(covered, LAYOUT.width * LAYOUT.height, 'the tap areas leave a gap or overlap');
 
-  for (const a of grid) {
-    assert.ok(a.bounds.x >= LAYOUT.marginLeft, `${a.action.displayText} sits on the brand panel`);
-    assert.ok(a.bounds.y + a.bounds.height <= LAYOUT.height - LAYOUT.stripHeight, 'grid runs into the strip');
-  }
-
-  assert.equal(strip[0].bounds.x, 0);
-  const last = strip[strip.length - 1].bounds;
-  assert.equal(last.x + last.width, LAYOUT.width, 'the strip leaves a gap at the right edge');
-  assert.ok(strip.every((a) => a.bounds.y === LAYOUT.height - LAYOUT.stripHeight));
+  // Every edge is reached, so a press near the rim is not lost.
+  assert.ok(areas.some((a) => a.bounds.x === 0));
+  assert.ok(areas.some((a) => a.bounds.y === 0));
+  assert.ok(areas.some((a) => a.bounds.x + a.bounds.width === LAYOUT.width));
+  assert.ok(areas.some((a) => a.bounds.y + a.bounds.height === LAYOUT.height));
 });
 
-test('the mascot panel is tappable and covers everything left of the grid', () => {
-  const panel = buildAreas().at(-1);
-  assert.equal(panel.action.data, PANEL.data);
-  assert.deepEqual(panel.bounds, {
-    x: 0,
-    y: 0,
-    width: LAYOUT.marginLeft,
-    height: LAYOUT.height - LAYOUT.stripHeight,
-  });
-  // It is the biggest target on the menu, so a gap here would be the most
-  // annoying kind: a press that lands on nothing.
-  assert.ok(panel.bounds.width * panel.bounds.height > 1_000_000);
+test('จดงาน is the biggest target, and the brand footer is tappable', () => {
+  const areas = buildAreas();
+  const jot = areas[0];
+  assert.equal(jot.action.data, 'action=add_job');
+  const biggest = areas.reduce((a, b) => (a.bounds.width * a.bounds.height >= b.bounds.width * b.bounds.height ? a : b));
+  assert.equal(biggest.action.data, jot.action.data, 'จดงาน should be the largest area');
+
+  const footer = areas.at(-1);
+  assert.equal(footer.action.data, FOOTER.data);
+  assert.equal(footer.bounds.x, 0);
+  assert.equal(footer.bounds.width, LAYOUT.width);
+  assert.equal(footer.bounds.y + footer.bounds.height, LAYOUT.height);
 });

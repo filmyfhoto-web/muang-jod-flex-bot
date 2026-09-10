@@ -7,52 +7,71 @@ import linebot from '@line/bot-sdk';
 const { MessagingApiClient, MessagingApiBlobClient } = linebot.messagingApi;
 
 // ------------------------------------------------------------
-// Rich Menu layout config — must match assets/rich-menu.png, which is drawn
-// by scripts/build-rich-menu.mjs. The image is 2500 x 1686:
-//   - a brand panel down the left — tappable, opens the home card
-//   - 8 cards in 4 columns x 2 rows to its right
-//   - a strip of 3 cards across the bottom, full width
+// Rich Menu layout config — must match assets/rich-menu.jpg, which is drawn by
+// scripts/build-rich-menu.mjs. The image is 2500 x 1686:
+//   - a big "จดงาน" panel down the left, spanning two rows
+//   - a 2 x 2 of cards to its right
+//   - a row of three under both: ออกใบเสร็จ (wide), ตั้งค่า, ช่วยเหลือ
+//   - the brand footer across the bottom — tappable, opens the home card
+//
+// The old menu was a uniform 4 x 2 grid, so its areas could be computed. This
+// one is not, so each rectangle is written out: the artwork is the spec, and a
+// formula that no longer matches it is worse than a list that does.
 // ------------------------------------------------------------
-const LAYOUT = {
-  width: 2500,
-  height: 1686,
-  cols: 4,
-  rows: 2,
-  marginLeft: 860, // brand panel to the left of the grid — tappable, see PANEL
-  marginRight: 40, // margin after the last column, matching the panel's on the left
-  marginTop: 26, // margin above the first row
-  stripHeight: 300, // bottom strip — tappable, see STRIP below
-  stripCols: 3,
-  gutter: 0, // gap between cards, if the artwork has spacing
-};
+const LAYOUT = { width: 2500, height: 1686 };
 
-// The 4 x 2 grid, left-to-right, top-to-bottom.
+// Mirrors the geometry block in build-rich-menu.mjs.
+const PAD = 68;
+const GAP_X = 42, GAP_Y = 36;
+const LEFT_X = PAD, LEFT_W = 1175;
+const COL1_X = LEFT_X + LEFT_W + GAP_X;
+const COL_W = 552;
+const COL2_X = COL1_X + COL_W + GAP_X;
+const ROW1_Y = 36, ROW_H = 455;
+const ROW2_Y = ROW1_Y + ROW_H + GAP_Y;
+const BIG_Y = ROW1_Y, BIG_H = ROW_H * 2 + GAP_Y;
+const ROW3_Y = ROW2_Y + ROW_H + GAP_Y;
+const ROW3_H = 400;
+const FOOT_Y = ROW3_Y + ROW3_H;
+const FOOT_H = LAYOUT.height - FOOT_Y;
+
+// A tap area is grown to the gutter around its card, so a press that lands
+// between two cards still does something rather than nothing.
 const BUTTONS = [
-  { label: 'บันทึกงานวันนี้', data: 'action=add_job' },
-  { label: 'แนบสลิป/หลักฐาน', data: 'action=attach_evidence' },
-  { label: 'รายการล่าสุด', data: 'action=recent_jobs' },
-  { label: 'สรุปวันนี้', data: 'action=today_summary' },
-  { label: 'แก้ไขล่าสุด', data: 'action=edit_latest' },
-  { label: 'ยกเลิกล่าสุด', data: 'action=cancel_latest' },
-  { label: 'ค้างรับ & ติดตามงาน', data: 'action=pending_payment' },
-  { label: 'ช่วยเหลือ', data: 'action=help' },
+  { label: 'จดงาน', data: 'action=add_job',
+    bounds: { x: 0, y: 0, width: LEFT_X + LEFT_W + GAP_X / 2, height: BIG_Y + BIG_H + GAP_Y / 2 } },
+
+  { label: 'รายการล่าสุด/แก้ไข', data: 'action=recent_jobs',
+    bounds: { x: COL1_X - GAP_X / 2, y: 0, width: COL_W + GAP_X, height: ROW1_Y + ROW_H + GAP_Y / 2 } },
+  { label: 'บันทึก/แนบสลิป', data: 'action=attach_evidence',
+    bounds: { x: COL2_X - GAP_X / 2, y: 0, width: LAYOUT.width - COL2_X + GAP_X / 2, height: ROW1_Y + ROW_H + GAP_Y / 2 } },
+
+  { label: 'งานค้าง', data: 'action=pending_payment',
+    bounds: { x: COL1_X - GAP_X / 2, y: ROW2_Y - GAP_Y / 2, width: COL_W + GAP_X, height: ROW_H + GAP_Y } },
+  { label: 'หมวดงาน', data: 'action=pick_category',
+    bounds: { x: COL2_X - GAP_X / 2, y: ROW2_Y - GAP_Y / 2, width: LAYOUT.width - COL2_X + GAP_X / 2, height: ROW_H + GAP_Y } },
+
+  { label: 'ออกใบเสร็จ', data: 'action=create_bill',
+    bounds: { x: 0, y: ROW3_Y - GAP_Y / 2, width: LEFT_X + LEFT_W + GAP_X / 2, height: ROW3_H + GAP_Y / 2 } },
+  { label: 'ตั้งค่า', data: 'action=open_dashboard',
+    bounds: { x: COL1_X - GAP_X / 2, y: ROW3_Y - GAP_Y / 2, width: COL_W + GAP_X, height: ROW3_H + GAP_Y / 2 } },
+  { label: 'ช่วยเหลือ', data: 'action=help',
+    bounds: { x: COL2_X - GAP_X / 2, y: ROW3_Y - GAP_Y / 2, width: LAYOUT.width - COL2_X + GAP_X / 2, height: ROW3_H + GAP_Y / 2 } },
 ];
 
-// The mascot panel down the left. It looked like decoration, so it was not
-// tappable — but it is the biggest thing on the menu and the first thing
-// anyone presses.
-const PANEL = { label: 'ม่วงจด', data: 'action=home' };
+// The brand footer. It reads as decoration, which is exactly why the old menu's
+// decorative panel had to be made tappable: people press the logo.
+const FOOTER = { label: 'ม่วงจดให้', data: 'action=home',
+  bounds: { x: 0, y: FOOT_Y, width: LAYOUT.width, height: FOOT_H } };
 
-// The bottom strip, left-to-right.
-const STRIP = [
-  { label: 'แดชบอร์ด', data: 'action=open_dashboard' },
-  { label: 'ออกบิล', data: 'action=create_bill' },
-  { label: 'ตั้งแจ้งเตือนงาน', data: 'action=remind_job' },
-];
-
-function area(btn, bounds) {
+function area(btn) {
   return {
-    bounds,
+    bounds: {
+      x: Math.round(btn.bounds.x),
+      y: Math.round(btn.bounds.y),
+      width: Math.round(btn.bounds.width),
+      height: Math.round(btn.bounds.height),
+    },
     action: {
       type: 'postback',
       label: btn.label.slice(0, 20),
@@ -62,38 +81,12 @@ function area(btn, bounds) {
   };
 }
 
-// Compute the 12 tappable areas from LAYOUT: the grid, the bottom strip, then
-// the brand panel.
+// The nine tappable areas: eight cards, then the brand footer.
 export function buildAreas() {
-  const gridWidth = LAYOUT.width - LAYOUT.marginLeft - LAYOUT.marginRight;
-  const gridHeight = LAYOUT.height - LAYOUT.marginTop - LAYOUT.stripHeight;
-  const cellW = Math.floor((gridWidth - LAYOUT.gutter * (LAYOUT.cols - 1)) / LAYOUT.cols);
-  const cellH = Math.floor((gridHeight - LAYOUT.gutter * (LAYOUT.rows - 1)) / LAYOUT.rows);
-
-  const areas = BUTTONS.map((btn, i) =>
-    area(btn, {
-      x: LAYOUT.marginLeft + (i % LAYOUT.cols) * (cellW + LAYOUT.gutter),
-      y: LAYOUT.marginTop + Math.floor(i / LAYOUT.cols) * (cellH + LAYOUT.gutter),
-      width: cellW,
-      height: cellH,
-    })
-  );
-
-  const stripW = Math.floor(LAYOUT.width / LAYOUT.stripCols);
-  const stripY = LAYOUT.height - LAYOUT.stripHeight;
-  STRIP.forEach((btn, i) => {
-    // The last column absorbs the rounding so the strip reaches the edge.
-    const width = i === LAYOUT.stripCols - 1 ? LAYOUT.width - stripW * i : stripW;
-    areas.push(area(btn, { x: stripW * i, y: stripY, width, height: LAYOUT.stripHeight }));
-  });
-
-  // Everything left of the grid and above the strip.
-  areas.push(area(PANEL, { x: 0, y: 0, width: LAYOUT.marginLeft, height: stripY }));
-
-  return areas;
+  return [...BUTTONS, FOOTER].map(area);
 }
 
-export { LAYOUT, BUTTONS, STRIP, PANEL };
+export { LAYOUT, BUTTONS, FOOTER };
 
 const CONTENT_TYPES = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png' };
 
@@ -121,7 +114,7 @@ async function main() {
     process.exit(1);
   }
 
-  const imagePath = process.env.RICH_MENU_IMAGE_PATH || './assets/rich-menu.png';
+  const imagePath = process.env.RICH_MENU_IMAGE_PATH || './assets/rich-menu.jpg';
   const ext = path.extname(imagePath).toLowerCase();
   const contentType = CONTENT_TYPES[ext];
   if (!contentType) {

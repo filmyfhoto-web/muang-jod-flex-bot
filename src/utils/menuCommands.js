@@ -6,10 +6,17 @@
 // Matching is exact (after trimming) so ordinary job text is never hijacked.
 
 const COMMANDS = new Map([
-  // the mascot panel on the Rich Menu
+  // the brand footer on the Rich Menu
   ['ม่วงจด', 'home'],
+  ['ม่วงจดให้', 'home'],
   ['หน้าแรก', 'home'],
   ['เริ่มใช้งาน', 'home'],
+  // the labels as they are written on the Rich Menu artwork — a menu built in
+  // OA Manager sends the label as text, so each one has to land here too
+  ['รายการล่าสุด/แก้ไข', 'recent_jobs'],
+  ['บันทึก/แนบสลิป', 'attach_evidence'],
+  ['งานค้าง', 'pending_payment'],
+  ['ตั้งค่า', 'open_dashboard'],
   // 8 core menu buttons
   ['บันทึกงานวันนี้', 'add_job'],
   ['บันทึกงาน', 'add_job'],
@@ -41,7 +48,9 @@ const COMMANDS = new Map([
   ['รวมบิล', 'create_bill'],
   ['บิล', 'create_bill'],
   ['ใบเสร็จ', 'view_receipt'],
-  ['ออกใบเสร็จ', 'view_receipt'],
+  // "ออกบิลคือการออกใบเสร็จรับเงิน" — so this one starts a bill rather than
+  // opening the last receipt, which is what ใบเสร็จ on its own does.
+  ['ออกใบเสร็จ', 'create_bill'],
   ['รับชำระ', 'bill_payment'],
   ['แดชบอร์ด', 'open_dashboard'],
   ['dashboard', 'open_dashboard'],
