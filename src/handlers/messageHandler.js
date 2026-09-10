@@ -104,7 +104,7 @@ export async function handleTextMessage(event, profile) {
   // While collecting a new job — or while previewing one — a text message is
   // (re)parsed into a fresh draft preview.
   if (current === STATES.WAITING_FOR_JOB || current === STATES.CONFIRMING_JOB) {
-    return handleNewJob(replyToken, profile, text);
+    return handleNewJob(replyToken, profile, text, state?.context?.customerName || null);
   }
 
   if (current === STATES.WAITING_FOR_EDIT) {
@@ -158,7 +158,10 @@ async function handleDraftPrice(replyToken, profile, state, text) {
   ]);
 }
 
-async function handleNewJob(replyToken, profile, text) {
+// `knownCustomer` is set after "➕ เพิ่มงานอีก": the shop typed the name once
+// and should not have to type it again for every job in the same visit. What
+// the message itself says still wins — they may have moved on to someone else.
+async function handleNewJob(replyToken, profile, text, knownCustomer = null) {
   // Two different dates can be in one message and they mean opposite things.
   // The pickup date is the one wearing a label ("นัดรับ 15 ก.ย."), so it comes
   // off first; whatever bare date is left is when the job is being recorded.
@@ -183,7 +186,7 @@ async function handleNewJob(replyToken, profile, text) {
   // show a preview with confirm / edit / cancel buttons.
   const draft = makeDraft({
     jobName: deriveJobName(parsed.items),
-    customerName: parsed.customerName,
+    customerName: parsed.customerName || knownCustomer,
     jobDate: when.date || todayISO(),
     dueDate: due.date,
     items: parsed.items,

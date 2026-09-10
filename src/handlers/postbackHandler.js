@@ -1,5 +1,5 @@
 import { reply } from '../services/lineService.js';
-import { addJob, confirmAddJob, editNewJob, cancelNewJob } from '../actions/addJob.js';
+import { addJob, addMoreForCustomer, confirmAddJob, editNewJob, cancelNewJob } from '../actions/addJob.js';
 import { attachEvidence } from '../actions/attachEvidence.js';
 import { recentJobs } from '../actions/recentJobs.js';
 import { todaySummary } from '../actions/todaySummary.js';
@@ -36,6 +36,8 @@ export async function handlePostback(event, profile) {
   switch (action) {
     case 'add_job':
       return addJob(ctx);
+    case 'add_more':
+      return addMoreForCustomer(ctx);
     case 'confirm_add_job':
       return confirmAddJob(ctx);
     case 'edit_new_job':

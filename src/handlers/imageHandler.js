@@ -32,6 +32,10 @@ export async function handleImageMessage(event, profile) {
   const state = await getState(profile.id);
   const current = state?.state || STATES.IDLE;
   const attaching = current === STATES.WAITING_FOR_EVIDENCE;
+  // A draft is on screen: the shop typed the job and is now sending the photo
+  // that goes with it. That photo belongs to the job about to be saved, not to
+  // whatever was saved before it.
+  const drafting = current === STATES.CONFIRMING_JOB && Boolean(state?.context?.draft);
 
   // Resolve the target job: explicit from state, else the latest one.
   let job = null;
@@ -73,6 +77,19 @@ export async function handleImageMessage(event, profile) {
       type: 'text',
       text: 'รองรับเฉพาะรูป JPG, PNG หรือไฟล์ PDF เท่านั้นค่ะ 💜',
     });
+  }
+
+  // Held, not uploaded: confirmAddJob downloads and attaches it once the draft
+  // is saved, so a cancelled draft costs no storage.
+  if (drafting) {
+    await setState(profile.id, STATES.CONFIRMING_JOB, {
+      ...state.context,
+      attachment: { messageId: message.id, fileType },
+    });
+    return reply(replyToken, [
+      { type: 'text', text: 'รับรูปไว้แล้วค่ะ จะแนบให้ตอนกด "✅ บันทึกงาน" นะคะ 💜' },
+      jobPreviewMessage(draftToBubble(state.context.draft)),
+    ]);
   }
 
   // Unless the user explicitly asked to attach evidence to an existing job,

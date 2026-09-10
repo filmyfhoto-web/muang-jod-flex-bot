@@ -124,3 +124,19 @@ export async function cancelNewJob({ replyToken, profile }) {
     text: 'ยกเลิกแล้วค่ะ ไม่มีการบันทึกงานนี้ลงระบบนะคะ ❌',
   });
 }
+
+// postback action=add_more&customer=… — the next job for the same customer.
+//
+// The customer rides along in the state, so the shop can type just the work
+// ("ป้ายไวนิล 2 ป้าย ป้ายละ 500") and still get it filed under the right name.
+export async function addMoreForCustomer({ replyToken, profile, params }) {
+  const customerName = (params?.customer || '').trim() || null;
+  await setState(profile.id, STATES.WAITING_FOR_JOB, { customerName });
+
+  return reply(replyToken, {
+    type: 'text',
+    text: customerName
+      ? `งานต่อไปของ ${customerName} ค่ะ 💜\nพิมพ์เฉพาะงานมาได้เลย ไม่ต้องพิมพ์ชื่อซ้ำนะคะ`
+      : 'พิมพ์งานต่อไปได้เลยค่ะ 💜',
+  });
+}
