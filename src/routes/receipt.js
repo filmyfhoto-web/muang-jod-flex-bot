@@ -2,7 +2,7 @@ import express from 'express';
 import { escapeHtml } from '../utils/html.js';
 import { getBillByToken } from '../services/billService.js';
 import { getShopProfile, hasShopDetails } from '../services/shopService.js';
-import { formatBaht } from '../utils/currency.js';
+import { formatBaht, numText } from '../utils/currency.js';
 import { formatThaiDate, formatThaiDateTime } from '../utils/dates.js';
 import { logger } from '../services/logger.js';
 
@@ -27,6 +27,7 @@ const RECEIPT_IMAGE_JS = String.raw`
   var C = {
     purple: '#7c3aed', dark: '#5b21b6', soft: '#ede9fe', ink: '#1f2937',
     grey: '#8e8e93', line: '#ececf0', green: '#22a06b', red: '#e5484d', white: '#fff',
+    sub: '#555555',
   };
   var W = 720, M = 40, P = 36, S = 2;
   var INNER = M + P, CW = W - 2 * M - 2 * P;
@@ -88,7 +89,10 @@ const RECEIPT_IMAGE_JS = String.raw`
     });
     // 18 above, the name's lines, then the date's own line, then room under it
     // — the separator used to land on the date's baseline and strike it out.
-    var rowsH = rows.reduce(function (s, r) { return s + 18 + r.lines.length * 26 + 33 + 1; }, 0);
+    // A job entered as several items prints those under the date, 22 apiece.
+    var rowsH = rows.reduce(function (s, r) {
+      return s + 18 + r.lines.length * 26 + (r.row.items || []).length * 22 + 33 + 1;
+    }, 0);
     if (!rows.length) rowsH = 60;
     // ที่อยู่/เบอร์/เลขภาษีของร้าน และข้อความท้ายใบ ต้องกินความสูงของกระดาษ
     // ด้วย ไม่งั้นมันจะถูกวาดทับขอบล่าง
@@ -196,7 +200,23 @@ const RECEIPT_IMAGE_JS = String.raw`
         ctx.fillText(r.row.amount, INNER + CW, y + 19);
         ctx.textAlign = 'left';
 
-        y += r.lines.length * 26 + 33;
+        // แต่ละรายการย่อยในงานเดียว: ชื่อซ้าย ยอดขวา สีอ่อนกว่าบรรทัดหลัก
+        // เพื่อให้อ่านออกว่าเป็นของที่รวมอยู่ในยอดข้างบน ไม่ใช่ยอดเพิ่ม
+        var itemY = y + 19 + r.lines.length * 26;
+        (r.row.items || []).forEach(function (it, k) {
+          var ly = itemY + (k + 1) * 22;
+          font(ctx, '400', 15);
+          ctx.fillStyle = C.sub;
+          wrap(ctx, '• ' + it.text, CW - 34 - 110).slice(0, 1).forEach(function (line) {
+            ctx.fillText(line, INNER + 34, ly);
+          });
+          ctx.fillStyle = C.grey;
+          ctx.textAlign = 'right';
+          ctx.fillText(it.amount, INNER + CW, ly);
+          ctx.textAlign = 'left';
+        });
+
+        y += r.lines.length * 26 + (r.row.items || []).length * 22 + 33;
         ctx.fillStyle = C.line;
         ctx.fillRect(INNER, y, CW, 1);
         y += 1;
@@ -273,6 +293,28 @@ function jsonScript(value) {
   return JSON.stringify(value).replace(/</g, '\\u003c');
 }
 
+// The lines inside one job, as the customer should read them.
+//
+// A shop taking three things from one customer in one visit enters them as
+// three items on one job — and the receipt used to print that as a single
+// amount against the job's name, which is not something you can hand to
+// anyone. One item is not worth breaking out: it *is* the job, and printing it
+// twice only adds a line saying what the line above already said.
+export function receiptItemLines(job = {}) {
+  const items = job.items || [];
+  if (items.length < 2) return [];
+  return items.map((it) => {
+    const qty = Number(it.quantity) || 0;
+    const parts = [String(it.item_name || 'รายการ').trim()];
+    if (it.size) parts.push(String(it.size));
+    // The count hangs off the end of what it counts — a "·" in front of it
+    // reads as another attribute of the item rather than how many there are.
+    const unit = it.unit && !/^(ชิ้น|อัน)$/.test(it.unit) ? ` ${it.unit}` : '';
+    const text = parts.join(' · ') + (qty > 1 ? ` × ${numText(qty)}${unit}` : '');
+    return { text, amount: formatBaht(Number(it.total) || 0) };
+  });
+}
+
 // What the canvas needs to draw the receipt, so the picture and the page are
 // built from one set of numbers rather than two.
 function receiptData(bill, shop = {}) {
@@ -292,6 +334,7 @@ function receiptData(bill, shop = {}) {
       name: j.job_name || 'งาน',
       date: formatThaiDate(j.job_date),
       amount: formatBaht(Number(j.total) || 0),
+      items: receiptItemLines(j),
     })),
     total: formatBaht(Number(bill.total) || 0),
     paidAmount: formatBaht(Number(bill.paid_amount) || 0),
@@ -303,13 +346,19 @@ export function renderReceiptHtml(bill, shop = {}) {
   const jobs = bill.jobs || [];
   const paid = bill.payment_status === 'paid';
   const rows = jobs
-    .map(
-      (j, i) => `<tr>
+    .map((j, i) => {
+      const lines = receiptItemLines(j)
+        .map(
+          (it) =>
+            `<span class="li"><span>${escapeHtml(it.text)}</span><span>${escapeHtml(it.amount)}</span></span>`
+        )
+        .join('');
+      return `<tr>
         <td class="n">${i + 1}</td>
-        <td>${escapeHtml(j.job_name || 'งาน')}<small>${escapeHtml(formatThaiDate(j.job_date))}</small></td>
+        <td>${escapeHtml(j.job_name || 'งาน')}<small>${escapeHtml(formatThaiDate(j.job_date))}</small>${lines}</td>
         <td class="amt">${escapeHtml(formatBaht(Number(j.total) || 0))}</td>
-      </tr>`
-    )
+      </tr>`;
+    })
     .join('');
 
   return `<!doctype html>
@@ -338,6 +387,9 @@ export function renderReceiptHtml(bill, shop = {}) {
   td{padding:10px 4px;border-bottom:1px solid var(--line);vertical-align:top}
   td.n{width:26px;color:var(--purple);font-weight:700}
   td small{display:block;color:var(--grey);font-size:11.5px}
+  /* บรรทัดย่อยของงานที่มีหลายรายการ ลูกค้าจะได้เห็นว่ายอดมาจากอะไรบ้าง */
+  .li{display:flex;justify-content:space-between;gap:10px;color:var(--sub);font-size:12.5px;margin-top:3px}
+  .li>span:last-child{color:var(--grey);white-space:nowrap}
   td.amt{text-align:right;white-space:nowrap;font-weight:600}
   .total{display:flex;justify-content:space-between;align-items:center;background:var(--purple-soft);border-radius:12px;padding:14px;margin-top:16px}
   .total b{font-size:22px;color:var(--purple)}

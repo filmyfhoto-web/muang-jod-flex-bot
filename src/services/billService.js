@@ -3,6 +3,7 @@ import { supabase } from '../config/supabase.js';
 import { round2 } from '../utils/currency.js';
 import { todayISO } from '../utils/dates.js';
 import { derivePaymentFields } from '../utils/payment.js';
+import { attachItems } from './jobService.js';
 import { logger } from './logger.js';
 
 const ACTIVE_JOB_STATUSES = ['active', 'completed'];
@@ -182,7 +183,18 @@ async function attachJobs(bill, client) {
     logger.error('bill.attach_jobs_failed', { message: error.message });
     return { ...bill, jobs: [] };
   }
-  return { ...bill, jobs: data || [] };
+
+  // The lines inside each job, so a job the shop entered as three items is
+  // three lines on the customer's receipt instead of one lump sum. A job
+  // entered as a single line has none, and the receipt prints it as before.
+  // Never fatal: a bill that lists its jobs is still a usable bill.
+  let jobs = data || [];
+  try {
+    jobs = await attachItems(jobs, client);
+  } catch (err) {
+    logger.warn('bill.attach_items_failed', { billId: bill.id, message: err?.message });
+  }
+  return { ...bill, jobs };
 }
 
 export async function getBillById(userId, billId, client = supabase) {

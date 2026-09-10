@@ -127,3 +127,18 @@ test('the receipt carries the day\'s running total, and never invents one', () =
     assert.ok(!json(opts).includes('วันนี้จดไปแล้ว'), JSON.stringify(opts));
   }
 });
+
+test('the card that appears after saving can bill the job on the spot', () => {
+  // The shop asked to fill several items in, save, and issue the receipt.
+  // Everything up to "save" worked; from there the only route to a receipt was
+  // รายการล่าสุด → the job → 🧾, which is three taps back to a card already on
+  // screen. So the card that announces the save carries the button itself.
+  const saved = JSON.stringify(receiptFlex({ ...job, id: 'job-1' }, { editUrl: null, mascotImageUrl: null }));
+  assert.ok(saved.includes('action=bill_job&jobId=job-1'), 'no way to bill from the card');
+  assert.ok(saved.includes('➕ เพิ่มงานอีก'), 'adding the next job for this customer went missing');
+
+  // A bill points at a saved job, so a preview has nothing to bill.
+  const draft = JSON.stringify(receiptFlex(job, { editUrl: null, mascotImageUrl: null }));
+  assert.ok(!draft.includes('bill_job'), 'an unsaved job must not offer a receipt');
+  assert.ok(draft.includes('➕ เพิ่มงานอีก'), 'the draft lost its only button');
+});

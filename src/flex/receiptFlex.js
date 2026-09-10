@@ -304,17 +304,43 @@ export function receiptFlex(job, opts = {}) {
     paddingAll: 'lg',
     paddingTop: 'sm',
     contents: [
-      // One customer often brings several jobs in one visit. This opens the
-      // form straight away with the name already in it — the shop asked to add
-      // the next job in the form rather than being sent back to the chat to
-      // type it. Without a LIFF app configured it falls back to that chat path,
-      // which still remembers the customer.
+      // The two things a shop does the moment a job is down: take the next one
+      // from the same customer, or hand them the bill. ➕ opens the form with
+      // the name already in it (falling back to the chat path that remembers
+      // the customer when there is no LIFF app), and 🧾 bills this job on the
+      // spot — before, the only way there was to go and find the job again
+      // through รายการล่าสุด, which is three taps to reach a card you are
+      // already looking at.
       {
-        type: 'button',
-        style: 'primary',
-        color: COLORS.accent,
-        height: 'sm',
-        action: addMoreAction,
+        type: 'box',
+        layout: 'horizontal',
+        spacing: 'sm',
+        contents: [
+          {
+            type: 'button',
+            style: job.id ? 'secondary' : 'primary',
+            ...(job.id ? {} : { color: COLORS.accent }),
+            height: 'sm',
+            action: addMoreAction,
+          },
+          // A bill needs a saved job to point at, so a draft has nothing here.
+          ...(job.id
+            ? [
+                {
+                  type: 'button',
+                  style: 'primary',
+                  color: COLORS.accent,
+                  height: 'sm',
+                  action: {
+                    type: 'postback',
+                    label: '🧾 ออกใบเสร็จ',
+                    data: `action=bill_job&jobId=${encodeURIComponent(job.id)}`,
+                    displayText: 'ออกใบเสร็จงานนี้',
+                  },
+                },
+              ]
+            : []),
+        ],
       },
       {
         type: 'box',

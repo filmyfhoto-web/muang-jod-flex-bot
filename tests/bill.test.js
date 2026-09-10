@@ -269,3 +269,39 @@ test('a saved job can be billed on its own, from its own card', () => {
   // A draft has no id and nothing to bill yet.
   assert.ok(!JSON.stringify(jobPreviewMessage(job)).includes('bill_job'));
 });
+
+test('a bill carries the lines inside each job, not just the job totals', async () => {
+  // The shop fills several items into one job, saves, and issues the receipt.
+  // The bill loaded only its jobs, so three items came out as one amount with
+  // the job's name on it — a receipt the customer cannot check.
+  const client = createMockSupabase({
+    jobs: [job('1', { total: 850, bill_id: 'bill-1' })],
+    bills: [
+      {
+        id: 'bill-1',
+        user_id: USER,
+        bill_number: 'MJ-B-20260908-0001',
+        customer_name: 'พี่นก',
+        status: 'active',
+        total: 850,
+        paid_amount: 0,
+        balance_due: 850,
+        payment_status: 'pending',
+        created_at: '2026-09-08T04:00:00.000Z',
+      },
+    ],
+    job_items: [
+      { id: 'i1', job_id: '1', item_name: 'ป้ายไวนิล', size: '160 × 300 ซม.', quantity: 2, total: 600, created_at: '2026-09-08T04:00:00.000Z' },
+      { id: 'i2', job_id: '1', item_name: 'ค่าตอกตาไก่', quantity: 1, total: 250, created_at: '2026-09-08T04:00:01.000Z' },
+    ],
+  });
+
+  const bill = await getBillById(USER, 'bill-1', client);
+  assert.equal(bill.jobs.length, 1);
+  assert.deepEqual(bill.jobs[0].items.map((i) => i.item_name), ['ป้ายไวนิล', 'ค่าตอกตาไก่']);
+
+  // And they reach the paper.
+  const html = renderReceiptHtml(bill);
+  assert.ok(html.includes('ป้ายไวนิล · 160 × 300 ซม. × 2'), 'the receipt lost the item lines');
+  assert.ok(html.includes('ค่าตอกตาไก่'));
+});
