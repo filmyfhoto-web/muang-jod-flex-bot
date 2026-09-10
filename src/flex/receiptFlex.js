@@ -6,6 +6,7 @@ import { divider } from './components/divider.js';
 import { brandAssetUrl, MASCOT } from '../utils/brand.js';
 import { liffUrl } from '../utils/liff.js';
 import { dueLine } from './components/dueLine.js';
+import { joinMeta } from './components/metaLine.js';
 
 // Receipt card styled after the brand mockup: white card, purple circle check,
 // soft-purple category strip (with optional mascot image), thumbnail-style
@@ -187,7 +188,7 @@ export function receiptFlex(job, opts = {}) {
     },
     {
       type: 'text',
-      text: `${formatThaiDateTime(job.created_at)} · ${job.job_number || ''}`.trim(),
+      text: joinMeta(formatThaiDateTime(job.created_at), job.job_number),
       size: 'xs',
       color: COLORS.grey,
     },

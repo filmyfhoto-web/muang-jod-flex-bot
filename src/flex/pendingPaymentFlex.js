@@ -4,6 +4,7 @@ import { COLORS } from './theme.js';
 import { header } from './components/header.js';
 import { divider } from './components/divider.js';
 import { footerActions } from './components/footerActions.js';
+import { joinMeta } from './components/metaLine.js';
 
 // Amount still owed on a job (balance_due if present, else the full total).
 function outstanding(job) {
@@ -46,7 +47,7 @@ export function pendingPaymentFlex(jobs) {
           { type: 'text', text: job.job_name || 'งาน', size: 'sm', weight: 'bold', wrap: true },
           {
             type: 'text',
-            text: `${formatThaiDate(job.job_date)} · ${job.job_number || ''}`.trim(),
+            text: joinMeta(formatThaiDate(job.job_date), job.job_number),
             size: 'xs',
             color: COLORS.grey,
           },

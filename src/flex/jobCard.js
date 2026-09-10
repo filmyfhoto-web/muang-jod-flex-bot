@@ -8,6 +8,7 @@ import { footerActions } from './components/footerActions.js';
 import { categoryLabel } from '../utils/category.js';
 import { brandAssetUrl } from '../utils/brand.js';
 import { dueLine } from './components/dueLine.js';
+import { joinMeta } from './components/metaLine.js';
 
 export function paymentLabel(status) {
   const p = paymentPresentation(status);
@@ -139,7 +140,7 @@ export function buildJobBubble(job) {
       contents: [
         {
           type: 'text',
-          text: `${formatThaiDate(job.job_date)} · ${job.job_number || ''}`.trim(),
+          text: joinMeta(formatThaiDate(job.job_date), job.job_number),
           size: 'xs',
           color: COLORS.grey,
           flex: 5,

@@ -100,6 +100,17 @@ test('job card: a long item name is never truncated', () => {
   assert.ok(all.some((t) => t.text === '160 × 300 ซม. · 2 ผืน'));
 });
 
+test('job card: a draft has no job number yet, so no dangling separator', () => {
+  // The preview card is the one the shop reads most, and a draft has no
+  // number until it is saved — "10 ก.ย. 2569 ·" is what that used to render.
+  const all = texts(buildJobBubble(job));
+  assert.ok(all.some((t) => t.text === '8 ก.ย. 2569'), 'date stands alone on a draft');
+  assert.ok(!all.some((t) => /·\s*$/.test(t.text)), 'no line may end in a separator');
+
+  const saved = texts(buildJobBubble({ ...job, id: 'job-9', job_number: 'MJ-20260908-0001' }));
+  assert.ok(saved.some((t) => t.text === '8 ก.ย. 2569 · MJ-20260908-0001'));
+});
+
 test('job card: an unsaved draft gets the confirm footer, never edit/delete', () => {
   const preview = JSON.stringify(jobPreviewMessage({ ...job, id: 'should-be-ignored' }));
   assert.ok(preview.includes('action=confirm_add_job'));

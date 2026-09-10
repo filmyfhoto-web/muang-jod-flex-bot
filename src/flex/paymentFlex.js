@@ -4,6 +4,7 @@ import { header } from './components/header.js';
 import { moneyRow } from './components/moneyRow.js';
 import { divider } from './components/divider.js';
 import { statusBadge } from './components/statusBadge.js';
+import { joinMeta } from './components/metaLine.js';
 
 // Shown after a payment is recorded — total / paid / outstanding + status.
 export function paymentConfirmationFlex(job) {
@@ -25,7 +26,7 @@ export function paymentConfirmationFlex(job) {
             contents: [
               {
                 type: 'text',
-                text: `${formatThaiDate(job.job_date)} · ${job.job_number || ''}`.trim(),
+                text: joinMeta(formatThaiDate(job.job_date), job.job_number),
                 size: 'xs',
                 color: COLORS.grey,
                 flex: 5,
