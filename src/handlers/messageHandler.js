@@ -12,6 +12,7 @@ import { searchResultsFlex } from '../flex/searchResultsFlex.js';
 import { billReceiptFlex } from '../flex/billFlex.js';
 import { recordBillPayment } from '../services/billService.js';
 import { resolveMenuCommand, splitLeadingAddJob } from '../utils/menuCommands.js';
+import { parseChatIntent } from '../utils/chatIntent.js';
 import { parseNaturalJob } from '../utils/nlParser.js';
 import { deriveJobName } from '../utils/category.js';
 import { makeDraft, draftToBubble, priceDraft, parseBarePrice } from '../utils/jobDraft.js';
@@ -135,8 +136,45 @@ export async function handleTextMessage(event, profile) {
     return handleNewJob(replyToken, profile, text);
   }
 
+  // Idle: spoken to rather than commanded — "ม่วง จดงานให้หน่อย", or a
+  // customer named before the work arrives. Answer it like a person would.
+  const intent = parseChatIntent(text);
+  if (intent) return handleChatIntent(replyToken, profile, intent);
+
   // Idle: nudge toward the menu.
   return reply(replyToken, { type: 'text', text: DEFAULT_REPLY });
+}
+
+// Answer a sentence the way a person would: say what was heard, then ask for
+// exactly the one thing still missing.
+//
+// The name is put in the state rather than in a reply the shop has to repeat —
+// "ม่วงก็เตรียมชื่อไว้". The next message is the work, and it gets filed under
+// that name without the name being typed again.
+async function handleChatIntent(replyToken, profile, intent) {
+  if (intent.kind === 'start_job') {
+    await setState(profile.id, STATES.WAITING_FOR_JOB, {});
+    return reply(replyToken, {
+      type: 'text',
+      text:
+        'ได้เลยค่ะ 💜 ม่วงจดพร้อมแล้วนะคะ\n' +
+        'พิมพ์งานมาได้เลย เช่น "ป้ายไวนิล 60x100 150 บาท"\n' +
+        'หรือบอกชื่อลูกค้าก่อนก็ได้ค่ะ เช่น "ชื่อลูกค้า ผู้ใหญ่สมศรี"',
+    });
+  }
+
+  const { customerName, rest } = intent;
+
+  // The name and the work arrived together — no reason to ask for the work.
+  if (rest) return handleNewJob(replyToken, profile, rest, customerName);
+
+  await setState(profile.id, STATES.WAITING_FOR_JOB, { customerName });
+  return reply(replyToken, {
+    type: 'text',
+    text:
+      `จำไว้แล้วค่ะ ลูกค้า: ${customerName} 💜\n` +
+      'งานของเขาคืออะไรคะ พิมพ์มาได้เลย ไม่ต้องพิมพ์ชื่อซ้ำนะคะ',
+  });
 }
 
 // A draft with no price is what a photographed job sheet usually leaves —

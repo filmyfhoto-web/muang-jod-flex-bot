@@ -6,7 +6,7 @@ import { divider } from './components/divider.js';
 import { statusBadge } from './components/statusBadge.js';
 import { brandAssetUrl, MASCOT } from '../utils/brand.js';
 import { publicBaseUrl } from '../utils/brand.js';
-import { linkRow } from './components/footerActions.js';
+import { linkRow, footerActions } from './components/footerActions.js';
 
 // Cards for the last two steps of the flow: รวมรายการลงบิล -> รับชำระและออกใบเสร็จ.
 
@@ -375,12 +375,89 @@ export function billCustomersFlex(customers = []) {
             spacing: 'xs',
             contents: [
               { type: 'text', text: '🧾 ออกบิล', size: 'md', weight: 'bold', color: COLORS.title },
-              { type: 'text', text: 'เลือกลูกค้า แล้วม่วงจดจะรวมงานที่ยังไม่ได้ออกบิลให้ค่ะ', size: 'xs', color: COLORS.sub, wrap: true },
+              { type: 'text', text: 'เลือกลูกค้า แล้วเลือกได้ว่าจะออกทีละงาน หรือรวมทั้งหมดค่ะ', size: 'xs', color: COLORS.sub, wrap: true },
             ],
           },
           ...rows,
         ],
       },
+    },
+  };
+}
+
+// The jobs one customer has waiting, so the shop can hand over a receipt for
+// the job that is finished without dragging the rest onto the same bill.
+// Combining them is still one tap, at the bottom — it just is not the default
+// any more.
+export function billJobsFlex(customerName, jobs = []) {
+  const rows = jobs.slice(0, 10).map((j, i) => ({
+    type: 'box',
+    layout: 'horizontal',
+    spacing: 'md',
+    alignItems: 'center',
+    paddingAll: 'md',
+    cornerRadius: 'lg',
+    borderWidth: '1px',
+    borderColor: COLORS.line,
+    action: {
+      type: 'postback',
+      data: `action=bill_job&jobId=${encodeURIComponent(j.id)}`,
+      displayText: `ออกใบเสร็จ ${j.job_name || 'งาน'}`,
+    },
+    contents: [
+      { type: 'text', text: `${i + 1}.`, size: 'sm', color: COLORS.grey, flex: 0 },
+      {
+        type: 'box',
+        layout: 'vertical',
+        flex: 6,
+        contents: [
+          { type: 'text', text: j.job_name || 'งาน', size: 'sm', weight: 'bold', color: COLORS.ink, wrap: true },
+          { type: 'text', text: formatThaiDate(j.job_date), size: 'xxs', color: COLORS.grey },
+        ],
+      },
+      { type: 'text', text: formatBaht(Number(j.total) || 0), size: 'sm', weight: 'bold', color: COLORS.accentText, align: 'end', flex: 3 },
+    ],
+  }));
+
+  const total = jobs.reduce((s, j) => s + (Number(j.total) || 0), 0);
+  const who = customerName || 'ไม่ระบุลูกค้า';
+
+  return {
+    type: 'flex',
+    altText: `เลือกงานเพื่อออกใบเสร็จ — ${who}`,
+    contents: {
+      type: 'bubble',
+      size: 'mega',
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'md',
+        paddingAll: 'lg',
+        backgroundColor: COLORS.surface,
+        contents: [
+          {
+            type: 'box',
+            layout: 'vertical',
+            backgroundColor: COLORS.tint,
+            cornerRadius: 'lg',
+            paddingAll: 'md',
+            spacing: 'xs',
+            contents: [
+              { type: 'text', text: `🧾 ${who}`, size: 'md', weight: 'bold', color: COLORS.title, wrap: true },
+              { type: 'text', text: `${jobs.length} งานรอออกบิล · รวม ${formatBaht(total)}`, size: 'xs', color: COLORS.sub, wrap: true },
+              { type: 'text', text: 'แตะงานที่ต้องการ เพื่อออกใบเสร็จเฉพาะงานนั้นค่ะ', size: 'xs', color: COLORS.grey, wrap: true },
+            ],
+          },
+          ...rows,
+        ],
+      },
+      footer: footerActions({
+        primary: {
+          label: `🧷 รวมทุกงาน (${jobs.length})`,
+          data: `action=bill_all&customer=${encodeURIComponent(customerName || '')}`,
+          displayText: `รวมบิลทุกงานของ ${who}`,
+        },
+      }),
     },
   };
 }
