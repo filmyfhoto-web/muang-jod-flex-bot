@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import linebot from '@line/bot-sdk';
+import { liffUrl, quickFormUrl } from '../src/utils/liff.js';
 
 const { MessagingApiClient, MessagingApiBlobClient } = linebot.messagingApi;
 
@@ -37,23 +38,32 @@ const FOOT_H = LAYOUT.height - FOOT_Y;
 
 // A tap area is grown to the gutter around its card, so a press that lands
 // between two cards still does something rather than nothing.
+//
+// `page` names a screen the button only has to open. Those go straight there
+// as a link: a postback would post the label into the chat, make the bot
+// answer with a card, and wait for a second tap on a button inside it — three
+// steps and two messages of noise to reach a page the tap already asked for.
+// The ones without a `page` need the bot: they start a conversation (wait for
+// a photo, pick a customer, choose a category) and there is no page to open.
+// With no LIFF app configured `page` cannot resolve, and those buttons fall
+// back to the postback route, which still works.
 const BUTTONS = [
-  { label: 'จดงาน', data: 'action=add_job',
+  { label: 'จดงาน', data: 'action=add_job', page: 'jot',
     bounds: { x: 0, y: 0, width: LEFT_X + LEFT_W + GAP_X / 2, height: BIG_Y + BIG_H + GAP_Y / 2 } },
 
-  { label: 'รายการล่าสุด/แก้ไข', data: 'action=recent_jobs',
+  { label: 'รายการล่าสุด/แก้ไข', data: 'action=recent_jobs', page: 'today',
     bounds: { x: COL1_X - GAP_X / 2, y: 0, width: COL_W + GAP_X, height: ROW1_Y + ROW_H + GAP_Y / 2 } },
   { label: 'บันทึก/แนบสลิป', data: 'action=attach_evidence',
     bounds: { x: COL2_X - GAP_X / 2, y: 0, width: LAYOUT.width - COL2_X + GAP_X / 2, height: ROW1_Y + ROW_H + GAP_Y / 2 } },
 
-  { label: 'งานค้าง', data: 'action=pending_payment',
+  { label: 'งานค้าง', data: 'action=pending_payment', page: 'pending',
     bounds: { x: COL1_X - GAP_X / 2, y: ROW2_Y - GAP_Y / 2, width: COL_W + GAP_X, height: ROW_H + GAP_Y } },
   { label: 'หมวดงาน', data: 'action=pick_category',
     bounds: { x: COL2_X - GAP_X / 2, y: ROW2_Y - GAP_Y / 2, width: LAYOUT.width - COL2_X + GAP_X / 2, height: ROW_H + GAP_Y } },
 
   { label: 'ออกใบเสร็จ', data: 'action=create_bill',
     bounds: { x: 0, y: ROW3_Y - GAP_Y / 2, width: LEFT_X + LEFT_W + GAP_X / 2, height: ROW3_H + GAP_Y / 2 } },
-  { label: 'ตั้งค่า', data: 'action=open_dashboard',
+  { label: 'ตั้งค่า', data: 'action=open_dashboard', page: 'settings',
     bounds: { x: COL1_X - GAP_X / 2, y: ROW3_Y - GAP_Y / 2, width: COL_W + GAP_X, height: ROW3_H + GAP_Y / 2 } },
   { label: 'ช่วยเหลือ', data: 'action=help',
     bounds: { x: COL2_X - GAP_X / 2, y: ROW3_Y - GAP_Y / 2, width: LAYOUT.width - COL2_X + GAP_X / 2, height: ROW3_H + GAP_Y / 2 } },
@@ -64,7 +74,16 @@ const BUTTONS = [
 const FOOTER = { label: 'ม่วงจดให้', data: 'action=home',
   bounds: { x: 0, y: FOOT_Y, width: LAYOUT.width, height: FOOT_H } };
 
-function area(btn) {
+// Where a `page` button goes. 'jot' is the job form; the rest are tabs of the
+// dashboard app. Null whenever LIFF is not configured, which sends the button
+// back down the postback route.
+export function pageUrl(page, env = process.env) {
+  if (!page) return null;
+  return page === 'jot' ? quickFormUrl({}, env) : liffUrl({ tab: page }, env);
+}
+
+function area(btn, env = process.env) {
+  const uri = pageUrl(btn.page, env);
   return {
     bounds: {
       x: Math.round(btn.bounds.x),
@@ -72,18 +91,19 @@ function area(btn) {
       width: Math.round(btn.bounds.width),
       height: Math.round(btn.bounds.height),
     },
-    action: {
-      type: 'postback',
-      label: btn.label.slice(0, 20),
-      data: btn.data,
-      displayText: btn.label,
-    },
+    // No displayText on the postbacks: it posts the button's own label into
+    // the chat as though the shop had typed it, so every tap left a line of
+    // its own words above the answer. The shop asked for the tap to just do
+    // the thing.
+    action: uri
+      ? { type: 'uri', label: btn.label.slice(0, 20), uri }
+      : { type: 'postback', label: btn.label.slice(0, 20), data: btn.data },
   };
 }
 
 // The nine tappable areas: eight cards, then the brand footer.
-export function buildAreas() {
-  return [...BUTTONS, FOOTER].map(area);
+export function buildAreas(env = process.env) {
+  return [...BUTTONS, FOOTER].map((btn) => area(btn, env));
 }
 
 export { LAYOUT, BUTTONS, FOOTER };
@@ -165,7 +185,7 @@ async function main() {
   console.log('📐 พื้นที่กด (tappable areas) ที่จะสร้าง:');
   richMenu.areas.forEach((a, i) => {
     console.log(
-      `   ${i + 1}. ${a.action.displayText} [${a.action.data}] -> ` +
+      `   ${i + 1}. ${a.action.label} [${a.action.uri || a.action.data}] -> ` +
         `x:${a.bounds.x} y:${a.bounds.y} w:${a.bounds.width} h:${a.bounds.height}`
     );
   });

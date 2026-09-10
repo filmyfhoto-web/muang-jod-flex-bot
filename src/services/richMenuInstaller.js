@@ -17,13 +17,17 @@ const { MessagingApiClient, MessagingApiBlobClient } = linebot.messagingApi;
 export const RICH_MENU_NAME = 'muang-jod-main';
 
 // The menu's name carries a fingerprint of what it is made of: the number of
-// tap areas and a hash of the artwork.
+// tap areas, and a hash of the artwork together with what those areas do.
 //
 // Without the artwork in it, a new picture over the same 9 areas is
 // indistinguishable from the menu already installed — which is exactly what
 // happened: the shop's own design shipped, boot compared name/areas/size, found
 // them identical, and installed nothing. LINE gives no way to read an installed
 // menu's image back, so the name is where this has to live.
+//
+// The areas are in it for the same reason: changing what a button *does*
+// (a postback becoming a link to the form) leaves the picture and the count
+// untouched, and would be just as invisible.
 let fingerprintCache = null;
 
 export function imageFingerprint(path = resolveImage().path) {
@@ -40,8 +44,15 @@ export function imageFingerprint(path = resolveImage().path) {
   return hash;
 }
 
+// Only the actions: the rectangles are drawn to match the artwork, which the
+// image hash already covers.
+function areaFingerprint(areas = buildAreas()) {
+  const actions = areas.map((a) => a.action?.uri || a.action?.data || '');
+  return createHash('sha256').update(JSON.stringify(actions)).digest('hex').slice(0, 6);
+}
+
 export function expectedMenuName(areas, path) {
-  return `${RICH_MENU_NAME}-${areas}-${imageFingerprint(path)}`;
+  return `${RICH_MENU_NAME}-${areas}-${imageFingerprint(path)}${areaFingerprint()}`;
 }
 
 // Menus this bot installed, whatever artwork they carried at the time.

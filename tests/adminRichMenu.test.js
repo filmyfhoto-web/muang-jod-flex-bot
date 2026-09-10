@@ -229,7 +229,9 @@ test('the fingerprint follows the file, and a missing file does not throw', () =
   assert.match(real, /^[0-9a-f]{10}$/, 'ten hex characters of sha256');
   assert.notEqual(imageFingerprint('/nowhere/rich-menu.jpg'), real, 'a different file, a different name');
   assert.equal(imageFingerprint('/nowhere/rich-menu.jpg'), 'noimage', 'naming the menu must not be what fails');
-  assert.equal(expectedMenuName(9, resolveImage({}).path), `${RICH_MENU_NAME}-9-${real}`);
+  // The name is the artwork's hash and then the tap actions' — changing what
+  // a button does has to rename the menu too, or the install is skipped.
+  assert.match(expectedMenuName(9, resolveImage({}).path), new RegExp(`^${RICH_MENU_NAME}-9-${real}[0-9a-f]{6}$`));
 });
 
 test('boot never lets a menu failure stop the bot', async () => {
