@@ -8,6 +8,7 @@ import { footerActions } from './components/footerActions.js';
 import { categoryLabel } from '../utils/category.js';
 import { brandAssetUrl } from '../utils/brand.js';
 import { dueLine } from './components/dueLine.js';
+import { joinMeta } from './components/metaLine.js';
 
 export function paymentLabel(status) {
   const p = paymentPresentation(status);
@@ -23,53 +24,101 @@ function heroStrip() {
   return url ? { type: 'image', url, size: 'full', aspectRatio: '20:5', aspectMode: 'cover' } : null;
 }
 
+// A small square button, the way the reference card puts ✏️ and ✕ beside a
+// row rather than in a footer. Flex buttons are full-width blocks, so an icon
+// this size has to be a box with an action on it.
+function iconAction(emoji, { data, displayText, bg = COLORS.tint, color = COLORS.sub }) {
+  return {
+    type: 'box',
+    layout: 'vertical',
+    width: '30px',
+    height: '30px',
+    cornerRadius: 'md',
+    backgroundColor: bg,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flex: 0,
+    action: { type: 'postback', label: displayText, data, displayText },
+    contents: [{ type: 'text', text: emoji, size: 'sm', align: 'center', color }],
+  };
+}
+
+// One line of the job: what it is, how much of it, and what it came to.
+// Two lines rather than one, so a long name reads in full instead of being
+// squeezed against the amount and cut.
+function itemLine(it, index) {
+  const qty = Number(it.quantity) || 1;
+  const sub = [it.size, qty !== 1 ? `${numText(qty)} ${it.unit || 'ชิ้น'}` : null].filter(Boolean).join(' · ');
+
+  return {
+    type: 'box',
+    layout: 'vertical',
+    spacing: 'none',
+    contents: [
+      {
+        type: 'box',
+        layout: 'horizontal',
+        spacing: 'sm',
+        contents: [
+          { type: 'text', text: `${index + 1}.`, size: 'sm', color: COLORS.grey, flex: 0 },
+          { type: 'text', text: it.item_name || 'รายการ', size: 'sm', color: COLORS.ink, wrap: true, flex: 6 },
+          {
+            type: 'text',
+            text: formatBaht(Number(it.total) || 0),
+            size: 'sm',
+            weight: 'bold',
+            color: COLORS.ink,
+            align: 'end',
+            flex: 3,
+          },
+        ],
+      },
+      ...(sub
+        ? [{ type: 'text', text: sub, size: 'xxs', color: COLORS.grey, margin: 'none', offsetStart: '16px', wrap: true }]
+        : []),
+    ],
+  };
+}
+
 // Build a single job bubble. Reused as a standalone card and inside carousels.
 export function buildJobBubble(job) {
   const items = job.items || [];
 
-  // Numbered rows, as in the "พิมพ์งานพร้อมราคา" mockup: ① ป้ายไวนิล … 150
-  const itemRows = items.slice(0, 8).map((it, i) => {
-    const qty = Number(it.quantity) || 1;
-    const pieces = [it.item_name];
-    if (it.size) pieces.push(it.size);
-    let label = pieces.join(' ');
-    // หลายชิ้นต้องเห็นว่ากี่ชิ้น ชิ้นละเท่าไหร่: "ไวนิล 160 × 300 ซม. x2"
-    // เรตต่อตารางเมตรไม่มาถึงตรงนี้ — มันอยู่ในหมายเหตุ ไม่ใช่ในรายการ
-    if (qty !== 1) {
-      const rate = Number(it.unit_price) > 0 ? ` × ${numText(it.unit_price)}` : '';
-      label += it.unit ? ` · ${numText(qty)} ${it.unit}${rate}` : ` x${numText(qty)}`;
-    }
-    return {
-      type: 'box',
-      layout: 'horizontal',
-      spacing: 'sm',
-      alignItems: 'center',
-      contents: [
-        {
-          type: 'box',
-          layout: 'vertical',
-          width: '30px',
-          height: '30px',
-          cornerRadius: '15px',
-          backgroundColor: COLORS.accent,
-          justifyContent: 'center',
-          alignItems: 'center',
-          flex: 0,
-          contents: [{ type: 'text', text: String(i + 1), size: 'md', weight: 'bold', color: COLORS.white, align: 'center' }],
-        },
-        moneyRow(label, Number(it.total) || 0, { color: COLORS.ink, bold: false }),
-      ],
-    };
+  // A small table: one line per item, a hairline between them, amounts in a
+  // column down the right.
+  const itemRows = [];
+  items.slice(0, 8).forEach((it, i) => {
+    if (i) itemRows.push({ type: 'separator', color: COLORS.line });
+    itemRows.push(itemLine(it, i));
   });
 
   if (!itemRows.length) {
     itemRows.push({ type: 'text', text: 'ไม่มีรายการสินค้า', size: 'md', color: COLORS.grey });
   }
 
+  // ✏️ and ✕ sit beside the job's name, not in a footer — the reference card
+  // puts them on the row itself, and it reads as "this row, these buttons".
+  const rowActions = job.id
+    ? [
+        iconAction('✏️', {
+          data: `action=edit_job&jobId=${encodeURIComponent(job.id)}`,
+          displayText: 'แก้ไขรายการ',
+        }),
+        iconAction('✕', {
+          data: `action=delete_job&jobId=${encodeURIComponent(job.id)}`,
+          displayText: 'ยกเลิกรายการ',
+          bg: '#FDEAEA',
+          color: COLORS.red,
+        }),
+      ]
+    : [];
+
   const bodyContents = [
     {
       type: 'box',
       layout: 'horizontal',
+      spacing: 'sm',
+      alignItems: 'center',
       contents: [
         {
           type: 'text',
@@ -80,17 +129,28 @@ export function buildJobBubble(job) {
           flex: 5,
           wrap: true,
         },
-        statusBadge(job.payment_status),
+        ...rowActions,
       ],
     },
     {
-      type: 'text',
-      text: `${formatThaiDate(job.job_date)} · ${job.job_number || ''}`.trim(),
-      size: 'sm',
-      color: COLORS.grey,
+      type: 'box',
+      layout: 'horizontal',
+      spacing: 'sm',
+      alignItems: 'center',
+      contents: [
+        {
+          type: 'text',
+          text: joinMeta(formatThaiDate(job.job_date), job.job_number),
+          size: 'xs',
+          color: COLORS.grey,
+          flex: 5,
+          wrap: true,
+        },
+        statusBadge(job.payment_status, { size: 'xs' }),
+      ],
     },
     ...(job.customer_name
-      ? [{ type: 'text', text: `ลูกค้า: ${job.customer_name}`, size: 'sm', color: COLORS.sub }]
+      ? [{ type: 'text', text: `ลูกค้า: ${job.customer_name}`, size: 'xs', color: COLORS.sub, wrap: true }]
       : []),
     ...(dueLine(job.due_date, { size: 'sm' }) ? [dueLine(job.due_date, { size: 'sm' })] : []),
     divider(),
@@ -121,8 +181,8 @@ export function buildJobBubble(job) {
     body: { type: 'box', layout: 'vertical', spacing: 'md', contents: bodyContents },
   };
 
-  // A saved job carries its own ✏️ / 🗑 / 🗂 actions, as in the mockup's
-  // "รายการล่าสุด" card. A draft (no id yet) gets its own footer instead.
+  // A saved job can be billed and re-categorised from its footer; ✏️ and ✕
+  // live beside its name. A draft (no id yet) gets its own footer instead.
   if (job.id) {
     bubble.footer = footerActions({
       primary: {
@@ -130,10 +190,9 @@ export function buildJobBubble(job) {
         data: `action=bill_job&jobId=${encodeURIComponent(job.id)}`,
         displayText: 'ออกใบเสร็จงานนี้',
       },
+      // ✏️ and ✕ are up beside the name now; the footer keeps what is left.
       secondary: [
-        { label: '✏️ แก้ไข', data: `action=edit_job&jobId=${encodeURIComponent(job.id)}`, displayText: 'แก้ไขรายการ' },
-        { label: '🗑 ยกเลิก', data: `action=delete_job&jobId=${encodeURIComponent(job.id)}`, displayText: 'ยกเลิกรายการ' },
-        { label: '🗂 หมวด', data: `action=pick_category&jobId=${encodeURIComponent(job.id)}`, displayText: 'เลือกหมวด' },
+        { label: '🗂 เลือกหมวด', data: `action=pick_category&jobId=${encodeURIComponent(job.id)}`, displayText: 'เลือกหมวด' },
       ],
     });
   }

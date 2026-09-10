@@ -3,6 +3,7 @@ import { formatThaiDate } from '../utils/dates.js';
 import { COLORS } from './theme.js';
 import { divider } from './components/divider.js';
 import { footerActions } from './components/footerActions.js';
+import { joinMeta } from './components/metaLine.js';
 
 // Confirmation card for cancelling a job. Encodes jobId in the postback data.
 export function confirmCancelFlex(job) {
@@ -28,7 +29,7 @@ export function confirmCancelFlex(job) {
               { type: 'text', text: job.job_name || 'งาน', weight: 'bold', size: 'sm', wrap: true },
               {
                 type: 'text',
-                text: `${formatThaiDate(job.job_date)} · ${job.job_number || ''}`.trim(),
+                text: joinMeta(formatThaiDate(job.job_date), job.job_number),
                 size: 'xs',
                 color: COLORS.grey,
               },
