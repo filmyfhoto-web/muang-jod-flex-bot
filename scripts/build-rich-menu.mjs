@@ -1,5 +1,12 @@
-// Draws assets/rich-menu.jpg — the 2500x1686 Rich Menu artwork — with headless
-// Chromium, so the layout below stays the single source of truth for it.
+// Draws assets/rich-menu-generated.jpg — a 2500x1686 Rich Menu artwork — with
+// headless Chromium, so the layout below stays the single source of truth for
+// it.
+//
+// NOT what ships. assets/rich-menu.jpg is the shop's own artwork, and that is
+// the file the installer uploads. This script exists to redraw a stand-in from
+// the same geometry when the artwork needs rebuilding from scratch; it writes
+// to its own filename so running it never destroys the supplied design.
+// To ship what this draws, copy it over assets/rich-menu.jpg deliberately.
 //
 // The three tools it needs are not runtime dependencies of the bot, so install
 // them only when redrawing:
@@ -216,12 +223,13 @@ await browser.close();
 // JPEG, not PNG. The menu is two photographic cut-outs over wide gradients: as
 // a PNG it lands at ~1.5 MB, and squeezing that under LINE's 1 MB cap with a
 // 256-colour palette put visible blotches in the smooth card backgrounds.
-const out = ROOT + 'assets/rich-menu.jpg';
+const out = ROOT + 'assets/rich-menu-generated.jpg';
 const meta = await sharp(buf).metadata();
 await sharp(buf).jpeg({ quality: 92, chromaSubsampling: '4:4:4', mozjpeg: true }).toFile(out);
 
 const kb = statSync(out).size / 1024;
-console.log(`rendered ${meta.width}x${meta.height} -> assets/rich-menu.jpg (${kb.toFixed(0)} KB)`);
+console.log(`rendered ${meta.width}x${meta.height} -> assets/rich-menu-generated.jpg (${kb.toFixed(0)} KB)`);
+console.log('note: assets/rich-menu.jpg (the shop artwork) is what actually ships and was not touched');
 console.log(`big: ${LEFT_X},${BIG_Y} ${LEFT_W}x${BIG_H} · bill: ${LEFT_X},${ROW3_Y} ${LEFT_W}x${ROW3_H}`);
 console.log(`cols: ${COL1_X} / ${COL2_X} width ${COL_W} · rows: ${ROW1_Y} / ${ROW2_Y} height ${ROW_H} · row3 ${ROW3_Y} height ${ROW3_H}`);
 console.log(`footer: y=${FOOT_Y} height ${FOOT_H}`);
