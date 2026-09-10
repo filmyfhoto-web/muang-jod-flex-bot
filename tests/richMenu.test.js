@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { resolveMenuCommand } from '../src/utils/menuCommands.js';
 import { POSTBACK_ACTIONS } from '../src/utils/validation.js';
 import { buildAreas, LAYOUT, BUTTONS, FOOTER } from '../scripts/create-rich-menu.js';
+import { richMenuObject } from '../scripts/export-rich-menu-json.mjs';
 
 // The Rich Menu is artwork plus a list of tappable rectangles, kept in step by
 // hand. These guard the ways that pairing silently breaks.
@@ -75,6 +76,14 @@ test('the areas cover the whole image, so no press lands on nothing', () => {
   assert.ok(areas.some((a) => a.bounds.y === 0));
   assert.ok(areas.some((a) => a.bounds.x + a.bounds.width === LAYOUT.width));
   assert.ok(areas.some((a) => a.bounds.y + a.bounds.height === LAYOUT.height));
+});
+
+test('the committed richmenu.json is what the code would generate', () => {
+  // assets/richmenu.json is what the curl installer posts. It is generated, so
+  // the failure it guards is editing the areas and shipping a stale file — the
+  // artwork and the SDK path would move, the curl path would not.
+  const onDisk = JSON.parse(readFileSync(new URL('../assets/richmenu.json', import.meta.url), 'utf8'));
+  assert.deepEqual(onDisk, richMenuObject(), 'run: node scripts/export-rich-menu-json.mjs');
 });
 
 test('จดงาน is the biggest target, and the brand footer is tappable', () => {

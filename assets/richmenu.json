@@ -1,0 +1,137 @@
+{
+  "size": {
+    "width": 2500,
+    "height": 1686
+  },
+  "selected": true,
+  "name": "muang-jod-main",
+  "chatBarText": "เมนูม่วงจด",
+  "areas": [
+    {
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 1264,
+        "height": 1000
+      },
+      "action": {
+        "type": "postback",
+        "label": "จดงาน",
+        "data": "action=add_job",
+        "displayText": "จดงาน"
+      }
+    },
+    {
+      "bounds": {
+        "x": 1264,
+        "y": 0,
+        "width": 594,
+        "height": 509
+      },
+      "action": {
+        "type": "postback",
+        "label": "รายการล่าสุด/แก้ไข",
+        "data": "action=recent_jobs",
+        "displayText": "รายการล่าสุด/แก้ไข"
+      }
+    },
+    {
+      "bounds": {
+        "x": 1858,
+        "y": 0,
+        "width": 642,
+        "height": 509
+      },
+      "action": {
+        "type": "postback",
+        "label": "บันทึก/แนบสลิป",
+        "data": "action=attach_evidence",
+        "displayText": "บันทึก/แนบสลิป"
+      }
+    },
+    {
+      "bounds": {
+        "x": 1264,
+        "y": 509,
+        "width": 594,
+        "height": 491
+      },
+      "action": {
+        "type": "postback",
+        "label": "งานค้าง",
+        "data": "action=pending_payment",
+        "displayText": "งานค้าง"
+      }
+    },
+    {
+      "bounds": {
+        "x": 1858,
+        "y": 509,
+        "width": 642,
+        "height": 491
+      },
+      "action": {
+        "type": "postback",
+        "label": "หมวดงาน",
+        "data": "action=pick_category",
+        "displayText": "หมวดงาน"
+      }
+    },
+    {
+      "bounds": {
+        "x": 0,
+        "y": 1000,
+        "width": 1264,
+        "height": 418
+      },
+      "action": {
+        "type": "postback",
+        "label": "ออกใบเสร็จ",
+        "data": "action=create_bill",
+        "displayText": "ออกใบเสร็จ"
+      }
+    },
+    {
+      "bounds": {
+        "x": 1264,
+        "y": 1000,
+        "width": 594,
+        "height": 418
+      },
+      "action": {
+        "type": "postback",
+        "label": "ตั้งค่า",
+        "data": "action=open_dashboard",
+        "displayText": "ตั้งค่า"
+      }
+    },
+    {
+      "bounds": {
+        "x": 1858,
+        "y": 1000,
+        "width": 642,
+        "height": 418
+      },
+      "action": {
+        "type": "postback",
+        "label": "ช่วยเหลือ",
+        "data": "action=help",
+        "displayText": "ช่วยเหลือ"
+      }
+    },
+    {
+      "bounds": {
+        "x": 0,
+        "y": 1418,
+        "width": 2500,
+        "height": 268
+      },
+      "action": {
+        "type": "postback",
+        "label": "ม่วงจดให้",
+        "data": "action=home",
+        "displayText": "ม่วงจดให้"
+      }
+    }
+  ]
+}
