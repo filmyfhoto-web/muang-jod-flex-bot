@@ -23,12 +23,22 @@ export const QUICK_JOBS = [
   { label: '🏷 งานสติ๊กเกอร์', name: 'สติ๊กเกอร์' },
 ];
 
+// ไม่มี LIFF ก็ไม่มีฟอร์มให้เปิด ปุ่มงานสี่ปุ่มจึงไม่มีความหมาย — แต่แถบต้อง
+// ไม่ว่าง เหตุผลอยู่ที่ withQuickReply ข้างล่าง
+const FALLBACK = [
+  { label: '📝 บันทึกงาน', action: 'add_job', text: 'บันทึกงานวันนี้' },
+  { label: '📊 สรุปวันนี้', action: 'today_summary', text: 'สรุปวันนี้' },
+  { label: '💰 ค้างรับ', action: 'pending_payment', text: 'ค้างรับ' },
+  { label: '🕘 ล่าสุด', action: 'recent_jobs', text: 'รายการล่าสุด' },
+];
+
 // ที่เหลือย้ายไปอยู่ริชเมนูหมดแล้ว — สรุปวันนี้ ค้างรับ ล่าสุด ตั้งค่า ช่วยเหลือ
 // มีปุ่มของตัวเองอยู่ตรงนั้น การมีซ้ำอีกชุดเหนือช่องพิมพ์ทำให้แถบยาวจนต้องปัด
 // หา และงานสี่อย่างที่ร้านกดจริงก็ถูกดันหาย ร้านบอกว่า "เอาตัวเลือกด้านหลัง
 // ออกทั้งหมด" — แถบนี้จึงเหลือแค่งาน
 export function defaultItems() {
-  return QUICK_JOBS.map((j) => ({ ...j, uri: quickFormUrl({ name: j.name }) })).filter((j) => j.uri);
+  const jobs = QUICK_JOBS.map((j) => ({ ...j, uri: quickFormUrl({ name: j.name }) })).filter((j) => j.uri);
+  return jobs.length ? jobs : FALLBACK;
 }
 
 export function quickReplyBlock(items = defaultItems()) {
@@ -56,9 +66,13 @@ export function withQuickReply(messages, items) {
   const last = list[list.length - 1];
   if (!last || typeof last !== 'object' || last.quickReply) return list;
 
-  // Every button on this bar now needs a LIFF app to open. Without one there
-  // is nothing to put on it, and LINE rejects an empty quickReply outright —
-  // which would take down the message it was attached to, not just the bar.
+  // ส่งแถบว่างไม่ได้: LINE ปฏิเสธทั้งข้อความ ไม่ใช่แค่แถบ
+  //
+  // และที่สำคัญกว่านั้น — แถบของ LINE จะเปลี่ยนก็ต่อเมื่อมีข้อความใหม่ที่พก
+  // แถบมาด้วยเท่านั้น ข้อความที่ไม่แนบแถบไม่ได้ "ลบ" แถบเดิม มันปล่อยของเก่า
+  // ค้างอยู่บนจอ ตอนที่แถบนี้ว่างได้ (ไม่ได้ตั้ง LIFF) ร้านจึงติดอยู่กับปุ่ม
+  // ชุดเก่าตลอดไป มองไม่เห็นปุ่มใหม่เลย — ซึ่งคือสิ่งที่ร้านเจอ
+  // defaultItems() จึงไม่มีทางคืนลิสต์ว่างอีกแล้ว และตรงนี้กันไว้อีกชั้น
   const block = quickReplyBlock(items);
   if (!block.items.length) return list;
 

@@ -76,14 +76,22 @@ test('nothing to send, nothing to attach', () => {
   assert.deepEqual(withQuickReply([null]), [null]);
 });
 
-test('an empty bar is left off, not sent empty', () => {
-  // Every button needs a LIFF app to open now. LINE rejects an empty
-  // quickReply outright, which would take down the message it rode on rather
-  // than just the bar — so with nothing to show, nothing is attached.
-  assert.deepEqual(defaultItems(), [], 'the fixture assumes no LIFF is configured here');
+test('a bar always goes out, because a missing one leaves the old one on screen', () => {
+  // LINE swaps the bar only when a message carries one; a message without one
+  // leaves the previous bar sitting there. So "attach nothing" is not neutral
+  // — it freezes whatever the shop was last shown.
+  assert.ok(defaultItems().length > 0, 'nothing to attach, so the old bar stays');
 
   const out = withQuickReply([{ type: 'text', text: 'สวัสดีค่ะ' }]);
   assert.equal(out.length, 1);
-  assert.equal(out[0].quickReply, undefined, 'an empty quickReply went out with the message');
+  assert.ok(out[0].quickReply.items.length, 'no bar went out with the message');
   assert.equal(out[0].text, 'สวัสดีค่ะ', 'the message itself must survive');
+});
+
+test('an empty list handed in is still refused, not sent as an empty bar', () => {
+  // LINE rejects an empty quickReply outright, which takes down the message it
+  // rode on rather than just the bar.
+  const out = withQuickReply([{ type: 'text', text: 'สวัสดีค่ะ' }], []);
+  assert.equal(out[0].quickReply, undefined);
+  assert.equal(out[0].text, 'สวัสดีค่ะ');
 });

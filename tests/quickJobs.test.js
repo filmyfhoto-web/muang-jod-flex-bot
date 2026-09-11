@@ -70,8 +70,15 @@ test('the form fills the name in, but never over work already in progress', () =
   assert.match(jot, /state\.items\.length === 1 && !state\.items\[0\]\.name && !state\.items\[0\]\.total/);
 });
 
-test('with no LIFF app there is no bar at all, rather than links to nowhere', () => {
-  assert.deepEqual(defaultItems(), []);
+test('with no LIFF app the bar is never empty, or the old one is stuck forever', () => {
+  // LINE only swaps the bar when a message arrives carrying one. A message
+  // with no bar does not clear the old one — it leaves it on screen. So an
+  // empty bar meant the shop kept seeing the buttons from before the change
+  // and never the new ones, which is exactly what they reported.
+  const items = defaultItems();
+  assert.ok(items.length > 0, 'an empty bar strands whatever was last shown');
+  assert.ok(items.every((i) => !i.uri), 'a link to nowhere is on the bar');
+  assert.ok(items.every((i) => i.action), 'a button with nothing behind it');
 });
 
 test('the receipt is reachable from the screen the shop finishes a job on', () => {

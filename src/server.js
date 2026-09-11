@@ -101,6 +101,18 @@ app.get('/health', async (req, res) => {
   const { liffId } = await import('./utils/liff.js');
   body.liff = liffId() ? 'on' : 'off';
 
+  // What the bar above the keyboard will carry on the next reply. The bar on a
+  // phone is whatever the LAST message brought, so after a deploy it still
+  // shows the old buttons until something new arrives — and there is no way to
+  // tell "not deployed yet" from "deployed and wrong" by looking at it. This
+  // says what the running code would send.
+  try {
+    const { quickReplyBlock } = await import('./flex/quickReply.js');
+    body.quickReply = quickReplyBlock().items.map((i) => i.action.label);
+  } catch (err) {
+    body.quickReply = `error: ${err?.message || err}`;
+  }
+
   // Reading a photographed slip or work order needs the Anthropic key. Without
   // it the bot still works — it just attaches the picture instead of reading
   // it — and that difference is invisible from the chat.
