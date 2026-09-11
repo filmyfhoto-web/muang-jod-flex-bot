@@ -23,6 +23,29 @@ test('classifies signage items into งานป้าย and its types', () => 
   assert.equal(classifyItem('ป้ายไวนิล').group.id, 'sign');
 });
 
+test('ตรายาง is its own kind of work, and "ปั๊ม" alone is not it', () => {
+  assert.equal(classifyItem('ตรายาง ชื่อร้าน').type.id, 'stamp');
+  assert.equal(classifyItem('ตรายางหมึกในตัว 2 อัน').type.id, 'stamp');
+  assert.equal(classifyItem('ตราปั๊มโรงเรียน').type.id, 'stamp');
+  assert.equal(classifyItem('ตรายาง').group.id, 'print');
+  // ค่าปั๊มน้ำมันไม่ใช่งานตรายาง คำว่า "ปั๊ม" เดี่ยว ๆ จึงไม่ใช่คำค้น
+  assert.equal(classifyItem('ค่าน้ำมัน ปั๊มบางจาก'), null);
+});
+
+test('สติ๊กเกอร์ฟิวเจอร์บอร์ด wins over both halves it is made of', () => {
+  // งานนี้เคยตกไปลงโฟมบอร์ดหรือสติ๊กเกอร์ แล้วแต่ว่าเจอคำไหนก่อน
+  assert.equal(classifyItem('สติ๊กเกอร์ฟิวเจอร์บอร์ด 60x90').type.id, 'sticker_board');
+  assert.equal(classifyItem('สติกเกอร์ฟิวเจอร์บอร์ด').type.id, 'sticker_board', 'ไม้ตรี ตกหล่นก็ต้องเข้า');
+  assert.equal(classifyItem('สติ๊กเกอร์ติดฟิวเจอร์บอร์ด').type.id, 'sticker_board');
+  // เขียนสลับลำดับคำก็ยังใช่ — ร้านไม่ได้พิมพ์ตามแบบฟอร์ม
+  assert.equal(classifyItem('ฟิวเจอร์บอร์ดติดสติ๊กเกอร์').type.id, 'sticker_board');
+  assert.equal(classifyItem('ฟิวเจอร์บอร์ดติดสติ๊กเกอร์').group.id, 'sign');
+
+  // ของอย่างเดียวยังอยู่หมวดเดิม
+  assert.equal(classifyItem('ฟิวเจอร์บอร์ด A1').type.id, 'foamboard');
+  assert.equal(classifyItem('สติ๊กเกอร์ไดคัท').type.id, 'sticker');
+});
+
 test('classifies print items into งานพิมพ์ and its types', () => {
   assert.equal(classifyItem('ถ่ายเอกสาร 20 แผ่น').type.id, 'copy');
   assert.equal(classifyItem('พิมพ์งาน A4').type.id, 'print');
