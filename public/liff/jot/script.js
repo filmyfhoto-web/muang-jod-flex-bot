@@ -271,6 +271,10 @@ function itemCard(item, index) {
   unit.value = item.unit || 'cm';
   qty.value = item.qty || '';
   rate.value = item.rate || '';
+  // ราคาที่ตั้งเองต้องขึ้นมาให้เห็นตั้งแต่แรก paint() ข้ามช่องนี้เมื่อ
+  // priceManual เพราะหน้าที่มันคือ "อย่าคิดทับของร้าน" ไม่ใช่ "อย่าโชว์" —
+  // ร่างที่เปิดกลับมาจึงเคยมียอดรวมถูกแต่ช่องราคาว่างเปล่า
+  price.value = item.price || '';
 
   // ราคาพิมพ์ทับได้เสมอ — มันคือราคาขายของร้าน ไม่ใช่ช่องที่ระบบยึดไว้
   function paint() {
@@ -512,6 +516,12 @@ async function save() {
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.message || body.error || 'บันทึกไม่สำเร็จ');
 
+    // งานเข้าระบบแล้ว ร่างที่ค้างบนการ์ดในแชตจึงต้องจบไปด้วย ไม่งั้นข้อความ
+    // ถัดไปที่พิมพ์จะถูกอ่านเป็นการแก้งานที่บันทึกไปเรียบร้อยแล้ว
+    if (params.get('draft') === '1') {
+      await fetch('/api/draft', { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } }).catch(() => {});
+    }
+
     const n = body.job?.job_number ? ' ' + body.job.job_number : '';
     toast(
       body.attachmentsFailed ? `บันทึกแล้ว${n} แต่แนบรูปไม่สำเร็จ` : `บันทึกงานแล้วค่ะ${n} 💜`,
@@ -572,6 +582,54 @@ $('#f-date').onchange = (e) => { state.date = e.target.value || todayISO(); rend
 $('#f-due').onchange = (e) => { state.due = e.target.value || ''; renderSummary(); saveDraft(); };
 $('#f-paid').oninput = (e) => { state.paid = num(e.target.value); renderSummary(); saveDraft(); };
 $('#f-note').oninput = (e) => { state.note = e.target.value; saveDraft(); };
+
+/* ---------------------------------------- ร่างที่ค้างอยู่บนการ์ดในแชต */
+
+/* ปุ่ม ✏️ แก้ไข บนการ์ด "ตรวจสอบก่อนบันทึก" เปิดหน้านี้มาพร้อม ?draft=1
+ *
+ * เดิมปุ่มนั้นทิ้งร่างทั้งก้อนแล้วขอให้พิมพ์มาใหม่ ซึ่งกับออเดอร์โรงเรียน
+ * เจ็ดบรรทัดเป็นคำตอบที่โหดมากสำหรับคำว่า "บรรทัดที่สี่ผิด" — ตอนนี้ของเดิม
+ * มาอยู่ในฟอร์มให้แก้ตรงจุด แล้วกดบันทึกทีเดียวจบ
+ *
+ * ฝั่งแชตเก็บรายการเป็นรูปแบบของฐานข้อมูล (item_name / size / quantity)
+ * ส่วนฟอร์มคิดเป็น กว้าง-ยาว-หน่วย จึงต้องแปลงกลับ */
+const UNIT_FROM_LABEL = { 'ซม.': 'cm', 'ม.': 'm', 'นิ้ว': 'inch', 'ฟุต': 'ft' };
+
+// "150 × 300 ซม." -> { w: 150, h: 300, unit: 'cm' }
+function parseSizeLabel(label) {
+  const m = /^\s*([\d.]+)\s*[×x*]\s*([\d.]+)\s*(\S+)?\s*$/.exec(String(label || ''));
+  if (!m) return null;
+  return { w: num(m[1]), h: num(m[2]), unit: UNIT_FROM_LABEL[m[3]] || 'cm' };
+}
+
+function fromDraft(draft) {
+  const items = (draft.items || []).map((it) => {
+    const size = parseSizeLabel(it.size);
+    return {
+      ...blankItem(),
+      name: it.item_name || '',
+      ...(size ? { w: size.w, h: size.h, unit: size.unit } : {}),
+      qty: num(it.quantity) || 1,
+      price: num(it.unit_price),
+      total: num(it.total),
+      // ราคาต่อชิ้นมาจากแชต เป็นราคาที่คิดเสร็จแล้ว ไม่ใช่ค่าตั้งต้นให้ฟอร์ม
+      // คำนวณทับ — ไม่ปักไว้ เปิดหน้ามาปุ๊บฟอร์มคิดใหม่จากเรตที่ว่าง ราคาหาย
+      priceManual: true,
+      // แต่ "ยอดของบรรทัด" ต้องไม่ปัก ไม่งั้นแก้จำนวนหรือราคาแล้วยอดไม่ขยับ
+      // ซึ่งคือการแก้ที่เงียบ ๆ แล้วได้เลขผิด — ร้ายกว่าไม่ให้แก้เลย
+      // ยกเว้นบรรทัดที่ยอดไม่เท่ากับ ราคา × จำนวน อยู่แต่แรก อันนั้นมีที่มา
+      // ของมันเอง จึงเก็บไว้ตามเดิม
+      totalManual: Math.abs(num(it.unit_price) * (num(it.quantity) || 1) - num(it.total)) > 0.01,
+    };
+  });
+
+  state.customer = draft.customerName || '';
+  state.date = draft.jobDate || todayISO();
+  state.due = draft.dueDate || '';
+  state.paid = num(draft.paidAmount);
+  state.note = draft.note || '';
+  state.items = items.length ? items : [blankItem()];
+}
 
 // เพิ่มการ์ดใบใหม่แล้วเลื่อนไปหาเลย ไม่ต้องปัดเอง
 function addItem() {
@@ -640,6 +698,27 @@ if (params.get('theme') === 'night') {
     if (!liff.isLoggedIn()) return liff.login({ redirectUri: location.href });
     token = liff.getAccessToken();
     $('#bar-sub').textContent = 'บันทึกเข้าบัญชีของคุณ';
+
+    // ?draft=1 — มาจากปุ่ม ✏️ แก้ไข บนการ์ดในแชต ของที่จดไว้ต้องมาอยู่ในฟอร์ม
+    // ให้ครบ ไม่ใช่ให้พิมพ์ใหม่ ร่างที่ค้างในเครื่องแพ้เสมอ เพราะอันนี้คือ
+    // สิ่งที่เขากำลังมองอยู่บนจอ
+    if (params.get('draft') === '1') {
+      try {
+        const res = await fetch('/api/draft', { headers: { Authorization: 'Bearer ' + token } });
+        const body = await res.json();
+        if (body?.draft) {
+          fromDraft(body.draft);
+          saveDraft();
+          syncHeaderFields();
+          renderItems();
+          toast('ดึงงานจากแชตมาให้แล้วค่ะ แก้ได้เลย ✏️');
+        } else {
+          toast('ไม่เจอร่างที่ค้างไว้ค่ะ กรอกใหม่ได้เลยนะคะ', 'err');
+        }
+      } catch {
+        toast('ดึงงานจากแชตไม่สำเร็จค่ะ', 'err');
+      }
+    }
   } catch {
     $('#bar-sub').textContent = 'โหมดทดลอง — ยังไม่เชื่อมกับ LINE';
     $('#foot').textContent = 'เปิดนอก LINE อยู่ กด "บันทึกงาน" จะเก็บลงเครื่องเท่านั้นค่ะ';

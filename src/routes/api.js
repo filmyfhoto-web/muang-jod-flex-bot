@@ -18,6 +18,7 @@ import { receiptFlex } from '../flex/receiptFlex.js';
 import { derivePaymentFields } from '../utils/payment.js';
 import { round2 } from '../utils/currency.js';
 import { deriveJobName } from '../utils/category.js';
+import { getState as readState, clearState as dropState, STATES } from '../services/stateService.js';
 import { todayISO } from '../utils/dates.js';
 import { safe, jobPatchSchema, jobCreateSchema, paymentAmountSchema } from '../utils/validation.js';
 import { liffId, liffChannelId } from '../utils/liff.js';
@@ -188,6 +189,35 @@ export function createApiRouter(deps = {}) {
       const { rows, range } = await getJobsInPeriod(req.profile.id, period);
       const active = (rows || []).filter((j) => j.status !== 'cancelled');
       res.json({ ...buildReport(rows || [], range), categories: breakdownByCategory(active) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // The draft sitting on the preview card in the chat, so ✏️ แก้ไข can open
+  // the form with it already filled in.
+  //
+  // Before this, ✏️ threw the draft away and asked for the whole note again —
+  // which on a seven-line order for a school is a punishing answer to "the
+  // fourth line is wrong". It lives in user_states already; this just hands it
+  // to the browser.
+  router.get('/draft', async (req, res, next) => {
+    try {
+      const state = await readState(req.profile.id);
+      const draft = state?.state === STATES.CONFIRMING_JOB ? state?.context?.draft : null;
+      res.json({ draft: draft || null });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Saved from the form, so the card in the chat is answered — leaving the
+  // state set would have the next message parsed as a correction to a job that
+  // is already in the database.
+  router.delete('/draft', async (req, res, next) => {
+    try {
+      await dropState(req.profile.id);
+      res.json({ ok: true });
     } catch (err) {
       next(err);
     }
