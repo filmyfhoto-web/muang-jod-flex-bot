@@ -716,6 +716,15 @@ if (params.get('theme') === 'night') {
     saveDraft();
   }
 
+  // ?name=… — มาจากปุ่มลัด "งานกรอบรูป / งานป้าย / งานโฟมบอร์ด" เหนือช่องพิมพ์
+  // เปิดมาชื่อรายการใส่ไว้ให้แล้ว เหลือใส่ขนาดกับราคา ไม่ใช่เริ่มจากฟอร์มเปล่า
+  // ใส่เฉพาะตอนรายการแรกยังว่าง ไม่งั้นจะไปทับงานที่ร้านค้างไว้
+  const preset = (params.get('name') || '').trim();
+  if (preset && state.items.length === 1 && !state.items[0].name && !state.items[0].total) {
+    state.items[0].name = preset.slice(0, 200);
+    saveDraft();
+  }
+
   syncHeaderFields();
   renderItems();
 
