@@ -1,6 +1,7 @@
 import { reply } from '../services/lineService.js';
 import { getJobById, getLatestJob, updateJob } from '../services/jobService.js';
-import { categoryGroupsFlex, categoryTypesFlex } from '../flex/categoryPickerFlex.js';
+import { categoryGroupsFlex, categoryTypesFlex, categoryBrowseFlex } from '../flex/categoryPickerFlex.js';
+import { liffUrl } from '../utils/liff.js';
 import { jobCardMessage } from '../flex/jobCard.js';
 import { findGroup, findType, categoryLabel } from '../utils/category.js';
 
@@ -13,6 +14,17 @@ import { findGroup, findType, categoryLabel } from '../utils/category.js';
 // what "เลือกหมวด" from the menu means.
 export async function pickCategory({ replyToken, profile, params }) {
   const { group: groupId, type: typeId, jobId } = params || {};
+
+  // Tapped from the menu rather than from a job: the shop is asking what they
+  // have done in a line of work, not asking to re-file the job they happened
+  // to enter last — which is what this used to do, quietly, to whichever job
+  // was most recent. So the menu route browses, and each row opens that
+  // category's page. Without a LIFF app there is no page, so it falls back to
+  // the filing flow that has always been here.
+  if (!jobId && !groupId) {
+    const browse = categoryBrowseFlex((id) => liffUrl({ tab: 'category', category: id }));
+    if (browse) return reply(replyToken, browse);
+  }
 
   if (!groupId) {
     return reply(replyToken, categoryGroupsFlex(jobId));

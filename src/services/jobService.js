@@ -220,6 +220,25 @@ export async function getRecentJobs(userId, limit = 5, client = supabase) {
   return attachItems(jobs || [], client);
 }
 
+// Every job in one category, newest first — "who has ordered what" for a kind
+// of work, which is the question the menu's หมวดงาน button asks.
+export async function getJobsByCategory(userId, category, limit = 60, client = supabase) {
+  const { data: jobs, error } = await client
+    .from('jobs')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('category', category)
+    .in('status', ACTIVE_STATUSES)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    logger.error('job.byCategory_failed', { message: error.message });
+    throw error;
+  }
+  return attachItems(jobs || [], client);
+}
+
 // The single most recent non-cancelled job (with items), or null.
 export async function getLatestJob(userId, client = supabase) {
   const { data: jobs, error } = await client

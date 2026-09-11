@@ -180,11 +180,21 @@ test('the dashboard opens whichever tab the link asks for', () => {
   // The rich menu links straight to ?tab=settings and ?tab=pending. The page
   // used to accept only 'pending' and send everything else to งานวันนี้, so
   // the ตั้งค่า button would have opened the wrong screen.
-  const tabs = [...dashboard.matchAll(/data-tab="([a-z]+)"/g)].map((m) => m[1]);
-  assert.deepEqual([...new Set(tabs)].sort(), ['pending', 'report', 'settings', 'today']);
+  const tabs = [...new Set([...dashboard.matchAll(/data-tab="([a-z]+)"/g)].map((m) => m[1]))];
+  assert.deepEqual(tabs.sort(), ['pending', 'report', 'settings', 'today']);
 
   const list = /const TABS = \[([^\]]+)\]/.exec(dashboard);
   assert.ok(list, 'no list of tabs the URL may name');
   const allowed = [...list[1].matchAll(/'([a-z]+)'/g)].map((m) => m[1]);
-  assert.deepEqual(allowed.sort(), [...new Set(tabs)].sort(), 'a tab exists that a link cannot reach');
+
+  // Every button in the nav has to be reachable by a link.
+  for (const t of tabs) assert.ok(allowed.includes(t), `?tab=${t} cannot reach its own nav button`);
+
+  // The reverse does not hold: "category" is opened by a link from the chat
+  // and has no home in the nav, because it is "which category", not a place.
+  // But every name the URL may carry must still go somewhere real.
+  for (const t of allowed) {
+    assert.ok(dashboard.includes(`id="v-${t}"`), `?tab=${t} names a view that does not exist`);
+    assert.match(dashboard, new RegExp(`LOADERS = \\{[^}]*\\b${t}:`), `?tab=${t} has nothing to load it`);
+  }
 });
