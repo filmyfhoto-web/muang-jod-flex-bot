@@ -18,6 +18,7 @@ import { saveAttachment } from '../services/attachmentService.js';
 import { push } from '../services/lineService.js';
 import { receiptFlex } from '../flex/receiptFlex.js';
 import { receiptUrl } from '../flex/billFlex.js';
+import { withShopKey } from '../utils/receiptLink.js';
 import { createBill, getBillById } from '../services/billService.js';
 import { derivePaymentFields } from '../utils/payment.js';
 import { round2 } from '../utils/currency.js';
@@ -100,6 +101,7 @@ export function createApiRouter(deps = {}) {
   const findJob = deps.getJobById || getJobById;
   const openBill = deps.createBill || createBill;
   const readBill = deps.getBillById || getBillById;
+  const saveJob = deps.updateJob || updateJob;
   // Tell the chat about a job saved from the form. Never throws: the job is
   // already saved, and a chat that missed the news must not turn into a failed
   // save the user then repeats.
@@ -254,7 +256,14 @@ export function createApiRouter(deps = {}) {
       if (!url) return res.status(503).json({ error: 'no_public_url', message: 'ยังไม่ได้ตั้งค่าที่อยู่เว็บของร้านค่ะ' });
 
       logger.info('api.receipt_opened', { user: maskUserId(req.profile.line_user_id), billId: bill.id });
-      res.json({ url, billNumber: bill.bill_number || null, reused: Boolean(job.bill_id) });
+      // url คือใบของลูกค้า ส่งต่อได้เลย ส่วน shopUrl คือใบเดียวกันที่เปิดโหมดร้าน
+      // เห็นราคาที่คิดได้จริงก่อนปัดด้วย — ร้านผ่าน LINE login มาแล้วถึงได้ตัวนี้
+      res.json({
+        url,
+        shopUrl: withShopKey(url, bill.share_token),
+        billNumber: bill.bill_number || null,
+        reused: Boolean(job.bill_id),
+      });
     } catch (err) {
       next(err);
     }
@@ -308,9 +317,16 @@ export function createApiRouter(deps = {}) {
         ...it,
         total: round2(it.total ?? Number(it.unit_price) * Number(it.quantity)),
       }));
+      // subtotal คือราคาที่คิดได้จากรายการ — เซิร์ฟเวอร์บวกเอง ไม่เชื่อเบราว์เซอร์
+      // total คือราคาที่ร้านเก็บลูกค้า ซึ่งเป็นสิทธิ์ของร้านที่จะตั้ง (ปัดขึ้นเป็น
+      // เลขกลม ๆ หรือลดให้) ส่วนต่างไปอยู่ที่ discount ติดลบได้ = ปัดขึ้น
       const subtotal = round2(items.reduce((sum, it) => sum + (Number(it.total) || 0), 0));
-      const discount = round2(Math.min(draft.discount, subtotal));
-      const total = round2(subtotal - discount);
+      const asked = draft.customerTotal;
+      const total =
+        asked === null || asked === undefined
+          ? round2(subtotal - round2(Math.min(draft.discount, subtotal)))
+          : round2(asked);
+      const discount = round2(subtotal - total);
 
       const job = await create(req.profile.id, {
         jobName: draft.jobName?.trim() || deriveJobName(items),
@@ -370,12 +386,19 @@ export function createApiRouter(deps = {}) {
 
       const { items, ...patch } = check.data;
 
-      // Rows sent means the lines themselves changed, and then the money is
-      // theirs to state, not the browser's: a stale or edited total must never
-      // be able to disagree with the rows printed under it on the receipt.
+      // Rows sent means the lines themselves changed, and the price those rows
+      // add up to is not the browser's to state: a stale or edited number must
+      // never disagree with the lines printed under it on the receipt. That
+      // computed price is `subtotal` — the one the shop keeps for itself.
+      //
+      // `total` is a different thing: what the shop decided to charge. Rounding
+      // 4,931.43 up to 5,000 is the shop's call, so that one IS taken as sent.
       if (items) {
         const sum = round2(items.reduce((s, it) => s + round2((Number(it.unit_price) || 0) * (Number(it.quantity) || 1)), 0));
-        patch.total = round2(sum - (Number(current.discount) || 0));
+        patch.subtotal = sum;
+        // ไม่ได้บอกราคาลูกค้ามาด้วย = ให้เท่ากับที่คิดได้ใหม่ การแก้รายการแล้ว
+        // ปล่อยให้ยอดปัดของเดิมค้างอยู่ทำให้เงินกับบรรทัดไม่ตรงกัน
+        if (patch.total === undefined) patch.total = sum;
         await replaceItems(req.profile.id, req.params.id, items);
       }
 
@@ -389,9 +412,18 @@ export function createApiRouter(deps = {}) {
         const paid = patch.paid_amount !== undefined ? round2(patch.paid_amount) : round2(current.paid_amount);
         Object.assign(patch, derivePaymentFields(total, Math.min(paid, total)));
       }
-      if (patch.total !== undefined) patch.subtotal = round2(patch.total + (Number(current.discount) || 0));
+      // ราคาที่คิดได้ (subtotal) กับราคาที่เก็บลูกค้า (total) เดินคู่กันเสมอ
+      // ส่วนต่างคือยอดที่ร้านปัดขึ้น (ติดลบ) หรือลดให้ (เป็นบวก)
+      if (patch.total !== undefined || patch.subtotal !== undefined) {
+        const listed =
+          patch.subtotal !== undefined
+            ? round2(patch.subtotal)
+            : round2(Number(current.subtotal) || Number(current.total) || 0);
+        patch.subtotal = listed;
+        patch.discount = round2(listed - total);
+      }
 
-      await updateJob(req.profile.id, req.params.id, patch);
+      await saveJob(req.profile.id, req.params.id, patch);
       const job = await findJob(req.profile.id, req.params.id);
       logger.info('api.job_updated', { user: maskUserId(req.profile.line_user_id), jobId: req.params.id });
       res.json({ job });

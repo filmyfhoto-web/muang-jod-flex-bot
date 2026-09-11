@@ -72,6 +72,23 @@
       <span>ยอดรวม</span>
       <b id="s-total">฿0</b>
     </div>
+
+    <!-- ราคาที่คิดได้จากรายการ กับราคาที่ร้านจะเก็บจริง เป็นคนละตัวกัน ร้านปัด
+         ขึ้นเป็นเลขกลม ๆ ได้ ใบที่ส่งลูกค้าโชว์ตัวที่เก็บ ส่วนตัวที่คิดได้อยู่
+         ในใบของร้านใบเดียว ที่ลูกค้าไม่ได้ถือ -->
+    <div class="mine" id="s-mine" hidden>
+      <span class="mine-tag">🔒 เฉพาะร้าน · ลูกค้าไม่เห็นบรรทัดนี้</span>
+      <div class="mine-row">
+        <span>เก็บลูกค้า</span>
+        <span class="mine-in"><i>฿</i><input id="f-charge" type="number" inputmode="decimal" min="0" step="1" /></span>
+      </div>
+      <div class="mine-round">
+        <button type="button" data-round="10">ปัดขึ้นสิบ</button>
+        <button type="button" data-round="100">ปัดขึ้นร้อย</button>
+        <button type="button" data-round="0">ใช้ราคาจริง</button>
+      </div>
+      <div class="mine-gap" id="s-gap"></div>
+    </div>
     <div class="sum-paid" id="s-paid" hidden>
       <span>รับแล้ว</span><b id="s-paid-amount">฿0</b>
     </div>

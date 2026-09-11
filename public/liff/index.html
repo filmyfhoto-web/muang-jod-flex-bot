@@ -112,6 +112,15 @@
   }
   select { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8'><path d='M1 1l5 5 5-5' stroke='%231c4fd8' stroke-width='2' fill='none' stroke-linecap='round'/></svg>"); background-repeat: no-repeat; background-position: right 14px center; }
   input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent-text); }
+  /* ราคาจริงก่อนปัด — สีส้ม ไม่ใช่สีของหน้า เพื่อให้เห็นแต่ไกลว่าส่วนนี้ไม่ได้
+     ออกไปถึงลูกค้า */
+  .mine { margin-top: 9px; background: #fff7ed; border-radius: 12px; padding: 10px 12px; }
+  .mine .mine-tag { display: block; font-size: 11.5px; font-weight: 700; color: #b45309; }
+  .mine .mine-row { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; margin-top: 3px; font-size: 14.5px; font-weight: 700; color: var(--ink); }
+  .mine .mine-row .up { color: var(--green, #1a7f4b); }
+  .mine .mine-row .down { color: var(--red); }
+  .mine .mine-round { display: flex; gap: 6px; margin-top: 8px; }
+  .mine .mine-round button { flex: 1; border: 1.5px solid #fed7aa; background: #fff; border-radius: 10px; padding: 8px 4px; font: inherit; font-size: 12.5px; font-weight: 700; color: #b45309; }
   .seg { display: flex; gap: 7px; }
   .seg button { flex: 1; border: 1.5px solid var(--line); background: var(--tint); border-radius: 12px; padding: 13px 4px; font: inherit; font-size: 13.5px; font-weight: 600; color: var(--sub); }
   .seg button[aria-pressed="true"] { border-color: var(--accent-text); background: var(--accent-dim); color: var(--white); font-weight: 700; }
@@ -276,8 +285,19 @@
       <!-- ที่ที่ร้านยืนอยู่ตอนงานเสร็จคือหน้านี้ แต่ใบเสร็จเคยออกได้จากแชต
            อย่างเดียว -->
       <button type="button" class="btn btn-soft" id="e-receipt">🧾 ออกใบเสร็จ / ปริ้น</button>
-      <label for="e-total">จำนวนเงิน <span class="req">*</span></label>
+      <label for="e-total">ราคาที่เก็บลูกค้า <span class="req">*</span></label>
       <div class="with-unit"><input id="e-total" type="number" inputmode="decimal" min="0" step="1" /><span class="unit">฿</span></div>
+      <!-- ราคาที่คิดได้จากรายการ กับราคาที่ร้านเก็บจริง เป็นคนละตัว ร้านปัดขึ้น
+           เป็นเลขกลม ๆ ได้ ลูกค้าเห็นแค่ตัวที่เก็บ ส่วนตัวที่คิดได้ยังอยู่ครบ -->
+      <div class="mine" id="e-mine" hidden>
+        <span class="mine-tag">🔒 เฉพาะร้าน · ลูกค้าไม่เห็นบรรทัดนี้</span>
+        <div class="mine-row"><span id="e-listed">ราคาจริง —</span><b id="e-gap"></b></div>
+        <div class="mine-round">
+          <button type="button" data-round="10">ปัดขึ้นสิบ</button>
+          <button type="button" data-round="100">ปัดขึ้นร้อย</button>
+          <button type="button" data-round="0">ใช้ราคาจริง</button>
+        </div>
+      </div>
       <label for="e-paid">รับมาแล้ว</label>
       <div class="with-unit"><input id="e-paid" type="number" inputmode="decimal" min="0" step="1" /><span class="unit">฿</span></div>
       <label for="e-date">วันที่จด</label>
@@ -615,6 +635,37 @@ $('e-status').onclick = (e) => {
   if (b.dataset.v === 'pending') $('e-paid').value = 0;
 };
 
+// ราคาที่คิดได้จากรายการ (subtotal) เทียบกับราคาที่กำลังจะเก็บ (ช่องยอด)
+// งานเก่าที่ยังไม่มี subtotal ให้ถือว่าราคาจริงคือยอดที่บันทึกไว้
+const listedPrice = (job) => {
+  const s = Number(job?.subtotal);
+  return Number.isFinite(s) && s > 0 ? s : Number(job?.total) || 0;
+};
+
+function paintMine() {
+  const box = $('e-mine');
+  const listed = listedPrice(current);
+  if (!current || !listed) { box.hidden = true; return; }
+  const charged = Number($('e-total').value) || 0;
+  const gap = Math.round((charged - listed) * 100) / 100;
+  box.hidden = false;
+  $('e-listed').textContent = 'ราคาจริง ' + baht(listed);
+  const tag = $('e-gap');
+  tag.textContent = Math.abs(gap) < 0.01 ? 'ตรงกับราคาจริง' : (gap > 0 ? 'ปัดขึ้น +' : 'ลดให้ −') + baht(Math.abs(gap));
+  tag.className = Math.abs(gap) < 0.01 ? '' : gap > 0 ? 'up' : 'down';
+}
+
+$('e-total').addEventListener('input', paintMine);
+$('e-mine').onclick = (e) => {
+  const b = e.target.closest('button[data-round]');
+  if (!b || !current) return;
+  const step = Number(b.dataset.round) || 0;
+  const listed = listedPrice(current);
+  $('e-total').value = step ? Math.ceil(listed / step) * step : Math.round(listed * 100) / 100;
+  if (getStatus() === 'paid') $('e-paid').value = $('e-total').value;
+  paintMine();
+};
+
 async function openEdit(id) {
   try {
     const { job } = await api('/jobs/' + id);
@@ -630,6 +681,7 @@ async function openEdit(id) {
     fillGroups(job.category || 'other');
     fillTypes($('e-group').value, job.category_type || '');
     setStatus(job.payment_status || 'pending');
+    paintMine();
 
     // ทางไปแก้บรรทัดย่อย หน้านี้มีช่องยอดรวมช่องเดียว งานที่พิมพ์มาสองรายการ
     // จึงแก้ได้แค่ยอดก้อนเดียว ซึ่งเป็นสิ่งที่ร้านเจอ
@@ -655,12 +707,15 @@ $('e-receipt').onclick = async () => {
   btn.disabled = true;
   btn.textContent = 'กำลังออกใบเสร็จ…';
   try {
-    const { url, reused } = await api('/jobs/' + current.id + '/receipt', { method: 'POST' });
+    const { url, shopUrl, reused } = await api('/jobs/' + current.id + '/receipt', { method: 'POST' });
     toast(reused ? 'เปิดใบเสร็จเดิมของงานนี้ค่ะ' : 'ออกใบเสร็จให้แล้วค่ะ 💜');
+    // ร้านเปิดเองก็ให้เห็นราคาจริงด้วย (shopUrl) ส่วนลิงก์ที่ยื่นให้ลูกค้าคือ
+    // url เปล่า ๆ ซึ่งหน้าใบเสร็จมีปุ่มทำรูปของลูกค้าให้อยู่แล้ว
+    const open = shopUrl || url;
     // liff.openWindow เปิดในเบราว์เซอร์ของ LINE ซึ่งบันทึกรูปได้ ต่างจาก
     // window.open ที่ในแอปบางทีโดนบล็อก
-    if (window.liff && liff.isInClient && liff.isInClient()) liff.openWindow({ url, external: false });
-    else window.open(url, '_blank');
+    if (window.liff && liff.isInClient && liff.isInClient()) liff.openWindow({ url: open, external: false });
+    else window.open(open, '_blank');
   } catch (err) {
     toast(err.message || 'ออกใบเสร็จไม่สำเร็จค่ะ', true);
   } finally {
