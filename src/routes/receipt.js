@@ -263,6 +263,54 @@ const RECEIPT_IMAGE_JS = String.raw`
   var shot = document.getElementById('shot');
   var img = document.getElementById('shot-img');
   var dl = document.getElementById('shot-dl');
+  var share = document.getElementById('shot-share');
+  var hint = document.getElementById('shot-hint');
+
+  // เบราว์เซอร์ในแอป LINE ไม่ยอมให้ดาวน์โหลดจาก data: URL — มันอ่านว่ากำลังจะ
+  // เปิดแอปข้างนอก แล้วเด้งถามว่า "อนุญาต / ไม่อนุญาต" ซึ่งกดยังไงก็ไม่ได้ไฟล์
+  // ทางที่มีอยู่จริงบนมือถือคือ share sheet ของเครื่อง ซึ่งมีทั้ง "บันทึกรูป"
+  // และ "ส่งเข้าแชตไลน์" ในที่เดียว — ตรงกับสิ่งที่ร้านจะทำต่ออยู่แล้ว
+  function fileOf(dataUrl) {
+    var bin = atob(dataUrl.split(',')[1]);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new File([bytes], (dl.getAttribute('download') || 'receipt.png'), { type: 'image/png' });
+  }
+
+  function canShareFiles(file) {
+    try {
+      return Boolean(navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  share.onclick = async function () {
+    if (!img.src) return;
+    var file;
+    try {
+      file = fileOf(img.src);
+    } catch (e) {
+      file = null;
+    }
+
+    if (file && canShareFiles(file)) {
+      try {
+        await navigator.share({ files: [file], title: 'ใบเสร็จ' });
+        return;
+      } catch (e) {
+        // กดยกเลิกเองไม่ใช่ความผิดพลาด อย่าไปบอกว่าพัง
+        if (e && e.name === 'AbortError') return;
+      }
+    }
+
+    // แชร์ไม่ได้ ก็ลองดาวน์โหลดตรง ๆ ซึ่งได้ผลบนคอมและ Chrome ของแอนดรอยด์
+    // ถ้าเครื่องไหนไม่ได้อีก ยังเหลือวิธีแตะรูปค้างไว้ที่เขียนบอกไว้ข้างบน
+    dl.click();
+    hint.innerHTML =
+      'ถ้ายังบันทึกไม่ได้ ให้ <b>แตะรูปค้างไว้</b> แล้วเลือก “บันทึกรูปภาพ” ค่ะ<br />' +
+      'หรือเปิดหน้านี้ในเบราว์เซอร์ปกติ (ปุ่ม ⋯ มุมขวาบน) แล้วกดอีกครั้งนะคะ 💜';
+  };
 
   btn.onclick = async function () {
     btn.disabled = true;
@@ -415,6 +463,9 @@ export function renderReceiptHtml(bill, shop = {}) {
         font-weight:700;font-size:14.5px;text-decoration:none}
   .shot a{background:var(--purple);color:#fff}
   .shot button{background:#fff;color:var(--ink)}
+  /* ปุ่มแชร์คือทางหลัก ปุ่มดาวน์โหลดเป็นทางสำรองที่ซ่อนไว้จนกว่าจะได้ใช้ */
+  .shot #shot-share{background:var(--purple);color:#fff}
+  .shot [hidden]{display:none}
   [hidden]{display:none!important}
 </style>
 </head>
@@ -463,9 +514,10 @@ export function renderReceiptHtml(bill, shop = {}) {
 
   <div class="shot" id="shot" hidden>
     <img id="shot-img" alt="ใบเสร็จ ${escapeHtml(bill.bill_number || '')}" />
-    <p>แตะรูปค้างไว้ แล้วเลือก “บันทึกรูปภาพ” เพื่อเก็บลงเครื่อง<br />แล้วส่งให้ลูกค้าในไลน์ได้เลยค่ะ 💜</p>
+    <p id="shot-hint">แตะรูปค้างไว้ แล้วเลือก “บันทึกรูปภาพ” เพื่อเก็บลงเครื่อง<br />แล้วส่งให้ลูกค้าในไลน์ได้เลยค่ะ 💜</p>
     <div class="row">
-      <a id="shot-dl" download="ใบเสร็จ-${escapeHtml(bill.bill_number || 'muangjod')}.png">⬇️ บันทึกลงเครื่อง</a>
+      <button type="button" id="shot-share">📤 ส่ง / บันทึกรูป</button>
+      <a id="shot-dl" hidden download="ใบเสร็จ-${escapeHtml(bill.bill_number || 'muangjod')}.png">⬇️ บันทึกลงเครื่อง</a>
       <button type="button" id="shot-close">ปิด</button>
     </div>
   </div>

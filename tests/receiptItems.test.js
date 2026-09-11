@@ -52,3 +52,32 @@ test('the printed receipt carries the lines and still adds up to the job total',
     'the fixture stopped adding up, so this test would pass on a broken receipt'
   );
 });
+
+test('saving the receipt image does not depend on a download LINE will not do', () => {
+  const html = renderReceiptHtml({
+    bill_number: 'MJ-B-20260911-0001',
+    payment_status: 'pending',
+    total: 930,
+    paid_amount: 0,
+    balance_due: 930,
+    jobs: [{ id: 'j1', job_name: 'งานป้าย', job_date: '2026-09-11', total: 930, items: [] }],
+  });
+
+  // LINE's in-app browser reads a download from a data: URL as launching an
+  // external app: the shop gets an อนุญาต / ไม่อนุญาต prompt and no file
+  // either way. The share sheet is the route that exists on a phone, and it
+  // offers saving and sending to a LINE chat in the same step.
+  assert.ok(html.includes('id="shot-share"'), 'no share button');
+  assert.ok(html.includes('navigator.canShare'), 'nothing checks for the share sheet');
+  assert.ok(html.includes('navigator.share('), 'the share sheet is never opened');
+  assert.ok(html.includes("files: [file]"), 'the image itself is not what gets shared');
+
+  // A cancelled share is a choice, not a failure to report.
+  assert.ok(html.includes("'AbortError'"), 'cancelling the share reads as an error');
+
+  // The download stays as the fallback that works on desktop and Android,
+  // and is out of the way until it is needed.
+  assert.ok(/id="shot-dl" hidden/.test(html), 'the download button is still the primary');
+  assert.ok(html.includes('dl.click()'), 'nothing falls back to the download');
+  assert.ok(html.includes('แตะรูปค้างไว้'), 'the last-resort instruction is gone');
+});
