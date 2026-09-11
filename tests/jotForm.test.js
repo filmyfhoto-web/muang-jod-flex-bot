@@ -198,3 +198,18 @@ test('the dashboard opens whichever tab the link asks for', () => {
     assert.match(dashboard, new RegExp(`LOADERS = \\{[^}]*\\b${t}:`), `?tab=${t} has nothing to load it`);
   }
 });
+
+test('a wide screen gets a column, not a two-thousand-pixel-wide form', () => {
+  // Both pages are laid out for a phone but open on a computer too, where
+  // every card and every input stretched the whole window.
+  assert.match(dashboard, /header, main \{[^}]*max-width:\s*640px/, 'the dashboard still spans the window');
+  assert.match(dashboard, /margin-inline:\s*auto/);
+
+  // The bars stay edge to edge — the surface reaching the sides reads as
+  // deliberate — but what is on them lines up with the column.
+  assert.match(dashboard, /nav \{[\s\S]*?padding:[^;]*max\(4px, calc\(\(100% - 640px\) \/ 2\)\)/, 'the nav buttons sit in the corners of the screen');
+  assert.match(css, /\.bar \{[\s\S]*?padding:[^;]*max\(14px, calc\(\(100% - 620px\) \/ 2\)\)/, 'the form\'s title floats away from its own form');
+
+  // The form already had its cap; this keeps the two pages the same shape.
+  assert.match(css, /^main \{[^}]*max-width:\s*620px/m);
+});
