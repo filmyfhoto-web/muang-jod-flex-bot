@@ -72,6 +72,8 @@ const COMMANDS = new Map([
   ['เลิกทัก', 'nudge_off'],
   ['อย่าทัก', 'nudge_off'],
   ['ไม่ต้องเตือน', 'nudge_off'],
+  ['ทดสอบทัก', 'nudge_test'],
+  ['ลองทัก', 'nudge_test'],
   ['ทักได้', 'nudge_on'],
   ['ทักมาได้', 'nudge_on'],
   ['ทักด้วย', 'nudge_on'],
