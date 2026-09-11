@@ -90,10 +90,20 @@ export function matchSqmRate(text) {
   return rate > 0 ? { match: m[0], rate } : null;
 }
 
-// พื้นที่เป็นตารางเมตรจากขนาด + หน่วย
+// พื้นที่เป็นตารางเมตรจากขนาด + หน่วย — ปัดสองตำแหน่งสำหรับ "แสดงผล"
 export function areaSqm({ width, height, unit }) {
+  return round2(areaSqmExact({ width, height, unit }));
+}
+
+// พื้นที่จริงไม่ปัด ใช้ตอนคูณกับเรต
+//
+// 110 × 422 ซม. = 4.642 ตร.ม. ปัดก่อนเป็น 4.64 แล้วคูณ 165 ได้ 765.60
+// ทั้งที่ของจริง 765.93 — หายไป 33 สตางค์ต่อป้ายหนึ่งผืน ใบเสร็จที่ร้านคิดเอง
+// กับที่บอทคิดจึงไม่ตรงกัน เศษที่ปัดควรอยู่ที่ "เงิน" ตำแหน่งเดียว ไม่ใช่ที่
+// ตัวเลขระหว่างทางแล้วปัดอีกทีตอนท้าย
+export function areaSqmExact({ width, height, unit }) {
   const factor = FACTORS[unit] || 1;
-  return round2(width * factor * (height * factor));
+  return width * factor * (height * factor);
 }
 
 // ป้ายขนาดบนใบเสร็จ: กว้าง คูณ ยาว เท่านั้น เขียนแบบเดียวกับฟอร์มจดด่วน
@@ -115,6 +125,7 @@ export function parseAreaPricing(rawLine) {
 
   const size = matchSize(withoutRate);
   let sqm;
+  let exact = null;
   let rest;
   let unit = null;
   let inferred = false;
@@ -124,6 +135,7 @@ export function parseAreaPricing(rawLine) {
     unit = size.unit || inferUnit(size.width, size.height);
     inferred = !size.unit;
     sqm = areaSqm({ ...size, unit });
+    exact = areaSqmExact({ ...size, unit });
     label = sizeLabel({ ...size, unit });
     rest = replaceOnce(withoutRate, size.match);
   } else {
@@ -140,10 +152,26 @@ export function parseAreaPricing(rawLine) {
     rest: rest.replace(/ขนาด|พื้นที่|กว้าง|ยาว|สูง/g, ' ').replace(/\s+/g, ' ').trim(),
     rate: round2(rate.rate),
     sqm,
+    // `sqm` is what the shop reads; this is what the money is worked out from.
+    sqmExact: exact ?? sqm,
     unit,
     inferred,
     sizeLabel: label,
   };
+}
+
+// The area a price is computed from: the unrounded one when there is one.
+const pricedSqm = (area) => (Number.isFinite(area?.sqmExact) ? area.sqmExact : area?.sqm) || 0;
+
+// The same area written out for a shop checking the arithmetic by hand. Two
+// decimals is how anyone says it, but "4.64 × 165 = 765.93" does not multiply
+// out, and a working that does not add up is worse than a longer number: up to
+// four decimals, with nothing trailing.
+function sqmText(area) {
+  const exact = pricedSqm(area);
+  const short = round2(exact);
+  const money = round2(exact * area.rate);
+  return String(round2(short * area.rate) === money ? short : Number(exact.toFixed(4)));
 }
 
 // สร้างรายการงานหนึ่งบรรทัดจากผลด้านบน
@@ -153,7 +181,7 @@ export function parseAreaPricing(rawLine) {
 // กับเรตไปอยู่ในหมายเหตุผ่าน areaWorking() ซึ่งขึ้นเฉพาะการ์ดของร้าน
 export function areaItem(area, { itemName, pieces = 1 } = {}) {
   const count = Number(pieces) > 0 ? Number(pieces) : 1;
-  const perPiece = round2(area.sqm * area.rate);
+  const perPiece = round2(pricedSqm(area) * area.rate);
   return {
     item_name: itemName || 'งานป้าย',
     size: area.sizeLabel,
@@ -167,7 +195,7 @@ export function areaItem(area, { itemName, pieces = 1 } = {}) {
 // วิธีคิดของร้าน หนึ่งบรรทัด — "ไวนิล: 4.8 ตร.ม. × 165 = 792"
 export function areaWorking(area, { itemName, pieces = 1 } = {}) {
   const count = Number(pieces) > 0 ? Number(pieces) : 1;
-  const perPiece = round2(area.sqm * area.rate);
+  const perPiece = round2(pricedSqm(area) * area.rate);
   const each = count > 1 ? ` ต่อชิ้น × ${numText(count)} ชิ้น` : '';
-  return `${itemName || 'งานป้าย'}: ${numText(area.sqm)} ${SQM_UNIT} × ${numText(area.rate)} = ${numText(perPiece)}${each}`;
+  return `${itemName || 'งานป้าย'}: ${sqmText(area)} ${SQM_UNIT} × ${numText(area.rate)} = ${numText(perPiece)}${each}`;
 }

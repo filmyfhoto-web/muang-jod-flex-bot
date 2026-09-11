@@ -87,15 +87,29 @@ export function extractCustomer(text) {
   const honor = new RegExp(`(${HONORIFICS.join('|')})\\s*([ก-๙A-Za-z]{1,20})`);
   const m = text.match(honor);
   if (m && !NOT_A_NAME.test(m[2])) {
-    return { customerName: `${m[1]}${m[2]}`.replace(/\s+/g, ''), rest: text.replace(m[0], ' ') };
+    // `match` is the fragment, and `index` where it began. A caller reading a
+    // whole heading line needs to know where the name starts in it, so it can
+    // keep what follows ("ผอ กิ้ก โรงเรียนบ้านนาบง") without also keeping what
+    // came before ("งานงานบุญ" in front of "วัดบ้านชี").
+    return {
+      customerName: `${m[1]}${m[2]}`.replace(/\s+/g, ''),
+      rest: text.replace(m[0], ' '),
+      match: m[0],
+      index: m.index,
+    };
   }
 
   const org = text.match(new RegExp(`(${ORG_PREFIXES.join('|')})\\s*([ก-๙A-Za-z]{2,20})`));
   if (org && !NOT_A_NAME.test(org[2])) {
-    return { customerName: `${org[1]}${org[2]}`.replace(/\s+/g, ''), rest: text.replace(org[0], ' ') };
+    return {
+      customerName: `${org[1]}${org[2]}`.replace(/\s+/g, ''),
+      rest: text.replace(org[0], ' '),
+      match: org[0],
+      index: org.index,
+    };
   }
 
-  return { customerName: null, rest: text };
+  return { customerName: null, rest: text, match: null, index: -1 };
 }
 
 // Units left stranded once the size has been lifted out: "ป้ายไวนิล 200x100 ซม."
@@ -216,11 +230,43 @@ function parseSingleLine(line) {
   };
 }
 
+// A line with no digit anywhere in it can be priced at nothing and measured as
+// nothing. On a note whose other lines do have numbers, it is the heading —
+// who the work is for, or what the batch is — never something that was made.
+//
+// "ผอ กิ้ก โรงเรียนบ้านนาบง" on the first line used to come back as an item
+// costing ฿0, printed on the customer's own receipt under their own name.
+function splitHeading(lines) {
+  if (lines.length < 2) return { heading: null, body: lines };
+  const body = lines.filter((l) => /\d/.test(l));
+  if (!body.length || body.length === lines.length) return { heading: null, body: lines };
+  return { heading: lines.filter((l) => !/\d/.test(l)).join(' ').replace(/\s+/g, ' ').trim() || null, body };
+}
+
 // Parse a whole message into a normalized job draft.
 export function parseNaturalJob(rawText) {
   const text = String(rawText || '');
   const paid = extractPaid(text);
-  const cust = extractCustomer(paid.rest);
+
+  const { heading, body } = splitHeading(
+    paid.rest.split('\n').map((l) => l.trim()).filter(Boolean)
+  );
+
+  // The heading names the customer when it reads like one — and then the whole
+  // line is the name, not just the two words the pattern matched: this shop
+  // writes "ผอ กิ้ก โรงเรียนบ้านนาบง", and a receipt made out to "ผอกิ้ก" has
+  // lost the half that says which school. When it does not read like a
+  // customer it is the name of the job, which beats one derived from the items.
+  // "ลูกค้า" / "ชื่อลูกค้า" are labels on the line, never part of the name.
+  const named = heading ? heading.replace(/(?:ชื่อ)?ลูกค้า\s*:?\s*/g, '').trim() : null;
+  const found = named ? extractCustomer(named) : null;
+  // From where the name starts to the end of the line: "ผอ กิ้ก" is only half
+  // of "ผอ กิ้ก โรงเรียนบ้านนาบง", and a receipt made out to the half has lost
+  // which school it is for. Anything in front of the name is not part of it.
+  const cust = found?.customerName
+    ? { customerName: named.slice(found.index).trim(), rest: body.join('\n') }
+    : extractCustomer(heading ? body.join('\n') : paid.rest);
+  const headingIsCustomer = Boolean(found?.customerName);
 
   // Drop the label word "ลูกค้า" so it can't be parsed as an item.
   const cleaned = cust.rest.replace(/ลูกค้า/g, ' ');
@@ -238,6 +284,7 @@ export function parseNaturalJob(rawText) {
   const subtotal = round2(items.reduce((s, it) => s + (Number(it.total) || 0), 0));
   return {
     customerName: cust.customerName || null,
+    jobName: headingIsCustomer ? null : heading,
     items,
     subtotal,
     discount: 0,

@@ -223,7 +223,8 @@ async function handleNewJob(replyToken, profile, text, knownCustomer = null) {
   // Parse only — do NOT save yet. Stash the draft in user_states.context and
   // show a preview with confirm / edit / cancel buttons.
   const draft = makeDraft({
-    jobName: deriveJobName(parsed.items),
+    // A heading the shop wrote themselves beats one worked out from the items.
+    jobName: parsed.jobName || deriveJobName(parsed.items),
     customerName: parsed.customerName || knownCustomer,
     jobDate: when.date || todayISO(),
     dueDate: due.date,

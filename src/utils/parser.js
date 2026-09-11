@@ -10,6 +10,9 @@ const QTY_RE = new RegExp(
   `(?:[x×]\\s*(\\d+))|(?:จำนวน\\s*(\\d+))|(\\d+)\\s*(?:${UNIT_WORDS.join('|')})`,
   'i'
 );
+// "ตัวละ 1,200" / "ป้ายละ 350" / "ละ 50" — a price per piece. The word in
+// front of "ละ" is the unit it is counted in, when the shop wrote one.
+const PER_UNIT_RE = /([ก-๙A-Za-z]{1,15})?ละ\s*(\d[\d,]*(?:\.\d+)?)/;
 // Price: a number optionally followed by บาท / ฿.
 const PRICE_TAGGED_RE = /(\d[\d,]*(?:\.\d+)?)\s*(?:บาท|฿|baht)/i;
 const NUMBER_RE = /\d[\d,]*(?:\.\d+)?/g;
@@ -67,6 +70,21 @@ export function parseLine(rawLine) {
     working = working.replace(sizeMatch[0], ' ');
   }
 
+  // 1b) "ตัวละ 1,200" / "ป้ายละ 350" — the shop's own way of writing a price
+  // per piece. Read it before falling through to "the last number on the line
+  // is the price": that guess happens to land on the right number, but it
+  // leaves the word "ตัวละ" behind, and "สแตนตี้ 2 ตัว ตัวละ 1,200" came out
+  // as an item called "สแตนตี้ ตัวละ". The single-line parser has understood
+  // this all along; a note with more than one line goes through here instead.
+  let perUnitPrice = null;
+  let perUnitWord = null;
+  const perUnit = working.match(PER_UNIT_RE);
+  if (perUnit) {
+    perUnitPrice = toNumber(perUnit[2]);
+    perUnitWord = perUnit[1] || null;
+    working = working.replace(perUnit[0], ' ');
+  }
+
   // 2) Quantity
   let quantity = 1;
   const qtyMatch = working.match(QTY_RE);
@@ -79,12 +97,15 @@ export function parseLine(rawLine) {
     }
   }
 
-  const unit = detectUnit(line);
+  const unit = detectUnit(line) || perUnitWord;
 
-  // 3) Price — prefer a number tagged with บาท / ฿, else last number in the line.
+  // 3) Price — the "ละ" price when the shop wrote one, else a number tagged
+  // with บาท / ฿, else the last number in the line.
   let unitPrice = 0;
-  const tagged = working.match(PRICE_TAGGED_RE);
-  if (tagged) {
+  const tagged = perUnitPrice != null ? null : working.match(PRICE_TAGGED_RE);
+  if (perUnitPrice != null) {
+    unitPrice = perUnitPrice;
+  } else if (tagged) {
     unitPrice = toNumber(tagged[1]);
     working = working.replace(tagged[0], ' ');
   } else {
