@@ -82,6 +82,9 @@ export const jobCreateSchema = z.object({
     .optional(),
   items: z.array(jobItemSchema).min(1, 'ต้องมีอย่างน้อย 1 รายการ').max(50, 'รายการเยอะเกินไป'),
   discount: z.coerce.number().min(0).default(0),
+  // ราคาที่คิดได้ก่อนปัด — ปกติเซิร์ฟเวอร์บวกจากรายการเอง ส่งมาได้เมื่อร้าน
+  // พิมพ์ทับ ซึ่งเป็นตัวเลขของร้าน ไม่เคยขึ้นใบที่ลูกค้าถือ
+  listedTotal: z.coerce.number().min(0).finite().nullable().optional(),
   // ราคาที่ร้านจะเก็บลูกค้าจริง — ว่างไว้ก็คือเท่ากับที่คิดได้จากรายการ
   // ร้านปัดขึ้นเป็นเลขกลม ๆ ได้ ส่วนราคาที่คิดได้ยังเก็บไว้ให้ร้านเห็นเอง
   customerTotal: z.coerce.number().min(0).finite().nullable().optional(),
@@ -95,6 +98,8 @@ export const jobPatchSchema = z
     job_name: z.string().trim().min(1, 'ต้องมีชื่องาน').max(200),
     customer_name: z.string().trim().max(200).nullable(),
     total: z.coerce.number().min(0, 'ยอดต้องไม่ติดลบ').finite(),
+    // ราคายังไม่ปัด — ของร้าน ไม่ได้อยู่บนใบที่ลูกค้าถือ ร้านจึงพิมพ์ทับได้
+    subtotal: z.coerce.number().min(0, 'ยอดต้องไม่ติดลบ').finite(),
     paid_amount: z.coerce.number().min(0, 'ยอดต้องไม่ติดลบ').finite(),
     payment_status: z.enum(PAYMENT_STATUSES),
     job_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'รูปแบบวันที่ต้องเป็น YYYY-MM-DD'),

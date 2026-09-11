@@ -76,7 +76,9 @@ const state = {
   customer: '',
   date: todayISO(),
   due: '', // วันนัดรับงาน — ว่างได้ แปลว่าไม่ได้นัดวันไว้
-  // ราคาที่จะเก็บลูกค้าจริง null = ไม่ได้แก้ ให้เท่ากับที่คิดได้จากรายการ
+  // ราคาที่คิดได้ก่อนปัด null = ไม่ได้แก้ ให้เท่ากับผลบวกของรายการ
+  listed: null,
+  // ราคาที่จะเก็บลูกค้าจริง null = ไม่ได้แก้ ให้เท่ากับราคายังไม่ปัด
   charge: null,
   paid: 0,
   note: '',
@@ -117,24 +119,34 @@ function computeItem(item) {
 
 const grandTotal = () => round2(state.items.reduce((s, it) => s + computeItem(it).total, 0));
 
-// ราคาที่จะเก็บลูกค้า — เท่ากับที่คิดได้ จนกว่าร้านจะปัดเอง
-const chargeAmount = () => (state.charge === null || state.charge === undefined ? grandTotal() : round2(state.charge));
+// ราคายังไม่ปัด — ผลบวกของรายการ จนกว่าร้านจะพิมพ์ทับ
+const listedAmount = () => (state.listed === null || state.listed === undefined ? grandTotal() : round2(state.listed));
 
-// บล็อก "เฉพาะร้าน": ราคาที่ยังไม่ปัดกับส่วนต่าง ซ่อนไว้จนกว่าจะมีราคาให้พูดถึง
+// ราคาที่จะเก็บลูกค้า — เท่ากับราคายังไม่ปัด จนกว่าร้านจะปัดเอง
+const chargeAmount = () => (state.charge === null || state.charge === undefined ? listedAmount() : round2(state.charge));
+
+// บล็อก "เฉพาะร้าน": สองช่องราคาที่ร้านพิมพ์เองได้ทั้งคู่ กับส่วนต่างระหว่างมัน
 function paintMine(listed, charged) {
   const box = $('#s-mine');
   if (!box) return;
-  box.hidden = !(listed > 0);
+  const rows = grandTotal();
+  box.hidden = !(listed > 0 || rows > 0);
   if (box.hidden) return;
-  const input = $('#f-charge');
-  if (document.activeElement !== input) input.value = charged || '';
-  input.placeholder = String(listed);
+
+  const fill = (sel, value, placeholder) => {
+    const el = $(sel);
+    if (document.activeElement !== el) el.value = value || '';
+    el.placeholder = String(placeholder);
+  };
+  fill('#f-listed', listed, rows);
+  fill('#f-charge', charged, listed);
+
   const gap = round2(charged - listed);
+  // ราคายังไม่ปัดที่พิมพ์ทับแล้วหนีจากบรรทัดย่อย ต้องเห็นว่าหนีไปเท่าไหร่
+  const drift = Math.abs(rows - listed) >= 0.01 ? ` · รายการย่อยรวมได้ ${baht(rows)}` : '';
   const gapEl = $('#s-gap');
   gapEl.textContent =
-    Math.abs(gap) < 0.01
-      ? `ราคายังไม่ปัด ${baht(listed)}`
-      : `ราคายังไม่ปัด ${baht(listed)} · ${gap > 0 ? 'ปัดขึ้น +' : 'ลดให้ −'}${baht(Math.abs(gap))}`;
+    (Math.abs(gap) < 0.01 ? 'ยังไม่ได้ปัด' : `${gap > 0 ? 'ปัดขึ้น +' : 'ลดให้ −'}${baht(Math.abs(gap))}`) + drift;
   gapEl.className = 'mine-gap' + (Math.abs(gap) < 0.01 ? '' : gap > 0 ? ' up' : ' down');
 }
 
@@ -434,7 +446,7 @@ function renderSummary() {
   }
 
   // ยอดรวม = ราคาที่คิดได้จากรายการ ส่วนยอดที่เก็บจริงคือ charge ถ้าร้านแก้ไว้
-  const listed = grandTotal();
+  const listed = listedAmount();
   const total = chargeAmount();
   const paid = Math.min(state.paid, total);
   $('#s-total').textContent = baht(total);
@@ -512,6 +524,7 @@ function toPayload() {
     dueDate: state.due || null,
     items,
     // ส่งไปเฉพาะตอนร้านแก้เอง ไม่งั้นปล่อยให้เซิร์ฟเวอร์ใช้ยอดที่บวกจากรายการ
+    listedTotal: state.listed === null || state.listed === undefined ? null : round2(state.listed),
     customerTotal: state.charge === null || state.charge === undefined ? null : round2(state.charge),
     paidAmount: Math.min(state.paid, chargeAmount()),
     note: note || null,
@@ -547,6 +560,7 @@ async function save() {
           body: JSON.stringify({
             items: payload.items,
             ...(payload.customerName !== undefined ? { customer_name: payload.customerName || null } : {}),
+            ...(payload.listedTotal !== null ? { subtotal: payload.listedTotal } : {}),
             ...(payload.customerTotal !== null ? { total: payload.customerTotal } : {}),
             ...(payload.note ? { note: payload.note } : {}),
           }),
@@ -610,6 +624,7 @@ function clearForm() {
   state.due = '';
   state.paid = 0;
   state.note = '';
+  state.listed = null;
   state.charge = null;
   state.items = [blankItem()];
   try { localStorage.removeItem(DRAFT_KEY); } catch { /* ไม่เป็นไร */ }
@@ -623,6 +638,7 @@ function syncHeaderFields() {
   $('#f-due').value = state.due || '';
   $('#f-paid').value = state.paid || '';
   $('#f-note').value = state.note;
+  $('#f-listed').value = state.listed === null || state.listed === undefined ? '' : state.listed;
   $('#f-charge').value = state.charge === null || state.charge === undefined ? '' : state.charge;
 }
 
@@ -634,7 +650,13 @@ $('#f-due').onchange = (e) => { state.due = e.target.value || ''; renderSummary(
 $('#f-paid').oninput = (e) => { state.paid = num(e.target.value); renderSummary(); saveDraft(); };
 $('#f-note').oninput = (e) => { state.note = e.target.value; saveDraft(); };
 
-// ราคาที่เก็บลูกค้า: ลบทิ้งจนว่าง = กลับไปใช้ราคาที่คิดได้ ไม่ใช่ศูนย์บาท
+// สองช่องนี้ลบทิ้งจนว่าง = กลับไปเดินตามตัวที่อยู่เหนือมัน ไม่ใช่ศูนย์บาท
+// (ราคายังไม่ปัดกลับไปตามรายการ ราคาที่เก็บกลับไปตามราคายังไม่ปัด)
+$('#f-listed').oninput = (e) => {
+  state.listed = e.target.value.trim() === '' ? null : num(e.target.value);
+  renderSummary();
+  saveDraft();
+};
 $('#f-charge').oninput = (e) => {
   state.charge = e.target.value.trim() === '' ? null : num(e.target.value);
   renderSummary();
@@ -644,7 +666,7 @@ $('#s-mine').onclick = (e) => {
   const b = e.target.closest('button[data-round]');
   if (!b) return;
   const step = Number(b.dataset.round) || 0;
-  const listed = grandTotal();
+  const listed = listedAmount();
   state.charge = step ? Math.ceil(listed / step) * step : null;
   renderSummary();
   saveDraft();
@@ -705,6 +727,13 @@ function fromDraft(draft) {
   state.due = draft.dueDate || '';
   state.paid = num(draft.paidAmount);
   state.note = draft.note || '';
+  // ราคายังไม่ปัดที่ร้านเคยพิมพ์ทับไว้ ติดมาเฉพาะตอนที่มันไม่เท่ากับผลบวกของ
+  // รายการ ไม่งั้นแก้จำนวนแล้วยอดค้างอยู่ที่เลขเก่า
+  const rowsSum = round2((draft.items || []).reduce((s, it) => s + num(it.total), 0));
+  state.listed =
+    draft.listedTotal !== undefined && draft.listedTotal !== null && Math.abs(num(draft.listedTotal) - rowsSum) > 0.01
+      ? num(draft.listedTotal)
+      : null;
   // ราคาที่เก็บลูกค้า ติดมาเฉพาะงานที่ร้านเคยปัดไว้ — เท่ากับที่คิดได้ก็ปล่อย
   // null ไว้ ไม่งั้นแก้จำนวนแล้วยอดค้างอยู่ที่เลขเก่า
   state.charge =

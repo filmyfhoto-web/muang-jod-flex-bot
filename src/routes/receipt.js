@@ -447,11 +447,19 @@ export function receiptItemLines(job = {}, opts = {}) {
   });
 }
 
-// งานที่ร้านตั้งราคาเก็บลูกค้าต่างจากที่คิดได้จากรายการ (ปัดขึ้น หรือลดให้)
+// งานที่ยอดย่อยบวกกันแล้วไม่เท่ากับยอดที่เก็บลูกค้า
+//
+// เทียบกับ "ผลบวกของรายการ" ไม่ใช่ subtotal เพราะสิ่งที่ลูกค้าบวกเองได้คือ
+// ตัวเลขที่พิมพ์อยู่บนใบ ส่วน subtotal ร้านพิมพ์ทับเองได้ และไม่เคยขึ้นใบลูกค้า
 export function jobWasAdjusted(job = {}) {
-  const listed = round2(Number(job.subtotal) || 0);
+  const items = job.items || [];
+  const listed = items.length
+    ? round2(items.reduce((s, it) => s + (Number(it.total) || 0), 0))
+    : round2(Number(job.subtotal) || 0);
   const charged = round2(Number(job.total) || 0);
-  return listed > 0 && Math.abs(listed - charged) >= 0.01;
+  // ไม่มียอดที่เก็บก็ไม่มีอะไรให้ขัดกัน (งานที่โหลดมาเฉพาะรายการ ยังไม่ใช่บิล)
+  if (!(listed > 0) || !(charged > 0)) return false;
+  return Math.abs(listed - charged) >= 0.01;
 }
 
 // ราคาที่คิดได้จากรายการ เทียบกับราคาที่ร้านเก็บลูกค้าจริง

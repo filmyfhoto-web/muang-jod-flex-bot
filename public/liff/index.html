@@ -116,7 +116,9 @@
      ออกไปถึงลูกค้า */
   .mine { margin-top: 9px; background: #fff7ed; border-radius: 12px; padding: 10px 12px; }
   .mine .mine-tag { display: block; font-size: 11.5px; font-weight: 700; color: #b45309; }
-  .mine .mine-row { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; margin-top: 3px; font-size: 14.5px; font-weight: 700; color: var(--ink); }
+  .mine .mine-lab { display: block; margin: 8px 0 4px; font-size: 12.5px; font-weight: 700; color: #b45309; }
+  .mine input { background: #fff; border-color: #fed7aa; }
+  .mine .mine-row { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; margin-top: 6px; font-size: 13.5px; font-weight: 700; color: var(--grey); min-height: 19px; }
   .mine .mine-row .up { color: var(--green, #1a7f4b); }
   .mine .mine-row .down { color: var(--red); }
   .mine .mine-round { display: flex; gap: 6px; margin-top: 8px; }
@@ -291,7 +293,9 @@
            เป็นเลขกลม ๆ ได้ ลูกค้าเห็นแค่ตัวที่เก็บ ส่วนตัวที่คิดได้ยังอยู่ครบ -->
       <div class="mine" id="e-mine" hidden>
         <span class="mine-tag">🔒 เฉพาะร้าน · ลูกค้าไม่เห็นบรรทัดนี้</span>
-        <div class="mine-row"><span id="e-listed">ราคายังไม่ปัด —</span><b id="e-gap"></b></div>
+        <label class="mine-lab" for="e-listed">ราคายังไม่ปัด</label>
+        <div class="with-unit"><input id="e-listed" type="number" inputmode="decimal" min="0" step="1" /><span class="unit">฿</span></div>
+        <div class="mine-row"><span id="e-rows"></span><b id="e-gap"></b></div>
         <div class="mine-round">
           <button type="button" data-round="10">ปัดขึ้นสิบ</button>
           <button type="button" data-round="100">ปัดขึ้นร้อย</button>
@@ -642,25 +646,42 @@ const listedPrice = (job) => {
   return Number.isFinite(s) && s > 0 ? s : Number(job?.total) || 0;
 };
 
+// ผลบวกของรายการย่อย ไว้บอกร้านว่าราคายังไม่ปัดที่พิมพ์ทับไปต่างจากบรรทัดแค่ไหน
+const rowsSum = (job) =>
+  Math.round((job?.items || []).reduce((s, it) => s + (Number(it.total) || 0), 0) * 100) / 100;
+
+// ลบช่องราคายังไม่ปัดจนว่าง = กลับไปใช้ผลบวกของรายการ ไม่ใช่ศูนย์บาท —
+// ศูนย์บาทคือการลบราคาที่ร้านจดไว้ทิ้งเงียบ ๆ ซึ่งไม่มีใครตั้งใจ
+function listedValue() {
+  const raw = $('e-listed').value.trim();
+  if (raw !== '') return Number(raw) || 0;
+  return rowsSum(current) || Number(current?.total) || 0;
+}
+
 function paintMine() {
   const box = $('e-mine');
-  const listed = listedPrice(current);
-  if (!current || !listed) { box.hidden = true; return; }
+  if (!current) { box.hidden = true; return; }
+  box.hidden = false;
+  const listed = listedValue();
   const charged = Number($('e-total').value) || 0;
   const gap = Math.round((charged - listed) * 100) / 100;
-  box.hidden = false;
-  $('e-listed').textContent = 'ราคายังไม่ปัด ' + baht(listed);
   const tag = $('e-gap');
   tag.textContent = Math.abs(gap) < 0.01 ? 'ยังไม่ได้ปัด' : (gap > 0 ? 'ปัดขึ้น +' : 'ลดให้ −') + baht(Math.abs(gap));
   tag.className = Math.abs(gap) < 0.01 ? '' : gap > 0 ? 'up' : 'down';
+
+  // พิมพ์ราคายังไม่ปัดทับเองได้ แต่ต้องรู้ว่ามันหนีจากผลบวกของรายการไปแล้ว
+  const sum = rowsSum(current);
+  const note = $('e-rows');
+  note.textContent = sum > 0 && Math.abs(sum - listed) >= 0.01 ? `รายการย่อยรวมได้ ${baht(sum)}` : '';
 }
 
 $('e-total').addEventListener('input', paintMine);
+$('e-listed').addEventListener('input', paintMine);
 $('e-mine').onclick = (e) => {
   const b = e.target.closest('button[data-round]');
   if (!b || !current) return;
   const step = Number(b.dataset.round) || 0;
-  const listed = listedPrice(current);
+  const listed = listedValue();
   $('e-total').value = step ? Math.ceil(listed / step) * step : Math.round(listed * 100) / 100;
   if (getStatus() === 'paid') $('e-paid').value = $('e-total').value;
   paintMine();
@@ -674,6 +695,8 @@ async function openEdit(id) {
     $('e-name').value = job.job_name || '';
     $('e-customer').value = job.customer_name || '';
     $('e-total').value = Number(job.total) || 0;
+    $('e-listed').value = listedPrice(job);
+    $('e-listed').placeholder = String(rowsSum(job) || Number(job.total) || 0);
     $('e-paid').value = Number(job.paid_amount) || 0;
     $('e-date').value = job.job_date || '';
     $('e-due').value = job.due_date || '';
@@ -734,6 +757,8 @@ $('e-save').onclick = async () => {
         job_name: $('e-name').value.trim(),
         customer_name: $('e-customer').value.trim() || null,
         total: Number($('e-total').value) || 0,
+        // ราคายังไม่ปัด เก็บตามที่ร้านพิมพ์ ไม่ให้เซิร์ฟเวอร์คิดทับ
+        subtotal: listedValue(),
         paid_amount: Number($('e-paid').value) || 0,
         payment_status: getStatus(),
         job_date: $('e-date').value || undefined,
