@@ -208,8 +208,9 @@ test('a wide screen gets a column, not a two-thousand-pixel-wide form', () => {
   // The bars stay edge to edge — the surface reaching the sides reads as
   // deliberate — but what is on them lines up with the column.
   assert.match(dashboard, /nav \{[\s\S]*?padding:[^;]*max\(4px, calc\(\(100% - 640px\) \/ 2\)\)/, 'the nav buttons sit in the corners of the screen');
-  assert.match(css, /\.bar \{[\s\S]*?padding:[^;]*max\(14px, calc\(\(100% - 620px\) \/ 2\)\)/, 'the form\'s title floats away from its own form');
+  assert.match(css, /\.bar \{[\s\S]*?padding:[^;]*max\(12px, calc\(\(100% - 560px\) \/ 2\)\)/, 'the form\'s title floats away from its own form');
 
   // The form already had its cap; this keeps the two pages the same shape.
-  assert.match(css, /^main \{[^}]*max-width:\s*620px/m);
+  // ร้านขอให้ "เล็กลงแคบลง" คอลัมน์จึงแคบกว่าแดชบอร์ด แต่ยังจัดกลางเหมือนกัน
+  assert.match(css, /^main \{[^}]*max-width:\s*560px/m);
 });
