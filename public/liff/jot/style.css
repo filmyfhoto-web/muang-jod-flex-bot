@@ -140,7 +140,10 @@ body.night .sky {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: calc(10px + var(--safe-top)) 14px 10px;
+  /* แถบยังพาดเต็มจอ (พื้นเบลอชนขอบ ดูตั้งใจ) แต่ชื่อกับปุ่มย้อนกลับถูกบีบให้
+     ตรงกับคอลัมน์เนื้อหา ไม่งั้นบนจอคอมหัวเรื่องจะไปอยู่มุมซ้ายสุดคนละที่กับ
+     ฟอร์มที่อยู่กลางจอ */
+  padding: calc(10px + var(--safe-top)) max(14px, calc((100% - 620px) / 2)) 10px;
   background: color-mix(in srgb, var(--page) 86%, transparent);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--line);
