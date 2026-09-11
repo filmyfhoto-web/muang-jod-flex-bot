@@ -36,6 +36,32 @@ function looksLikeJob(text) {
   }
 }
 
+// ระหว่างรอ/ยืนยันงาน ข้อความแบบไหนถึงนับว่าเป็น "รายการงาน"
+//
+// งานที่ยังไม่มีราคาก็เป็นงาน (ใบสั่งงานที่ถ่ายมามักไม่มีราคา แล้วค่อยพิมพ์
+// ราคาตามทีหลัง) looksLikeJob จึงหลวมไปไม่ได้ แต่ก็แน่นไปไม่ได้เช่นกัน —
+// สิ่งที่ทุกงานมีเหมือนกันคือตัวเลข ไม่ราคาก็ขนาดหรือจำนวน ประโยคที่ไม่มีเลข
+// สักตัวไม่ใช่การจดงาน มันคือการพูดกับม่วง
+const HAS_NUMBER = /[\d๐-๙]/;
+export function isJobEntry(text) {
+  return looksLikeJob(text) || HAS_NUMBER.test(String(text ?? ''));
+}
+
+// ทางออกที่พิมพ์ได้ ไม่ใช่แค่ปุ่มบนการ์ด — การ์ดเลื่อนหายไปจากจอได้ แล้วร้าน
+// ก็ติดอยู่ในโหมดจดงานโดยไม่มีอะไรให้กด
+export const QUIT_WORDS = /^(?:ยกเลิก|ไม่เอา(?:แล้ว)?|เลิก|ออก|หยุด|พอ(?:แล้ว)?|ปิด)\s*(?:ค่ะ|คะ|ครับ|จ้า|จ้ะ|นะ|น๊า)*$/i;
+
+const DRAFT_WAITING_REPLY =
+  'ยังมีร่างงานค้างอยู่นะคะ 📋\n' +
+  'กด ✅ บันทึกงาน หรือ ❌ ยกเลิก บนการ์ดด้านบนก่อนนะคะ\n' +
+  'หรือพิมพ์ว่า "ยกเลิก" ก็ได้ค่ะ แล้วค่อยคุยกันต่อ 💜';
+
+// คนละสถานการณ์กับข้างบน: ตรงนี้ยังไม่มีร่าง ม่วงแค่รอให้พิมพ์งานมา
+const WAITING_JOB_REPLY =
+  'ยังไม่เห็นตัวเลขเลยค่ะ 🤔 พิมพ์ราคาหรือขนาดมาด้วยนะคะ เช่น\n' +
+  'ป้ายไวนิล 60x100 150 บาท\n' +
+  'ถ้าไม่จดแล้ว พิมพ์ว่า "ยกเลิก" ได้เลยค่ะ 💜';
+
 // Map Thai payment keywords to status values.
 function parsePaymentStatus(value) {
   const v = value.toLowerCase();
@@ -104,8 +130,21 @@ export async function handleTextMessage(event, profile) {
 
   // While collecting a new job — or while previewing one — a text message is
   // (re)parsed into a fresh draft preview.
+  //
+  // แต่ไม่ใช่ทุกข้อความ ของเดิมอ่านทุกอย่างที่พิมพ์มาเป็นงานใหม่ ร้านจึงพูดกับ
+  // ม่วงไม่ได้เลยสักคำจนกว่าจะกด ✅ หรือ ❌ — ถามอะไรไปก็ได้ร่าง ฿0 กลับมา
+  // แล้วร่างใหม่นั้นก็ค้างสถานะไว้ต่อ วนไม่จบ
   if (current === STATES.WAITING_FOR_JOB || current === STATES.CONFIRMING_JOB) {
-    return handleNewJob(replyToken, profile, text, state?.context?.customerName || null);
+    if (isJobEntry(text)) {
+      return handleNewJob(replyToken, profile, text, state?.context?.customerName || null);
+    }
+    if (QUIT_WORDS.test(text.trim())) {
+      await clearState(profile.id);
+      return reply(replyToken, { type: 'text', text: 'ยกเลิกให้แล้วค่ะ พิมพ์คุยกันได้เลยนะคะ 💜' });
+    }
+    // มีร่างอยู่บนจอ กับกำลังรอให้พิมพ์งาน เป็นคนละเรื่อง บอกให้ตรงกับที่เห็น
+    const hasDraft = current === STATES.CONFIRMING_JOB && Boolean(state?.context?.draft);
+    return reply(replyToken, { type: 'text', text: hasDraft ? DRAFT_WAITING_REPLY : WAITING_JOB_REPLY });
   }
 
   if (current === STATES.WAITING_FOR_EDIT) {
