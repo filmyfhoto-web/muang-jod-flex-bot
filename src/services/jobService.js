@@ -220,6 +220,54 @@ export async function getRecentJobs(userId, limit = 5, client = supabase) {
   return attachItems(jobs || [], client);
 }
 
+// Replace the lines inside a job.
+//
+// Job items were write-once: created with the job and never touched again, so
+// a job entered as two lines could only ever be corrected as one lump sum.
+//
+// Delete-then-insert rather than a diff: the rows carry no identity the form
+// could send back, and two lines that read the same are genuinely the same
+// line twice. The job is re-read under this user first, so an id belonging to
+// somebody else matches nothing and nothing is deleted.
+export async function replaceJobItems(userId, jobId, items = [], client = supabase) {
+  const { data: job, error: jobErr } = await client
+    .from('jobs')
+    .select('id')
+    .eq('id', jobId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (jobErr) throw jobErr;
+  if (!job) return null;
+
+  const rows = items.map((it) => ({
+    job_id: jobId,
+    item_name: it.item_name,
+    size: it.size ?? null,
+    quantity: Number(it.quantity) || 1,
+    unit: it.unit ?? null,
+    unit_price: round2(Number(it.unit_price) || 0),
+    total: round2(Number(it.total ?? (Number(it.unit_price) || 0) * (Number(it.quantity) || 1))),
+  }));
+
+  const { error: delErr } = await client.from('job_items').delete().eq('job_id', jobId);
+  if (delErr) {
+    logger.error('job.items_clear_failed', { jobId, message: delErr.message });
+    throw delErr;
+  }
+
+  if (!rows.length) return [];
+
+  const { data, error } = await client.from('job_items').insert(rows).select('*');
+  if (error) {
+    // The old rows are already gone. Saying so is the only honest thing left:
+    // a silent failure here leaves a job whose lines have vanished and whose
+    // total still claims they were there.
+    logger.error('job.items_replace_failed', { jobId, message: error.message });
+    throw error;
+  }
+  return data || [];
+}
+
 // Every job in one category, newest first — "who has ordered what" for a kind
 // of work, which is the question the menu's หมวดงาน button asks.
 export async function getJobsByCategory(userId, category, limit = 60, client = supabase) {

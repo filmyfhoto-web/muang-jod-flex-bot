@@ -508,11 +508,24 @@ async function save() {
       return clearForm();
     }
 
-    const res = await fetch('/api/jobs', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    // แก้งานที่มีอยู่ ต้องเป็นการแก้ ไม่ใช่สร้างงานใหม่ใบที่สอง
+    // ยอดรวมไม่ส่งไป เซิร์ฟเวอร์คิดจากรายการเอง ตัวเลขบนใบเสร็จกับบรรทัดใต้มัน
+    // จะได้ไม่มีทางขัดกัน
+    const res = editingJobId
+      ? await fetch('/api/jobs/' + encodeURIComponent(editingJobId), {
+          method: 'PATCH',
+          headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: payload.items,
+            ...(payload.customerName !== undefined ? { customer_name: payload.customerName || null } : {}),
+            ...(payload.note ? { note: payload.note } : {}),
+          }),
+        })
+      : await fetch('/api/jobs', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.message || body.error || 'บันทึกไม่สำเร็จ');
 
@@ -524,10 +537,16 @@ async function save() {
 
     const n = body.job?.job_number ? ' ' + body.job.job_number : '';
     toast(
-      body.attachmentsFailed ? `บันทึกแล้ว${n} แต่แนบรูปไม่สำเร็จ` : `บันทึกงานแล้วค่ะ${n} 💜`,
-      body.attachmentsFailed ? 'err' : 'ok'
+      editingJobId
+        ? `แก้ไขงานแล้วค่ะ${n} 💜`
+        : body.attachmentsFailed
+          ? `บันทึกแล้ว${n} แต่แนบรูปไม่สำเร็จ`
+          : `บันทึกงานแล้วค่ะ${n} 💜`,
+      !editingJobId && body.attachmentsFailed ? 'err' : 'ok'
     );
-    clearForm();
+    // แก้งานเก่าไม่ได้ล้างฟอร์ม เพราะฟอร์มนี้ไม่ใช่ที่ร่างงานใหม่ตอนนี้ — ล้าง
+    // แล้วจอจะว่างเปล่าหนึ่งวินาทีก่อนปิด ซึ่งอ่านเหมือนงานหายไป
+    if (!editingJobId) clearForm();
     // ปิดหน้าต่างให้เอง เพื่อให้กลับไปเห็นการ์ดในแชตต่อ
     setTimeout(() => {
       if (window.liff && liff.isInClient && liff.isInClient()) liff.closeWindow();
@@ -601,6 +620,16 @@ function parseSizeLabel(label) {
   if (!m) return null;
   return { w: num(m[1]), h: num(m[2]), unit: UNIT_FROM_LABEL[m[3]] || 'cm' };
 }
+
+/* งานที่บันทึกไปแล้ว เปิดมาแก้รายการย่อย (?job=<id>)
+ *
+ * ฟอร์มแก้ไขในแดชบอร์ดมีช่อง "จำนวนเงิน" ช่องเดียว งานที่พิมพ์ไปสองรายการ
+ * จึงแก้ได้แค่ยอดรวมก้อนเดียว แก้บรรทัดไหนไม่ได้เลย — ร้านเจอเข้าเต็ม ๆ ว่า
+ * "พิมพ์ไป 2 งาน แก้ไขได้แค่งานเดียว"
+ *
+ * หน้านี้แก้รายการย่อยได้อยู่แล้ว ก็ให้มันรับงานที่บันทึกแล้วด้วย รูปแบบ
+ * รายการเหมือนกับร่างเป๊ะ (มาจากฐานข้อมูลเหมือนกัน) จึงใช้ตัวแปลงตัวเดียวกัน */
+let editingJobId = null;
 
 function fromDraft(draft) {
   const items = (draft.items || []).map((it) => {
@@ -717,6 +746,41 @@ if (params.get('theme') === 'night') {
         }
       } catch {
         toast('ดึงงานจากแชตไม่สำเร็จค่ะ', 'err');
+      }
+    }
+
+    // ?job=<id> — งานที่บันทึกไปแล้ว มาแก้รายการย่อย ร่างที่ค้างในเครื่อง
+    // แพ้เสมอ เพราะอันนี้คืองานจริงที่เขาเลือกมาแก้
+    const jobId = (params.get('job') || '').trim();
+    if (jobId) {
+      try {
+        const res = await fetch('/api/jobs/' + encodeURIComponent(jobId), {
+          headers: { Authorization: 'Bearer ' + token },
+        });
+        const body = await res.json();
+        if (res.ok && body?.job) {
+          editingJobId = jobId;
+          fromDraft({
+            items: body.job.items,
+            customerName: body.job.customer_name,
+            jobDate: body.job.job_date,
+            dueDate: body.job.due_date,
+            paidAmount: body.job.paid_amount,
+            note: body.job.note,
+          });
+          // ไม่เก็บลงร่างในเครื่อง: นี่คืองานจริง ไม่ใช่ของที่กำลังร่างอยู่
+          // เผลอเก็บทับ ร่างที่เขาค้างไว้จริง ๆ จะหายไปเฉย ๆ
+          syncHeaderFields();
+          renderItems();
+          document.title = 'แก้ไขงาน — ม่วงจดให้';
+          $('#bar-sub').textContent = 'แก้ไขงาน ' + (body.job.job_number || '');
+          $('#foot').textContent = 'แก้รายการแล้วกด "บันทึกงาน" ยอดรวมจะคิดใหม่ให้ค่ะ';
+          toast('เปิดงานนี้มาให้แล้วค่ะ แก้รายการได้เลย ✏️');
+        } else {
+          toast('ไม่พบงานนี้ค่ะ', 'err');
+        }
+      } catch {
+        toast('เปิดงานไม่สำเร็จค่ะ', 'err');
       }
     }
   } catch {

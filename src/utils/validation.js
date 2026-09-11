@@ -102,6 +102,11 @@ export const jobPatchSchema = z
     category: z.string().trim().max(40).nullable(),
     category_type: z.string().trim().max(40).nullable(),
     note: z.string().trim().max(500).nullable(),
+    // The lines inside the job. Sent whole or not at all: a job of two items
+    // edited down to one is expressed by sending the one that is left, so
+    // there is no way to say "patch the second row" and no way to half-apply
+    // it. The money is recomputed from these rather than trusted.
+    items: z.array(jobItemSchema).min(1, 'ต้องมีอย่างน้อย 1 รายการ').max(50, 'รายการเยอะเกินไป'),
   })
   .partial()
   .strict()
