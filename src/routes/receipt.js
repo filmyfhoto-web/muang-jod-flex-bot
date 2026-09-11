@@ -110,8 +110,17 @@ const RECEIPT_IMAGE_JS = String.raw`
     return { rows: rows, rowsH: rowsH, sheetH: h, shopOnly: withShopOnly };
   }
 
+  // ร้านเลือกเองว่าใบที่ส่งลูกค้าจะมีราคาต่อรายการไหม — ใบของร้านมีเสมอ
+  // ไม่มีสวิตช์ (หน้าที่ลูกค้าเปิด) ก็วาดตามที่ข้อมูลมี ซึ่งงานที่ปัดราคาแล้ว
+  // จะไม่มียอดย่อยติดมาตั้งแต่ฝั่งเซิร์ฟเวอร์
+  function itemPricesOn() {
+    var el = document.getElementById('show-items');
+    return el ? el.checked : true;
+  }
+
   function draw(withShopOnly) {
     var probe = document.createElement('canvas').getContext('2d');
+    var showAmounts = Boolean(withShopOnly) || itemPricesOn();
     var L = layout(probe, Boolean(withShopOnly && data.shopOnly));
     var H = L.sheetH + 2 * M;
 
@@ -213,15 +222,18 @@ const RECEIPT_IMAGE_JS = String.raw`
         var itemY = y + 21 + r.lines.length * LINE_H;
         (r.row.items || []).forEach(function (it, k) {
           var ly = itemY + (k + 1) * ITEM_H;
+          var amount = showAmounts && it.amount ? it.amount : '';
           font(ctx, '400', 17);
           ctx.fillStyle = C.sub;
-          wrap(ctx, '• ' + it.text, CW - 34 - (it.amount ? 130 : 8)).slice(0, 1).forEach(function (line) {
+          wrap(ctx, '• ' + it.text, CW - 34 - (amount ? 130 : 8)).slice(0, 1).forEach(function (line) {
             ctx.fillText(line, INNER + 34, ly);
           });
-          ctx.fillStyle = C.grey;
-          ctx.textAlign = 'right';
-          ctx.fillText(it.amount, INNER + CW, ly);
-          ctx.textAlign = 'left';
+          if (amount) {
+            ctx.fillStyle = C.grey;
+            ctx.textAlign = 'right';
+            ctx.fillText(amount, INNER + CW, ly);
+            ctx.textAlign = 'left';
+          }
         });
 
         y += r.lines.length * LINE_H + (r.row.items || []).length * ITEM_H + 36;
@@ -287,6 +299,29 @@ const RECEIPT_IMAGE_JS = String.raw`
 
   var btn = document.getElementById('make');
   var btnShop = document.getElementById('make-shop');
+  var showItems = document.getElementById('show-items');
+
+  // สวิตช์ "ให้ลูกค้าเห็นราคาต่อรายการ" — ใบบนจอเปลี่ยนตามทันที ร้านจะได้เห็น
+  // ว่ากำลังจะส่งอะไรออกไป ไม่ต้องทำรูปก่อนแล้วค่อยรู้
+  var ITEMS_KEY = 'muangjod.receipt.itemPrices';
+  if (showItems) {
+    try {
+      var saved = localStorage.getItem(ITEMS_KEY);
+      if (saved === '1' || saved === '0') showItems.checked = saved === '1';
+    } catch (e) { /* ปิด storage ไว้ก็ใช้ค่าตั้งต้นของบิลนี้ */ }
+
+    var warn = document.getElementById('show-items-warn');
+    var paint = function () {
+      document.body.classList.toggle('no-li', !showItems.checked);
+      if (warn) warn.hidden = !(showItems.checked && data.shopOnly);
+    };
+    showItems.onchange = function () {
+      try { localStorage.setItem(ITEMS_KEY, showItems.checked ? '1' : '0'); } catch (e) { /* ไม่เป็นไร */ }
+      paint();
+    };
+    paint();
+  }
+
   var shot = document.getElementById('shot');
   var img = document.getElementById('shot-img');
   var dl = document.getElementById('shot-dl');
@@ -573,6 +608,12 @@ export function renderReceiptHtml(bill, shop = {}, opts = {}) {
   .mine .up{color:var(--green)}
   .mine .down{color:var(--red)}
   .print.ghost{background:#fff;color:var(--purple-dark);box-shadow:inset 0 0 0 2px var(--purple-soft);margin-top:10px}
+
+  /* ร้านเลือกเองว่าใบของลูกค้าจะมีราคาต่อรายการไหม ใบบนจอเปลี่ยนตามทันที */
+  .pick{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:14px;font-weight:600;cursor:pointer}
+  .pick input{width:20px;height:20px;accent-color:var(--purple);flex:none}
+  .warn{margin:6px 0 0;color:#b45309;font-size:12.5px;line-height:1.5}
+  body.no-li .li>span:last-child{display:none}
   [hidden]{display:none!important}
 </style>
 </head>
@@ -621,6 +662,18 @@ export function renderReceiptHtml(bill, shop = {}, opts = {}) {
         shopOnly.up ? 'up' : 'down'
       }">${escapeHtml(shopOnly.gapText)}</span></div>
     </div>`
+        : ''
+    }
+
+    ${
+      shopView
+        ? `<label class="pick">
+      <input type="checkbox" id="show-items"${shopOnly ? '' : ' checked'} />
+      <span>ให้ลูกค้าเห็นราคาต่อรายการ</span>
+    </label>
+    <p class="warn" id="show-items-warn" hidden>ยอดย่อยรวมได้ ${escapeHtml(
+      shopOnly ? shopOnly.listed : ''
+    )} ซึ่งไม่เท่ากับยอดที่เก็บ ${escapeHtml(formatBaht(Number(bill.total) || 0))} นะคะ</p>`
         : ''
     }
 

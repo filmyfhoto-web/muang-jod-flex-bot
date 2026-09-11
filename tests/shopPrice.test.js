@@ -103,6 +103,26 @@ test('a rounded-up job does not print per-item prices that add up to something e
   assert.deepEqual(receiptItemLines(plain).map((l) => l.amount), ['฿742.50', '฿2,400', '฿1,745.47']);
 });
 
+test('the shop chooses whether the customer sees per-item prices; the customer has no such switch', () => {
+  // ร้านถามว่า "ในใบเสร็จแล้วก็เลือกได้จะให้เห็นหรือไม่" — สวิตช์เป็นของร้าน
+  // อยู่ในใบที่เปิดด้วยกุญแจร้าน ใบที่ลูกค้าถือไม่มีอะไรให้กด
+  assert.ok(!renderReceiptHtml(BILL, {}).includes('id="show-items"'), 'the customer got the shop switch');
+
+  // งานที่ปัดราคาแล้ว ตั้งต้นคือปิด เพราะยอดย่อยรวมแล้วไม่ตรงกับที่เก็บ
+  const rounded = renderReceiptHtml(BILL, {}, { shopView: true });
+  const roundedSwitch = /<input type="checkbox" id="show-items"([^>]*)\/>/.exec(rounded);
+  assert.ok(roundedSwitch, 'no switch on the shop copy');
+  assert.ok(!roundedSwitch[1].includes('checked'), 'a rounded receipt starts by showing sums that disagree');
+  assert.ok(rounded.includes('ยอดย่อยรวมได้ ฿4,887.97'), 'nothing warns what turning it on prints');
+
+  // งานที่ไม่ได้ปัด ตั้งต้นคือเปิด — ไม่มีอะไรต้องปิด
+  const plain = { ...BILL, subtotal: 5000, jobs: [{ ...BILL.jobs[0], subtotal: 5000 }] };
+  const plainSwitch = /<input type="checkbox" id="show-items"([^>]*)\/>/.exec(
+    renderReceiptHtml(plain, {}, { shopView: true })
+  );
+  assert.ok(plainSwitch[1].includes('checked'), 'prices that add up correctly were hidden by default');
+});
+
 test('no rounding, nothing to say — the shop view stays quiet', () => {
   assert.equal(shopOnlyPrice({ subtotal: 930, total: 930 }), null);
   // งานเก่าที่ยังไม่เคยเก็บ subtotal ไว้ ไม่ใช่ "ลดให้ 930 บาท"
