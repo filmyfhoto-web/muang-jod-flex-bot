@@ -7,6 +7,7 @@ import { statusBadge } from './components/statusBadge.js';
 import { brandAssetUrl, MASCOT } from '../utils/brand.js';
 import { publicBaseUrl } from '../utils/brand.js';
 import { linkRow, footerActions } from './components/footerActions.js';
+import { withShopKey } from '../utils/receiptLink.js';
 
 // Cards for the last two steps of the flow: รวมรายการลงบิล -> รับชำระและออกใบเสร็จ.
 
@@ -42,9 +43,12 @@ function receiptButtons(bill, opts = {}) {
   const url = opts.receiptUrl !== undefined ? opts.receiptUrl : receiptUrl(bill, opts);
   if (!url) return [];
   const share = opts.shareUrl !== undefined ? opts.shareUrl : shareReceiptUrl(bill, opts);
+  // การ์ดใบนี้อยู่ในแชตของร้าน ปุ่มเปิดจึงพาไปโหมดร้าน ซึ่งเห็นราคาที่คิดได้จริง
+  // ก่อนปัดด้วย ส่วนปุ่มส่งให้ลูกค้าใช้ลิงก์เปล่า — ไม่มีกุญแจติดไป
+  const mine = withShopKey(url, bill?.share_token) || url;
   return [
     linkRow([
-      { label: '🧾 เปิดใบเสร็จ', uri: url },
+      { label: '🧾 เปิดใบเสร็จ', uri: mine },
       ...(share ? [{ label: '📤 ส่งให้ลูกค้า', uri: share }] : []),
     ]),
   ];

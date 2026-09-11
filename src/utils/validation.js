@@ -82,6 +82,9 @@ export const jobCreateSchema = z.object({
     .optional(),
   items: z.array(jobItemSchema).min(1, 'ต้องมีอย่างน้อย 1 รายการ').max(50, 'รายการเยอะเกินไป'),
   discount: z.coerce.number().min(0).default(0),
+  // ราคาที่ร้านจะเก็บลูกค้าจริง — ว่างไว้ก็คือเท่ากับที่คิดได้จากรายการ
+  // ร้านปัดขึ้นเป็นเลขกลม ๆ ได้ ส่วนราคาที่คิดได้ยังเก็บไว้ให้ร้านเห็นเอง
+  customerTotal: z.coerce.number().min(0).finite().nullable().optional(),
   paidAmount: z.coerce.number().min(0).default(0),
   note: z.string().trim().max(500).nullable().optional(),
 });

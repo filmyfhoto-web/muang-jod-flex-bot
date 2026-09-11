@@ -76,6 +76,8 @@ const state = {
   customer: '',
   date: todayISO(),
   due: '', // วันนัดรับงาน — ว่างได้ แปลว่าไม่ได้นัดวันไว้
+  // ราคาที่จะเก็บลูกค้าจริง null = ไม่ได้แก้ ให้เท่ากับที่คิดได้จากรายการ
+  charge: null,
   paid: 0,
   note: '',
   items: [],
@@ -114,6 +116,27 @@ function computeItem(item) {
 }
 
 const grandTotal = () => round2(state.items.reduce((s, it) => s + computeItem(it).total, 0));
+
+// ราคาที่จะเก็บลูกค้า — เท่ากับที่คิดได้ จนกว่าร้านจะปัดเอง
+const chargeAmount = () => (state.charge === null || state.charge === undefined ? grandTotal() : round2(state.charge));
+
+// บล็อก "เฉพาะร้าน": ราคาจริงกับส่วนต่างที่ปัด ซ่อนไว้จนกว่าจะมีราคาให้พูดถึง
+function paintMine(listed, charged) {
+  const box = $('#s-mine');
+  if (!box) return;
+  box.hidden = !(listed > 0);
+  if (box.hidden) return;
+  const input = $('#f-charge');
+  if (document.activeElement !== input) input.value = charged || '';
+  input.placeholder = String(listed);
+  const gap = round2(charged - listed);
+  const gapEl = $('#s-gap');
+  gapEl.textContent =
+    Math.abs(gap) < 0.01
+      ? `ราคาจริง ${baht(listed)} · ตรงกับที่เก็บ`
+      : `ราคาจริง ${baht(listed)} · ${gap > 0 ? 'ปัดขึ้น +' : 'ลดให้ −'}${baht(Math.abs(gap))}`;
+  gapEl.className = 'mine-gap' + (Math.abs(gap) < 0.01 ? '' : gap > 0 ? ' up' : ' down');
+}
 
 /* ------------------------------------------------------------------ ร่าง */
 
@@ -410,10 +433,13 @@ function renderSummary() {
     rows.appendChild(li);
   }
 
-  const total = grandTotal();
+  // ยอดรวม = ราคาที่คิดได้จากรายการ ส่วนยอดที่เก็บจริงคือ charge ถ้าร้านแก้ไว้
+  const listed = grandTotal();
+  const total = chargeAmount();
   const paid = Math.min(state.paid, total);
   $('#s-total').textContent = baht(total);
   $('#qb-total').textContent = baht(total);
+  paintMine(listed, total);
   $('#s-name').textContent =
     state.items.map((i) => i.name).find(Boolean) || (filled ? 'งานใหม่' : 'ยังไม่ได้ตั้งชื่องาน');
   // วันนัดรับสำคัญกว่าวันที่จดในสายตาคนทำงาน จึงขึ้นก่อนเมื่อมี
@@ -485,7 +511,9 @@ function toPayload() {
     jobDate: state.date,
     dueDate: state.due || null,
     items,
-    paidAmount: Math.min(state.paid, grandTotal()),
+    // ส่งไปเฉพาะตอนร้านแก้เอง ไม่งั้นปล่อยให้เซิร์ฟเวอร์ใช้ยอดที่บวกจากรายการ
+    customerTotal: state.charge === null || state.charge === undefined ? null : round2(state.charge),
+    paidAmount: Math.min(state.paid, chargeAmount()),
     note: note || null,
     images: state.items.map((i) => i.image).filter(Boolean).slice(0, 4),
   };
@@ -509,8 +537,9 @@ async function save() {
     }
 
     // แก้งานที่มีอยู่ ต้องเป็นการแก้ ไม่ใช่สร้างงานใหม่ใบที่สอง
-    // ยอดรวมไม่ส่งไป เซิร์ฟเวอร์คิดจากรายการเอง ตัวเลขบนใบเสร็จกับบรรทัดใต้มัน
-    // จะได้ไม่มีทางขัดกัน
+    // ราคาที่คิดได้ไม่ส่งไป เซิร์ฟเวอร์บวกจากรายการเอง ตัวเลขบนใบเสร็จกับบรรทัด
+    // ใต้มันจะได้ไม่มีทางขัดกัน ส่วนราคาที่เก็บลูกค้าเป็นสิทธิ์ของร้าน จึงส่งไป
+    // เมื่อร้านปัดเองเท่านั้น
     const res = editingJobId
       ? await fetch('/api/jobs/' + encodeURIComponent(editingJobId), {
           method: 'PATCH',
@@ -518,6 +547,7 @@ async function save() {
           body: JSON.stringify({
             items: payload.items,
             ...(payload.customerName !== undefined ? { customer_name: payload.customerName || null } : {}),
+            ...(payload.customerTotal !== null ? { total: payload.customerTotal } : {}),
             ...(payload.note ? { note: payload.note } : {}),
           }),
         })
@@ -580,6 +610,7 @@ function clearForm() {
   state.due = '';
   state.paid = 0;
   state.note = '';
+  state.charge = null;
   state.items = [blankItem()];
   try { localStorage.removeItem(DRAFT_KEY); } catch { /* ไม่เป็นไร */ }
   syncHeaderFields();
@@ -592,6 +623,7 @@ function syncHeaderFields() {
   $('#f-due').value = state.due || '';
   $('#f-paid').value = state.paid || '';
   $('#f-note').value = state.note;
+  $('#f-charge').value = state.charge === null || state.charge === undefined ? '' : state.charge;
 }
 
 /* ------------------------------------------------------------------- เริ่ม */
@@ -601,6 +633,22 @@ $('#f-date').onchange = (e) => { state.date = e.target.value || todayISO(); rend
 $('#f-due').onchange = (e) => { state.due = e.target.value || ''; renderSummary(); saveDraft(); };
 $('#f-paid').oninput = (e) => { state.paid = num(e.target.value); renderSummary(); saveDraft(); };
 $('#f-note').oninput = (e) => { state.note = e.target.value; saveDraft(); };
+
+// ราคาที่เก็บลูกค้า: ลบทิ้งจนว่าง = กลับไปใช้ราคาที่คิดได้ ไม่ใช่ศูนย์บาท
+$('#f-charge').oninput = (e) => {
+  state.charge = e.target.value.trim() === '' ? null : num(e.target.value);
+  renderSummary();
+  saveDraft();
+};
+$('#s-mine').onclick = (e) => {
+  const b = e.target.closest('button[data-round]');
+  if (!b) return;
+  const step = Number(b.dataset.round) || 0;
+  const listed = grandTotal();
+  state.charge = step ? Math.ceil(listed / step) * step : null;
+  renderSummary();
+  saveDraft();
+};
 
 /* ---------------------------------------- ร่างที่ค้างอยู่บนการ์ดในแชต */
 
@@ -657,6 +705,12 @@ function fromDraft(draft) {
   state.due = draft.dueDate || '';
   state.paid = num(draft.paidAmount);
   state.note = draft.note || '';
+  // ราคาที่เก็บลูกค้า ติดมาเฉพาะงานที่ร้านเคยปัดไว้ — เท่ากับที่คิดได้ก็ปล่อย
+  // null ไว้ ไม่งั้นแก้จำนวนแล้วยอดค้างอยู่ที่เลขเก่า
+  state.charge =
+    draft.customerTotal !== undefined && draft.customerTotal !== null && Math.abs(num(draft.customerTotal) - num(draft.listedTotal)) > 0.01
+      ? num(draft.customerTotal)
+      : null;
   state.items = items.length ? items : [blankItem()];
 }
 
@@ -776,6 +830,8 @@ if (params.get('theme') === 'night') {
             dueDate: body.job.due_date,
             paidAmount: body.job.paid_amount,
             note: body.job.note,
+            customerTotal: body.job.total,
+            listedTotal: body.job.subtotal,
           });
           // ไม่เก็บลงร่างในเครื่อง: นี่คืองานจริง ไม่ใช่ของที่กำลังร่างอยู่
           // เผลอเก็บทับ ร่างที่เขาค้างไว้จริง ๆ จะหายไปเฉย ๆ

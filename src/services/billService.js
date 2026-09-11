@@ -21,15 +21,24 @@ export function formatBillNumber(dateISO, seq) {
 }
 
 // Sum a set of jobs into the bill's money fields.
+//
+// สองยอด ไม่ใช่ยอดเดียว: subtotal คือราคาที่คิดได้จากรายการจริง ๆ ส่วน total คือ
+// ราคาที่ร้านเก็บลูกค้า ซึ่งร้านปัดขึ้นหรือลดให้ได้ ส่วนต่างเก็บไว้ที่ discount
+// (ติดลบได้ = ปัดขึ้น) งานเก่าที่ยังไม่มี subtotal ให้ถือว่าสองยอดเท่ากัน
 export function summarizeBill(jobs = []) {
-  let subtotal = 0;
+  let listed = 0;
+  let charged = 0;
   let paid = 0;
   for (const j of jobs) {
-    subtotal += Number(j.total) || 0;
+    const t = round2(Number(j.total) || 0);
+    const s = Number(j.subtotal);
+    charged += t;
+    listed += Number.isFinite(s) && s > 0 ? s : t;
     paid += Number(j.paid_amount) || 0;
   }
-  const total = round2(subtotal);
-  return { subtotal: total, discount: 0, total, ...derivePaymentFields(total, round2(paid)) };
+  const total = round2(charged);
+  const subtotal = round2(listed);
+  return { subtotal, discount: round2(subtotal - total), total, ...derivePaymentFields(total, round2(paid)) };
 }
 
 async function dailyBillCount(userId, dateISO, client) {
