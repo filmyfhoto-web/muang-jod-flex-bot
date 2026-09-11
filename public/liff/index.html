@@ -11,17 +11,21 @@
   /* The Rich Menu's palette. Names say what a colour is for, not what it looks
      like, so the app and the chat cards can move together. */
   :root {
-    color-scheme: dark;
-    /* สองฟ้า: --accent เป็นพื้นของปุ่ม (ตัวหนังสือขาวต้องอ่านออก)
-       --accent-text เป็นฟ้าที่ใช้เป็น 'ตัวหนังสือ' บนพื้นเข้ม */
-    --accent: #2e7df7; --accent-text: #60a5fa; --accent-dim: #1c4fa0;
-    --bg: #080b12; --surface: #121a2a; --tint: #1b2537; --line: #25324a;
-    --ink: #e8edf5; --sub: #aebacd; --grey: #8494a8; --white: #fff;
-    --pink: #f471b5; --blue: #60a5fa; --amber: #fbbf24;
-    --green: #4ade80; --green-bg: #12301f;
-    --orange: #fbbf24; --orange-bg: #33270d;
-    --red: #f87171; --red-bg: #3a1c21;
-    --shadow: rgba(0, 0, 0, .45);
+    color-scheme: light;
+    /* ขาว-น้ำเงินชุดเดียวกับริชเมนู การ์ดในแชต และฟอร์มจดงาน
+       (public/liff/jot/style.css) — เปิดจากปุ่มไหนก็ต้องเป็นแอปเดียวกัน
+       ก่อนหน้านี้หน้านี้เป็นธีมมืดอยู่หน้าเดียว ซึ่งอ่านเหมือนคนละแอป
+
+       สองน้ำเงิน: --accent เป็นพื้นของปุ่ม (ตัวหนังสือขาวต้องอ่านออก)
+       --accent-text เป็นน้ำเงินที่ใช้เป็น 'ตัวหนังสือ' บนพื้นขาว */
+    --accent: #1c4fd8; --accent-text: #17357e; --accent-dim: #1c4fd8;
+    --bg: #eef3fd; --surface: #ffffff; --tint: #f2f6ff; --line: #dce3f5;
+    --ink: #1b2540; --sub: #3d4c73; --grey: #8794b4; --white: #fff;
+    --pink: #db2777; --blue: #1c4fd8; --amber: #b45309;
+    --green: #15803d; --green-bg: #e7f7ee;
+    --orange: #b45309; --orange-bg: #fdf1dc;
+    --red: #dc2626; --red-bg: #fdeaea;
+    --shadow: rgba(23, 53, 126, .12);
     --r: 18px;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -43,7 +47,7 @@
      tapped, and both stay clear of the numbers and buttons. */
   .peek { position: absolute; pointer-events: none; user-select: none; }
   .peek.behind { z-index: -1; }
-  .peek.front { z-index: 2; filter: drop-shadow(0 5px 9px rgba(0, 0, 0, .55)); }
+  .peek.front { z-index: 2; filter: drop-shadow(0 5px 9px rgba(23, 53, 126, .22)); }
   /* A card the mascot rests against keeps room for it, so it never sits on a
      row's amount or badge. */
   .card.mascot-foot { padding-bottom: 46px; }
@@ -102,7 +106,7 @@
     width: 100%; font: inherit; font-size: 15px; padding: 11px 12px; border: 1.5px solid var(--line);
     border-radius: 12px; background: var(--tint); color: var(--ink); appearance: none;
   }
-  select { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8'><path d='M1 1l5 5 5-5' stroke='%2360a5fa' stroke-width='2' fill='none' stroke-linecap='round'/></svg>"); background-repeat: no-repeat; background-position: right 14px center; }
+  select { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8'><path d='M1 1l5 5 5-5' stroke='%231c4fd8' stroke-width='2' fill='none' stroke-linecap='round'/></svg>"); background-repeat: no-repeat; background-position: right 14px center; }
   input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent-text); }
   .seg { display: flex; gap: 7px; }
   .seg button { flex: 1; border: 1.5px solid var(--line); background: var(--tint); border-radius: 12px; padding: 13px 4px; font: inherit; font-size: 13.5px; font-weight: 600; color: var(--sub); }
@@ -280,7 +284,9 @@ const $ = (id) => document.getElementById(id);
 const baht = (n) => '฿' + (Number(n) || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
 const thb = (n) => (Number(n) || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 }) + ' บาท';
 const BADGE = { paid: ['b-paid', 'รับเงินแล้ว'], partial: ['b-partial', 'รับบางส่วน'], pending: ['b-pending', 'ค้างรับ'] };
-const COLORS = { sign: '#f471b5', print: '#a78bfa', design: '#60a5fa', food: '#fbbf24', shipping: '#34d399', other: '#94a3b8' };
+// สีวงโดนัท — ชุดเดิมเป็นพาสเทลสำหรับพื้นเข้ม พอมาอยู่บนขาวแล้วจาง
+// แยกสีกันไม่ออก ชุดนี้เข้มพอที่จะอ่านบนขาวและยังต่างกันชัด
+const COLORS = { sign: '#db2777', print: '#7c3aed', design: '#1c4fd8', food: '#d97706', shipping: '#0d9488', other: '#64748b' };
 
 let token = null, groups = [], current = null, tab = 'today', period = 'daily', me = null;
 
@@ -357,7 +363,7 @@ function donut(cats, total) {
       const len = (c.percent / 100) * C;
       const seg =
         '<circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + R + '" fill="none" stroke="' +
-        (c.color || COLORS[c.id] || '#94a3b8') + '" stroke-width="16" stroke-dasharray="' + len + ' ' + (C - len) +
+        (c.color || COLORS[c.id] || '#64748b') + '" stroke-width="16" stroke-dasharray="' + len + ' ' + (C - len) +
         '" stroke-dashoffset="' + -offset + '" transform="rotate(-90 ' + size / 2 + ' ' + size / 2 + ')" />';
       offset += len;
       return seg;
@@ -365,10 +371,12 @@ function donut(cats, total) {
     .join('');
   return (
     '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
-    '<circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + R + '" fill="none" stroke="#1b2537" stroke-width="16" />' +
+    // วงพื้นหลังของโดนัท เดิมเป็นสีพื้นของธีมมืด บนการ์ดขาวมันกลายเป็นวงดำหนา
+    '<circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + R +
+    '" fill="none" stroke="#e6ecf9" stroke-width="16" />' +
     arcs +
-    '<text x="50%" y="46%" text-anchor="middle" font-size="10" fill="#8494a8" font-family="inherit">รวม</text>' +
-    '<text x="50%" y="62%" text-anchor="middle" font-size="14" font-weight="700" fill="#e8edf5" font-family="inherit">' +
+    '<text x="50%" y="46%" text-anchor="middle" font-size="10" fill="#8794b4" font-family="inherit">รวม</text>' +
+    '<text x="50%" y="62%" text-anchor="middle" font-size="14" font-weight="700" fill="#1b2540" font-family="inherit">' +
     thb(total) + '</text></svg>'
   );
 }
@@ -378,7 +386,7 @@ function renderLegend(el, cats) {
   cats.forEach((c) => {
     const row = document.createElement('div');
     row.innerHTML = '<i class="dot"></i><span class="nm"></span><span class="pc"></span>';
-    const color = c.color || COLORS[c.id] || '#94a3b8';
+    const color = c.color || COLORS[c.id] || '#64748b';
     row.querySelector('.dot').style.background = color;
     row.querySelector('.nm').textContent = c.icon + ' ' + c.label;
     row.querySelector('.pc').textContent = c.percent + '%';
