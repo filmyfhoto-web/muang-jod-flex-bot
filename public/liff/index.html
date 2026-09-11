@@ -115,6 +115,8 @@
   .btn-primary { background: var(--accent); color: #fff; }
   .btn-danger { background: var(--red-bg); color: var(--red); }
   .btn-ghost { background: transparent; color: var(--sub); font-weight: 500; }
+  /* ทางไปแก้บรรทัดย่อย เป็นลิงก์ ไม่ใช่ปุ่มบันทึก จึงเบากว่าปุ่มหลัก */
+  .btn-soft { display: block; text-align: center; background: var(--tint); color: var(--accent-text); border: 1px solid var(--line); text-decoration: none; }
   .btn:disabled { opacity: .55; }
   .empty { text-align: center; color: var(--grey); font-size: 13.5px; padding: 24px 8px; }
 
@@ -260,6 +262,9 @@
         <button type="button" data-v="partial">รับบางส่วน</button>
         <button type="button" data-v="paid">รับแล้ว</button>
       </div>
+      <!-- งานที่พิมพ์มาหลายรายการ แก้ได้แค่ยอดรวมก้อนเดียวในหน้านี้ — บรรทัด
+           ย่อยอยู่ในฟอร์มจดงาน ซึ่งแก้ทีละรายการได้ -->
+      <a class="btn btn-soft" id="e-items" hidden></a>
       <label for="e-total">จำนวนเงิน <span class="req">*</span></label>
       <div class="with-unit"><input id="e-total" type="number" inputmode="decimal" min="0" step="1" /><span class="unit">฿</span></div>
       <label for="e-paid">รับมาแล้ว</label>
@@ -614,6 +619,14 @@ async function openEdit(id) {
     fillGroups(job.category || 'other');
     fillTypes($('e-group').value, job.category_type || '');
     setStatus(job.payment_status || 'pending');
+
+    // ทางไปแก้บรรทัดย่อย หน้านี้มีช่องยอดรวมช่องเดียว งานที่พิมพ์มาสองรายการ
+    // จึงแก้ได้แค่ยอดก้อนเดียว ซึ่งเป็นสิ่งที่ร้านเจอ
+    const rows = (job.items || []).length;
+    const link = $('e-items');
+    link.hidden = false;
+    link.href = '/app/jot?job=' + encodeURIComponent(job.id);
+    link.textContent = rows > 1 ? `✏️ แก้รายการย่อย (${rows} รายการ)` : '✏️ แก้รายการ / เพิ่มรายการ';
     document.querySelectorAll('main > section').forEach((s) => (s.hidden = true));
     $('v-edit').hidden = false;
     $('nav').hidden = false;

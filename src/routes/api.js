@@ -10,6 +10,7 @@ import {
   recordPayment,
   getJobsInPeriod,
   getJobsByCategory,
+  replaceJobItems,
   buildReport,
 } from '../services/jobService.js';
 import { createJob, getTodaySummary } from '../services/jobService.js';
@@ -91,6 +92,7 @@ export function createApiRouter(deps = {}) {
   const attach = deps.saveAttachment || saveAttachment;
   const send = deps.push || push;
   const todaySoFar = deps.getTodaySummary || getTodaySummary;
+  const replaceItems = deps.replaceJobItems || replaceJobItems;
   // Tell the chat about a job saved from the form. Never throws: the job is
   // already saved, and a chat that missed the news must not turn into a failed
   // save the user then repeats.
@@ -332,7 +334,17 @@ export function createApiRouter(deps = {}) {
       const current = await getJobById(req.profile.id, req.params.id);
       if (!current) return res.status(404).json({ error: 'not_found' });
 
-      const patch = { ...check.data };
+      const { items, ...patch } = check.data;
+
+      // Rows sent means the lines themselves changed, and then the money is
+      // theirs to state, not the browser's: a stale or edited total must never
+      // be able to disagree with the rows printed under it on the receipt.
+      if (items) {
+        const sum = round2(items.reduce((s, it) => s + round2((Number(it.unit_price) || 0) * (Number(it.quantity) || 1)), 0));
+        patch.total = round2(sum - (Number(current.discount) || 0));
+        await replaceItems(req.profile.id, req.params.id, items);
+      }
+
       // Keep money fields consistent, the same way the chat edit flow does.
       const total = patch.total !== undefined ? round2(patch.total) : round2(current.total);
       if (patch.payment_status === 'paid') {
