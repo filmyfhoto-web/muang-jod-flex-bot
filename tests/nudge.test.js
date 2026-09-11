@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createMockSupabase } from './helpers/mockSupabase.js';
-import { nudgeText, callName, MAX_NUDGES } from '../src/utils/nudgeMessages.js';
+import { nudgeText, nudgePreview, callName, MAX_NUDGES } from '../src/utils/nudgeMessages.js';
 import { shouldNudge, withinNudgeHours, bangkokHour, findIdleShops, nudgeSettings } from '../src/services/nudgeService.js';
 import { dispatchNudges } from '../src/services/nudgeDispatcher.js';
 import { resolveMenuCommand } from '../src/utils/menuCommands.js';
@@ -150,4 +150,29 @@ test('ปิดทั้งระบบได้ และไม่ทักน�
 
   assert.equal(nudgeSettings({}).enabled, true, 'ค่าเริ่มต้นคือเปิด');
   assert.equal(nudgeSettings({ NUDGE_IDLE_DAYS: '7' }).idleDays, 7);
+});
+
+test('"ทดสอบทัก" โชว์ทุกประโยคทันที ไม่ต้องรอสามวัน', () => {
+  assert.equal(resolveMenuCommand('ทดสอบทัก'), 'nudge_test');
+  assert.equal(resolveMenuCommand('ลองทัก'), 'nudge_test');
+
+  const preview = nudgePreview('ฟิล์ม', () => 0);
+  assert.ok(preview.includes('ฟิล์ม'), 'ไม่ได้เรียกชื่อ');
+  assert.ok(!preview.includes('{name}'));
+
+  // ต้องมีครบทุกชั้น เรียงลำดับ — ดูน้ำเสียงจากประโยคเดียวไม่ออก
+  for (let tier = 1; tier <= MAX_NUDGES; tier += 1) {
+    assert.ok(preview.includes(`${tier}. `), `ขาดชั้นที่ ${tier}`);
+  }
+  for (let tier = 0; tier < MAX_NUDGES; tier += 1) {
+    assert.ok(preview.includes(nudgeText('ฟิล์ม', tier, () => 0)), `ประโยคชั้นที่ ${tier + 1} ไม่ตรงกับของจริง`);
+  }
+
+  // และต้องบอกว่านี่เป็นตัวอย่าง ไม่ใช่ม่วงกำลังทักจริงสามรอบรวด
+  assert.ok(/ทีละอัน|ตัวอย่าง|ห่างกัน/.test(preview), 'อ่านแล้วเหมือนโดนทักรัวสามที');
+
+  // ไม่รู้ชื่อก็ยังอ่านได้
+  const anon = nudgePreview(null, () => 0);
+  assert.ok(!anon.includes('{name}'));
+  assert.ok(anon.includes('คุณ'), 'ไม่มีชื่อแล้วประโยคเปิดขาดคำเรียก');
 });

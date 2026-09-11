@@ -50,6 +50,24 @@ export function nudgeText(displayName, streak = 0, pick = Math.random) {
     : line.replace(/\{name\}(?:ขา|~|ขา)?\s*/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ');
 }
 
+// ตัวอย่างทั้งชุดในข้อความเดียว ตอบคำสั่ง "ทดสอบทัก"
+//
+// ของแบบนี้ถ้าดูไม่ได้จนกว่าจะหายไปจริงสามวัน ก็แก้คำพูดไม่ได้จนกว่าจะถึงตอนนั้น
+// เหมือนกัน และสิ่งที่ร้านอยากรู้คือ "น้ำเสียงใช่มั้ย" ซึ่งดูจากประโยคเดียว
+// ไม่ออก
+export function nudgePreview(displayName, pick = Math.random) {
+  const lines = [];
+  for (let tier = 0; tier < MAX_NUDGES; tier += 1) {
+    lines.push(`${tier + 1}. ${nudgeText(displayName, tier, pick)}`);
+  }
+  return (
+    `นี่คือที่ม่วงจะทักค่ะ ถ้า${callName(displayName) || 'คุณ'}หายไปหลายวัน 💜\n\n` +
+    `${lines.join('\n\n')}\n\n` +
+    'ของจริงจะมาทีละอัน ห่างกันหลายวัน และสลับประโยคไปเรื่อย ๆ นะคะ\n' +
+    'ไม่ชอบแบบไหนบอกได้เลยค่ะ'
+  );
+}
+
 // ทักไปกี่ครั้งแล้วถึงพอ — เท่ากับจำนวนชั้นของประโยคข้างบน ชั้นสุดท้ายบอกเอง
 // ว่าเป็นครั้งสุดท้าย จึงต้องไม่มีครั้งที่ถัดจากนั้น
 export const MAX_NUDGES = LINES.length;
