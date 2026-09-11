@@ -230,6 +230,33 @@ function parseSingleLine(line) {
   };
 }
 
+// A line that is nothing but "รวม 4,900" — the shop's own price for the lot.
+//
+// The bot works out 4,887.97 and the shop charges 4,900, or 4,880, or whatever
+// they and the customer settled on. Every line still shows what it was worked
+// out from; this is the number at the bottom of the receipt.
+//
+// The whole line has to be the keyword and the number: an item line always has
+// more on it than that, so "ไวนิลรวมมิตร 100*200ซม ตรมละ 165" is never mistaken
+// for a total.
+const GRAND_TOTAL_RE =
+  /^(?:ยอด)?(?:รวม(?:ทั้งหมด|ทั้งสิ้น|เป็น)?|ราคารวม|เหมา(?:ทั้งหมด|หมด)?|คิด(?:รวม)?|สรุป|ทั้งหมด|ปัด(?:เศษ)?(?:เป็น)?)\s*(?:เป็น|ที่|[=:])?\s*฿?\s*(\d[\d,]*(?:\.\d+)?)\s*(?:บาท|฿)?$/;
+
+export function extractGrandTotal(text) {
+  let total = null;
+  const rest = [];
+  for (const line of String(text || '').split('\n')) {
+    const m = GRAND_TOTAL_RE.exec(line.trim());
+    const amount = m ? toNumber(m[1]) : 0;
+    // Every one of these comes out, not just the one that wins: a shop that
+    // changes its mind types the new figure below the old, and a leftover
+    // "รวม 3,200" parses as an item worth 3,200 that nobody made.
+    if (amount > 0) total = round2(amount);
+    else rest.push(line);
+  }
+  return { total, rest: rest.join('\n') };
+}
+
 // A line with no digit anywhere in it can be priced at nothing and measured as
 // nothing. On a note whose other lines do have numbers, it is the heading —
 // who the work is for, or what the batch is — never something that was made.
@@ -247,9 +274,10 @@ function splitHeading(lines) {
 export function parseNaturalJob(rawText) {
   const text = String(rawText || '');
   const paid = extractPaid(text);
+  const grand = extractGrandTotal(paid.rest);
 
   const { heading, body } = splitHeading(
-    paid.rest.split('\n').map((l) => l.trim()).filter(Boolean)
+    grand.rest.split('\n').map((l) => l.trim()).filter(Boolean)
   );
 
   // The heading names the customer when it reads like one — and then the whole
@@ -265,7 +293,7 @@ export function parseNaturalJob(rawText) {
   // which school it is for. Anything in front of the name is not part of it.
   const cust = found?.customerName
     ? { customerName: named.slice(found.index).trim(), rest: body.join('\n') }
-    : extractCustomer(heading ? body.join('\n') : paid.rest);
+    : extractCustomer(heading ? body.join('\n') : grand.rest);
   const headingIsCustomer = Boolean(found?.customerName);
 
   // Drop the label word "ลูกค้า" so it can't be parsed as an item.
@@ -282,13 +310,18 @@ export function parseNaturalJob(rawText) {
   items = items.filter(Boolean);
 
   const subtotal = round2(items.reduce((s, it) => s + (Number(it.total) || 0), 0));
+  // A price the shop stated beats the one worked out from the lines. The gap
+  // goes in `discount` so subtotal − discount = total still holds; rounding up
+  // makes it negative, which is the shop charging more than the lines add to.
+  const total = grand.total != null ? grand.total : subtotal;
   return {
     customerName: cust.customerName || null,
     jobName: headingIsCustomer ? null : heading,
     items,
     subtotal,
-    discount: 0,
-    total: subtotal,
+    discount: round2(subtotal - total),
+    total,
+    statedTotal: grand.total,
     paidAmount: round2(paid.paidAmount || 0),
   };
 }
