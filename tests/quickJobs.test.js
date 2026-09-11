@@ -22,10 +22,11 @@ function withLiff(fn) {
   }
 }
 
-test('the bar is the four jobs and nothing else', () => {
+test('the bar is the jobs this shop does and nothing else', () => {
   // "เอาตัวเลือกด้านหลังออกทั้งหมดให้มีแค่ กรอบรูป งานป้าย งานโฟมบอร์ด งานสติ๊กเกอร์"
   // — the rest have their own buttons on the rich menu, and a second copy here
   // made the bar long enough to need swiping, which pushed the jobs off it.
+  // Two more were added later ("อยู่ในคีลัดเลยค่ะ ข้างๆสติ๊กเกอร์").
   const items = withLiff(() => quickReplyBlock().items);
 
   assert.deepEqual(items.map((i) => i.action.label), [
@@ -33,13 +34,34 @@ test('the bar is the four jobs and nothing else', () => {
     '🪧 งานป้าย',
     '🧊 งานโฟมบอร์ด',
     '🏷 งานสติ๊กเกอร์',
+    '📋 สติ๊กเกอร์บอร์ด',
+    '🔖 ตรายาง',
   ]);
   assert.equal(items.length, QUICK_JOBS.length, 'something else crept back onto the bar');
   for (const i of items) {
     assert.equal(i.action.type, 'uri', `${i.action.label} still goes through the bot`);
     assert.match(i.action.uri, /\/jot\?quick=1&name=/);
-    assert.ok(i.action.label.length <= 20, `label too long: ${i.action.label}`);
+    // LINE counts UTF-16 units, so an emoji costs two of the twenty.
+    assert.ok(i.action.label.length <= 20, `label too long (${i.action.label.length}): ${i.action.label}`);
   }
+});
+
+test('every button on the bar opens a form that files the job in the right place', () => {
+  // ป้ายปุ่มสั้นกว่าชื่องานได้ แต่ชื่อที่ส่งเข้าฟอร์มต้องเป็นชื่อที่ระบบแยกหมวดออก
+  // ไม่งั้นกดปุ่มแล้วงานไปกองรวมที่ "งานทั่วไป"
+  const expected = {
+    กรอบรูป: 'frame',
+    ป้ายไวนิล: 'vinyl',
+    โฟมบอร์ด: 'foamboard',
+    'สติ๊กเกอร์': 'sticker',
+    'สติ๊กเกอร์ฟิวเจอร์บอร์ด': 'sticker_board',
+    ตรายาง: 'stamp',
+  };
+  for (const job of QUICK_JOBS) {
+    const hit = classifyJob([{ item_name: job.name }]);
+    assert.equal(hit?.type.id, expected[job.name], `"${job.name}" ไปลง ${hit?.type.label || 'งานทั่วไป'}`);
+  }
+  assert.deepEqual(QUICK_JOBS.map((j) => j.name).sort(), Object.keys(expected).sort(), 'a button has no expectation');
 });
 
 test('nothing on the bar goes through the bot any more', () => {
