@@ -140,7 +140,7 @@ app.get('/health/webhook', async (req, res) => {
 // Deep health: probes every table the bot writes to, so a half-applied
 // migration shows up as one failing table instead of a generic chat error.
 app.get('/health/db', async (req, res) => {
-  const TABLES = ['profiles', 'jobs', 'job_items', 'attachments', 'user_states', 'webhook_events'];
+  const TABLES = ['profiles', 'jobs', 'job_items', 'attachments', 'user_states', 'webhook_events', 'nudge_state'];
   const tables = {};
   for (const table of TABLES) {
     try {
@@ -206,6 +206,13 @@ app.listen(PORT, async () => {
   // unanswered and reminders unsent. KEEP_ALIVE=0 turns this off.
   const { startKeepAlive } = await import('./services/keepAlive.js');
   startKeepAlive();
+
+  // ม่วงทักก่อนเมื่อร้านหายไปหลายวัน — ชั่วโมงละครั้ง และไม่ทักนอกเวลาทำการ
+  // NUDGE_ENABLED=0 ปิดทั้งระบบ ส่วนร้านปิดของตัวเองได้จากในแชต
+  if (String(process.env.REMINDER_DISPATCH ?? '1') !== '0') {
+    const { startNudgeDispatcher } = await import('./services/nudgeDispatcher.js');
+    startNudgeDispatcher();
+  }
 
   // Put the current Rich Menu live if it is not already. Does nothing when it
   // matches, so this is not an upload on every restart. RICH_MENU_AUTO_INSTALL=0

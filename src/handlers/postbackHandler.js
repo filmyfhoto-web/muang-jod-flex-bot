@@ -16,6 +16,7 @@ import { recordPaymentPrompt } from '../actions/recordPayment.js';
 import { searchJobsPrompt } from '../actions/searchJobs.js';
 import { reportMenu, report, exportCsv } from '../actions/report.js';
 import { help } from '../actions/help.js';
+import { nudgeOff, nudgeOn } from '../actions/nudge.js';
 
 // Parse LINE postback data (querystring form) into { action, ...params }.
 function parsePostbackData(data) {
@@ -80,6 +81,10 @@ export async function handlePostback(event, profile) {
       return setReminder(ctx);
     case 'cancel_reminder':
       return cancelReminderAction(ctx);
+    case 'nudge_off':
+      return nudgeOff(ctx);
+    case 'nudge_on':
+      return nudgeOn(ctx);
     case 'my_reminders':
       return listReminders(ctx);
     case 'confirm_cancel':

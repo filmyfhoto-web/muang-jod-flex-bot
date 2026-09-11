@@ -222,6 +222,7 @@ export function createMockSupabase(seed = {}) {
       user_states: seed.user_states || [],
       webhook_events: seed.webhook_events || [],
       bills: seed.bills || [],
+      nudge_state: seed.nudge_state || [],
     },
     failUpsert: seed.failUpsert || false,
     uniques: {
@@ -230,6 +231,7 @@ export function createMockSupabase(seed = {}) {
       jobs: [['user_id', 'job_number']],
       user_states: [['user_id']],
       bills: [['user_id', 'bill_number']],
+      nudge_state: [['user_id']],
     },
   };
 
