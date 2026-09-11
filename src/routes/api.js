@@ -13,7 +13,7 @@ import {
   replaceJobItems,
   buildReport,
 } from '../services/jobService.js';
-import { createJob, getTodaySummary } from '../services/jobService.js';
+import { createJob } from '../services/jobService.js';
 import { saveAttachment } from '../services/attachmentService.js';
 import { push } from '../services/lineService.js';
 import { receiptFlex } from '../flex/receiptFlex.js';
@@ -94,7 +94,6 @@ export function createApiRouter(deps = {}) {
   const create = deps.createJob || createJob;
   const attach = deps.saveAttachment || saveAttachment;
   const send = deps.push || push;
-  const todaySoFar = deps.getTodaySummary || getTodaySummary;
   const replaceItems = deps.replaceJobItems || replaceJobItems;
   // Injectable like the others above, so the routes can be exercised without a
   // database standing behind them.
@@ -109,14 +108,8 @@ export function createApiRouter(deps = {}) {
     const to = profile?.line_user_id;
     if (!to) return;
     try {
-      let today = null;
-      try {
-        today = await todaySoFar(profile.id);
-      } catch (err) {
-        logger.warn('api.today_failed', { message: err?.message });
-      }
       await send(to, [
-        receiptFlex(job, { today }),
+        receiptFlex(job),
         ...(attachmentsFailed > 0
           ? [{ type: 'text', text: `บันทึกงานแล้วค่ะ แต่แนบรูปไม่สำเร็จ ${attachmentsFailed} รูป ลองส่งรูปเข้าแชตอีกครั้งได้นะคะ 💜` }]
           : []),

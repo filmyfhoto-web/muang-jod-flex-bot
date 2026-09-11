@@ -41,7 +41,8 @@ test('receipt card: structure, content and actions', () => {
   const msg = receiptFlex(job, { heroImageUrl: undefined });
   assert.equal(msg.type, 'flex');
   assert.equal(msg.contents.type, 'bubble');
-  assert.equal(msg.contents.size, 'mega');
+  // ร้านขอให้การ์ด "แคบลง เล็กลง" — kilo แคบกว่า mega ที่เคยใช้
+  assert.equal(msg.contents.size, 'kilo');
   assert.equal(msg.contents.hero, undefined); // nothing to point at, so no hero
 
   const json = JSON.stringify(msg);
@@ -107,25 +108,17 @@ test('receipt card: optional mascot / hero images and partial-payment rows', () 
 });
 
 
-test('the receipt carries the day\'s running total, and never invents one', () => {
+test('the card counts the one job it is about, and nothing else', () => {
+  // ร้านบอกว่า "จำนวนจดรวมไม่ต้องนับ" — แถบ "วันนี้จดไปแล้ว N งาน" ทำให้การ์ด
+  // ยาวขึ้นและพูดเรื่องอื่น ยอดของวันดูได้จากปุ่ม 📄 ดูรายงาน (วันนี้) ที่อยู่บน
+  // การ์ดอยู่แล้ว
   const json = (opts) => JSON.stringify(receiptFlex(job, opts));
-
-  // "Saved" alone does not say where you are. The tally is what does.
-  const tallied = json({ today: { date: '2026-09-09', jobCount: 3, total: 1250, paid: 850, pending: 400 } });
-  assert.ok(tallied.includes('วันนี้จดไปแล้ว 3 งาน'));
-  assert.ok(tallied.includes('฿1,250'));
-  assert.ok(tallied.includes('ยังค้างรับ ฿400'));
-
-  // Nothing outstanding: no line about it.
-  const clear = json({ today: { date: '2026-09-09', jobCount: 1, total: 150, paid: 150, pending: 0 } });
-  assert.ok(clear.includes('วันนี้จดไปแล้ว 1 งาน'));
-  assert.ok(!clear.includes('ยังค้างรับ'));
-
-  // A tally that could not be read is left off rather than shown as zero —
-  // "0 งาน" under a job you just saved is a card contradicting itself.
-  for (const opts of [{}, { today: null }, { today: { jobCount: 0, total: 0 } }]) {
+  for (const opts of [{}, { today: { date: '2026-09-09', jobCount: 3, total: 1250, paid: 850, pending: 400 } }]) {
     assert.ok(!json(opts).includes('วันนี้จดไปแล้ว'), JSON.stringify(opts));
+    assert.ok(!json(opts).includes('ยังค้างรับ'), JSON.stringify(opts));
   }
+  // ทางไปดูยอดรวมยังอยู่
+  assert.ok(json({}).includes('action=today_summary'));
 });
 
 test('the card that appears after saving can bill the job on the spot', () => {
@@ -135,10 +128,10 @@ test('the card that appears after saving can bill the job on the spot', () => {
   // screen. So the card that announces the save carries the button itself.
   const saved = JSON.stringify(receiptFlex({ ...job, id: 'job-1' }, { editUrl: null, mascotImageUrl: null }));
   assert.ok(saved.includes('action=bill_job&jobId=job-1'), 'no way to bill from the card');
-  assert.ok(saved.includes('➕ เพิ่มงานอีก'), 'adding the next job for this customer went missing');
+  assert.ok(saved.includes('➕ เพิ่มงาน'), 'adding the next job for this customer went missing');
 
   // A bill points at a saved job, so a preview has nothing to bill.
   const draft = JSON.stringify(receiptFlex(job, { editUrl: null, mascotImageUrl: null }));
   assert.ok(!draft.includes('bill_job'), 'an unsaved job must not offer a receipt');
-  assert.ok(draft.includes('➕ เพิ่มงานอีก'), 'the draft lost its only button');
+  assert.ok(draft.includes('➕ เพิ่มงาน'), 'the draft lost its only button');
 });

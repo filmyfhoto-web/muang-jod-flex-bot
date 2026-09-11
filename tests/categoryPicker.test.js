@@ -26,8 +26,14 @@ test('picker step 2: the chosen group\'s types, plus a way back', () => {
 
   // Human descriptions, as in the mockup — not the matching keywords.
   assert.ok(json.includes('ขนาดตามต้องการ / งานด่วน'));
-  assert.ok(json.includes('สติ๊กเกอร์ไดคัท / ฉลากสินค้า'));
   assert.ok(!json.includes('อิงค์เจ็ท'), 'keywords must not leak into the picker');
+
+  // สติ๊กเกอร์กับตรายางเป็นหมวดของตัวเองแล้ว ไม่ได้อยู่ใต้งานป้าย/งานพิมพ์
+  const sticker = JSON.stringify(categoryTypesFlex('sticker'));
+  assert.ok(sticker.includes('สติ๊กเกอร์ไดคัท / ฉลากสินค้า'));
+  assert.ok(sticker.includes('สติ๊กเกอร์ฟิวเจอร์บอร์ด'));
+  const stamp = JSON.stringify(categoryTypesFlex('stamp'));
+  assert.ok(stamp.includes('หมึกในตัว / ด้ามไม้ / สั่งทำตามแบบ'));
 
   const print = JSON.stringify(categoryTypesFlex('print'));
   assert.ok(print.includes('เลือกประเภทงานพิมพ์ที่ต้องการ'));

@@ -22,14 +22,14 @@ function thumb(emoji) {
   return {
     type: 'box',
     layout: 'vertical',
-    width: '44px',
-    height: '44px',
+    width: '34px',
+    height: '34px',
     cornerRadius: 'md',
     backgroundColor: COLORS.tint,
     justifyContent: 'center',
     alignItems: 'center',
     flex: 0,
-    contents: [{ type: 'text', text: emoji, size: 'md', align: 'center' }],
+    contents: [{ type: 'text', text: emoji, size: 'sm', align: 'center' }],
   };
 }
 
@@ -47,14 +47,14 @@ function itemRow(it) {
         layout: 'vertical',
         flex: 5,
         contents: [
-          { type: 'text', text: name || 'รายการ', size: 'sm', weight: 'bold', color: COLORS.ink, wrap: true },
-          { type: 'text', text: qtyText(it), size: 'xs', color: COLORS.grey },
+          { type: 'text', text: name || 'รายการ', size: 'xs', weight: 'bold', color: COLORS.ink, wrap: true },
+          { type: 'text', text: qtyText(it), size: 'xxs', color: COLORS.grey },
         ],
       },
       {
         type: 'text',
         text: formatBaht(Number(it.total) || 0),
-        size: 'md',
+        size: 'sm',
         weight: 'bold',
         color: COLORS.ink,
         align: 'end',
@@ -69,59 +69,10 @@ function link(label, action, displayText) {
   return {
     type: 'text',
     text: label,
-    size: 'sm',
+    size: 'xs',
     color: COLORS.accentText,
     weight: 'bold',
     action: { type: 'postback', label: displayText, data: `action=${action}`, displayText },
-  };
-}
-
-// "วันนี้จดไปแล้ว 3 งาน — ฿1,250", with the accent rule under it that makes it
-// read as a tally rather than another line of the bill above.
-function runningTotal(today) {
-  const pending = Number(today.pending) || 0;
-  return {
-    type: 'box',
-    layout: 'vertical',
-    spacing: 'xs',
-    contents: [
-      {
-        type: 'box',
-        layout: 'horizontal',
-        alignItems: 'center',
-        contents: [
-          {
-            type: 'text',
-            text: `วันนี้จดไปแล้ว ${numText(today.jobCount)} งาน`,
-            size: 'sm',
-            color: COLORS.sub,
-            flex: 5,
-          },
-          {
-            type: 'text',
-            text: formatBaht(Number(today.total) || 0),
-            size: 'lg',
-            weight: 'bold',
-            color: COLORS.accentText,
-            align: 'end',
-            flex: 4,
-          },
-        ],
-      },
-      {
-        type: 'box',
-        layout: 'vertical',
-        height: '3px',
-        backgroundColor: COLORS.accent,
-        cornerRadius: 'md',
-        // Empty contents is how the dashboard draws its bars too — a coloured
-        // box with nothing in it, rather than the deprecated filler component.
-        contents: [],
-      },
-      ...(pending > 0
-        ? [{ type: 'text', text: `ยังค้างรับ ${formatBaht(pending)}`, size: 'xxs', color: COLORS.orange }]
-        : []),
-    ],
   };
 }
 
@@ -165,11 +116,11 @@ export function receiptFlex(job, opts = {}) {
         type: 'box',
         layout: 'vertical',
         contents: [
-          { type: 'text', text: 'บันทึกสำเร็จ', weight: 'bold', size: 'lg', color: COLORS.title },
+          { type: 'text', text: 'บันทึกสำเร็จ', weight: 'bold', size: 'md', color: COLORS.title },
           {
             type: 'text',
             text: 'เพิ่มรายการงานเข้าในระบบเรียบร้อยแล้วค่ะ',
-            size: 'xs',
+            size: 'xxs',
             color: COLORS.grey,
             wrap: true,
           },
@@ -184,19 +135,19 @@ export function receiptFlex(job, opts = {}) {
       type: 'text',
       text: `${type?.icon || group.icon} ${job.job_name || categoryLabel(job)}`,
       weight: 'bold',
-      size: 'md',
+      size: 'sm',
       color: COLORS.title,
       wrap: true,
     },
     {
       type: 'text',
       text: joinMeta(formatThaiDateTime(job.created_at), job.job_number),
-      size: 'xs',
+      size: 'xxs',
       color: COLORS.grey,
     },
   ];
   if (job.customer_name) {
-    metaText.push({ type: 'text', text: `ลูกค้า: ${job.customer_name}`, size: 'xs', color: COLORS.sub });
+    metaText.push({ type: 'text', text: `ลูกค้า: ${job.customer_name}`, size: 'xxs', color: COLORS.sub });
   }
   const due = dueLine(job.due_date);
   if (due) metaText.push(due);
@@ -206,7 +157,7 @@ export function receiptFlex(job, opts = {}) {
     metaContents.push({
       type: 'image',
       url: mascotUrl,
-      size: '72px',
+      size: '52px',
       aspectRatio: '1:1',
       aspectMode: 'cover',
       align: 'end',
@@ -241,11 +192,11 @@ export function receiptFlex(job, opts = {}) {
       paddingAll: 'md',
       alignItems: 'center',
       contents: [
-        { type: 'text', text: 'รวมทั้งหมด', size: 'md', weight: 'bold', color: COLORS.title, flex: 3 },
+        { type: 'text', text: 'รวมทั้งหมด', size: 'sm', weight: 'bold', color: COLORS.title, flex: 3 },
         {
           type: 'text',
           text: formatBaht(Number(job.total) || 0),
-          size: 'lg',
+          size: 'md',
           weight: 'bold',
           color: COLORS.accentText,
           align: 'end',
@@ -260,18 +211,10 @@ export function receiptFlex(job, opts = {}) {
       type: 'box',
       layout: 'horizontal',
       contents: [
-        { type: 'text', text: `รับแล้ว ${formatBaht(Number(job.paid_amount) || 0)}`, size: 'xs', color: COLORS.green, flex: 1 },
-        { type: 'text', text: `คงเหลือ ${formatBaht(Number(job.balance_due) || 0)}`, size: 'xs', color: COLORS.red, align: 'end', flex: 1 },
+        { type: 'text', text: `รับแล้ว ${formatBaht(Number(job.paid_amount) || 0)}`, size: 'xxs', color: COLORS.green, flex: 1 },
+        { type: 'text', text: `คงเหลือ ${formatBaht(Number(job.balance_due) || 0)}`, size: 'xxs', color: COLORS.red, align: 'end', flex: 1 },
       ],
     });
-  }
-
-  // The running total for the day, under the one job just saved. "Saved" on
-  // its own tells you nothing about where you are — this is the line that
-  // answers "so what have I got down so far today?" without another tap.
-  const today = opts.today;
-  if (today && Number(today.jobCount) > 0) {
-    bodyContents.push(divider(), runningTotal(today));
   }
 
   // ✏️ opens the LIFF edit form for this record when LIFF is configured, and
@@ -289,10 +232,10 @@ export function receiptFlex(job, opts = {}) {
   const addMoreUrl =
     opts.addMoreUrl !== undefined ? opts.addMoreUrl : quickFormUrl({ customer: job.customer_name });
   const addMoreAction = addMoreUrl
-    ? { type: 'uri', label: '➕ เพิ่มงานอีก', uri: addMoreUrl }
+    ? { type: 'uri', label: '➕ เพิ่มงาน', uri: addMoreUrl }
     : {
         type: 'postback',
-        label: '➕ เพิ่มงานอีก',
+        label: '➕ เพิ่มงาน',
         data: `action=add_more&customer=${encodeURIComponent(job.customer_name || '')}`,
         displayText: job.customer_name ? `เพิ่มงานอีกของ ${job.customer_name}` : 'เพิ่มงานอีก',
       };
@@ -333,7 +276,7 @@ export function receiptFlex(job, opts = {}) {
                   height: 'sm',
                   action: {
                     type: 'postback',
-                    label: '🧾 ออกใบเสร็จ',
+                    label: '🧾 ใบเสร็จ',
                     data: `action=bill_job&jobId=${encodeURIComponent(job.id)}`,
                     displayText: 'ออกใบเสร็จงานนี้',
                   },
@@ -346,8 +289,8 @@ export function receiptFlex(job, opts = {}) {
         type: 'box',
         layout: 'horizontal',
         contents: [
-          link('📄 ดูรายงาน (วันนี้) ›', 'today_summary', 'สรุปวันนี้'),
-          { ...link('💰 บันทึกรับเงิน ›', 'record_payment', 'บันทึกรับเงิน'), align: 'end' },
+          link('📄 สรุปวันนี้ ›', 'today_summary', 'สรุปวันนี้'),
+          { ...link('💰 รับเงิน ›', 'record_payment', 'บันทึกรับเงิน'), align: 'end' },
         ],
       },
       // Words, not slabs. Two grey blocks here sat directly under two rows of
@@ -388,13 +331,13 @@ export function receiptFlex(job, opts = {}) {
             },
           ]
         : []),
-      { type: 'text', text: 'ขอบคุณที่ให้ม่วงจดดูแลงานนะคะ 💜', size: 'xs', color: COLORS.grey, align: 'center' },
+      { type: 'text', text: 'ขอบคุณที่ให้ม่วงจดดูแลงานนะคะ 💜', size: 'xxs', color: COLORS.grey, align: 'center' },
     ],
   };
 
   const bubble = {
     type: 'bubble',
-    size: 'mega',
+    size: 'kilo',
     ...(heroUrl
       ? { hero: { type: 'image', url: heroUrl, size: 'full', aspectRatio: '20:5', aspectMode: 'cover' } }
       : {}),
