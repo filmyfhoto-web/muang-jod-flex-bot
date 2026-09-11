@@ -76,6 +76,9 @@ test('the real price is absent from the customer page, not merely hidden on it',
 
   const mine = renderReceiptHtml(BILL, {}, { shopView: true });
   assert.ok(mine.includes('4,887.97'), 'the shop cannot see what the job actually came to');
+  // ร้านเรียกมันว่า "ราคายังไม่ปัด" — "ราคาจริง" อ่านแล้วเหมือนบอกว่ายอดที่
+  // ลูกค้าจ่ายเป็นของปลอม ทั้งที่นั่นคือเงินที่เก็บจริง
+  assert.ok(mine.includes('ราคายังไม่ปัด'), 'the shop-only figure is labelled something else');
   assert.ok(mine.includes('ปัดขึ้น +฿112.03'), 'the rounding is not spelled out');
   assert.ok(mine.includes('id="make-shop"'), 'no way to make the shop copy of the picture');
 });
