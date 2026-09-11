@@ -1,4 +1,4 @@
-import { round2 } from './currency.js';
+import { round2, numText } from './currency.js';
 import { derivePaymentFields } from './payment.js';
 import { todayISO } from './dates.js';
 
@@ -35,10 +35,21 @@ export function makeDraft({
   note = null,
 }) {
   const { items, workings } = liftWorkings(rawItems);
-  const fullNote =
-    [note, workings.length ? `คิดตาม ตร.ม. — ${workings.join(' | ')}` : ''].filter(Boolean).join('\n') || null;
   const sum = round2(items.reduce((s, it) => s + (Number(it.total) || 0), 0));
   const net = round2(total ?? sum - discount);
+
+  // When the shop set the price themselves, the lines no longer add up to the
+  // total — on purpose. Nothing renders `discount`, so say it here, where the
+  // shop's own card shows it: otherwise the card looks like it cannot add up.
+  const gap = round2(sum - net);
+  const rounded =
+    gap !== 0 && Math.abs(gap) < sum
+      ? `${gap > 0 ? 'ลด' : 'เพิ่ม'}จาก ${numText(sum)} เป็น ${numText(net)} (${gap > 0 ? '-' : '+'}${numText(Math.abs(gap))})`
+      : '';
+  const fullNote =
+    [note, workings.length ? `คิดตาม ตร.ม. — ${workings.join(' | ')}` : '', rounded]
+      .filter(Boolean)
+      .join('\n') || null;
   const pay = derivePaymentFields(net, paidAmount);
   return {
     jobName,

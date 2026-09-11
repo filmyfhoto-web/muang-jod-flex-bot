@@ -2,7 +2,7 @@ import { reply } from '../services/lineService.js';
 import { getState, setState, clearState, STATES } from '../services/stateService.js';
 import { getJobById, updateJob, recordPayment, searchJobs } from '../services/jobService.js';
 import { extractJobDraft } from '../services/nlpService.js';
-import { round2, parsePrice } from '../utils/currency.js';
+import { round2, numText, parsePrice } from '../utils/currency.js';
 import { derivePaymentFields } from '../utils/payment.js';
 import { todayISO } from '../utils/dates.js';
 import { safe, paymentAmountSchema, searchQuerySchema } from '../utils/validation.js';
@@ -237,10 +237,20 @@ async function handleNewJob(replyToken, profile, text, knownCustomer = null) {
 
   await setState(profile.id, STATES.CONFIRMING_JOB, { draft });
 
+  // Pricing by the square metre lands on satang — 4,887.97 — and no shop hands
+  // a customer a bill like that. Say how to round it, but only on the jobs that
+  // came out with a fraction and where the shop has not already said a price:
+  // on a job ending in a round number this is a line about nothing.
+  const hasSatang = parsed.statedTotal == null && Math.round(draft.total) !== draft.total;
+  const roundTo = Math.round(draft.total / 10) * 10;
+
   return reply(replyToken, [
     {
       type: 'text',
-      text: 'ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลยค่ะ 💜',
+      text: hasSatang
+        ? `ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลยค่ะ 💜\n` +
+          `อยากปัดเศษเอง พิมพ์ "รวม ${numText(roundTo)}" มาได้เลยค่ะ`
+        : 'ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลยค่ะ 💜',
     },
     jobPreviewMessage(draftToBubble(draft)),
   ]);
