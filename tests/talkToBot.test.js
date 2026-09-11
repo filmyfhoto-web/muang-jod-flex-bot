@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { isJobEntry, QUIT_WORDS } from '../src/handlers/messageHandler.js';
+import { isJobEntry, QUIT_WORDS, looksLikePricelessJob } from '../src/handlers/messageHandler.js';
 
 const handler = readFileSync(new URL('../src/handlers/messageHandler.js', import.meta.url), 'utf8');
 
@@ -54,4 +54,37 @@ test('a message that is not a job leaves the draft alone and says so', () => {
     block.indexOf('handleNewJob') < block.indexOf('DRAFT_WAITING_REPLY'),
     'a job entry must still reach the draft first'
   );
+});
+
+// ร้านพิมพ์ออเดอร์จริงเข้ามาสองใบ — "ตรายาง วงกลมหมึกในตัวตราโรงเรียนเจดีย์
+// 1 อัน" — แล้วม่วงตอบ "พิมพ์รายการงานมาได้เลย" กลับไปทั้งสองครั้ง ไม่จดให้เลย
+// ต้นเหตุ: ตอนอยู่เฉย ๆ ม่วงนับว่าเป็นงานเฉพาะที่มีราคามาแล้ว แต่ร้านรับออเดอร์
+// เข้ามาก่อน ราคาค่อยคิดทีหลัง
+
+test('an order with no price yet is still an order', () => {
+  for (const text of [
+    'ตรายาง วงกลมหมึกในตัวตราโรงเรียนเจดีย์ 1 อัน',
+    'ตรายาง ของโรงเรียนเปียงซ้อ 1 อัน ธรรมดา',
+    'สติ๊กเกอร์ฟิวเจอร์บอร์ด 60x90',
+    'กรอบรูป 8x10 2 อัน',
+  ]) {
+    assert.ok(looksLikePricelessJob(text), `"${text}" ไม่ได้ถูกจดเป็นงาน`);
+  }
+});
+
+test('a question about a job is still a question', () => {
+  // มีชื่อประเภทงาน แต่ไม่มีตัวเลข — ยังไม่ใช่ออเดอร์
+  assert.equal(looksLikePricelessJob('ตรายางอันละเท่าไหร่'), false);
+  assert.equal(looksLikePricelessJob('รับทำสติ๊กเกอร์ไหม'), false);
+  // ไม่มีทั้งสองอย่าง
+  assert.equal(looksLikePricelessJob('เรื่องชือบอทำไง ม่วง'), false);
+  assert.equal(looksLikePricelessJob('สวัสดีค่ะ 2 คน'), false, 'ตัวเลขอย่างเดียวไม่พอ');
+});
+
+test('a draft with no price says how to give it one', () => {
+  const block = handler.slice(handler.indexOf('const noPrice ='), handler.indexOf('jobPreviewMessage(draftToBubble(draft))'));
+  assert.match(block, /noPrice/, 'a ฿0 card just appears with nothing to do about it');
+  assert.match(block, /พิมพ์ราคามาได้เลย/, 'the shop is not told they can type the price next');
+  // และเส้นทางรับราคาเปล่า ๆ นั้นมีอยู่จริง
+  assert.match(handler, /handleDraftPrice\(replyToken, profile, state, text\)/);
 });
