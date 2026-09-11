@@ -320,7 +320,10 @@ export function createApiRouter(deps = {}) {
       // subtotal คือราคาที่คิดได้จากรายการ — เซิร์ฟเวอร์บวกเอง ไม่เชื่อเบราว์เซอร์
       // total คือราคาที่ร้านเก็บลูกค้า ซึ่งเป็นสิทธิ์ของร้านที่จะตั้ง (ปัดขึ้นเป็น
       // เลขกลม ๆ หรือลดให้) ส่วนต่างไปอยู่ที่ discount ติดลบได้ = ปัดขึ้น
-      const subtotal = round2(items.reduce((sum, it) => sum + (Number(it.total) || 0), 0));
+      const rowsSum = round2(items.reduce((sum, it) => sum + (Number(it.total) || 0), 0));
+      // ปกติราคาที่คิดได้คือผลบวกของรายการ แต่ร้านพิมพ์ทับได้ — เป็นตัวเลขของ
+      // ร้านล้วน ๆ ไม่เคยขึ้นใบที่ลูกค้าถือ จึงไม่มีอะไรให้ขัดกันบนใบเสร็จ
+      const subtotal = draft.listedTotal === null || draft.listedTotal === undefined ? rowsSum : round2(draft.listedTotal);
       const asked = draft.customerTotal;
       const total =
         asked === null || asked === undefined
@@ -393,12 +396,15 @@ export function createApiRouter(deps = {}) {
       //
       // `total` is a different thing: what the shop decided to charge. Rounding
       // 4,931.43 up to 5,000 is the shop's call, so that one IS taken as sent.
+      // ราคายังไม่ปัดที่ร้านพิมพ์ทับมาเอง (ถ้ามี) ชนะผลบวกของรายการ มันเป็น
+      // ตัวเลขของร้าน ไม่ได้อยู่บนใบที่ลูกค้าถือ จึงไม่ทำให้อะไรบนใบเสร็จขัดกัน
+      const statedListed = patch.subtotal;
       if (items) {
         const sum = round2(items.reduce((s, it) => s + round2((Number(it.unit_price) || 0) * (Number(it.quantity) || 1)), 0));
-        patch.subtotal = sum;
+        patch.subtotal = statedListed === undefined ? sum : round2(statedListed);
         // ไม่ได้บอกราคาลูกค้ามาด้วย = ให้เท่ากับที่คิดได้ใหม่ การแก้รายการแล้ว
         // ปล่อยให้ยอดปัดของเดิมค้างอยู่ทำให้เงินกับบรรทัดไม่ตรงกัน
-        if (patch.total === undefined) patch.total = sum;
+        if (patch.total === undefined) patch.total = patch.subtotal;
         await replaceItems(req.profile.id, req.params.id, items);
       }
 

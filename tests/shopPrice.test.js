@@ -97,10 +97,14 @@ test('a rounded-up job does not print per-item prices that add up to something e
   const forShop = receiptItemLines(job, { shopView: true });
   assert.deepEqual(forShop.map((l) => l.amount), ['฿742.50', '฿2,400', '฿1,745.47']);
 
-  // งานที่ไม่ได้ปัด ใบของลูกค้ายังโชว์ยอดต่อบรรทัดเหมือนเดิม
-  const plain = { ...job, subtotal: 5000 };
+  // งานที่ไม่ได้ปัด — ยอดที่เก็บเท่ากับผลบวกของบรรทัด — ยังโชว์ยอดต่อบรรทัด
+  const plain = { ...job, subtotal: 4887.97, total: 4887.97 };
   assert.equal(jobWasAdjusted(plain), false);
   assert.deepEqual(receiptItemLines(plain).map((l) => l.amount), ['฿742.50', '฿2,400', '฿1,745.47']);
+
+  // ราคายังไม่ปัดที่ร้านพิมพ์ทับไว้ ไม่ใช่ตัวตัดสิน — สิ่งที่ลูกค้าบวกเองได้คือ
+  // บรรทัดที่พิมพ์อยู่บนใบ ไม่ใช่ตัวเลขที่ร้านจดไว้ดูเอง
+  assert.equal(jobWasAdjusted({ ...plain, subtotal: 3000 }), false, 'a shop-only figure decided what the customer sees');
 });
 
 test('the shop chooses whether the customer sees per-item prices; the customer has no such switch', () => {
@@ -116,7 +120,7 @@ test('the shop chooses whether the customer sees per-item prices; the customer h
   assert.ok(rounded.includes('ยอดย่อยรวมได้ ฿4,887.97'), 'nothing warns what turning it on prints');
 
   // งานที่ไม่ได้ปัด ตั้งต้นคือเปิด — ไม่มีอะไรต้องปิด
-  const plain = { ...BILL, subtotal: 5000, jobs: [{ ...BILL.jobs[0], subtotal: 5000 }] };
+  const plain = { ...BILL, subtotal: 4887.97, total: 4887.97, jobs: [{ ...BILL.jobs[0], total: 4887.97 }] };
   const plainSwitch = /<input type="checkbox" id="show-items"([^>]*)\/>/.exec(
     renderReceiptHtml(plain, {}, { shopView: true })
   );
@@ -216,6 +220,52 @@ test('editing the rows without saying a price lets the price follow the rows', a
     assert.equal(s.saved.patch.subtotal, 900);
     assert.equal(s.saved.patch.total, 900);
     assert.equal(s.saved.patch.discount, 0);
+  } finally {
+    await s.close();
+  }
+});
+
+test('both prices are the shop\'s to type — the rows do not overrule the one they typed', async () => {
+  // ร้านบอกว่า "มีช่องราคาลูกค้า กับช่อง ราคาจริง และฉันกดแก้ไขทั้ง 2 ช่องนั้นได้"
+  // ราคายังไม่ปัดไม่เคยขึ้นใบที่ลูกค้าถือ จึงไม่มีอะไรบนใบเสร็จให้ขัดกัน
+  const s = await serve();
+  try {
+    await s.call('/jobs/job-1', 'PATCH', {
+      items: [{ item_name: 'ไวนิล', quantity: 1, unit_price: 3000 }],
+      subtotal: 4800,
+      total: 5000,
+    });
+    assert.equal(s.saved.patch.subtotal, 4800, 'the rows overwrote the price the shop typed');
+    assert.equal(s.saved.patch.total, 5000);
+    assert.equal(s.saved.patch.discount, -200);
+  } finally {
+    await s.close();
+  }
+
+  // พิมพ์เฉพาะราคายังไม่ปัด ยอดที่เก็บลูกค้าต้องอยู่ที่เดิม
+  const t = await serve();
+  try {
+    await t.call('/jobs/job-1', 'PATCH', { subtotal: 4800 });
+    assert.equal(t.saved.patch.subtotal, 4800);
+    assert.equal(t.saved.patch.total, undefined, 'typing the shop price moved what the customer owes');
+    assert.equal(t.saved.patch.discount, -200, 'against the price already on the job');
+  } finally {
+    await t.close();
+  }
+});
+
+test('a new job can be saved with a typed shop price', async () => {
+  const s = await serve();
+  try {
+    const { status } = await s.call('/jobs', 'POST', {
+      items: [{ item_name: 'ไวนิล', quantity: 1, unit_price: 3000, total: 3000 }],
+      listedTotal: 4800,
+      customerTotal: 5000,
+    });
+    assert.equal(status, 201);
+    assert.equal(s.saved.created.subtotal, 4800);
+    assert.equal(s.saved.created.total, 5000);
+    assert.equal(s.saved.created.discount, -200);
   } finally {
     await s.close();
   }
