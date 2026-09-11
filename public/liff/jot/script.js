@@ -120,7 +120,7 @@ const grandTotal = () => round2(state.items.reduce((s, it) => s + computeItem(it
 // ราคาที่จะเก็บลูกค้า — เท่ากับที่คิดได้ จนกว่าร้านจะปัดเอง
 const chargeAmount = () => (state.charge === null || state.charge === undefined ? grandTotal() : round2(state.charge));
 
-// บล็อก "เฉพาะร้าน": ราคาจริงกับส่วนต่างที่ปัด ซ่อนไว้จนกว่าจะมีราคาให้พูดถึง
+// บล็อก "เฉพาะร้าน": ราคาที่ยังไม่ปัดกับส่วนต่าง ซ่อนไว้จนกว่าจะมีราคาให้พูดถึง
 function paintMine(listed, charged) {
   const box = $('#s-mine');
   if (!box) return;
@@ -133,8 +133,8 @@ function paintMine(listed, charged) {
   const gapEl = $('#s-gap');
   gapEl.textContent =
     Math.abs(gap) < 0.01
-      ? `ราคาจริง ${baht(listed)} · ตรงกับที่เก็บ`
-      : `ราคาจริง ${baht(listed)} · ${gap > 0 ? 'ปัดขึ้น +' : 'ลดให้ −'}${baht(Math.abs(gap))}`;
+      ? `ราคายังไม่ปัด ${baht(listed)}`
+      : `ราคายังไม่ปัด ${baht(listed)} · ${gap > 0 ? 'ปัดขึ้น +' : 'ลดให้ −'}${baht(Math.abs(gap))}`;
   gapEl.className = 'mine-gap' + (Math.abs(gap) < 0.01 ? '' : gap > 0 ? ' up' : ' down');
 }
 

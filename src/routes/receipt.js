@@ -252,7 +252,7 @@ const RECEIPT_IMAGE_JS = String.raw`
       ctx.fillText(data.shopOnly.tag, INNER + 16, y + 24);
       font(ctx, '600', 20);
       ctx.fillStyle = C.ink;
-      ctx.fillText('ราคาจริง ' + data.shopOnly.listed, INNER + 16, y + 51);
+      ctx.fillText('ราคายังไม่ปัด ' + data.shopOnly.listed, INNER + 16, y + 51);
       font(ctx, '700', 20);
       ctx.fillStyle = data.shopOnly.up ? C.green : C.red;
       ctx.textAlign = 'right';
@@ -617,7 +617,7 @@ export function renderReceiptHtml(bill, shop = {}, opts = {}) {
       shopOnly
         ? `<div class="mine">
       <span class="tag">🔒 เฉพาะร้าน · ลูกค้าไม่เห็นส่วนนี้</span>
-      <div class="num"><span>ราคาจริง ${escapeHtml(shopOnly.listed)}</span><span class="${
+      <div class="num"><span>ราคายังไม่ปัด ${escapeHtml(shopOnly.listed)}</span><span class="${
         shopOnly.up ? 'up' : 'down'
       }">${escapeHtml(shopOnly.gapText)}</span></div>
     </div>`
@@ -625,14 +625,14 @@ export function renderReceiptHtml(bill, shop = {}, opts = {}) {
     }
 
     <button class="print" id="make">📸 ใบของลูกค้า · บันทึกเป็นรูป</button>
-    ${shopOnly ? '<button class="print ghost" id="make-shop">🔒 ใบของร้าน · มีราคาจริง</button>' : ''}
+    ${shopOnly ? '<button class="print ghost" id="make-shop">🔒 ใบของร้าน · มีราคายังไม่ปัด</button>' : ''}
     <footer>ขอบคุณที่ใช้บริการค่ะ 💜${
       shop.footer_note ? `<div class="shopfoot">${escapeHtml(shop.footer_note)}</div>` : ''
     }</footer>
   </div>
 
   <div class="shot" id="shot" hidden>
-    ${shopOnly ? '<p class="badge" id="shot-badge" hidden>🔒 ใบนี้มีราคาจริง — เก็บไว้ดูเอง อย่าส่งให้ลูกค้านะคะ</p>' : ''}
+    ${shopOnly ? '<p class="badge" id="shot-badge" hidden>🔒 ใบนี้มีราคายังไม่ปัด — เก็บไว้ดูเอง อย่าส่งให้ลูกค้านะคะ</p>' : ''}
     <div class="frame" id="shot-frame">
       <img id="shot-img" alt="ใบเสร็จ ${escapeHtml(bill.bill_number || '')}" />
     </div>
@@ -667,7 +667,7 @@ router.get('/:token', async (req, res) => {
     // bill's own owner, never from a session.
     const shop = await getShopProfile(bill.user_id);
     // ?k=... คือกุญแจของร้าน ซึ่งมีอยู่ในลิงก์ที่ร้านได้จากในแอปตัวเองเท่านั้น
-    // ลิงก์ที่ยื่นให้ลูกค้าไม่มีติดไปด้วย ใบที่ลูกค้าเปิดจึงไม่มีราคาจริงอยู่ใน
+    // ลิงก์ที่ยื่นให้ลูกค้าไม่มีติดไปด้วย ใบที่ลูกค้าเปิดจึงไม่มีราคายังไม่ปัดอยู่ใน
     // หน้าเลย — ไม่ใช่มีแล้วซ่อน
     const shopView = isShopKey(req.params.token, String(req.query.k || ''));
     res.type('html').send(renderReceiptHtml(bill, shop, { shopView }));

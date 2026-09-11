@@ -112,7 +112,7 @@
   }
   select { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8'><path d='M1 1l5 5 5-5' stroke='%231c4fd8' stroke-width='2' fill='none' stroke-linecap='round'/></svg>"); background-repeat: no-repeat; background-position: right 14px center; }
   input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent-text); }
-  /* ราคาจริงก่อนปัด — สีส้ม ไม่ใช่สีของหน้า เพื่อให้เห็นแต่ไกลว่าส่วนนี้ไม่ได้
+  /* ราคาที่ยังไม่ปัด — สีส้ม ไม่ใช่สีของหน้า เพื่อให้เห็นแต่ไกลว่าส่วนนี้ไม่ได้
      ออกไปถึงลูกค้า */
   .mine { margin-top: 9px; background: #fff7ed; border-radius: 12px; padding: 10px 12px; }
   .mine .mine-tag { display: block; font-size: 11.5px; font-weight: 700; color: #b45309; }
@@ -291,11 +291,11 @@
            เป็นเลขกลม ๆ ได้ ลูกค้าเห็นแค่ตัวที่เก็บ ส่วนตัวที่คิดได้ยังอยู่ครบ -->
       <div class="mine" id="e-mine" hidden>
         <span class="mine-tag">🔒 เฉพาะร้าน · ลูกค้าไม่เห็นบรรทัดนี้</span>
-        <div class="mine-row"><span id="e-listed">ราคาจริง —</span><b id="e-gap"></b></div>
+        <div class="mine-row"><span id="e-listed">ราคายังไม่ปัด —</span><b id="e-gap"></b></div>
         <div class="mine-round">
           <button type="button" data-round="10">ปัดขึ้นสิบ</button>
           <button type="button" data-round="100">ปัดขึ้นร้อย</button>
-          <button type="button" data-round="0">ใช้ราคาจริง</button>
+          <button type="button" data-round="0">ไม่ปัด</button>
         </div>
       </div>
       <label for="e-paid">รับมาแล้ว</label>
@@ -636,7 +636,7 @@ $('e-status').onclick = (e) => {
 };
 
 // ราคาที่คิดได้จากรายการ (subtotal) เทียบกับราคาที่กำลังจะเก็บ (ช่องยอด)
-// งานเก่าที่ยังไม่มี subtotal ให้ถือว่าราคาจริงคือยอดที่บันทึกไว้
+// งานเก่าที่ยังไม่มี subtotal ให้ถือว่าราคาที่ยังไม่ปัดคือยอดที่บันทึกไว้
 const listedPrice = (job) => {
   const s = Number(job?.subtotal);
   return Number.isFinite(s) && s > 0 ? s : Number(job?.total) || 0;
@@ -649,9 +649,9 @@ function paintMine() {
   const charged = Number($('e-total').value) || 0;
   const gap = Math.round((charged - listed) * 100) / 100;
   box.hidden = false;
-  $('e-listed').textContent = 'ราคาจริง ' + baht(listed);
+  $('e-listed').textContent = 'ราคายังไม่ปัด ' + baht(listed);
   const tag = $('e-gap');
-  tag.textContent = Math.abs(gap) < 0.01 ? 'ตรงกับราคาจริง' : (gap > 0 ? 'ปัดขึ้น +' : 'ลดให้ −') + baht(Math.abs(gap));
+  tag.textContent = Math.abs(gap) < 0.01 ? 'ยังไม่ได้ปัด' : (gap > 0 ? 'ปัดขึ้น +' : 'ลดให้ −') + baht(Math.abs(gap));
   tag.className = Math.abs(gap) < 0.01 ? '' : gap > 0 ? 'up' : 'down';
 }
 
@@ -709,7 +709,7 @@ $('e-receipt').onclick = async () => {
   try {
     const { url, shopUrl, reused } = await api('/jobs/' + current.id + '/receipt', { method: 'POST' });
     toast(reused ? 'เปิดใบเสร็จเดิมของงานนี้ค่ะ' : 'ออกใบเสร็จให้แล้วค่ะ 💜');
-    // ร้านเปิดเองก็ให้เห็นราคาจริงด้วย (shopUrl) ส่วนลิงก์ที่ยื่นให้ลูกค้าคือ
+    // ร้านเปิดเองก็ให้เห็นราคาที่ยังไม่ปัดด้วย (shopUrl) ส่วนลิงก์ที่ยื่นให้ลูกค้าคือ
     // url เปล่า ๆ ซึ่งหน้าใบเสร็จมีปุ่มทำรูปของลูกค้าให้อยู่แล้ว
     const open = shopUrl || url;
     // liff.openWindow เปิดในเบราว์เซอร์ของ LINE ซึ่งบันทึกรูปได้ ต่างจาก
