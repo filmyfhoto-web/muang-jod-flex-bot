@@ -4,7 +4,7 @@ import { COLORS } from './theme.js';
 // Two-step category picker, as in the "เลือกหมวดงานให้ตรงประเภท" mockup:
 // first the kind of work, then the specific type inside it.
 
-function row({ icon, label, hint, data }) {
+function row({ icon, label, hint, data, uri }) {
   return {
     type: 'box',
     layout: 'horizontal',
@@ -15,7 +15,7 @@ function row({ icon, label, hint, data }) {
     cornerRadius: 'lg',
     borderWidth: '1px',
     borderColor: COLORS.line,
-    action: { type: 'postback', data, displayText: label },
+    action: uri ? { type: 'uri', label, uri } : { type: 'postback', label, data },
     contents: [
       {
         type: 'box',
@@ -91,6 +91,39 @@ export function categoryGroupsFlex(jobId) {
     contents: bubble({
       title: 'เลือกหมวดงานให้ตรงประเภท',
       subtitle: 'เลือกประเภทงานที่ต้องการ แล้วม่วงจดจะจัดให้อัตโนมัติค่ะ',
+      rows,
+    }),
+  };
+}
+
+// Browsing, not filing: tap a kind of work and the page for it opens, showing
+// every job in it — who ordered what, and what is still owed.
+//
+// The other picker's job is to put ONE job in a category; this one answers
+// "what have I done in this line of work". They look the same on purpose —
+// the same list of kinds of work — but a row here is a link, not a postback,
+// so it goes straight to the page instead of asking the bot to fetch it.
+export function categoryBrowseFlex(urlFor) {
+  const rows = [...CATEGORY_GROUPS, OTHER_GROUP]
+    .map((g) => ({ g, uri: urlFor(g.id) }))
+    .filter(({ uri }) => uri)
+    .map(({ g, uri }) =>
+      row({
+        icon: g.icon,
+        label: g.label,
+        hint: g.types.map((t) => t.label).join(' / ') || 'งานอื่น ๆ ที่ไม่เข้าหมวด',
+        uri,
+      })
+    );
+
+  if (!rows.length) return null;
+
+  return {
+    type: 'flex',
+    altText: 'ดูงานตามหมวด',
+    contents: bubble({
+      title: 'ดูงานตามหมวด',
+      subtitle: 'แตะหมวดที่ต้องการ เพื่อดูว่ามีใครสั่งอะไรไปบ้างค่ะ',
       rows,
     }),
   };

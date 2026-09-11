@@ -191,6 +191,15 @@
     </div>
   </section>
 
+  <!-- งานในหมวดหนึ่ง — เปิดจากปุ่มหมวดงานบนริชเมนู ไม่มีปุ่มของตัวเองใน nav
+       เพราะมันคือ "หมวดไหน" ไม่ใช่ที่ประจำ -->
+  <section id="v-category" hidden>
+    <div class="card">
+      <h2><span id="c-title">งานในหมวด</span> <span class="date" id="c-sum"></span></h2>
+      <div id="c-list"></div>
+    </div>
+  </section>
+
   <!-- 4. ตั้งค่า -->
   <section id="v-settings" hidden>
     <div class="card">
@@ -395,6 +404,15 @@ function renderLegend(el, cats) {
   });
 }
 
+// "2026-09-11" -> "11 ก.ย." — บรรทัดใต้ชื่องานเป็นภาษาไทยทั้งบรรทัด วันที่แบบ
+// ISO ที่โผล่อยู่กลางนั้นอ่านเหมือนรหัสอะไรสักอย่าง ไม่ใช่วันที่
+function shortThaiDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00+07:00');
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok' });
+}
+
 function jobRow(job, opts = {}) {
   const [cls, label] = BADGE[job.payment_status] || BADGE.pending;
   const el = document.createElement('div');
@@ -405,7 +423,9 @@ function jobRow(job, opts = {}) {
   el.querySelector('.ic').textContent = iconOf(job);
   el.querySelector('.txt b').textContent = job.job_name || 'งาน';
   el.querySelector('.txt small').textContent =
-    [job.customer_name || '', opts.showDate ? job.job_date : '', job.job_number || ''].filter(Boolean).join(' · ');
+    [job.customer_name || '', opts.showDate ? shortThaiDate(job.job_date) : '', job.job_number || '']
+      .filter(Boolean)
+      .join(' · ');
   el.querySelector('.amt b').textContent = baht(job.total);
   el.onclick = () => openEdit(job.id);
   return el;
@@ -515,7 +535,21 @@ $('sh-save').onclick = async () => {
   }
 };
 
-const LOADERS = { today: loadToday, report: loadReport, pending: loadPending, settings: loadSettings };
+// งานทั้งหมดในหมวดเดียว — "มีใครสั่งอะไรไปบ้าง" ของงานประเภทนั้น
+// ชื่อหมวดมาจากเซิร์ฟเวอร์ ไม่ใช่จาก URL เพราะ URL เป็นของที่ใครก็พิมพ์เองได้
+async function loadCategory() {
+  const id = new URLSearchParams(location.search).get('category') || '';
+  const { jobs, category } = await api('/jobs?category=' + encodeURIComponent(id));
+  $('c-title').textContent = category ? category.icon + ' ' + category.label : 'งานในหมวด';
+  const total = jobs.reduce((s, j) => s + (Number(j.total) || 0), 0);
+  const due = jobs.reduce((s, j) => s + (Number(j.balance_due) || 0), 0);
+  $('c-sum').textContent = jobs.length
+    ? jobs.length + ' งาน · ' + thb(total) + (due > 0 ? ' · ค้าง ' + thb(due) : '')
+    : '';
+  renderJobs($('c-list'), jobs, 'ยังไม่มีงานในหมวดนี้ค่ะ', { showDate: true });
+}
+
+const LOADERS = { today: loadToday, report: loadReport, pending: loadPending, settings: loadSettings, category: loadCategory };
 
 async function show(name) {
   tab = name;
@@ -659,7 +693,7 @@ $('r-period').onclick = async (e) => {
       // ?tab=… ต้องรับได้ทุกแท็บที่มีจริง ไม่ใช่แค่ pending — ปุ่ม "ตั้งค่า"
       // บนริชเมนูลิงก์มาที่ ?tab=settings ตรง ๆ ถ้าตกไปหน้า "งานวันนี้"
       // เท่ากับปุ่มพาไปผิดที่
-      const TABS = ['today', 'report', 'pending', 'settings'];
+      const TABS = ['today', 'report', 'pending', 'settings', 'category'];
       const want = new URLSearchParams(location.search).get('tab');
       await show(TABS.includes(want) ? want : 'today');
     }

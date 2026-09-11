@@ -9,6 +9,7 @@ import {
   cancelJob,
   recordPayment,
   getJobsInPeriod,
+  getJobsByCategory,
   buildReport,
 } from '../services/jobService.js';
 import { createJob, getTodaySummary } from '../services/jobService.js';
@@ -22,7 +23,7 @@ import { getState as readState, clearState as dropState, STATES } from '../servi
 import { todayISO } from '../utils/dates.js';
 import { safe, jobPatchSchema, jobCreateSchema, paymentAmountSchema } from '../utils/validation.js';
 import { liffId, liffChannelId } from '../utils/liff.js';
-import { CATEGORY_GROUPS, OTHER_GROUP } from '../utils/category.js';
+import { CATEGORY_GROUPS, OTHER_GROUP, findGroup } from '../utils/category.js';
 import { logger, maskUserId } from '../services/logger.js';
 import { getShopProfile, saveShopProfile, SHOP_FIELDS } from '../services/shopService.js';
 
@@ -226,6 +227,19 @@ export function createApiRouter(deps = {}) {
   router.get('/jobs', async (req, res, next) => {
     try {
       const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 50);
+
+      // ?category=sign — every job of one kind, which is what the หมวดงาน
+      // button opens. Only a category that exists: an unknown id would come
+      // back as an empty list that looks like "you have never done this",
+      // rather than "there is no such thing".
+      const wanted = String(req.query.category || '').trim();
+      if (wanted) {
+        const group = findGroup(wanted);
+        if (!group) return res.status(400).json({ error: 'unknown_category' });
+        const jobs = await getJobsByCategory(req.profile.id, group.id, 60);
+        return res.json({ jobs, category: { id: group.id, label: group.label, icon: group.icon } });
+      }
+
       const scope = req.query.scope === 'pending' ? 'pending' : 'recent';
       const jobs =
         scope === 'pending' ? await getPendingJobs(req.profile.id) : await getRecentJobs(req.profile.id, limit);
