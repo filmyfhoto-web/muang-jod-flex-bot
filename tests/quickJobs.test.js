@@ -22,27 +22,30 @@ function withLiff(fn) {
   }
 }
 
-test('the bar starts with the three jobs, each opening the form ready to fill', () => {
+test('the bar is the four jobs and nothing else', () => {
+  // "เอาตัวเลือกด้านหลังออกทั้งหมดให้มีแค่ กรอบรูป งานป้าย งานโฟมบอร์ด งานสติ๊กเกอร์"
+  // — the rest have their own buttons on the rich menu, and a second copy here
+  // made the bar long enough to need swiping, which pushed the jobs off it.
   const items = withLiff(() => quickReplyBlock().items);
-  const first = items.slice(0, QUICK_JOBS.length);
 
-  assert.deepEqual(first.map((i) => i.action.label), ['🖼 งานกรอบรูป', '🪧 งานป้าย', '🧊 งานโฟมบอร์ด']);
-  for (const i of first) {
+  assert.deepEqual(items.map((i) => i.action.label), [
+    '🖼 งานกรอบรูป',
+    '🪧 งานป้าย',
+    '🧊 งานโฟมบอร์ด',
+    '🏷 งานสติ๊กเกอร์',
+  ]);
+  assert.equal(items.length, QUICK_JOBS.length, 'something else crept back onto the bar');
+  for (const i of items) {
     assert.equal(i.action.type, 'uri', `${i.action.label} still goes through the bot`);
     assert.match(i.action.uri, /\/jot\?quick=1&name=/);
+    assert.ok(i.action.label.length <= 20, `label too long: ${i.action.label}`);
   }
-  assert.ok(items.length <= 13, "LINE shows 13 at most");
-  for (const i of items) assert.ok(i.action.label.length <= 20, `label too long: ${i.action.label}`);
 });
 
-test('the bill step is gone — a job is filled in and receipted', () => {
+test('nothing on the bar goes through the bot any more', () => {
   const json = withLiff(() => JSON.stringify(quickReplyBlock()));
+  assert.ok(!json.includes('postback'), 'a postback button is back on the bar');
   assert.ok(!json.includes('create_bill'), 'ออกบิล is still on the bar');
-  assert.ok(!json.includes('bill_payment'));
-  // The ones worth keeping are still there.
-  for (const a of ['add_job', 'today_summary', 'pending_payment', 'recent_jobs', 'help']) {
-    assert.ok(json.includes(`action=${a}`), `${a} went missing`);
-  }
 });
 
 test('a framed job lands in its own category, not in "everything else"', () => {
@@ -67,8 +70,14 @@ test('the form fills the name in, but never over work already in progress', () =
   assert.match(jot, /state\.items\.length === 1 && !state\.items\[0\]\.name && !state\.items\[0\]\.total/);
 });
 
-test('with no LIFF app the bar keeps working, minus the three links', () => {
-  const items = defaultItems();
-  assert.ok(items.every((i) => !i.uri), 'a link to nowhere is on the bar');
-  assert.ok(items.length >= 5, 'the bar emptied out');
+test('with no LIFF app there is no bar at all, rather than links to nowhere', () => {
+  assert.deepEqual(defaultItems(), []);
+});
+
+test('the receipt is reachable from the screen the shop finishes a job on', () => {
+  const dash = readFileSync(new URL('../public/liff/index.html', import.meta.url), 'utf8');
+  assert.ok(dash.includes('id="e-receipt"'), 'no receipt button on the edit form');
+  assert.match(dash, /\/receipt', \{ method: 'POST' \}/);
+  // In LINE's own browser, which can save the image; window.open is blocked there.
+  assert.match(dash, /liff\.openWindow\(\{ url/);
 });

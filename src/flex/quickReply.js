@@ -20,23 +20,15 @@ export const QUICK_JOBS = [
   { label: '🖼 งานกรอบรูป', name: 'กรอบรูป' },
   { label: '🪧 งานป้าย', name: 'ป้ายไวนิล' },
   { label: '🧊 งานโฟมบอร์ด', name: 'โฟมบอร์ด' },
+  { label: '🏷 งานสติ๊กเกอร์', name: 'สติ๊กเกอร์' },
 ];
 
-export const QUICK_REPLIES = [
-  { label: '📝 บันทึกงาน', action: 'add_job', text: 'บันทึกงานวันนี้' },
-  { label: '📊 สรุปวันนี้', action: 'today_summary', text: 'สรุปวันนี้' },
-  { label: '💰 ค้างรับ', action: 'pending_payment', text: 'ค้างรับ' },
-  { label: '🕘 ล่าสุด', action: 'recent_jobs', text: 'รายการล่าสุด' },
-  { label: '⏰ ตั้งเตือน', action: 'remind_job', text: 'ตั้งแจ้งเตือนงาน' },
-  { label: '📈 รายงาน', action: 'report_menu', text: 'รายงาน' },
-  { label: '❓ ช่วยเหลือ', action: 'help', text: 'ช่วยเหลือ' },
-];
-
-// งานด่วนขึ้นก่อน เพราะเป็นสิ่งที่ร้านกดบ่อยที่สุด และแถบนี้ยาวเกินจอ —
-// ปุ่มที่อยู่ท้าย ๆ ต้องปัดไปหา
+// ที่เหลือย้ายไปอยู่ริชเมนูหมดแล้ว — สรุปวันนี้ ค้างรับ ล่าสุด ตั้งค่า ช่วยเหลือ
+// มีปุ่มของตัวเองอยู่ตรงนั้น การมีซ้ำอีกชุดเหนือช่องพิมพ์ทำให้แถบยาวจนต้องปัด
+// หา และงานสี่อย่างที่ร้านกดจริงก็ถูกดันหาย ร้านบอกว่า "เอาตัวเลือกด้านหลัง
+// ออกทั้งหมด" — แถบนี้จึงเหลือแค่งาน
 export function defaultItems() {
-  const jobs = QUICK_JOBS.map((j) => ({ ...j, uri: quickFormUrl({ name: j.name }) })).filter((j) => j.uri);
-  return [...jobs, ...QUICK_REPLIES];
+  return QUICK_JOBS.map((j) => ({ ...j, uri: quickFormUrl({ name: j.name }) })).filter((j) => j.uri);
 }
 
 export function quickReplyBlock(items = defaultItems()) {
@@ -64,5 +56,11 @@ export function withQuickReply(messages, items) {
   const last = list[list.length - 1];
   if (!last || typeof last !== 'object' || last.quickReply) return list;
 
-  return [...list.slice(0, -1), { ...last, quickReply: quickReplyBlock(items) }];
+  // Every button on this bar now needs a LIFF app to open. Without one there
+  // is nothing to put on it, and LINE rejects an empty quickReply outright —
+  // which would take down the message it was attached to, not just the bar.
+  const block = quickReplyBlock(items);
+  if (!block.items.length) return list;
+
+  return [...list.slice(0, -1), { ...last, quickReply: block }];
 }

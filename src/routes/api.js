@@ -17,6 +17,8 @@ import { createJob, getTodaySummary } from '../services/jobService.js';
 import { saveAttachment } from '../services/attachmentService.js';
 import { push } from '../services/lineService.js';
 import { receiptFlex } from '../flex/receiptFlex.js';
+import { receiptUrl } from '../flex/billFlex.js';
+import { createBill, getBillById } from '../services/billService.js';
 import { derivePaymentFields } from '../utils/payment.js';
 import { round2 } from '../utils/currency.js';
 import { deriveJobName } from '../utils/category.js';
@@ -93,6 +95,11 @@ export function createApiRouter(deps = {}) {
   const send = deps.push || push;
   const todaySoFar = deps.getTodaySummary || getTodaySummary;
   const replaceItems = deps.replaceJobItems || replaceJobItems;
+  // Injectable like the others above, so the routes can be exercised without a
+  // database standing behind them.
+  const findJob = deps.getJobById || getJobById;
+  const openBill = deps.createBill || createBill;
+  const readBill = deps.getBillById || getBillById;
   // Tell the chat about a job saved from the form. Never throws: the job is
   // already saved, and a chat that missed the news must not turn into a failed
   // save the user then repeats.
@@ -226,6 +233,33 @@ export function createApiRouter(deps = {}) {
     }
   });
 
+  // The receipt for one job, made on the spot if it has none.
+  //
+  // A receipt belongs to a bill, and until now a bill could only be raised
+  // from the chat — so the edit screen, which is where the shop is when they
+  // finish a job, had no way to print one. This is that button's endpoint: it
+  // reuses the bill the job already has rather than raising a second one for
+  // work that has been billed.
+  router.post('/jobs/:id/receipt', async (req, res, next) => {
+    try {
+      const job = await findJob(req.profile.id, req.params.id);
+      if (!job) return res.status(404).json({ error: 'not_found' });
+
+      const bill = job.bill_id
+        ? await readBill(req.profile.id, job.bill_id)
+        : await openBill(req.profile.id, [job.id], { customerName: job.customer_name ?? null });
+      if (!bill) return res.status(409).json({ error: 'bill_failed', message: 'ออกใบเสร็จไม่สำเร็จค่ะ' });
+
+      const url = receiptUrl(bill);
+      if (!url) return res.status(503).json({ error: 'no_public_url', message: 'ยังไม่ได้ตั้งค่าที่อยู่เว็บของร้านค่ะ' });
+
+      logger.info('api.receipt_opened', { user: maskUserId(req.profile.line_user_id), billId: bill.id });
+      res.json({ url, billNumber: bill.bill_number || null, reused: Boolean(job.bill_id) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   router.get('/jobs', async (req, res, next) => {
     try {
       const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 50);
@@ -319,7 +353,7 @@ export function createApiRouter(deps = {}) {
 
   router.get('/jobs/:id', async (req, res, next) => {
     try {
-      const job = await getJobById(req.profile.id, req.params.id);
+      const job = await findJob(req.profile.id, req.params.id);
       if (!job) return res.status(404).json({ error: 'not_found' });
       res.json({ job });
     } catch (err) {
@@ -331,7 +365,7 @@ export function createApiRouter(deps = {}) {
     try {
       const check = safe(jobPatchSchema, req.body || {});
       if (!check.ok) return res.status(400).json({ error: 'invalid', message: check.error });
-      const current = await getJobById(req.profile.id, req.params.id);
+      const current = await findJob(req.profile.id, req.params.id);
       if (!current) return res.status(404).json({ error: 'not_found' });
 
       const { items, ...patch } = check.data;
@@ -358,7 +392,7 @@ export function createApiRouter(deps = {}) {
       if (patch.total !== undefined) patch.subtotal = round2(patch.total + (Number(current.discount) || 0));
 
       await updateJob(req.profile.id, req.params.id, patch);
-      const job = await getJobById(req.profile.id, req.params.id);
+      const job = await findJob(req.profile.id, req.params.id);
       logger.info('api.job_updated', { user: maskUserId(req.profile.line_user_id), jobId: req.params.id });
       res.json({ job });
     } catch (err) {

@@ -273,6 +273,9 @@
       <!-- งานที่พิมพ์มาหลายรายการ แก้ได้แค่ยอดรวมก้อนเดียวในหน้านี้ — บรรทัด
            ย่อยอยู่ในฟอร์มจดงาน ซึ่งแก้ทีละรายการได้ -->
       <a class="btn btn-soft" id="e-items" hidden></a>
+      <!-- ที่ที่ร้านยืนอยู่ตอนงานเสร็จคือหน้านี้ แต่ใบเสร็จเคยออกได้จากแชต
+           อย่างเดียว -->
+      <button type="button" class="btn btn-soft" id="e-receipt">🧾 ออกใบเสร็จ / ปริ้น</button>
       <label for="e-total">จำนวนเงิน <span class="req">*</span></label>
       <div class="with-unit"><input id="e-total" type="number" inputmode="decimal" min="0" step="1" /><span class="unit">฿</span></div>
       <label for="e-paid">รับมาแล้ว</label>
@@ -643,6 +646,28 @@ async function openEdit(id) {
     toast(err.message, true);
   }
 }
+
+// ออกใบเสร็จจากหน้านี้เลย — งานที่ออกบิลไปแล้วใช้ใบเดิม ไม่ออกใบที่สองให้งาน
+// เดียวกัน เปิดหน้าใบเสร็จในแท็บใหม่ ในนั้นมีปุ่มบันทึกเป็นรูป/แชร์อยู่แล้ว
+$('e-receipt').onclick = async () => {
+  const btn = $('e-receipt');
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'กำลังออกใบเสร็จ…';
+  try {
+    const { url, reused } = await api('/jobs/' + current.id + '/receipt', { method: 'POST' });
+    toast(reused ? 'เปิดใบเสร็จเดิมของงานนี้ค่ะ' : 'ออกใบเสร็จให้แล้วค่ะ 💜');
+    // liff.openWindow เปิดในเบราว์เซอร์ของ LINE ซึ่งบันทึกรูปได้ ต่างจาก
+    // window.open ที่ในแอปบางทีโดนบล็อก
+    if (window.liff && liff.isInClient && liff.isInClient()) liff.openWindow({ url, external: false });
+    else window.open(url, '_blank');
+  } catch (err) {
+    toast(err.message || 'ออกใบเสร็จไม่สำเร็จค่ะ', true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+};
 
 $('e-save').onclick = async () => {
   const btn = $('e-save');
