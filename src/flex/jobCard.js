@@ -9,6 +9,7 @@ import { categoryLabel } from '../utils/category.js';
 import { brandAssetUrl } from '../utils/brand.js';
 import { dueLine } from './components/dueLine.js';
 import { joinMeta } from './components/metaLine.js';
+import { quickFormUrl } from '../utils/liff.js';
 
 export function paymentLabel(status) {
   const p = paymentPresentation(status);
@@ -210,7 +211,7 @@ export function jobCardMessage(job, altText = 'รายละเอียดง
 }
 
 // Preview card shown BEFORE saving: receipt bubble + header + action buttons.
-export function jobPreviewMessage(draftJob, altText = 'ตรวจสอบก่อนบันทึก') {
+export function jobPreviewMessage(draftJob, altText = 'ตรวจสอบก่อนบันทึก', opts = {}) {
   const bubble = buildJobBubble({ ...draftJob, id: undefined });
   bubble.header = {
     type: 'box',
@@ -220,10 +221,17 @@ export function jobPreviewMessage(draftJob, altText = 'ตรวจสอบก�
   // Saving is the one thing this card is for; แก้ไข and ยกเลิก are the ways
   // out, and nothing is in the database yet, so they cost nothing to offer
   // quietly. Two more grey slabs under the button doubled the card's footer.
+  // ✏️ เปิดฟอร์มที่มีงานนี้อยู่ในนั้นแล้ว แก้ตรงบรรทัดที่ผิดแล้วกดบันทึกจบ
+  // เมื่อก่อนมันทิ้งร่างแล้วขอให้พิมพ์ใหม่ทั้งก้อน ซึ่งกับออเดอร์เจ็ดบรรทัด
+  // เป็นคำตอบที่โหดมากสำหรับคำว่า "บรรทัดที่สี่ผิด"
+  // ไม่ได้ตั้ง LIFF ไว้ก็ถอยไปทางเดิม ซึ่งยังใช้งานได้
+  const editUrl = opts.editDraftUrl !== undefined ? opts.editDraftUrl : quickFormUrl({ draft: 1 });
   bubble.footer = footerActions({
     primary: { label: '✅ บันทึกงาน', data: 'action=confirm_add_job', displayText: 'บันทึกงาน' },
     links: [
-      { label: '✏️ แก้ไข', data: 'action=edit_new_job', displayText: 'แก้ไข' },
+      editUrl
+        ? { label: '✏️ แก้ไข', uri: editUrl }
+        : { label: '✏️ แก้ไข', data: 'action=edit_new_job', displayText: 'แก้ไข' },
       { label: '❌ ยกเลิก', data: 'action=cancel_new_job', displayText: 'ยกเลิก', color: COLORS.red },
     ],
   });
