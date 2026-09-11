@@ -14,7 +14,7 @@ import { recordBillPayment } from '../services/billService.js';
 import { resolveMenuCommand, splitLeadingAddJob } from '../utils/menuCommands.js';
 import { parseChatIntent } from '../utils/chatIntent.js';
 import { parseNaturalJob } from '../utils/nlParser.js';
-import { deriveJobName } from '../utils/category.js';
+import { deriveJobName, classifyJob } from '../utils/category.js';
 import { makeDraft, draftToBubble, priceDraft, parseBarePrice } from '../utils/jobDraft.js';
 import { extractDate, extractDueDate } from '../utils/thaiDate.js';
 import { handlePostback } from './postbackHandler.js';
@@ -45,6 +45,22 @@ function looksLikeJob(text) {
 const HAS_NUMBER = /[\d๐-๙]/;
 export function isJobEntry(text) {
   return looksLikeJob(text) || HAS_NUMBER.test(String(text ?? ''));
+}
+
+// งานที่ยังไม่ได้ตั้งราคาก็เป็นงาน — ร้านรับออเดอร์เข้ามาก่อน แล้วค่อยคิดราคา
+// ทีหลัง "ตรายาง ของโรงเรียนเปียงซ้อ 1 อัน" คือใบสั่งงาน ไม่ใช่การทักทาย
+//
+// แต่ตอนที่ยังไม่ได้สั่งอะไร จะเหมาเอาทุกประโยคเป็นงานไม่ได้ ต้องมีครบสองอย่าง:
+// ชื่อของที่ระบบรู้ว่าเป็นงานประเภทไหน (ตรายาง ไวนิล กรอบรูป …) กับตัวเลขสักตัว
+// (จำนวนหรือขนาด) — "ตรายางอันละเท่าไหร่" มีอย่างแรกแต่ไม่มีอย่างหลัง จึงยังเป็น
+// คำถาม ไม่ใช่งาน
+export function looksLikePricelessJob(text) {
+  try {
+    const d = parseNaturalJob(text);
+    return d.items.length > 0 && Boolean(classifyJob(d.items)) && HAS_NUMBER.test(String(text ?? ''));
+  } catch {
+    return false;
+  }
 }
 
 // ทางออกที่พิมพ์ได้ ไม่ใช่แค่ปุ่มบนการ์ด — การ์ดเลื่อนหายไปจากจอได้ แล้วร้าน
@@ -170,8 +186,9 @@ export async function handleTextMessage(event, profile) {
     });
   }
 
-  // Idle: a message that already looks like a job goes straight to preview.
-  if (looksLikeJob(text)) {
+  // Idle: a message that already looks like a job goes straight to preview —
+  // ไม่ว่าจะใส่ราคามาแล้วหรือยัง
+  if (looksLikeJob(text) || looksLikePricelessJob(text)) {
     return handleNewJob(replyToken, profile, text);
   }
 
@@ -283,13 +300,21 @@ async function handleNewJob(replyToken, profile, text, knownCustomer = null) {
   const hasSatang = parsed.statedTotal == null && Math.round(draft.total) !== draft.total;
   const roundTo = Math.round(draft.total / 10) * 10;
 
+  // งานที่ยังไม่มีราคา บอกทางไปต่อด้วย ไม่งั้นการ์ด ฿0 ขึ้นมาเฉย ๆ แล้วร้าน
+  // ไม่รู้ว่าพิมพ์ราคาต่อได้เลย
+  const noPrice = !(draft.total > 0);
+
   return reply(replyToken, [
     {
       type: 'text',
-      text: hasSatang
-        ? `ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลยค่ะ 💜\n` +
-          `อยากปัดเศษเอง พิมพ์ "รวม ${numText(roundTo)}" มาได้เลยค่ะ`
-        : 'ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลยค่ะ 💜',
+      text: noPrice
+        ? 'จดไว้ให้แล้วค่ะ 📝 ยังไม่ได้ใส่ราคานะคะ\n' +
+          'พิมพ์ราคามาได้เลยค่ะ เช่น 350\n' +
+          'หรือกด "✅ บันทึกงาน" ไว้ก่อน แล้วค่อยมาใส่ราคาทีหลังก็ได้ 💜'
+        : hasSatang
+          ? `ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลยค่ะ 💜\n` +
+            `อยากปัดเศษเอง พิมพ์ "รวม ${numText(roundTo)}" มาได้เลยค่ะ`
+          : 'ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลยค่ะ 💜',
     },
     jobPreviewMessage(draftToBubble(draft)),
   ]);
