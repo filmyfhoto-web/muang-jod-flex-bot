@@ -98,8 +98,20 @@ test('the form page opens in the same colours as the card it came from', () => {
   assert.equal(accentOf(root), COLORS.accent.toLowerCase(), 'accent drifted from theme.js');
   assert.equal(accentTextOf(root), COLORS.accentText.toLowerCase(), 'accent-text drifted from theme.js');
 
-  // The dashboard keeps its own darker identity, but must still declare both.
-  assert.ok(accentOf(dashboard) && accentTextOf(dashboard), 'the dashboard lost a token');
+  // The dashboard is the same app opened from a different button, so it is the
+  // same two blues. It used to be a dark theme on its own, which read as a
+  // second app — the shop asked for it to match everything else.
+  assert.equal(accentOf(dashboard), COLORS.accent.toLowerCase(), 'the dashboard drifted from theme.js');
+  assert.equal(accentTextOf(dashboard), COLORS.accentText.toLowerCase());
+  assert.match(dashboard, /color-scheme:\s*light/, 'the dashboard is dark again');
+
+  // Nothing dark may be left hardcoded outside the token block: the donut's
+  // track and its centre total were drawn straight into the SVG, so switching
+  // the tokens left a black ring and an unreadable total on a white card.
+  const afterRoot = dashboard.slice(dashboard.indexOf('* { box-sizing'));
+  for (const dark of ['#1b2537', '#e8edf5', '#080b12', '#121a2a', '#8494a8']) {
+    assert.ok(!afterRoot.includes(dark), `a dark-theme colour is still painted in: ${dark}`);
+  }
 });
 
 test('the cards swipe sideways, with dots that follow', () => {
