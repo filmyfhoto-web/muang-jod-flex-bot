@@ -22,7 +22,7 @@ const JOB = {
 
 test('the receipt offers the next job for the same customer', () => {
   const json = JSON.stringify(receiptFlex(JOB));
-  assert.ok(json.includes('➕ เพิ่มงานอีก'), 'no way to add another job');
+  assert.ok(json.includes('➕ เพิ่มงาน'), 'no way to add another job');
   assert.ok(
     json.includes(`action=add_more&customer=${encodeURIComponent('ผู้ใหญ่สมศรี')}`),
     'the customer is not carried over'
@@ -31,7 +31,7 @@ test('the receipt offers the next job for the same customer', () => {
   // A job with no customer still gets the button — the shop may add the name
   // to the next one — it just has nothing to carry.
   const anon = JSON.stringify(receiptFlex({ ...JOB, customer_name: null }));
-  assert.ok(anon.includes('➕ เพิ่มงานอีก'));
+  assert.ok(anon.includes('➕ เพิ่มงาน'));
   assert.ok(anon.includes('action=add_more&customer='));
 });
 

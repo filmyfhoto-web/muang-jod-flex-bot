@@ -20,7 +20,7 @@ test('nothing sent to LINE echoes the button that was tapped', () => {
   // What the buttons are for must survive: the label is what is printed on
   // them, and the data is the only thing that says what to do.
   assert.ok(sent.includes('action=bill_job&jobId=job-1'));
-  assert.ok(sent.includes('🧾 ออกใบเสร็จ'));
+  assert.ok(sent.includes('🧾 ใบเสร็จ'));
 });
 
 test('only postbacks lose it — a message of your own keeps its text', () => {

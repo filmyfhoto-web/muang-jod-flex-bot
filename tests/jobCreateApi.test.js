@@ -166,7 +166,8 @@ test('a job saved from the form is announced in the chat', async (t) => {
   const json = JSON.stringify(sent.messages);
   assert.ok(json.includes('บันทึกสำเร็จ'), 'not the receipt card');
   assert.ok(json.includes('ป้ายไวนิล'));
-  assert.ok(json.includes('วันนี้จดไปแล้ว 3 งาน'), 'the day tally is missing');
+  // แถบนับยอดของวันถูกเอาออกตามที่ร้านขอ การ์ดพูดถึงงานใบเดียวที่เพิ่งจด
+  assert.ok(!json.includes('วันนี้จดไปแล้ว'), 'the day tally came back');
 });
 
 test('a chat that cannot be reached never fails a job that is already saved', async (t) => {

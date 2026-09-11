@@ -97,10 +97,10 @@ export async function confirmAddJob({ replyToken, profile }) {
   const attached = await attachHeldPicture(profile.id, job, held);
   await clearState(profile.id);
 
-  // Receipt-style "บันทึกสำเร็จ" card, with the day's tally under it so the
-  // answer to "what have I got down today?" arrives with the confirmation.
+  // Receipt-style "บันทึกสำเร็จ" card. ไม่มีแถบนับยอดของวันแล้ว — ร้านบอกว่า
+  // "จำนวนจดรวมไม่ต้องนับ" ยอดรวมของวันดูได้จากปุ่มสรุปที่อยู่บนการ์ดอยู่แล้ว
   return reply(replyToken, [
-    receiptFlex(job, { today: await todayTally(profile.id) }),
+    receiptFlex(job),
     ...(attached
       ? []
       : [{ type: 'text', text: 'บันทึกงานแล้วค่ะ แต่แนบรูปเอกสารไม่สำเร็จ ส่งรูปเข้ามาใหม่อีกครั้งได้นะคะ 💜' }]),

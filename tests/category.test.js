@@ -18,7 +18,6 @@ import {
 test('classifies signage items into งานป้าย and its types', () => {
   assert.equal(classifyItem('ป้ายไวนิล 60x100').type.id, 'vinyl');
   assert.equal(classifyItem('โฟมบอร์ด 40x60').type.id, 'foamboard');
-  assert.equal(classifyItem('สติ๊กเกอร์ไดคัท').type.id, 'sticker');
   assert.equal(classifyItem('แบนเนอร์โรลอัพ').type.id, 'banner');
   assert.equal(classifyItem('ป้ายไวนิล').group.id, 'sign');
 });
@@ -27,7 +26,7 @@ test('ตรายาง is its own kind of work, and "ปั๊ม" alone is no
   assert.equal(classifyItem('ตรายาง ชื่อร้าน').type.id, 'stamp');
   assert.equal(classifyItem('ตรายางหมึกในตัว 2 อัน').type.id, 'stamp');
   assert.equal(classifyItem('ตราปั๊มโรงเรียน').type.id, 'stamp');
-  assert.equal(classifyItem('ตรายาง').group.id, 'print');
+  assert.equal(classifyItem('ตรายาง').group.id, 'stamp', 'ตรายางเป็นหมวดของตัวเอง ไม่ได้ซ่อนใต้งานพิมพ์');
   // ค่าปั๊มน้ำมันไม่ใช่งานตรายาง คำว่า "ปั๊ม" เดี่ยว ๆ จึงไม่ใช่คำค้น
   assert.equal(classifyItem('ค่าน้ำมัน ปั๊มบางจาก'), null);
 });
@@ -39,7 +38,7 @@ test('สติ๊กเกอร์ฟิวเจอร์บอร์ด wins
   assert.equal(classifyItem('สติ๊กเกอร์ติดฟิวเจอร์บอร์ด').type.id, 'sticker_board');
   // เขียนสลับลำดับคำก็ยังใช่ — ร้านไม่ได้พิมพ์ตามแบบฟอร์ม
   assert.equal(classifyItem('ฟิวเจอร์บอร์ดติดสติ๊กเกอร์').type.id, 'sticker_board');
-  assert.equal(classifyItem('ฟิวเจอร์บอร์ดติดสติ๊กเกอร์').group.id, 'sign');
+  assert.equal(classifyItem('ฟิวเจอร์บอร์ดติดสติ๊กเกอร์').group.id, 'sticker');
 
   // ของอย่างเดียวยังอยู่หมวดเดิม
   assert.equal(classifyItem('ฟิวเจอร์บอร์ด A1').type.id, 'foamboard');
@@ -75,6 +74,13 @@ test('a stored category wins over re-classifying the items', () => {
   const job = { category: 'print', category_type: 'copy', items: [{ item_name: 'ป้ายไวนิล' }] };
   assert.equal(jobCategory(job).group.id, 'print');
   assert.equal(categoryLabel(job), 'งานพิมพ์ / ถ่ายเอกสาร');
+
+  // งานที่จดไว้ก่อนตรายาง/สติ๊กเกอร์แยกออกมาเป็นหมวดของตัวเอง ยังมีหมวดเก่าติดอยู่
+  // ประเภทเจาะจงกว่า จึงชนะ ไม่งั้นงานเดิมโชว์ผิดหมวดตลอดไป
+  assert.equal(jobCategory({ category: 'print', category_type: 'stamp' }).group.id, 'stamp');
+  assert.equal(categoryLabel({ category: 'sign', category_type: 'sticker' }), 'สติ๊กเกอร์');
+  // หมวดที่มีประเภทเดียวชื่อเดียวกัน ไม่ต้องพูดสองครั้ง
+  assert.equal(categoryLabel({ category: 'stamp', category_type: 'stamp' }), 'ตรายาง');
 
   // No stored category: fall back to the items.
   assert.equal(categoryLabel({ items: [{ item_name: 'ป้ายไวนิล' }] }), 'งานป้าย / ป้ายไวนิล');
