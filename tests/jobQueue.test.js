@@ -69,9 +69,8 @@ test('the dashboard can ask for the queue, and gets it', async () => {
 test('the home tab shows a queue, numbered and dated', () => {
   assert.match(dashboard, /<h2>คิวงาน/, 'the card is still called รายการล่าสุด');
   assert.match(dashboard, /api\('\/jobs\?scope=queue'\)/, 'nothing fetches the queue');
-  // เลขคิวแทนไอคอนหมวด และบรรทัดใต้ชื่อบอกวันนัดรับ ไม่ใช่วันที่จด
+  // เลขคิวแทนไอคอนหมวด ส่วนวันนัดรับอยู่บนหัวข้อวันที่คั่นแต่ละกลุ่ม
   assert.match(dashboard, /ic\.className = 'ic qn'/, 'no queue number on the row');
-  assert.match(dashboard, /📅 นัดรับ ' \+ shortThaiDate\(job\.due_date\)/);
   assert.match(dashboard, /ยังไม่ได้นัดวัน/, 'a job with no date says nothing about it');
 });
 
@@ -89,4 +88,35 @@ test('every tile and every legend row goes somewhere', () => {
   const legend = dashboard.slice(dashboard.indexOf('function renderLegend'), dashboard.indexOf('function shortThaiDate'));
   assert.match(legend, /openCategory\(c\.id\)/, 'the legend rows are not tappable');
   assert.match(dashboard, /function openCategory\(id\)/);
+});
+
+// ร้านบอกว่า "แยกงานรับแล้วกับค้างงาน ทำคิวงานตามลำดับวันให้หน่อยค่ะ" — คิวที่
+// เอางานที่เก็บเงินแล้วมาปนกับงานที่ยังค้าง แล้วไล่วันปนกันทั้งกอง อ่านไม่ออกว่า
+// วันนี้ต้องทำอะไร
+
+test('the queue is two piles, each in day order', () => {
+  const q = dashboard.slice(dashboard.indexOf('function renderQueue'), dashboard.indexOf('async function loadReport'));
+  assert.match(q, /section\('💰 ค้างรับ', owed/, 'ค้างรับ is not its own pile');
+  assert.match(q, /section\('✅ รับเงินแล้ว', paid/, 'paid jobs are still mixed in');
+  assert.ok(
+    q.indexOf("'💰 ค้างรับ'") < q.indexOf("'✅ รับเงินแล้ว'"),
+    'the money still owed must come first — that is the work'
+  );
+  // เรียงซ้ำฝั่งหน้าเว็บ ไม่ฝากความถูกต้องไว้กับลำดับที่เซิร์ฟเวอร์ส่งมา
+  assert.match(q, /\[\.\.\.list\]\.sort\(byDue\)/, 'the section trusts whatever order it was handed');
+
+  const split = dashboard.slice(dashboard.indexOf('async function loadQueue'), dashboard.indexOf('function dayLabel'));
+  assert.match(split, /payment_status !== 'paid'/);
+  assert.match(split, /ค้างรับ ' \+ owed\.length/, 'the summary line does not say how the queue splits');
+});
+
+test('a day says what it means, and a late one says so twice', () => {
+  const d = dashboard.slice(dashboard.indexOf('function dayLabel'), dashboard.indexOf('function renderQueue'));
+  assert.match(d, /เลยกำหนด/, 'an overdue day looks like any other');
+  assert.match(d, /'วันนี้'/);
+  assert.match(d, /พรุ่งนี้/);
+  assert.match(d, /ยังไม่ได้นัดวัน/);
+  // งานที่เลยกำหนดและยังไม่ได้เงิน ต้องเห็นบนแถวของมันเองด้วย ไม่ใช่แค่บนหัวข้อวัน
+  assert.match(dashboard, /job\.due_date < opts\.today && !opts\.done/);
+  assert.match(dashboard, /เลยกำหนดแล้ว/);
 });
