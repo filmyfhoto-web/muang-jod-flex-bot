@@ -10,6 +10,7 @@ import {
   recordPayment,
   getJobsInPeriod,
   getJobsByCategory,
+  getQueueJobs,
   replaceJobItems,
   buildReport,
 } from '../services/jobService.js';
@@ -101,6 +102,7 @@ export function createApiRouter(deps = {}) {
   const openBill = deps.createBill || createBill;
   const readBill = deps.getBillById || getBillById;
   const saveJob = deps.updateJob || updateJob;
+  const queueJobs = deps.getQueueJobs || getQueueJobs;
   // Tell the chat about a job saved from the form. Never throws: the job is
   // already saved, and a chat that missed the news must not turn into a failed
   // save the user then repeats.
@@ -278,9 +280,15 @@ export function createApiRouter(deps = {}) {
         return res.json({ jobs, category: { id: group.id, label: group.label, icon: group.icon } });
       }
 
-      const scope = req.query.scope === 'pending' ? 'pending' : 'recent';
+      // queue = งานที่ยังอยู่ในมือ เรียงตามวันนัดรับ · pending = ยังไม่ได้เงิน
+      // · recent = ที่จดล่าสุด
+      const scope = ['pending', 'queue'].includes(req.query.scope) ? req.query.scope : 'recent';
       const jobs =
-        scope === 'pending' ? await getPendingJobs(req.profile.id) : await getRecentJobs(req.profile.id, limit);
+        scope === 'pending'
+          ? await getPendingJobs(req.profile.id)
+          : scope === 'queue'
+            ? await queueJobs(req.profile.id, limit)
+            : await getRecentJobs(req.profile.id, limit);
       res.json({ jobs });
     } catch (err) {
       next(err);

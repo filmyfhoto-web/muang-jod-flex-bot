@@ -426,6 +426,44 @@ export async function getPendingJobs(userId, client = supabase) {
 
 export const getPendingPayments = getPendingJobs;
 
+// คิวงาน — งานที่ยังอยู่ในมือร้าน เรียงตามวันที่นัดรับ
+//
+// ร้านขอ "หน้าล่าสุด ... เป็นงานรันคิวงาน" ซึ่งไม่ใช่ "งานที่จดล่าสุด" แต่คือ
+// "งานไหนต้องเสร็จก่อน" งานที่ปิดแล้ว (completed / cancelled) ออกจากคิว
+//
+// เรียงในโค้ดไม่ใช่ในฐานข้อมูล เพราะกติกาคือ "ไม่ได้นัดวันไว้ไปท้ายแถว" ซึ่ง
+// ORDER BY ของ postgrest เขียนได้ก็จริงแต่ต่างกันไปตามเวอร์ชัน — เรียงเองอ่านง่าย
+// กว่าและเทสต์ได้ตรง ๆ
+export function queueOrder(jobs = []) {
+  return [...jobs].sort((a, b) => {
+    const da = a.due_date || '';
+    const db = b.due_date || '';
+    if (da !== db) {
+      if (!da) return 1;
+      if (!db) return -1;
+      return da < db ? -1 : 1;
+    }
+    return String(a.created_at || '').localeCompare(String(b.created_at || ''));
+  });
+}
+
+export async function getQueueJobs(userId, limit = 60, client = supabase) {
+  const { data: jobs, error } = await client
+    .from('jobs')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    logger.error('job.queue_failed', { message: error.message });
+    throw error;
+  }
+  return attachItems(queueOrder(jobs || []), client);
+}
+
+
 // Search a user's own jobs by job_number / job_name / customer_name.
 // The DB query is scoped to the user (and non-cancelled by default); the free
 // text is matched in-app so user input never becomes part of a filter string.

@@ -80,6 +80,21 @@
   .legend .nm { flex: 1; color: var(--sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .legend .pc { font-weight: 700; }
 
+  /* ทุกอย่างที่กดได้ต้องรู้สึกได้ว่ากดได้ และตอบตอนแตะ */
+  .tappable { cursor: pointer; }
+  .tappable:active { transform: scale(.985); }
+  .stat.tappable { transition: background .12s ease; }
+  .stat.tappable:active { background: var(--accent-soft, #dce7fb); }
+  .legend .tappable { border-radius: 9px; margin: 0 -6px; padding-left: 6px; padding-right: 6px; }
+  .legend .tappable:active { background: var(--tint); }
+  .tappable:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* บรรทัดสรุปใต้หัวการ์ด (เช่น "6 งานในคิว · นัดรับแล้ว 4 งาน") */
+  .sub-line { font-size: 12px; color: var(--grey); margin: -6px 0 8px; }
+  .sub-line:empty { display: none; }
+  /* เลขคิวแทนไอคอนหมวด ในคิวงาน "ใบไหนก่อน" สำคัญกว่า "งานประเภทไหน" */
+  .job .ic.qn { background: var(--accent); color: var(--white); font-size: 15px; font-weight: 700; }
+
   .job { display: flex; gap: 11px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
   .job:last-child { border-bottom: 0; }
   .job .ic { width: 38px; height: 38px; border-radius: 12px; background: var(--tint); display: grid; place-items: center; font-size: 18px; flex: none; }
@@ -179,7 +194,8 @@
       <div class="donut"><div id="t-donut"></div><div class="legend" id="t-legend"></div></div>
     </div>
     <div class="card mascot-foot">
-      <h2>รายการล่าสุด <span class="link" data-go="pending">ดูค้างรับ ›</span></h2>
+      <h2>คิวงาน <span class="link" data-go="pending">ดูค้างรับ ›</span></h2>
+      <div class="sub-line" id="t-queue-sum"></div>
       <div id="t-recent"></div>
       <img class="peek front" src="/brand/ui/rest.png" alt="" style="right:10px;bottom:-14px;width:88px" />
     </div>
@@ -337,7 +353,7 @@ const BADGE = { paid: ['b-paid', 'รับเงินแล้ว'], partial: 
 // แยกสีกันไม่ออก ชุดนี้เข้มพอที่จะอ่านบนขาวและยังต่างกันชัด
 const COLORS = { sign: '#db2777', print: '#7c3aed', design: '#1c4fd8', food: '#d97706', shipping: '#0d9488', other: '#64748b' };
 
-let token = null, groups = [], current = null, tab = 'today', period = 'daily', me = null;
+let token = null, groups = [], current = null, tab = 'today', period = 'daily', me = null, categoryId = '';
 
 function toast(msg, isErr) {
   const t = $('toast');
@@ -374,9 +390,15 @@ function iconOf(job) {
   return t?.icon || g?.icon || '📦';
 }
 
-function statTile({ icon, label, big, sub, trend }) {
+function statTile({ icon, label, big, sub, trend, onTap }) {
   const el = document.createElement('div');
-  el.className = 'stat';
+  el.className = 'stat' + (onTap ? ' tappable' : '');
+  if (onTap) {
+    el.setAttribute('role', 'button');
+    el.tabIndex = 0;
+    el.onclick = onTap;
+    el.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(); } };
+  }
   el.innerHTML =
     '<div class="top"><div class="ic"></div><div class="lbl"></div></div>' +
     '<div class="big"></div><div class="sm"></div>';
@@ -435,6 +457,15 @@ function renderLegend(el, cats) {
   cats.forEach((c) => {
     const row = document.createElement('div');
     row.innerHTML = '<i class="dot"></i><span class="nm"></span><span class="pc"></span>';
+    // ทุกบรรทัดในคำอธิบายวงกลมพาไปดูงานทั้งหมดในหมวดนั้น — ร้านขอให้ "กดได้ทุกปุ่ม"
+    if (c.id) {
+      row.className = 'tappable';
+      row.setAttribute('role', 'button');
+      row.tabIndex = 0;
+      const go = () => openCategory(c.id);
+      row.onclick = go;
+      row.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } };
+    }
     const color = c.color || COLORS[c.id] || '#64748b';
     row.querySelector('.dot').style.background = color;
     row.querySelector('.nm').textContent = c.icon + ' ' + c.label;
@@ -460,12 +491,22 @@ function jobRow(job, opts = {}) {
   el.innerHTML =
     '<div class="ic"></div><div class="txt"><b></b><small></small></div>' +
     '<div class="amt"><b></b><span class="badge ' + cls + '">' + label + '</span></div>';
-  el.querySelector('.ic').textContent = iconOf(job);
+  // ในคิวงาน ไอคอนหมวดถูกแทนด้วยเลขคิว เพราะ "ใบไหนก่อน" คือสิ่งที่ต้องรู้
+  if (opts.queue) {
+    const ic = el.querySelector('.ic');
+    ic.className = 'ic qn';
+    ic.textContent = String(opts.n);
+  } else {
+    el.querySelector('.ic').textContent = iconOf(job);
+  }
   el.querySelector('.txt b').textContent = job.job_name || 'งาน';
-  el.querySelector('.txt small').textContent =
-    [job.customer_name || '', opts.showDate ? shortThaiDate(job.job_date) : '', job.job_number || '']
-      .filter(Boolean)
-      .join(' · ');
+  el.querySelector('.txt small').textContent = opts.queue
+    ? [job.customer_name || '', job.due_date ? '📅 นัดรับ ' + shortThaiDate(job.due_date) : 'ยังไม่ได้นัดวัน']
+        .filter(Boolean)
+        .join(' · ')
+    : [job.customer_name || '', opts.showDate ? shortThaiDate(job.job_date) : '', job.job_number || '']
+        .filter(Boolean)
+        .join(' · ');
   el.querySelector('.amt b').textContent = baht(job.total);
   el.onclick = () => openEdit(job.id);
   return el;
@@ -477,7 +518,7 @@ function renderJobs(el, jobs, emptyMsg, opts) {
     el.innerHTML = '<div class="empty">' + emptyMsg + '</div>';
     return;
   }
-  jobs.forEach((j) => el.appendChild(jobRow(j, opts)));
+  jobs.forEach((j, i) => el.appendChild(jobRow(j, { ...opts, n: i + 1 })));
 }
 
 // --- views ----------------------------------------------------------------
@@ -504,7 +545,12 @@ async function loadToday() {
     })
   );
   me.categories.slice(0, 3).forEach((c) =>
-    tiles.appendChild(statTile({ icon: c.icon, label: c.label, big: c.count + ' งาน', sub: thb(c.total) }))
+    tiles.appendChild(
+      statTile({
+        icon: c.icon, label: c.label, big: c.count + ' งาน', sub: thb(c.total),
+        onTap: c.id ? () => openCategory(c.id) : null,
+      })
+    )
   );
 
   const has = me.categories.length > 0;
@@ -514,17 +560,36 @@ async function loadToday() {
     renderLegend($('t-legend'), me.categories);
   }
 
-  renderJobs($('t-recent'), me.recent || [], 'วันนี้ยังไม่มีงานค่ะ<br>พิมพ์รายการงานในแชตได้เลยนะคะ 💜');
+  // คิวงาน ไม่ใช่ "งานที่จดล่าสุด" — ร้านอยากรู้ว่างานไหนต้องเสร็จก่อน
+  await loadQueue();
+}
+
+// งานที่ยังอยู่ในมือ เรียงตามวันนัดรับ พร้อมเลขคิว
+async function loadQueue() {
+  let jobs = [];
+  try {
+    ({ jobs } = await api('/jobs?scope=queue'));
+  } catch (err) {
+    jobs = me?.recent || [];
+  }
+  const soon = jobs.filter((j) => j.due_date).length;
+  $('t-queue-sum').textContent = jobs.length
+    ? jobs.length + ' งานในคิว' + (soon ? ' · นัดรับแล้ว ' + soon + ' งาน' : '')
+    : '';
+  renderJobs($('t-recent'), jobs, 'ยังไม่มีงานในคิวค่ะ<br>พิมพ์รายการงานในแชตได้เลยนะคะ 💜', { queue: true });
 }
 
 async function loadReport() {
   const r = await api('/report?period=' + period);
   const tiles = $('r-tiles');
   tiles.textContent = '';
-  tiles.appendChild(statTile({ icon: '🧾', label: 'ยอดรวม', big: thb(r.totalSales), sub: r.jobCount + ' งาน' }));
-  tiles.appendChild(statTile({ icon: '✅', label: 'รับเงินแล้ว', big: thb(r.paid), sub: r.label || '' }));
-  tiles.appendChild(statTile({ icon: '💰', label: 'ค้างรับ', big: thb(r.pending), sub: '' }));
-  tiles.appendChild(statTile({ icon: '📊', label: 'เฉลี่ยต่อบิล', big: thb(r.avgPerBill), sub: '' }));
+  // ทุกใบกดได้ — ยอดรวม/รับเงินแล้ว/เฉลี่ย พาไปที่รายการงานของช่วงนี้ ซึ่งอยู่
+  // ท้ายหน้าเดียวกัน ส่วนค้างรับพาไปแท็บงานค้างรับ ซึ่งเป็นคนละชุดข้อมูลจริง ๆ
+  const toTop = () => $('r-top').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  tiles.appendChild(statTile({ icon: '🧾', label: 'ยอดรวม', big: thb(r.totalSales), sub: r.jobCount + ' งาน', onTap: toTop }));
+  tiles.appendChild(statTile({ icon: '✅', label: 'รับเงินแล้ว', big: thb(r.paid), sub: r.label || '', onTap: toTop }));
+  tiles.appendChild(statTile({ icon: '💰', label: 'ค้างรับ', big: thb(r.pending), sub: 'ดูงานค้างรับ ›', onTap: () => show('pending') }));
+  tiles.appendChild(statTile({ icon: '📊', label: 'เฉลี่ยต่อบิล', big: thb(r.avgPerBill), sub: '', onTap: toTop }));
 
   const has = (r.categories || []).length > 0;
   $('r-share-card').hidden = !has;
@@ -577,8 +642,14 @@ $('sh-save').onclick = async () => {
 
 // งานทั้งหมดในหมวดเดียว — "มีใครสั่งอะไรไปบ้าง" ของงานประเภทนั้น
 // ชื่อหมวดมาจากเซิร์ฟเวอร์ ไม่ใช่จาก URL เพราะ URL เป็นของที่ใครก็พิมพ์เองได้
+// เปิดหน้าหมวดจากในแอป (แตะชิ้นส่วนวงกลมหรือไทล์หมวด) ไม่ใช่จาก URL อย่างเดียว
+function openCategory(id) {
+  categoryId = id;
+  show('category');
+}
+
 async function loadCategory() {
-  const id = new URLSearchParams(location.search).get('category') || '';
+  const id = categoryId || new URLSearchParams(location.search).get('category') || '';
   const { jobs, category } = await api('/jobs?category=' + encodeURIComponent(id));
   $('c-title').textContent = category ? category.icon + ' ' + category.label : 'งานในหมวด';
   const total = jobs.reduce((s, j) => s + (Number(j.total) || 0), 0);

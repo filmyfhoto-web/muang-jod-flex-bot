@@ -169,15 +169,15 @@ test('slip card: shows the fields the mockup names, and the job actions', () => 
     customer_name: 'ร้านข้าวกะเพรา',
     job_date: '2026-09-07',
     total: 50,
-    category: 'food',
-    category_type: 'food',
+    category: 'other',
+    category_type: null,
     items: [],
   };
   const json = JSON.stringify(slipReceiptFlex(job));
   assert.ok(json.includes('บันทึกจากหลักฐานสำเร็จ'));
   assert.ok(json.includes('ร้านข้าวกะเพรา'));
   assert.ok(json.includes('ยอดชำระ'));
-  assert.ok(json.includes('อาหาร'));
+  assert.ok(json.includes('งานทั่วไป'));
   assert.ok(json.includes('สลิป / ใบเสร็จ'));
   assert.ok(json.includes('action=edit_job&jobId=job-1'));
   assert.ok(json.includes('action=delete_job&jobId=job-1'));
