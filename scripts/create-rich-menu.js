@@ -58,7 +58,9 @@ const BUTTONS = [
 
   { label: 'งานค้าง', data: 'action=pending_payment', page: 'pending',
     bounds: { x: COL1_X - GAP_X / 2, y: ROW2_Y - GAP_Y / 2, width: COL_W + GAP_X, height: ROW_H + GAP_Y } },
-  { label: 'หมวดงาน', data: 'action=pick_category',
+  // เปิดหน้าหมวดงานในแอปตรง ๆ เดิมกดแล้วบอตตอบการ์ดรายชื่อหมวดมาให้กดอีกที
+  // ซึ่งคือหน้าคั่นที่ร้านบอกว่า "กดไปแล้วเจอเลยไม่ได้เหรอ"
+  { label: 'หมวดงาน', data: 'action=pick_category', page: 'category',
     bounds: { x: COL2_X - GAP_X / 2, y: ROW2_Y - GAP_Y / 2, width: LAYOUT.width - COL2_X + GAP_X / 2, height: ROW_H + GAP_Y } },
 
   { label: 'ออกใบเสร็จ', data: 'action=create_bill',

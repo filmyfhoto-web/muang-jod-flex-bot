@@ -32,15 +32,15 @@ function iconAction(emoji, { data, displayText, bg = COLORS.tint, color = COLORS
   return {
     type: 'box',
     layout: 'vertical',
-    width: '30px',
-    height: '30px',
+    width: '26px',
+    height: '26px',
     cornerRadius: 'md',
     backgroundColor: bg,
     justifyContent: 'center',
     alignItems: 'center',
     flex: 0,
     action: { type: 'postback', label: displayText, data, displayText },
-    contents: [{ type: 'text', text: emoji, size: 'sm', align: 'center', color }],
+    contents: [{ type: 'text', text: emoji, size: 'xs', align: 'center', color }],
   };
 }
 
@@ -61,12 +61,12 @@ function itemLine(it, index) {
         layout: 'horizontal',
         spacing: 'sm',
         contents: [
-          { type: 'text', text: `${index + 1}.`, size: 'sm', color: COLORS.grey, flex: 0 },
-          { type: 'text', text: it.item_name || 'รายการ', size: 'sm', color: COLORS.ink, wrap: true, flex: 6 },
+          { type: 'text', text: `${index + 1}.`, size: 'xs', color: COLORS.grey, flex: 0 },
+          { type: 'text', text: it.item_name || 'รายการ', size: 'xs', color: COLORS.ink, wrap: true, flex: 6 },
           {
             type: 'text',
             text: formatBaht(Number(it.total) || 0),
-            size: 'sm',
+            size: 'xs',
             weight: 'bold',
             color: COLORS.ink,
             align: 'end',
@@ -94,7 +94,7 @@ export function buildJobBubble(job) {
   });
 
   if (!itemRows.length) {
-    itemRows.push({ type: 'text', text: 'ไม่มีรายการสินค้า', size: 'md', color: COLORS.grey });
+    itemRows.push({ type: 'text', text: 'ไม่มีรายการสินค้า', size: 'sm', color: COLORS.grey });
   }
 
   // ✏️ and ✕ sit beside the job's name, not in a footer — the reference card
@@ -125,7 +125,7 @@ export function buildJobBubble(job) {
           type: 'text',
           text: job.job_name || categoryLabel(job),
           weight: 'bold',
-          size: 'md',
+          size: 'sm',
           color: COLORS.title,
           flex: 5,
           wrap: true,
@@ -142,7 +142,7 @@ export function buildJobBubble(job) {
         {
           type: 'text',
           text: joinMeta(formatThaiDate(job.job_date), job.job_number),
-          size: 'xs',
+          size: 'xxs',
           color: COLORS.grey,
           flex: 5,
           wrap: true,
@@ -151,26 +151,27 @@ export function buildJobBubble(job) {
       ],
     },
     ...(job.customer_name
-      ? [{ type: 'text', text: `ลูกค้า: ${job.customer_name}`, size: 'xs', color: COLORS.sub, wrap: true }]
+      ? [{ type: 'text', text: `ลูกค้า: ${job.customer_name}`, size: 'xxs', color: COLORS.sub, wrap: true }]
       : []),
-    ...(dueLine(job.due_date, { size: 'sm' }) ? [dueLine(job.due_date, { size: 'sm' })] : []),
+    ...(dueLine(job.due_date, { size: 'xs' }) ? [dueLine(job.due_date, { size: 'xs' })] : []),
     divider(),
     { type: 'box', layout: 'vertical', spacing: 'sm', contents: itemRows },
     divider(),
-    moneyRow('ยอดรวม', Number(job.total) || 0, { color: COLORS.accentText, big: true }),
+    // คำว่า "ยอดรวม" ไม่ต้องใหญ่ตามตัวเลข ป้ายชื่อขนาด md ดันความกว้างของการ์ด
+    moneyRow('ยอดรวม', Number(job.total) || 0, { color: COLORS.accentText, big: true, size: 'sm' }),
   ];
 
   // Show payment progress when partially paid.
   if (Number(job.paid_amount) > 0 && job.payment_status !== 'paid') {
-    bodyContents.push(moneyRow('รับแล้ว', Number(job.paid_amount) || 0, { color: COLORS.green, size: 'md' }));
-    bodyContents.push(moneyRow('คงเหลือ', Number(job.balance_due) || 0, { color: COLORS.red, size: 'md' }));
+    bodyContents.push(moneyRow('รับแล้ว', Number(job.paid_amount) || 0, { color: COLORS.green, size: 'sm' }));
+    bodyContents.push(moneyRow('คงเหลือ', Number(job.balance_due) || 0, { color: COLORS.red, size: 'sm' }));
   }
 
   if (job.note) {
     bodyContents.push({
       type: 'text',
       text: `📝 ${job.note}`,
-      size: 'sm',
+      size: 'xs',
       color: COLORS.grey,
       wrap: true,
     });
@@ -178,7 +179,7 @@ export function buildJobBubble(job) {
 
   const bubble = {
     type: 'bubble',
-    size: 'mega',
+    size: 'kilo',
     body: { type: 'box', layout: 'vertical', spacing: 'md', contents: bodyContents },
   };
 
@@ -216,7 +217,7 @@ export function jobPreviewMessage(draftJob, altText = 'ตรวจสอบก�
   bubble.header = {
     type: 'box',
     layout: 'vertical',
-    contents: [{ type: 'text', text: '📋 ตรวจสอบก่อนบันทึก', weight: 'bold', size: 'md', color: COLORS.accentText }],
+    contents: [{ type: 'text', text: '📋 ตรวจสอบก่อนบันทึก', weight: 'bold', size: 'sm', color: COLORS.accentText }],
   };
   // Saving is the one thing this card is for; แก้ไข and ยกเลิก are the ways
   // out, and nothing is in the database yet, so they cost nothing to offer
