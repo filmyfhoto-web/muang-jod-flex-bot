@@ -57,10 +57,12 @@ test('menu buttons that only open a page go straight there', () => {
   assert.match(by('ตั้งค่า').uri, /\?tab=settings$/);
   assert.match(by('งานค้าง').uri, /\?tab=pending$/);
   assert.match(by('รายการล่าสุด\/แก้ไข').uri, /\?tab=today$/);
+  // หมวดงานเคยตอบการ์ดรายชื่อหมวดมาให้กดอีกที — หน้าคั่นที่ร้านไม่เอา
+  assert.match(by('หมวดงาน').uri, /\?tab=category$/);
 
-  // These start a conversation — wait for a photo, pick a customer, choose a
-  // category — so there is no page for a link to open.
-  for (const label of ['บันทึก/แนบสลิป', 'หมวดงาน', 'ออกใบเสร็จ', 'ช่วยเหลือ']) {
+  // These start a conversation — wait for a photo, pick a customer, attach a
+  // slip — so there is no page for a link to open.
+  for (const label of ['บันทึก/แนบสลิป', 'ออกใบเสร็จ', 'ช่วยเหลือ']) {
     assert.equal(by(label).type, 'postback', `${label} has no page to open`);
   }
 

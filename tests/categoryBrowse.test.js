@@ -72,3 +72,35 @@ test('the page has somewhere to put them, and says whose they are', () => {
   assert.match(dashboard, /function shortThaiDate/);
   assert.match(dashboard, /opts\.showDate \? shortThaiDate\(job\.job_date\)/);
 });
+
+// ร้านบอกว่า "ตรงเข้าหน้าหมวดงาน ทำไมต้องมีหน้าให้กดเข้าไปอีก มันกดไปแล้วเจอเลย
+// ไม่ได้เหรอ ถ้าเรียงหมวดงานเป็น 2 แถวได้ไหม ไม่ต้องยาวลงมา" — ปุ่มบนริชเมนูเคย
+// ให้บอตตอบการ์ดรายชื่อหมวดมาในแชต แล้วต้องกดในการ์ดอีกทีถึงจะเปิดหน้าได้
+
+test('the menu button opens the category page itself, not a card about it', () => {
+  const menu = readFileSync(new URL('../scripts/create-rich-menu.js', import.meta.url), 'utf8');
+  const button = menu.slice(menu.indexOf("label: 'หมวดงาน'"), menu.indexOf("label: 'ออกใบเสร็จ'"));
+  assert.match(button, /page: 'category'/, 'หมวดงาน ยังเป็น postback ที่ต้องรอบอตตอบกลับ');
+});
+
+test('the category page opens on the categories themselves, two to a row', () => {
+  assert.ok(dashboard.includes('id="c-grid"'), 'no grid to put the categories in');
+  assert.match(dashboard, /\.cat-grid \{[^}]*grid-template-columns: 1fr 1fr/, 'หมวดงานยังเรียงลงมาแถวเดียว');
+
+  // ไม่มีหมวดใน URL = โชว์หมวดทั้งหมดให้กดเลย ไม่ใช่หน้าว่าง ๆ หรือหน้าที่ error
+  const load = dashboard.slice(dashboard.indexOf('async function loadCategory'), dashboard.indexOf('const LOADERS'));
+  assert.match(load, /if \(!id\) return renderCategoryGrid\(\)/, 'ไม่ได้เลือกหมวดแล้วไม่มีอะไรให้กด');
+  assert.match(load, /\$\('c-grid'\)\.hidden = true/, 'the grid stays up over the jobs');
+
+  // ไทล์มาจาก /api/config เหมือนช่องเลือกหมวดในฟอร์ม ไม่ใช่รายชื่อที่พิมพ์ซ้ำไว้
+  const grid = dashboard.slice(dashboard.indexOf('function renderCategoryGrid'), dashboard.indexOf('function openCategory'));
+  assert.match(grid, /for \(const g of groups\)/, 'the tiles are a second, hand-written list');
+  assert.match(grid, /openCategory\(g\.id\)/, 'a tile does not open its category');
+  assert.match(grid, /ยังโหลดหมวดงานไม่สำเร็จ/, 'โหลดหมวดไม่ขึ้นแล้วหน้าว่างเปล่าเฉย ๆ');
+});
+
+test('a category opened from the grid can get back to it', () => {
+  // ไม่งั้นต้องออกไปตั้งต้นที่ริชเมนูใหม่ทุกครั้งที่อยากดูอีกหมวด
+  assert.match(dashboard, /\$\('c-title'\)\.onclick/, 'the heading is not the way back');
+  assert.match(dashboard, /'‹ ' \+ \(category/, 'ไม่มีอะไรบอกว่าหัวข้อกดถอยกลับได้');
+});

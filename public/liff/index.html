@@ -89,6 +89,17 @@
   .legend .tappable:active { background: var(--tint); }
   .tappable:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+  /* หมวดงานสองช่องต่อแถว */
+  .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  .cat-grid button {
+    display: flex; align-items: center; gap: 9px; text-align: left;
+    border: 1.5px solid var(--line); background: var(--tint); border-radius: 14px;
+    padding: 11px 10px; font: inherit; color: var(--ink); cursor: pointer;
+  }
+  .cat-grid button:active { background: var(--accent-soft, #dce7fb); transform: scale(.985); }
+  .cat-grid .ic { width: 30px; height: 30px; border-radius: 10px; background: var(--surface); display: grid; place-items: center; font-size: 16px; flex: none; }
+  .cat-grid .nm { font-size: 13px; font-weight: 700; line-height: 1.25; min-width: 0; }
+
   /* บรรทัดสรุปใต้หัวการ์ด (เช่น "6 งานในคิว · นัดรับแล้ว 4 งาน") */
   .sub-line { font-size: 12px; color: var(--grey); margin: -6px 0 8px; }
   .sub-line:empty { display: none; }
@@ -249,6 +260,9 @@
   <section id="v-category" hidden>
     <div class="card">
       <h2><span id="c-title">งานในหมวด</span> <span class="date" id="c-sum"></span></h2>
+      <!-- หมวดงานเรียงสองช่องต่อแถว ไม่ใช่ลิสต์ยาวลงมา — แปดหมวดเรียงลงมา
+           ต้องเลื่อนหาทั้งที่ทั้งหมดควรเห็นได้ในหน้าจอเดียว -->
+      <div class="cat-grid" id="c-grid" hidden></div>
       <div id="c-list"></div>
     </div>
   </section>
@@ -727,16 +741,52 @@ $('sh-save').onclick = async () => {
 
 // งานทั้งหมดในหมวดเดียว — "มีใครสั่งอะไรไปบ้าง" ของงานประเภทนั้น
 // ชื่อหมวดมาจากเซิร์ฟเวอร์ ไม่ใช่จาก URL เพราะ URL เป็นของที่ใครก็พิมพ์เองได้
+// หมวดทั้งหมด สองช่องต่อแถว แตะแล้วเห็นงานในหมวดนั้นทันที
+function renderCategoryGrid() {
+  $('c-title').textContent = '📂 หมวดงาน';
+  $('c-sum').textContent = 'แตะหมวดเพื่อดูงานทั้งหมด';
+  $('c-list').textContent = '';
+  const grid = $('c-grid');
+  grid.hidden = false;
+  grid.textContent = '';
+  for (const g of groups) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.innerHTML = '<span class="ic"></span><span class="nm"></span>';
+    b.querySelector('.ic').textContent = g.icon || '📦';
+    b.querySelector('.nm').textContent = g.label;
+    b.onclick = () => openCategory(g.id);
+    grid.appendChild(b);
+  }
+  if (!groups.length) $('c-list').innerHTML = '<div class="empty">ยังโหลดหมวดงานไม่สำเร็จค่ะ</div>';
+}
+
 // เปิดหน้าหมวดจากในแอป (แตะชิ้นส่วนวงกลมหรือไทล์หมวด) ไม่ใช่จาก URL อย่างเดียว
 function openCategory(id) {
   categoryId = id;
   show('category');
 }
 
+// แตะหัวข้อของหมวดหนึ่ง = ถอยกลับไปดูหมวดทั้งหมด ไม่ต้องออกไปตั้งต้นที่ริชเมนู
+$('c-title').onclick = () => {
+  if (!categoryId && !new URLSearchParams(location.search).get('category')) return;
+  categoryId = '';
+  history.replaceState(null, '', location.pathname + '?tab=category');
+  show('category');
+};
+$('c-title').style.cursor = 'pointer';
+
 async function loadCategory() {
   const id = categoryId || new URLSearchParams(location.search).get('category') || '';
+
+  // ยังไม่ได้เลือกหมวด — โชว์หมวดทั้งหมดให้กดเลยในหน้านี้ ไม่ต้องมีการ์ดในแชต
+  // มาคั่นอีกชั้น ซึ่งคือ "หน้าให้กดเข้าไปอีก" ที่ร้านบอกว่าไม่เอา
+  if (!id) return renderCategoryGrid();
+
+  $('c-grid').hidden = true;
   const { jobs, category } = await api('/jobs?category=' + encodeURIComponent(id));
-  $('c-title').textContent = category ? category.icon + ' ' + category.label : 'งานในหมวด';
+  // ‹ นำหน้าชื่อหมวด เพื่อให้เห็นว่าแตะหัวข้อแล้วถอยกลับไปหน้าหมวดได้
+  $('c-title').textContent = '‹ ' + (category ? category.icon + ' ' + category.label : 'งานในหมวด');
   const total = jobs.reduce((s, j) => s + (Number(j.total) || 0), 0);
   const due = jobs.reduce((s, j) => s + (Number(j.balance_due) || 0), 0);
   $('c-sum').textContent = jobs.length

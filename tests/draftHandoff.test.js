@@ -64,3 +64,29 @@ test('saving from the form ends the draft sitting in the chat', () => {
   assert.match(js, /fetch\('\/api\/draft', \{ method: 'DELETE'/);
   assert.match(js, /params\.get\('draft'\) === '1'/);
 });
+
+// ร้านบอกว่า "ทำให้แคบลงได้มั้ย" พร้อมรูปการ์ดที่กินความกว้างจอเกือบหมด — mega
+// คือบับเบิลกว้างสุดที่ใช้กันทั่วไป ส่วน kilo แคบกว่า และตัวหนังสือลดลงหนึ่งขั้น
+// ทั้งใบ ไม่ใช่แค่บางบรรทัด ไม่งั้นการ์ดแคบลงแต่ตัวอักษรเท่าเดิมจะยิ่งตัดคำถี่ขึ้น
+
+const SIZES = ['xxs', 'xs', 'sm', 'md', 'lg', 'xl', 'xxl'];
+
+function textSizes(node, out = []) {
+  if (Array.isArray(node)) { for (const n of node) textSizes(n, out); return out; }
+  if (!node || typeof node !== 'object') return out;
+  if (node.type === 'text' && typeof node.size === 'string') out.push(node.size);
+  for (const key of ['contents', 'header', 'body', 'footer']) textSizes(node[key], out);
+  return out;
+}
+
+test('the card in the chat is narrow, and reads at that width', () => {
+  const bubble = jobPreviewMessage(DRAFT, 'x', { editDraftUrl: null }).contents;
+  assert.equal(bubble.size, 'kilo', 'the card is back to the full-width mega bubble');
+
+  // ไม่มีตัวหนังสือใหญ่กว่า sm เหลืออยู่ นอกจากยอดรวมที่ต้องอ่านออกจากระยะไกล
+  const big = textSizes(bubble).filter((s) => SIZES.indexOf(s) > SIZES.indexOf('sm'));
+  assert.equal(big.length, 1, 'ตัวหนังสือยังใหญ่อยู่หลายที่: ' + big.join(', '));
+
+  // หัวการ์ดก็ต้องลดตาม ไม่ใช่ยังคุมความกว้างขั้นต่ำของบับเบิลไว้เอง
+  assert.equal(bubble.header.contents[0].size, 'sm');
+});
