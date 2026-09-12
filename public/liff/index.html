@@ -94,6 +94,22 @@
   .sub-line:empty { display: none; }
   /* เลขคิวแทนไอคอนหมวด ในคิวงาน "ใบไหนก่อน" สำคัญกว่า "งานประเภทไหน" */
   .job .ic.qn { background: var(--accent); color: var(--white); font-size: 15px; font-weight: 700; }
+  .job .ic.qn.done { background: var(--green-bg); color: var(--green); }
+
+  /* คิวงานแบ่งเป็นสองกอง (ค้างรับ / รับเงินแล้ว) แล้วในแต่ละกองคั่นเป็นวัน ๆ */
+  .q-head {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+    margin: 14px 0 2px; font-size: 12.5px; font-weight: 700; color: var(--sub);
+  }
+  .q-head:first-child { margin-top: 0; }
+  .q-head .amt { font-weight: 600; color: var(--grey); }
+  .q-day {
+    margin: 9px 0 0; padding: 3px 9px; border-radius: 999px; display: inline-block;
+    font-size: 11px; font-weight: 700; background: var(--tint); color: var(--sub);
+  }
+  .q-day.late { background: var(--red-bg); color: var(--red); }
+  .q-day.today { background: var(--accent-soft, #dce7fb); color: var(--accent-text); }
+  .job .late { color: var(--red); font-weight: 700; }
 
   .job { display: flex; gap: 11px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
   .job:last-child { border-bottom: 0; }
@@ -494,19 +510,27 @@ function jobRow(job, opts = {}) {
   // ในคิวงาน ไอคอนหมวดถูกแทนด้วยเลขคิว เพราะ "ใบไหนก่อน" คือสิ่งที่ต้องรู้
   if (opts.queue) {
     const ic = el.querySelector('.ic');
-    ic.className = 'ic qn';
+    ic.className = 'ic qn' + (opts.done ? ' done' : '');
     ic.textContent = String(opts.n);
   } else {
     el.querySelector('.ic').textContent = iconOf(job);
   }
   el.querySelector('.txt b').textContent = job.job_name || 'งาน';
-  el.querySelector('.txt small').textContent = opts.queue
-    ? [job.customer_name || '', job.due_date ? '📅 นัดรับ ' + shortThaiDate(job.due_date) : 'ยังไม่ได้นัดวัน']
-        .filter(Boolean)
-        .join(' · ')
-    : [job.customer_name || '', opts.showDate ? shortThaiDate(job.job_date) : '', job.job_number || '']
-        .filter(Boolean)
-        .join(' · ');
+  const small = el.querySelector('.txt small');
+  if (opts.queue) {
+    // วันนัดรับอยู่บนหัวข้อวันแล้ว บรรทัดนี้จึงเหลือแค่ลูกค้า กับคำเตือนถ้าเลยกำหนด
+    small.textContent = job.customer_name || '';
+    if (job.due_date && opts.today && job.due_date < opts.today && !opts.done) {
+      const late = document.createElement('span');
+      late.className = 'late';
+      late.textContent = (small.textContent ? ' · ' : '') + 'เลยกำหนดแล้ว';
+      small.appendChild(late);
+    }
+  } else {
+    small.textContent = [job.customer_name || '', opts.showDate ? shortThaiDate(job.job_date) : '', job.job_number || '']
+      .filter(Boolean)
+      .join(' · ');
+  }
   el.querySelector('.amt b').textContent = baht(job.total);
   el.onclick = () => openEdit(job.id);
   return el;
@@ -572,11 +596,72 @@ async function loadQueue() {
   } catch (err) {
     jobs = me?.recent || [];
   }
-  const soon = jobs.filter((j) => j.due_date).length;
+  const owed = jobs.filter((j) => j.payment_status !== 'paid');
+  const paid = jobs.filter((j) => j.payment_status === 'paid');
   $('t-queue-sum').textContent = jobs.length
-    ? jobs.length + ' งานในคิว' + (soon ? ' · นัดรับแล้ว ' + soon + ' งาน' : '')
+    ? 'ค้างรับ ' + owed.length + ' งาน · รับแล้ว ' + paid.length + ' งาน'
     : '';
-  renderJobs($('t-recent'), jobs, 'ยังไม่มีงานในคิวค่ะ<br>พิมพ์รายการงานในแชตได้เลยนะคะ 💜', { queue: true });
+  renderQueue($('t-recent'), owed, paid);
+}
+
+// วันนัดรับกลายเป็นป้ายที่อ่านได้ทันที — "14 ก.ย." ต้องนับนิ้วเอาเองว่าอีกกี่วัน
+function dayLabel(iso, today) {
+  if (!iso) return { key: 'none', text: 'ยังไม่ได้นัดวัน', cls: '' };
+  if (iso < today) return { key: iso, text: 'เลยกำหนด · ' + shortThaiDate(iso), cls: 'late' };
+  if (iso === today) return { key: iso, text: 'วันนี้', cls: 'today' };
+  const t = new Date(today + 'T00:00:00+07:00');
+  t.setDate(t.getDate() + 1);
+  const tomorrow = t.toISOString().slice(0, 10);
+  if (iso === tomorrow) return { key: iso, text: 'พรุ่งนี้ · ' + shortThaiDate(iso), cls: 'today' };
+  return { key: iso, text: shortThaiDate(iso), cls: '' };
+}
+
+// คิวงานสองกอง: ค้างรับก่อน เพราะนั่นคืองานที่ยังต้องตามเก็บเงิน แล้วในแต่ละกอง
+// คั่นเป็นวัน ๆ ตามวันนัดรับ — ร้านขอ "แยกงานรับแล้วกับค้างงาน" และ "คิวงานตาม
+// ลำดับวัน" ซึ่งเป็นการแบ่งคนละชั้นกัน ไม่ใช่สองวิธีเรียงที่ต้องเลือกอย่างเดียว
+function renderQueue(el, owed, paid) {
+  el.textContent = '';
+  if (!owed.length && !paid.length) {
+    el.innerHTML = '<div class="empty">ยังไม่มีงานในคิวค่ะ<br>พิมพ์รายการงานในแชตได้เลยนะคะ 💜</div>';
+    return;
+  }
+  const today = (me && me.date) || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+
+  // เรียงซ้ำฝั่งหน้าเว็บด้วย ถึงเซิร์ฟเวอร์จะเรียงมาแล้ว — หัวข้อวันจะซ้ำทันที
+  // ถ้ารายการมาไม่เรียง และคอมโพเนนต์ที่ถูกต้องก็ต่อเมื่อคนอื่นทำงานถูกนั้นเปราะ
+  const byDue = (a, b) => {
+    const da = a.due_date || '', db = b.due_date || '';
+    if (da !== db) return !da ? 1 : !db ? -1 : da < db ? -1 : 1;
+    return String(a.created_at || a.job_date || '').localeCompare(String(b.created_at || b.job_date || ''));
+  };
+
+  const section = (title, list, opts) => {
+    if (!list.length) return;
+    const jobs = [...list].sort(byDue);
+    const head = document.createElement('div');
+    head.className = 'q-head';
+    const sum = jobs.reduce((t, j) => t + (Number(opts.done ? j.total : j.balance_due ?? j.total) || 0), 0);
+    head.innerHTML = '<span></span><span class="amt"></span>';
+    head.querySelector('span').textContent = title + ' · ' + jobs.length + ' งาน';
+    head.querySelector('.amt').textContent = thb(sum);
+    el.appendChild(head);
+
+    let day = null;
+    jobs.forEach((j, i) => {
+      const d = dayLabel(j.due_date, today);
+      if (d.key !== day) {
+        day = d.key;
+        const tag = document.createElement('div');
+        tag.className = 'q-day ' + d.cls;
+        tag.textContent = d.text;
+        el.appendChild(tag);
+      }
+      el.appendChild(jobRow(j, { queue: true, n: i + 1, done: opts.done, today }));
+    });
+  };
+
+  section('💰 ค้างรับ', owed, { done: false });
+  section('✅ รับเงินแล้ว', paid, { done: true });
 }
 
 async function loadReport() {
