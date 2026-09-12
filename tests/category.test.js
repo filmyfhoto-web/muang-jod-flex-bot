@@ -54,9 +54,21 @@ test('classifies print items into งานพิมพ์ and its types', () =>
   assert.equal(classifyItem('ถ่ายเอกสาร').group.id, 'print');
 });
 
-test('classifies design, food and shipping', () => {
+test('รูปกับกรอบอยู่หมวดเดียวกัน และไม่ได้อยู่ใต้งานพิมพ์', () => {
+  // ร้านบอกว่า "งานกรอบรูปไม่ได้อยู่ในงานพิมพ์ แยกให้หน่อยค่ะ งานรูปกับกรอบอยู่ด้วยกัน"
+  assert.equal(classifyItem('กรอบรูป 8x10').group.id, 'photo');
+  assert.equal(classifyItem('รูปหน้างานพร้อมกรอบ').type.id, 'frame');
+  assert.equal(classifyItem('อัดรูป 4x6').group.id, 'photo');
+  // "ปริ้นรูป" เคยตกไปลงงานพิมพ์เพราะเจอคำว่า "ปริ้น" ก่อน
+  assert.equal(classifyItem('ปริ้นรูป 5 ใบ').type.id, 'photo');
+  assert.equal(classifyItem('ปริ้นงาน A4').group.id, 'print', 'งานพิมพ์ธรรมดาต้องไม่ถูกดึงไปเป็นงานรูป');
+});
+
+test('classifies design and shipping; food is gone', () => {
   assert.equal(classifyItem('ค่าออกแบบโลโก้').group.id, 'design');
-  assert.equal(classifyItem('กาแฟ').group.id, 'food');
+  // ร้านบอกว่า "เอาอาหารเครื่องดื่มออก" — ไม่ใช่ของที่ร้านขาย
+  assert.equal(classifyItem('กาแฟเย็น'), null);
+  assert.equal(findGroup('food'), null);
   assert.equal(classifyItem('ค่าจัดส่ง').group.id, 'shipping');
   assert.equal(classifyItem('ของแปลก'), null);
   assert.equal(classifyItem(''), null);
