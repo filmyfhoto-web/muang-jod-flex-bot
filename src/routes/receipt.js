@@ -70,6 +70,20 @@ const RECEIPT_IMAGE_JS = String.raw`
     return out;
   }
 
+  // ข้อความที่มีบรรทัดเดียวให้ใส่ ตัดแล้วบอกว่าตัด ไม่ใช่หายไปเฉย ๆ
+  //
+  // ของเดิมใช้ wrap(...).slice(0, n) ซึ่งแปลว่าชื่อรายการยาว ๆ โดนตัดกลางคำแล้ว
+  // เงียบ อ่านแล้วนึกว่าร้านพิมพ์มาแค่นั้น
+  function clip(ctx, text, maxWidth, maxLines) {
+    var lines = wrap(ctx, text, maxWidth);
+    if (lines.length <= maxLines) return lines;
+    var kept = lines.slice(0, maxLines);
+    var last = kept[maxLines - 1];
+    while (last.length > 1 && ctx.measureText(last + '…').width > maxWidth) last = last.slice(0, -1);
+    kept[maxLines - 1] = last + '…';
+    return kept;
+  }
+
   function roundRect(ctx, x, y, w, h, r, fill) {
     ctx.beginPath();
     ctx.moveTo(x + r, y);
@@ -166,7 +180,7 @@ const RECEIPT_IMAGE_JS = String.raw`
       font(ctx, '400', 16);
       ctx.fillStyle = C.grey;
       data.shop.lines.forEach(function (line, i) {
-        wrap(ctx, line, CW).slice(0, 1).forEach(function (l) { ctx.fillText(l, INNER, y + 15 + i * 22); });
+        clip(ctx, line, CW, 1).forEach(function (l) { ctx.fillText(l, INNER, y + 15 + i * 22); });
       });
       y += data.shop.lines.length * 22 + 6;
     }
@@ -184,7 +198,7 @@ const RECEIPT_IMAGE_JS = String.raw`
       ctx.fillText(pair[0], x, y + 29);
       font(ctx, '400', 17);
       ctx.fillStyle = C.ink;
-      wrap(ctx, pair[1], colW - 24).slice(0, 2).forEach(function (line, k) {
+      clip(ctx, pair[1], colW - 24, 2).forEach(function (line, k) {
         ctx.fillText(line, x, y + 54 + k * 23);
       });
     });
@@ -225,7 +239,7 @@ const RECEIPT_IMAGE_JS = String.raw`
           var amount = showAmounts && it.amount ? it.amount : '';
           font(ctx, '400', 17);
           ctx.fillStyle = C.sub;
-          wrap(ctx, '• ' + it.text, CW - 34 - (amount ? 130 : 8)).slice(0, 1).forEach(function (line) {
+          clip(ctx, '• ' + it.text, CW - 34 - (amount ? 130 : 8), 1).forEach(function (line) {
             ctx.fillText(line, INNER + 34, ly);
           });
           if (amount) {
@@ -290,7 +304,7 @@ const RECEIPT_IMAGE_JS = String.raw`
       y += 26;
       font(ctx, '400', 15);
       ctx.fillStyle = C.grey;
-      wrap(ctx, data.shop.footer, CW).slice(0, 1).forEach(function (l) { ctx.fillText(l, W / 2, y); });
+      clip(ctx, data.shop.footer, CW, 1).forEach(function (l) { ctx.fillText(l, W / 2, y); });
     }
     ctx.textAlign = 'left';
 
@@ -333,11 +347,24 @@ const RECEIPT_IMAGE_JS = String.raw`
 
   // แตะรูปเพื่อสลับ "พอดีจอ" กับ "ขนาดจริง" — ย่อให้พอดีจอกว้าง 360 จุด ตัวเลข
   // เหลือครึ่งเดียวของที่วาดไว้ ซึ่งร้านบอกว่ามองไม่เห็น กดแล้วเลื่อนดูได้
+  //
+  // ขยายแล้วเลื่อนไปทางขวาสุด ไม่ใช่กึ่งกลาง — ที่ร้านกดขยายเพราะอยากอ่านตัวเลข
+  // และตัวเลขอยู่ชิดขวาทั้งหมด กึ่งกลางคือช่องว่างระหว่างชื่อของกับราคา
   frame.onclick = function () {
     if (!img.src) return;
     var zoomed = frame.classList.toggle('zoom');
-    if (zoomed) frame.scrollLeft = (frame.scrollWidth - frame.clientWidth) / 2;
+    if (zoomed) frame.scrollLeft = frame.scrollWidth - frame.clientWidth;
   };
+
+  // กรอบสูงเท่าสัดส่วนของรูปจริง เพื่อให้ object-fit:contain มีที่พอดีใบ ไม่มี
+  // ขอบว่างบนล่าง และที่สำคัญคือไม่มีวันตัดขอบขวาทิ้งไม่ว่ากรอบจะกว้างเท่าไหร่
+  function fitFrame() {
+    if (!img.naturalWidth || !img.naturalHeight) return;
+    // ตั้งเป็นตัวแปร ไม่ใช่ style ตรง ๆ ไม่งั้นตอนกดขยาย inline style จะชนะ
+    // กฎ .zoom แล้วกรอบจะยังสูงเท่าเดิมทั้งที่รูปกว้างขึ้นเป็นสองเท่า
+    frame.style.setProperty('--ar', img.naturalWidth + ' / ' + img.naturalHeight);
+  }
+  img.addEventListener('load', fitFrame);
 
   // เบราว์เซอร์ในแอป LINE ไม่ยอมให้ดาวน์โหลดจาก data: URL — มันอ่านว่ากำลังจะ
   // เปิดแอปข้างนอก แล้วเด้งถามว่า "อนุญาต / ไม่อนุญาต" ซึ่งกดยังไงก็ไม่ได้ไฟล์
@@ -582,20 +609,31 @@ export function renderReceiptHtml(bill, shop = {}, opts = {}) {
 
      ของเดิมจับรูปยัดให้พอดีจอด้วย max-height:70vh ซึ่งบนมือถือแปลว่ารูปกว้าง
      1440 จุดถูกย่อเหลือ ~354 จุด ตัวหนังสือเลยเล็กจนอ่านไม่ออก ตอนนี้ให้รูป
-     เต็มความกว้าง แล้วเลื่อนดูส่วนที่เกินจอแทน — ยาวไม่ใช่ปัญหา เล็กสิเป็น */
-  .shot{position:fixed;inset:0;background:rgba(31,41,55,.97);z-index:9;overflow-y:auto;
-        -webkit-overflow-scrolling:touch;display:flex;flex-direction:column;align-items:center;
-        padding:14px 14px 0}
-  .shot .frame{width:100%;max-width:560px;overflow-x:auto;border-radius:12px;
+     เต็มความกว้าง แล้วเลื่อนดูส่วนที่เกินจอแทน — ยาวไม่ใช่ปัญหา เล็กสิเป็น
+
+     ร้านส่งรูปมาให้ดูว่าเลขทางขวา (฿5,030 / ฿4,931.43 / คงเหลือ) ถูกตัดหายไป
+     ทั้งที่กรอบกว้างถูกต้อง — ของเดิมวางกรอบเป็นลูกของ flex แล้วให้ความกว้าง
+     เป็นเปอร์เซ็นต์ พร้อม overflow-x:auto และรูปที่ไม่มี max-width เลย ถ้า
+     เบราว์เซอร์คิดความกว้างของกรอบพลาดไปแม้นิดเดียว รูปจะกว้างเกินกรอบแล้วถูก
+     ตัดทิ้งเงียบ ๆ ตรงขอบขวา ซึ่งคือฝั่งที่ตัวเลขอยู่พอดี
+
+     ตอนนี้ไม่เดาความกว้างอีกแล้ว: กรอบเป็นบล็อกธรรมดาในกล่องที่จัดกึ่งกลาง และ
+     รูปใช้ object-fit:contain ในกรอบที่มีอัตราส่วนเท่ารูปจริง — ต่อให้กรอบกว้าง
+     ผิดไปเท่าไหร่ ทั้งใบก็ยังอยู่ในกรอบเสมอ อย่างแย่ที่สุดคือมีขอบว่าง ไม่ใช่เลขหาย */
+  .shot{position:fixed;inset:0;background:rgba(31,41,55,.97);z-index:9;overflow:auto;
+        overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:14px 14px 0}
+  .shot .wrap{max-width:560px;margin:0 auto}
+  .shot .frame{overflow:hidden;border-radius:12px;aspect-ratio:var(--ar,auto);
         box-shadow:0 8px 30px rgba(0,0,0,.35);background:#fff;line-height:0}
-  .shot .frame img{width:100%;height:auto;display:block}
+  .shot .frame img{width:100%;max-width:100%;height:100%;object-fit:contain;display:block}
   /* แตะรูป = ขยายเป็นสองเท่าแล้วเลื่อนซ้ายขวาดู สำหรับตอนอยากเห็นเลขชัด ๆ
      (ขนาดจริงคือ 4 เท่าของจอ ซึ่งใหญ่จนหาตัวเองไม่เจอ) */
-  .shot .frame.zoom img{width:200%;max-width:none}
+  .shot .frame.zoom{overflow-x:auto;aspect-ratio:auto}
+  .shot .frame.zoom img{width:200%;max-width:none;height:auto;object-fit:fill}
   .shot .frame{cursor:zoom-in}
   .shot .frame.zoom{cursor:zoom-out}
   .shot p{margin:0;color:#fff;font-size:13.5px;text-align:center}
-  .shot .bar{position:sticky;bottom:0;width:100%;max-width:560px;padding:12px 0 14px;
+  .shot .bar{position:sticky;bottom:0;padding:12px 0 14px;
         display:flex;flex-direction:column;gap:10px;align-items:center;
         background:linear-gradient(180deg,rgba(31,41,55,0),rgba(31,41,55,.94) 30%)}
   .shot .row{display:flex;gap:10px;width:100%}
@@ -605,7 +643,7 @@ export function renderReceiptHtml(bill, shop = {}, opts = {}) {
   .shot button{background:#fff;color:var(--ink)}
   /* ปุ่มแชร์คือทางหลัก ปุ่มดาวน์โหลดเป็นทางสำรองที่ซ่อนไว้จนกว่าจะได้ใช้ */
   .shot #shot-share{background:var(--purple);color:#fff}
-  .shot .badge{margin:10px 0 0;align-self:stretch;max-width:560px;background:#fff7ed;color:#b45309;
+  .shot .badge{margin:0 0 10px;background:#fff7ed;color:#b45309;
         border-radius:10px;padding:8px 12px;font-size:13px;font-weight:700;text-align:center}
   .shot [hidden]{display:none}
 
@@ -693,6 +731,7 @@ export function renderReceiptHtml(bill, shop = {}, opts = {}) {
   </div>
 
   <div class="shot" id="shot" hidden>
+    <div class="wrap">
     ${shopOnly ? '<p class="badge" id="shot-badge" hidden>🔒 ใบนี้มีราคายังไม่ปัด — เก็บไว้ดูเอง อย่าส่งให้ลูกค้านะคะ</p>' : ''}
     <div class="frame" id="shot-frame">
       <img id="shot-img" alt="ใบเสร็จ ${escapeHtml(bill.bill_number || '')}" />
@@ -704,6 +743,7 @@ export function renderReceiptHtml(bill, shop = {}, opts = {}) {
         <a id="shot-dl" hidden download="ใบเสร็จ-${escapeHtml(bill.bill_number || 'muangjod')}.png">⬇️ บันทึกลงเครื่อง</a>
         <button type="button" id="shot-close">ปิด</button>
       </div>
+    </div>
     </div>
   </div>
 
