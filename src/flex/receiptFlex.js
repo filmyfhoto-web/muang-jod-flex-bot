@@ -1,6 +1,6 @@
-import { formatBaht, numText } from '../utils/currency.js';
+import { formatBaht } from '../utils/currency.js';
 import { formatThaiDateTime } from '../utils/dates.js';
-import { jobCategory, categoryLabel, itemIcon } from '../utils/category.js';
+import { jobCategory, categoryLabel } from '../utils/category.js';
 import { COLORS } from './theme.js';
 import { divider } from './components/divider.js';
 import { brandAssetUrl, MASCOT } from '../utils/brand.js';
@@ -9,46 +9,32 @@ import { dueLine } from './components/dueLine.js';
 import { joinMeta } from './components/metaLine.js';
 
 // Receipt card styled after the brand mockup: white card, purple circle check,
-// soft-purple category strip (with optional mascot image), thumbnail-style
-// item rows, highlighted total, and "ดูรายงาน (วันนี้) ›" footer link.
+// soft-purple category strip (with optional mascot image), two-line item rows,
+// highlighted total, and "ดูรายงาน (วันนี้) ›" footer link.
 
-function qtyText(it) {
+// บรรทัดจาง ๆ ใต้ชื่อ: ขนาดงาน และจำนวนเมื่อมีมากกว่าชิ้นเดียว
+//
+// "1 ชิ้น" ไม่ได้บอกอะไรเลย มันคือค่าตั้งต้นของทุกรายการ แต่กินไปเต็ม ๆ หนึ่ง
+// บรรทัดต่อแถว
+function detailText(it) {
   const q = Number(it.quantity) || 1;
-  return `${q} ${it.unit || 'ชิ้น'}`;
-}
-
-// A rounded square "thumbnail" holding the category emoji.
-function thumb(emoji) {
-  return {
-    type: 'box',
-    layout: 'vertical',
-    width: '34px',
-    height: '34px',
-    cornerRadius: 'md',
-    backgroundColor: COLORS.tint,
-    justifyContent: 'center',
-    alignItems: 'center',
-    flex: 0,
-    contents: [{ type: 'text', text: emoji, size: 'sm', align: 'center' }],
-  };
+  return [it.size, q > 1 ? `${q} ${it.unit || 'ชิ้น'}` : null].filter(Boolean).join(' · ');
 }
 
 function itemRow(it) {
-  const name = [it.item_name, it.size].filter(Boolean).join(' ');
+  const detail = detailText(it);
   return {
     type: 'box',
     layout: 'horizontal',
-    spacing: 'md',
-    alignItems: 'center',
+    spacing: 'sm',
     contents: [
-      thumb(itemIcon(it.item_name)),
       {
         type: 'box',
         layout: 'vertical',
-        flex: 5,
+        flex: 7,
         contents: [
-          { type: 'text', text: name || 'รายการ', size: 'xs', weight: 'bold', color: COLORS.ink, wrap: true },
-          { type: 'text', text: qtyText(it), size: 'xxs', color: COLORS.grey },
+          { type: 'text', text: it.item_name || 'รายการ', size: 'xs', weight: 'bold', color: COLORS.ink, wrap: true },
+          ...(detail ? [{ type: 'text', text: detail, size: 'xxs', color: COLORS.grey, wrap: true }] : []),
         ],
       },
       {
@@ -97,8 +83,8 @@ export function receiptFlex(job, opts = {}) {
     layout: 'horizontal',
     spacing: 'md',
     alignItems: 'center',
-    paddingAll: 'lg',
-    paddingBottom: 'sm',
+    paddingAll: 'md',
+    paddingBottom: 'xs',
     contents: [
       {
         type: 'box',
@@ -171,14 +157,14 @@ export function receiptFlex(job, opts = {}) {
       layout: 'horizontal',
       backgroundColor: COLORS.tint,
       cornerRadius: 'lg',
-      paddingAll: 'md',
+      paddingAll: 'sm',
       alignItems: 'center',
       contents: metaContents,
     },
     {
       type: 'box',
       layout: 'vertical',
-      spacing: 'md',
+      spacing: 'xs',
       contents: items.length
         ? items.slice(0, 10).map(itemRow)
         : [{ type: 'text', text: 'ไม่มีรายการสินค้า', size: 'sm', color: COLORS.grey }],
@@ -189,7 +175,7 @@ export function receiptFlex(job, opts = {}) {
       layout: 'horizontal',
       backgroundColor: COLORS.tint,
       cornerRadius: 'lg',
-      paddingAll: 'md',
+      paddingAll: 'sm',
       alignItems: 'center',
       contents: [
         { type: 'text', text: 'รวมทั้งหมด', size: 'sm', weight: 'bold', color: COLORS.title, flex: 3 },
@@ -244,8 +230,8 @@ export function receiptFlex(job, opts = {}) {
     type: 'box',
     layout: 'vertical',
     spacing: 'sm',
-    paddingAll: 'lg',
-    paddingTop: 'sm',
+    paddingAll: 'md',
+    paddingTop: 'xs',
     contents: [
       // The two things a shop does the moment a job is down: take the next one
       // from the same customer, or hand them the bill. ➕ opens the form with
@@ -342,7 +328,7 @@ export function receiptFlex(job, opts = {}) {
       ? { hero: { type: 'image', url: heroUrl, size: 'full', aspectRatio: '20:5', aspectMode: 'cover' } }
       : {}),
     header,
-    body: { type: 'box', layout: 'vertical', spacing: 'md', paddingTop: 'sm', contents: bodyContents },
+    body: { type: 'box', layout: 'vertical', spacing: 'sm', paddingTop: 'xs', contents: bodyContents },
     footer,
     styles: { header: { backgroundColor: COLORS.surface }, body: { backgroundColor: COLORS.surface } },
   };
