@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { quickReplyBlock, defaultItems, QUICK_JOBS } from '../src/flex/quickReply.js';
+import { quickReplyBlock, defaultItems, QUICK_JOBS, QUICK_LINKS } from '../src/flex/quickReply.js';
 import { classifyJob, findType } from '../src/utils/category.js';
 
 const jot = readFileSync(new URL('../public/liff/jot/script.js', import.meta.url), 'utf8');
@@ -36,14 +36,20 @@ test('the bar is the jobs this shop does and nothing else', () => {
     '🏷 งานสติ๊กเกอร์',
     '📋 สติ๊กเกอร์บอร์ด',
     '🔖 ตรายาง',
+    // ร้านขอไว้ว่า "ตรงเมนูด่วนด้านหลังตรายาง เพิ่มหมวดงานให้หน่อย" — ท้ายสุด
+    // เพราะปุ่มอื่นคือ "จดงานชนิดนี้" ส่วนปุ่มนี้คือ "ขอดูงานที่จดไปแล้ว"
+    '📂 หมวดงาน',
   ]);
-  assert.equal(items.length, QUICK_JOBS.length, 'something else crept back onto the bar');
+  assert.equal(items.length, QUICK_JOBS.length + QUICK_LINKS.length, 'something else crept back onto the bar');
+  assert.ok(items.length <= 13, 'LINE รับได้ 13 ปุ่ม');
   for (const i of items) {
     assert.equal(i.action.type, 'uri', `${i.action.label} still goes through the bot`);
-    assert.match(i.action.uri, /\/jot\?quick=1&name=/);
     // LINE counts UTF-16 units, so an emoji costs two of the twenty.
     assert.ok(i.action.label.length <= 20, `label too long (${i.action.label.length}): ${i.action.label}`);
   }
+  // ปุ่มงานเปิดฟอร์มจด ปุ่มหมวดงานเปิดหน้าหมวดตรง ๆ ไม่ใช่ฟอร์มเปล่า
+  for (const i of items.slice(0, QUICK_JOBS.length)) assert.match(i.action.uri, /\/jot\?quick=1&name=/);
+  assert.match(items.at(-1).action.uri, /\?tab=category$/, 'หมวดงานไม่ได้เปิดหน้าหมวด');
 });
 
 test('every button on the bar opens a form that files the job in the right place', () => {
@@ -109,4 +115,38 @@ test('the receipt is reachable from the screen the shop finishes a job on', () =
   assert.match(dash, /\/receipt', \{ method: 'POST' \}/);
   // In LINE's own browser, which can save the image; window.open is blocked there.
   assert.match(dash, /liff\.openWindow\(\{ url/);
+});
+
+// ร้านถามว่า "ทำไมจดด่วนถึงไม่ขึ้นหน้าใหม่ ไปขึ้นหน้าเดิมทำไม" พร้อมรูปฟอร์มที่
+// เปิดมาแล้วมีงานเก่าค้างอยู่ครบหกรายการ
+
+test('opening the form gives a new page, not yesterday\'s job', () => {
+  // ของเดิม start() เรียก loadDraft() แล้วยัดร่างกลับเข้าฟอร์มเลย
+  assert.doesNotMatch(jot, /if \(!loadDraft\(\)\) state\.items = \[blankItem\(\)\]/, 'ยังเด้งร่างเก่าเข้าฟอร์มเอง');
+  assert.match(jot, /state\.items = \[blankItem\(\)\];/, 'ไม่ได้เริ่มที่ฟอร์มเปล่า');
+
+  // ของที่ค้างไว้ไม่ได้หาย แต่มารอเป็นปุ่มให้กดเอง
+  assert.match(jot, /function peekDraft\(\)/, 'ไม่มีทางดูร่างโดยไม่เอาเข้าฟอร์ม');
+  assert.match(jot, /function offerDraft\(saved\)/);
+  assert.match(jot, /มีงานที่ค้างไว้/);
+  assert.match(jot, /\$\('#resume-yes'\)\.onclick/, 'กู้คืนไม่ได้');
+  assert.match(jot, /\$\('#resume-no'\)\.onclick/, 'ทิ้งไม่ได้');
+
+  // ฟอร์มเปล่าที่เปิดแล้วปิดเฉย ๆ ไม่นับเป็นงานค้าง
+  assert.match(jot, /if \(!written && !String\(saved\.customer \|\| ''\)\.trim\(\)/);
+
+  // ?draft=1 กับ ?job= ไปดึงของจริงมาใส่อยู่แล้ว แถบกู้คืนไม่ต้องโผล่มาซ้อน
+  assert.match(jot, /params\.get\('draft'\) === '1' \|\| params\.get\('job'\) \? null : peekDraft\(\)/);
+
+  const html = readFileSync(new URL('../public/liff/jot/index.html', import.meta.url), 'utf8');
+  assert.ok(html.includes('id="resume"') && html.includes('id="resume-yes"'), 'ไม่มีแถบกู้คืนในหน้า');
+});
+
+test('editing a saved job never leaks into the quick-jot draft', () => {
+  // นี่คือต้นเหตุที่ร้านเจอ: เปิดงานที่บันทึกแล้วมาแก้ (?job=…) พอแตะช่องไหนก็ตาม
+  // paint() เรียก saveDraft() งานเก่าจึงถูกเขียนลงร่าง แล้วครั้งต่อไปที่กดจดด่วน
+  // มันเด้งกลับขึ้นมาทั้งใบ
+  const fn = jot.slice(jot.indexOf('function saveDraft()'), jot.indexOf('function peekDraft()'));
+  assert.match(fn, /if \(editingJobId\) return;/, 'แก้งานเก่าแล้วยังเขียนทับร่างอยู่');
+  assert.match(fn, /savedAt: Date\.now\(\)/, 'ร่างไม่รู้ว่าค้างไว้ตั้งแต่เมื่อไหร่');
 });

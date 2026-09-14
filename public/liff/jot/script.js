@@ -153,12 +153,19 @@ function paintMine(listed, charged) {
 /* ------------------------------------------------------------------ ร่าง */
 
 function saveDraft() {
+  // กำลังแก้งานที่บันทึกไปแล้ว (?job=…) ห้ามเขียนลงร่างเด็ดขาด
+  //
+  // ตอนเปิดงานเก่ามาแก้ โค้ดตั้งใจไม่เก็บลงร่างอยู่แล้ว แต่พอแตะช่องไหนก็ตาม
+  // paint() กับ oninput ของหัวฟอร์มเรียก saveDraft() ทุกครั้ง งานที่บันทึกไป
+  // แล้วจึงถูกเขียนทับร่างเงียบ ๆ แล้วครั้งต่อไปที่กด "จดด่วน" มันก็เด้งงานเก่า
+  // กลับขึ้นมาทั้งใบ ซึ่งคือสิ่งที่ร้านเจอ
+  if (editingJobId) return;
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(state));
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...state, savedAt: Date.now() }));
   } catch {
     // เต็มหรือถูกปิดไว้ — ลองใหม่โดยไม่เอารูปไปด้วย รูปเป็นของที่ใหญ่ที่สุด
     try {
-      const light = { ...state, items: state.items.map((it) => ({ ...it, image: null })) };
+      const light = { ...state, savedAt: Date.now(), items: state.items.map((it) => ({ ...it, image: null })) };
       localStorage.setItem(DRAFT_KEY, JSON.stringify(light));
     } catch {
       /* เก็บไม่ได้ก็ไม่เป็นไร ฟอร์มยังใช้ได้ปกติ */
@@ -166,16 +173,27 @@ function saveDraft() {
   }
 }
 
-function loadDraft() {
+// อ่านร่างที่ค้างไว้โดยยังไม่เอาเข้าฟอร์ม
+//
+// คืน null เมื่อไม่มีอะไรให้กู้จริง ๆ — ร่างที่เป็นฟอร์มเปล่า (เปิดแล้วปิดเฉย ๆ)
+// ไม่นับ ไม่งั้นจะมีแถบ "มีงานค้างไว้" โผล่มาทั้งที่ไม่มีอะไรค้าง
+function peekDraft() {
   try {
     const saved = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null');
-    if (!saved || !Array.isArray(saved.items) || !saved.items.length) return false;
-    Object.assign(state, saved);
-    state.items = saved.items.map((it) => ({ ...blankItem(), ...it }));
-    return true;
+    if (!saved || !Array.isArray(saved.items) || !saved.items.length) return null;
+    const written = saved.items.some((it) => String(it.name || '').trim() || num(it.total) || num(it.price));
+    if (!written && !String(saved.customer || '').trim() && !String(saved.note || '').trim()) return null;
+    return saved;
   } catch {
-    return false;
+    return null;
   }
+}
+
+function loadDraft(saved) {
+  if (!saved) return false;
+  Object.assign(state, saved);
+  state.items = saved.items.map((it) => ({ ...blankItem(), ...it }));
+  return true;
 }
 
 /* ------------------------------------------------------------------- รูป */
@@ -787,8 +805,50 @@ if (params.get('theme') === 'night') {
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#0b1524');
 }
 
+/* เปิดฟอร์มมาเจอหน้าใหม่เสมอ ไม่ใช่ของเมื่อวาน
+ *
+ * ร้านถามว่า "ทำไมจดด่วนถึงไม่ขึ้นหน้าใหม่ ไปขึ้นหน้าเดิมทำไม" — ของเดิมเอาร่าง
+ * ที่ค้างในเครื่องกลับขึ้นมาให้ทันทีทุกครั้งที่เปิด กด "จดด่วน" ตั้งใจจะจดงานใหม่
+ * แต่ได้งานเก่ามาทั้งใบ แล้วต้องมานั่งลบทีละรายการก่อน
+ *
+ * แต่จะทิ้งร่างไปเฉย ๆ ก็ไม่ได้ บางทีมันคืองานที่พิมพ์ค้างไว้จริง ๆ แล้วเผลอปิด
+ * ไป ทางที่ได้ทั้งสองอย่างคือ: เริ่มที่ฟอร์มเปล่า แล้วยื่นของเก่าให้เป็นปุ่มกู้คืน
+ */
+function offerDraft(saved) {
+  const bar = $('#resume');
+  if (!bar || !saved) return;
+  const n = saved.items.filter((it) => String(it.name || '').trim() || num(it.total)).length;
+  $('#resume-text').textContent = `มีงานที่ค้างไว้ ${n || saved.items.length} รายการ`;
+  $('#resume-when').textContent = saved.savedAt ? whenText(saved.savedAt) : '';
+  bar.hidden = false;
+
+  $('#resume-yes').onclick = () => {
+    loadDraft(saved);
+    bar.hidden = true;
+    syncHeaderFields();
+    renderItems();
+    toast('เอางานที่ค้างไว้กลับมาให้แล้วค่ะ 💜');
+  };
+  $('#resume-no').onclick = () => {
+    try { localStorage.removeItem(DRAFT_KEY); } catch { /* ไม่เป็นไร */ }
+    bar.hidden = true;
+  };
+}
+
+function whenText(ts) {
+  const mins = Math.max(0, Math.round((Date.now() - ts) / 60000));
+  if (mins < 1) return 'เมื่อครู่นี้';
+  if (mins < 60) return `${mins} นาทีที่แล้ว`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs} ชั่วโมงที่แล้ว`;
+  return `${Math.round(hrs / 24)} วันที่แล้ว`;
+}
+
 (async function start() {
-  if (!loadDraft()) state.items = [blankItem()];
+  // ?draft=1 กับ ?job=… ไปดึงของจริงมาใส่ทีหลังอยู่แล้ว ไม่ต้องมีแถบกู้คืนมากวน
+  const pending = params.get('draft') === '1' || params.get('job') ? null : peekDraft();
+  state.items = [blankItem()];
+  if (pending) offerDraft(pending);
 
   // ?customer=… — มาจากปุ่ม "เพิ่มงานอีก" บนการ์ดที่เพิ่งบันทึก ลูกค้าคนเดิม
   // สั่งหลายงานในรอบเดียวจะได้ไม่ต้องพิมพ์ชื่อซ้ำ ชื่อที่ส่งมาชนะร่างเก่าเสมอ
