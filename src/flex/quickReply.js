@@ -1,4 +1,4 @@
-import { quickFormUrl } from '../utils/liff.js';
+import { quickFormUrl, liffUrl } from '../utils/liff.js';
 
 // แถบปุ่มลัดเหนือช่องพิมพ์ (Quick Reply ของ LINE)
 //
@@ -41,9 +41,16 @@ const FALLBACK = [
 // มีปุ่มของตัวเองอยู่ตรงนั้น การมีซ้ำอีกชุดเหนือช่องพิมพ์ทำให้แถบยาวจนต้องปัด
 // หา และงานสี่อย่างที่ร้านกดจริงก็ถูกดันหาย ร้านบอกว่า "เอาตัวเลือกด้านหลัง
 // ออกทั้งหมด" — แถบนี้จึงเหลือแค่งาน
+// ท้ายแถบ ถัดจากตรายาง: ทางไปดูว่างานแต่ละหมวดมีอะไรไปแล้วบ้าง ร้านขอไว้ว่า
+// "ตรงเมนูด่วนด้านหลังตรายาง เพิ่มหมวดงานให้หน่อย" — ปุ่มอื่นในแถบนี้คือ "จดงาน
+// ชนิดนี้" ปุ่มนี้คือ "ขอดูงานที่จดไปแล้ว" จึงอยู่ท้ายสุด ไม่ปนกับงาน
+export const QUICK_LINKS = [{ label: '📂 หมวดงาน', page: { tab: 'category' } }];
+
 export function defaultItems() {
   const jobs = QUICK_JOBS.map((j) => ({ ...j, uri: quickFormUrl({ name: j.name }) })).filter((j) => j.uri);
-  return jobs.length ? jobs : FALLBACK;
+  const links = QUICK_LINKS.map((l) => ({ ...l, uri: liffUrl(l.page) })).filter((l) => l.uri);
+  const items = [...jobs, ...links];
+  return items.length ? items : FALLBACK;
 }
 
 export function quickReplyBlock(items = defaultItems()) {
