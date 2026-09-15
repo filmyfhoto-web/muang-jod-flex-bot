@@ -17,6 +17,7 @@ import { searchJobsPrompt } from '../actions/searchJobs.js';
 import { reportMenu, report, exportCsv } from '../actions/report.js';
 import { help } from '../actions/help.js';
 import { nudgeOff, nudgeOn, nudgeTest } from '../actions/nudge.js';
+import { quickJob } from '../actions/quickJob.js';
 import {
   checkinHasWork,
   checkinToday,
@@ -45,6 +46,9 @@ export async function handlePostback(event, profile) {
   switch (action) {
     case 'add_job':
       return addJob(ctx);
+    // ปุ่มลัดเหนือช่องพิมพ์ กดแล้วม่วงถามรายละเอียดต่อในแชต
+    case 'quick_job':
+      return quickJob(ctx);
     case 'add_more':
       return addMoreForCustomer(ctx);
     case 'confirm_add_job':

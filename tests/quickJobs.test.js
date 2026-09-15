@@ -9,8 +9,8 @@ const jot = readFileSync(new URL('../public/liff/jot/script.js', import.meta.url
 // The shop asked for the bar above the keyboard to be the three jobs they do
 // all day, and said "เราไม่เอาออกบิลละ เรากรอกเสร็จออกใบเสร็จเลย".
 
-// The three job links need a LIFF app to open; tests/setup.js deliberately
-// configures none, which is the case the last test here covers.
+// ปุ่มงานไม่ต้องใช้ LIFF แล้ว (กดแล้วม่วงถามต่อในแชต) เหลือแค่ "หมวดงาน" ที่ต้อง
+// ใช้ — tests/setup.js ตั้งใจไม่ตั้ง LIFF ไว้ ซึ่งเป็นเคสที่เทสต์ท้าย ๆ คุมอยู่
 function withLiff(fn) {
   const had = process.env.LIFF_ID;
   process.env.LIFF_ID = '1234567890-AbCdEfGh';
@@ -42,19 +42,30 @@ test('the bar is the jobs this shop does and nothing else', () => {
   ]);
   assert.equal(items.length, QUICK_JOBS.length + QUICK_LINKS.length, 'something else crept back onto the bar');
   assert.ok(items.length <= 13, 'LINE รับได้ 13 ปุ่ม');
-  for (const i of items) {
-    assert.equal(i.action.type, 'uri', `${i.action.label} still goes through the bot`);
-    // LINE counts UTF-16 units, so an emoji costs two of the twenty.
-    assert.ok(i.action.label.length <= 20, `label too long (${i.action.label.length}): ${i.action.label}`);
+  // LINE counts UTF-16 units, so an emoji costs two of the twenty.
+  for (const i of items) assert.ok(i.action.label.length <= 20, `label too long (${i.action.label.length}): ${i.action.label}`);
+
+  /* ร้านบอกว่า "ตรงปุ่มกดให้เป็นบอทตอบเหมือนเดิม แล้วค่อยกดเข้าไปแก้ไขทีหลัง"
+   * ปุ่มงานเคยเป็นลิงก์เปิดฟอร์มจดด่วน แปลว่าจะจดงานทีต้องเด้งออกจากแชตไปหน้าเว็บ
+   * ก่อนทุกครั้ง ตอนนี้ม่วงถามทีละข้อในแชตได้แล้ว ปุ่มจึงพาเข้าบทสนทนา ส่วนฟอร์ม
+   * เหลือไว้ตอนอยากแก้หลายช่องทีเดียว */
+  for (const i of items.slice(0, QUICK_JOBS.length)) {
+    assert.equal(i.action.type, 'postback', `${i.action.label} ยังเด้งออกไปหน้าเว็บ`);
+    assert.match(i.action.data, /^action=quick_job&name=/);
   }
-  // ปุ่มงานเปิดฟอร์มจด ปุ่มหมวดงานเปิดหน้าหมวดตรง ๆ ไม่ใช่ฟอร์มเปล่า
-  for (const i of items.slice(0, QUICK_JOBS.length)) assert.match(i.action.uri, /\/jot\?quick=1&name=/);
+  // ชื่องานที่ส่งไปต้องอ่านกลับมาได้ตรงตัว ไม่ใช่โดน encode แล้วเพี้ยน
+  const names = items.slice(0, QUICK_JOBS.length).map((i) => new URLSearchParams(i.action.data).get('name'));
+  assert.deepEqual(names, QUICK_JOBS.map((j) => j.name));
+
+  // "หมวดงาน" ยังเป็นลิงก์ เพราะมันคือหน้าเว็บจริง ๆ ไม่ใช่บทสนทนา
+  assert.equal(items.at(-1).action.type, 'uri');
   assert.match(items.at(-1).action.uri, /\?tab=category$/, 'หมวดงานไม่ได้เปิดหน้าหมวด');
 });
 
-test('every button on the bar opens a form that files the job in the right place', () => {
-  // ป้ายปุ่มสั้นกว่าชื่องานได้ แต่ชื่อที่ส่งเข้าฟอร์มต้องเป็นชื่อที่ระบบแยกหมวดออก
-  // ไม่งั้นกดปุ่มแล้วงานไปกองรวมที่ "งานทั่วไป"
+test('every button on the bar files the job in the right place', () => {
+  // ป้ายปุ่มสั้นกว่าชื่องานได้ แต่ชื่อที่ส่งไปให้ม่วงอ่านต้องเป็นชื่อที่ระบบแยก
+  // หมวดออก ไม่งั้นกดปุ่มแล้วงานไปกองรวมที่ "งานทั่วไป" และม่วงจะถามชุดคำถาม
+  // พื้นฐานแทนชุดของงานชนิดนั้น
   const expected = {
     กรอบรูป: 'frame',
     ป้ายไวนิล: 'vinyl',
@@ -70,10 +81,21 @@ test('every button on the bar opens a form that files the job in the right place
   assert.deepEqual(QUICK_JOBS.map((j) => j.name).sort(), Object.keys(expected).sort(), 'a button has no expectation');
 });
 
-test('nothing on the bar goes through the bot any more', () => {
+test('tapping a job button starts the conversation, not a form', () => {
   const json = withLiff(() => JSON.stringify(quickReplyBlock()));
-  assert.ok(!json.includes('postback'), 'a postback button is back on the bar');
   assert.ok(!json.includes('create_bill'), 'ออกบิล is still on the bar');
+  assert.ok(!json.includes('/jot?quick=1'), 'ปุ่มงานยังเปิดฟอร์มอยู่');
+
+  // และมีคนรับปุ่มนั้นจริง ๆ อยู่ปลายทาง
+  const router = readFileSync(new URL('../src/handlers/postbackHandler.js', import.meta.url), 'utf8');
+  const allowed = readFileSync(new URL('../src/utils/validation.js', import.meta.url), 'utf8');
+  assert.match(router, /case 'quick_job':/);
+  assert.match(allowed, /'quick_job'/, 'quick_job ไม่อยู่ในรายการที่อนุญาต');
+
+  // ชื่องานที่ยัดมาใน postback ต้องเป็นชื่อที่อยู่ในปุ่มจริง ๆ — data ปลอมได้
+  const action = readFileSync(new URL('../src/actions/quickJob.js', import.meta.url), 'utf8');
+  assert.match(action, /const KNOWN = new Set\(QUICK_JOBS\.map/);
+  assert.match(action, /KNOWN\.has\(name\) \? startCollecting\(name\) : null/);
 });
 
 test('a framed job lands in its own category, not in "everything else"', () => {
@@ -107,6 +129,8 @@ test('with no LIFF app the bar is never empty, or the old one is stuck forever',
   assert.ok(items.length > 0, 'an empty bar strands whatever was last shown');
   assert.ok(items.every((i) => !i.uri), 'a link to nowhere is on the bar');
   assert.ok(items.every((i) => i.action), 'a button with nothing behind it');
+  // ปุ่มงานไม่ต้องพึ่ง LIFF อีกแล้ว ยังอยู่ครบแม้ไม่ได้ตั้ง — หายไปแค่ "หมวดงาน"
+  assert.equal(items.length, QUICK_JOBS.length, 'ปุ่มงานหายไปตอนไม่มี LIFF');
 });
 
 test('the receipt is reachable from the screen the shop finishes a job on', () => {

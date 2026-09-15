@@ -18,6 +18,9 @@ import {
 import { extractDueDate } from '../src/utils/thaiDate.js';
 
 const handler = readFileSync(new URL('../src/handlers/messageHandler.js', import.meta.url), 'utf8');
+// วงสนทนาอยู่แยกจากตัวจัดการข้อความ เพราะมีสองทางที่เริ่มวงนี้ได้: พิมพ์เข้ามาเอง
+// กับกดปุ่มลัดเหนือช่องพิมพ์
+const flow = readFileSync(new URL('../src/services/collectFlow.js', import.meta.url), 'utf8');
 
 // ร้านขอให้ม่วง "สนทนาและถามเก็บรายละเอียดงานทีละข้อ เหมือนผู้ช่วยประจำร้าน"
 // ของเดิมอ่านข้อความทั้งก้อนครั้งเดียว ขาดอะไรก็ขึ้นการ์ด ฿0 มาเฉย ๆ
@@ -194,14 +197,14 @@ test('a pickup day can be a weekday, because that is how a shop books work', () 
 test('the chat wires the loop up, and still never saves before confirming', () => {
   assert.match(handler, /STATES\.COLLECTING_JOB/, 'ไม่มีสถานะสำหรับการถามทีละข้อ');
   assert.match(handler, /const collecting = startCollecting\(text\)/, 'ไม่มีอะไรเริ่มโหมดถาม');
-  assert.match(handler, /async function handleCollectTurn/);
+  assert.match(flow, /export async function handleCollectTurn/);
 
   // คำถามที่มีตัวเลือกต้องมาเป็น Quick Reply ไม่ใช่ให้พิมพ์เอง
-  assert.match(handler, /quickReply: \{/, 'คำถามแบบเลือกตอบไม่มีปุ่มให้กด');
-  assert.match(handler, /type: 'message', label, text: label/);
+  assert.match(flow, /quickReply: \{/, 'คำถามแบบเลือกตอบไม่มีปุ่มให้กด');
+  assert.match(flow, /type: 'message', label, text: label/);
 
   // ครบแล้วไปที่การ์ดยืนยัน ไม่ใช่บันทึกเลย
-  const finish = handler.slice(handler.indexOf('async function finishCollect'), handler.indexOf('async function handleCollectTurn'));
+  const finish = flow.slice(flow.indexOf('export async function finishCollect'), flow.indexOf('export async function handleCollectTurn'));
   assert.match(finish, /STATES\.CONFIRMING_JOB/, 'เก็บครบแล้วบันทึกทันทีโดยไม่ถาม');
   assert.match(finish, /jobPreviewMessage/);
   assert.ok(!/createJob|saveJob/.test(finish), 'มีการบันทึกงานก่อนกดยืนยัน');
