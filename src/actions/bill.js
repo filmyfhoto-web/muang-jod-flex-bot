@@ -42,6 +42,16 @@ export async function createBillAction({ replyToken, profile, params }) {
   return reply(replyToken, billJobsFlex(customerName, jobs));
 }
 
+/* งานที่ไม่ได้ใส่ชื่อลูกค้า รวมเป็นบิลเดียวไม่ได้
+ *
+ * ร้านบอกว่า "ออกใบเสร็จเฉพาะคนค่ะ ไม่รวม" — กลุ่ม "ไม่ระบุ" ไม่ใช่ลูกค้าคนหนึ่ง
+ * มันคือกองที่ยังไม่ได้ใส่ชื่อ ซึ่งเป็นคนละคนกันทั้งกอง การกด "รวมทุกงาน" ตรงนั้น
+ * จึงไม่มีทางถูก ไม่ว่าการกรองจะทำงานถูกแค่ไหน
+ */
+const NO_NAME_WARNING =
+  'งานพวกนี้ยังไม่ได้ใส่ชื่อลูกค้าค่ะ รวมเป็นบิลเดียวไม่ได้นะคะ\n' +
+  'เพราะแต่ละงานอาจเป็นคนละคนกัน — แตะงานที่ต้องการ เพื่อออกใบเสร็จทีละงานได้เลยค่ะ 💜';
+
 // action=bill_all&customer=… — the old behaviour, kept where it belongs: as a
 // choice at the bottom of the job list rather than the only thing that happens.
 export async function billAllForCustomer({ replyToken, profile, params }) {
@@ -50,6 +60,13 @@ export async function billAllForCustomer({ replyToken, profile, params }) {
   const jobs = await getBillableJobs(profile.id, { customerName });
   if (!jobs.length) {
     return reply(replyToken, { type: 'text', text: 'ไม่มีงานที่รอออกบิลของลูกค้ารายนี้แล้วค่ะ 💜' });
+  }
+  // กองที่ยังไม่ได้ใส่ชื่อ = คนละคนกัน รวมไม่ได้ ยื่นรายชื่องานให้เลือกทีละงานแทน
+  if (!customerName) {
+    return reply(replyToken, [
+      { type: 'text', text: NO_NAME_WARNING },
+      billJobsFlex(null, jobs),
+    ]);
   }
   return billJobs(replyToken, profile.id, jobs, customerName);
 }

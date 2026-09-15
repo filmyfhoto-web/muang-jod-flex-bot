@@ -90,11 +90,19 @@ test('a customer with several jobs gets a choice, not one lumped bill', () => {
   assert.ok(json.includes('฿1,000'));
 });
 
-test('a job with no customer name still bills', () => {
-  const json = JSON.stringify(billJobsFlex(null, jobs));
-  assert.ok(json.includes('ไม่ระบุลูกค้า'));
-  // An empty customer round-trips as "" — the picker and the biller agree on it.
-  assert.ok(json.includes('action=bill_all&customer='));
+test('jobs with no customer name bill one at a time, never in a lump', () => {
+  // ร้านส่งรูปบิลที่มี ช่างฟิวส์ · พี่น้อย · งานเกษียณ อยู่ใบเดียวกันมา แล้วบอกว่า
+  // "ออกใบเสร็จเฉพาะคนค่ะ ไม่รวม" — กลุ่ม "ไม่ระบุ" ไม่ใช่ลูกค้าคนหนึ่ง มันคือกอง
+  // ที่ยังไม่ได้ใส่ชื่อ ซึ่งเป็นคนละคนกันทั้งกอง ปุ่มรวมตรงนั้นไม่มีทางถูก
+  const noName = JSON.stringify(billJobsFlex(null, jobs));
+  assert.ok(noName.includes('ไม่ระบุลูกค้า'));
+  assert.ok(!noName.includes('action=bill_all'), 'ยังรวมกองที่ไม่รู้ว่าเป็นของใครได้อยู่');
+  assert.ok(noName.includes('action=bill_job'), 'แตะออกใบเสร็จทีละงานไม่ได้');
+  assert.ok(noName.includes('อาจเป็นคนละคนกัน'), 'ไม่ได้บอกว่าทำไมถึงรวมไม่ได้');
+
+  // รู้ว่าเป็นของใคร ก็ยังรวมได้เหมือนเดิม — ลูกค้าคนเดียวสั่งสามงานในรอบเดียว
+  const named = JSON.stringify(billJobsFlex('พี่น้อย', jobs));
+  assert.ok(named.includes('action=bill_all&customer='), 'ลูกค้าที่มีชื่อรวมบิลไม่ได้แล้ว');
 });
 
 // --- what the parser leaves behind ------------------------------------------

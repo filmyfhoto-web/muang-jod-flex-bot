@@ -449,19 +449,36 @@ export function billJobsFlex(customerName, jobs = []) {
             contents: [
               { type: 'text', text: `🧾 ${who}`, size: 'md', weight: 'bold', color: COLORS.title, wrap: true },
               { type: 'text', text: `${jobs.length} งานรอออกบิล · รวม ${formatBaht(total)}`, size: 'xs', color: COLORS.sub, wrap: true },
-              { type: 'text', text: 'แตะงานที่ต้องการ เพื่อออกใบเสร็จเฉพาะงานนั้นค่ะ', size: 'xs', color: COLORS.grey, wrap: true },
+              {
+                type: 'text',
+                text: customerName
+                  ? 'แตะงานที่ต้องการ เพื่อออกใบเสร็จเฉพาะงานนั้นค่ะ'
+                  : 'งานพวกนี้ยังไม่ได้ใส่ชื่อลูกค้า อาจเป็นคนละคนกัน — แตะทีละงานนะคะ',
+                size: 'xs',
+                color: COLORS.grey,
+                wrap: true,
+              },
             ],
           },
           ...rows,
         ],
       },
-      footer: footerActions({
-        primary: {
-          label: `🧷 รวมทุกงาน (${jobs.length})`,
-          data: `action=bill_all&customer=${encodeURIComponent(customerName || '')}`,
-          displayText: `รวมบิลทุกงานของ ${who}`,
-        },
-      }),
+      /* "รวมทุกงาน" มีได้เฉพาะตอนรู้ว่าเป็นของใคร
+       *
+       * ร้านบอกว่า "ออกใบเสร็จเฉพาะคนค่ะ ไม่รวม" — กองที่ยังไม่ได้ใส่ชื่อไม่ใช่
+       * ลูกค้าคนหนึ่ง มันคือคนละคนกันทั้งกอง ปุ่มรวมตรงนั้นจึงไม่มีทางถูก
+       */
+      ...(customerName
+        ? {
+            footer: footerActions({
+              primary: {
+                label: `🧷 รวมทุกงาน (${jobs.length})`,
+                data: `action=bill_all&customer=${encodeURIComponent(customerName)}`,
+                displayText: `รวมบิลทุกงานของ ${who}`,
+              },
+            }),
+          }
+        : {}),
     },
   };
 }
