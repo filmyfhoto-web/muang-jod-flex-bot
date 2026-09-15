@@ -31,6 +31,28 @@ const MONTH_ALTERNATIVES = MONTHS.flatMap((names, i) =>
 
 const MONTH_PATTERN = MONTH_ALTERNATIVES.map((m) => m.form.replace(/\./g, '\\.')).join('|');
 
+// ชื่อวันในสัปดาห์ เรียงตามเลขวันของ JS (อาทิตย์ = 0) — ยาวก่อนสั้น ไม่งั้น
+// "พฤหัส" จะโดน "พฤ" กินไปก่อน
+const WEEKDAYS = [
+  ['อาทิตย์', 'อาทิต'],
+  ['จันทร์', 'จันทร', 'จัน'],
+  ['อังคาร'],
+  ['พุธ'],
+  ['พฤหัสบดี', 'พฤหัส', 'พฤหัด'],
+  ['ศุกร์', 'ศุกร'],
+  ['เสาร์', 'เสาร'],
+];
+
+const WEEKDAY_PATTERN = WEEKDAYS.flatMap((names, i) => names.map((form) => ({ form, day: i })))
+  .sort((a, b) => b.form.length - a.form.length)
+  .map((w) => w.form)
+  .join('|');
+
+function weekdayOf(word) {
+  const at = WEEKDAYS.findIndex((names) => names.includes(String(word)));
+  return at === -1 ? null : at;
+}
+
 function monthOf(word) {
   const bare = String(word).replace(/\./g, '');
   return MONTH_ALTERNATIVES.find((m) => m.form.replace(/\./g, '') === bare)?.month ?? null;
@@ -191,6 +213,22 @@ function dueMatchers(today) {
     (t) => {
       const m = /^\s*วันนี้/.exec(t);
       return m ? [today, m[0]] : null;
+    },
+    // นัดรับ วันศุกร์ — ร้านนัดงานเป็นชื่อวันมากกว่าเป็นวันที่
+    //
+    // "วันศุกร์" เฉย ๆ หมายถึงวันศุกร์ที่กำลังจะถึง ถ้าวันนี้เป็นศุกร์อยู่แล้ว
+    // หมายถึงศุกร์หน้า ไม่ใช่วันนี้ — คนที่พูดว่า "นัดรับวันศุกร์" ในวันศุกร์
+    // กำลังพูดถึงอีกเจ็ดวัน ส่วน "ศุกร์นี้" คือวันนี้ได้
+    (t) => {
+      const m = new RegExp(`^\\s*(?:วัน)?(${WEEKDAY_PATTERN})\\s*(นี้|หน้า|หน้านี้)?`).exec(t);
+      if (!m) return null;
+      const target = weekdayOf(m[1]);
+      if (target === null) return null;
+      const from = new Date(`${today}T00:00:00Z`).getUTCDay();
+      let ahead = (target - from + 7) % 7;
+      if (ahead === 0 && m[2] !== 'นี้') ahead = 7;
+      if (m[2] && m[2] !== 'นี้') ahead += ahead <= 0 ? 7 : 0;
+      return [addDays(today, ahead), m[0]];
     },
   ];
 }

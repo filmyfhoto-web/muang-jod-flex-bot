@@ -4,6 +4,9 @@ import { logger } from './logger.js';
 export const STATES = {
   IDLE: 'idle',
   WAITING_FOR_JOB: 'waiting_for_job',
+  // กำลังถามรายละเอียดทีละข้อ — ร้านบอกมาว่า "มีงานกรอบรูป" แต่ยังไม่บอกขนาด
+  // จำนวน ราคา ม่วงถามเก็บทีละข้อจนครบ แล้วค่อยขึ้นการ์ดสรุปให้ยืนยัน
+  COLLECTING_JOB: 'collecting_job',
   CONFIRMING_JOB: 'confirming_job', // parsed a draft, waiting for confirm/edit/cancel
   WAITING_FOR_EVIDENCE: 'waiting_for_evidence',
   WAITING_FOR_EDIT: 'waiting_for_edit',

@@ -82,7 +82,10 @@ test('a question about a job is still a question', () => {
 });
 
 test('a draft with no price says how to give it one', () => {
-  const block = handler.slice(handler.indexOf('const noPrice ='), handler.indexOf('jobPreviewMessage(draftToBubble(draft))'));
+  // การ์ดสรุปถูกเรียกหลายที่แล้ว (ทางถามทีละข้อก็จบด้วยการ์ดใบเดียวกัน) —
+  // เอาใบที่อยู่ถัดจาก noPrice ไม่ใช่ใบแรกของไฟล์
+  const from = handler.indexOf('const noPrice =');
+  const block = handler.slice(from, handler.indexOf('jobPreviewMessage(draftToBubble(draft))', from));
   assert.match(block, /noPrice/, 'a ฿0 card just appears with nothing to do about it');
   assert.match(block, /พิมพ์ราคามาได้เลย/, 'the shop is not told they can type the price next');
   // และเส้นทางรับราคาเปล่า ๆ นั้นมีอยู่จริง
