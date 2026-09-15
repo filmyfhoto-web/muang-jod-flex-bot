@@ -226,6 +226,14 @@ app.listen(PORT, async () => {
     startNudgeDispatcher();
   }
 
+  // ม่วงแวะมาถามว่ามีงานให้จดไหม ตามเวลาที่ร้านตั้งไว้ — คนละเรื่องกับการทัก
+  // ตอนหายไปหลายวันข้างบน อันนี้เป็นนัดประจำวัน ส่งเฉพาะร้านที่เปิดไว้เองเท่านั้น
+  // CHECKIN_ENABLED=0 ปิดทั้งระบบ
+  if (String(process.env.REMINDER_DISPATCH ?? '1') !== '0') {
+    const { startCheckinDispatcher } = await import('./services/checkinDispatcher.js');
+    startCheckinDispatcher();
+  }
+
   // Put the current Rich Menu live if it is not already. Does nothing when it
   // matches, so this is not an upload on every restart. RICH_MENU_AUTO_INSTALL=0
   // turns it off; /admin/rich-menu still installs on demand either way.

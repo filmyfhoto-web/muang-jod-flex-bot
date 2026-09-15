@@ -31,6 +31,8 @@ import { liffId, liffChannelId } from '../utils/liff.js';
 import { CATEGORY_GROUPS, OTHER_GROUP, findGroup } from '../utils/category.js';
 import { logger, maskUserId } from '../services/logger.js';
 import { getShopProfile, saveShopProfile, SHOP_FIELDS } from '../services/shopService.js';
+import { getCheckinSettings, saveCheckinSettings } from '../services/checkinService.js';
+import { normalizeSettings, toMinutes, toHHMM, DEFAULT_TZ } from '../utils/checkinSchedule.js';
 
 // JSON API behind the LIFF dashboard. Every request carries the LIFF access
 // token; LINE tells us which channel issued it and whose it is, and from that
@@ -103,6 +105,8 @@ export function createApiRouter(deps = {}) {
   const readBill = deps.getBillById || getBillById;
   const saveJob = deps.updateJob || updateJob;
   const queueJobs = deps.getQueueJobs || getQueueJobs;
+  const readCheckin = deps.getCheckinSettings || getCheckinSettings;
+  const writeCheckin = deps.saveCheckinSettings || saveCheckinSettings;
   // Tell the chat about a job saved from the form. Never throws: the job is
   // already saved, and a chat that missed the news must not turn into a failed
   // save the user then repeats.
@@ -184,6 +188,55 @@ export function createApiRouter(deps = {}) {
         if (f in (req.body || {})) patch[f] = req.body[f];
       }
       res.json({ shop: await saveShopProfile(req.profile.id, patch) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /* ตั้งค่าการทักถามงานตามเวลา
+   *
+   * ไม่มีแถว = ยังไม่เคยเปิด ฟีเจอร์นี้ต้องเปิดเองก่อนเสมอ การส่งข้อความหาคน
+   * ที่ไม่ได้ขอ ผิดครั้งเดียวก็กลายเป็นแอปกวนใจไปแล้ว หน้าเว็บจึงได้ค่าเริ่มต้น
+   * ไปแสดง แต่ enabled เป็น false จนกว่าจะกดเปิด
+   */
+  router.get('/checkin', async (req, res, next) => {
+    try {
+      const row = await readCheckin(req.profile.id);
+      res.json({ checkin: { ...normalizeSettings(row || {}), enabled: Boolean(row?.enabled) }, configured: Boolean(row) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.patch('/checkin', async (req, res, next) => {
+    try {
+      const body = req.body || {};
+      const patch = {};
+
+      if ('enabled' in body) patch.enabled = Boolean(body.enabled);
+      if ('displayName' in body) patch.display_name = String(body.displayName || '').slice(0, 80) || null;
+      if ('message' in body) patch.preferred_message = String(body.message || '').slice(0, 300) || null;
+      if ('timezone' in body) patch.timezone = String(body.timezone || DEFAULT_TZ).slice(0, 64);
+      if ('skipHolidays' in body) patch.skip_holidays = Boolean(body.skipHolidays);
+
+      // เวลาที่อ่านไม่ออกทิ้งไปเงียบ ๆ ไม่ได้ — ร้านตั้งเวลาไว้แล้วมันหายคือ
+      // ร้านคิดว่าตั้งแล้ว แต่ม่วงไม่เคยมา
+      if ('times' in body) {
+        const raw = Array.isArray(body.times) ? body.times : [];
+        const bad = raw.filter((t) => toMinutes(t) === null);
+        if (bad.length) return res.status(400).json({ error: 'bad_time', message: `เวลาไม่ถูกต้อง: ${bad.join(', ')}` });
+        if (!raw.length) return res.status(400).json({ error: 'no_time', message: 'ต้องมีเวลาอย่างน้อยหนึ่งช่วงค่ะ' });
+        patch.reminder_times = [...new Set(raw.map((t) => toHHMM(toMinutes(t))))].sort();
+      }
+
+      if ('days' in body) {
+        const days = (Array.isArray(body.days) ? body.days : []).map(Number).filter((d) => Number.isInteger(d) && d >= 0 && d <= 6);
+        if (!days.length) return res.status(400).json({ error: 'no_day', message: 'ต้องเลือกอย่างน้อยหนึ่งวันค่ะ' });
+        patch.active_days = [...new Set(days)].sort();
+      }
+
+      const saved = await writeCheckin(req.profile.id, req.profile.line_user_id, patch);
+      res.json({ checkin: { ...normalizeSettings(saved || {}), enabled: Boolean(saved?.enabled) }, configured: true });
     } catch (err) {
       next(err);
     }
