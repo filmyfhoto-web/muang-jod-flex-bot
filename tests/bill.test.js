@@ -305,3 +305,47 @@ test('a bill carries the lines inside each job, not just the job totals', async 
   assert.ok(html.includes('ป้ายไวนิล · 160 × 300 ซม. × 2'), 'the receipt lost the item lines');
   assert.ok(html.includes('ค่าตอกตาไก่'));
 });
+
+// ร้านส่งรูปบิล MJ-B-20260910-0001 มา: ลูกค้า "ไม่ระบุ" แต่ข้างในมี ช่างฟิวส์ ฿9,900
+// · พี่น้อย ฿1,100 · งานเกษียณ ฿1,200 · งานเกษีณ ฿1,000 รวม ฿12,828 — สี่งานของ
+// คนละคน อยู่ในใบเดียว แล้วบอกว่า "ออกใบเสร็จเฉพาะคนค่ะ ไม่รวม"
+
+test('picking the unnamed pile does not sweep in everybody else', async () => {
+  const job = (id, over = {}) => ({
+    id,
+    user_id: 'u1',
+    job_name: 'งาน ' + id,
+    customer_name: null,
+    status: 'active',
+    bill_id: null,
+    total: 100,
+    balance_due: 100,
+    created_at: `2026-09-1${id}T00:00:00.000Z`,
+    ...over,
+  });
+  const client = createMockSupabase({
+    jobs: [
+      job('1'),
+      job('2', { customer_name: 'พี่น้อย' }),
+      job('3'),
+      job('4', { customer_name: 'ช่างฟิวส์' }),
+    ],
+  });
+
+  // เลือกกลุ่ม "ไม่ระบุ" → ได้เฉพาะงานที่ไม่มีชื่อจริง ๆ
+  const unnamed = await getBillableJobs('u1', { customerName: null }, client);
+  assert.deepEqual(unnamed.map((j) => j.id).sort(), ['1', '3'], 'บิลของ "ไม่ระบุ" กวาดงานของคนอื่นมาด้วย');
+
+  // เลือกชื่อ → ได้เฉพาะของคนนั้น
+  const nid = await getBillableJobs('u1', { customerName: 'พี่น้อย' }, client);
+  assert.deepEqual(nid.map((j) => j.id), ['2']);
+
+  // ไม่ได้ขอให้กรองเลย (หน้ารวมรายชื่อลูกค้า) → ได้ทั้งหมด ซึ่งยังต้องเป็นแบบนั้น
+  const all = await getBillableJobs('u1', {}, client);
+  assert.equal(all.length, 4, 'หน้ารวมรายชื่อลูกค้าต้องยังเห็นงานครบทุกคน');
+
+  // และรายชื่อที่เอาไปให้เลือก ก็ต้องแยกกองถูก
+  const customers = await getBillableCustomers('u1', client);
+  const pile = customers.find((c) => c.customerName === null);
+  assert.equal(pile.jobCount, 2, 'กองที่ยังไม่ได้ใส่ชื่อนับผิด');
+});

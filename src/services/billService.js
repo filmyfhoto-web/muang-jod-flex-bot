@@ -61,7 +61,16 @@ export async function getBillableJobs(userId, opts = {}, client = supabase) {
     .is('bill_id', null)
     .order('created_at', { ascending: false });
 
-  if (opts.customerName) query = query.eq('customer_name', opts.customerName);
+  /* "ไม่ได้ใส่ชื่อลูกค้า" กับ "ไม่ได้ขอให้กรองชื่อ" เป็นคนละเรื่อง
+   *
+   * ของเดิมเช็คแค่ว่า opts.customerName เป็นค่าจริงไหม พอร้านเลือกกลุ่ม "ไม่ระบุ"
+   * ค่าที่ส่งมาคือ null การกรองจึงหายไปทั้งอัน แล้วบิลใบนั้นก็กวาดงานที่ยังไม่ได้
+   * ออกบิลของ "ทุกคน" มารวมกันหมด — ช่างฟิวส์ พี่น้อย งานเกษียณ อยู่ใบเดียวกัน
+   * ทั้งที่เป็นคนละคน ซึ่งคือใบเสร็จที่ยื่นให้ใครไม่ได้เลยสักคน
+   */
+  if ('customerName' in opts) {
+    query = opts.customerName ? query.eq('customer_name', opts.customerName) : query.is('customer_name', null);
+  }
 
   const { data, error } = await query;
   if (error) {
