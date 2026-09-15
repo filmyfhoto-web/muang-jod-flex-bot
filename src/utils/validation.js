@@ -38,6 +38,7 @@ export const POSTBACK_ACTIONS = [
   'report_weekly',
   'report_monthly',
   'export_csv',
+  'quick_job',
   'checkin_has_work',
   'checkin_today',
   'checkin_no_work',
