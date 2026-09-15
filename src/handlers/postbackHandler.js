@@ -17,6 +17,14 @@ import { searchJobsPrompt } from '../actions/searchJobs.js';
 import { reportMenu, report, exportCsv } from '../actions/report.js';
 import { help } from '../actions/help.js';
 import { nudgeOff, nudgeOn, nudgeTest } from '../actions/nudge.js';
+import {
+  checkinHasWork,
+  checkinToday,
+  checkinNoWork,
+  checkinSnooze,
+  checkinMuteToday,
+  checkinOff,
+} from '../actions/checkin.js';
 
 // Parse LINE postback data (querystring form) into { action, ...params }.
 function parsePostbackData(data) {
@@ -81,6 +89,19 @@ export async function handlePostback(event, profile) {
       return setReminder(ctx);
     case 'cancel_reminder':
       return cancelReminderAction(ctx);
+    // ห้าปุ่มบนข้อความที่ม่วงแวะมาถามว่ามีงานให้จดไหม
+    case 'checkin_has_work':
+      return checkinHasWork(ctx);
+    case 'checkin_today':
+      return checkinToday(ctx);
+    case 'checkin_no_work':
+      return checkinNoWork(ctx);
+    case 'checkin_snooze':
+      return checkinSnooze(ctx);
+    case 'checkin_mute_today':
+      return checkinMuteToday(ctx);
+    case 'checkin_off':
+      return checkinOff(ctx);
     case 'nudge_off':
       return nudgeOff(ctx);
     case 'nudge_on':

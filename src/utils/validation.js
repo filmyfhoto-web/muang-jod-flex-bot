@@ -38,6 +38,12 @@ export const POSTBACK_ACTIONS = [
   'report_weekly',
   'report_monthly',
   'export_csv',
+  'checkin_has_work',
+  'checkin_today',
+  'checkin_no_work',
+  'checkin_snooze',
+  'checkin_mute_today',
+  'checkin_off',
   'help',
 ];
 

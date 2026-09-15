@@ -68,6 +68,10 @@ class Query {
     this.filters.push({ kind: 'gte', col, val });
     return this;
   }
+  like(col, pattern) {
+    this.filters.push({ kind: 'like', col, val: pattern });
+    return this;
+  }
   lte(col, val) {
     this.filters.push({ kind: 'lte', col, val });
     return this;
@@ -96,6 +100,11 @@ class Query {
         if (f.kind === 'in') return f.val.includes(row[f.col]);
         if (f.kind === 'is') return f.val === null ? row[f.col] == null : row[f.col] === f.val;
         if (f.kind === 'gte') return row[f.col] >= f.val;
+        // like ของ Postgres: % คือตัวแทนอะไรก็ได้ ตรงตัวพิมพ์เล็กใหญ่
+        if (f.kind === 'like') {
+          const re = new RegExp(`^${String(f.val).replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/%/g, '.*')}$`);
+          return re.test(String(row[f.col] ?? ''));
+        }
         if (f.kind === 'lte') return row[f.col] <= f.val;
         if (f.kind === 'or') {
           return String(f.expr)
@@ -223,6 +232,9 @@ export function createMockSupabase(seed = {}) {
       webhook_events: seed.webhook_events || [],
       bills: seed.bills || [],
       nudge_state: seed.nudge_state || [],
+      notification_settings: seed.notification_settings || [],
+      notification_logs: seed.notification_logs || [],
+      checkin_day_state: seed.checkin_day_state || [],
     },
     failUpsert: seed.failUpsert || false,
     uniques: {
@@ -232,6 +244,10 @@ export function createMockSupabase(seed = {}) {
       user_states: [['user_id']],
       bills: [['user_id', 'bill_number']],
       nudge_state: [['user_id']],
+      notification_settings: [['user_id']],
+      // กันส่งซ้ำอยู่ที่นี่ ไม่ใช่ที่การเช็คก่อนเขียนในโค้ด
+      notification_logs: [['unique_send_key']],
+      checkin_day_state: [['user_id', 'day']],
     },
   };
 

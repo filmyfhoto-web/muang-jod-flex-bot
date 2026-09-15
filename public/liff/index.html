@@ -100,6 +100,25 @@
   .cat-grid .ic { width: 30px; height: 30px; border-radius: 10px; background: var(--surface); display: grid; place-items: center; font-size: 16px; flex: none; }
   .cat-grid .nm { font-size: 13px; font-weight: 700; line-height: 1.25; min-width: 0; }
 
+  /* หน้าตั้งค่า "ม่วงทักถามงาน" */
+  .switch { display: flex; align-items: center; gap: 10px; margin: 10px 0; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .switch input { width: 20px; height: 20px; accent-color: var(--accent); flex: none; }
+  .times { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+  .times .t {
+    display: flex; align-items: center; gap: 6px; background: var(--tint);
+    border: 1px solid var(--line); border-radius: 999px; padding: 6px 8px 6px 12px; font-size: 14px; font-weight: 700;
+  }
+  .times .t button { border: 0; background: none; color: var(--grey); font-size: 16px; line-height: 1; cursor: pointer; padding: 0 2px; }
+  .time-add { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+  .time-add input { flex: 1; min-width: 0; margin: 0; }
+  .time-add .btn { width: auto; flex: 0 0 auto; padding: 0 14px; min-height: 40px; }
+  .days { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+  .days button {
+    border: 1px solid var(--line); background: var(--surface); color: var(--sub);
+    border-radius: 10px; padding: 8px 0; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; flex: 1 1 40px;
+  }
+  .days button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+
   /* บรรทัดสรุปใต้หัวการ์ด (เช่น "6 งานในคิว · นัดรับแล้ว 4 งาน") */
   .sub-line { font-size: 12px; color: var(--grey); margin: -6px 0 8px; }
   .sub-line:empty { display: none; }
@@ -292,6 +311,53 @@
         เว้นว่างได้ทุกช่อง ช่องที่ว่างจะไม่ขึ้นในใบเสร็จค่ะ
       </p>
     </div>
+    <!-- ม่วงแวะมาถามว่ามีงานให้จดไหม ตามเวลาที่ร้านตั้งเอง
+         ปิดไว้ก่อนเสมอ: การส่งข้อความหาคนที่ไม่ได้ขอ ผิดครั้งเดียวก็กลายเป็น
+         แอปกวนใจไปแล้ว ต้องกดเปิดเองที่นี่ก่อนม่วงถึงจะทัก -->
+    <div class="card">
+      <h2>ม่วงทักถามงาน <span class="date" id="ck-state">ปิดอยู่</span></h2>
+      <label class="switch" for="ck-on">
+        <input type="checkbox" id="ck-on" />
+        <span>ให้ม่วงแวะมาถามว่ามีงานให้จดไหม</span>
+      </label>
+
+      <div id="ck-body" hidden>
+        <label for="ck-name">เรียกเราว่า</label>
+        <input id="ck-name" maxlength="80" placeholder="เช่น ฟิล์ม" />
+
+        <label>เวลาที่ให้ทัก</label>
+        <div class="times" id="ck-times"></div>
+        <div class="time-add">
+          <input type="time" id="ck-new" />
+          <button type="button" class="btn btn-ghost" id="ck-add">เพิ่มช่วงเวลา</button>
+        </div>
+
+        <label>วันที่ให้ทัก</label>
+        <div class="days" id="ck-days"></div>
+
+        <label class="switch" for="ck-holiday">
+          <input type="checkbox" id="ck-holiday" />
+          <span>ไม่ต้องทักในวันหยุด</span>
+        </label>
+
+        <label for="ck-msg">ข้อความที่ใช้ทัก</label>
+        <input id="ck-msg" maxlength="300" placeholder="เว้นว่าง = ใช้ข้อความของม่วงเอง" />
+
+        <label for="ck-tz">เขตเวลา</label>
+        <select id="ck-tz">
+          <option value="Asia/Bangkok">ไทย (Asia/Bangkok)</option>
+          <option value="Asia/Vientiane">ลาว (Asia/Vientiane)</option>
+          <option value="Asia/Phnom_Penh">กัมพูชา (Asia/Phnom_Penh)</option>
+          <option value="Asia/Yangon">เมียนมา (Asia/Yangon)</option>
+        </select>
+
+        <button class="btn btn-primary" id="ck-save">บันทึกการตั้งค่า</button>
+      </div>
+      <p style="font-size:12.5px;color:var(--grey);margin:10px 0 0">
+        ตอบว่า "วันนี้ไม่มีงาน" แล้วม่วงจะไม่ถามซ้ำในวันนั้นค่ะ · ปิดได้ตลอดเวลา
+      </p>
+    </div>
+
     <div class="card">
       <img class="peek behind" src="/brand/ui/wave.png" alt="" style="right:12px;top:-50px;width:68px" />
       <h2>วิธีใช้แบบเร็ว</h2>
@@ -708,6 +774,86 @@ async function loadPending() {
 
 // ข้อมูลร้านขึ้นหัวใบเสร็จ โหลดตอนเปิดแท็บตั้งค่า ไม่ใช่ตอนเปิดแอป เพราะ
 // หน้าอื่นไม่ได้ใช้
+/* ม่วงทักถามงาน — เวลาและวันที่ร้านตั้งเอง
+ *
+ * เก็บไว้ในตัวแปรเดียวแล้ววาดใหม่ทั้งก้อน ไม่ต้องไล่ sync ทีละช่อง เวลามีไม่กี่
+ * ช่วงและวันมีเจ็ดวัน การวาดใหม่ทั้งหมดถูกกว่าการจำว่าอะไรเปลี่ยน
+ */
+const DAY_NAMES = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+let checkin = { enabled: false, times: ['12:00', '18:00'], days: [0, 1, 2, 3, 4, 5, 6] };
+
+function renderCheckin() {
+  $('ck-on').checked = Boolean(checkin.enabled);
+  $('ck-body').hidden = !checkin.enabled;
+  $('ck-state').textContent = checkin.enabled ? 'เปิดอยู่' : 'ปิดอยู่';
+
+  const times = $('ck-times');
+  times.textContent = '';
+  for (const t of checkin.times) {
+    const el = document.createElement('span');
+    el.className = 't';
+    el.innerHTML = '<span></span><button type="button" aria-label="ลบช่วงเวลา">×</button>';
+    el.querySelector('span').textContent = t + ' น.';
+    // เหลือช่วงเดียวแล้วลบไม่ได้ ไม่งั้นเปิดไว้แต่ไม่มีเวลาไหนให้ทักเลย
+    el.querySelector('button').onclick = () => {
+      if (checkin.times.length <= 1) return toast('ต้องมีเวลาอย่างน้อยหนึ่งช่วงค่ะ', true);
+      checkin.times = checkin.times.filter((x) => x !== t);
+      renderCheckin();
+    };
+    times.appendChild(el);
+  }
+
+  const days = $('ck-days');
+  days.textContent = '';
+  DAY_NAMES.forEach((name, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = name;
+    b.setAttribute('aria-pressed', String(checkin.days.includes(i)));
+    b.onclick = () => {
+      checkin.days = checkin.days.includes(i) ? checkin.days.filter((d) => d !== i) : [...checkin.days, i].sort();
+      renderCheckin();
+    };
+    days.appendChild(b);
+  });
+}
+
+$('ck-on').onchange = () => { checkin.enabled = $('ck-on').checked; renderCheckin(); };
+$('ck-add').onclick = () => {
+  const v = $('ck-new').value;
+  if (!/^\d{2}:\d{2}$/.test(v)) return toast('เลือกเวลาก่อนนะคะ', true);
+  if (checkin.times.includes(v)) return toast('มีช่วงเวลานี้อยู่แล้วค่ะ', true);
+  checkin.times = [...checkin.times, v].sort();
+  $('ck-new').value = '';
+  renderCheckin();
+};
+
+$('ck-save').onclick = async () => {
+  const btn = $('ck-save');
+  btn.disabled = true;
+  try {
+    const { checkin: saved } = await api('/checkin', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        enabled: $('ck-on').checked,
+        displayName: $('ck-name').value.trim(),
+        message: $('ck-msg').value.trim(),
+        timezone: $('ck-tz').value,
+        skipHolidays: $('ck-holiday').checked,
+        times: checkin.times,
+        days: checkin.days,
+      }),
+    });
+    checkin = saved;
+    renderCheckin();
+    toast('บันทึกแล้วค่ะ 💜');
+  } catch (err) {
+    toast(err.message, true);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
 async function loadSettings() {
   const { shop } = await api('/shop');
   $('sh-name').value = shop.shop_name || '';
@@ -715,6 +861,14 @@ async function loadSettings() {
   $('sh-address').value = shop.address || '';
   $('sh-tax').value = shop.tax_id || '';
   $('sh-footer').value = shop.footer_note || '';
+
+  const { checkin: cfg } = await api('/checkin');
+  checkin = cfg;
+  $('ck-name').value = cfg.displayName || '';
+  $('ck-msg').value = cfg.message || '';
+  $('ck-tz').value = cfg.timezone || 'Asia/Bangkok';
+  $('ck-holiday').checked = Boolean(cfg.skipHolidays);
+  renderCheckin();
 }
 
 $('sh-save').onclick = async () => {
