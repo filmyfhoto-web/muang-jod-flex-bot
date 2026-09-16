@@ -32,7 +32,8 @@ function newJobPayload(total, extra = {}) {
 test('add job: saves with MJ job_number and items, defaults to pending', async () => {
   const db = createMockSupabase();
   const job = await createJob('userA', newJobPayload(150), db);
-  assert.match(job.job_number, /^MJ-\d{8}-\d{4}$/);
+  // เลขงานรันแยกตามหมวดแล้ว ไม่ใช่ตามวัน — MJ-SGN-0001 ไม่ใช่ MJ-20260916-0001
+  assert.match(job.job_number, /^MJ-[A-Z]{3}-\d{4}$/);
   assert.equal(job.items.length, 1);
   assert.equal(job.payment_status, 'pending');
   assert.equal(Number(job.balance_due), 150);
