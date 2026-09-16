@@ -6,9 +6,18 @@ import {
   createBill,
   getBillById,
   getLatestBill,
+  splitBill,
+  getSplittableBills,
 } from '../services/billService.js';
 import { getJobById } from '../services/jobService.js';
-import { billFlex, billCustomersFlex, billJobsFlex, billReceiptFlex } from '../flex/billFlex.js';
+import {
+  billFlex,
+  billCustomersFlex,
+  billJobsFlex,
+  billReceiptFlex,
+  billsCarousel,
+  CAROUSEL_MAX,
+} from '../flex/billFlex.js';
 
 // action=create_bill — no customer yet: show who has unbilled work.
 //                      with customer: show that customer's jobs to choose from.
@@ -92,6 +101,59 @@ async function billJobs(replyToken, userId, jobs, customerName) {
     },
     billFlex(bill),
   ]);
+}
+
+/* action=split_bills — บิลใบไหนบ้างที่ยังรวมกองอยู่
+ *
+ * บิลที่ออกไปแล้วหาไม่เจอในแชต การ์ดเก่าเลื่อนหายไปนานแล้ว ใบที่ต้องแก้จึงเป็น
+ * ใบที่มองไม่เห็นพอดี — พิมพ์ "แยกบิล" แล้วม่วงยกมันกลับมาให้
+ */
+export async function splitBillsList({ replyToken, profile }) {
+  const bills = await getSplittableBills(profile.id, CAROUSEL_MAX);
+  if (!bills.length) {
+    return reply(replyToken, {
+      type: 'text',
+      text: 'ไม่มีบิลที่ต้องแยกแล้วค่ะ ทุกใบเป็นของคนเดียวอยู่แล้วนะคะ 💜',
+    });
+  }
+  return reply(replyToken, [
+    {
+      type: 'text',
+      text:
+        `มีบิลที่ยังรวมงานของหลายคนอยู่ ${bills.length} ใบค่ะ\n` +
+        'กด "✂️ แยกเป็นคนละใบ" บนใบที่ต้องการได้เลยนะคะ 💜',
+    },
+    billsCarousel(bills),
+  ]);
+}
+
+/* action=split_bill&billId=… — ถอยบิลรวมกอง ออกเป็นใบของแต่ละคน
+ *
+ * การแก้ตอนสร้าง (บิลใหม่ไม่รวมคนอื่นแล้ว) ไม่ช่วยใบที่ออกไปก่อนหน้านั้นเลย
+ * ร้านจึงยังเปิดดูแล้วเห็นสี่คนอยู่ในใบเดียว และแก้เองไม่ได้ ปุ่มนี้คือทางแก้
+ */
+const SPLIT_REFUSALS = {
+  not_found: 'ไม่พบบิลนี้ค่ะ',
+  cancelled: 'บิลนี้ถูกยกเลิกไปแล้วค่ะ',
+  paid: 'บิลนี้รับเงินมาแล้ว แยกให้ไม่ได้ค่ะ\nเพราะม่วงจะไม่รู้ว่าเงินที่รับมาเป็นของใคร — ถ้าต้องแยกจริง ๆ บอกม่วงได้นะคะ 💜',
+  nothing_to_split: 'บิลนี้เป็นของคนเดียวอยู่แล้วค่ะ ไม่ต้องแยกนะคะ 💜',
+};
+
+export async function splitBillAction({ replyToken, profile, params }) {
+  const result = await splitBill(profile.id, params?.billId);
+  if (!result.ok) {
+    return reply(replyToken, { type: 'text', text: SPLIT_REFUSALS[result.why] || SPLIT_REFUSALS.not_found });
+  }
+
+  const { from, bills } = result;
+  const lines = [
+    `แยกบิล${from.bill_number ? ` ${from.bill_number}` : ''} ออกเป็น ${bills.length} ใบแล้วค่ะ 💜`,
+    'ใบเดิมถูกยกเลิก ลิงก์เก่าจะเปิดไม่ได้แล้วนะคะ',
+  ];
+  if (bills.length > CAROUSEL_MAX) {
+    lines.push(`(แสดง ${CAROUSEL_MAX} ใบแรก ที่เหลือดูในเมนูบิลได้ค่ะ)`);
+  }
+  return reply(replyToken, [{ type: 'text', text: lines.join('\n') }, billsCarousel(bills)]);
 }
 
 // action=bill_payment&billId=… — ask how much came in.
