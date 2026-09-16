@@ -23,7 +23,7 @@ export { escapeHtml };
 // chat, and "พิมพ์ / บันทึกเป็น PDF" was a print dialog on a phone. Nothing is
 // loaded from a CDN — a receipt has to work the moment it is needed, so the
 // drawing is done by hand on a canvas rather than by an html-to-image library.
-const RECEIPT_IMAGE_JS = String.raw`
+export const RECEIPT_IMAGE_JS = String.raw`
 (function () {
   var C = {
     purple: '#7c3aed', dark: '#5b21b6', soft: '#ede9fe', ink: '#1f2937',
@@ -82,6 +82,32 @@ const RECEIPT_IMAGE_JS = String.raw`
     while (last.length > 1 && ctx.measureText(last + '…').width > maxWidth) last = last.slice(0, -1);
     kept[maxLines - 1] = last + '…';
     return kept;
+  }
+
+  /* วางตัวเลขเอง ไม่พึ่ง ctx.textAlign
+   *
+   * ร้านส่งภาพมาว่า "ยอดเด้งไม่ตรงกรอบ" — ฿1,100 ของแถวแรกถูกเฉือนตัวท้ายทิ้ง
+   * ยอดรวมกับยอดคงเหลือก็โดนเหมือนกัน ทั้งที่โค้ดตั้ง textAlign = 'right' ไว้
+   * ก่อนวาดทุกครั้ง
+   *
+   * เบราว์เซอร์ในไลน์บนเครื่องของร้านไม่สนใจค่านั้น ทุกยอดเลยถูกวาดชิดซ้ายจาก
+   * ขอบขวาของเนื้อหา แล้ววิ่งออกนอกกระดาษไป (จำลองได้ด้วยการปิด setter ของ
+   * textAlign ใน Chromium — ได้ภาพเหมือนที่ร้านส่งมาเป๊ะ)
+   *
+   * แทนที่จะหวังว่าเครื่องอื่นจะทำตาม เลยวัดความกว้างเองแล้วลบออกจากขอบขวา
+   * ซึ่งได้ผลเท่ากันทุกเบราว์เซอร์ และไม่มีค่าอะไรให้ลืมตั้งกลับอีก
+   */
+  function textRight(ctx, text, rightX, y, minX) {
+    var s = String(text);
+    var x = rightX - ctx.measureText(s).width;
+    // ยอดที่ยาวจนล้นไปทับชื่องาน ให้หยุดที่ขอบซ้ายที่ยอมได้ ดีกว่าไปทับกัน
+    if (minX != null && x < minX) x = minX;
+    ctx.fillText(s, x, y);
+  }
+
+  function textCenter(ctx, text, centerX, y) {
+    var s = String(text);
+    ctx.fillText(s, centerX - ctx.measureText(s).width / 2, y);
   }
 
   function roundRect(ctx, x, y, w, h, r, fill) {
@@ -158,9 +184,7 @@ const RECEIPT_IMAGE_JS = String.raw`
     ctx.fill();
     font(ctx, '700', 26);
     ctx.fillStyle = C.white;
-    ctx.textAlign = 'center';
-    ctx.fillText(data.paid ? '✓' : '฿', INNER + 26, y + 35);
-    ctx.textAlign = 'left';
+    textCenter(ctx, data.paid ? '✓' : '฿', INNER + 26, y + 35);
 
     font(ctx, '700', 27);
     ctx.fillStyle = C.dark;
@@ -227,9 +251,7 @@ const RECEIPT_IMAGE_JS = String.raw`
 
         font(ctx, '600', 22);
         ctx.fillStyle = C.ink;
-        ctx.textAlign = 'right';
-        ctx.fillText(r.row.amount, INNER + CW, y + 21);
-        ctx.textAlign = 'left';
+        textRight(ctx, r.row.amount, INNER + CW, y + 21, INNER + 34 + NAME_W + 8);
 
         // แต่ละรายการย่อยในงานเดียว: ชื่อซ้าย ยอดขวา สีอ่อนกว่าบรรทัดหลัก
         // เพื่อให้อ่านออกว่าเป็นของที่รวมอยู่ในยอดข้างบน ไม่ใช่ยอดเพิ่ม
@@ -244,9 +266,7 @@ const RECEIPT_IMAGE_JS = String.raw`
           });
           if (amount) {
             ctx.fillStyle = C.grey;
-            ctx.textAlign = 'right';
-            ctx.fillText(amount, INNER + CW, ly);
-            ctx.textAlign = 'left';
+            textRight(ctx, amount, INNER + CW, ly);
           }
         });
 
@@ -264,9 +284,7 @@ const RECEIPT_IMAGE_JS = String.raw`
     ctx.fillText('รวมทั้งสิ้น', INNER + 18, y + 57);
     font(ctx, '700', 42);
     ctx.fillStyle = C.purple;
-    ctx.textAlign = 'right';
-    ctx.fillText(data.total, INNER + CW - 18, y + 60);
-    ctx.textAlign = 'left';
+    textRight(ctx, data.total, INNER + CW - 18, y + 60);
     y += 92 + 20;
 
     // แถบเฉพาะร้าน — วาดเฉพาะใบที่ร้านเก็บไว้ดูเอง ใบที่ส่งให้ลูกค้าไม่มีบรรทัดนี้
@@ -281,9 +299,7 @@ const RECEIPT_IMAGE_JS = String.raw`
       ctx.fillText('ราคายังไม่ปัด ' + data.shopOnly.listed, INNER + 16, y + 51);
       font(ctx, '700', 20);
       ctx.fillStyle = data.shopOnly.up ? C.green : C.red;
-      ctx.textAlign = 'right';
-      ctx.fillText(data.shopOnly.gapText, INNER + CW - 16, y + 51);
-      ctx.textAlign = 'left';
+      textRight(ctx, data.shopOnly.gapText, INNER + CW - 16, y + 51);
       y += SHOP_H + 16;
     }
 
@@ -291,22 +307,18 @@ const RECEIPT_IMAGE_JS = String.raw`
     ctx.fillStyle = C.green;
     ctx.fillText('รับชำระแล้ว ' + data.paidAmount, INNER, y + 21);
     ctx.fillStyle = C.red;
-    ctx.textAlign = 'right';
-    ctx.fillText('คงเหลือ ' + data.balance, INNER + CW, y + 21);
-    ctx.textAlign = 'left';
+    textRight(ctx, 'คงเหลือ ' + data.balance, INNER + CW, y + 21);
     y += 38 + 20;
 
     font(ctx, '400', 17);
     ctx.fillStyle = C.grey;
-    ctx.textAlign = 'center';
-    ctx.fillText('ขอบคุณที่ใช้บริการค่ะ 💜', W / 2, y);
+    textCenter(ctx, 'ขอบคุณที่ใช้บริการค่ะ 💜', W / 2, y);
     if (data.shop.footer) {
       y += 26;
       font(ctx, '400', 15);
       ctx.fillStyle = C.grey;
-      clip(ctx, data.shop.footer, CW, 1).forEach(function (l) { ctx.fillText(l, W / 2, y); });
+      clip(ctx, data.shop.footer, CW, 1).forEach(function (l) { textCenter(ctx, l, W / 2, y); });
     }
-    ctx.textAlign = 'left';
 
     return cv.toDataURL('image/png');
   }
@@ -512,7 +524,7 @@ export function shopOnlyPrice(bill = {}) {
 
 // What the canvas needs to draw the receipt, so the picture and the page are
 // built from one set of numbers rather than two.
-function receiptData(bill, shop = {}, shopView = false) {
+export function receiptData(bill, shop = {}, shopView = false) {
   const paid = bill.payment_status === 'paid';
   return {
     paid,
