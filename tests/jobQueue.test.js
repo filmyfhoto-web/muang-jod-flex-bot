@@ -120,3 +120,33 @@ test('a day says what it means, and a late one says so twice', () => {
   assert.match(dashboard, /job\.due_date < opts\.today && !opts\.done/);
   assert.match(dashboard, /เลยกำหนดแล้ว/);
 });
+
+// ร้านบอกว่า "ข้างบนเป็นชื่องาน ข้างล่างเป็นชื่อลูกค้า อยากได้ชื่อลูกค้าเป็นเหมือน
+// สีเน้นคำว่าค้างรับ แต่เป็นสีของเฉพาะหมวดงาน ไม่ซ้ำกัน" — ชื่อลูกค้าเคยเป็นตัว
+// จาง ๆ ปนอยู่กับวันที่และเลขงาน ทั้งที่เป็นสิ่งที่ร้านกวาดตาหาก่อนเพื่อน
+
+test('the customer name is a chip in that category\'s own colour', () => {
+  assert.match(dashboard, /\.who \{/, 'ไม่มีสไตล์ของชิปชื่อลูกค้า');
+  assert.match(dashboard, /function colorOf\(job\)/, 'หน้าเว็บไม่รู้สีของหมวด');
+  assert.match(dashboard, /function customerChip\(job\)/);
+
+  // พื้นจาง ตัวหนังสือสีเต็ม — ใช้สีเต็มเป็นพื้นแล้วตัวหนังสือจะจมหายไปกับสีอ่อน
+  const chip = dashboard.slice(dashboard.indexOf('function customerChip'), dashboard.indexOf('function statTile'));
+  assert.match(chip, /el\.style\.color = color;/);
+  assert.match(chip, /el\.style\.background = color \+ '26';/);
+  // ไม่มีชื่อลูกค้าก็ไม่มีชิปเปล่า ๆ ลอยอยู่
+  assert.match(chip, /if \(!name\) return null;/);
+  // หมวดที่ไม่รู้จักได้สีเทากลาง ไม่ใช่ undefined ที่ทำให้ชิปไม่มีสี
+  assert.match(dashboard, /\?\.color \|\| '#94A3B8'/);
+
+  // แถวในรายการใช้ชิปจริง ไม่ใช่ยัดชื่อกลับไปเป็นข้อความจาง ๆ เหมือนเดิม
+  const row = dashboard.slice(dashboard.indexOf('function jobRow'), dashboard.indexOf('function renderJobs'));
+  assert.match(row, /const chip = customerChip\(job\);/);
+  assert.ok(!/small\.textContent = \[job\.customer_name/.test(row), 'ชื่อลูกค้ายังถูกต่อเป็นข้อความธรรมดา');
+
+  // สีต้องส่งมาจากเซิร์ฟเวอร์ ไม่งั้นชิปเป็นเทาหมดทุกหมวด
+  const api = readFileSync(new URL('../src/routes/api.js', import.meta.url), 'utf8');
+  const config = api.slice(api.indexOf("router.get('/config'"), api.indexOf("// Auth for everything below."));
+  assert.match(config, /color: g\.color/, '/api/config ไม่ได้ส่งสีของหมวดมา');
+  assert.match(config, /color: OTHER_GROUP\.color/);
+});

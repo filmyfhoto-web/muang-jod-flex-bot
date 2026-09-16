@@ -138,12 +138,16 @@ export function createApiRouter(deps = {}) {
       liffId: liffId(),
       enabled: Boolean(liffId()),
       // The edit form's two dropdowns; public, so it can render before login.
+      // สีมาด้วย หน้ารายการใช้ระบายชิปชื่อลูกค้าให้แยกหมวดออกจากกันแต่ไกล
       categories: CATEGORY_GROUPS.map((g) => ({
         id: g.id,
         label: g.label,
         icon: g.icon,
+        color: g.color,
         types: g.types.map((t) => ({ id: t.id, label: t.label, icon: t.icon })),
-      })).concat([{ id: OTHER_GROUP.id, label: OTHER_GROUP.label, icon: OTHER_GROUP.icon, types: [] }]),
+      })).concat([
+        { id: OTHER_GROUP.id, label: OTHER_GROUP.label, icon: OTHER_GROUP.icon, color: OTHER_GROUP.color, types: [] },
+      ]),
     });
   });
 

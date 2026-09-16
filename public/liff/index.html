@@ -150,6 +150,16 @@
   .job .amt { text-align: right; flex: none; }
   .job .amt b { display: block; font-size: 14px; }
   .badge { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; display: inline-block; margin-top: 2px; }
+
+  /* ชิปชื่อลูกค้า ระบายด้วยสีของหมวดงานนั้น
+     ร้านบอกว่า "อยากได้ชื่อลูกค้าเป็นเหมือนสีเน้นคำว่าค้างรับ แต่เป็นสีของเฉพาะ
+     หมวดงาน ไม่ซ้ำกัน" — ชื่อลูกค้าเคยเป็นตัวจาง ๆ ปนอยู่กับวันที่และเลขงาน
+     ทั้งที่เป็นสิ่งที่ร้านกวาดตาหาก่อนเพื่อน */
+  .who {
+    font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+    display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; vertical-align: -1px;
+  }
   .b-paid { background: var(--green-bg); color: var(--green); }
   .b-partial { background: var(--orange-bg); color: var(--orange); }
   .b-pending { background: var(--red-bg); color: var(--red); }
@@ -486,6 +496,29 @@ function iconOf(job) {
   return t?.icon || g?.icon || '📦';
 }
 
+// สีประจำหมวดของงานใบนี้ — หมวดที่ไม่รู้จักได้สีเทากลาง ไม่ใช่ undefined
+function colorOf(job) {
+  return groups.find((x) => x.id === job.category)?.color || '#94A3B8';
+}
+
+/* ชื่อลูกค้าเป็นชิปสีของหมวด
+ *
+ * พื้นเป็นสีเดียวกันแต่จาง (ต่อท้ายด้วย alpha ในเลขฐานสิบหก) ตัวหนังสือเป็นสีเต็ม
+ * จะได้เข้มพอให้อ่านออกบนพื้นจาง ๆ ของมันเอง — ใช้สีเต็มเป็นพื้นแล้วตัวหนังสือ
+ * จะจมหายไปกับสีอ่อน ๆ อย่างเขียวมิ้นต์กับฟ้า
+ */
+function customerChip(job) {
+  const name = String(job.customer_name || '').trim();
+  if (!name) return null;
+  const color = colorOf(job);
+  const el = document.createElement('span');
+  el.className = 'who';
+  el.textContent = name;
+  el.style.color = color;
+  el.style.background = color + '26';
+  return el;
+}
+
 function statTile({ icon, label, big, sub, trend, onTap }) {
   const el = document.createElement('div');
   el.className = 'stat' + (onTap ? ' tappable' : '');
@@ -597,19 +630,25 @@ function jobRow(job, opts = {}) {
   }
   el.querySelector('.txt b').textContent = job.job_name || 'งาน';
   const small = el.querySelector('.txt small');
-  if (opts.queue) {
-    // วันนัดรับอยู่บนหัวข้อวันแล้ว บรรทัดนี้จึงเหลือแค่ลูกค้า กับคำเตือนถ้าเลยกำหนด
-    small.textContent = job.customer_name || '';
-    if (job.due_date && opts.today && job.due_date < opts.today && !opts.done) {
-      const late = document.createElement('span');
-      late.className = 'late';
-      late.textContent = (small.textContent ? ' · ' : '') + 'เลยกำหนดแล้ว';
-      small.appendChild(late);
-    }
-  } else {
-    small.textContent = [job.customer_name || '', opts.showDate ? shortThaiDate(job.job_date) : '', job.job_number || '']
-      .filter(Boolean)
-      .join(' · ');
+  small.textContent = '';
+
+  // ชื่อลูกค้ามาก่อน และมาเป็นชิปสีของหมวด ที่เหลือ (วันที่ เลขงาน) ต่อท้ายจาง ๆ
+  const chip = customerChip(job);
+  if (chip) small.appendChild(chip);
+
+  const rest = opts.queue
+    ? []
+    : [opts.showDate ? shortThaiDate(job.job_date) : '', job.job_number || ''].filter(Boolean);
+
+  if (rest.length) {
+    small.appendChild(document.createTextNode((chip ? ' · ' : '') + rest.join(' · ')));
+  }
+
+  if (opts.queue && job.due_date && opts.today && job.due_date < opts.today && !opts.done) {
+    const late = document.createElement('span');
+    late.className = 'late';
+    late.textContent = (chip ? ' · ' : '') + 'เลยกำหนดแล้ว';
+    small.appendChild(late);
   }
   el.querySelector('.amt b').textContent = baht(job.total);
   el.onclick = () => openEdit(job.id);

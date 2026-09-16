@@ -3,15 +3,14 @@ import { round2 } from '../utils/currency.js';
 import { todayISO, rangeForPeriod } from '../utils/dates.js';
 import { derivePaymentFields } from '../utils/payment.js';
 import { categoryFields } from '../utils/category.js';
+import { formatJobNumber } from '../utils/jobNumber.js';
 import { logger } from './logger.js';
 
 const ACTIVE_STATUSES = ['active', 'completed'];
 
-// job_number format: MJ-YYYYMMDD-XXXX (XXXX = per-user daily running number).
-export function formatJobNumber(dateISO, seq) {
-  const compact = String(dateISO).replace(/-/g, ''); // YYYYMMDD
-  return `MJ-${compact}-${String(seq).padStart(4, '0')}`;
-}
+// เลขงาน: MJ-STP-0007 — รันแยกตามหมวด ตั้งครั้งเดียวตอนสร้าง ไม่คิดใหม่อีกเลย
+// (รายละเอียดและเหตุผลอยู่ใน utils/jobNumber.js)
+export { formatJobNumber };
 
 // Pure aggregation for the "today" summary — extracted so it is unit-testable.
 export function summarizeJobs(rows, dateStr) {
@@ -46,12 +45,18 @@ function isMissingFunction(error) {
   );
 }
 
-async function dailyCount(userId, jobDate, client) {
+/* งานของหมวดนี้มีไปแล้วกี่ใบ — ตัวตั้งของเลขถัดไป
+ *
+ * นับทุกใบรวมที่ยกเลิกไปแล้วด้วย เลขที่เคยออกไปต้องไม่ถูกเอามาใช้ซ้ำ ใบที่ยื่นให้
+ * ลูกค้าไปแล้วกับใบใหม่จะได้ไม่ชนกัน ส่วนการชนกันจากสองเครื่องพร้อมกัน มี unique
+ * ที่ฐานข้อมูลกับการลองใหม่ข้างล่างรับไว้อยู่แล้ว
+ */
+async function categoryCount(userId, category, client) {
   const { count } = await client
     .from('jobs')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
-    .eq('job_date', jobDate);
+    .eq('category', category);
   return count || 0;
 }
 
@@ -93,8 +98,23 @@ export async function createJob(userId, payload, client = supabase) {
     total: round2(it.total ?? 0),
   }));
 
+  /* เลขงานคิดที่นี่ที่เดียว แล้วส่งเข้า RPC ไปด้วย
+   *
+   * ของเดิม RPC เป็นคนตั้งเลขเอง (แบบรันตามวัน) ถ้าปล่อยไว้ งานที่สร้างผ่าน RPC
+   * กับผ่านทางสำรองจะได้เลขคนละแบบ ตอนนี้ทั้งสองทางใช้เลขเดียวกันจากที่นี่
+   *
+   * ฐานข้อมูลที่ยังไม่ได้รันไมเกรชัน 011 จะไม่มี RPC ที่รับพารามิเตอร์นี้ การเรียก
+   * จึงกลายเป็น "ไม่พบฟังก์ชัน" แล้วตกไปทางสำรองข้างล่าง ซึ่งตั้งเลขแบบเดียวกัน —
+   * ยังไม่ได้รันไมเกรชันก็ยังได้เลขที่ถูก แค่เสียความเป็น atomic ไปชั่วคราว
+   */
+  const seed = await categoryCount(userId, cat.category, client);
+  const firstNumber = formatJobNumber(cat.category, seed + 1);
+
   // 1) Preferred: atomic RPC.
   const rpc = await client.rpc('create_job_with_items', {
+    p_job_number: firstNumber,
+    p_category: cat.category,
+    p_category_type: cat.category_type,
     p_user_id: userId,
     p_job_name: name,
     p_customer_name: customerName,
@@ -135,13 +155,13 @@ export async function createJob(userId, payload, client = supabase) {
   }
 
   // 2) Fallback: JS insert with job_number retry + compensating rollback.
-  let seq = await dailyCount(userId, jobDate, client);
+  let seq = seed;
   let job = null;
   let attempt = 0;
   while (!job) {
     attempt += 1;
     seq += 1;
-    const jobNumber = formatJobNumber(jobDate, seq);
+    const jobNumber = formatJobNumber(cat.category, seq);
     const { data, error } = await client
       .from('jobs')
       .insert({
