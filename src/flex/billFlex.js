@@ -8,6 +8,7 @@ import { brandAssetUrl, MASCOT } from '../utils/brand.js';
 import { publicBaseUrl } from '../utils/brand.js';
 import { linkRow, footerActions } from './components/footerActions.js';
 import { withShopKey } from '../utils/receiptLink.js';
+import { canSplitBill, splitPlan } from '../utils/billSplit.js';
 
 // Cards for the last two steps of the flow: รวมรายการลงบิล -> รับชำระและออกใบเสร็จ.
 
@@ -152,6 +153,24 @@ export function billFlex(bill, opts = {}) {
       },
     },
   ];
+  /* ทางถอยของบิลที่รวมกองไปแล้ว
+   *
+   * บิลเก่าที่ออกไปก่อนมีการแยกต่อคน ยังรวมงานของหลายคนอยู่ใบเดียว และร้านแก้เอง
+   * ไม่ได้เลย — ปุ่มนี้คือทางแก้ ขึ้นเฉพาะใบที่แยกแล้วได้จริงมากกว่าหนึ่งใบ
+   */
+  if (canSplitBill(bill)) {
+    footer.push({
+      type: 'button',
+      style: 'secondary',
+      height: 'sm',
+      action: {
+        type: 'postback',
+        label: `✂️ แยกเป็นคนละใบ (${splitPlan(jobs).length})`,
+        data: `action=split_bill&billId=${encodeURIComponent(bill.id)}`,
+        displayText: 'แยกบิลเป็นคนละใบ',
+      },
+    });
+  }
   footer.push(...receiptButtons(bill, opts));
 
   return {
@@ -205,6 +224,20 @@ export function billFlex(bill, opts = {}) {
       footer: { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: 'lg', paddingTop: 'none', contents: footer },
       styles: { body: { backgroundColor: COLORS.surface }, footer: { backgroundColor: COLORS.surface } },
     },
+  };
+}
+
+// หลายบิลในข้อความเดียว ปัดดูทีละใบ — ใช้ตอนแยกบิลรวมออกเป็นคนละใบ
+// LINE รับ carousel ได้ 12 ใบ เกินกว่านั้นตัด แล้วบอกตรง ๆ ว่ายังมีอีกกี่ใบ
+export const CAROUSEL_MAX = 12;
+
+export function billsCarousel(bills = [], opts = {}) {
+  const shown = bills.slice(0, CAROUSEL_MAX);
+  if (shown.length === 1) return billFlex(shown[0], opts);
+  return {
+    type: 'flex',
+    altText: `บิล ${shown.length} ใบ`,
+    contents: { type: 'carousel', contents: shown.map((b) => billFlex(b, opts).contents) },
   };
 }
 

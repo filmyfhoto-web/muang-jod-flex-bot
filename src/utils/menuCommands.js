@@ -53,6 +53,11 @@ const COMMANDS = new Map([
   ['รวมบิล', 'create_bill'],
   ['บิล', 'create_bill'],
   ['ใบเสร็จ', 'view_receipt'],
+  // บิลเก่าที่ยังรวมงานของหลายคนอยู่ หาไม่เจอในแชตแล้ว — คำพวกนี้ยกมันกลับมา
+  ['แยกบิล', 'split_bills'],
+  ['แยกใบเสร็จ', 'split_bills'],
+  ['ใบเสร็จแยกคน', 'split_bills'],
+  ['แยกบิลเป็นคนๆ', 'split_bills'],
   // "ออกบิลคือการออกใบเสร็จรับเงิน" — so this one starts a bill rather than
   // opening the last receipt, which is what ใบเสร็จ on its own does.
   ['ออกใบเสร็จ', 'create_bill'],

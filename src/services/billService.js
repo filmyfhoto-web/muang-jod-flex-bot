@@ -3,10 +3,14 @@ import { supabase } from '../config/supabase.js';
 import { round2 } from '../utils/currency.js';
 import { todayISO } from '../utils/dates.js';
 import { derivePaymentFields } from '../utils/payment.js';
+import { splitPlan, canSplitBill } from '../utils/billSplit.js';
 import { attachItems } from './jobService.js';
 import { logger } from './logger.js';
 
 const ACTIVE_JOB_STATUSES = ['active', 'completed'];
+
+// จำนวนบิลย้อนหลังที่ยอมเปิดดูตอนหาใบที่ยังรวมกองอยู่
+const SPLIT_SCAN_LIMIT = 60;
 
 // The receipt link's secret. Generated here rather than left to the column
 // default, so the app owns it and it exists even on a database whose default
@@ -190,6 +194,49 @@ export async function createBill(userId, jobIds = [], opts = {}, client = supaba
   return { ...bill, jobs: attached };
 }
 
+// แยกบิลที่รวมกันไปแล้ว ออกเป็นคนละใบ — วิธีจัดกลุ่มอยู่ที่ utils/billSplit.js
+// ที่เดียว เพื่อให้ปุ่มบนการ์ดกับการแยกจริงตัดสินใจเหมือนกันเป๊ะเสมอ
+export async function splitBill(userId, billId, client = supabase) {
+  const bill = await getBillById(userId, billId, client);
+  if (!bill) return { ok: false, why: 'not_found' };
+  if (bill.status !== 'active') return { ok: false, why: 'cancelled' };
+
+  /* บิลที่รับเงินมาแล้ว แยกไม่ได้
+   *
+   * ยอดที่รับมาผูกกับบิลใบเดียว พอแยกเป็นหลายใบก็ต้องตัดสินใจแทนร้านว่าเงินก้อนนั้น
+   * เป็นของใคร ซึ่งเดาผิดแล้วกลายเป็นหนี้ที่หายไปเงียบ ๆ ปฏิเสธไปตรง ๆ ดีกว่า
+   */
+  if (Number(bill.paid_amount) > 0) return { ok: false, why: 'paid' };
+
+  const jobs = bill.jobs || [];
+  const groups = splitPlan(jobs);
+  if (groups.length < 2) return { ok: false, why: 'nothing_to_split', bill };
+
+  // ปลดงานออกจากบิลเดิมก่อน ไม่งั้น createBill มองไม่เห็น (มันรับเฉพาะงานที่
+  // bill_id ยังว่าง) ถ้าพังกลางทาง งานจะกลับไปกองรอออกบิล ซึ่งเป็นฝั่งที่ปลอดภัย
+  const { error: unlinkErr } = await client
+    .from('jobs')
+    .update({ bill_id: null })
+    .eq('user_id', userId)
+    .eq('bill_id', bill.id);
+  if (unlinkErr) {
+    logger.error('bill.split_unlink_failed', { billId: bill.id, message: unlinkErr.message });
+    throw unlinkErr;
+  }
+
+  // ยกเลิกใบเดิม ลิงก์ใบเสร็จเก่าจะเปิดไม่ได้อีก — ตั้งใจ เพราะใบนั้นคือใบที่ผิด
+  await client.from('bills').update({ status: 'cancelled' }).eq('id', bill.id).eq('user_id', userId);
+
+  const made = [];
+  for (const g of groups) {
+    const fresh = await createBill(userId, g.jobs.map((j) => j.id), { customerName: g.customerName }, client);
+    if (fresh) made.push(fresh);
+  }
+
+  logger.info('bill.split', { from: bill.bill_number, into: made.length });
+  return { ok: true, from: bill, bills: made };
+}
+
 async function attachJobs(bill, client) {
   if (!bill) return null;
   const { data, error } = await client
@@ -263,6 +310,18 @@ export async function getBillByToken(token, client = supabase) {
   return data ? attachJobs(data, client) : null;
 }
 
+/* ลิงก์ที่ยื่นให้ลูกค้าไปแล้ว แต่บิลถูกยกเลิก (เช่นโดนแยกเป็นคนละใบ)
+ *
+ * ลูกค้าถือลิงก์นั้นอยู่จริง กดแล้วเจอ "ไม่พบใบเสร็จนี้" จะงงว่าโดนหลอกหรือเปล่า
+ * บอกไปตรง ๆ ว่าใบนี้ถูกยกเลิกแล้ว ดีกว่าทำเป็นว่าไม่เคยมี
+ */
+export async function isCancelledToken(token, client = supabase) {
+  const t = String(token || '').trim();
+  if (!/^[a-f0-9]{16,128}$/i.test(t)) return false;
+  const { data } = await client.from('bills').select('status').eq('share_token', t).maybeSingle();
+  return data?.status === 'cancelled';
+}
+
 // Record a payment against a bill, and settle its jobs to match.
 export async function recordBillPayment(userId, billId, amount, client = supabase) {
   const bill = await getBillById(userId, billId, client);
@@ -305,6 +364,38 @@ export async function recordBillPayment(userId, billId, amount, client = supabas
 
   logger.info('bill.paid', { billNumber: updated.bill_number, status: updated.payment_status });
   return attachJobs(updated, client);
+}
+
+/* บิลที่ยังแยกเป็นคนละคนได้ ใหม่สุดก่อน
+ *
+ * ร้านมองเห็นบิลที่ออกไปแล้วได้ทางเดียวคือการ์ดเก่าในแชต ซึ่งเลื่อนหายไปนานแล้ว
+ * ใบที่รวมกองอยู่จึงหาไม่เจอ ทั้งที่เป็นใบที่ต้องแก้ — รายการนี้พามันกลับมา
+ */
+export async function getSplittableBills(userId, limit = 12, client = supabase) {
+  const { data, error } = await client
+    .from('bills')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    // ดูย้อนหลังแค่ช่วงหนึ่ง — ต้องอ่านงานในบิลทีละใบถึงจะรู้ว่าแยกได้ไหม
+    // บิลที่รวมกองผิดคือบิลที่เพิ่งออก ไม่ใช่บิลเมื่อสองปีก่อน
+    .limit(SPLIT_SCAN_LIMIT);
+  if (error) {
+    logger.error('bill.splittable_failed', { message: error.message });
+    throw error;
+  }
+
+  const found = [];
+  for (const row of data || []) {
+    if (found.length >= limit) break;
+    // ต้องอ่านงานในบิลก่อนถึงจะรู้ว่าแยกได้ไหม — บิลของร้านมีไม่กี่สิบใบ
+    // และหยุดทันทีที่ครบจำนวนที่จะแสดง
+    if (Number(row.paid_amount) > 0) continue;
+    const full = await attachJobs(row, client);
+    if (canSplitBill(full)) found.push(full);
+  }
+  return found;
 }
 
 // Open bills (not fully paid), newest first.

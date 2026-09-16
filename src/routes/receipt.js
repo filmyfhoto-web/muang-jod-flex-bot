@@ -1,6 +1,6 @@
 import express from 'express';
 import { escapeHtml } from '../utils/html.js';
-import { getBillByToken } from '../services/billService.js';
+import { getBillByToken, isCancelledToken } from '../services/billService.js';
 import { getShopProfile, hasShopDetails } from '../services/shopService.js';
 import { isShopKey } from '../utils/receiptLink.js';
 import { formatBaht, numText, round2 } from '../utils/currency.js';
@@ -759,7 +759,16 @@ router.get('/:token', async (req, res) => {
   try {
     const bill = await getBillByToken(req.params.token);
     if (!bill) {
-      return res.status(404).type('html').send('<!doctype html><meta charset="utf-8"><p>ไม่พบใบเสร็จนี้ค่ะ</p>');
+      // ใบที่ถูกยกเลิก (เช่นโดนแยกเป็นบิลของแต่ละคน) ลูกค้าอาจถือลิงก์อยู่จริง
+      // บอกว่าเกิดอะไรขึ้น ดีกว่าทำเป็นว่าไม่เคยมีใบนี้
+      const cancelled = await isCancelledToken(req.params.token);
+      const note = cancelled
+        ? 'ใบเสร็จนี้ถูกยกเลิกแล้วค่ะ ทางร้านจะออกใบใหม่ให้นะคะ'
+        : 'ไม่พบใบเสร็จนี้ค่ะ';
+      return res
+        .status(404)
+        .type('html')
+        .send(`<!doctype html><meta charset="utf-8"><p>${escapeHtml(note)}</p>`);
     }
     res.set('X-Robots-Tag', 'noindex, nofollow');
     res.set('Cache-Control', 'no-store');

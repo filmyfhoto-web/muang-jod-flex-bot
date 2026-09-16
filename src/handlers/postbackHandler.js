@@ -7,7 +7,15 @@ import { editLatest } from '../actions/editLatest.js';
 import { cancelLatest, confirmCancel, cancelCancel } from '../actions/cancelLatest.js';
 import { editJob, deleteJob } from '../actions/jobActions.js';
 import { pickCategory } from '../actions/pickCategory.js';
-import { createBillAction, billAllForCustomer, billOneJob, billPaymentPrompt, viewReceipt } from '../actions/bill.js';
+import {
+  createBillAction,
+  billAllForCustomer,
+  billOneJob,
+  billPaymentPrompt,
+  viewReceipt,
+  splitBillAction,
+  splitBillsList,
+} from '../actions/bill.js';
 import { remindPrompt, setReminder, cancelReminderAction, listReminders } from '../actions/reminder.js';
 import { openDashboard } from '../actions/dashboard.js';
 import { home } from '../actions/home.js';
@@ -79,6 +87,10 @@ export async function handlePostback(event, profile) {
       return createBillAction(ctx);
     case 'bill_all':
       return billAllForCustomer(ctx);
+    case 'split_bill':
+      return splitBillAction(ctx);
+    case 'split_bills':
+      return splitBillsList(ctx);
     case 'bill_payment':
       return billPaymentPrompt(ctx);
     case 'view_receipt':
