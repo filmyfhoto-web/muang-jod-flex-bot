@@ -1,6 +1,7 @@
 import { round2 } from '../utils/currency.js';
 import { todayISO } from '../utils/dates.js';
 import { logger } from './logger.js';
+import { prepareForVision } from './imagePrep.js';
 
 // Read a photographed piece of paper into something the bot can act on.
 //
@@ -197,8 +198,20 @@ export const READABLE_TYPES = ['image/jpeg', 'image/png'];
 export async function readImage(buffer, mimeType, deps = {}) {
   if (!READABLE_TYPES.includes(mimeType)) return null;
   const extract = deps.visionExtract || defaultVisionExtract;
+  const prepare = deps.prepareForVision || prepareForVision;
   try {
-    const raw = await extract(buffer, mimeType);
+    /* ย่อก่อนส่ง — รูปที่ลูกค้าส่งมาเป็น "ไฟล์" มาเต็มความละเอียด
+     *
+     * ตัวอ่านรับได้ 10 MB ต่อรูปและนับแบบ base64 ซึ่งพองขึ้นอีกราวหนึ่งในสาม
+     * ไฟล์ 27 MB จึงส่งไปไม่ได้เลย ทั้งที่มันคือใบสั่งงานที่ร้านอยากให้อ่าน
+     */
+    const ready = await prepare(buffer, mimeType);
+    if (!ready) {
+      logger.warn('vision.too_big_to_read', { size: buffer.length });
+      return null;
+    }
+
+    const raw = await extract(ready.buffer, ready.mimeType);
     if (raw?.kind === 'other') return null; // a photo, not paperwork: just attach it
 
     // A slip is the safer reading of an ambiguous document: it records money

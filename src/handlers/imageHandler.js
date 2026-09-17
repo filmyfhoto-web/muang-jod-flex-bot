@@ -11,8 +11,18 @@ import { logger } from '../services/logger.js';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 
+/* เพดานขนาดไฟล์
+ *
+ * ร้านอยากให้ม่วงอ่านไฟล์ที่ลูกค้าส่งมาได้เลย ซึ่งไฟล์แบบนั้นใหญ่กว่ารูปในแชตมาก
+ * — รูปที่ส่งเป็น "รูป" ไลน์บีบมาให้แล้ว แต่รูปที่ส่งเป็น "ไฟล์" มาเต็มความละเอียด
+ * เดิม ตัวอย่างที่ร้านส่งมาคือ PNG 27.42 MB ซึ่งของเดิมถูกปัดตกตั้งแต่ด่านนี้
+ * ด้วยข้อความ "ไฟล์ใหญ่เกินไป" ทั้งที่มันคือใบสั่งงานที่ควรอ่าน
+ *
+ * ย่อก่อนส่งให้ตัวอ่าน (imagePrep) แล้ว เพดานตรงนี้จึงเหลือแค่เรื่องหน่วยความจำ
+ * กับพื้นที่เก็บไฟล์เท่านั้น
+ */
 function maxBytes() {
-  const mb = Number(process.env.MAX_UPLOAD_MB) || 10;
+  const mb = Number(process.env.MAX_UPLOAD_MB) || 30;
   return mb * 1024 * 1024;
 }
 
@@ -61,7 +71,7 @@ export async function handleImageMessage(event, profile) {
 
   // Size limit.
   if (buffer.length > maxBytes()) {
-    const mb = Number(process.env.MAX_UPLOAD_MB) || 10;
+    const mb = Number(process.env.MAX_UPLOAD_MB) || 30;
     logger.warn('image.too_large', { size: buffer.length });
     return reply(replyToken, {
       type: 'text',
