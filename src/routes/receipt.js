@@ -460,30 +460,50 @@ function jsonScript(value) {
   return JSON.stringify(value).replace(/</g, '\\u003c');
 }
 
-// The lines inside one job, as the customer should read them.
-//
-// A shop taking three things from one customer in one visit enters them as
-// three items on one job — and the receipt used to print that as a single
-// amount against the job's name, which is not something you can hand to
-// anyone. One item is not worth breaking out: it *is* the job, and printing it
-// twice only adds a line saying what the line above already said.
+/* The lines inside one job, as the customer should read them.
+ *
+ * A shop taking three things from one customer in one visit enters them as
+ * three items on one job — and the receipt used to print that as a single
+ * amount against the job's name, which is not something you can hand to
+ * anyone.
+ *
+ * งานที่มีรายการเดียวเคยถูกข้ามทั้งใบ ด้วยเหตุผลว่ารายการเดียว "คือ" ตัวงาน
+ * พิมพ์อีกรอบก็ได้บรรทัดที่พูดซ้ำกับบรรทัดบน — จริงเฉพาะ "ชื่อ" เท่านั้น
+ *
+ * ร้านบอกว่า "พิมพ์รายละเอียดงานก็ไม่ขึ้นในใบเสร็จนะ" ซึ่งถูกต้อง: ขนาด
+ * รายละเอียด และจำนวน ไม่เคยอยู่บนแถวของงานเลย งานหนึ่งรายการจึงพิมพ์ออกมา
+ * เหลือแค่ชื่อกับวันที่ ทั้งที่ร้านอุตส่าห์พิมพ์ "ตอกตาไก่ 4 มุม" ไว้ให้ลูกค้าอ่าน
+ *
+ * กติกาใหม่: รายการเดียวยังพิมพ์ ถ้ามันบอกอะไรที่แถวของงานไม่ได้บอก และตัด
+ * ชื่อที่ซ้ำกับชื่องานทิ้ง เพราะนั่นคือส่วนที่พูดซ้ำจริง ๆ
+ */
 export function receiptItemLines(job = {}, opts = {}) {
   const items = job.items || [];
-  if (items.length < 2) return [];
+  if (!items.length) return [];
+
   // ถ้าร้านปัดราคาไปแล้ว ยอดย่อยจะบวกกันไม่เท่ากับยอดที่เก็บจริง ใบของลูกค้า
   // จึงบอกแค่ "ได้อะไรไปบ้าง" ไม่บอกราคาต่อชิ้น — เพราะเลขที่บวกแล้วไม่ตรงกับ
   // ยอดข้างล่างคือเลขที่ทำให้ลูกค้าคิดว่าร้านคิดเกิน ส่วนใบของร้านโชว์ครบ
   const showAmounts = opts.shopView || !jobWasAdjusted(job);
-  return items.map((it) => {
+  const only = items.length === 1;
+  const jobName = String(job.job_name || '').trim();
+
+  const lines = items.map((it) => {
     const qty = Number(it.quantity) || 0;
-    const parts = [String(it.item_name || 'รายการ').trim()];
+    const name = String(it.item_name || 'รายการ').trim();
+    // รายการเดียวที่ชื่อเดียวกับงาน ไม่ต้องพิมพ์ชื่อซ้ำ เหลือไว้แต่ส่วนที่ใหม่
+    const parts = only && name === jobName ? [] : [name];
     if (it.size) parts.push(String(it.size));
     // The count hangs off the end of what it counts — a "·" in front of it
     // reads as another attribute of the item rather than how many there are.
     const unit = it.unit && !/^(ชิ้น|อัน)$/.test(it.unit) ? ` ${it.unit}` : '';
     const text = parts.join(' · ') + (qty > 1 ? ` × ${numText(qty)}${unit}` : '');
-    return { text, amount: showAmounts ? formatBaht(Number(it.total) || 0) : '' };
+    // ยอดของรายการเดียวเท่ากับยอดของงานที่อยู่ข้าง ๆ พิมพ์ซ้ำก็ไม่ได้บอกอะไรเพิ่ม
+    return { text: text.replace(/^ × /, '× ').trim(), amount: only || !showAmounts ? '' : formatBaht(Number(it.total) || 0) };
   });
+
+  // เหลือบรรทัดว่างเปล่า = รายการเดียวที่ไม่มีอะไรนอกจากชื่อซ้ำ ข้ามไปตามเดิม
+  return lines.filter((l) => l.text);
 }
 
 // งานที่ยอดย่อยบวกกันแล้วไม่เท่ากับยอดที่เก็บลูกค้า
