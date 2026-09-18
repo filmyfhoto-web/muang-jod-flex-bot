@@ -184,8 +184,27 @@
     return round2(sum);
   }
 
+  /* บรรทัดย่อยของหนึ่งรายการบนใบเสร็จ
+   *
+   * ร้านบอกว่า "พิมพ์รายละเอียดงานก็ไม่ขึ้นในใบเสร็จนะ" — ของเดิมเลือกอย่างใด
+   * อย่างหนึ่ง มีขนาดเมื่อไหร่รายละเอียดหายทันที ทั้งที่คนละเรื่องกัน: ขนาดคือ
+   * กว้างคูณยาว ส่วนรายละเอียดคือสิ่งที่ร้านตั้งใจพิมพ์ให้ลูกค้าอ่าน
+   * ("ตอกตาไก่ 4 มุม", "เคลือบด้าน") ซึ่งไม่มีทางเดาได้จากตัวเลขขนาด
+   *
+   * รายละเอียดที่พิมพ์ซ้ำกับชื่องานไม่ต้องขึ้นสองรอบ
+   */
+  function subLine(sizeLabel, detail, name) {
+    var d = String(detail == null ? '' : detail).trim();
+    var n = String(name == null ? '' : name).trim();
+    var parts = [];
+    if (sizeLabel) parts.push(String(sizeLabel));
+    if (d && d !== n) parts.push(d.slice(0, 100));
+    return parts.join(' · ') || null;
+  }
+
   root.MJRate = {
     MODES: MODES,
+    subLine: subLine,
     STICKER_TIERS: STICKER_TIERS,
     SHEETS_PER_SQM: SHEETS_PER_SQM,
     tierFor: tierFor,

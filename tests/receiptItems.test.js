@@ -24,8 +24,41 @@ test('a job entered as several items prints each of them', () => {
   assert.equal(lines[2].amount, '฿250');
 });
 
-test('one item is the job itself, so it is not printed twice', () => {
-  assert.deepEqual(receiptItemLines({ items: [items[0]] }), []);
+/* รายการเดียวพิมพ์เมื่อมันบอกอะไรที่แถวของงานไม่ได้บอก
+ *
+ * ของเดิมข้ามงานที่มีรายการเดียวทั้งใบ ด้วยเหตุผลว่ารายการเดียว "คือ" ตัวงาน
+ * พิมพ์อีกรอบก็ได้บรรทัดที่พูดซ้ำ — ซึ่งจริงเฉพาะ "ชื่อ"
+ *
+ * ร้านบอกว่า "พิมพ์รายละเอียดงานก็ไม่ขึ้นในใบเสร็จนะ" ถูกต้อง: ขนาด รายละเอียด
+ * และจำนวน ไม่เคยอยู่บนแถวของงาน งานหนึ่งรายการจึงพิมพ์ออกมาเหลือแค่ชื่อกับ
+ * วันที่ ทั้งที่ร้านพิมพ์ "ตอกตาไก่ 4 มุม" ไว้ให้ลูกค้าอ่าน
+ */
+test('รายการเดียวที่มีขนาด/รายละเอียด ต้องขึ้นใบเสร็จ', () => {
+  const lines = receiptItemLines({ job_name: 'ป้ายไวนิล', items: [items[0]] });
+  assert.equal(lines.length, 1);
+  // ชื่อซ้ำกับชื่องานถูกตัดออก เหลือแต่ของที่แถวบนไม่ได้บอก
+  assert.equal(lines[0].text, '160 × 300 ซม. × 2 ผืน');
+  // ยอดเท่ากับยอดของงานที่อยู่ข้าง ๆ พิมพ์ซ้ำก็ไม่ได้บอกอะไรเพิ่ม
+  assert.equal(lines[0].amount, '');
+
+  // ชื่อรายการต่างจากชื่องาน ก็ยังพิมพ์ชื่อ
+  const other = receiptItemLines({ job_name: 'งานโรงเรียน', items: [items[0]] });
+  assert.equal(other[0].text, 'ป้ายไวนิล · 160 × 300 ซม. × 2 ผืน');
+
+  // รายละเอียดที่ร้านพิมพ์เอง (ไม่มีขนาด) ก็ต้องขึ้น
+  const detail = receiptItemLines({
+    job_name: 'ป้ายหน้าร้าน',
+    items: [{ item_name: 'ป้ายหน้าร้าน', size: 'ตอกตาไก่ 4 มุม เคลือบด้าน', quantity: 1, total: 900 }],
+  });
+  assert.equal(detail[0].text, 'ตอกตาไก่ 4 มุม เคลือบด้าน');
+});
+
+test('รายการเดียวที่ไม่มีอะไรนอกจากชื่อซ้ำ ยังข้ามตามเดิม', () => {
+  // ชื่อเดียวกับงาน ไม่มีขนาด ไม่มีจำนวน — พิมพ์ไปก็ได้บรรทัดที่พูดซ้ำเปล่า ๆ
+  assert.deepEqual(
+    receiptItemLines({ job_name: 'ค่าตอกตาไก่', items: [{ item_name: 'ค่าตอกตาไก่', quantity: 1, total: 250 }] }),
+    []
+  );
   assert.deepEqual(receiptItemLines({ items: [] }), []);
   assert.deepEqual(receiptItemLines({}), [], 'a job loaded without its items must not throw');
 });
