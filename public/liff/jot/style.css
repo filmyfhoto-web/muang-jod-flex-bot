@@ -405,6 +405,11 @@ input[readonly] { background: var(--accent-soft); }
 .item .del { position: relative; z-index: 2; }
 
 .hint { margin: -3px 0 9px; font-size: 11.5px; font-weight: 600; color: var(--accent-text); }
+/* บรรทัด "1 ตร.ม. ได้กี่แผ่น" เป็นตัวเลขช่วยคิด ไม่ใช่ราคาขาย จึงเบากว่า
+   บรรทัดข้างบนหนึ่งระดับ ไม่ให้ไปแย่งสายตากับยอดจริง */
+.hint.yield-hint { color: var(--sub); font-weight: 500; }
+/* ค่าส่งไม่ใช่งาน ปุ่มจึงเบากว่า "เพิ่มรายการ" และอยู่บรรทัดของตัวเอง */
+.item .act-ship { width: 100%; margin-top: 8px; font-size: 13px; }
 /* วิธีคิดของร้าน — คนละเรื่องกับตัวเลขที่ลูกค้าเห็น จึงหน้าตาไม่เหมือนกัน */
 .area-hint {
   background: var(--tint);

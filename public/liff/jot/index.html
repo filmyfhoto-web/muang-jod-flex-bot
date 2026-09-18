@@ -256,15 +256,26 @@
           </select>
         </span>
       </label>
+      <!-- ป้ายคิดตามพื้นที่ (ไวนิล 160×300 ตรมละ 165) สติ๊กเกอร์ขายเป็นแผ่น
+           (13×19 แผ่นละ 50) — สองวิธีนี้ต้องเลือกได้ ไม่ใช่มีแค่แบบเดียวแล้ว
+           ให้ร้านคิดเลขในหัวเอง -->
       <label class="field">
-        <span>ตรมละ (บาท)</span>
+        <span>คิดราคาแบบ</span>
         <span class="input-wrap"><i class="ic">🧮</i>
-          <input class="i-rate" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 165" />
+          <select class="i-ratemode"></select>
         </span>
       </label>
     </div>
 
+    <label class="field">
+      <span class="rate-label">ตร.ม. ละ (บาท)</span>
+      <span class="input-wrap"><i class="ic">💱</i>
+        <input class="i-rate" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 165" />
+      </span>
+    </label>
+
     <p class="hint area-hint" hidden></p>
+    <p class="hint yield-hint" hidden></p>
 
     <label class="field">
       <span>ราคา (บาท) <em class="tag-bill">โชว์ในใบเสร็จ</em></span>
@@ -298,10 +309,14 @@
       <button class="btn btn-primary act-save" type="button">💾 บันทึก</button>
       <button class="btn btn-soft act-add" type="button">➕ เพิ่มรายการ</button>
     </div>
+    <!-- ค่าส่งไม่ใช่งาน มันไม่มีขนาดและไม่ได้คิดตามพื้นที่ แต่ต้องขึ้นใบเสร็จ
+         ให้ลูกค้าเห็น — ปุ่มนี้เติมบรรทัดเปล่าที่พร้อมใส่ตัวเลขให้เลย -->
+    <button class="btn btn-ghost act-ship" type="button">🚚 เพิ่มค่าส่ง</button>
   </article>
 </template>
 
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script src="./rate.js"></script>
 <script src="./script.js"></script>
 </body>
 </html>
