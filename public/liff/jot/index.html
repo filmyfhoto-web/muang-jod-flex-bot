@@ -47,17 +47,24 @@
   <div class="chat">
     <div class="msg">
       <img class="pic" src="/brand/ui/happy.png" alt="ม่วงจด" />
-      <div class="bubble" id="hello">สวัสดีค่ะ 💜<br />นี่คือรายการงานของคุณ เลื่อนดูรายการได้เลยค่ะ</div>
+      <div class="bubble" id="hello">สวัสดีค่ะ 💜<br />นี่คือรายการงานของคุณ</div>
     </div>
     <div class="msg">
       <span class="pic ghost" aria-hidden="true"></span>
-      <div class="bubble">เลื่อนการ์ดซ้าย-ขวา เพื่อเลือกงาน แล้วกรอกข้อมูลได้เลยนะคะ 💜</div>
+      <div class="bubble">กรอกทีละบรรทัดได้เลยค่ะ กด "➕ เพิ่มบรรทัด" เมื่อมีรายการถัดไปนะคะ 💜</div>
     </div>
   </div>
 
-  <!-- รายการงาน: การ์ดเรียงกันแนวนอน ปัดซ้าย-ขวาได้ (scroll-snap) -->
+  <!-- รายการงาน: เรียงลงมาเป็นบรรทัดเหมือนใบเสร็จ ไม่ต้องปัดหาทีละใบ -->
   <div class="track" id="items" tabindex="-1"></div>
-  <div class="dots" id="dots" role="tablist" aria-label="เลือกรายการ"></div>
+
+  <!-- ร้านบอกว่า "เพิ่มเป็นบรรทัดเหมือนใบเสร็จธรรมดาได้มั้ย ไม่ต้องข้ามหน้า" —
+       รายการเรียงลงมาเป็นบรรทัด ปุ่มเพิ่มจึงมีที่เดียวที่ท้ายรายการ
+       ไม่ใช่ติดอยู่บนทุกการ์ดเหมือนตอนที่ต้องปัดหากัน -->
+  <div class="list-actions">
+    <button class="btn btn-soft" type="button" id="btn-add">➕ เพิ่มบรรทัด</button>
+    <button class="btn btn-ghost" type="button" id="btn-ship">🚚 ค่าส่ง</button>
+  </div>
 
   <!-- การ์ดสรุป อัปเดตตามที่พิมพ์ทันที -->
   <section class="card summary" id="summary" aria-live="polite">
@@ -185,26 +192,15 @@
 
 <!-- แม่แบบของการ์ดหนึ่งใบ โคลนด้วย JS -->
 <template id="tpl-item">
-  <article class="card item">
-    <div class="card-top">
-      <span class="chip-ic">📋</span>
-      <div class="titles">
-        <h2 class="item-title">กรอกข้อมูลงานได้เลย</h2>
-        <p class="item-sub">บันทึกงานพิมพ์ / ป้ายโฆษณา ของคุณ</p>
-      </div>
-      <button class="icon-btn del" type="button" aria-label="ลบรายการนี้">🗑</button>
-    </div>
-
-    <!-- ลูกค้าคนเดียวสั่งหลายงานในรอบเดียวเป็นเรื่องปกติของร้าน ปุ่มเพิ่ม
-         รายการเดิมอยู่ท้ายการ์ด ซึ่งบนมือถือต้องเลื่อนผ่านช่องกรอกสิบช่อง
-         กว่าจะเห็น เท่ากับไม่มี — จึงมีอีกตัวไว้บนหัวการ์ดที่เห็นทันที -->
-    <button class="pill act-add" type="button">➕ เพิ่มรายการในงานนี้</button>
-
-    <!-- น้องหมาโผล่มุมการ์ดพร้อมบับเบิลชวนกรอก ตามแบบที่ให้มา -->
-    <div class="mascot" aria-hidden="true">
-      <img src="/brand/ui/peek.png" alt="" />
-      <span class="say">กรอกได้เลย<br />เดี๋ยวม่วงจดให้<br />นะคะ 💜</span>
-    </div>
+  <details class="card item">
+    <!-- บรรทัดที่ยังไม่ได้แก้ยุบเหลือบรรทัดเดียว เลขที่ · ชื่อ · ยอด — อ่านรวดเดียว
+         ได้เหมือนใบเสร็จ แตะเมื่อไหร่ค่อยกางช่องกรอกออกมา -->
+    <summary class="row-top">
+      <span class="row-no">1</span>
+      <span class="row-title item-title">รายการที่ 1</span>
+      <b class="row-amt">฿0</b>
+      <button class="icon-btn del" type="button" aria-label="ลบบรรทัดนี้">🗑</button>
+    </summary>
 
     <!-- "ชื่อ" เฉย ๆ กับไอคอนคน อ่านแล้วเหมือนถามชื่อลูกค้า ร้านจึงกรอกชื่อคน
          ลงช่องนี้ แล้วใบเสร็จขึ้นรายการว่า "ผู้ใหญ่สมศรี 200 × 100 ซม."
@@ -217,9 +213,9 @@
     </label>
 
     <label class="field">
-      <span>รายละเอียด</span>
+      <span>รายละเอียด <em class="tag-bill">โชว์ในใบเสร็จ</em></span>
       <span class="input-wrap"><i class="ic">📄</i>
-        <input class="i-detail" type="text" placeholder="เช่น ป้ายไวนิล ตอกตาไก่" autocomplete="off" />
+        <input class="i-detail" type="text" placeholder="เช่น ตอกตาไก่ 4 มุม" autocomplete="off" />
       </span>
     </label>
 
@@ -267,29 +263,40 @@
       </label>
     </div>
 
-    <label class="field">
-      <span class="rate-label">ตร.ม. ละ (บาท)</span>
-      <span class="input-wrap"><i class="ic">💱</i>
-        <input class="i-rate" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 165" />
-      </span>
-    </label>
+    <!-- เรตกับราคาอยู่บรรทัดเดียวกัน: เรตคือของร้านใช้คิด ราคาคือของที่ลูกค้าเห็น -->
+    <div class="grid-2">
+      <label class="field">
+        <span class="rate-label">ตร.ม. ละ (บาท)</span>
+        <span class="input-wrap"><i class="ic">💱</i>
+          <input class="i-rate" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 165" />
+        </span>
+      </label>
+      <label class="field">
+        <span>ราคา (บาท) <em class="tag-bill">ต่อชิ้น</em></span>
+        <span class="input-wrap"><i class="ic">🏷</i>
+          <input class="i-price" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 700" />
+        </span>
+      </label>
+    </div>
 
     <p class="hint area-hint" hidden></p>
     <p class="hint yield-hint" hidden></p>
 
-    <label class="field">
-      <span>ราคา (บาท) <em class="tag-bill">โชว์ในใบเสร็จ</em></span>
-      <span class="input-wrap"><i class="ic">🏷</i>
-        <input class="i-price" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 700" />
-      </span>
-    </label>
-
-    <div class="field">
-      <span>แนบรูป</span>
-      <label class="drop">
-        <input class="i-file" type="file" accept="image/*" hidden />
-        <span class="drop-ic">🖼</span>
-        <span class="drop-text">แตะเพื่อแนบรูป<small>ไม่บังคับ</small></span>
+    <!-- แนบรูปกับยอดรวมบรรทัดเดียวกัน — ทั้งคู่เป็นของท้ายบรรทัด ไม่ใช่ของหลัก -->
+    <div class="grid-2">
+      <div class="field">
+        <span>แนบรูป</span>
+        <label class="drop">
+          <input class="i-file" type="file" accept="image/*" hidden />
+          <span class="drop-ic">🖼</span>
+          <span class="drop-text">แตะเพื่อแนบ<small>ไม่บังคับ</small></span>
+        </label>
+      </div>
+      <label class="field">
+        <span>ยอดรวม (บาท)</span>
+        <span class="input-wrap"><i class="ic">Σ</i>
+          <input class="i-total" type="number" inputmode="decimal" min="0" step="0.01" placeholder="คิดให้อัตโนมัติ" />
+        </span>
       </label>
     </div>
 
@@ -297,22 +304,7 @@
       <img alt="รูปที่แนบ" />
       <button class="icon-btn rm" type="button" aria-label="เอารูปออก">✕</button>
     </div>
-
-    <label class="field">
-      <span>ยอดรวม (บาท)</span>
-      <span class="input-wrap"><i class="ic">Σ</i>
-        <input class="i-total" type="number" inputmode="decimal" min="0" step="0.01" placeholder="ระบบจะคำนวณให้อัตโนมัติ" />
-      </span>
-    </label>
-
-    <div class="pair card-actions">
-      <button class="btn btn-primary act-save" type="button">💾 บันทึก</button>
-      <button class="btn btn-soft act-add" type="button">➕ เพิ่มรายการ</button>
-    </div>
-    <!-- ค่าส่งไม่ใช่งาน มันไม่มีขนาดและไม่ได้คิดตามพื้นที่ แต่ต้องขึ้นใบเสร็จ
-         ให้ลูกค้าเห็น — ปุ่มนี้เติมบรรทัดเปล่าที่พร้อมใส่ตัวเลขให้เลย -->
-    <button class="btn btn-ghost act-ship" type="button">🚚 เพิ่มค่าส่ง</button>
-  </article>
+  </details>
 </template>
 
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>

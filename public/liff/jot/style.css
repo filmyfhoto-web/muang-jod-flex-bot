@@ -224,32 +224,79 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
   .item .titles { padding-right: 26px; }
 }
 
-/* ---- การ์ดที่ปัดซ้าย-ขวาได้ -------------------------------------------- */
+/* ---- รายการเรียงลงมาเป็นบรรทัด ---------------------------------------- */
 
+/* ร้านบอกว่า "เพิ่มเป็นบรรทัดเหมือนใบเสร็จธรรมดาได้มั้ย ไม่ต้องข้ามหน้าอ้ะ" —
+   ของเดิมหนึ่งรายการคือการ์ดเต็มจอที่ต้องปัดซ้าย-ขวา งานสามรายการจึงไม่เคย
+   เห็นพร้อมกันเลยสักครั้ง ทั้งที่ใบเสร็จจริงอ่านทีเดียวจบ */
 .track {
-  display: flex;
-  gap: 10px;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  display: block;
   padding: 2px 14px 4px;
 }
-.track::-webkit-scrollbar { display: none; }
 .track > .item {
-  scroll-snap-align: center;
-  flex: 0 0 min(100% - 40px, 440px);
-  margin-bottom: 6px;
+  margin-bottom: 10px;
 }
 
-.dots { display: flex; justify-content: center; gap: 7px; margin: 2px 0 16px; }
-.dots button {
-  width: 8px; height: 8px; padding: 0;
-  border: 0; border-radius: 50%;
-  background: color-mix(in srgb, var(--accent) 30%, transparent);
-  cursor: pointer;
+/* หัวบรรทัด: เลขที่ · ชื่อ · ยอด · ปุ่มลบ — อ่านได้โดยไม่ต้องกวาดตาหาในช่องกรอก */
+.row-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -2px 0 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
 }
-.dots button[aria-selected='true'] { width: 22px; border-radius: 4px; background: var(--accent); }
+.row-no {
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.row-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.row-amt { flex: 0 0 auto; font-size: 14px; font-weight: 700; color: var(--accent-text); }
+
+/* หัวบรรทัดเป็นตัวกาง/ยุบเอง — เอาสามเหลี่ยมของเบราว์เซอร์ออก ใช้ลูกศรของเราแทน */
+.item > summary { list-style: none; cursor: pointer; }
+.item > summary::-webkit-details-marker { display: none; }
+.item > summary::after {
+  content: '⌄';
+  flex: 0 0 auto;
+  color: var(--grey);
+  font-size: 15px;
+  line-height: 1;
+  transition: transform .15s;
+}
+.item[open] > summary::after { transform: rotate(180deg); }
+/* ยุบอยู่ก็ไม่ต้องมีเส้นคั่นใต้หัว เพราะไม่มีอะไรอยู่ใต้มัน */
+.item:not([open]) > summary { margin-bottom: -2px; padding-bottom: 0; border-bottom: 0; }
+
+/* ปุ่มเพิ่มบรรทัด/ค่าส่ง มีที่เดียวที่ท้ายรายการ ไม่ใช่ติดอยู่บนทุกการ์ด */
+.list-actions {
+  display: flex;
+  gap: 8px;
+  padding: 0 14px;
+  margin-bottom: 16px;
+}
+/* .btn กว้าง 100% ตามค่าตั้งต้น ซึ่งกลายเป็น flex-basis แล้วปุ่มแย่งที่กันเอง
+   จนคำขึ้นบรรทัดใหม่ — ตรงนี้ให้ความกว้างมาจาก flex อย่างเดียว */
+.list-actions .btn { flex: 1; width: auto; white-space: nowrap; }
+.list-actions #btn-ship { flex: 0 0 auto; padding: 0 16px; }
 
 /* ---- สรุป -------------------------------------------------------------- */
 
@@ -409,7 +456,9 @@ input[readonly] { background: var(--accent-soft); }
    บรรทัดข้างบนหนึ่งระดับ ไม่ให้ไปแย่งสายตากับยอดจริง */
 .hint.yield-hint { color: var(--sub); font-weight: 500; }
 /* ค่าส่งไม่ใช่งาน ปุ่มจึงเบากว่า "เพิ่มรายการ" และอยู่บรรทัดของตัวเอง */
-.item .act-ship { width: 100%; margin-top: 8px; font-size: 13px; }
+/* กล่องแนบรูปอยู่ครึ่งบรรทัดคู่กับยอดรวม จึงต้องสูงเท่าช่องกรอกข้าง ๆ */
+.item .drop { padding: 8px 10px; }
+.item .drop .drop-text { font-size: 12px; }
 /* วิธีคิดของร้าน — คนละเรื่องกับตัวเลขที่ลูกค้าเห็น จึงหน้าตาไม่เหมือนกัน */
 .area-hint {
   background: var(--tint);

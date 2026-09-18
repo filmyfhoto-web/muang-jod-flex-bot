@@ -243,38 +243,38 @@ const itemsBox = $('#items');
 function renderItems() {
   itemsBox.textContent = '';
   state.items.forEach((item, i) => itemsBox.appendChild(itemCard(item, i)));
-  renderDots();
   renderSummary();
   saveDraft();
 }
 
-/* จุดใต้การ์ด: บอกว่ามีกี่รายการและอยู่ใบไหน กดกระโดดไปใบนั้นได้
- * ใบเดียวไม่ต้องมีจุด เพราะไม่มีอะไรให้เลื่อนไป */
-function renderDots() {
-  const dots = $('#dots');
-  dots.textContent = '';
-  if (state.items.length < 2) return;
+/* รายการเรียงลงมาเป็นบรรทัด ไม่ใช่การ์ดที่ต้องปัดหา
+ *
+ * ร้านบอกว่า "เพิ่มเป็นบรรทัดเหมือนใบเสร็จธรรมดาได้มั้ย ไม่ต้องข้ามหน้าอ้ะ" —
+ * ของเดิมหนึ่งรายการคือการ์ดเต็มจอที่ต้องปัดซ้าย-ขวาถึงจะเจอใบถัดไป งานที่มีสาม
+ * รายการจึงมองไม่เห็นพร้อมกันเลยสักครั้ง ทั้งที่ใบเสร็จจริงอ่านทีเดียวจบ
+ *
+ * พอเรียงลงมาแล้ว จุดบอกหน้ากับการเลื่อนไปทีละใบก็ไม่มีความหมาย เหลือแค่เลื่อน
+ * ไปให้เห็นบรรทัดที่เพิ่งเพิ่ม
+ */
+/* บรรทัดไหนกางอยู่ — เก็บไว้นอก state เพราะเป็นเรื่องของการมอง ไม่ใช่ข้อมูลงาน
+ * ที่ต้องเซฟลงร่างหรือส่งขึ้นเซิร์ฟเวอร์ */
+let openId = null;
 
-  state.items.forEach((item, i) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.role = 'tab';
-    b.setAttribute('aria-label', 'รายการที่ ' + (i + 1));
-    b.setAttribute('aria-selected', String(i === currentCard()));
-    b.onclick = () => scrollToCard(i);
-    dots.appendChild(b);
-  });
+function scrollToCard(index) {
+  const card = itemsBox.children[index];
+  if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-// การ์ดใบที่อยู่กลางจอตอนนี้
+// บรรทัดที่อยู่ใกล้กลางจอที่สุด — ใช้ตอนกด "แก้ไข" เพื่อโฟกัสช่องชื่อ
 function currentCard() {
   const cards = [...itemsBox.children];
   if (cards.length < 2) return 0;
-  const middle = itemsBox.scrollLeft + itemsBox.clientWidth / 2;
+  const middle = window.innerHeight / 2;
   let best = 0;
   let bestGap = Infinity;
-  cards.forEach((card, i) => {
-    const gap = Math.abs(card.offsetLeft + card.offsetWidth / 2 - middle);
+  cards.forEach((el, i) => {
+    const box = el.getBoundingClientRect();
+    const gap = Math.abs(box.top + box.height / 2 - middle);
     if (gap < bestGap) {
       bestGap = gap;
       best = i;
@@ -282,23 +282,6 @@ function currentCard() {
   });
   return best;
 }
-
-function scrollToCard(index) {
-  const card = itemsBox.children[index];
-  if (card) itemsBox.scrollTo({ left: card.offsetLeft - itemsBox.offsetLeft, behavior: 'smooth' });
-}
-
-// อัปเดตจุดตอนปัด — rAF กันไม่ให้คำนวณทุกพิกเซลที่เลื่อน
-let dotTick = false;
-itemsBox.addEventListener('scroll', () => {
-  if (dotTick) return;
-  dotTick = true;
-  requestAnimationFrame(() => {
-    dotTick = false;
-    const active = currentCard();
-    [...$('#dots').children].forEach((dot, i) => dot.setAttribute('aria-selected', String(i === active)));
-  });
-});
 
 function itemCard(item, index) {
   const el = $('#tpl-item').content.firstElementChild.cloneNode(true);
@@ -319,21 +302,37 @@ function itemCard(item, index) {
   const file = $('.i-file', el);
   const preview = $('.preview', el);
 
-  // ใบแรกใช้พาดหัวชวนกรอกตามแบบ ใบถัด ๆ ไปบอกว่าเป็นรายการที่เท่าไหร่
   const count = state.items.length;
-  $('.item-title', el).textContent = index === 0 ? 'กรอกข้อมูลงานได้เลย' : 'รายการที่ ' + (index + 1);
-  // มีหลายรายการแล้วต้องบอกว่ากี่รายการ ไม่งั้นการ์ดที่เลื่อนหายไปข้าง ๆ
-  // เท่ากับไม่มีอยู่จริงสำหรับคนกรอก
-  $('.item-sub', el).textContent =
-    count > 1 ? `รายการที่ ${index + 1} จาก ${count}` : 'บันทึกงานพิมพ์ / ป้ายโฆษณา ของคุณ';
+  const rowNo = $('.row-no', el);
+  const rowTitle = $('.item-title', el);
+  const rowAmt = $('.row-amt', el);
+  rowNo.textContent = String(index + 1);
+  // ลบบรรทัดสุดท้ายทิ้งไม่ได้ ฟอร์มต้องเหลืออย่างน้อยหนึ่งบรรทัดให้กรอก
   $('.del', el).hidden = count < 2;
-  // น้องหมานั่งทับมุมที่ปุ่มลบอยู่ พอมีหลายรายการปุ่มลบจึงอ่านไม่ออก — คำชวน
-  // กรอกมีค่าตอนใบแรกใบเดียว ปุ่มลบมีค่ากว่าเมื่อมีรายการให้ลบ
-  $('.mascot', el).hidden = count > 1;
-  $('.act-save', el).onclick = save;
-  // ปุ่มเพิ่มรายการมีสองที่ — บนหัวการ์ดและท้ายการ์ด — ต้องผูกให้ครบทั้งคู่
-  el.querySelectorAll('.act-add').forEach((b) => (b.onclick = addItem));
-  $('.act-ship', el).onclick = addShipping;
+
+  // บรรทัดเดียวกางไว้เสมอ (ไม่มีอะไรให้ยุบหนี) หลายบรรทัดกางเฉพาะอันที่กำลังแก้
+  if (openId === null && count === 1) openId = item.id;
+  el.open = count === 1 || openId === item.id;
+  el.ontoggle = () => {
+    if (el.open) {
+      openId = item.id;
+      // กางอันใหม่แล้วยุบอันอื่น ไม่งั้นก็กลับไปเป็นกองยาวเหมือนเดิม
+      [...itemsBox.children].forEach((other) => {
+        if (other !== el) other.open = false;
+      });
+    } else if (openId === item.id) {
+      openId = null;
+    }
+  };
+  // ปุ่มลบอยู่บนหัวบรรทัด ซึ่งเป็นตัวกางเอง — กดลบต้องไม่กางไปด้วย
+  $('.del', el).onclick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    state.items = state.items.filter((x) => x.id !== item.id);
+    if (!state.items.length) state.items.push(blankItem());
+    if (openId === item.id) openId = null;
+    renderItems();
+  };
 
   name.value = item.name;
   detail.value = item.detail;
@@ -355,6 +354,10 @@ function itemCard(item, index) {
   // ราคาพิมพ์ทับได้เสมอ — มันคือราคาขายของร้าน ไม่ใช่ช่องที่ระบบยึดไว้
   function paint() {
     const { size, suggested, price: p, total: t, quote: q, qty: n } = computeItem(item);
+
+    // หัวบรรทัดอ่านได้เหมือนใบเสร็จ: ชื่อกับยอด โดยไม่ต้องกวาดตาหาในช่องกรอก
+    rowTitle.textContent = (item.name || item.detail || '').trim() || 'รายการที่ ' + (index + 1);
+    rowAmt.textContent = baht(t);
 
     if (!item.priceManual) price.value = p || '';
     price.classList.toggle('auto', !item.priceManual && suggested > 0);
@@ -482,12 +485,6 @@ function itemCard(item, index) {
     item.totalManual = total.value.trim() !== '';
     item.total = num(total.value);
     paint();
-  };
-
-  $('.del', el).onclick = () => {
-    state.items = state.items.filter((x) => x.id !== item.id);
-    if (!state.items.length) state.items.push(blankItem());
-    renderItems();
   };
 
   function showImage() {
@@ -886,7 +883,9 @@ function fromDraft(draft) {
 
 // เพิ่มการ์ดใบใหม่แล้วเลื่อนไปหาเลย ไม่ต้องปัดเอง
 function addItem() {
-  state.items.push(blankItem());
+  const fresh = blankItem();
+  state.items.push(fresh);
+  openId = fresh.id;
   renderItems();
   scrollToCard(state.items.length - 1);
 }
@@ -905,6 +904,7 @@ function addShipping() {
   ship.rateMode = 'piece';
   ship.qty = 1;
   state.items.push(ship);
+  openId = ship.id;
   renderItems();
   const index = state.items.length - 1;
   scrollToCard(index);
@@ -912,6 +912,8 @@ function addShipping() {
   setTimeout(() => $('.i-rate', itemsBox.children[index])?.focus(), 350);
 }
 
+$('#btn-add').onclick = addItem;
+$('#btn-ship').onclick = addShipping;
 $('#btn-save').onclick = save;
 $('#btn-edit').onclick = () => {
   itemsBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
