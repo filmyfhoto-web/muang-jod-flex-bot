@@ -18,6 +18,18 @@ export function receiptUrl(bill, opts = {}) {
   return `${base}/r/${bill.share_token}`;
 }
 
+/* ใบสรุปใบสั่ง — บิลใบเดียวกัน มองคนละมุม
+ *
+ * ร้านส่งตัวอย่างมาแล้วบอกว่า "อยากทำใบสรุปราคาแบบนี้ไปด้วย" — ตารางแยกตามวัน
+ * ที่สั่ง บอกจำนวนแผ่นกับ ตร.ม. แล้วแยกค่าสินค้ากับค่าส่ง ซึ่งเป็นคนละคำถามกับ
+ * ใบเสร็จ ("ต้องจ่ายเท่าไหร่") และเป็นคำถามที่ลูกค้าประจำถามบ่อยกว่า
+ */
+export function summaryUrl(bill, opts = {}) {
+  const base = opts.baseUrl !== undefined ? opts.baseUrl : publicBaseUrl();
+  if (!base || !bill?.share_token) return null;
+  return `${base}/s/${bill.share_token}`;
+}
+
 // "Send it to the customer" without the bot needing to know who the customer
 // is or spending a push on them. LINE's share URL opens the shop's own friend
 // picker with the message already written; they choose the chat and send.
@@ -47,11 +59,13 @@ function receiptButtons(bill, opts = {}) {
   // การ์ดใบนี้อยู่ในแชตของร้าน ปุ่มเปิดจึงพาไปโหมดร้าน ซึ่งเห็นราคาที่คิดได้จริง
   // ก่อนปัดด้วย ส่วนปุ่มส่งให้ลูกค้าใช้ลิงก์เปล่า — ไม่มีกุญแจติดไป
   const mine = withShopKey(url, bill?.share_token) || url;
+  const summary = opts.summaryUrl !== undefined ? opts.summaryUrl : summaryUrl(bill, opts);
   return [
     linkRow([
       { label: '🧾 เปิดใบเสร็จ', uri: mine },
       ...(share ? [{ label: '📤 ส่งให้ลูกค้า', uri: share }] : []),
     ]),
+    ...(summary ? [linkRow([{ label: '📊 ใบสรุปใบสั่ง', uri: summary }])] : []),
   ];
 }
 

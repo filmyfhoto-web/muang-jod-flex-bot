@@ -41,6 +41,14 @@ app.use('/api', apiRouter);
 // Printable receipt, readable by anyone holding the bill's share token.
 app.use('/r', receiptRouter);
 
+/* ใบสรุปใบสั่ง — บิลใบเดียวกัน มองคนละมุม
+ *
+ * ใบเสร็จตอบว่า "ต้องจ่ายเท่าไหร่" ใบสรุปตอบว่า "สั่งอะไรไปบ้าง วันไหน กี่แผ่น"
+ * ใช้โทเคนเดียวกัน เพราะเป็นบิลใบเดียวกัน
+ */
+const { default: summaryRouter } = await import('./routes/summary.js');
+app.use('/s', summaryRouter);
+
 // Owner-only setup page (installing the Rich Menu). Serves 404 unless
 // ADMIN_TOKEN is set and the request carries it.
 const { default: adminRouter, adminToken } = await import('./routes/admin.js');
