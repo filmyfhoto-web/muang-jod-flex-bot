@@ -1,6 +1,8 @@
 import { parseJobText } from './parser.js';
 import { round2 } from './currency.js';
 import { parseAreaPricing, areaItem, areaWorking } from './area.js';
+import { classifyItem } from './category.js';
+import { subLine } from './itemLine.js';
 
 // Rule-based natural-language extractor. Understands short Thai shopkeeper
 // notes like:
@@ -123,6 +125,38 @@ const LEFTOVER_UNITS = new Set([
   'นิ้ว', 'ฟุต', 'หลา',
 ]);
 
+/* คำที่ร้านพิมพ์ติดมาแต่ไม่ใช่ชื่อของ
+ *
+ * ร้านบอกว่า "เขาพิมพ์ไป ม่วงก็จดไม่ได้ ไม่เข้าใจ" พร้อมตัวอย่างจริง:
+ *   "พี่ต่าย สั่งสติ๊กเกอร์ ติดของที่ระลึก ออกแบบใส่ชุดตชด ด้วย 50 ดวง ขนาด 5*6.5"
+ * ชื่อรายการที่ได้คือทั้งประโยค — "สั่งสติ๊กเกอร์ ติดของที่ระลึก ออกแบบใส่ชุดตชด
+ * ด้วย ขนาด" ซึ่งบนการ์ดอ่านแล้วเหมือนม่วงไม่เข้าใจอะไรเลย
+ *
+ * ตัดเป็น "คำ" เท่านั้น ห้ามตัดเป็นตัวอักษรกลางคำ — ภาษาไทยไม่เว้นวรรค การลบ
+ * "ขอ" แบบ substring จะทำให้ "ติดของที่ระลึก" กลายเป็น "ติดงที่ระลึก"
+ */
+const NOISE_WORDS = new Set([
+  'ด้วย', 'หน่อย', 'ขนาด', 'ไซส์', 'ไซซ์', 'จำนวน', 'ราคา',
+  'สั่ง', 'ขอ', 'เอา', 'อยาก', 'อยากได้', 'ช่วย', 'จด', 'รับ', 'และ',
+  // "ขอตรายาง ของโรงเรียนเปียงซ้อ" — พอชื่อลูกค้าถูกยกออกไป เหลือ "ของ" ลอยอยู่
+  // คำเดียวโดด ๆ เป็นคำเชื่อม ไม่ใช่ชื่อของ ("ของที่ระลึก" เป็นคนละคำ ไม่โดน)
+  'ของ',
+]);
+
+/* คำนำหน้าที่ติดหัวชื่อของมาเลย: "สั่งสติ๊กเกอร์" "ขอทำป้าย"
+ *
+ * ตัดได้ต่อเมื่อส่วนที่เหลือยังเป็นชื่อของที่ระบบรู้จัก — ไม่งั้น "ของที่ระลึก"
+ * ที่ขึ้นต้นด้วย "ขอ" เหมือนกัน จะกลายเป็น "งที่ระลึก"
+ */
+const LEAD_VERB_RE = /^(?:สั่งทำ|สั่ง|ขอทำ|ขอ|อยากได้|อยาก|เอา|ช่วย|รับทำ|จด)/;
+
+function stripLeadVerb(word) {
+  const m = LEAD_VERB_RE.exec(word);
+  if (!m) return word;
+  const rest = word.slice(m[0].length);
+  return rest.length >= 2 && classifyItem(rest) ? rest : word;
+}
+
 function cleanItemName(working) {
   const stripped = working
     .replace(/วันนี้|เมื่อวาน|พรุ่งนี้|ทำ|ทํา|งาน|ให้|ค่ะ|คะ|ครับ|นะ|บาท|฿/g, ' ')
@@ -136,9 +170,29 @@ function cleanItemName(working) {
 
   return stripped
     .split(' ')
-    .filter((word) => word && !LEFTOVER_UNITS.has(word))
+    .map((word) => stripLeadVerb(word))
+    .filter((word) => word && !LEFTOVER_UNITS.has(word) && !NOISE_WORDS.has(word))
     .join(' ')
     .trim();
+}
+
+/* ชื่อของ กับ รายละเอียดของงาน เป็นคนละเรื่องกัน
+ *
+ * "สติ๊กเกอร์ ติดของที่ระลึก ออกแบบใส่ชุดตชด" — คำแรกคือของที่ทำ ที่เหลือคือ
+ * สิ่งที่ร้านต้องรู้ตอนลงมือทำ ยัดรวมกันเป็นชื่อเดียวแล้วมันยาวจนใบเสร็จอ่านไม่รู้
+ * เรื่อง และจัดหมวดหมู่งานไม่ได้
+ *
+ * ตัวตัดสินว่าคำไหนคือ "ของ" คือ classifyItem ตัวเดียวกับที่ใช้จัดหมวดงาน —
+ * ที่ไหนที่ระบบรู้ว่านี่คือสติ๊กเกอร์ ที่นั่นคือชื่อของ ส่วนที่เหลือคือรายละเอียด
+ * ถ้าไม่มีคำไหนรู้จักเลย ก็เก็บทั้งก้อนเป็นชื่อเหมือนเดิม ดีกว่าเดาแล้วผิด
+ */
+export function splitNameDetail(name) {
+  const words = String(name || '').split(' ').filter(Boolean);
+  if (words.length < 2) return { name: String(name || '').trim(), detail: null };
+  const hit = words.findIndex((w) => classifyItem(w));
+  if (hit === -1) return { name: words.join(' '), detail: null };
+  const detail = words.filter((_, i) => i !== hit).join(' ').trim();
+  return { name: words[hit], detail: detail || null };
 }
 
 // จำนวนผืน/ป้ายในบรรทัดที่คิดราคาแบบตารางเมตร
@@ -170,7 +224,8 @@ function parseSingleLine(line) {
   let size = null;
   const sizeM = working.match(/(\d+(?:\.\d+)?\s*[xX×*]\s*\d+(?:\.\d+)?)/);
   if (sizeM) {
-    size = sizeM[1].replace(/\s+/g, '');
+    // ร้านพิมพ์คูณมาได้หลายแบบ (5*6.5, 5x6.5, 5 × 6.5) บนใบเสร็จให้เป็นแบบเดียว
+    size = sizeM[1].replace(/\s+/g, '').replace(/[xX*×]/, ' × ');
     working = working.replace(sizeM[1], ' ');
   }
 
@@ -220,9 +275,13 @@ function parseSingleLine(line) {
   let itemName = cleanItemName(working);
   if (!itemName) itemName = unitWord || 'งาน';
 
+  const split = splitNameDetail(itemName);
   return {
-    item_name: itemName,
-    size: size || null,
+    item_name: split.name,
+    // ขนาดกับรายละเอียดอยู่ช่องเดียวกัน ตามที่ตาราง job_items มีให้ และตรงกับ
+    // ที่ฟอร์มจดงานส่งมา — ใบเสร็จกับใบสรุปจึงพิมพ์ออกมาเหมือนกันทั้งสองทาง
+    size: subLine(size, split.detail, split.name),
+    detail: split.detail,
     quantity,
     unit: unitWord || null,
     unit_price: round2(unitPrice),

@@ -1,4 +1,5 @@
 import { parseNaturalJob } from '../utils/nlParser.js';
+import { subLine } from '../utils/itemLine.js';
 import { round2 } from '../utils/currency.js';
 import { logger } from './logger.js';
 
@@ -15,8 +16,9 @@ const SYSTEM_PROMPT = `คุณคือตัวช่วยแยกข้อ
   "customerName": string | null,   // ชื่อลูกค้า เช่น "พี่นก" ถ้าไม่มีให้ null
   "items": [
     {
-      "item_name": string,          // ชื่อสินค้า/งาน
-      "size": string | null,        // ขนาด เช่น "60x100" ถ้าไม่มีให้ null
+      "item_name": string,          // ชื่อของที่ทำ สั้น ๆ เช่น "สติ๊กเกอร์" "ป้ายไวนิล"
+      "detail": string | null,      // รายละเอียดงาน (เอาไปทำอะไร แบบไหน) ถ้าไม่มีให้ null
+      "size": string | null,        // ขนาด เช่น "60 × 100 ซม." ถ้าไม่มีให้ null
       "quantity": number,           // จำนวน (>0)
       "unit": string | null,        // หน่วย เช่น "ป้าย" ถ้าไม่มีให้ null
       "unit_price": number          // ราคาต่อหน่วย (>=0)
@@ -25,7 +27,18 @@ const SYSTEM_PROMPT = `คุณคือตัวช่วยแยกข้อ
   "paidAmount": number              // ยอดที่รับมาแล้ว ถ้าไม่มีให้ 0
 }
 ตัวอย่าง: "วันนี้ทำป้ายร้านพี่นก 2 ป้าย ป้ายละ 350 รับมาแล้ว 300"
--> {"customerName":"พี่นก","items":[{"item_name":"ป้าย","size":null,"quantity":2,"unit":"ป้าย","unit_price":350}],"paidAmount":300}
+-> {"customerName":"พี่นก","items":[{"item_name":"ป้าย","detail":null,"size":null,"quantity":2,"unit":"ป้าย","unit_price":350}],"paidAmount":300}
+
+item_name คือ "ของอะไร" เท่านั้น ห้ามยัดทั้งประโยคลงไป ส่วนที่บอกว่าเอาไปทำอะไร
+หรือทำแบบไหน ให้ไปอยู่ใน detail และห้ามใส่คำพวก สั่ง / ขอ / เอา / ด้วย / ขนาด
+ลงใน item_name
+ตัวอย่าง: "พี่ต่าย สั่งสติ๊กเกอร์ ติดของที่ระลึก ออกแบบใส่ชุดตชด ด้วย 50 ดวง ขนาด 5*6.5"
+-> {"customerName":"พี่ต่าย","items":[{"item_name":"สติ๊กเกอร์","detail":"ติดของที่ระลึก ออกแบบใส่ชุด ตชด","size":"5 × 6.5 ซม.","quantity":50,"unit":"ดวง","unit_price":0}],"paidAmount":0}
+
+ร้านสลับลำดับคำได้ตลอด ชื่อลูกค้าอาจอยู่หน้าหรือหลัง ขนาดอาจมาก่อนจำนวน
+ให้จับความหมาย ไม่ใช่จับตำแหน่ง
+งานที่ยังไม่บอกราคาเป็นเรื่องปกติ (ร้านรับออเดอร์ก่อน ค่อยคิดราคาทีหลัง)
+ให้ unit_price = 0 ห้ามเดาราคาเอง และห้ามทิ้งรายการนั้น
 
 กฎสำคัญ: ถ้าคิดราคาเป็น "ตารางเมตรละ" (ตรมละ / ตร.ม.ละ / บาทต่อตารางเมตร)
 ให้คำนวณพื้นที่เอง แล้วคูณกับเรต ได้ราคาต่อชิ้น ส่งแบบนี้:
@@ -36,6 +49,8 @@ const SYSTEM_PROMPT = `คุณคือตัวช่วยแยกข้อ
 เรตต่อตารางเมตรเป็นวิธีคิดของร้าน ห้ามส่งออกมาเป็น unit_price และห้ามใส่
 "ตร.ม." เป็น unit เด็ดขาด
 ขนาดที่ไม่ใส่หน่วย ถ้าตัวเลขตั้งแต่ 20 ขึ้นไปคือเซนติเมตร ต่ำกว่า 20 คือเมตร
+ยกเว้นของชิ้นเล็ก (สติ๊กเกอร์ ฉลาก ตรายาง นามบัตร รูป การ์ด) ที่ไม่มีหน่วย
+ให้เป็นเซนติเมตรเสมอ — สติ๊กเกอร์ 5*6.5 คือ 5 × 6.5 ซม. ไม่ใช่ 5 × 6.5 เมตร
 ถ้าใส่หน่วยมา (ซม./ม./นิ้ว/ฟุต) ให้เชื่อหน่วยนั้น และใส่หน่วยกำกับใน size ด้วย
 ตัวอย่าง: "รพสตบ้านชี ไวนิล ขนาด 160*300 ตรมละ 165 บาท"
 -> {"customerName":"รพสตบ้านชี","items":[{"item_name":"ไวนิล","size":"160 × 300 ซม.","quantity":1,"unit":null,"unit_price":792}],"paidAmount":0}
@@ -65,9 +80,12 @@ function normalizeExtraction(raw) {
     if (!name) continue;
     if (!Number.isFinite(quantity) || quantity <= 0) continue;
     if (!Number.isFinite(unitPrice) || unitPrice < 0) continue;
+    const detail = typeof it?.detail === 'string' ? it.detail.trim() : '';
     items.push({
       item_name: name,
-      size: it.size ? String(it.size) : null,
+      // ขนาดกับรายละเอียดอยู่ช่องเดียวกันบนตาราง job_items ตามที่ฟอร์มจดงานส่งมา
+      size: subLine(it.size, detail, name),
+      detail: detail || null,
       quantity: round2(quantity),
       unit: it.unit ? String(it.unit) : null,
       unit_price: round2(unitPrice),
