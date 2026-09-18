@@ -114,11 +114,20 @@ function blankItem() {
 function computeItem(item) {
   const size = readSize(item);
   const qty = item.qty > 0 ? item.qty : 1;
-  // สูตรอยู่ที่ rate.js ที่เดียว หน้าฟอร์มกับเทสต์จึงคิดเลขเหมือนกันเสมอ
-  const suggested = MJRate.suggested(item);
+  /* สูตรอยู่ที่ rate.js ที่เดียว หน้าฟอร์มกับเทสต์จึงคิดเลขเหมือนกันเสมอ
+   *
+   * โหมดช่วงราคาดูยอดรวม ตร.ม. ของ "ทั้งงาน" ไม่ใช่ของรายการเดียว เพราะตาราง
+   * ของร้านเขียนว่า "เมื่อยอดรวมถึงแต่ละช่วง จะคิดราคาตามเรตของช่วงนั้น" —
+   * สั่งสองแบบ แบบละ 2 ตร.ม. ต้องได้เรตของ 4 ตร.ม. เหมือนที่ร้านสัญญากับลูกค้าไว้
+   */
+  const q = MJRate.quote(item, { tierSqm: MJRate.tierSqmOf(state.items) });
+  const suggested = q.price;
   const price = item.priceManual ? item.price : suggested || item.price;
-  const total = item.totalManual ? item.total : round2(price * qty);
-  return { size, qty, suggested, price, total };
+  // ยอดของช่วงราคาคิดจาก ตร.ม. × เรต ตรง ๆ ไม่ใช่ราคาต่อแผ่นคูณจำนวน
+  // ไม่งั้น 24 แผ่นจะได้ 1,000.08 แทนที่จะเป็น 1,000 พอดีตามตารางของร้าน
+  const auto = item.priceManual ? round2(price * qty) : q.total;
+  const total = item.totalManual ? item.total : auto;
+  return { size, qty, suggested, price, total, quote: q };
 }
 
 const grandTotal = () => round2(state.items.reduce((s, it) => s + computeItem(it).total, 0));
@@ -302,6 +311,7 @@ function itemCard(item, index) {
   const qty = $('.i-qty', el);
   const rate = $('.i-rate', el);
   const rateMode = $('.i-ratemode', el);
+  const qtyLabel = $('.qty-label', el);
   const rateLabel = $('.rate-label', el);
   const total = $('.i-total', el);
   const hint = $('.area-hint', el);
@@ -344,7 +354,7 @@ function itemCard(item, index) {
 
   // ราคาพิมพ์ทับได้เสมอ — มันคือราคาขายของร้าน ไม่ใช่ช่องที่ระบบยึดไว้
   function paint() {
-    const { size, suggested, price: p, total: t } = computeItem(item);
+    const { size, suggested, price: p, total: t, quote: q, qty: n } = computeItem(item);
 
     if (!item.priceManual) price.value = p || '';
     price.classList.toggle('auto', !item.priceManual && suggested > 0);
@@ -353,8 +363,27 @@ function itemCard(item, index) {
     total.classList.toggle('auto', !item.totalManual);
 
     const mode = MJRate.mode(item.rateMode);
-    rateLabel.textContent = `${mode.label} (บาท)`;
-    rate.placeholder = mode.id === 'sqm' ? 'เช่น 165' : 'เช่น 50';
+    const tiered = mode.id === 'tier';
+
+    /* โหมดช่วงราคา เรตมาจากตารางของร้าน ไม่ใช่ตัวเลขที่พิมพ์เอง
+     *
+     * ช่องเรตจึงกลายเป็นที่ "แสดงผล" ไม่ใช่ที่กรอก — ปล่อยให้พิมพ์ได้ทั้งที่
+     * พิมพ์ไปก็ไม่มีผล คือหลอกให้เสียเวลา
+     */
+    rate.disabled = tiered;
+    rate.classList.toggle('auto', tiered);
+    if (tiered) {
+      rateLabel.textContent = `เรตตามช่วง (บาท/ตร.ม.)`;
+      rate.value = q.tier.rate;
+    } else {
+      rateLabel.textContent = `${mode.label} (บาท)`;
+      rate.placeholder = mode.id === 'sqm' ? 'เช่น 165' : 'เช่น 50';
+      if (rate.value !== String(item.rate || '')) rate.value = item.rate || '';
+    }
+
+    // ป้ายช่องจำนวนบอกหน่วยที่กำลังนับอยู่ — "จำนวน" เฉย ๆ ตอนคิดเป็นแผ่น
+    // ทำให้ไม่รู้ว่าใส่แผ่นหรือใส่ตารางเมตร
+    qtyLabel.textContent = tiered || mode.id !== 'sqm' ? `จำนวน (${mode.piece})` : 'จำนวน';
 
     /* บรรทัดนี้เป็นของร้านล้วน ๆ ไม่มีอะไรจากตรงนี้ไปโผล่บนใบเสร็จ
      *
@@ -362,7 +391,14 @@ function itemCard(item, index) {
      * ราคาคือเรตตรง ๆ ไม่มีอะไรให้อธิบาย เหลือแค่บอกว่าขนาดกินพื้นที่เท่าไหร่
      * ซึ่งเป็นสเปกที่ต้องจดไว้ให้ถูก ไม่ใช่ตัวคูณราคา
      */
-    if (mode.id !== 'sqm') {
+    if (tiered) {
+      const sheetSqm = Math.round(q.sqmPerSheet * 10000) / 10000;
+      hint.hidden = false;
+      hint.textContent =
+        `${q.sqm} ตร.ม. (${numText(n)} แผ่น × ${sheetSqm} ตร.ม.)` +
+        ` · ช่วง ${q.tier.label} = ${numText(q.tier.rate)} บาท/ตร.ม.` +
+        ` · เฉลี่ยแผ่นละ ${baht(suggested)}`;
+    } else if (mode.id !== 'sqm') {
       const per = `${baht(suggested)} ต่อ${mode.piece}`;
       hint.hidden = !(suggested > 0 || size);
       hint.textContent = size
@@ -392,6 +428,20 @@ function itemCard(item, index) {
      * เศษ — ตัวเลขนี้เป็นเพดานบน ปล่อยให้ร้านตั้งราคาจากเลขที่ดีกว่าความจริง
      * ไม่ได้
      */
+    if (tiered) {
+      const all = MJRate.tierSqmOf(state.items);
+      const next = MJRate.STICKER_TIERS.find((x) => x.min > all);
+      yieldHint.hidden = false;
+      yieldHint.textContent =
+        (all > q.sqm ? `🔒 รวมสติ๊กเกอร์ทั้งงาน ${all} ตร.ม. — ช่วงคิดจากยอดรวม` : '🔒 คิดจากยอดรวมของทั้งงาน') +
+        (next
+          ? ` · อีก ${round2(next.min - all)} ตร.ม. ถึงช่วง ${numText(next.rate)} บาท/ตร.ม.`
+          : ' · ถึงช่วงถูกที่สุดแล้ว');
+      renderSummary();
+      saveDraft();
+      return;
+    }
+
     const y = MJRate.yieldPerSqm(item);
     if (y && y.sheets >= 1) {
       const piece = mode.id === 'sqm' ? 'แผ่น' : mode.piece;
