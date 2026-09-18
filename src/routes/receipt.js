@@ -5,6 +5,7 @@ import { getShopProfile, hasShopDetails } from '../services/shopService.js';
 import { isShopKey } from '../utils/receiptLink.js';
 import { formatBaht, numText, round2 } from '../utils/currency.js';
 import { formatThaiDate, formatThaiDateTime } from '../utils/dates.js';
+import { SHEET_CANVAS_JS } from './sheetCanvas.js';
 import { logger } from '../services/logger.js';
 
 // Printable receipt at /r/<share_token>.
@@ -39,88 +40,10 @@ export const RECEIPT_IMAGE_JS = String.raw`
   var data;
   try { data = JSON.parse(document.getElementById('bill-data').textContent); } catch (e) { return; }
 
-  function font(ctx, weight, size) {
-    ctx.font = weight + ' ' + size + "px 'Noto Sans Thai', -apple-system, sans-serif";
-  }
-
-  // Break a line to fit a width, so a long job name stacks instead of running
-  // off the edge of the picture.
-  function wrap(ctx, text, maxWidth) {
-    var words = String(text).split(/\s+/).filter(Boolean);
-    if (!words.length) return [''];
-    var lines = [], line = words[0];
-    for (var i = 1; i < words.length; i++) {
-      var next = line + ' ' + words[i];
-      if (ctx.measureText(next).width <= maxWidth) line = next;
-      else { lines.push(line); line = words[i]; }
-    }
-    lines.push(line);
-    // A single unbroken word can still overflow — cut it by character.
-    var out = [];
-    for (var j = 0; j < lines.length; j++) {
-      var l = lines[j];
-      while (ctx.measureText(l).width > maxWidth && l.length > 1) {
-        var k = l.length;
-        while (k > 1 && ctx.measureText(l.slice(0, k)).width > maxWidth) k--;
-        out.push(l.slice(0, k));
-        l = l.slice(k);
-      }
-      out.push(l);
-    }
-    return out;
-  }
-
-  // ข้อความที่มีบรรทัดเดียวให้ใส่ ตัดแล้วบอกว่าตัด ไม่ใช่หายไปเฉย ๆ
-  //
-  // ของเดิมใช้ wrap(...).slice(0, n) ซึ่งแปลว่าชื่อรายการยาว ๆ โดนตัดกลางคำแล้ว
-  // เงียบ อ่านแล้วนึกว่าร้านพิมพ์มาแค่นั้น
-  function clip(ctx, text, maxWidth, maxLines) {
-    var lines = wrap(ctx, text, maxWidth);
-    if (lines.length <= maxLines) return lines;
-    var kept = lines.slice(0, maxLines);
-    var last = kept[maxLines - 1];
-    while (last.length > 1 && ctx.measureText(last + '…').width > maxWidth) last = last.slice(0, -1);
-    kept[maxLines - 1] = last + '…';
-    return kept;
-  }
-
-  /* วางตัวเลขเอง ไม่พึ่ง ctx.textAlign
-   *
-   * ร้านส่งภาพมาว่า "ยอดเด้งไม่ตรงกรอบ" — ฿1,100 ของแถวแรกถูกเฉือนตัวท้ายทิ้ง
-   * ยอดรวมกับยอดคงเหลือก็โดนเหมือนกัน ทั้งที่โค้ดตั้ง textAlign = 'right' ไว้
-   * ก่อนวาดทุกครั้ง
-   *
-   * เบราว์เซอร์ในไลน์บนเครื่องของร้านไม่สนใจค่านั้น ทุกยอดเลยถูกวาดชิดซ้ายจาก
-   * ขอบขวาของเนื้อหา แล้ววิ่งออกนอกกระดาษไป (จำลองได้ด้วยการปิด setter ของ
-   * textAlign ใน Chromium — ได้ภาพเหมือนที่ร้านส่งมาเป๊ะ)
-   *
-   * แทนที่จะหวังว่าเครื่องอื่นจะทำตาม เลยวัดความกว้างเองแล้วลบออกจากขอบขวา
-   * ซึ่งได้ผลเท่ากันทุกเบราว์เซอร์ และไม่มีค่าอะไรให้ลืมตั้งกลับอีก
-   */
-  function textRight(ctx, text, rightX, y, minX) {
-    var s = String(text);
-    var x = rightX - ctx.measureText(s).width;
-    // ยอดที่ยาวจนล้นไปทับชื่องาน ให้หยุดที่ขอบซ้ายที่ยอมได้ ดีกว่าไปทับกัน
-    if (minX != null && x < minX) x = minX;
-    ctx.fillText(s, x, y);
-  }
-
-  function textCenter(ctx, text, centerX, y) {
-    var s = String(text);
-    ctx.fillText(s, centerX - ctx.measureText(s).width / 2, y);
-  }
-
-  function roundRect(ctx, x, y, w, h, r, fill) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
-    ctx.fillStyle = fill;
-    ctx.fill();
-  }
+  // เครื่องมือวาดอยู่ใน SHEET_CANVAS_JS ซึ่งใบสรุปใช้ชุดเดียวกัน — โดยเฉพาะ
+  // textRight ที่วัดความกว้างเองแทนการหวังพึ่ง ctx.textAlign (ดูที่มาในไฟล์นั้น)
+  var font = MJSheet.font, wrap = MJSheet.wrap, clip = MJSheet.clip;
+  var textRight = MJSheet.textRight, textCenter = MJSheet.textCenter, roundRect = MJSheet.roundRect;
 
   var NAME_W = CW - 34 - 180;
   var LINE_H = 29, ITEM_H = 25, SHOP_H = 66;
@@ -780,6 +703,7 @@ export function renderReceiptHtml(bill, shop = {}, opts = {}) {
   </div>
 
 <script id="bill-data" type="application/json">${jsonScript(receiptData(bill, shop, shopView))}</script>
+<script>${SHEET_CANVAS_JS}</script>
 <script>${RECEIPT_IMAGE_JS}</script>
 </body>
 </html>`;

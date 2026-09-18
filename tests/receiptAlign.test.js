@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { RECEIPT_IMAGE_JS, receiptData } from '../src/routes/receipt.js';
+import { SHEET_CANVAS_JS } from '../src/routes/sheetCanvas.js';
 
 /* ยอดในรูปใบเสร็จต้องอยู่ในกระดาษ แม้เบราว์เซอร์จะไม่สนใจ ctx.textAlign
  *
@@ -95,7 +96,8 @@ function drawWith(billData, { shopView = false } = {}) {
     'File',
     'URL',
     'setTimeout',
-    RECEIPT_IMAGE_JS
+    // หน้าจริงโหลดเครื่องมือวาดก่อนสคริปต์ของใบเสร็จ เทสต์ก็ต้องต่อกันแบบเดียวกัน
+    SHEET_CANVAS_JS + '\n' + RECEIPT_IMAGE_JS
   );
   fn(
     document,
