@@ -28,19 +28,21 @@ test('the form guesses centimetres at the same size the bot does', () => {
 test('every field the brief asks for is on the page, with its example text', () => {
   const fields = [
     ['i-name', 'เช่น ป้ายหน้าร้าน'],
-    ['i-detail', 'เช่น ป้ายไวนิล ตอกตาไก่'],
+    ['i-detail', 'เช่น ตอกตาไก่ 4 มุม'],
     ['i-w', '160'],
     ['i-h', '300'],
     ['i-qty', '1'],
     ['i-rate', 'เช่น 165'],
     ['i-price', 'เช่น 700'],
-    ['i-total', 'ระบบจะคำนวณให้อัตโนมัติ'],
+    // สั้นลงตั้งแต่ยอดรวมย้ายมาอยู่ครึ่งบรรทัดคู่กับแนบรูป — ข้อความยาวกว่านี้
+    // ถูกตัดกลางคำในช่องแคบ ซึ่งอ่านแล้วงงกว่าไม่มีเลย
+    ['i-total', 'คิดให้อัตโนมัติ'],
   ];
   for (const [cls, placeholder] of fields) {
     assert.ok(html.includes(`class="${cls}"`), `missing field .${cls}`);
     assert.ok(html.includes(placeholder), `missing placeholder for .${cls}: ${placeholder}`);
   }
-  assert.ok(html.includes('type="file"') && html.includes('แตะเพื่อแนบรูป'), 'no image field');
+  assert.ok(html.includes('type="file"') && html.includes('แตะเพื่อแนบ'), 'no image field');
 
   // Width and length are their own boxes now: nobody should have to type an
   // "x" for the form to understand a size.
@@ -49,7 +51,8 @@ test('every field the brief asks for is on the page, with its example text', () 
   assert.ok(!html.includes('60x120'), 'the old "type it with an x" example is still there');
 
   // The two cards the brief describes, and the buttons on them.
-  for (const label of ['ตรวจสอบก่อนบันทึก', 'บันทึกงาน', 'แก้ไข', 'ยกเลิก', 'เพิ่มรายการ']) {
+  // "เพิ่มรายการ" กลายเป็น "เพิ่มบรรทัด" ตั้งแต่รายการเรียงลงมาเป็นบรรทัด
+  for (const label of ['ตรวจสอบก่อนบันทึก', 'บันทึกงาน', 'แก้ไข', 'ยกเลิก', 'เพิ่มบรรทัด']) {
     assert.ok(html.includes(label), `missing button/heading: ${label}`);
   }
 });
@@ -114,37 +117,56 @@ test('the form page opens in the same colours as the card it came from', () => {
   }
 });
 
-test('the cards swipe sideways, with dots that follow', () => {
-  assert.ok(html.includes('class="track"') && html.includes('id="dots"'), 'no carousel markup');
-  // Snap is what makes a swipe land on one card instead of halfway between two.
-  assert.match(css, /\.track\s*\{[^}]*scroll-snap-type:\s*x mandatory/);
-  assert.match(css, /\.track > \.item\s*\{[^}]*scroll-snap-align/);
+/* ร้านบอกว่า "เพิ่มเป็นบรรทัดเหมือนใบเสร็จธรรมดาได้มั้ย ไม่ต้องข้ามหน้าอ้ะ"
+ *
+ * ของเดิมหนึ่งรายการคือการ์ดเต็มจอที่ต้องปัดซ้าย-ขวาถึงจะเจอใบถัดไป (scroll-snap
+ * + จุดบอกหน้า) งานที่มีสามรายการจึงไม่เคยเห็นพร้อมกันเลยสักครั้ง ทั้งที่ใบเสร็จ
+ * จริงอ่านทีเดียวจบ
+ */
+test('รายการเรียงลงมาเป็นบรรทัด ไม่ใช่การ์ดที่ต้องปัดหา', () => {
+  assert.ok(html.includes('class="track"'), 'ไม่มีกล่องรายการ');
+  // ไม่มีการปัดแนวนอนแล้ว ทั้ง snap และจุดบอกหน้าต้องหายไปด้วย
+  assert.ok(!/\.track\s*\{[^}]*scroll-snap-type/.test(css), 'ยังปัดทีละใบอยู่');
+  assert.ok(!/\.track\s*\{[^}]*overflow-x:\s*auto/.test(css), 'ยังเลื่อนแนวนอนได้');
+  assert.ok(!html.includes('id="dots"'), 'ยังมีจุดบอกหน้าอยู่ ทั้งที่ไม่มีหน้าให้ข้าม');
+  assert.ok(!js.includes('function renderDots'), 'ยังสร้างจุดบอกหน้าอยู่');
 
-  assert.ok(js.includes('function renderDots'), 'the dots are never built');
-  assert.ok(js.includes("itemsBox.addEventListener('scroll'"), 'the dots do not follow a swipe');
-  assert.ok(js.includes('function scrollToCard'), 'a dot cannot jump to its card');
-  // Buttons live on every card in the mockup, so both must do something.
-  assert.ok(js.includes("$('.act-save', el).onclick"), 'the save button on a card is not wired');
-  // Two add buttons now — the pill on the card head and the one at the foot —
-  // so wiring by querySelector would leave the visible one dead.
-  assert.match(js, /querySelectorAll\('\.act-add'\)/, 'only one add button gets wired');
+  // หนึ่งรายการ = หนึ่งบรรทัดที่ยุบได้ หัวบรรทัดบอก เลขที่ · ชื่อ · ยอด
+  assert.match(html, /<details class="card item">/, 'บรรทัดยุบไม่ได้');
+  assert.match(html, /<summary class="row-top">/, 'ไม่มีหัวบรรทัดให้แตะ');
+  for (const cls of ['row-no', 'row-title', 'row-amt']) {
+    assert.ok(html.includes(cls), `หัวบรรทัดไม่มี ${cls}`);
+  }
+  // หัวบรรทัดต้องอัปเดตตามที่พิมพ์ ไม่งั้นยุบแล้วอ่านไม่ออกว่าบรรทัดไหนคืออะไร
+  assert.match(js, /rowTitle\.textContent/, 'ชื่อบนหัวบรรทัดไม่ถูกอัปเดต');
+  assert.match(js, /rowAmt\.textContent/, 'ยอดบนหัวบรรทัดไม่ถูกอัปเดต');
+
+  // กางอันหนึ่งแล้วอันอื่นยุบ ไม่งั้นก็กลับไปเป็นกองยาวเหมือนเดิม
+  assert.match(js, /other\.open = false/, 'กางแล้วไม่ยุบอันอื่น');
 });
 
-test('adding a second item is reachable without scrolling the card', () => {
-  // A shop takes several jobs from one customer in one go. The only add button
-  // used to sit at the foot of the card, past ten fields — on a phone that is
-  // 970px down, so it may as well not exist, and the shop reported the form
-  // could not do more than one job.
-  const adds = html.match(/class="[^"]*\bact-add\b[^"]*"/g) || [];
-  assert.ok(adds.length >= 2, 'the add button is only at the foot of the card again');
+test('เพิ่มบรรทัดถัดไปได้โดยไม่ต้องเลื่อนผ่านช่องกรอกสิบช่อง', () => {
+  /* ร้านเคยรายงานว่าฟอร์มจดได้งานเดียว เพราะปุ่มเพิ่มอยู่ท้ายการ์ด ซึ่งอยู่ต่ำ
+   * ลงไป 970px บนมือถือ เท่ากับไม่มีอยู่จริง
+   *
+   * ตอนนี้บรรทัดที่กรอกแล้วยุบเหลือบรรทัดเดียว ปุ่มเพิ่มจึงอยู่ถัดจากรายการ
+   * ที่สั้นอยู่แล้ว และมีที่เดียว ไม่ต้องมีสองที่เหมือนตอนที่การ์ดยาวเต็มจอ
+   */
+  assert.ok(html.includes('id="btn-add"'), 'ไม่มีปุ่มเพิ่มบรรทัด');
+  assert.ok(html.includes('id="btn-ship"'), 'ไม่มีปุ่มเพิ่มค่าส่ง');
+  assert.match(js, /\$\('#btn-add'\)\.onclick = addItem/, 'ปุ่มเพิ่มบรรทัดไม่ถูกต่อสาย');
+  assert.match(js, /\$\('#btn-ship'\)\.onclick = addShipping/, 'ปุ่มค่าส่งไม่ถูกต่อสาย');
 
-  const head = html.indexOf('act-add');
-  const firstField = html.indexOf('class="i-name"');
-  assert.ok(head > 0 && head < firstField, 'no add button above the fields');
+  // ปุ่มอยู่หลังรายการ ไม่ใช่ในแม่แบบของการ์ด (ซึ่งจะกลายเป็นปุ่มละใบอีก)
+  const track = html.indexOf('id="items"');
+  const add = html.indexOf('id="btn-add"');
+  const tpl = html.indexOf('<template id="tpl-item">');
+  assert.ok(track > 0 && add > track, 'ปุ่มเพิ่มไม่ได้อยู่ท้ายรายการ');
+  assert.ok(add < tpl, 'ปุ่มเพิ่มไปอยู่ในแม่แบบการ์ด กลายเป็นปุ่มละใบอีกแล้ว');
 
-  // The mascot sits in the corner the delete button occupies, so with more
-  // than one item the way to remove one has to stay readable.
-  assert.match(js, /\$\('\.mascot', el\)\.hidden/, 'the mascot still covers the delete button');
+  // บรรทัดที่เพิ่งเพิ่มต้องกางเอง ไม่ใช่เพิ่มแล้วต้องไปแตะเปิดอีกที
+  assert.match(js, /openId = fresh\.id/, 'เพิ่มบรรทัดแล้วไม่กางให้');
+  assert.match(js, /openId = ship\.id/, 'เพิ่มค่าส่งแล้วไม่กางให้');
 });
 
 test('both themes are one stylesheet, switched by a class', () => {
