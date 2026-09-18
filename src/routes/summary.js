@@ -5,6 +5,8 @@ import { getShopProfile } from '../services/shopService.js';
 import { formatBaht, numText } from '../utils/currency.js';
 import { formatThaiDate } from '../utils/dates.js';
 import { buildOrderSummary } from '../utils/orderSummary.js';
+import { SHEET_CANVAS_JS, SHEET_SHOT_JS, SHEET_SHOT_CSS } from './sheetCanvas.js';
+import { SUMMARY_IMAGE_JS, summaryImageData, summaryShotHtml, jsonScript } from './summaryImage.js';
 import { logger } from '../services/logger.js';
 
 /* ใบสรุปใบสั่ง ที่ /s/<share_token>
@@ -104,6 +106,13 @@ export function renderSummaryHtml(bill, shop = {}) {
   .grand .v.big{color:var(--pink);font-size:20px}
   .note{margin:10px 2px 0;font-size:12px;color:var(--grey);text-align:center}
   .foot{margin-top:16px;text-align:center;font-size:12.5px;color:var(--grey)}
+  /* ปุ่มทำรูป — ใบนี้ถูกส่งต่อเข้าแชตไลน์เหมือนใบเสร็จ รูปจึงต้องมี ไม่ใช่ให้
+     แคปหน้าจอเอาเองแล้วได้แถบเบราว์เซอร์ติดมาด้วย */
+  .print{display:block;width:100%;margin-top:18px;padding:14px;border:0;border-radius:14px;
+         background:var(--pink);color:#fff;font:inherit;font-weight:700;font-size:15.5px;cursor:pointer}
+  .print:disabled{opacity:.6}
+${SHEET_SHOT_CSS}
+  @media print{.print,.shot{display:none}}
   /* ขนาดพิมพ์ซ้ำใต้ชื่อรายการ ซ่อนไว้บนจอกว้าง ใช้ตอนจอแคบที่คอลัมน์ขนาดถูกพับ */
   .sz{display:none;color:var(--grey);font-size:11px;font-weight:400}
 
@@ -153,8 +162,16 @@ export function renderSummaryHtml(bill, shop = {}) {
         : ''
     }
 
+    <button class="print" id="make">📸 บันทึกเป็นรูป · ส่งให้ลูกค้า</button>
     <p class="foot">ขอบคุณที่ไว้วางใจนะคะ 💜</p>
   </div>
+
+  ${summaryShotHtml(bill)}
+
+<script id="summary-data" type="application/json">${jsonScript(summaryImageData(bill, shop))}</script>
+<script>${SHEET_CANVAS_JS}</script>
+<script>${SHEET_SHOT_JS}</script>
+<script>${SUMMARY_IMAGE_JS}</script>
 </body>
 </html>`;
 }
