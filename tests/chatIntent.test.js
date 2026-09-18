@@ -120,8 +120,10 @@ test('a unit orphaned by the size is dropped, but real names survive', async () 
   // The size moves to its own field, so the "ซม." left behind is not a name.
   const d = parseNaturalJob('ผู้ใหญ่สมศรี สั่งป้ายไวนิล 200x100 ซม. 330 บาท');
   assert.equal(d.customerName, 'ผู้ใหญ่สมศรี');
-  assert.equal(d.items[0].item_name, 'สั่งป้ายไวนิล');
-  assert.equal(d.items[0].size, '200x100');
+  // "สั่ง" คือคำที่ร้านพูด ไม่ใช่ชื่อของ — ใบเสร็จที่เขียนว่า "สั่งป้ายไวนิล"
+  // อ่านเหมือนม่วงลอกประโยคมาทั้งดุ้นโดยไม่เข้าใจ
+  assert.equal(d.items[0].item_name, 'ป้ายไวนิล');
+  assert.equal(d.items[0].size, '200 × 100');
 
   // Matched as whole tokens only: a blind strip of "ม" makes โฟมบอร์ด into
   // โฟบอร์ด, which is the kind of fix that is worse than the bug.
