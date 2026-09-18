@@ -96,6 +96,9 @@ function blankItem() {
     unit: 'cm',
     qty: 1,
     rate: 0,
+    // 'sqm' = คิดตามพื้นที่ (งานป้าย) | 'sheet'/'piece'/'unit'/'set' = ราคาต่อชิ้น
+    // ตั้งต้นเป็น sqm เหมือนเดิมทุกประการ ร้านที่ทำป้ายเป็นหลักจะไม่รู้สึกว่าอะไรเปลี่ยน
+    rateMode: 'sqm',
     price: 0,
     priceManual: false,
     total: 0,
@@ -111,7 +114,8 @@ function blankItem() {
 function computeItem(item) {
   const size = readSize(item);
   const qty = item.qty > 0 ? item.qty : 1;
-  const suggested = size && item.rate > 0 ? round2(size.sqm * item.rate) : 0;
+  // สูตรอยู่ที่ rate.js ที่เดียว หน้าฟอร์มกับเทสต์จึงคิดเลขเหมือนกันเสมอ
+  const suggested = MJRate.suggested(item);
   const price = item.priceManual ? item.price : suggested || item.price;
   const total = item.totalManual ? item.total : round2(price * qty);
   return { size, qty, suggested, price, total };
@@ -297,8 +301,11 @@ function itemCard(item, index) {
   const price = $('.i-price', el);
   const qty = $('.i-qty', el);
   const rate = $('.i-rate', el);
+  const rateMode = $('.i-ratemode', el);
+  const rateLabel = $('.rate-label', el);
   const total = $('.i-total', el);
   const hint = $('.area-hint', el);
+  const yieldHint = $('.yield-hint', el);
   const file = $('.i-file', el);
   const preview = $('.preview', el);
 
@@ -316,6 +323,7 @@ function itemCard(item, index) {
   $('.act-save', el).onclick = save;
   // ปุ่มเพิ่มรายการมีสองที่ — บนหัวการ์ดและท้ายการ์ด — ต้องผูกให้ครบทั้งคู่
   el.querySelectorAll('.act-add').forEach((b) => (b.onclick = addItem));
+  $('.act-ship', el).onclick = addShipping;
 
   name.value = item.name;
   detail.value = item.detail;
@@ -323,6 +331,11 @@ function itemCard(item, index) {
   h.value = item.h || '';
   unit.value = item.unit || 'cm';
   qty.value = item.qty || '';
+  rateMode.innerHTML = MJRate.MODES
+    .map((m) => `<option value="${m.id}">${m.label}</option>`)
+    .join('');
+  // ร่างเก่าที่เก็บไว้ก่อนมีช่องนี้ ไม่มี rateMode — ให้ตกมาที่ sqm เหมือนเดิม
+  rateMode.value = MJRate.mode(item.rateMode).id;
   rate.value = item.rate || '';
   // ราคาที่ตั้งเองต้องขึ้นมาให้เห็นตั้งแต่แรก paint() ข้ามช่องนี้เมื่อ
   // priceManual เพราะหน้าที่มันคือ "อย่าคิดทับของร้าน" ไม่ใช่ "อย่าโชว์" —
@@ -339,8 +352,23 @@ function itemCard(item, index) {
     total.value = item.totalManual ? item.total || '' : t || '';
     total.classList.toggle('auto', !item.totalManual);
 
-    // บรรทัดนี้เป็นของร้านล้วน ๆ ไม่มีอะไรจากตรงนี้ไปโผล่บนใบเสร็จ
-    if (size && suggested > 0) {
+    const mode = MJRate.mode(item.rateMode);
+    rateLabel.textContent = `${mode.label} (บาท)`;
+    rate.placeholder = mode.id === 'sqm' ? 'เช่น 165' : 'เช่น 50';
+
+    /* บรรทัดนี้เป็นของร้านล้วน ๆ ไม่มีอะไรจากตรงนี้ไปโผล่บนใบเสร็จ
+     *
+     * สองโหมดต้องพูดคนละภาษา — โหมดพื้นที่อธิบายว่าคูณมาจากอะไร ส่วนโหมดต่อแผ่น
+     * ราคาคือเรตตรง ๆ ไม่มีอะไรให้อธิบาย เหลือแค่บอกว่าขนาดกินพื้นที่เท่าไหร่
+     * ซึ่งเป็นสเปกที่ต้องจดไว้ให้ถูก ไม่ใช่ตัวคูณราคา
+     */
+    if (mode.id !== 'sqm') {
+      const per = `${baht(suggested)} ต่อ${mode.piece}`;
+      hint.hidden = !(suggested > 0 || size);
+      hint.textContent = size
+        ? `${size.label} · ${size.sqm} ตร.ม. ต่อ${mode.piece}` + (suggested > 0 ? ` · ${per}` : '')
+        : `🔒 ร้านเห็นคนเดียว · ${per}`;
+    } else if (size && suggested > 0) {
       hint.hidden = false;
       hint.textContent =
         `🔒 ร้านเห็นคนเดียว · ${size.sqm} ตร.ม. × ${numText(item.rate)} = ${baht(suggested)} ต่อชิ้น` +
@@ -355,6 +383,26 @@ function itemCard(item, index) {
       hint.hidden = true;
     }
 
+    /* "ตรมละ ....... ได้กี่แผ่น" — คำถามของร้าน ตอบตรงนั้นเลย
+     *
+     * วัสดุซื้อเป็นตารางเมตร แต่ตัดขายเป็นแผ่น พอรู้ขนาดแผ่นก็บอกได้ว่าหนึ่ง
+     * ตารางเมตรได้กี่แผ่น และถ้าใส่เรตต่อตารางเมตรมาด้วย ก็บอกต้นทุนต่อแผ่นได้
+     *
+     * เขียนกำกับว่า "ไม่รวมเศษตัด" เพราะของจริงตัดจากม้วนกว้างคงที่ ย่อมเหลือ
+     * เศษ — ตัวเลขนี้เป็นเพดานบน ปล่อยให้ร้านตั้งราคาจากเลขที่ดีกว่าความจริง
+     * ไม่ได้
+     */
+    const y = MJRate.yieldPerSqm(item);
+    if (y && y.sheets >= 1) {
+      const piece = mode.id === 'sqm' ? 'แผ่น' : mode.piece;
+      yieldHint.hidden = false;
+      yieldHint.textContent =
+        `🔒 1 ตร.ม. ได้ราว ${y.sheets} ${piece} (${y.sqmPerSheet} ตร.ม./${piece} · ไม่รวมเศษตัด)` +
+        (mode.id === 'sqm' && y.costPerSheet > 0 ? ` · ต้นทุน${piece}ละ ${baht(y.costPerSheet)}` : '');
+    } else {
+      yieldHint.hidden = true;
+    }
+
     renderSummary();
     saveDraft();
   }
@@ -366,6 +414,13 @@ function itemCard(item, index) {
   unit.onchange = () => { item.unit = unit.value; paint(); };
   qty.oninput = () => { item.qty = num(qty.value); paint(); };
   rate.oninput = () => { item.rate = num(rate.value); paint(); };
+  rateMode.onchange = () => {
+    item.rateMode = MJRate.mode(rateMode.value).id;
+    // เปลี่ยนวิธีคิดแล้วเรตเดิมไม่มีความหมาย (165/ตร.ม. ไม่ใช่ 165/แผ่น) —
+    // ราคาที่ร้านพิมพ์เองไว้ยังอยู่ ของที่ระบบเติมให้ต้องคิดใหม่
+    if (!item.priceManual) item.price = 0;
+    paint();
+  };
   price.oninput = () => {
     // ล้างช่องราคาทิ้ง = กลับไปใช้ยอดที่คิดจากเรตให้เป็นตัวตั้งต้นอีกครั้ง
     item.priceManual = price.value.trim() !== '';
@@ -443,7 +498,8 @@ function renderSummary() {
     t.textContent = label || 'รายการ';
     const sub = document.createElement('small');
     // สรุปพูดภาษาเดียวกับใบเสร็จ: ขนาดกับจำนวน ไม่มีเรตต่อตารางเมตร
-    sub.textContent = [size ? size.label : '', qty > 1 ? `${qty} ชิ้น × ${baht(price)}` : '']
+    const pieceWord = MJRate.mode(item.rateMode).piece;
+    sub.textContent = [size ? size.label : '', qty > 1 ? `${qty} ${pieceWord} × ${baht(price)}` : '']
       .filter(Boolean)
       .join(' · ') || (item.detail && item.name ? item.detail : '');
     if (sub.textContent) t.appendChild(sub);
@@ -520,13 +576,15 @@ function toPayload() {
       item_name: label || 'รายการ',
       size: size ? size.label : item.name && item.detail ? item.detail.slice(0, 100) : null,
       quantity: qty,
-      unit: null,
+      // โหมดต่อแผ่น/ชิ้น/อัน บอกหน่วยได้ตรง ๆ และหน่วยนี้ขึ้นใบเสร็จ
+      // โหมดพื้นที่ไม่บอก เพราะ "ชิ้น" ของงานป้ายคือผืน ซึ่งขนาดข้างหลังบอกแล้ว
+      unit: MJRate.mode(item.rateMode).id === 'sqm' ? null : MJRate.mode(item.rateMode).piece,
       unit_price: round2(price),
       total,
     });
 
     // ส่วนวิธีคิดของร้านไปอยู่ในหมายเหตุ ซึ่งไม่ขึ้นทั้งใบเสร็จและบิลลูกค้า
-    if (size && item.rate > 0) {
+    if (size && item.rate > 0 && MJRate.mode(item.rateMode).id === 'sqm') {
       workings.push(`${label || 'รายการ'}: ${size.sqm} ตร.ม. × ${numText(item.rate)} = ${suggested}`);
     }
   }
@@ -766,6 +824,27 @@ function addItem() {
   state.items.push(blankItem());
   renderItems();
   scrollToCard(state.items.length - 1);
+}
+
+/* ค่าส่งเป็นบรรทัดหนึ่งบนใบเสร็จ ไม่ใช่งานหนึ่งชิ้น
+ *
+ * ร้านถามถึง "ค่าส่ง ....." ต่อจากราคาสติ๊กเกอร์ ซึ่งของเดิมต้องเพิ่มรายการเปล่า
+ * แล้วพิมพ์ชื่อเอง ข้ามช่องขนาดกับช่องเรตที่ไม่เกี่ยวไปห้าช่อง กว่าจะถึงช่องราคา
+ *
+ * มันไม่มีขนาดและไม่ได้คิดตามพื้นที่ จึงมาเป็นโหมด "ชิ้นละ" ที่เอาเรตเป็นราคาตรง ๆ
+ * ชื่อเติมให้แล้ว เหลือใส่ตัวเลขช่องเดียว
+ */
+function addShipping() {
+  const ship = blankItem();
+  ship.name = 'ค่าส่ง';
+  ship.rateMode = 'piece';
+  ship.qty = 1;
+  state.items.push(ship);
+  renderItems();
+  const index = state.items.length - 1;
+  scrollToCard(index);
+  // โฟกัสไปที่ช่องเดียวที่ยังต้องกรอก ไม่ใช่ช่องชื่อที่เติมให้แล้ว
+  setTimeout(() => $('.i-rate', itemsBox.children[index])?.focus(), 350);
 }
 
 $('#btn-save').onclick = save;
