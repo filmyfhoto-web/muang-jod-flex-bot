@@ -150,3 +150,76 @@ test('the customer name is a chip in that category\'s own colour', () => {
   assert.match(config, /color: g\.color/, '/api/config ไม่ได้ส่งสีของหมวดมา');
   assert.match(config, /color: OTHER_GROUP\.color/);
 });
+
+/* ร้านขอ "การแบ่งช่องหน้างาน ว่าอันไหนรับแล้ว หรืออันไหนยังไม่ได้รับ เพื่อจะได้
+ * ส่งใบเสร็จออกให้ลูกค้าหรือคนลงบัญชีร้าน"
+ *
+ * สองกองมีอยู่แล้ว แต่กอง "รับเงินแล้ว" อยู่ใต้งานค้างรับสิบงาน — ในภาพที่ร้าน
+ * ส่งมา ต้องเลื่อนผ่าน 14,840 บาทไปก่อนถึงจะเจอ ช่องที่กดสลับได้จึงคือสิ่งที่
+ * ขาด ไม่ใช่การแบ่งกอง
+ */
+
+// ดึงฟังก์ชันจริงออกมาจากหน้าเว็บมารันในเทสต์ แบบเดียวกับที่ jotRate ทำ
+function evalFromDashboard(...names) {
+  const src = names
+    .map((name) => {
+      const start = dashboard.indexOf('function ' + name + '(');
+      assert.notEqual(start, -1, 'หาฟังก์ชัน ' + name + ' ในหน้าเว็บไม่เจอ');
+      // นับวงเล็บปีกกาจนปิดครบ จะได้ตัวฟังก์ชันทั้งก้อนพอดี
+      let depth = 0;
+      for (let i = dashboard.indexOf('{', start); i < dashboard.length; i++) {
+        if (dashboard[i] === '{') depth++;
+        else if (dashboard[i] === '}' && --depth === 0) return dashboard.slice(start, i + 1);
+      }
+      throw new Error('ฟังก์ชัน ' + name + ' ปิดไม่ครบ');
+    })
+    .join('\n');
+  return new Function(src + '\nreturn { ' + names.join(', ') + ' };')();
+}
+
+test('งานที่รับเงินแล้ว ไม่มีป้ายแดง "เลยกำหนด"', () => {
+  const { dayLabel } = evalFromDashboard('shortThaiDate', 'dayLabel');
+  const today = '2026-09-20';
+
+  // งานค้างรับที่เลยวันนัดมาแล้ว ต้องแดงเหมือนเดิม นั่นคือเงินที่ยังไม่ได้
+  const owed = dayLabel('2026-09-13', today, false);
+  assert.equal(owed.cls, 'late');
+  assert.match(owed.text, /^เลยกำหนด · /);
+
+  // งานเดียวกันแต่รับเงินไปแล้ว วันที่ผ่านมาคือประวัติ ไม่ใช่เรื่องค้าง
+  const done = dayLabel('2026-09-13', today, true);
+  assert.equal(done.cls, '');
+  assert.equal(done.text, owed.text.replace('เลยกำหนด · ', ''));
+
+  // ป้ายแดงทั้งกองบนงานที่จบแล้ว ทำให้สีแดงบนงานที่ค้างจริงหมดความหมาย
+  assert.equal(dayLabel(today, today, true).cls, '');
+  assert.equal(dayLabel('2026-09-30', today, true).cls, '');
+  assert.equal(dayLabel(null, today, true).text, 'ยังไม่ได้นัดวัน');
+
+  // และของเดิมต้องยังทำงานอยู่
+  assert.equal(dayLabel(today, today, false).text, 'วันนี้');
+  assert.equal(dayLabel('2026-09-21', today, false).cls, 'today');
+});
+
+test('คิวงานมีช่องให้กดสลับ ค้างรับ / รับแล้ว', () => {
+  assert.match(dashboard, /id="t-queue-filter"/, 'ไม่มีช่องสลับในคิวงาน');
+  for (const v of ['all', 'owed', 'paid']) {
+    assert.match(dashboard, new RegExp('data-v="' + v + '"'), 'ไม่มีปุ่ม ' + v);
+  }
+
+  // กดแล้วต้องกรองจากข้อมูลชุดเดิม ไม่ใช่ยิง API ใหม่ทุกครั้งที่กด
+  const paint = dashboard.slice(dashboard.indexOf('function paintQueue'), dashboard.indexOf('function dayLabel'));
+  assert.match(paint, /renderQueue\(\$\('t-recent'\), owed, paid, queueFilter\)/);
+  assert.ok(!/await api\(/.test(paint), 'การสลับช่องไปโหลดข้อมูลใหม่');
+
+  // เลือกช่องไหนไว้ เปิดมาใหม่ต้องอยู่ช่องเดิม — ร้านลงบัญชีทีละหลายงาน
+  assert.match(dashboard, /QUEUE_FILTER_KEY/);
+  assert.match(dashboard, /localStorage\.setItem\(QUEUE_FILTER_KEY/);
+
+  // กรองแล้วไม่เหลือสักงาน ต้องบอกว่าเกิดอะไรขึ้น ไม่ใช่ช่องว่างให้เดาเอง
+  const render = dashboard.slice(dashboard.indexOf('function renderQueue'), dashboard.indexOf('async function loadReport'));
+  assert.match(render, /filter === 'owed' && !owed\.length/);
+  assert.match(render, /filter === 'paid' && !paid\.length/);
+  assert.match(render, /if \(filter !== 'paid'\) section\('💰 ค้างรับ'/);
+  assert.match(render, /if \(filter !== 'owed'\) section\('✅ รับเงินแล้ว'/);
+});

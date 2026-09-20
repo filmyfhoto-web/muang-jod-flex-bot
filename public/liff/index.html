@@ -252,6 +252,14 @@
     <div class="card mascot-foot">
       <h2>คิวงาน <span class="link" data-go="pending">ดูค้างรับ ›</span></h2>
       <div class="sub-line" id="t-queue-sum"></div>
+      <!-- ร้านขอ "แบ่งช่องว่าอันไหนรับแล้ว อันไหนยังไม่ได้รับ เพื่อจะได้ส่ง
+           ใบเสร็จออกให้ลูกค้าหรือคนลงบัญชีร้าน" — สองกองมีอยู่แล้ว แต่กอง
+           "รับแล้ว" อยู่ใต้งานค้างรับสิบงาน กว่าจะเลื่อนถึงก็ลืมแล้วว่าหาอะไร -->
+      <div class="seg" id="t-queue-filter" style="margin-bottom:11px">
+        <button type="button" data-v="all" aria-pressed="true">ทั้งหมด</button>
+        <button type="button" data-v="owed" aria-pressed="false">ค้างรับ</button>
+        <button type="button" data-v="paid" aria-pressed="false">รับแล้ว</button>
+      </div>
       <div id="t-recent"></div>
       <img class="peek front" src="/brand/ui/rest.png" alt="" style="right:10px;bottom:-14px;width:88px" />
     </div>
@@ -707,29 +715,74 @@ async function loadToday() {
   await loadQueue();
 }
 
+/* คิวงานที่โหลดมาแล้ว เก็บไว้เพื่อให้สลับช่องได้โดยไม่ต้องยิง API ใหม่
+ *
+ * การกรองเป็นการ "มองข้อมูลชุดเดิมคนละมุม" ไม่ใช่ข้อมูลคนละชุด ยิงใหม่ทุกครั้ง
+ * ที่กดคือการรอเน็ตโดยไม่ได้อะไรเพิ่ม และบนมือถือในร้านที่สัญญาณไม่ดี การกด
+ * สลับไปมาจะกลายเป็นหน้าว่างกะพริบ
+ */
+let queueJobs = [];
+const QUEUE_FILTER_KEY = 'mj.queue.filter';
+let queueFilter = 'all';
+try {
+  const saved = localStorage.getItem(QUEUE_FILTER_KEY);
+  if (saved === 'owed' || saved === 'paid' || saved === 'all') queueFilter = saved;
+} catch (e) { /* โหมดส่วนตัวอ่านไม่ได้ ก็ใช้ค่าตั้งต้น */ }
+
 // งานที่ยังอยู่ในมือ เรียงตามวันนัดรับ พร้อมเลขคิว
 async function loadQueue() {
-  let jobs = [];
   try {
-    ({ jobs } = await api('/jobs?scope=queue'));
+    ({ jobs: queueJobs } = await api('/jobs?scope=queue'));
   } catch (err) {
-    jobs = me?.recent || [];
+    queueJobs = me?.recent || [];
   }
+  paintQueue();
+}
+
+function paintQueue() {
+  const jobs = queueJobs || [];
   const owed = jobs.filter((j) => j.payment_status !== 'paid');
   const paid = jobs.filter((j) => j.payment_status === 'paid');
+
   $('t-queue-sum').textContent = jobs.length
     ? 'ค้างรับ ' + owed.length + ' งาน · รับแล้ว ' + paid.length + ' งาน'
     : '';
-  renderQueue($('t-recent'), owed, paid);
+
+  // ตัวเลขอยู่บนปุ่มเลย ไม่ต้องกดเข้าไปดูว่ามีกี่งาน
+  const counts = { all: jobs.length, owed: owed.length, paid: paid.length };
+  const names = { all: 'ทั้งหมด', owed: 'ค้างรับ', paid: 'รับแล้ว' };
+  const seg = $('t-queue-filter');
+  seg.hidden = !jobs.length;
+  [...seg.children].forEach((b) => {
+    const v = b.dataset.v;
+    b.textContent = names[v] + (counts[v] ? ' ' + counts[v] : '');
+    b.setAttribute('aria-pressed', String(v === queueFilter));
+  });
+
+  renderQueue($('t-recent'), owed, paid, queueFilter);
 }
 
 // วันนัดรับกลายเป็นป้ายที่อ่านได้ทันที — "14 ก.ย." ต้องนับนิ้วเอาเองว่าอีกกี่วัน
-function dayLabel(iso, today) {
+//
+// งานที่รับเงินแล้วไม่มีวัน "เลยกำหนด" — ลูกค้ารับของและจ่ายเงินไปแล้ว วันนัดรับ
+// ที่ผ่านมาคือประวัติ ไม่ใช่เรื่องค้าง ป้ายแดงทั้งกองบนงานที่จบแล้วทำให้สีแดงบน
+// งานที่ค้างจริงหมดความหมายไปด้วย (บรรทัด "เลยกำหนดแล้ว" ในแถวกันไว้อยู่แล้ว
+// ป้ายวันเพิ่งมาตกหล่น)
+function dayLabel(iso, today, done) {
   if (!iso) return { key: 'none', text: 'ยังไม่ได้นัดวัน', cls: '' };
+  if (done) return { key: iso, text: shortThaiDate(iso), cls: '' };
   if (iso < today) return { key: iso, text: 'เลยกำหนด · ' + shortThaiDate(iso), cls: 'late' };
   if (iso === today) return { key: iso, text: 'วันนี้', cls: 'today' };
-  const t = new Date(today + 'T00:00:00+07:00');
-  t.setDate(t.getDate() + 1);
+  /* today คือวันที่ตามปฏิทินไทยอยู่แล้ว (มาจาก toLocaleDateString ของกรุงเทพฯ)
+   * บวกวันต่อในปฏิทินเดียวกันเลย
+   *
+   * ของเดิมอ่านเป็นเที่ยงคืนไทยแล้วถอดกลับเป็นวันที่แบบ UTC ซึ่งย้อนกลับไป 7
+   * ชั่วโมง — "พรุ่งนี้" เลยคำนวณได้เท่ากับวันนี้ และป้าย "พรุ่งนี้" ไม่เคยขึ้น
+   * ให้ใครเห็นเลยสักครั้ง งานที่ต้องส่งพรุ่งนี้ขึ้นเป็นวันที่เฉย ๆ ปนกับงาน
+   * อีกสามอาทิตย์ข้างหน้า
+   */
+  const t = new Date(today + 'T00:00:00Z');
+  t.setUTCDate(t.getUTCDate() + 1);
   const tomorrow = t.toISOString().slice(0, 10);
   if (iso === tomorrow) return { key: iso, text: 'พรุ่งนี้ · ' + shortThaiDate(iso), cls: 'today' };
   return { key: iso, text: shortThaiDate(iso), cls: '' };
@@ -738,10 +791,19 @@ function dayLabel(iso, today) {
 // คิวงานสองกอง: ค้างรับก่อน เพราะนั่นคืองานที่ยังต้องตามเก็บเงิน แล้วในแต่ละกอง
 // คั่นเป็นวัน ๆ ตามวันนัดรับ — ร้านขอ "แยกงานรับแล้วกับค้างงาน" และ "คิวงานตาม
 // ลำดับวัน" ซึ่งเป็นการแบ่งคนละชั้นกัน ไม่ใช่สองวิธีเรียงที่ต้องเลือกอย่างเดียว
-function renderQueue(el, owed, paid) {
+function renderQueue(el, owed, paid, filter = 'all') {
   el.textContent = '';
   if (!owed.length && !paid.length) {
     el.innerHTML = '<div class="empty">ยังไม่มีงานในคิวค่ะ<br>พิมพ์รายการงานในแชตได้เลยนะคะ 💜</div>';
+    return;
+  }
+  // กรองแล้วไม่เหลือสักงาน ต้องบอกว่าเกิดอะไรขึ้น ไม่ใช่โชว์ช่องว่าง ๆ ให้เดาเอง
+  if (filter === 'owed' && !owed.length) {
+    el.innerHTML = '<div class="empty">ไม่มีงานค้างรับค่ะ เก็บครบแล้ว 💜</div>';
+    return;
+  }
+  if (filter === 'paid' && !paid.length) {
+    el.innerHTML = '<div class="empty">ยังไม่มีงานที่รับเงินแล้วในคิวค่ะ</div>';
     return;
   }
   const today = (me && me.date) || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
@@ -767,7 +829,7 @@ function renderQueue(el, owed, paid) {
 
     let day = null;
     jobs.forEach((j, i) => {
-      const d = dayLabel(j.due_date, today);
+      const d = dayLabel(j.due_date, today, opts.done);
       if (d.key !== day) {
         day = d.key;
         const tag = document.createElement('div');
@@ -779,8 +841,8 @@ function renderQueue(el, owed, paid) {
     });
   };
 
-  section('💰 ค้างรับ', owed, { done: false });
-  section('✅ รับเงินแล้ว', paid, { done: true });
+  if (filter !== 'paid') section('💰 ค้างรับ', owed, { done: false });
+  if (filter !== 'owed') section('✅ รับเงินแล้ว', paid, { done: true });
 }
 
 async function loadReport() {
@@ -1193,6 +1255,15 @@ $('s-close').onclick = () => (liff.isInClient() ? liff.closeWindow() : show('tod
 
 document.querySelectorAll('nav button').forEach((b) => (b.onclick = () => show(b.dataset.tab)));
 document.querySelectorAll('[data-go]').forEach((el) => (el.onclick = () => show(el.dataset.go)));
+// สลับช่องคิวงาน — ข้อมูลชุดเดิม คนละมุม ไม่ต้องโหลดใหม่
+$('t-queue-filter').onclick = (e) => {
+  const b = e.target.closest('button[data-v]');
+  if (!b) return;
+  queueFilter = b.dataset.v;
+  try { localStorage.setItem(QUEUE_FILTER_KEY, queueFilter); } catch (err) { /* ไม่เป็นไร */ }
+  paintQueue();
+};
+
 $('r-period').onclick = async (e) => {
   const b = e.target.closest('button[data-v]');
   if (!b) return;
