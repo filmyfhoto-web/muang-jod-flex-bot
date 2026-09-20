@@ -236,3 +236,71 @@ test('a wide screen gets a column, not a two-thousand-pixel-wide form', () => {
   // ร้านขอให้ "เล็กลงแคบลง" คอลัมน์จึงแคบกว่าแดชบอร์ด แต่ยังจัดกลางเหมือนกัน
   assert.match(css, /^main \{[^}]*max-width:\s*560px/m);
 });
+
+/* ร้านบอกว่า "ทำช่องให้ดูแคบลงและเวลาเติมข้อความให้มันง่ายๆได้ไหม ฉันกรอกแล้ว งง"
+ *
+ * ของเดิมเปิดช่องเงินสามช่องพร้อมกัน — ตร.ม.ละ / ราคา / ยอดรวม — หน้าตาเหมือน
+ * กันหมดและว่างเหมือนกันหมด ทั้งที่มีช่องเดียวที่ต้องพิมพ์จริง ๆ อีกสองช่อง
+ * ม่วงเติมให้เองทุกครั้งที่พิมพ์เรต ช่องว่างสามช่องเรียงกันจึงอ่านเป็น
+ * "ต้องกรอกสามอย่าง" ทั้งที่ต้องกรอกอย่างเดียว
+ */
+
+test('มีช่องเงินให้กรอกช่องเดียว อีกสองช่องเป็นผลลัพธ์', () => {
+  const tpl = html.slice(html.indexOf('<template id="tpl-item">'), html.indexOf('</template>'));
+
+  // เรตอยู่นอกกล่องที่ซ่อน — นี่คือช่องเดียวที่ต้องพิมพ์
+  const rateField = tpl.slice(tpl.indexOf('class="field rate-field"'), tpl.indexOf('class="result"'));
+  assert.match(rateField, /class="i-rate"/, 'ช่องเรตไม่อยู่นอกกล่องที่ซ่อน');
+
+  // ราคากับยอดรวมอยู่ในกล่อง .calc ที่ซ่อนไว้ ไม่ใช่เปิดโล่งเหมือนเดิม
+  const calc = tpl.slice(tpl.indexOf('<div class="calc" hidden>'), tpl.indexOf('area-hint'));
+  assert.match(calc, /class="i-price"/);
+  assert.match(calc, /class="i-total"/);
+  assert.ok(!/class="i-rate"/.test(calc), 'ช่องเรตไปอยู่ในกล่องที่ซ่อน');
+  assert.match(tpl, /<div class="calc" hidden>/, 'กล่องราคาไม่ได้ซ่อนไว้ตั้งแต่แรก');
+
+  // แถบผลลัพธ์ที่มาแทน พร้อมทางออกไปตั้งราคาเอง และทางกลับ
+  assert.match(tpl, /<div class="result" hidden>/);
+  assert.match(tpl, /class="res-line"/);
+  assert.match(tpl, /class="own-btn"/);
+  assert.match(tpl, /class="auto-btn"/);
+});
+
+test('แถบผลลัพธ์กับช่องกรอกราคา สลับกันไปมาได้ ไม่โผล่พร้อมกัน', () => {
+  const paint = js.slice(js.indexOf('function paint()'), js.indexOf('name.oninput'));
+
+  // กล่องกรอกเปิดเมื่อร้านตั้งราคาเอง แถบผลลัพธ์โชว์เมื่อไม่ได้ตั้ง — ตรงข้ามกันเสมอ
+  assert.match(paint, /const own = item\.priceManual \|\| item\.totalManual;/);
+  assert.match(paint, /calcBox\.hidden = !own;/);
+  assert.match(paint, /resultBox\.hidden = own \|\| !\(t > 0\);/);
+
+  // ยังไม่มียอดก็ยังไม่ต้องมีแถบ — แถบเขียวว่าง ๆ ไม่ได้บอกอะไร
+  assert.match(paint, /if \(!resultBox\.hidden\)/);
+
+  // กด "ตั้งราคาเอง" ต้องได้ช่องที่มีเลขที่คิดไว้อยู่แล้ว ไม่ใช่ช่องว่าง —
+  // ร้านกดปุ่มนี้ตอนอยากปัดราคา ไม่ใช่ตอนอยากเริ่มคิดใหม่
+  const own = js.slice(js.indexOf("$('.own-btn', el).onclick"), js.indexOf("$('.auto-btn', el).onclick"));
+  assert.match(own, /item\.price = p;/);
+  assert.match(own, /item\.priceManual = true;/);
+  assert.match(own, /\.focus\(\)/);
+
+  // และต้องกลับไปให้ม่วงคิดให้ได้ ไม่ใช่ทางเดียว
+  const auto = js.slice(js.indexOf("$('.auto-btn', el).onclick"), js.indexOf('function showImage'));
+  assert.match(auto, /item\.priceManual = false;/);
+  assert.match(auto, /item\.totalManual = false;/);
+});
+
+test('ช่องกรอกเตี้ยลงได้ แต่ตัวหนังสือห้ามต่ำกว่า 16px', () => {
+  const box = css.slice(css.indexOf("input[type='text'],"), css.indexOf('::-webkit-outer-spin-button'));
+
+  // ต่ำกว่า 16px เมื่อไหร่ iOS ซูมหน้าเองตอนแตะช่อง — ช่องเตี้ยลงด้วยการลด
+  // ช่องไฟ ไม่ใช่ลดขนาดตัวอักษร
+  assert.match(box, /font-size: 16px;/, 'ตัวหนังสือในช่องกรอกต่ำกว่า 16px แล้ว');
+
+  const minH = Number(/min-height: (\d+)px;/.exec(box)?.[1]);
+  assert.ok(minH >= 32 && minH <= 38, 'ความสูงช่องกรอกหลุดช่วงที่ตั้งใจ: ' + minH);
+
+  // ป้ายกำกับช่องเป็นตัวเล็กได้ ไม่ใช่ช่องกรอก
+  const label = /\.field > span:first-child \{[^}]*\}/.exec(css)?.[0] || '';
+  assert.match(label, /font-size: 11px;/);
+});

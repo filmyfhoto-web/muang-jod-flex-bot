@@ -263,40 +263,51 @@
       </label>
     </div>
 
-    <!-- เรตกับราคาอยู่บรรทัดเดียวกัน: เรตคือของร้านใช้คิด ราคาคือของที่ลูกค้าเห็น -->
-    <div class="grid-2">
-      <label class="field">
-        <span class="rate-label">ตร.ม. ละ (บาท)</span>
-        <span class="input-wrap"><i class="ic">💱</i>
-          <input class="i-rate" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 165" />
-        </span>
-      </label>
-      <label class="field">
-        <span>ราคา (บาท) <em class="tag-bill">ต่อชิ้น</em></span>
-        <span class="input-wrap"><i class="ic">🏷</i>
-          <input class="i-price" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 700" />
-        </span>
-      </label>
+    <!-- ช่องเงินช่องเดียวที่ต้องกรอก
+         ร้านบอกว่า "กรอกแล้ว งง" — ของเดิมมีช่องเงินสามช่องเปิดพร้อมกัน
+         (ตร.ม.ละ / ราคา / ยอดรวม) หน้าตาเหมือนกันหมดและว่างเหมือนกันหมด
+         ทั้งที่มีช่องเดียวที่ต้องพิมพ์ อีกสองช่องม่วงคิดให้เองอยู่แล้ว -->
+    <label class="field rate-field">
+      <span class="rate-label">ตร.ม. ละ (บาท)</span>
+      <span class="input-wrap"><i class="ic">💱</i>
+        <input class="i-rate" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 165" />
+      </span>
+    </label>
+
+    <!-- ผลลัพธ์: อ่านอย่างเดียว ไม่ใช่ช่องให้กรอก -->
+    <div class="result" hidden>
+      <span class="res-line"></span>
+      <button type="button" class="own-btn">✏️ ตั้งราคาเอง</button>
+    </div>
+
+    <!-- เปิดเมื่อร้านกด "ตั้งราคาเอง" เท่านั้น -->
+    <div class="calc" hidden>
+      <div class="grid-2">
+        <label class="field">
+          <span>ราคา (บาท) <em class="tag-bill">ต่อชิ้น</em></span>
+          <span class="input-wrap"><i class="ic">🏷</i>
+            <input class="i-price" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 700" />
+          </span>
+        </label>
+        <label class="field">
+          <span>ยอดรวม (บาท)</span>
+          <span class="input-wrap"><i class="ic">Σ</i>
+            <input class="i-total" type="number" inputmode="decimal" min="0" step="0.01" placeholder="คิดให้อัตโนมัติ" />
+          </span>
+        </label>
+      </div>
+      <button type="button" class="auto-btn">↩︎ ให้ม่วงคิดให้เหมือนเดิม</button>
     </div>
 
     <p class="hint area-hint" hidden></p>
     <p class="hint yield-hint" hidden></p>
 
-    <!-- แนบรูปกับยอดรวมบรรทัดเดียวกัน — ทั้งคู่เป็นของท้ายบรรทัด ไม่ใช่ของหลัก -->
-    <div class="grid-2">
-      <div class="field">
-        <span>แนบรูป</span>
-        <label class="drop">
-          <input class="i-file" type="file" accept="image/*" hidden />
-          <span class="drop-ic">🖼</span>
-          <span class="drop-text">แตะเพื่อแนบ<small>ไม่บังคับ</small></span>
-        </label>
-      </div>
-      <label class="field">
-        <span>ยอดรวม (บาท)</span>
-        <span class="input-wrap"><i class="ic">Σ</i>
-          <input class="i-total" type="number" inputmode="decimal" min="0" step="0.01" placeholder="คิดให้อัตโนมัติ" />
-        </span>
+    <div class="field">
+      <span>แนบรูป</span>
+      <label class="drop">
+        <input class="i-file" type="file" accept="image/*" hidden />
+        <span class="drop-ic">🖼</span>
+        <span class="drop-text">แตะเพื่อแนบ<small>ไม่บังคับ</small></span>
       </label>
     </div>
 

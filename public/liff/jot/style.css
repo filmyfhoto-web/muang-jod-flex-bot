@@ -378,8 +378,11 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
 
 /* ---- ฟอร์ม ------------------------------------------------------------- */
 
-.field { display: block; margin-bottom: 9px; }
-.field > span:first-child { display: block; font-size: 12px; font-weight: 600; color: var(--sub); margin-bottom: 4px; }
+/* ร้านบอกว่า "ทำช่องให้ดูแคบลง" — การ์ดหนึ่งใบเคยสูงกว่าหนึ่งหน้าจอ ต้องเลื่อน
+ * ขึ้นลงเพื่อดูว่ากรอกอะไรไปแล้วบ้าง ตัวหนังสือในช่องลดต่ำกว่า 16px ไม่ได้
+ * (iOS จะซูมหน้าเองตอนแตะ) ที่ลดได้คือช่องไฟรอบ ๆ: ป้าย ระยะห่าง และความสูง */
+.field { display: block; margin-bottom: 6px; }
+.field > span:first-child { display: block; font-size: 11px; font-weight: 600; color: var(--sub); margin-bottom: 2px; line-height: 1.35; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 /* กว้าง / ยาว / จำนวน อยู่แถวเดียวกัน จะได้เห็นว่ามันเป็นเรื่องเดียวกัน */
 .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
@@ -392,12 +395,12 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
 .input-wrap { position: relative; display: block; }
 .input-wrap .ic {
   position: absolute;
-  left: 8px;
+  left: 6px;
   top: 50%;
   transform: translateY(-50%);
-  width: 22px;
-  height: 22px;
-  border-radius: 7px;
+  width: 19px;
+  height: 19px;
+  border-radius: 6px;
   background: var(--accent-soft);
   color: var(--accent-text);
   font-size: 12px;
@@ -413,8 +416,8 @@ input[type='number'],
 input[type='date'],
 select {
   width: 100%;
-  min-height: 42px;
-  padding: 9px 11px 9px 38px;
+  min-height: 36px;
+  padding: 6px 10px 6px 32px;
   font-family: inherit;
   /* ตัวหนังสือในช่องกรอกลดต่ำกว่า 16px ไม่ได้ ต่ำกว่านั้น iOS ซูมหน้าเองตอนแตะ
    * ช่องจึงเตี้ยลงด้วยการลด padding แทน ไม่ใช่ลดขนาดตัวอักษร */
@@ -451,7 +454,7 @@ input[readonly] { background: var(--accent-soft); }
 .icon-btn:hover { color: var(--red); }
 .item .del { position: relative; z-index: 2; }
 
-.hint { margin: -3px 0 9px; font-size: 11.5px; font-weight: 600; color: var(--accent-text); }
+.hint { margin: -2px 0 7px; font-size: 11.5px; font-weight: 600; color: var(--accent-text); }
 /* บรรทัด "1 ตร.ม. ได้กี่แผ่น" เป็นตัวเลขช่วยคิด ไม่ใช่ราคาขาย จึงเบากว่า
    บรรทัดข้างบนหนึ่งระดับ ไม่ให้ไปแย่งสายตากับยอดจริง */
 .hint.yield-hint { color: var(--sub); font-weight: 500; }
@@ -620,3 +623,49 @@ body.quick .link-full { display: block; }
 .resume-act { display: flex; gap: 8px; flex: 0 0 auto; }
 .resume-act .btn { width: auto; min-height: 36px; padding: 0 14px; font-size: 14px; }
 .resume-drop { background: none; color: var(--grey); }
+
+/* ผลลัพธ์ที่ม่วงคิดให้ — เป็นคำตอบ ไม่ใช่คำถาม
+ *
+ * ของเดิมเป็นช่องกรอกสองช่องที่หน้าตาเหมือนช่องที่ต้องกรอกจริง ๆ ทุกประการ
+ * ร้านเลยไม่รู้ว่าต้องพิมพ์ช่องไหน ("กรอกแล้ว งง") ตอนนี้เป็นแถบอ่านอย่างเดียว
+ * สีเขียวแบบ "คิดให้แล้วนะ" และมีปุ่มเล็ก ๆ ไว้แก้เองเมื่ออยากแก้
+ */
+.result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: -1px 0 7px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: var(--green-bg);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--green);
+}
+.result .own-btn {
+  flex: none;
+  border: 0;
+  background: transparent;
+  padding: 2px 0;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--sub);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.calc .auto-btn {
+  display: block;
+  width: 100%;
+  margin: -2px 0 8px;
+  border: 0;
+  background: transparent;
+  padding: 2px 0;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--sub);
+  text-decoration: underline;
+  cursor: pointer;
+}
