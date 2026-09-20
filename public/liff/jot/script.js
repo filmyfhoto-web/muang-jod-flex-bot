@@ -299,6 +299,9 @@ function itemCard(item, index) {
   const total = $('.i-total', el);
   const hint = $('.area-hint', el);
   const yieldHint = $('.yield-hint', el);
+  const resultBox = $('.result', el);
+  const resLine = $('.res-line', el);
+  const calcBox = $('.calc', el);
   const file = $('.i-file', el);
   const preview = $('.preview', el);
 
@@ -366,6 +369,21 @@ function itemCard(item, index) {
     total.classList.toggle('auto', !item.totalManual);
 
     const mode = MJRate.mode(item.rateMode);
+
+    /* ผลลัพธ์เป็นบรรทัดอ่าน ไม่ใช่ช่องกรอก จนกว่าร้านจะขอตั้งราคาเอง
+     *
+     * ร้านบอกว่า "กรอกแล้ว งง" — ของเดิมเปิดช่องเงินสามช่องพร้อมกัน หน้าตา
+     * เหมือนกันและว่างเหมือนกัน ทั้งที่มีช่องเดียวที่ต้องพิมพ์จริง ๆ อีกสอง
+     * ช่องม่วงเติมให้เองทุกครั้งที่พิมพ์เรต ช่องว่างสามช่องเรียงกันจึงอ่านเป็น
+     * "ต้องกรอกสามอย่าง" ทั้งที่ต้องกรอกอย่างเดียว
+     */
+    const own = item.priceManual || item.totalManual;
+    calcBox.hidden = !own;
+    resultBox.hidden = own || !(t > 0);
+    if (!resultBox.hidden) {
+      const each = `${baht(p)} ต่อ${mode.piece}`;
+      resLine.textContent = n > 1 ? `${each} × ${numText(n)} = ${baht(t)}` : `${each}`;
+    }
     const tiered = mode.id === 'tier';
 
     /* โหมดช่วงราคา เรตมาจากตารางของร้าน ไม่ใช่ตัวเลขที่พิมพ์เอง
@@ -409,9 +427,11 @@ function itemCard(item, index) {
         : `🔒 ร้านเห็นคนเดียว · ${per}`;
     } else if (size && suggested > 0) {
       hint.hidden = false;
+      // แถบเขียวข้างบนบอกผลลัพธ์อยู่แล้ว ตรงนี้เหลือแค่ "คิดมาจากอะไร" —
+      // เว้นแต่ตอนร้านตั้งราคาเอง ซึ่งแถบเขียวหายไป เลขที่คิดได้จึงต้องอยู่ตรงนี้
       hint.textContent =
-        `🔒 ร้านเห็นคนเดียว · ${size.sqm} ตร.ม. × ${numText(item.rate)} = ${baht(suggested)} ต่อชิ้น` +
-        (item.priceManual ? ' (ตั้งราคาเองแล้ว)' : ' — เติมให้ในช่องราคาแล้ว');
+        `🔒 ร้านเห็นคนเดียว · ${size.sqm} ตร.ม. × ${numText(item.rate)}` +
+        (item.priceManual ? ` = ${baht(suggested)} ต่อชิ้น (ตั้งราคาเองแล้ว)` : '');
     } else if (item.rate > 0) {
       hint.hidden = false;
       hint.textContent = '🔒 ใส่กว้างกับยาวด้วยนะคะ ม่วงจดจะคิดพื้นที่ให้';
@@ -484,6 +504,26 @@ function itemCard(item, index) {
     // พิมพ์ยอดรวมเองเมื่อไหร่ ให้ยอดนั้นชนะการคำนวณ ล้างช่องแล้วกลับมาคิดเอง
     item.totalManual = total.value.trim() !== '';
     item.total = num(total.value);
+    paint();
+  };
+
+  /* ตั้งราคาเอง — เปิดช่องมาพร้อมเลขที่ม่วงคิดไว้ ไม่ใช่ช่องว่าง
+   *
+   * ร้านกดปุ่มนี้ตอนอยากปัดราคา ไม่ใช่ตอนอยากเริ่มคิดใหม่ตั้งแต่ต้น เปิดมาเป็น
+   * ช่องว่างคือบังคับให้พิมพ์เลขที่เห็นอยู่ตรงหน้าซ้ำอีกรอบ
+   */
+  $('.own-btn', el).onclick = () => {
+    const { price: p } = computeItem(item);
+    item.price = p;
+    item.priceManual = true;
+    paint();
+    $('.i-price', el).focus();
+  };
+
+  $('.auto-btn', el).onclick = () => {
+    item.priceManual = false;
+    item.totalManual = false;
+    item.total = 0;
     paint();
   };
 
