@@ -238,7 +238,12 @@ function dueMatchers(today) {
 export function extractDueDate(text, now = new Date()) {
   const original = String(text ?? '');
   const today = todayISO(now);
-  const re = new RegExp(`${DUE_WORDS}\\s*`, 'g');
+  /* "นัดรับวันที่ 25 กันยายน 2569" — คำว่า "วันที่" คั่นอยู่ตรงกลาง
+   *
+   * ของเดิมบังคับให้วันที่ตามหลังคำนัดทันที ประโยคนี้จึงอ่านไม่ออกทั้งประโยค
+   * แล้วม่วงถามวันนัดซ้ำอีกรอบ ทั้งที่ร้านเพิ่งตอบไป
+   */
+  const re = new RegExp(`${DUE_WORDS}\\s*(?:วัน(?:ที่)?\\s*)?`, 'g');
 
   for (const hit of original.matchAll(re)) {
     const after = original.slice(hit.index + hit[0].length);
