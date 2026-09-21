@@ -16,6 +16,7 @@ import {
   questionSet,
 } from '../src/utils/slots.js';
 import { extractDueDate } from '../src/utils/thaiDate.js';
+import { extractCustomer } from '../src/utils/nlParser.js';
 
 const handler = readFileSync(new URL('../src/handlers/messageHandler.js', import.meta.url), 'utf8');
 // วงสนทนาอยู่แยกจากตัวจัดการข้อความ เพราะมีสองทางที่เริ่มวงนี้ได้: พิมพ์เข้ามาเอง
@@ -208,4 +209,89 @@ test('the chat wires the loop up, and still never saves before confirming', () =
   assert.match(finish, /STATES\.CONFIRMING_JOB/, 'เก็บครบแล้วบันทึกทันทีโดยไม่ถาม');
   assert.match(finish, /jobPreviewMessage/);
   assert.ok(!/createJob|saveJob/.test(finish), 'มีการบันทึกงานก่อนกดยืนยัน');
+});
+
+/* ร้านส่งภาพแชตมาแล้วถามว่า "ม่วงจะถามไปถามมาทำไมเนี้ย"
+ *
+ *   ร้าน : ชื่อลูกค้า คือ โรงเรียนบ้านปงสนุก
+ *   ม่วง : แก้ชื่อลูกค้าเป็น โรงเรียนบ้านปงสนุกแล้วค่ะ นัดรับวันไหนคะ?
+ *   ร้าน : 25 กันยายน
+ *   ม่วง : แก้ชื่อลูกค้าเป็น ยายนแล้วค่ะ นัดรับวันไหนคะ?        ← วนตรงนี้
+ *   ร้าน : ชื่อลูกค้า คือ โรงเรียนบ้านปงสนุก
+ *   ม่วง : แก้ชื่อลูกค้าเป็น โรงเรียนบ้านปงสนุกแล้วค่ะ นัดรับวันไหนคะ?
+ *   ร้าน : นัดรับวันที่ 25 กันยายน 2569
+ *   ม่วง : แก้ชื่อลูกค้าเป็น ยายนแล้วค่ะ นัดรับวันไหนคะ?        ← วนอีก
+ *
+ * สามบั๊กซ้อนกัน: กัน-ยาย-น อ่านเป็นคำนำหน้า "ยาย" + ชื่อ "น", ช่องลูกค้าได้
+ * อ่านข้อความก่อนช่องวันทั้งที่ม่วงเพิ่งถามเรื่องวัน, และ "นัดรับวันที่ …"
+ * ที่มีคำว่า "วันที่" คั่น อ่านไม่ออกทั้งประโยค
+ */
+
+test('ตอบวันนัดแล้วต้องไปข้อถัดไป ไม่ใช่วนถามเรื่องเดิม', () => {
+  let state = {
+    ...startCollecting({ itemName: 'ตรายาง', workType: 'other' }),
+    fields: { detail: 'ตรายาง', qty: { count: 1 }, unitPrice: 300 },
+  };
+
+  // ม่วงถามชื่อลูกค้า ร้านตอบ
+  state.asking = nextQuestion(state).id;
+  assert.equal(state.asking, 'customer');
+  let turn = readTurn(state, 'ชื่อลูกค้า คือ โรงเรียนบ้านปงสนุก');
+  assert.equal(turn.state.fields.customer, 'โรงเรียนบ้านปงสนุก');
+
+  // ม่วงถามวันนัด ร้านตอบ "25 กันยายน"
+  state = { ...turn.state, asking: nextQuestion(turn.state).id };
+  assert.equal(state.asking, 'due', 'ม่วงไม่ได้ถามเรื่องวัน');
+  turn = readTurn(state, '25 กันยายน');
+
+  assert.equal(turn.state.fields.due, '2026-09-25', 'ตอบวันไปแล้วแต่ช่องวันยังว่าง');
+  assert.equal(turn.state.fields.customer, 'โรงเรียนบ้านปงสนุก', 'ชื่อลูกค้าถูกทับด้วยเดือน');
+  assert.deepEqual(turn.changed, [], 'ไม่ควรมีอะไรถูกแก้ทับ');
+  assert.equal(acknowledge(turn.state, turn.changed), null, 'ม่วงพูดว่าแก้ชื่อลูกค้า ทั้งที่ไม่ได้แก้');
+
+  // และต้องเดินหน้าไปข้อถัดไป ไม่ใช่ถามวันซ้ำ
+  assert.notEqual(nextSlot(turn.state), 'due', 'ม่วงวนถามวันนัดซ้ำ');
+});
+
+test('"นัดรับวันที่ 25 กันยายน 2569" อ่านออก ไม่ใช่ตกทั้งประโยค', () => {
+  // คำว่า "วันที่" คั่นระหว่างคำนัดกับตัวเลข ของเดิมบังคับให้ติดกัน
+  for (const text of [
+    'นัดรับวันที่ 25 กันยายน 2569',
+    'นัดรับ วันที่ 25 กันยายน',
+    'นัดรับวัน 25 ก.ย.',
+    'นัดรับ 25 กันยายน',
+  ]) {
+    assert.equal(extractDueDate(text).date, '2026-09-25', text);
+  }
+
+  // ปี พ.ศ. กับ ค.ศ. ต้องได้วันเดียวกัน
+  assert.equal(extractDueDate('นัดรับ 25 กันยายน 2026').date, '2026-09-25');
+});
+
+test('"กันยายน" ไม่ใช่ยายชื่อ "น" แต่ "ยายนวล" ยังเป็นยายอยู่', () => {
+  for (const month of ['25 กันยายน', 'กันยายน 2569', 'สั่ง 10 ก.ย. รับ 25 กันยายน']) {
+    assert.equal(extractCustomer(month).customerName, null, month);
+  }
+
+  // กันเฉพาะจุดที่ชน ไม่ได้เลิกรู้จักคำว่า "ยาย"
+  assert.equal(extractCustomer('ยายนวล สั่งป้าย').customerName, 'ยายนวล');
+  assert.equal(extractCustomer('ยายน้อย 2 อัน').customerName, 'ยายน้อย');
+  assert.equal(extractCustomer('ป้ายไวนิล ยายมา').customerName, 'ยายมา');
+});
+
+test('ช่องที่ม่วงเพิ่งถาม ได้อ่านคำตอบก่อนช่องอื่น', () => {
+  const base = {
+    ...startCollecting({ itemName: 'ตรายาง', workType: 'other' }),
+    fields: { detail: 'ตรายาง', qty: { count: 1 }, unitPrice: 300, customer: 'พี่นก' },
+  };
+
+  // ประโยคเดียวกัน ตอบคนละคำถาม ต้องลงคนละช่อง
+  const asDue = readTurn({ ...base, asking: 'due' }, 'พรุ่งนี้');
+  assert.ok(asDue.state.fields.due, 'ตอบคำถามเรื่องวันแล้วไม่ได้ลงช่องวัน');
+  assert.equal(asDue.state.fields.customer, 'พี่นก', 'ชื่อลูกค้าเดิมหายไป');
+
+  // และยังอ่านหลายเรื่องในประโยคเดียวได้เหมือนเดิม
+  const both = readTurn({ ...base, asking: 'due' }, 'ลูกค้าพี่ต่าย นัดรับพรุ่งนี้');
+  assert.equal(both.state.fields.customer, 'พี่ต่าย');
+  assert.ok(both.state.fields.due);
 });
