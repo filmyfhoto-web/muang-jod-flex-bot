@@ -1,5 +1,6 @@
 import { reply } from '../services/lineService.js';
 import { addJob, addMoreForCustomer, confirmAddJob, editNewJob, cancelNewJob } from '../actions/addJob.js';
+import { confirmSaveDump, cancelSaveDump } from '../actions/saveDump.js';
 import { attachEvidence } from '../actions/attachEvidence.js';
 import { recentJobs } from '../actions/recentJobs.js';
 import { todaySummary } from '../actions/todaySummary.js';
@@ -65,6 +66,11 @@ export async function handlePostback(event, profile) {
       return editNewJob(ctx);
     case 'cancel_new_job':
       return cancelNewJob(ctx);
+    // จดรวดเดียวทั้งวัน แล้วบันทึกทีเดียวทั้งกอง
+    case 'confirm_dump':
+      return confirmSaveDump(ctx);
+    case 'cancel_dump':
+      return cancelSaveDump(ctx);
     case 'attach_evidence':
       return attachEvidence(ctx);
     case 'recent_jobs':
