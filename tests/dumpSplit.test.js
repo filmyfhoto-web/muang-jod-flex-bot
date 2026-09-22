@@ -181,3 +181,99 @@ test('แชตต่อสายถึงจริง — ทางแยกก
   assert.match(postback, /case 'confirm_dump':/);
   assert.match(postback, /case 'cancel_dump':/);
 });
+
+/* ร้านส่งภาพแชตมาแล้วบอกว่า "บางทีอยากพิมพ์สั้น ๆ ว่างานนี้ชื่อเดียวกัน ม่วงแยก
+ * ชื่อและงานให้หน่อย แต่รับพร้อมกัน ฉันแค่อยากรู้ว่าแต่ละวันจะได้เงินเท่าไหร่"
+ *
+ * ในภาพ ร้านพิมพ์ว่า:
+ *   มีสติ๊กเกอร์ งานสีดำแม่สว่าง อินทำ
+ *   สติ๊กเกอร์ อุทิศให้  2 แผ่น แผ่นละ 50 บาท
+ *   สติ๊กเกอร์ ของชำร่วย 4 แผ่น แผ่นละ 50 บาท
+ *   ทั้งหมด 6*50 = *300*
+ * แล้วม่วงตอบว่า "แก้ขนาดเป็น 6 × 50 ซม. และจำนวนเป็น 2 แผ่น…" — อ่าน 6*50
+ * เป็นขนาด และไม่รู้ว่าทั้งสามบรรทัดเป็นของลูกค้าคนเดียวกัน
+ */
+
+const SAWANG = `มีสติ๊กเกอร์ งานสีดำแม่สว่าง อินทำ
+สติ๊กเกอร์ อุทิศให้  2 แผ่น แผ่นละ 50 บาท
+สติ๊กเกอร์ ของชำร่วย 4 แผ่น แผ่นละ 50 บาท
+ทั้งหมด 6*50 = *300*`;
+
+test('ชื่อเดียวกันทั้งก้อน รับพร้อมกัน = งานเดียวของคนนั้น', () => {
+  const { jobs, total } = splitDump(SAWANG);
+
+  // "รับพร้อมกัน" — ใบเสร็จใบเดียว ไม่ใช่สามงานที่ต้องออกใบเสร็จทีละใบ
+  assert.equal(jobs.length, 1, 'ควรเป็นงานเดียว ไม่ใช่หลายงาน');
+  assert.equal(jobs[0].customerName, 'แม่สว่าง');
+  assert.equal(jobs[0].items.length, 2);
+
+  // ชื่อลูกค้าเขียนไว้บรรทัดบน ไม่ต้องย่อหน้าบรรทัดล่างให้
+  assert.deepEqual(jobs[0].items.map((i) => i.quantity), [2, 4]);
+  assert.deepEqual(jobs[0].items.map((i) => i.unit_price), [50, 50]);
+
+  // "ทั้งหมด 6*50 = *300*" คือบรรทัดสรุป ไม่ใช่รายการที่สาม
+  assert.equal(total, 300, 'ยอดรวมบวกเกิน — บรรทัดสรุปถูกนับเป็นงาน');
+  assert.equal(jobs[0].total, 300);
+  assert.ok(
+    !jobs[0].items.some((i) => String(i.size || '').includes('6 × 50')),
+    '"6*50" ถูกอ่านเป็นขนาด ทั้งที่เป็นวิธีคิด 6 แผ่น × 50 บาท'
+  );
+});
+
+/* "ฉันแค่อยากรู้ว่าแต่ละวันจะได้เงินเท่าไหร่"
+ *
+ * งานที่จ่ายเงินแล้วคือเงินที่เข้าร้านจริงในวันนั้น ร้านตอบว่า "รับไปแล้ว
+ * จ่ายเงินแล้ว" แล้วม่วงตอบว่าไม่เข้าใจ ทั้งที่เป็นประโยคที่ตอบคำถามนี้ตรงที่สุด
+ */
+test('"จ่ายเงินแล้ว" โดยไม่บอกจำนวน = จ่ายครบ', async () => {
+  const { parseNaturalJob, saysPaidInFull } = await import('../src/utils/nlParser.js');
+
+  const paid = parseNaturalJob('กรอบรูป 12*18 นิ้ว 1 กรอบ 600 บาท จ่ายแล้ว');
+  assert.equal(paid.total, 600);
+  assert.equal(paid.paidAmount, 600, 'จ่ายครบแล้วแต่ยังนับเป็นค้างรับ');
+  assert.equal(paid.items[0].item_name, 'กรอบรูป', 'คำว่า "จ่ายแล้ว" ติดไปในชื่อของ');
+
+  // บอกจำนวนมาด้วยก็เชื่อจำนวนนั้น — มัดจำคือจ่ายบางส่วน ไม่ใช่จ่ายครบ
+  assert.equal(parseNaturalJob('กรอบรูป 600 บาท มัดจำ 300').paidAmount, 300);
+  assert.equal(parseNaturalJob('กรอบรูป 600 บาท').paidAmount, 0);
+
+  assert.equal(saysPaidInFull('รับไปแล้ว จ่ายเงินแล้ว'), true);
+  assert.equal(saysPaidInFull('ยังไม่จ่าย'), false);
+  assert.equal(saysPaidInFull('มัดจำ 300'), false);
+});
+
+test('"รับไปแล้ว" ตอบคำถามวันนัดได้ แปลว่าวันนี้', async () => {
+  const { extractDueDate } = await import('../src/utils/thaiDate.js');
+  const { todayISO } = await import('../src/utils/dates.js');
+  const today = todayISO();
+
+  for (const text of ['รับไปแล้ว จ่ายเงินแล้ว', 'รับแล้ว', 'ส่งแล้ว', 'รับไปแล้ว']) {
+    assert.equal(extractDueDate(text).date, today, text);
+  }
+
+  // "รับมาแล้ว 300" คือเงินมัดจำ ไม่ใช่วันนัด
+  assert.equal(extractDueDate('รับมาแล้ว 300').date, null);
+  assert.equal(extractDueDate('นัดรับ 25 ก.ย.').date, '2026-09-25');
+});
+
+test('ลูกค้าคนเดียวหลายบรรทัด ไม่คิดเงินขาดอีกแล้ว', () => {
+  const { jobs } = splitDump('พี่ต่าย\nสติ๊กเกอร์ 50 ดวง ดวงละ 5\nตรายาง 1 อัน 250');
+
+  assert.equal(jobs.length, 1);
+  assert.equal(jobs[0].customerName, 'พี่ต่าย');
+  // ตัวอ่านหลายบรรทัดแบบเดิมได้ ฿255 เพราะกลืน "50 ดวง" ไปอยู่ในชื่อของ
+  assert.equal(jobs[0].total, 500, 'คิดเงินขาด — จำนวนหายไปอยู่ในชื่อ');
+  assert.equal(looksLikeDump('พี่ต่าย\nสติ๊กเกอร์ 50 ดวง ดวงละ 5'), true, 'งานเดียวหลายบรรทัดต้องมาทางนี้ด้วย');
+});
+
+test('งานเดียวส่งต่อไปการ์ดสรุปเดิม ไม่ใช่การ์ดแยกกอง', async () => {
+  const { readFileSync } = await import('node:fs');
+  const handler = readFileSync(new URL('../src/handlers/messageHandler.js', import.meta.url), 'utf8');
+  const fn = handler.slice(handler.indexOf('async function handleDump'), handler.indexOf('async function handleNewJob'));
+
+  // ลูกค้าคนเดียวควรได้การ์ดที่มีปุ่มแก้ไขครบ ไม่ใช่การ์ด "แยกให้แล้ว 1 งาน"
+  assert.match(fn, /if \(jobs\.length === 1\)/);
+  assert.match(fn, /return handleNewJob\(/);
+  // และต้องส่งผลที่อ่านทีละบรรทัดไปด้วย ไม่ใช่ปล่อยให้อ่านใหม่ด้วยตัวเก่า
+  assert.match(fn, /items: only\.items/);
+});
