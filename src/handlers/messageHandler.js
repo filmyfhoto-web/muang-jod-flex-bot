@@ -19,6 +19,8 @@ import { makeDraft, draftToBubble, priceDraft, parseBarePrice } from '../utils/j
 import { extractDate, extractDueDate } from '../utils/thaiDate.js';
 import { startCollecting } from '../utils/slots.js';
 import { startCollectFlow, handleCollectTurn } from '../services/collectFlow.js';
+import { splitDump, looksLikeDump } from '../utils/dumpSplit.js';
+import { dumpPreviewFlex } from '../flex/dumpFlex.js';
 import { handlePostback } from './postbackHandler.js';
 
 const DEFAULT_REPLY =
@@ -193,6 +195,18 @@ export async function handleTextMessage(event, profile) {
     });
   }
 
+  /* Idle: จดรวดเดียวทั้งวัน — หลายบรรทัด หลายลูกค้า
+   *
+   * ร้านบอกว่า "คิดได้ก็ใส่ บางทีไม่มีเวลามานั่งใส่เป็นหมวด ๆ" ของเดิมข้อความ
+   * หลายบรรทัดถูกอ่านเป็นงานเดียวที่มีหลายรายการ ลูกค้าสี่คนจึงกลายเป็นบิลใบ
+   * เดียวของคนแรก ส่วนชื่ออีกสามคนถูกยัดไปเป็นชื่อสินค้า
+   *
+   * ต้องมาก่อนทางของงานเดี่ยว ไม่งั้น looksLikeJob คว้าไปก่อนทุกครั้ง
+   */
+  if (looksLikeDump(text)) {
+    return handleDump(replyToken, profile, text);
+  }
+
   // Idle: a message that already looks like a job goes straight to preview —
   // ไม่ว่าจะใส่ราคามาแล้วหรือยัง
   if (looksLikeJob(text) || looksLikePricelessJob(text)) {
@@ -267,6 +281,28 @@ async function handleDraftPrice(replyToken, profile, state, text) {
 // `knownCustomer` is set after "➕ เพิ่มงานอีก": the shop typed the name once
 // and should not have to type it again for every job in the same visit. What
 // the message itself says still wins — they may have moved on to someone else.
+/* จดรวดเดียวทั้งวัน → แยกเป็นงาน ๆ แล้วขึ้นการ์ดให้ตรวจ
+ *
+ * ยังไม่บันทึกอะไรทั้งนั้น เพราะสิ่งที่ผิดได้คือการจับคู่ "ใครสั่งอะไร" ซึ่ง
+ * ต้องให้ร้านมองด้วยตาก่อน แยกผิดคนแปลว่าออกใบเสร็จผิดคน
+ */
+async function handleDump(replyToken, profile, text) {
+  const { jobs, total } = splitDump(text);
+  const jobDate = todayISO();
+
+  await setState(profile.id, STATES.CONFIRMING_DUMP, { dump: jobs, jobDate });
+
+  return reply(replyToken, [
+    {
+      type: 'text',
+      text:
+        `อ่านให้แล้วค่ะ แยกได้ ${jobs.length} งาน 💜\n` +
+        'ดูการ์ดข้างล่างว่าแยกถูกคนไหมคะ ถ้าถูกกด "บันทึกทั้งหมด" ได้เลย',
+    },
+    dumpPreviewFlex(jobs, total),
+  ]);
+}
+
 async function handleNewJob(replyToken, profile, text, knownCustomer = null) {
   // Two different dates can be in one message and they mean opposite things.
   // The pickup date is the one wearing a label ("นัดรับ 15 ก.ย."), so it comes

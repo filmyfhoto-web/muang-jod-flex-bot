@@ -1,0 +1,161 @@
+import { parseNaturalJob, extractCustomer } from './nlParser.js';
+import { deriveJobName, classifyJob } from './category.js';
+import { round2 } from './currency.js';
+
+/* จดรวดเดียวทั้งวัน แล้วให้ม่วงแยกเป็นงาน ๆ ให้
+ *
+ * ร้านบอกว่า "ถ้าเราใส่จดประจำวันอ่ะ แบบคิดได้ก็ใส่ ให้ม่วงแยกประจำวันให้ได้ไหม
+ * บางทีไม่มีเวลามานั่งใส่เป็นหมวด ๆ"
+ *
+ * ของเดิมข้อความหลายบรรทัดถูกอ่านเป็น "งานเดียวที่มีหลายรายการ" ซึ่งแปลว่า
+ * ลูกค้าสี่คนในสี่บรรทัดกลายเป็นบิลใบเดียวของคนแรก ส่วนชื่ออีกสามคนถูกยัดไป
+ * เป็นชื่อสินค้า ("โรงเรียนบ้านปงสนุก ตรายาง") — ออกใบเสร็จให้ใครไม่ได้เลย
+ *
+ * ตรงนี้อ่านทีละบรรทัดแทน ซึ่งนอกจากจะแยกลูกค้าได้ถูกแล้ว ยังคิดเลขถูกกว่าเดิม
+ * ด้วย: "สติ๊กเกอร์ 50 ดวง ดวงละ 5" ตัวอ่านหลายบรรทัดได้ ฿5 (จำนวนถูกกลืนไป
+ * อยู่ในชื่อสินค้า) ส่วนตัวอ่านบรรทัดเดียวได้ ฿250 ซึ่งถูก
+ */
+
+// บรรทัดที่เป็นลูกของบรรทัดบน — ร้านเขียนชื่อลูกค้าไว้หัวกลุ่มแล้วไล่ของข้างใต้
+const CHILD_MARK = /^[\s ]+|^[-–—•*+]\s*/;
+
+// บรรทัดที่ไม่ได้สั่งอะไร เป็นหัวข้อของวันหรือคำพูดลอย ๆ
+const NOISE_LINE = /^(?:วันนี้|เมื่อวาน|งานวันนี้|รายการวันนี้|สรุป|จด|จดงาน|โน้ต|note)\s*[:：]?\s*$/i;
+
+function hasDigit(text) {
+  return /[\d๐-๙]/.test(String(text || ''));
+}
+
+/* บรรทัดนี้เปิดกลุ่มใหม่ไหม
+ *
+ * "พี่ต่าย" เดี่ยว ๆ คือหัวกลุ่ม ของที่ตามมาข้างใต้เป็นของพี่ต่าย
+ * "พี่ต่าย สติ๊กเกอร์ 50 ดวง" คือทั้งงานในบรรทัดเดียว ไม่ได้เปิดกลุ่มให้ใคร
+ *
+ * แยกสองแบบนี้ออกจากกันเพราะเดาผิดแล้วบิลผิดคน: ถ้าให้ชื่อลูกค้าไหลลงไปทุก
+ * บรรทัดที่ไม่มีชื่อ งานขายหน้าร้านที่จดต่อท้ายจะกลายเป็นของลูกค้าคนก่อนหน้า
+ */
+function isHeading(line) {
+  if (hasDigit(line)) return false;
+  return Boolean(extractCustomer(line).customerName);
+}
+
+/* ข้อความหนึ่งก้อน → กลุ่มบรรทัดที่ควรเป็นงานเดียวกัน
+ *
+ * คืน [{ customer, lines }] โดยที่ customer มาจากหัวกลุ่มเท่านั้น ส่วนบรรทัด
+ * ที่มีชื่อลูกค้าอยู่ในตัวเอง ปล่อยให้ตัวอ่านงานหยิบไปเอง
+ */
+export function groupLines(text) {
+  const groups = [];
+  let heading = null;
+
+  for (const raw of String(text || '').split('\n')) {
+    const line = raw.trim();
+    if (!line || NOISE_LINE.test(line)) continue;
+
+    // เว้นวรรคหน้าบรรทัดหรือขีดนำ = ของที่อยู่ใต้หัวกลุ่มข้างบน
+    const indented = CHILD_MARK.test(raw);
+
+    if (isHeading(line)) {
+      heading = extractCustomer(line).customerName;
+      continue;
+    }
+
+    if (indented && heading) {
+      // ของหลายอย่างของลูกค้าคนเดียวในคราวเดียว = งานเดียวหลายรายการ
+      // ไม่ใช่หลายงาน — ใบเสร็จของลูกค้าคนนั้นควรเป็นใบเดียว
+      const last = groups[groups.length - 1];
+      if (last && last.customer === heading) last.lines.push(line);
+      else groups.push({ customer: heading, lines: [line] });
+      continue;
+    }
+
+    // บรรทัดที่ไม่ได้ย่อหน้า ถือว่าออกจากกลุ่มข้างบนแล้ว ชื่อลูกค้าของมัน
+    // (ถ้ามี) อยู่ในบรรทัดตัวเอง
+    heading = null;
+    groups.push({ customer: null, lines: [line] });
+  }
+
+  return groups;
+}
+
+/* กลุ่มบรรทัด → ร่างงานหนึ่งใบ
+ *
+ * ชื่อลูกค้าของหัวกลุ่มชนะ เพราะร้านตั้งใจเขียนไว้ตรงนั้น ส่วนที่ตัวอ่านเดาได้
+ * จากบรรทัดเป็นตัวสำรอง
+ */
+function draftOf(group, index) {
+  /* อ่านทีละบรรทัด ไม่ใช่ต่อกันแล้วอ่านทีเดียว
+   *
+   * ตัวอ่านหลายบรรทัดคิด "สติ๊กเกอร์ 50 ดวง ดวงละ 5" ได้ ฿5 เพราะจำนวนถูก
+   * กลืนไปอยู่ในชื่อสินค้า ส่วนตัวอ่านบรรทัดเดียวได้ ฿250 ซึ่งถูก — กลุ่มที่มี
+   * หลายบรรทัดจึงต้องอ่านทีละบรรทัดแล้วค่อยเอารายการมารวมกัน
+   */
+  const perLine = group.lines.map((line) => parseNaturalJob(line));
+  const items = perLine.flatMap((p) => p.items || []);
+  const stated = perLine.map((p) => p.statedTotal).find((t) => t != null);
+  const parsed = {
+    customerName: perLine.map((p) => p.customerName).find(Boolean) || null,
+    jobName: perLine.map((p) => p.jobName).find(Boolean) || null,
+    paidAmount: perLine.reduce((s, p) => s + (Number(p.paidAmount) || 0), 0),
+    statedTotal: stated == null ? null : stated,
+  };
+  const subtotal = round2(items.reduce((s, it) => s + (Number(it.total) || 0), 0));
+  const total = parsed.statedTotal != null ? parsed.statedTotal : subtotal;
+
+  return {
+    no: index + 1,
+    customerName: group.customer || parsed.customerName || null,
+    jobName: parsed.jobName || deriveJobName(items) || 'งาน',
+    items,
+    subtotal,
+    discount: round2(subtotal - total),
+    total,
+    paidAmount: parsed.paidAmount || 0,
+    // บรรทัดที่ร้านพิมพ์มาจริง ๆ เอาไว้โชว์บนการ์ดให้ตรวจว่าแยกถูกไหม
+    source: group.lines.join(' · '),
+  };
+}
+
+/* บรรทัดนี้เป็น "งาน" จริงไหม
+ *
+ * ตัวอ่านคืนรายการหนึ่งใบเสมอ แม้ข้อความจะเป็นคำทักทาย — ถ้าเชื่อแค่ว่ามี
+ * รายการ "สวัสดีค่ะ / วันนี้เป็นยังไงบ้าง" ก็กลายเป็นการจดงานสองงาน
+ *
+ * ใช้เกณฑ์เดียวกับทางของงานเดี่ยวในตัวจัดการข้อความ: มีตัวเลข และ (มีราคา
+ * หรือเป็นของที่ระบบรู้จักว่าเป็นงานประเภทไหน) — กองหนึ่งกองจึงแปลว่า
+ * "หลายอย่างที่แต่ละอันก็ถูกรับเป็นงานได้อยู่แล้วถ้าพิมพ์มาเดี่ยว ๆ"
+ */
+function isRealJob(job, group) {
+  if (!job.items.length) return false;
+  if (!hasDigit(group.lines.join(' '))) return false;
+  return job.total > 0 || Boolean(classifyJob(job.items));
+}
+
+/* ข้อความที่ร้านจดรวดเดียว → หลายงาน
+ *
+ * คืน { jobs, total } — jobs ว่างแปลว่าอ่านไม่ออกสักบรรทัด
+ */
+export function splitDump(text) {
+  const groups = groupLines(text);
+  const jobs = groups
+    .map(draftOf)
+    .filter((j, i) => isRealJob(j, groups[i]))
+    // เลขลำดับต้องเรียงตามที่เหลือจริง ไม่ใช่ตามก่อนกรอง
+    .map((j, i) => ({ ...j, no: i + 1 }));
+
+  return { jobs, total: round2(jobs.reduce((s, j) => s + (Number(j.total) || 0), 0)) };
+}
+
+/* ข้อความนี้เป็น "จดรวดเดียวหลายงาน" ไหม
+ *
+ * ต้องมีอย่างน้อยสองงานถึงจะมีอะไรให้แยก งานเดียวใช้ทางเดิมซึ่งมีการ์ดสรุป
+ * และปุ่มแก้ไขครบอยู่แล้ว
+ *
+ * และต้องมีอย่างน้อยสองบรรทัดจริง ๆ — งานเดียวที่พิมพ์ยาว ๆ บรรทัดเดียวไม่ใช่
+ * การจดหลายงาน
+ */
+export function looksLikeDump(text) {
+  const lines = String(text || '').split('\n').filter((l) => l.trim());
+  if (lines.length < 2) return false;
+  return splitDump(text).jobs.length >= 2;
+}

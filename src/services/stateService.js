@@ -8,6 +8,8 @@ export const STATES = {
   // จำนวน ราคา ม่วงถามเก็บทีละข้อจนครบ แล้วค่อยขึ้นการ์ดสรุปให้ยืนยัน
   COLLECTING_JOB: 'collecting_job',
   CONFIRMING_JOB: 'confirming_job', // parsed a draft, waiting for confirm/edit/cancel
+  // ร้านจดรวดเดียวทั้งวัน ม่วงแยกเป็นงาน ๆ ให้ รอตรวจแล้วกดบันทึกทีเดียว
+  CONFIRMING_DUMP: 'confirming_dump',
   WAITING_FOR_EVIDENCE: 'waiting_for_evidence',
   WAITING_FOR_EDIT: 'waiting_for_edit',
   WAITING_FOR_PAYMENT: 'waiting_for_payment_amount',
