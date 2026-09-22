@@ -288,6 +288,28 @@ async function handleDraftPrice(replyToken, profile, state, text) {
  */
 async function handleDump(replyToken, profile, text) {
   const { jobs, total } = splitDump(text);
+
+  /* ลูกค้าคนเดียวที่จดมาหลายบรรทัด ไม่ใช่ "หลายงาน" — ร้านบอกว่า "งานนี้ชื่อ
+   * เดียวกัน ... แต่รับพร้อมกัน" ใบเสร็จจึงควรเป็นใบเดียว ไปทางการ์ดสรุปเดิม
+   * ซึ่งมีปุ่มแก้ไขครบ
+   *
+   * แต่ต้องใช้ผลที่อ่านทีละบรรทัดมาแทน เพราะตัวอ่านหลายบรรทัดกลืนจำนวนไปอยู่ใน
+   * ชื่อของ: "สติ๊กเกอร์ 50 ดวง ดวงละ 5" คิดได้ ฿5 แทนที่จะเป็น ฿250
+   */
+  if (jobs.length === 1) {
+    const only = jobs[0];
+    return handleNewJob(replyToken, profile, text, null, {
+      customerName: only.customerName,
+      jobName: only.jobName,
+      items: only.items,
+      subtotal: only.subtotal,
+      discount: only.discount || 0,
+      total: only.total,
+      paidAmount: only.paidAmount || 0,
+      statedTotal: only.discount ? only.total : null,
+    });
+  }
+
   const jobDate = todayISO();
 
   await setState(profile.id, STATES.CONFIRMING_DUMP, { dump: jobs, jobDate });
@@ -303,7 +325,7 @@ async function handleDump(replyToken, profile, text) {
   ]);
 }
 
-async function handleNewJob(replyToken, profile, text, knownCustomer = null) {
+async function handleNewJob(replyToken, profile, text, knownCustomer = null, parsedOverride = null) {
   // Two different dates can be in one message and they mean opposite things.
   // The pickup date is the one wearing a label ("นัดรับ 15 ก.ย."), so it comes
   // off first; whatever bare date is left is when the job is being recorded.
@@ -312,7 +334,7 @@ async function handleNewJob(replyToken, profile, text, knownCustomer = null) {
 
   // Natural-language understanding: customer, items, quantity, price, and any
   // amount already received — via the AI layer when configured, else rules.
-  const parsed = await extractJobDraft(when.rest);
+  const parsed = parsedOverride || (await extractJobDraft(when.rest));
 
   if (!parsed.items.length) {
     return reply(replyToken, {

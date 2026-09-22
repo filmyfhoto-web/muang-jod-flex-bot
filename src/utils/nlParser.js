@@ -85,6 +85,21 @@ function extractPaid(text) {
   return { paidAmount: toNumber(m[1]), rest: text.replace(m[0], ' ') };
 }
 
+/* "จ่ายเงินแล้ว" เฉย ๆ ไม่มีตัวเลข = จ่ายครบ
+ *
+ * ร้านตอบว่า "รับไปแล้ว จ่ายเงินแล้ว" แล้วม่วงอ่านไม่ออกเลยสักคำ ทั้งที่นี่คือ
+ * ประโยคที่ตอบคำถาม "แต่ละวันได้เงินเท่าไหร่" ตรงที่สุด — งานที่จ่ายแล้วคือเงิน
+ * ที่เข้าร้านจริงในวันนั้น
+ *
+ * ต้องไม่มีตัวเลขตามมา ไม่งั้นจะไปทับ "มัดจำ 300" ซึ่งแปลว่าจ่ายบางส่วน
+ */
+const PAID_IN_FULL_RE =
+  /(?:จ่าย(?:เงิน)?|ชำระ(?:เงิน)?|โอน(?:เงิน)?|เก็บเงิน|รับเงิน|คิดเงิน)\s*(?:ครบ|เต็ม)?\s*แล้ว(?!\s*\d)/;
+
+export function saysPaidInFull(text) {
+  return PAID_IN_FULL_RE.test(String(text || ''));
+}
+
 // คำที่ตามหลังคำนำหน้าแล้วแปลว่า "ไม่ใช่ชื่อ" — กัน "ป้ายวัดขนาด 2x3"
 // กลายเป็นลูกค้าชื่อ "วัดขนาด"
 // A second line of defence: even if an honorific matches by accident, these
@@ -307,8 +322,16 @@ function parseSingleLine(line) {
 // The whole line has to be the keyword and the number: an item line always has
 // more on it than that, so "ไวนิลรวมมิตร 100*200ซม ตรมละ 165" is never mistaken
 // for a total.
+/* ร้านโชว์วิธีคิดไว้ในบรรทัดสรุปด้วย: "ทั้งหมด 6*50 = *300*"
+ *
+ * ของเดิมรับได้แต่ "รวม 300" เปล่า ๆ บรรทัดที่มีตัวคูณนำหน้าจึงตกไปเป็น
+ * "รายการชื่อ ทั้งหมด ขนาด 6 × 50 ราคา 300" — กลายเป็นงานที่สี่ที่ไม่มีอยู่จริง
+ * แล้วยอดรวมของกองก็บวกเกินไปหนึ่งเท่า
+ *
+ * ดาวคร่อมตัวเลขเป็นการเน้นข้อความแบบที่คนพิมพ์ในไลน์ ไม่ใช่ตัวคูณ
+ */
 const GRAND_TOTAL_RE =
-  /^(?:ยอด)?(?:รวม(?:ทั้งหมด|ทั้งสิ้น|เป็น)?|ราคารวม|เหมา(?:ทั้งหมด|หมด)?|คิด(?:รวม)?|สรุป|ทั้งหมด|ปัด(?:เศษ)?(?:เป็น)?)\s*(?:เป็น|ที่|[=:])?\s*฿?\s*(\d[\d,]*(?:\.\d+)?)\s*(?:บาท|฿)?$/;
+  /^(?:ยอด)?(?:รวม(?:ทั้งหมด|ทั้งสิ้น|เป็น)?|ราคารวม|เหมา(?:ทั้งหมด|หมด)?|คิด(?:รวม)?|สรุป|ทั้งหมด|ปัด(?:เศษ)?(?:เป็น)?)\s*(?:[\d,.\s*x×+]*=)?\s*(?:เป็น|ที่|[=:])?\s*\*?\s*฿?\s*(\d[\d,]*(?:\.\d+)?)\s*\*?\s*(?:บาท|฿)?$/;
 
 export function extractGrandTotal(text) {
   let total = null;
@@ -341,7 +364,12 @@ function splitHeading(lines) {
 // Parse a whole message into a normalized job draft.
 export function parseNaturalJob(rawText) {
   const text = String(rawText || '');
-  const paid = extractPaid(text);
+  /* "จ่ายเงินแล้ว" ไม่มีตัวเลข = จ่ายครบ — เอาวลีออกจากข้อความก่อนอ่านรายการ
+   * ไม่งั้นมันจะไปติดอยู่ในชื่อของ ("กรอบรูป จ่ายแล้ว")
+   */
+  const paidInFull = saysPaidInFull(text);
+  const cleanedText = paidInFull ? text.replace(PAID_IN_FULL_RE, ' ') : text;
+  const paid = extractPaid(cleanedText);
   const grand = extractGrandTotal(paid.rest);
 
   const { heading, body } = splitHeading(
@@ -390,6 +418,8 @@ export function parseNaturalJob(rawText) {
     discount: round2(subtotal - total),
     total,
     statedTotal: grand.total,
-    paidAmount: round2(paid.paidAmount || 0),
+    // บอกว่าจ่ายแล้วโดยไม่บอกจำนวน = จ่ายเต็มยอด ซึ่งคือคำตอบของ "วันนี้ได้เงิน
+    // เท่าไหร่" — แต่ถ้าบอกจำนวนมาด้วย เชื่อจำนวนนั้น (มัดจำคือจ่ายบางส่วน)
+    paidAmount: round2(paid.paidAmount || (paidInFull ? total : 0)),
   };
 }
