@@ -120,7 +120,7 @@
 
   // ตรวจแพ็ก — โยน Error ภาษาไทยที่บอกว่าผิดตรงไหน
   function validatePack(pack) {
-    if (!pack || pack.format !== FORMAT) throw new Error('ไฟล์นี้ไม่ใช่แพ็กของน้องพลอย Nesting Cut');
+    if (!pack || pack.format !== FORMAT) throw new Error('ไฟล์นี้ไม่ใช่แพ็กของนัดพอน Nesting Cut');
     if (pack.version > VERSION) throw new Error('แพ็กนี้มาจากปลั๊กอินรุ่นใหม่กว่า — อัปเดตปลั๊กอินฝั่ง Illustrator ก่อน');
     if (!(pack.ppi > 0)) throw new Error('แพ็กไม่มีค่าความละเอียด (ppi)');
     if (!Array.isArray(pack.items) || !pack.items.length) throw new Error('แพ็กนี้ไม่มีชิ้นงาน');

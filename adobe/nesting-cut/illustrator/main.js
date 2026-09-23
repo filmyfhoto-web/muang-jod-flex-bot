@@ -1,4 +1,4 @@
-// แผงน้องพลอย Nesting Cut (Illustrator)
+// แผงนัดพอน Nesting Cut (Illustrator)
 //
 // ลำดับงานของปุ่ม "เจ๊หญิงสั่งลุย!"
 //   1. ดึงชิ้นงานที่เลือก (ถ้ายังไม่ได้ดึง)
@@ -16,7 +16,7 @@
   var host = window.NPHost || window.NPDemoHost;
   var PT = G.PT_PER_MM;
   var K = 1 / PT;
-  var LOGO_ASPECT = 1200 / 325; // assets/logo.png
+  var LOGO_ASPECT = 1200 / 730; // assets/logo.png
 
   function $(id) {
     return document.getElementById(id);
@@ -51,20 +51,26 @@
 
   // ---------------------------------------------------------------- ค่าตั้ง
 
-  var STORE_KEY = 'nongploy.nestingcut.settings.v1';
+  var STORE_KEY = 'nongploy.nestingcut.settings.v2';
   var DEFAULTS = {
     cutter: 'circle4',
-    media: 'roll60',
-    width: 600,
-    length: '',
-    margin: 5,
+    media: 'a3',
+    sizeUnit: 'mm',
+    width: 297,
+    length: 420,
+    marginTop: 20,
+    marginBottom: 20,
+    marginLeft: 20,
+    marginRight: 20,
     spacing: 3,
     rotation: 'quarter',
     quality: '1',
     respectBleed: true,
     arrange: 'shape',
+    gridCut: false,
     fillSheet: false,
-    cutMode: 'auto',
+    target: 'artboard',
+    cutMode: 'none',
     detectRed: true,
     printLayer: 'ไฟล์ปริ้นชิ้นงาน',
     cutLayer: 'เส้นไดคัท',
@@ -232,6 +238,7 @@
     auto: ['✨ จะสร้างเส้นตัด', 'todo'],
     vector: ['✒ ตัดตามเวกเตอร์', 'ok'],
     box: ['▭ กรอบสี่เหลี่ยม', 'todo'],
+    none: ['⚠ ไม่พบเส้นไดคัท — ใช้กรอบ', 'todo'],
   };
 
   function el(tag, cls, text) {
@@ -266,7 +273,8 @@
         [
           ['auto', 'ตามขอบงาน'],
           ['vector', 'ตามเวกเตอร์'],
-          ['box', 'กรอบ'],
+          ['box', 'วาดกรอบเป็นเส้นตัด'],
+          ['none', 'ไม่มีเส้นตัด (ใช้กรอบ+ตาราง)'],
         ].forEach(function (o) {
           var opt = el('option', null, o[1]);
           opt.value = o[0];
@@ -439,7 +447,7 @@
     var chain = Promise.resolve();
     todo.forEach(function (p, i) {
       chain = chain.then(function () {
-        status('น้องพลอยกำลังทำเส้นตัด “' + p.name + '” (' + (i + 1) + '/' + todo.length + ')…');
+        status('นัดพอนกำลังทำเส้นตัด “' + p.name + '” (' + (i + 1) + '/' + todo.length + ')…');
         progress(0.05 + (0.25 * i) / todo.length);
         if (p.mode === 'vector') {
           return host.call('np_readVectors', { idx: p.idx }).then(function (v) {
@@ -498,16 +506,38 @@
     return e < 0.05 ? 0 : Math.min(e, 10);
   }
 
+  // ชิ้นที่ไม่มีเส้นไดคัท: ใช้กรอบสี่เหลี่ยมของชิ้นงานแทน (ไม่มีเส้นตัดให้ส่งออก)
+  function vbRing(vb) {
+    return [
+      [vb[0] * K, -vb[1] * K],
+      [vb[2] * K, -vb[1] * K],
+      [vb[2] * K, -vb[3] * K],
+      [vb[0] * K, -vb[3] * K],
+    ];
+  }
+
+  function noCutParts() {
+    return S.parts.filter(function (p) {
+      return p.qty > 0 && p.mode === 'none';
+    });
+  }
+
+  // แบบตาราง: เลือกเอง หรือถูกบังคับเพราะมีชิ้นที่ไม่พบเส้นไดคัท
+  function gridMode() {
+    return S.settings.arrange === 'grid' || noCutParts().length > 0;
+  }
+
   function engineParts() {
     var rots = rotationSet();
+    var grid = gridMode();
     return S.parts.map(function (p) {
       var src = p.mode === 'vector' ? p.vec : p.cut;
-      p.rings = src ? B.subpathsToRings(src, 0.3) : [];
+      p.rings = src ? B.subpathsToRings(src, 0.3) : p.mode === 'none' ? [vbRing(p.vb)] : [];
       p.polys = src ? B.subpathsToPolylines(src, 0.1) : [];
       return {
         id: p.idx,
         // แบบตาราง: จัดวางด้วยกรอบสี่เหลี่ยมของชิ้น (เรียงเป็นแถว-คอลัมน์) แต่ตัดตามเส้นจริง
-        rings: S.settings.arrange === 'grid' && p.rings.length ? [bboxRing(p.rings)] : p.rings,
+        rings: grid && p.rings.length ? [bboxRing(p.rings)] : p.rings,
         quantity: p.rings.length ? p.qty : 0,
         rotations: p.rotate ? rots : [0],
         bleed: bleedOf(p),
@@ -539,12 +569,16 @@
     };
   }
 
+  function unitK() {
+    return S.settings.sizeUnit === 'in' ? 25.4 : 1;
+  }
+
   function sheetSpec() {
-    var len = num('length');
+    var len = num('length') * unitK();
     return {
-      width: num('width'),
+      width: num('width') * unitK(),
       length: len > 0 ? len : null,
-      margin: num('margin'),
+      margin: { top: num('marginTop'), bottom: num('marginBottom'), left: num('marginLeft'), right: num('marginRight') },
       marks: markSpec(),
       header: { enabled: !!S.settings.headerOn, height: num('headerHeight'), gap: 3 },
     };
@@ -570,6 +604,7 @@
       cellSize: num('quality') || 1,
       iterations: 24,
       timeLimitMs: 12000,
+      maxPerSheet: 400,
     };
     var t0 = Date.now();
     var fill = null;
@@ -581,7 +616,7 @@
         return p.quantity > 0;
       })[0];
       fill = { part: byIdx(first.id), others: parts.filter(function (p) { return p.quantity > 0; }).length - 1 };
-      status('น้องพลอยกำลังหาวิธีใส่ “' + fill.part.name + '” ให้ได้มากที่สุด…');
+      status('นัดพอนกำลังหาวิธีใส่ “' + fill.part.name + '” ให้ได้มากที่สุด…');
       job = new Promise(function (resolve, reject) {
         setTimeout(function () {
           try {
@@ -592,7 +627,7 @@
         }, 30);
       });
     } else {
-      status('น้องพลอยกำลังจัดวาง ' + total + ' ชิ้น…');
+      status('นัดพอนกำลังจัดวาง ' + total + ' ชิ้น…');
       job = NC.nest.nestAsync(parts, plan, opts, function (f) {
         progress(0.3 + 0.5 * f);
       });
@@ -636,19 +671,30 @@
         } else {
           status('จัดวางครบ ' + res.placedCount + ' ชิ้น ✓', 'ok');
         }
-        // งานพิมพ์เลยเส้นตัดเกินครึ่งระยะห่าง → สีจะล้นไปทับชิ้นข้าง ๆ
-        if (!S.settings.respectBleed) {
-          var worst = S.parts.reduce(function (m, p) {
-            return p.qty > 0 ? Math.max(m, rawBleed(p)) : m;
-          }, 0);
-          if (worst > opts.spacing / 2) {
-            status(
-              '⚠ งานพิมพ์เลยเส้นตัดออกมา ' + worst.toFixed(1) + ' มม. มากกว่าครึ่งหนึ่งของระยะห่าง — เพิ่มระยะห่างเป็นอย่างน้อย ' +
-                (Math.ceil(worst * 2 * 10) / 10) + ' มม. หรือเปิด “เผื่อ bleed”',
-              'warn'
-            );
-          }
+        // คำเตือนก่อนสร้างชีต
+        var warnings = [];
+        var worst = S.parts.reduce(function (m, p) {
+          return p.qty > 0 ? Math.max(m, rawBleed(p)) : m;
+        }, 0);
+        if (worst > 0 && worst * 2 >= opts.spacing) {
+          warnings.push(
+            'งานพิมพ์เลยเส้นตัดออกมา ' + worst.toFixed(1) + ' มม. มากกว่าครึ่งหนึ่งของระยะห่าง — ภาพของดวงข้าง ๆ อาจทับกัน' +
+              ' เพิ่มระยะห่างเป็นมากกว่า ' + (Math.ceil(worst * 2 * 10) / 10) + ' มม.' +
+              (S.settings.respectBleed ? ' (ตอนนี้ “เผื่อ bleed” เว้นระยะเพิ่มให้แล้ว)' : '')
+          );
         }
+        var nocut = noCutParts();
+        if (nocut.length) {
+          warnings.push(
+            'ไม่พบเส้นไดคัท ' + nocut.length + ' แบบ (' + nocut.map(function (p) { return p.name; }).join(', ') +
+              ') — ใช้กรอบสี่เหลี่ยมของชิ้นงานและเรียงแบบตารางแทน ตรวจไฟล์ก่อนสร้างชีต'
+          );
+        }
+        if (res.sheets.some(function (sh) { return sh.placements.length >= 400; })) {
+          warnings.push('ครบ 400 ดวงต่อแผ่นแล้ว (จำกัดสูงสุด 400 ดวง/แผ่น)');
+        }
+        S.result.warnings = warnings;
+        if (warnings.length) status('⚠ ' + warnings.join(' · '), 'warn');
         if (missing.length) {
           status(
             'ข้าม ' +
@@ -843,7 +889,7 @@
         }
         ctx.strokeStyle = '#e600e6';
         ctx.lineWidth = 1;
-        p.polys.forEach(function (poly) {
+        (useGridCut() ? [] : p.polys).forEach(function (poly) {
           ctx.beginPath();
           poly.points.forEach(function (pt, i) {
             var q = G.transformPoint(pt, t);
@@ -854,6 +900,16 @@
           ctx.stroke();
         });
       });
+      if (useGridCut()) {
+        ctx.strokeStyle = '#e600e6';
+        ctx.lineWidth = 1;
+        gridLines(sh).forEach(function (l) {
+          ctx.beginPath();
+          ctx.moveTo(l.points[0][0] * s, l.points[0][1] * s);
+          ctx.lineTo(l.points[1][0] * s, l.points[1][1] * s);
+          ctx.stroke();
+        });
+      }
       ctx.restore();
       y0 += sh.length * s + gap;
     });
@@ -936,11 +992,15 @@
     return { logo: logo, text: text };
   }
 
-  function buildLayout() {
-    return ensureNested().then(function () {
+  function layoutPayload(target) {
       var r = S.result;
       var n = r.sheets.length;
-      var payload = {
+      var grid = useGridCut();
+      return {
+        target: target,
+        spotName: S.settings.spotName || 'CutContour',
+        strokeWidth: num('strokeWidth'),
+        dropPieceCuts: grid,
         layerNames: {
           pieces: S.settings.printLayer || 'ไฟล์ปริ้นชิ้นงาน',
           cut: S.settings.cutLayer || 'เส้นไดคัท',
@@ -968,14 +1028,36 @@
             }),
             marks: marks,
             header: headerPayload(sh, i, n),
+            gridLines: grid
+              ? gridLines(sh).map(function (l) {
+                  return [l.points[0][0] * PT, l.points[0][1] * PT, l.points[1][0] * PT, l.points[1][1] * PT];
+                })
+              : [],
           };
         }),
       };
-      status('กำลังสร้างเลย์เอาต์ใน Illustrator (' + r.res.placedCount + ' ชิ้น)…');
+  }
+
+  // คำเตือน (bleed เกิน / ไม่พบเส้นไดคัท) ต้องให้ร้านกดยืนยันก่อนสร้างชีต
+  function confirmWarnings() {
+    var w = (S.result && S.result.warnings) || [];
+    if (!w.length || host.demo) return true;
+    return window.confirm('⚠ ' + w.join('\n\n⚠ ') + '\n\nสร้างชีตต่อเลยไหม?');
+  }
+
+  function buildLayout() {
+    return ensureNested().then(function () {
+      if (!confirmWarnings()) throw new Error('ยกเลิกแล้ว — แก้ไฟล์/ระยะห่างแล้วกดคำนวณใหม่');
+      var target = S.settings.target === 'document' ? 'document' : 'artboard';
+      status('กำลังสร้างชีตไดคัทใน Illustrator (' + S.result.res.placedCount + ' ดวง)…');
       progress(0.85);
-      return host.call('np_buildLayout', payload).then(function (out) {
+      return host.call('np_buildLayout', layoutPayload(target)).then(function (out) {
         S.built = true;
-        status('สร้าง “' + out.document + '” แล้ว: ' + out.pieces + ' ชิ้น ' + out.sheets + ' แผ่น', 'ok');
+        status(
+          (out.newDocument ? 'สร้างไฟล์ “' + out.document + '”' : 'สร้างอาร์ตบอร์ดใหม่ใน “' + out.document + '”') +
+            ' แล้ว: ' + out.pieces + ' ดวง ' + out.sheets + ' แผ่น (ของเดิมไม่ถูกย้าย)',
+          'ok'
+        );
       });
     });
   }
@@ -991,7 +1073,24 @@
     return NC.pack.safeFileName(S.settings.jobName || 'nesting', 'nesting').replace(/\s+/g, '_') + '_' + stamp;
   }
 
+  // เส้นตัดแบบตาราง: ลากยาวตามขอบทุกแถว/คอลัมน์ ตัดทีเดียวทั้งแผ่น (ใช้กับการเรียงแบบตาราง)
+  // เส้นจะเว้นช่วงที่ผ่านกลางดวงอื่น — ดวงขนาดต่างกันจะไม่โดนตัดขาด
+  function gridLines(sh) {
+    var boxes = [];
+    sh.placements.forEach(function (pl) {
+      var p = byIdx(pl.partId);
+      if (!p || !p.rings.length) return;
+      boxes.push(G.bounds(G.transformRings([bboxRing(p.rings)], pl)));
+    });
+    return L.gridSegments(boxes);
+  }
+
+  function useGridCut() {
+    return !!S.settings.gridCut && gridMode();
+  }
+
   function cutPaths(sh) {
+    if (useGridCut()) return gridLines(sh);
     var out = [];
     sh.placements.forEach(function (pl) {
       var p = byIdx(pl.partId);
@@ -1040,16 +1139,18 @@
         folder = f.folder;
         host.makeDir(folder);
         if ((s.outPdf || s.outAi) && !host.demo) {
-          var step = S.built ? Promise.resolve() : buildLayout();
-          return step.then(function () {
-            status('กำลังบันทึก PDF / AI…');
-            progress(0.92);
-            return host
-              .call('np_export', { folder: folder, base: base, pdf: !!s.outPdf, ai: !!s.outAi, pdfPreset: '[PDF/X-4:2008]' })
-              .then(function (r) {
-                files = files.concat(r.files);
-              });
-          });
+          // PDF/AI ทำจากไฟล์ชั่วคราวแยกต่างหาก ไฟล์งานของร้านไม่ถูกบันทึกทับ
+          status('กำลังเตรียมไฟล์ PDF / AI…');
+          progress(0.92);
+          return host
+            .call('np_buildLayout', layoutPayload('document'))
+            .then(function () {
+              return host.call('np_export', { folder: folder, base: base, pdf: !!s.outPdf, ai: !!s.outAi, pdfPreset: '[PDF/X-4:2008]' });
+            })
+            .then(function (r) {
+              files = files.concat(r.files);
+              if (!s.outAi) return host.call('np_closeLayout', {});
+            });
         }
       })
       .then(function () {
@@ -1102,7 +1203,7 @@
   // ---------------------------------------------------------------- ฟอร์มค่าตั้ง
 
   var NEST_KEYS = [
-    'width', 'length', 'margin', 'spacing', 'rotation', 'quality', 'respectBleed', 'markType', 'markSize',
+    'width', 'length', 'sizeUnit', 'marginTop', 'marginBottom', 'marginLeft', 'marginRight', 'gridCut', 'spacing', 'rotation', 'quality', 'respectBleed', 'markType', 'markSize',
     'markInset', 'markThick', 'markClearance', 'markEvery', 'headerOn', 'headerHeight', 'cutter', 'media',
     'arrange', 'fillSheet',
   ];
@@ -1126,7 +1227,6 @@
   function applyCutter(id) {
     var c = L.cutter(id);
     if (!c) return;
-    setSetting('margin', c.margin);
     setSetting('markType', c.marks.type);
     if (c.marks.type !== 'none') {
       setSetting('markSize', c.marks.size);
@@ -1142,8 +1242,9 @@
   function applyMedia(id) {
     var m = L.media(id);
     if (!m || id === 'custom') return;
-    setSetting('width', m.width);
-    setSetting('length', m.length || '');
+    var k = unitK();
+    setSetting('width', Math.round((m.width / k) * 100) / 100);
+    setSetting('length', m.length ? Math.round((m.length / k) * 100) / 100 : '');
   }
 
   function fillSelect(id, list) {
@@ -1164,7 +1265,14 @@
       f.addEventListener('change', function () {
         S.settings[key] = f.type === 'checkbox' ? f.checked : f.value;
         if (key === 'cutter') applyCutter(f.value);
-        if (key === 'media') applyMedia(f.value);
+        if (key === 'sizeUnit' && S.settings.media === 'custom') {
+          // กำหนดเอง: แปลงตัวเลขเดิมเป็นหน่วยใหม่
+          var r = f.value === 'in' ? 1 / 25.4 : 25.4;
+          ['width', 'length'].forEach(function (k2) {
+            var v = parseFloat(S.settings[k2]);
+            if (v > 0) setSetting(k2, Math.round(v * r * 100) / 100);
+          });
+        } else if (key === 'media' || key === 'sizeUnit') applyMedia(S.settings.media);
         if ((key === 'width' || key === 'length') && S.settings.media !== 'custom') setSetting('media', 'custom');
         if (key === 'cutMode') {
           S.parts.forEach(function (p) {
@@ -1184,7 +1292,7 @@
   }
 
   function renderLogoName() {
-    $('logoName').textContent = S.settings.logoFile ? 'โลโก้: ' + S.settings.logoFile.split(/[\\/]/).pop() : 'ใช้โลโก้น้องพลอย';
+    $('logoName').textContent = S.settings.logoFile ? 'โลโก้: ' + S.settings.logoFile.split(/[\\/]/).pop() : 'ใช้โลโก้นัดพอน';
   }
 
   function loadLogoImg() {

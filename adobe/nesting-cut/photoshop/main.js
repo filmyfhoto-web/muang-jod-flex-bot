@@ -1,4 +1,4 @@
-// แผงน้องพลอย Nesting Cut (Photoshop, UXP)
+// แผงนัดพอน Nesting Cut (Photoshop, UXP)
 //
 // แต่ละเลเยอร์ที่เลือก:
 //   1. คัดลอกไปเอกสารชั่วคราว (ไฟล์งานของร้านไม่ถูกแตะ) รวมเป็นเลเยอร์เดียว
@@ -286,7 +286,7 @@
             var chain = Promise.resolve();
             layers.forEach(function (layer, i) {
               chain = chain.then(function () {
-                status('น้องพลอยกำลังทำเส้นตัด “' + layer.name + '” (' + (i + 1) + '/' + layers.length + ')…');
+                status('นัดพอนกำลังทำเส้นตัด “' + layer.name + '” (' + (i + 1) + '/' + layers.length + ')…');
                 try {
                   ctx.reportProgress({ value: i / layers.length, commandName: 'ทำเส้นตัด ' + layer.name });
                 } catch (e) {
@@ -299,7 +299,7 @@
             });
             return chain;
           },
-          { commandName: 'น้องพลอย: ทำเส้นตัดส่ง Illustrator' }
+          { commandName: 'นัดพอน: ทำเส้นตัดส่ง Illustrator' }
         );
       })
       .then(function () {

@@ -74,18 +74,30 @@
     },
   ];
 
+  var IN = 25.4;
   var MEDIA = [
+    { id: 'a3', label: 'A3 (297 × 420 มม.)', width: 297, length: 420 },
+    { id: 'in12x18', label: '12 × 18 นิ้ว', width: 12 * IN, length: 18 * IN },
+    { id: 'in125x18', label: '12.5 × 18 นิ้ว', width: 12.5 * IN, length: 18 * IN },
+    { id: 'a3plus', label: '13 × 19 นิ้ว', width: 13 * IN, length: 19 * IN },
+    { id: 'a4', label: 'A4 (210 × 297 มม.)', width: 210, length: 297 },
+    { id: 'sra3', label: 'SRA3 (320 × 450 มม.)', width: 320, length: 450 },
     { id: 'roll60', label: 'ม้วน 60 ซม.', width: 600, length: null },
-    { id: 'roll100', label: 'ม้วน 100 ซม.', width: 1000, length: null },
     { id: 'roll120', label: 'ม้วน 120 ซม.', width: 1200, length: null },
     { id: 'roll130', label: 'ม้วน 130 ซม.', width: 1300, length: null },
-    { id: 'roll150', label: 'ม้วน 150 ซม.', width: 1500, length: null },
-    { id: 'a4', label: 'A4 (แผ่น)', width: 210, length: 297 },
-    { id: 'a3', label: 'A3 (แผ่น)', width: 297, length: 420 },
-    { id: 'sra3', label: 'SRA3 (แผ่น)', width: 320, length: 450 },
-    { id: 'a3plus', label: '13×19 นิ้ว (แผ่น)', width: 330, length: 483 },
-    { id: 'custom', label: 'กำหนดเอง', width: 600, length: null },
+    { id: 'custom', label: 'กำหนดเอง', width: 297, length: 420 },
   ];
+
+  // ระยะขอบ: ตัวเลขเดียว = ทุกด้านเท่ากัน หรือ { top, right, bottom, left }
+  function normMargin(m, fallback) {
+    var d = fallback == null ? 20 : fallback;
+    if (m == null) return { top: d, right: d, bottom: d, left: d };
+    if (typeof m === 'number') return { top: m, right: m, bottom: m, left: m };
+    function v(x) {
+      return x == null || !(x >= 0) ? d : +x;
+    }
+    return { top: v(m.top), right: v(m.right), bottom: v(m.bottom), left: v(m.left) };
+  }
 
   // Illustrator ทำอาร์ตบอร์ดได้ยาวสุด ~5779 มม. เผื่อไว้นิดหน่อย
   var ROLL_MAX_LENGTH = 5500;
@@ -189,7 +201,7 @@
   // spec = { width, length (null = ม้วน), margin, marks, header: { enabled, height, gap }, rollMaxLength }
   function planSheet(spec) {
     var W = spec.width;
-    var margin = spec.margin == null ? 5 : spec.margin;
+    var M = normMargin(spec.margin, 20);
     var m = spec.marks || { type: 'none' };
     var has = hasMarks(m);
     var clear = has ? (m.clearance == null ? 3 : m.clearance) : 0;
@@ -199,19 +211,19 @@
 
     var header = spec.header && spec.header.enabled ? spec.header : null;
     var headerBox = null;
-    var top = margin;
+    var top = M.top;
     if (header) {
-      var hx0 = has ? Math.max(margin, ext + clear) : margin;
-      var hx1 = has ? Math.min(W - margin, W - ext - clear) : W - margin;
-      headerBox = { x: hx0, y: margin, w: Math.max(0, hx1 - hx0), h: header.height || 20 };
-      top = margin + headerBox.h + (header.gap == null ? 3 : header.gap);
+      var hx0 = has ? Math.max(M.left, ext + clear) : M.left;
+      var hx1 = has ? Math.min(W - M.right, W - ext - clear) : W - M.right;
+      headerBox = { x: hx0, y: M.top, w: Math.max(0, hx1 - hx0), h: header.height || 20 };
+      top = M.top + headerBox.h + (header.gap == null ? 3 : header.gap);
     }
 
-    var bottomReserve = has ? Math.max(margin, ext + clear) : margin;
+    var bottomReserve = has ? Math.max(M.bottom, ext + clear) : M.bottom;
     var area = {
-      x: margin,
+      x: M.left,
       y: top,
-      w: W - 2 * margin,
+      w: W - M.left - M.right,
       // ม้วนก็จำกัดความยาวต่อแผ่นไว้ที่ pageLength (อาร์ตบอร์ด Illustrator ยาวได้จำกัด) — เกินแล้วขึ้นแผ่นใหม่
       h: pageLength - top - bottomReserve,
     };
@@ -233,7 +245,7 @@
       roll: roll,
       fixedLength: roll ? null : pageLength,
       pageLength: pageLength,
-      margin: margin,
+      margin: M,
       marks: m,
       markClearance: clear,
       markExtent: ext,
@@ -247,7 +259,7 @@
   function finalLength(plan, contentMaxY) {
     if (!plan.roll) return plan.fixedLength;
     var has = hasMarks(plan.marks);
-    var tail = has ? Math.max(plan.margin, plan.markExtent + plan.markClearance) : plan.margin;
+    var tail = has ? Math.max(plan.margin.bottom, plan.markExtent + plan.markClearance) : plan.margin.bottom;
     var minLen = has ? 2 * plan.markExtent + plan.markClearance : 0;
     var L = Math.max(contentMaxY == null ? plan.area.y : contentMaxY + tail, minLen, plan.area.y + tail);
     return Math.min(Math.ceil(L), plan.pageLength);
@@ -271,8 +283,60 @@
     };
   }
 
+  // เส้นตรงยาวตามขอบกรอบทุกดวง (boxes = {minX,minY,maxX,maxY})
+  // ช่วงที่เส้นจะผ่านกลางดวงอื่นถูกเว้นไว้
+  function gridSegments(boxes) {
+    var E = 0.01;
+    var out = [];
+    function run(horiz) {
+      var seen = {};
+      boxes.forEach(function (b) {
+        (horiz ? [b.minY, b.maxY] : [b.minX, b.maxX]).forEach(function (v) {
+          var k = v.toFixed(2);
+          if (seen[k]) return;
+          seen[k] = true;
+          var lo = Infinity;
+          var hi = -Infinity;
+          var blocks = [];
+          boxes.forEach(function (c) {
+            var a0 = horiz ? c.minY : c.minX;
+            var a1 = horiz ? c.maxY : c.maxX;
+            var b0 = horiz ? c.minX : c.minY;
+            var b1 = horiz ? c.maxX : c.maxY;
+            if (v < a0 - E || v > a1 + E) return;
+            if (v > a0 + E && v < a1 - E) blocks.push([b0, b1]);
+            else {
+              lo = Math.min(lo, b0);
+              hi = Math.max(hi, b1);
+            }
+          });
+          if (!(hi > lo)) return;
+          blocks.sort(function (m, n) {
+            return m[0] - n[0];
+          });
+          var cur = lo;
+          blocks.concat([[hi, hi]]).forEach(function (bl) {
+            var e = Math.min(bl[0], hi);
+            if (e - cur > E) {
+              out.push({
+                closed: false,
+                points: horiz ? [[cur, v], [e, v]] : [[v, cur], [v, e]]
+              });
+            }
+            cur = Math.max(cur, bl[1]);
+          });
+        });
+      });
+    }
+    run(true);
+    run(false);
+    return out;
+  }
+
   return {
     CUTTERS: CUTTERS,
+    normMargin: normMargin,
+    gridSegments: gridSegments,
     MEDIA: MEDIA,
     ROLL_MAX_LENGTH: ROLL_MAX_LENGTH,
     cutter: function (id) {

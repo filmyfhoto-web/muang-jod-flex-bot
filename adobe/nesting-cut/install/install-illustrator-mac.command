@@ -1,5 +1,5 @@
 #!/bin/bash
-# ติดตั้งแผง "น้องพลอย Nesting Cut" ลง Illustrator บน macOS
+# ติดตั้งแผง "นัดพอน Nesting Cut" ลง Illustrator บน macOS
 # ดับเบิลคลิกไฟล์นี้ (ครั้งแรกอาจต้องคลิกขวา > Open) แล้วปิด-เปิด Illustrator ใหม่
 set -e
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
@@ -16,4 +16,4 @@ mkdir -p "$DEST"
 
 echo ""
 echo "ติดตั้งแล้วที่: $DEST"
-echo "ปิดแล้วเปิด Illustrator ใหม่ → เมนู Window > Extensions > น้องพลอย Nesting Cut"
+echo "ปิดแล้วเปิด Illustrator ใหม่ → เมนู Window > Extensions > นัดพอน Nesting Cut"

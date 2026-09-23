@@ -44,6 +44,7 @@
     timeLimitMs: 8000,
     seed: 1,
     maxSheets: 50,
+    maxPerSheet: 400, // จำกัดดวงต่อแผ่น (ชีตใหญ่เกินไป Illustrator จะช้ามาก)
   };
 
   // ---------- แปลงรูปทรงเป็นตาราง ----------
@@ -449,6 +450,7 @@
     }
 
     function tryPlace(g, shape) {
+      if (o.maxPerSheet > 0 && g.placements.length >= o.maxPerSheet) return false;
       var best = null;
       for (var k = 0; k < shape.masks.length; k++) {
         var m = shape.masks[k];
@@ -785,8 +787,10 @@
           fillHoles: o.fillHoles,
           iterations: 1,
           maxSheets: 1,
+          maxPerSheet: o.maxPerSheet,
         })
       : null;
+    if (best && o.maxPerSheet > 0 && best.list.length > o.maxPerSheet) best.list = best.list.slice(0, o.maxPerSheet);
     var latticeCount = best ? best.list.length : 0;
     var meta = { method: 'lattice', timeMs: 0, cellSize: o.cellSize };
     var out;

@@ -127,7 +127,7 @@
         tracePath(ctx, G.roundedRect(2, 2, 80, 30, 6), s);
         ctx.fillStyle = grad(ctx, 84 * s, 34 * s, '#c0582b', '#e0874f');
         ctx.fill();
-        label(ctx, 'น้องพลอย', 42 * s, 17 * s, 11 * s);
+        label(ctx, 'นัดพอน', 42 * s, 17 * s, 11 * s);
       },
     },
     {
@@ -267,7 +267,7 @@
     },
     np_scan: function () {
       return {
-        document: 'ตัวอย่างของน้องพลอย',
+        document: 'ตัวอย่างของนัดพอน',
         parts: items.map(function (_it, i) {
           return describe(i);
         }),

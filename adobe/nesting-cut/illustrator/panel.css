@@ -1,4 +1,4 @@
-/* แผงน้องพลอย Nesting Cut — โทนกรม + ส้มอิฐ (main.js สลับธีมสว่าง/มืดตามแผงของ Illustrator) */
+/* แผงนัดพอน Nesting Cut — โทนกรม + ส้มอิฐ (main.js สลับธีมสว่าง/มืดตามแผงของ Illustrator) */
 :root {
   --bg: #141b2d;
   --card: #1c2640;
@@ -484,4 +484,8 @@ details.steps > summary::before {
 }
 .tips li {
   margin-bottom: 3px;
+}
+
+.grid4 > label {
+  flex: 1 1 calc(25% - 6px);
 }

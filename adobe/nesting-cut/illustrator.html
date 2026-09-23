@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>น้องพลอย Nesting Cut</title>
+    <title>นัดพอน Nesting Cut</title>
     <link rel="stylesheet" href="illustrator/panel.css" />
   </head>
   <body>
@@ -12,7 +12,7 @@
     <aside id="previewSide"></aside>
     <div id="controls">
     <header class="brand">
-      <img src="assets/logo-panel.png" alt="น้องพลอย Nesting Cut — เจ๊หญิงสั่งลุย" />
+      <img src="assets/logo-panel.png" alt="นัดพอน Nesting Cut — ปลั๊กอิน เจ๊หญิงสั่งลุย" />
     </header>
 
     <div id="demoBanner" class="banner" hidden>
@@ -74,25 +74,40 @@
 
     <!-- 2. วัสดุ & เครื่องตัด -->
     <details class="card" id="secMedia" open>
-      <summary><span class="num">2</span> วัสดุ &amp; เครื่องตัด</summary>
+      <summary><span class="num">2</span> หน้ากระดาษ &amp; การวางดวง</summary>
+      <div class="grid2">
+        <label>ขนาดกระดาษ <select id="media" data-setting="media"></select></label>
+        <label
+          >หน่วย
+          <select id="sizeUnit" data-setting="sizeUnit">
+            <option value="mm">มม.</option>
+            <option value="in">นิ้ว</option>
+          </select></label
+        >
+        <label>กว้าง <input id="width" type="number" min="1" step="0.1" data-setting="width" /></label>
+        <label>สูง <input id="length" type="number" min="0" step="0.1" placeholder="ม้วน" data-setting="length" /></label>
+      </div>
+      <label>ระยะขอบกระดาษ (มม.) — ไม่วางดวงล้ำเข้าไปในขอบ</label>
+      <div class="grid2 grid4">
+        <label>บน <input id="marginTop" type="number" min="0" step="1" data-setting="marginTop" /></label>
+        <label>ล่าง <input id="marginBottom" type="number" min="0" step="1" data-setting="marginBottom" /></label>
+        <label>ซ้าย <input id="marginLeft" type="number" min="0" step="1" data-setting="marginLeft" /></label>
+        <label>ขวา <input id="marginRight" type="number" min="0" step="1" data-setting="marginRight" /></label>
+      </div>
+      <label
+        >ระยะห่างระหว่างดวง (มม.) — วัดจากเส้นไดคัทถึงเส้นไดคัท ต้องมากกว่า 2 เท่าของ Bleed
+        <input id="spacing" type="number" min="0.2" step="0.5" data-setting="spacing"
+      /></label>
       <label>เครื่องตัด <select id="cutter" data-setting="cutter"></select></label>
       <p id="cutterNote" class="note"></p>
-      <label>วัสดุ <select id="media" data-setting="media"></select></label>
-      <div class="grid2">
-        <label>หน้ากว้าง (มม.) <input id="width" type="number" min="20" step="1" data-setting="width" /></label>
-        <label>ยาว (มม.) <input id="length" type="number" min="0" step="1" placeholder="ม้วน" data-setting="length" /></label>
-        <label>ขอบกระดาษ (มม.) <input id="margin" type="number" min="0" step="0.5" data-setting="margin" /></label>
-        <label>ห่างกันชิ้นละ (มม.) <input id="spacing" type="number" min="0.2" step="0.5" data-setting="spacing" /></label>
-      </div>
       <div class="grid2">
         <label
-          >หมุนชิ้นงาน
+          >การหมุนดวง
           <select id="rotation" data-setting="rotation">
-            <option value="none">ห้ามหมุน</option>
-            <option value="half">0° / 180°</option>
+            <option value="none">ไม่หมุน</option>
+            <option value="half">180°</option>
             <option value="quarter">ทุก 90°</option>
-            <option value="eighth">ทุก 45°</option>
-            <option value="fine">ทุก 15° (ช้า)</option>
+            <option value="fine">อิสระ (ทุก 15°)</option>
           </select></label
         >
         <label
@@ -108,9 +123,10 @@
         >รูปแบบการเรียง
         <select id="arrange" data-setting="arrange">
           <option value="shape">ตามรูปทรง — ได้ดวงเยอะกว่า</option>
-          <option value="grid">ตาราง (แถว × คอลัมน์)</option>
+          <option value="grid">ตาราง — เป็นแถวเป็นแนว ลอกง่าย นับง่าย</option>
         </select></label
       >
+      <label class="check"><input id="gridCut" type="checkbox" data-setting="gridCut" /> เส้นตัดแบบตาราง — ลากเส้นยาวทั้งแผ่น (ใช้กับแบบตาราง)</label>
       <label class="check"><input id="fillSheet" type="checkbox" data-setting="fillSheet" /> เต็มแผ่น — ใส่ดวงให้ได้มากที่สุด (ใช้แบบแรก ต้องใส่ความยาวแผ่น)</label>
       <label class="check"><input id="respectBleed" type="checkbox" data-setting="respectBleed" /> เผื่อ bleed ที่เลยเส้นตัด (สีไม่ล้นทับชิ้นข้าง ๆ)</label>
     </details>
@@ -123,7 +139,8 @@
         <select id="cutMode" data-setting="cutMode">
           <option value="auto">สร้างตามขอบงานให้อัตโนมัติ</option>
           <option value="vector">ตัดตามเส้นเวกเตอร์ของงาน</option>
-          <option value="box">กรอบสี่เหลี่ยม</option>
+          <option value="none">ใช้กรอบสี่เหลี่ยม + เรียงแบบตาราง (ไม่วาดเส้นตัด)</option>
+          <option value="box">วาดกรอบสี่เหลี่ยมเป็นเส้นตัด</option>
         </select></label
       >
       <div class="grid2">
@@ -133,6 +150,13 @@
         <label>เส้นหนา (pt) <input id="strokeWidth" type="number" min="0.1" step="0.05" data-setting="strokeWidth" /></label>
       </div>
       <label class="check"><input id="detectRed" type="checkbox" data-setting="detectRed" /> นับเส้นขอบสีแดงเป็นเส้นไดคัทด้วย</label>
+      <label
+        >สร้างชีตที่
+        <select id="target" data-setting="target">
+          <option value="artboard">อาร์ตบอร์ดใหม่ในไฟล์เดิม</option>
+          <option value="document">ไฟล์ใหม่</option>
+        </select></label
+      >
       <div class="grid2">
         <label>เลเยอร์เส้นไดคัท <input id="cutLayer" data-setting="cutLayer" /></label>
         <label>เลเยอร์งานพิมพ์ <input id="printLayer" data-setting="printLayer" /></label>
@@ -141,7 +165,9 @@
         <li>เส้นไดคัทต้องเป็น <b>เส้นขอบ (stroke)</b> — สีแดงที่เป็นพื้น (fill) ถือว่าเป็นงานพิมพ์</li>
         <li>รับสี Spot ชื่อที่ตั้งไว้ หรือชื่อที่มีคำว่า cut / die / thru / kiss และสีแดง RGB / CMYK (M+Y)</li>
         <li>ชิ้นที่ยังไม่มีเส้นตัด สร้างให้ตามแบบที่เลือกข้างบน — ชิ้นที่มีอยู่แล้วใช้เส้นเดิม ไม่สร้างซ้ำ</li>
-        <li>ของเดิมไม่ถูกย้าย — เลย์เอาต์สร้างเป็นไฟล์ใหม่ทุกครั้ง</li>
+        <li>ถ้าไม่พบเส้นไดคัท จะใช้กรอบสี่เหลี่ยมของชิ้นงานแทน เรียงแบบตาราง และเตือนก่อนสร้างชีต</li>
+        <li>ถ้ามีเลเยอร์ชื่อนี้อยู่แล้ว ใช้อันเดิม พร้อมปลดล็อกและเปิดการมองเห็นให้</li>
+        <li>ดวงต้นฉบับไม่ถูกย้าย — สร้างสำเนาใหม่ทั้งหมดบนอาร์ตบอร์ดใหม่ · การวางยึดเส้นไดคัท ไม่ใช่ขอบภาพ · สูงสุด 400 ดวงต่อแผ่น</li>
       </ul>
     </details>
 
@@ -179,7 +205,7 @@
       </div>
       <div class="row">
         <button id="btnLogo" class="ghost">เปลี่ยนโลโก้</button>
-        <button id="btnLogoReset" class="ghost">ใช้โลโก้น้องพลอย</button>
+        <button id="btnLogoReset" class="ghost">ใช้โลโก้นัดพอน</button>
       </div>
       <p id="logoName" class="hint"></p>
     </details>

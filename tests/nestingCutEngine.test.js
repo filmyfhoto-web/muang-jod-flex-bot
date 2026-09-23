@@ -227,3 +227,10 @@ test('fillSheet: หลบมาร์ก/หัวงาน', () => {
     assert.ok(!(b.minX < 60 && b.maxX > 0 && b.minY < 60 && b.maxY > 0), 'ต้องไม่ทับสิ่งกีดขวาง');
   }
 });
+
+test('nest: ไม่เกิน 400 ดวงต่อแผ่น (maxPerSheet) ที่เหลือขึ้นแผ่นใหม่', () => {
+  const plan = { area: { x: 20, y: 20, w: 257, h: 380 } };
+  const r = N.nest([{ rings: square(4), quantity: 450 }], plan, { spacing: 2, iterations: 1, maxPerSheet: 400 });
+  assert.equal(r.sheets[0].placements.length, 400);
+  assert.equal(r.sheets.reduce((n, s) => n + s.placements.length, 0), 450);
+});

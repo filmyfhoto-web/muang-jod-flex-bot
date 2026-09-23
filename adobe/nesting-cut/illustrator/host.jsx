@@ -520,12 +520,64 @@ function np_drawHeader(layer, hd, ox, oy, color) {
   }
 }
 
+// layer by name: reuse (unlocked + visible) or create
+function np_layer(doc, name) {
+  var lay = null;
+  try {
+    lay = doc.layers.getByName(name);
+  } catch (e) {}
+  if (!lay) {
+    lay = doc.layers.add();
+    lay.name = name;
+  }
+  try {
+    lay.locked = false;
+    lay.visible = true;
+  } catch (e2) {}
+  return lay;
+}
+
+// every cut path inside the given items (only the new copies - the originals stay put)
+function np_collectCutItems(it, names, out, depth) {
+  if (depth > 40) return;
+  var t = it.typename;
+  var k;
+  if (t === 'PathItem') {
+    if (np_isCutStroke(it, names)) out.push(it);
+  } else if (t === 'CompoundPathItem') {
+    if (it.pathItems.length && np_isCutStroke(it.pathItems[0], names)) out.push(it);
+  } else if (t === 'GroupItem') {
+    for (k = 0; k < it.pageItems.length; k++) np_collectCutItems(it.pageItems[k], names, out, depth + 1);
+  }
+}
+
+// straight cut lines across the whole grid: [[x1, y1, x2, y2], ...] in pt, artboard-relative, y down
+function np_drawLines(layer, lines, ox, oy, spot, width) {
+  for (var i = 0; i < lines.length; i++) {
+    var l = lines[i];
+    var p = layer.pathItems.add();
+    p.setEntirePath([
+      [ox + l[0], oy - l[1]],
+      [ox + l[2], oy - l[3]]
+    ]);
+    p.closed = false;
+    p.filled = false;
+    p.stroked = true;
+    p.strokeColor = np_spotColor(spot);
+    p.strokeWidth = width > 0 ? width : 0.25;
+    p.strokeOverprint = true;
+    p.name = spot.name;
+  }
+}
+
 // args: {
-//   sheets: [{ w, h, name, pieces: [{ part, angle, tx, ty, name }], marks: [], header: {} }],
-//   layerNames: { pieces, marks, header }
+//   target: 'artboard' (new artboards next to the existing ones in the source document, default)
+//         | 'document' (a separate new document - used for exporting),
+//   sheets: [{ w, h, name, pieces: [{ part, angle, tx, ty, name }], marks: [], header: {}, gridLines: [] }],
+//   layerNames: { pieces, cut, marks, header }, cutNames, spotName, strokeWidth, dropPieceCuts
 // } all lengths in pt, positions relative to the artboard top-left with y going down
 function np_buildLayout(args) {
-  np_sourceDoc();
+  var src = np_sourceDoc();
   var sheets = args.sheets;
   if (!sheets || !sheets.length) throw np_E('NOTHING_PLACED');
   var i;
@@ -534,89 +586,114 @@ function np_buildLayout(args) {
     for (k = 0; k < sheets[i].pieces.length; k++) np_part(sheets[i].pieces[k].part);
   }
   var names = args.layerNames || {};
-  var doc = app.documents.add(DocumentColorSpace.CMYK, sheets[0].w, sheets[0].h);
-  NP.layoutDoc = doc;
-  NP.stock = [];
-  var layPieces = doc.layers[0];
-  layPieces.name = names.pieces || 'Pieces';
-  var layCut = null;
-  if (names.cut) {
-    layCut = doc.layers.add();
-    layCut.name = names.cut;
-  }
-  var layMarks = doc.layers.add();
-  layMarks.name = names.marks || 'Marks';
-  var layHeader = doc.layers.add();
-  layHeader.name = names.header || 'Header';
-  var color = np_black(doc);
-
+  var cutNames = args.cutNames && args.cutNames.length ? args.cutNames : ['CutContour'];
+  var newDoc = args.target === 'document';
+  var doc;
   var GAP = 60;
-  var ab0 = doc.artboards[0].artboardRect;
-  var left = ab0[0];
-  var top = ab0[1];
+  var left;
+  var top;
+  if (newDoc) {
+    doc = app.documents.add(DocumentColorSpace.CMYK, sheets[0].w, sheets[0].h);
+    doc.layers[0].name = names.pieces || 'Pieces';
+    var ab0 = doc.artboards[0].artboardRect;
+    left = ab0[0];
+    top = ab0[1];
+  } else {
+    doc = src;
+    doc.activate();
+    // to the right of every existing artboard, tops aligned with the first one
+    left = -1e9;
+    for (i = 0; i < doc.artboards.length; i++) {
+      var r0 = doc.artboards[i].artboardRect;
+      if (r0[2] > left) left = r0[2];
+    }
+    left += GAP;
+    top = doc.artboards[0].artboardRect[1];
+  }
+  NP.layoutDoc = doc;
+  NP.layoutTemp = newDoc;
+  NP.stock = [];
+  var layPieces = np_layer(doc, names.pieces || 'Pieces');
+  var layCut = names.cut ? np_layer(doc, names.cut) : null;
+  var layMarks = np_layer(doc, names.marks || 'Marks');
+  var layHeader = np_layer(doc, names.header || 'Header');
+  var color = np_black(doc);
+  var spot = np_spot(doc, args.spotName || 'CutContour');
+
   var x = left;
+  var rowLeft = left;
   var rowH = 0;
   var placed = 0;
+  var firstIndex = -1;
+  var groups = [];
   for (i = 0; i < sheets.length; i++) {
     var sh = sheets[i];
-    if (i > 0 && x + sh.w - left > 15000) {
-      x = left;
+    if (i > 0 && x + sh.w - rowLeft > 15000) {
+      x = rowLeft;
       top -= rowH + GAP;
       rowH = 0;
     }
     var rect = [x, top, x + sh.w, top - sh.h];
+    var abIndex;
     try {
-      if (i === 0) doc.artboards[0].artboardRect = rect;
-      else doc.artboards.add(rect);
+      if (newDoc && i === 0) {
+        doc.artboards[0].artboardRect = rect;
+        abIndex = 0;
+      } else {
+        doc.artboards.add(rect);
+        abIndex = doc.artboards.length - 1;
+      }
     } catch (eAb) {
       throw np_E('CANVAS_FULL');
     }
+    if (firstIndex < 0) firstIndex = abIndex;
     try {
-      if (sh.name) doc.artboards[i].name = sh.name;
+      if (sh.name) doc.artboards[abIndex].name = sh.name;
     } catch (eName) {}
     x = rect[2] + GAP;
     if (sh.h > rowH) rowH = sh.h;
 
     for (k = 0; k < sh.pieces.length; k++) {
       var pc = sh.pieces[k];
-      np_placePiece(np_stockFor(pc.part, layPieces), layPieces, pc, rect[0], rect[1]);
+      groups.push(np_placePiece(np_stockFor(pc.part, layPieces), layPieces, pc, rect[0], rect[1]));
       placed++;
     }
     if (sh.marks && sh.marks.length) np_drawMarks(layMarks, sh.marks, rect[0], rect[1], color);
     if (sh.header) np_drawHeader(layHeader, sh.header, rect[0], rect[1], color);
+    if (sh.gridLines && sh.gridLines.length) np_drawLines(layCut || layPieces, sh.gridLines, rect[0], rect[1], spot, args.strokeWidth);
   }
   for (i = 0; i < NP.stock.length; i++) {
     if (NP.stock[i] && np_alive(NP.stock[i].item)) NP.stock[i].item.remove();
   }
   NP.stock = [];
-  if (layCut) np_moveCutLines(doc, layCut, args.cutNames && args.cutNames.length ? args.cutNames : ['CutContour']);
+
+  // cut lines of the new copies: onto the cut layer, or away entirely when grid lines replace them
+  var cuts = [];
+  for (i = 0; i < groups.length; i++) np_collectCutItems(groups[i], cutNames, cuts, 0);
+  for (i = 0; i < cuts.length; i++) {
+    try {
+      if (args.dropPieceCuts) cuts[i].remove();
+      else if (layCut) cuts[i].move(layCut, ElementPlacement.PLACEATEND);
+    } catch (eMove) {}
+  }
   try {
-    doc.artboards.setActiveArtboardIndex(0);
+    doc.artboards.setActiveArtboardIndex(firstIndex);
     doc.selection = null;
-    app.executeMenuCommand('fitall');
+    app.executeMenuCommand('fitin');
   } catch (eView) {}
-  return { document: doc.name, sheets: sheets.length, pieces: placed };
+  return { document: doc.name, sheets: sheets.length, pieces: placed, newDocument: newDoc, firstArtboard: firstIndex };
 }
 
-// cut lines go on their own layer (on top), artwork stays on the print layer
-function np_moveCutLines(doc, layer, names) {
-  var todo = [];
-  var i;
-  for (i = 0; i < doc.compoundPathItems.length; i++) {
-    var cp = doc.compoundPathItems[i];
-    if (cp.layer.name !== layer.name && cp.pathItems.length && np_isCutStroke(cp.pathItems[0], names)) todo.push(cp);
-  }
-  for (i = 0; i < doc.pathItems.length; i++) {
-    var p = doc.pathItems[i];
-    if (p.layer.name === layer.name || p.parent.typename === 'CompoundPathItem') continue;
-    if (np_isCutStroke(p, names)) todo.push(p);
-  }
-  for (i = 0; i < todo.length; i++) {
-    try {
-      todo[i].move(layer, ElementPlacement.PLACEATEND);
-    } catch (e) {}
-  }
-  return todo.length;
+// close a separate layout document made only for exporting
+function np_closeLayout() {
+  var doc = NP.layoutDoc;
+  if (NP.layoutTemp && np_alive(doc)) doc.close(SaveOptions.DONOTSAVECHANGES);
+  NP.layoutTemp = false;
+  NP.layoutDoc = null;
+  try {
+    if (np_alive(NP.sourceDoc)) NP.sourceDoc.activate();
+  } catch (e) {}
+  return { closed: true };
 }
 
 function np_defaultFolder() {

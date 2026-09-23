@@ -201,3 +201,33 @@ test('pack: ชื่อไฟล์ปลอดภัย ภาษาไทย�
   assert.equal(P.safeFileName('โลโก้/ร้าน: "ใหม่"?'), 'โลโก้ ร้าน ใหม่');
   assert.equal(P.safeFileName('   ', 'x'), 'x');
 });
+
+test('layout: ระยะขอบแยก บน/ล่าง/ซ้าย/ขวา — ดวงไม่ล้ำเข้าไปในขอบ', () => {
+  assert.deepEqual(L.normMargin(undefined), { top: 20, right: 20, bottom: 20, left: 20 });
+  assert.deepEqual(L.normMargin(7), { top: 7, right: 7, bottom: 7, left: 7 });
+  const plan = L.planSheet({ width: 297, length: 420, margin: { top: 10, right: 15, bottom: 25, left: 30 } });
+  assert.equal(plan.area.x, 30);
+  assert.equal(plan.area.y, 10);
+  assert.equal(plan.area.w, 297 - 30 - 15);
+  assert.equal(plan.area.h, 420 - 10 - 25);
+  const media = (id) => L.MEDIA.find((m) => m.id === id);
+  assert.equal(media('a3').width, 297);
+  assert.ok(Math.abs(media('in125x18').width - 12.5 * 25.4) < 1e-6);
+});
+
+test('layout: เส้นตัดตารางลากยาวทั้งแถว และเว้นช่วงที่จะผ่านกลางดวงอื่น', () => {
+  const box = (x, y, w, h) => ({ minX: x, minY: y, maxX: x + w, maxY: y + h });
+  // ตาราง 2×2 ขนาดเท่ากัน → เส้นนอนเส้นเดียวต่อขอบ ยาวคลุมทั้งแถว
+  const even = L.gridSegments([box(0, 0, 10, 10), box(13, 0, 10, 10), box(0, 13, 10, 10), box(13, 13, 10, 10)]);
+  const top = even.filter((s) => s.points[0][1] === 0 && s.points[1][1] === 0);
+  assert.equal(top.length, 1);
+  assert.deepEqual(top[0].points, [[0, 0], [23, 0]]);
+  assert.equal(even.length, 8);
+  // ดวงสูง (0..30) อยู่ข้างดวงเตี้ย: เส้น y=10 ต้องไม่ลากผ่านดวงสูง
+  const mixed = L.gridSegments([box(0, 0, 10, 10), box(13, 0, 10, 30)]);
+  for (const s of mixed) {
+    const [[x0, y0], [x1, y1]] = s.points;
+    if (y0 === y1 && y0 > 0 && y0 < 30) assert.ok(x1 <= 13 + 1e-9, 'ไม่ผ่านดวงสูง');
+    if (x0 === x1 && x0 > 13 && x0 < 23) assert.fail('เส้นตั้งผ่านกลางดวง');
+  }
+});
