@@ -17,6 +17,8 @@ export const STATES = {
   WAITING_FOR_SEARCH: 'waiting_for_search',
   // รอรูป QR รับเงินของร้าน — รูปถัดไปเก็บเป็น QR ไม่ใช่หลักฐานของงาน
   WAITING_FOR_QR: 'waiting_for_qr',
+  // เก็บรูปแล้ว รอชื่อที่ร้านเรียกใบนั้น ("กสิกร" / "ออมสิน")
+  WAITING_FOR_QR_LABEL: 'waiting_for_qr_label',
 };
 
 // Get the current state row for a user (by profile id). Returns null if none.
