@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>น้องพลอย Nesting Cut</title>
+    <link rel="stylesheet" href="illustrator/panel.css" />
+  </head>
+  <body>
+    <header class="brand">
+      <img src="assets/logo-panel.png" alt="น้องพลอย Nesting Cut — เจ๊หญิงสั่งลุย" />
+    </header>
+
+    <div id="demoBanner" class="banner" hidden>
+      <b>โหมดทดลอง</b> — หน้านี้ไม่ได้เปิดอยู่ใน Illustrator จึงใช้ชิ้นงานตัวอย่างแทน ลองกด “เจ๊หญิงสั่งลุย!” ได้เลย
+      หรือเพิ่มรูป PNG พื้นใสของร้านเองก็ได้ ไฟล์ตัด (PLT / DXF / SVG) จะดาวน์โหลดลงเครื่อง
+    </div>
+
+    <!-- 1. ชิ้นงาน -->
+    <section class="card">
+      <h2><span class="num">1</span> ชิ้นงาน</h2>
+      <div class="row">
+        <button id="btnScan">ดึงชิ้นงานที่เลือก</button>
+        <button id="btnImport" class="ghost">นำเข้าจาก Photoshop</button>
+        <button id="btnAddPng" class="ghost" hidden>+ PNG ของฉัน</button>
+        <input id="pngInput" type="file" accept="image/png" multiple hidden />
+      </div>
+      <p id="partsEmpty" class="hint">
+        เลือกชิ้นงานบนหน้างาน (กี่ชิ้นก็ได้) แล้วกด “ดึงชิ้นงานที่เลือก” — ตั้งจำนวนไว้ในชื่อได้ เช่น “โลโก้ร้าน x20”
+      </p>
+      <ul id="partsList" class="parts"></ul>
+      <div id="partsTotal" class="total"></div>
+    </section>
+
+    <!-- ปุ่มหลัก -->
+    <section class="card actions">
+      <button id="btnGo" class="go">เจ๊หญิงสั่งลุย! 🚀</button>
+      <div class="row small">
+        <button id="btnNest" class="ghost" title="จัดวางแล้วดูพรีวิวก่อน ยังไม่แตะไฟล์">จัดวางดูก่อน</button>
+        <button id="btnBuild" class="ghost" title="สร้างไฟล์เลย์เอาต์ใหม่ใน Illustrator จากผลจัดวาง">สร้างเลย์เอาต์</button>
+        <button id="btnExport" class="ghost" title="บันทึก PDF / AI / PLT / DXF / SVG">ส่งออก</button>
+        <button id="btnSelectCut" class="ghost" title="เลือกเส้นตัดทั้งหมด เพื่อส่งผ่านปลั๊กอินของเครื่องตัด">เลือกเส้นตัด</button>
+      </div>
+      <div class="progress"><div id="progressBar"></div></div>
+      <div id="status" class="status">พร้อมลุย</div>
+    </section>
+
+    <!-- พรีวิว -->
+    <section class="card">
+      <h2>พรีวิว <span id="previewSub" class="sub"></span></h2>
+      <div id="stats" class="stats" hidden></div>
+      <div class="preview">
+        <div id="previewEmpty" class="empty-preview">ยังไม่ได้จัดวาง</div>
+        <canvas id="preview" hidden></canvas>
+      </div>
+    </section>
+
+    <!-- 2. วัสดุ & เครื่องตัด -->
+    <details class="card" id="secMedia" open>
+      <summary><span class="num">2</span> วัสดุ &amp; เครื่องตัด</summary>
+      <label>เครื่องตัด <select id="cutter" data-setting="cutter"></select></label>
+      <p id="cutterNote" class="note"></p>
+      <label>วัสดุ <select id="media" data-setting="media"></select></label>
+      <div class="grid2">
+        <label>หน้ากว้าง (มม.) <input id="width" type="number" min="20" step="1" data-setting="width" /></label>
+        <label>ยาว (มม.) <input id="length" type="number" min="0" step="1" placeholder="ม้วน" data-setting="length" /></label>
+        <label>ขอบกระดาษ (มม.) <input id="margin" type="number" min="0" step="0.5" data-setting="margin" /></label>
+        <label>ห่างกันชิ้นละ (มม.) <input id="spacing" type="number" min="0.2" step="0.5" data-setting="spacing" /></label>
+      </div>
+      <div class="grid2">
+        <label
+          >หมุนชิ้นงาน
+          <select id="rotation" data-setting="rotation">
+            <option value="none">ห้ามหมุน</option>
+            <option value="half">0° / 180°</option>
+            <option value="quarter">ทุก 90°</option>
+            <option value="eighth">ทุก 45°</option>
+            <option value="fine">ทุก 15° (ช้า)</option>
+          </select></label
+        >
+        <label
+          >ความละเอียด
+          <select id="quality" data-setting="quality">
+            <option value="2">เร็ว (2 มม.)</option>
+            <option value="1">ปกติ (1 มม.)</option>
+            <option value="0.5">แน่น (0.5 มม.)</option>
+          </select></label
+        >
+      </div>
+      <label class="check"><input id="respectBleed" type="checkbox" data-setting="respectBleed" /> เผื่อ bleed ที่เลยเส้นตัด (สีไม่ล้นทับชิ้นข้าง ๆ)</label>
+    </details>
+
+    <!-- 3. เส้นตัด -->
+    <details class="card" id="secCut">
+      <summary><span class="num">3</span> เส้นตัด (Cut-Line)</summary>
+      <label
+        >ชิ้นที่ยังไม่มีเส้นตัด
+        <select id="cutMode" data-setting="cutMode">
+          <option value="auto">สร้างตามขอบงานให้อัตโนมัติ</option>
+          <option value="vector">ตัดตามเส้นเวกเตอร์ของงาน</option>
+          <option value="box">กรอบสี่เหลี่ยม</option>
+        </select></label
+      >
+      <div class="grid2">
+        <label>เส้นตัดห่างขอบงาน (มม.) <input id="cutOffset" type="number" min="0" step="0.5" data-setting="cutOffset" /></label>
+        <label>มุมมนกรอบ (มม.) <input id="boxRadius" type="number" min="0" step="0.5" data-setting="boxRadius" /></label>
+        <label>ชื่อสี Spot <input id="spotName" data-setting="spotName" /></label>
+        <label>เส้นหนา (pt) <input id="strokeWidth" type="number" min="0.1" step="0.05" data-setting="strokeWidth" /></label>
+      </div>
+      <p class="hint">ชิ้นที่มีเส้นสี Spot ชื่อนี้อยู่แล้ว (CutContour) จะใช้เส้นเดิม ไม่สร้างซ้ำ</p>
+    </details>
+
+    <!-- 4. มาร์ก -->
+    <details class="card" id="secMarks">
+      <summary><span class="num">4</span> มาร์ก (Registration Marks)</summary>
+      <label
+        >แบบมาร์ก
+        <select id="markType" data-setting="markType">
+          <option value="none">ไม่ใส่ (RIP/เครื่องตัดใส่เอง)</option>
+          <option value="circle">จุดวงกลม 4 มุม</option>
+          <option value="square">สี่เหลี่ยมทึบ 4 มุม</option>
+          <option value="L">L 4 มุม</option>
+          <option value="silhouette">Silhouette (3 มุม)</option>
+        </select></label
+      >
+      <div class="grid2">
+        <label>ขนาด (มม.) <input id="markSize" type="number" min="1" step="0.5" data-setting="markSize" /></label>
+        <label>ห่างขอบ (มม.) <input id="markInset" type="number" min="0" step="0.5" data-setting="markInset" /></label>
+        <label>ความหนาเส้น L (มม.) <input id="markThick" type="number" min="0.1" step="0.1" data-setting="markThick" /></label>
+        <label>ระยะปลอดรอบมาร์ก (มม.) <input id="markClearance" type="number" min="0" step="0.5" data-setting="markClearance" /></label>
+        <label>มาร์กกลางทุก (มม.) <input id="markEvery" type="number" min="0" step="50" placeholder="0 = ไม่ใส่" data-setting="markEvery" /></label>
+      </div>
+    </details>
+
+    <!-- 5. หัวงาน -->
+    <details class="card" id="secHeader">
+      <summary><span class="num">5</span> หัวงาน (Header Logo)</summary>
+      <label class="check"><input id="headerOn" type="checkbox" data-setting="headerOn" /> ใส่หัวงานบนแผ่น</label>
+      <div class="grid2">
+        <label>ชื่องาน <input id="jobName" data-setting="jobName" placeholder="งานสติ๊กเกอร์" /></label>
+        <label>ลูกค้า <input id="customer" data-setting="customer" /></label>
+        <label>หมายเหตุ <input id="jobNote" data-setting="jobNote" /></label>
+        <label>สูง (มม.) <input id="headerHeight" type="number" min="8" step="1" data-setting="headerHeight" /></label>
+      </div>
+      <div class="row">
+        <button id="btnLogo" class="ghost">เปลี่ยนโลโก้</button>
+        <button id="btnLogoReset" class="ghost">ใช้โลโก้น้องพลอย</button>
+      </div>
+      <p id="logoName" class="hint"></p>
+    </details>
+
+    <!-- 6. ส่งออก -->
+    <details class="card" id="secOut">
+      <summary><span class="num">6</span> ส่งออก</summary>
+      <div class="checks">
+        <label class="check"><input id="outPdf" type="checkbox" data-setting="outPdf" /> PDF (RIP พิมพ์+ตัด)</label>
+        <label class="check"><input id="outAi" type="checkbox" data-setting="outAi" /> ไฟล์ .ai</label>
+        <label class="check"><input id="outPlt" type="checkbox" data-setting="outPlt" /> PLT (HP-GL)</label>
+        <label class="check"><input id="outDxf" type="checkbox" data-setting="outDxf" /> DXF</label>
+        <label class="check"><input id="outSvg" type="checkbox" data-setting="outSvg" /> SVG</label>
+        <label class="check"><input id="outPng" type="checkbox" data-setting="outPng" /> รูปพรีวิว (ส่งลูกค้า)</label>
+      </div>
+      <div class="grid2">
+        <label
+          >แกน PLT
+          <select id="pltFeed" data-setting="pltFeed">
+            <option value="x">X ตามทางม้วนไหล</option>
+            <option value="y">Y ตามทางม้วนไหล</option>
+          </select></label
+        >
+        <label>Overcut (มม.) <input id="overcut" type="number" min="0" step="0.1" data-setting="overcut" /></label>
+      </div>
+      <label>โฟลเดอร์</label>
+      <div class="row">
+        <input id="folder" data-setting="folder" placeholder="ข้างไฟล์งาน / NestingCut" />
+        <button id="btnFolder" class="ghost">เลือก</button>
+      </div>
+      <p class="hint">PLT ลองตัดชิ้นเล็กก่อนครั้งแรก ถ้างานออกมาหมุน/กลับด้าน ให้สลับ “แกน PLT”</p>
+    </details>
+
+    <script src="core/geometry.js"></script>
+    <script src="core/nest.js"></script>
+    <script src="core/contour.js"></script>
+    <script src="core/layout.js"></script>
+    <script src="core/cutfile.js"></script>
+    <script src="core/pack.js"></script>
+    <script src="core/bridge.js"></script>
+    <script src="illustrator/host-bridge.js"></script>
+    <script src="illustrator/demo.js"></script>
+    <script src="illustrator/main.js"></script>
+  </body>
+</html>

@@ -437,6 +437,14 @@ npm start          # แล้วเปิด http://localhost:3000/app/jot
 
 ---
 
+## ✂️ ปลั๊กอิน Adobe: น้องพลอย Nesting Cut
+
+ปลั๊กอิน Illustrator + Photoshop สำหรับงานสติ๊กเกอร์ — จัดวางชิ้นงานตามรูปทรงจริง สร้างเส้นตัด ใส่มาร์กและหัวงาน
+แล้วส่งออก PDF / PLT / DXF / SVG ไปเครื่องตัดในปุ่มเดียว อยู่ในโฟลเดอร์ [`adobe/nesting-cut`](adobe/nesting-cut/README.md)
+(แยกจากตัวบอต ไม่ต้อง deploy)
+
+---
+
 ## 🧪 ตรวจสอบโค้ด
 
 ```bash
