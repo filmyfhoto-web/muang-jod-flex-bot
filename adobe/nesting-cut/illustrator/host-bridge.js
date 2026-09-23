@@ -120,5 +120,11 @@
         cepApi.addEventListener('com.adobe.csxs.events.ThemeColorChanged', fn);
       } catch (e) {}
     },
+    // เหตุการณ์จากสคริปต์ปุ่มลัด (CSXSEvent) — แผงต้องเปิดอยู่
+    onEvent: function (type, fn) {
+      try {
+        cepApi.addEventListener(type, fn);
+      } catch (e) {}
+    },
   };
 })(window);

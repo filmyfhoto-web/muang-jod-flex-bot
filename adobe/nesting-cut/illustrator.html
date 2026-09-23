@@ -19,7 +19,12 @@
     <nav class="tools" id="toolTabs">
       <button type="button" data-tool="nest">จัดวางดวง<small>Nesting</small></button>
       <button type="button" data-tool="run">ไดคัทต่อเนื่อง<small>Sticker · Label</small></button>
-      <button type="button" data-tool="shape">ไดคัทตามรูปทรง<small>Contour</small></button>
+      <button type="button" data-tool="shape">ไดคัทตามรูป<small>Contour</small></button>
+      <button type="button" data-tool="corner">ทำมุมโค้ง<small>CNC Fit</small></button>
+      <button type="button" data-tool="led">หาเส้นกลาง<small>LED Path</small></button>
+      <button type="button" data-tool="dim">บอกขนาด<small>Dimension</small></button>
+      <button type="button" data-tool="number">รันนัมเบอร์<small>Variable Data</small></button>
+      <button type="button" data-tool="hotkey">ปุ่มลัด<small>One-key</small></button>
     </nav>
 
     <div id="demoBanner" class="banner" hidden>
@@ -75,9 +80,13 @@
       <div class="subcard">
         <h3>อ่านรูปภาพ</h3>
         <p class="hint">
-          รูปภาพใช้เวลาอ่าน ระหว่างนั้น Illustrator จะไม่ตอบสนอง รูปใหญ่ราวครึ่งเมตรใช้เวลาประมาณ 5–10 วินาที
-          เป็นเรื่องปกติ รอจนเสร็จ อย่าเพิ่งปิดโปรแกรม
+          ภาพ Raster ใช้เวลาวิเคราะห์มากกว่าเวกเตอร์ — ภาพใหญ่หรือพื้นหลังซับซ้อนอาจใช้เวลาประมาณ 5–10 วินาที
+          ระหว่างนั้น Illustrator จะไม่ตอบสนอง เป็นเรื่องปกติ รอจนเสร็จ
         </p>
+        <ul class="hint tips">
+          <li>เพิ่ม Contrast ให้ตัวแบบแยกจากพื้นหลังชัด ๆ ก่อนอ่าน</li>
+          <li>บันทึกงานก่อนเริ่มวิเคราะห์ภาพหนัก</li>
+        </ul>
         <div class="grid2 grid3">
           <label>ความต่างสีพื้น <input type="number" min="0" max="255" step="1" data-setting="dcTol" /></label>
           <label>ตัดเงาทิ้ง (%) <input type="number" min="0" max="100" step="5" data-setting="dcShadow" /></label>
@@ -98,6 +107,259 @@
           >
         </div>
       </div>
+    </section>
+
+    <!-- ทำมุมโค้ง (CNC) -->
+    <section class="card" id="secCorner" data-for="corner">
+      <h2><span class="num">◜</span> ทำมุมโค้ง <span class="sub">CNC FIT</span></h2>
+      <p class="hint">ปรับมุมในและมุมนอกของตัวอักษรหรือชิ้นเวกเตอร์ให้สัมพันธ์กับรัศมีดอกกัด เหมาะกับงานประกบหน้า–หลังและชิ้นเสียบ</p>
+      <ol class="steplist">
+        <li><b>เลือกตัวอักษรหรือ Path</b><span>บันทึกไฟล์ก่อน โดยเฉพาะเมื่อจะเลือกแก้ทับของเดิม — ตัวอักษรอ่านจากสำเนาที่ Outline แล้ว</span></li>
+        <li><b>ใส่รัศมีมุมใน</b><span>เริ่มต้น 1.5875 มม. = รัศมีดอก 1/8 นิ้ว · มุมนอกเริ่มต้น 0 (ไม่โค้ง)</span></li>
+        <li><b>เลือกผลลัพธ์</b><span>แนะนำ “สร้างสำเนาข้างของเดิม” และเปิดวงกลมตรวจจุดที่รัศมีลงไม่ได้</span></li>
+      </ol>
+      <div class="grid2">
+        <label
+          >ขนาดดอก
+          <select id="cnBit">
+            <option value="">— เลือกเพื่อเติมรัศมี —</option>
+            <option value="1.5875">1/8 นิ้ว (3.175 มม.)</option>
+            <option value="3.175">1/4 นิ้ว (6.35 มม.)</option>
+            <option value="0.79375">1/16 นิ้ว (1.5875 มม.)</option>
+            <option value="1">2 มม.</option>
+            <option value="1.5">3 มม.</option>
+            <option value="2">4 มม.</option>
+            <option value="3">6 มม.</option>
+          </select></label
+        >
+        <label>รัศมีมุมใน (มม.) <input type="number" min="0" step="0.1" data-setting="cnIn" /></label>
+        <label>รัศมีมุมนอก (มม.) <input type="number" min="0" step="0.1" data-setting="cnOut" /></label>
+        <label
+          >ผลลัพธ์
+          <select data-setting="cnMode">
+            <option value="copy">สร้างสำเนาข้างของเดิม (แนะนำ)</option>
+            <option value="replace">แก้ทับของเดิม</option>
+          </select></label
+        >
+      </div>
+      <label class="check"><input type="checkbox" data-setting="cnFlags" /> วงกลมตรวจจุดที่รัศมีลงไม่ได้ (ร่องแคบกว่าดอก มุมแหลมจัด)</label>
+      <p class="note"><b>ตั้งตามดอกจริง</b> — ใช้ดอกขนาดอื่น ให้ใส่รัศมีเท่ากับครึ่งหนึ่งของเส้นผ่านศูนย์กลางดอก มุมที่ออกแบบจะสัมพันธ์กับเครื่องมือผลิต</p>
+      <div class="row">
+        <button id="btnCnRead" class="ghost">วิเคราะห์ / ดูตัวอย่าง</button>
+        <button id="btnCnMake">ทำมุมโค้ง</button>
+      </div>
+      <div id="cnStatus" class="status">เลือกตัวอักษรหรือ Path แล้วกดวิเคราะห์</div>
+    </section>
+
+    <!-- หาเส้นกลาง (LED) -->
+    <section class="card" id="secLed" data-for="led">
+      <h2><span class="num">⌇</span> หาเส้นกลาง <span class="sub">LED PATH</span></h2>
+      <p class="hint">คำนวณแนวกลางภายในตัวอักษรปิดสำหรับวาง LED Strip พร้อมสรุปความยาว และเตือนบริเวณที่แคบหรือโค้งเกินข้อกำหนด</p>
+      <ol class="steplist">
+        <li><b>เลือกตัวอักษรปิด</b><span>ใช้ชิ้นงานที่เป็น Shape / Path ชัดเจน ไม่มีเส้นเปิดเกินจำเป็น</span></li>
+        <li><b>ตั้งคุณสมบัติแถบไฟ</b><span>ความกว้างเริ่มต้น 6 มม. · รัศมีโค้งต่ำสุด 15 มม. · เว้นจากปลาย 10 มม.</span></li>
+        <li><b>ตรวจรายงานแล้ววาด</b><span>ดูจำนวนเส้น ความยาวรวม ความกว้างต่ำสุด–สูงสุด แล้วสร้างลงเลเยอร์ “เส้นกลาง”</span></li>
+      </ol>
+      <div class="grid2">
+        <label>ความกว้างแถบไฟ (มม.) <input type="number" min="1" step="0.5" data-setting="ledWidth" /></label>
+        <label>รัศมีโค้งต่ำสุด (มม.) <input type="number" min="0" step="1" data-setting="ledRadius" /></label>
+        <label>เว้นจากปลาย (มม.) <input type="number" min="0" step="1" data-setting="ledMargin" /></label>
+        <label>ชื่อเลเยอร์ <input data-setting="ledLayer" /></label>
+      </div>
+      <p class="note warnnote">
+        <b>! พื้นที่กว้างมากอาจต้องใช้ 2 แถว</b> — แจ้งเตือนเมื่อความกว้างมากกว่าสองเท่าของแถบไฟ
+        แต่เวอร์ชันนี้ยังไม่วาดเส้นคู่ให้อัตโนมัติ ต้องเพิ่มแนวไฟเองหลังตรวจแบบ
+      </p>
+      <div class="row">
+        <button id="btnLedRead" class="ghost">วิเคราะห์ / ดูตัวอย่าง</button>
+        <button id="btnLedMake">สร้างเส้นกลาง</button>
+      </div>
+      <div id="ledStatus" class="status">เลือกตัวอักษรปิดแล้วกดวิเคราะห์</div>
+    </section>
+
+    <!-- เส้นบอกขนาด -->
+    <section class="card" id="secDim" data-for="dim">
+      <h2><span class="num">⇹</span> ใส่สเกลและเส้นบอกขนาด <span class="sub">DIMENSION</span></h2>
+      <p class="hint">วัดกว้าง–สูงแล้ววาดเส้น Dimension แสดงขนาดจริงของงานที่เขียนย่อสเกลได้ โดยไม่เปลี่ยนขนาดวัตถุต้นฉบับ</p>
+      <div class="grid2">
+        <label
+          >วัด
+          <select data-setting="dimScope">
+            <option value="all">Selection รวม</option>
+            <option value="each">แต่ละชิ้น</option>
+            <option value="both">ทั้งสองแบบ</option>
+          </select></label
+        >
+        <label
+          >ขนาด
+          <select data-setting="dimAxis">
+            <option value="both">กว้างและสูง</option>
+            <option value="w">กว้าง</option>
+            <option value="h">สูง</option>
+          </select></label
+        >
+        <label
+          >หน่วย
+          <select data-setting="dimUnit">
+            <option value="mm">mm</option>
+            <option value="cm">cm</option>
+            <option value="m">m</option>
+            <option value="in">inch</option>
+          </select></label
+        >
+        <label
+          >สเกลไฟล์
+          <select data-setting="dimScale">
+            <option value="1">1:1</option>
+            <option value="2">1:2</option>
+            <option value="5">1:5</option>
+            <option value="10">1:10</option>
+            <option value="20">1:20</option>
+            <option value="25">1:25</option>
+            <option value="50">1:50</option>
+            <option value="100">1:100</option>
+            <option value="custom">กำหนดเอง</option>
+          </select></label
+        >
+        <label data-dim-custom>1 : <input type="number" min="0.001" step="1" data-setting="dimScaleCustom" /></label>
+        <label
+          >ด้าน
+          <select data-setting="dimSide">
+            <option value="auto">อัตโนมัติ (กว้างบน สูงขวา)</option>
+            <option value="top-left">กว้างบน สูงซ้าย</option>
+            <option value="bottom-right">กว้างล่าง สูงขวา</option>
+            <option value="bottom-left">กว้างล่าง สูงซ้าย</option>
+          </select></label
+        >
+        <label>สี <input type="color" data-setting="dimColor" /></label>
+        <label>ขนาดตัวหนังสือ (pt) <input type="number" min="4" step="1" data-setting="dimSize" /></label>
+        <label>น้ำหนักเส้น (pt) <input type="number" min="0.1" step="0.1" data-setting="dimStroke" /></label>
+        <label>ทศนิยม <input type="number" min="0" max="4" step="1" data-setting="dimDecimals" /></label>
+        <label>ห่างจากงาน (มม.) <input type="number" min="1" step="1" data-setting="dimOffset" /></label>
+        <label>เลเยอร์ผลลัพธ์ <input data-setting="dimLayer" /></label>
+      </div>
+      <label class="check"><input type="checkbox" data-setting="dimClear" /> ล้างเส้นบอกขนาดเดิมในเลเยอร์นี้ก่อน</label>
+      <p class="note">ไม่ลบของเก่าเป็นค่าเริ่มต้น — ถ้าต้องการแทนชุด Dimension เดิม ให้ติ๊ก “ล้างเส้นบอกขนาดเดิม” ก่อนกดใส่เส้น</p>
+      <div class="row">
+        <button id="btnDimMake" class="wide">ใส่เส้นบอกขนาด</button>
+      </div>
+      <div id="dimStatus" class="status">เลือกงานแล้วกดใส่เส้นบอกขนาด</div>
+    </section>
+
+    <!-- รันนัมเบอร์ -->
+    <section class="card" id="secNumber" data-for="number">
+      <h2><span class="num">#</span> รันนัมเบอร์ <span class="sub">VARIABLE DATA</span></h2>
+      <p class="hint">เติมเลขต่อเนื่องลง Text Frame ที่เลือก หรือสร้างเลขหน้าบนอาร์ตบอร์ดทุกหน้า รองรับเลขเริ่ม ช่วงก้าว Prefix / Suffix และเลขศูนย์นำหน้า</p>
+      <label
+        >โหมด
+        <select data-setting="numMode">
+          <option value="text">เติมข้อความที่เลือก (ป้าย / คูปอง)</option>
+          <option value="page">เลขหน้าอาร์ตบอร์ด (เอกสารหลายหน้า)</option>
+        </select></label
+      >
+      <div class="grid2">
+        <label>Start <input type="number" step="1" data-setting="numStart" /></label>
+        <label>Step (ติดลบได้) <input type="number" step="1" data-setting="numStep" /></label>
+        <label>Prefix <input data-setting="numPrefix" /></label>
+        <label>Suffix <input data-setting="numSuffix" /></label>
+        <label
+          >Padding
+          <select data-setting="numPadMode">
+            <option value="auto">อัตโนมัติ (ตามเลขที่ยาวสุด)</option>
+            <option value="custom">กำหนดเอง</option>
+            <option value="none">ไม่เติมศูนย์</option>
+          </select></label
+        >
+        <label data-num-pad>จำนวนหลัก <input type="number" min="1" max="12" step="1" data-setting="numPad" /></label>
+      </div>
+      <div data-num="text">
+        <div class="grid2">
+          <label
+            >เรียงตาม
+            <select data-setting="numOrder">
+              <option value="rows">แถว (บน→ล่าง ซ้าย→ขวา)</option>
+              <option value="cols">คอลัมน์ (ซ้าย→ขวา บน→ล่าง)</option>
+              <option value="layer">ลำดับในเลเยอร์</option>
+            </select></label
+          >
+        </div>
+        <label class="check"><input type="checkbox" data-setting="numToken" /> แทนเฉพาะ {%n} (ข้อความที่ไม่มี {%n} ไม่แตะ)</label>
+      </div>
+      <div data-num="page">
+        <div class="grid2">
+          <label
+            >ตำแหน่ง
+            <select data-setting="numPos">
+              <option value="top-left">บนซ้าย</option>
+              <option value="top-center">บนกลาง</option>
+              <option value="top-right">บนขวา</option>
+              <option value="bottom-left">ล่างซ้าย</option>
+              <option value="bottom-center">ล่างกลาง</option>
+              <option value="bottom-right">ล่างขวา</option>
+            </select></label
+          >
+          <label>ระยะขอบ (มม.) <input type="number" min="0" step="1" data-setting="numMargin" /></label>
+          <label>หน้าเว้น (ไม่ใส่เลข N หน้าแรก) <input type="number" min="0" step="1" data-setting="numSkip" /></label>
+          <label>เลเยอร์ <input data-setting="numLayer" /></label>
+        </div>
+        <label class="check"><input type="checkbox" data-setting="numMirror" /> Mirror หน้าคู่ (สลับซ้าย↔ขวา)</label>
+        <label class="check"><input type="checkbox" data-setting="numClear" /> ลบเลขหน้าเดิมในเลเยอร์นี้ก่อน</label>
+      </div>
+      <label
+        >รูปแบบตัวอักษร
+        <select data-setting="numStyle">
+          <option value="keep">ใช้สไตล์ข้อความเดิมของ Illustrator</option>
+          <option value="custom">กำหนดใหม่</option>
+        </select></label
+      >
+      <div class="grid2" data-num-style>
+        <label>ฟอนต์ <input data-setting="numFont" placeholder="เช่น Tahoma" /></label>
+        <label>ขนาด (pt) <input type="number" min="1" step="1" data-setting="numSize" /></label>
+        <label>สี <input type="color" data-setting="numColor" /></label>
+        <label
+          >Alignment
+          <select data-setting="numAlign">
+            <option value="left">ชิดซ้าย</option>
+            <option value="center">กลาง</option>
+            <option value="right">ชิดขวา</option>
+          </select></label
+        >
+        <label class="check"><input type="checkbox" data-setting="numUnderline" /> Underline</label>
+      </div>
+      <div class="row">
+        <button id="btnNumPreview" class="ghost">ดูตัวอย่าง</button>
+        <button id="btnNumMake">ใส่เลข</button>
+      </div>
+      <ol id="numList" class="numlist"></ol>
+      <div id="numStatus" class="status">เลือก Text Frame (หรือเปิดไฟล์หลายอาร์ตบอร์ด) แล้วกดดูตัวอย่าง</div>
+    </section>
+
+    <!-- ปุ่มลัด -->
+    <section class="card" id="secHotkey" data-for="hotkey">
+      <h2><span class="num">⌨</span> จัดวางและนำไปใช้ในปุ่มเดียว <span class="sub">ONE-KEY WORKFLOW</span></h2>
+      <p class="hint">เลือกชิ้นงานแล้วกดคีย์ลัด นัดพอนจะจัดวางและสร้างชีตไดคัทด้วยค่าล่าสุดของแถบ “จัดวางดวง” (หรือ “ไดคัทต่อเนื่อง” ถ้าเปิดค้างไว้) ทันที</p>
+      <div class="grid2">
+        <label>ปุ่ม <select id="hkKey" data-setting="hkKey"></select></label>
+      </div>
+      <div class="checks">
+        <label class="check"><input type="checkbox" data-setting="hkCmd" /> Cmd / Ctrl</label>
+        <label class="check"><input type="checkbox" data-setting="hkShift" /> Shift</label>
+      </div>
+      <ol class="steplist">
+        <li><b>เลือกปุ่ม F2–F15</b><span>เพิ่ม Cmd / Ctrl หรือ Shift ได้</span></li>
+        <li><b>กด “วิธีตั้งค่า”</b><span>แผงติดตั้งสคริปต์ “NudPon Quick Nest” แล้วแสดงขั้นตอน</span></li>
+        <li><b>สร้าง Illustrator Action</b><span>ใช้ Insert Menu Item เรียก File → Scripts → NudPon Quick Nest แล้วตั้งปุ่มลัดให้ Action</span></li>
+      </ol>
+      <div class="row">
+        <button id="btnHkSetup">วิธีตั้งค่า</button>
+        <button id="btnHkTest" class="ghost">ทดสอบกับชิ้นที่เลือก</button>
+      </div>
+      <div id="hkGuide" class="guide" hidden></div>
+      <p class="note warnnote">
+        <b>ข้อจำกัดของ Illustrator</b> — ปลั๊กอินจองปุ่มลัดเองไม่ได้ จึงต้องเรียกผ่าน Action และจำกัดเฉพาะ F2–F15
+        ต้องเปิดแผงนัดพอนอย่างน้อยหนึ่งครั้งหลังเปิด Illustrator
+      </p>
+      <div id="hkStatus" class="status">เลือกปุ่มแล้วกด “วิธีตั้งค่า”</div>
     </section>
 
     <!-- 1. ชิ้นงาน -->
@@ -181,6 +443,15 @@
           <canvas id="preview" hidden></canvas>
         </div>
         <div id="previewInfo" class="preview-info"></div>
+      </section>
+      <section class="card preview-card" id="vecPreviewCard" data-for="corner led">
+        <h2><span id="vecTitle">ตัวอย่าง</span> <span id="vecSub" class="sub"></span></h2>
+        <div class="preview" id="vecBox">
+          <div id="vecEmpty" class="empty-preview">เลือกชิ้นงานใน Illustrator แล้วกด “วิเคราะห์ / ดูตัวอย่าง”</div>
+          <canvas id="vecCanvas" hidden></canvas>
+        </div>
+        <div id="vecLegend" class="legend"></div>
+        <p id="vecReport" class="dc-report"></p>
       </section>
       <section class="card preview-card" id="dcPreviewCard" data-for="shape">
         <h2>ตัวอย่างเส้นไดคัท <span id="dcSub" class="sub"></span></h2>
@@ -374,6 +645,8 @@
     <script src="core/layout.js"></script>
     <script src="core/cutfile.js"></script>
     <script src="core/diecut.js"></script>
+    <script src="core/cnc.js"></script>
+    <script src="core/dimension.js"></script>
     <script src="core/pack.js"></script>
     <script src="core/bridge.js"></script>
     <script src="illustrator/host-bridge.js"></script>

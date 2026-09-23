@@ -123,6 +123,56 @@
     dcLayer: 'Die cut',
     dcWidth: 0.25,
     dcColor: 'red',
+    // ทำมุมโค้ง (CNC)
+    cnIn: 1.5875,
+    cnOut: 0,
+    cnMode: 'copy',
+    cnFlags: true,
+    // หาเส้นกลาง (LED)
+    ledWidth: 6,
+    ledRadius: 15,
+    ledMargin: 10,
+    ledLayer: 'เส้นกลาง',
+    // เส้นบอกขนาด
+    dimScope: 'all',
+    dimAxis: 'both',
+    dimUnit: 'mm',
+    dimScale: '1',
+    dimScaleCustom: 1,
+    dimSide: 'auto',
+    dimColor: '#e6007e',
+    dimSize: 9,
+    dimStroke: 0.5,
+    dimDecimals: 1,
+    dimOffset: 8,
+    dimLayer: 'Dimension',
+    dimClear: false,
+    // รันนัมเบอร์
+    numMode: 'text',
+    numStart: 1,
+    numStep: 1,
+    numPrefix: '',
+    numSuffix: '',
+    numPadMode: 'auto',
+    numPad: 3,
+    numOrder: 'rows',
+    numToken: false,
+    numPos: 'bottom-center',
+    numMargin: 10,
+    numSkip: 0,
+    numMirror: false,
+    numClear: true,
+    numLayer: 'เลขหน้า',
+    numStyle: 'keep',
+    numFont: '',
+    numSize: 12,
+    numColor: '#000000',
+    numAlign: 'center',
+    numUnderline: false,
+    // ปุ่มลัด
+    hkKey: 'F5',
+    hkCmd: false,
+    hkShift: false,
   };
 
   function loadSettings() {
@@ -171,23 +221,33 @@
 
   // ---------------------------------------------------------------- สถานะบนจอ
 
+  var STATUS_ID = { shape: 'dcStatus', corner: 'cnStatus', led: 'ledStatus', dim: 'dimStatus', number: 'numStatus', hotkey: 'hkStatus' };
+
   function status(text, kind) {
-    var el = $(S.settings.tool === 'shape' ? 'dcStatus' : 'status');
+    var el = $(STATUS_ID[S.settings.tool] || 'status');
     el.textContent = text;
     el.className = 'status' + (kind ? ' ' + kind : '');
   }
 
   function progress(f) {
-    $(S.settings.tool === 'shape' ? 'dcBar' : 'progressBar').style.width = Math.round(Math.max(0, Math.min(1, f)) * 100) + '%';
+    var bar = $(S.settings.tool === 'shape' ? 'dcBar' : STATUS_ID[S.settings.tool] ? '' : 'progressBar');
+    if (!bar) return;
+    bar.style.width = Math.round(Math.max(0, Math.min(1, f)) * 100) + '%';
   }
 
-  var BUTTONS = ['btnGo', 'btnNest', 'btnBuild', 'btnExport', 'btnSelectCut', 'btnScan', 'btnImport', 'btnAddPng', 'btnDcRead', 'btnDcMake'];
+  // ปุ่มทุกปุ่ม (ยกเว้นแถบเครื่องมือ) ปิดระหว่างทำงาน
+  function actionButtons() {
+    return Array.prototype.slice.call(document.querySelectorAll('button:not([data-tool])'));
+  }
 
   function run(fn) {
     if (S.busy) return Promise.resolve();
     S.busy = true;
-    BUTTONS.forEach(function (id) {
-      $(id).disabled = true;
+    var locked = actionButtons().filter(function (b) {
+      return !b.disabled;
+    });
+    locked.forEach(function (b) {
+      b.disabled = true;
     });
     progress(0.02);
     return Promise.resolve()
@@ -198,8 +258,8 @@
       })
       .then(function () {
         S.busy = false;
-        BUTTONS.forEach(function (id) {
-          $(id).disabled = false;
+        locked.forEach(function (b) {
+          b.disabled = false;
         });
         setTimeout(function () {
           if (!S.busy) progress(0);
@@ -955,12 +1015,13 @@
     var wide = window.innerWidth >= 620;
     document.body.classList.toggle('wide', wide);
     var target = wide ? $('previewSide') : $('previewSlot');
-    ['previewCard', 'dcPreviewCard'].forEach(function (id) {
+    ['previewCard', 'dcPreviewCard', 'vecPreviewCard'].forEach(function (id) {
       var card = $(id);
       if (card.parentNode !== target) target.appendChild(card);
     });
     if (S.result) drawPreview();
     if (S.dc) drawDc();
+    if (S.vec) drawVec();
   }
 
   // วาดทุกแผ่นลงแคนวาสกว้าง cssW (ใช้ทั้งพรีวิวบนแผงและรูปส่งลูกค้า)
@@ -1634,13 +1695,548 @@
     });
   }
 
+  // ---------------------------------------------------------------- ทำมุมโค้ง / หาเส้นกลาง
+
+  var D = NC.dimension;
+
+  function later() {
+    return new Promise(function (resolve) {
+      setTimeout(resolve, 20);
+    });
+  }
+
+  // อ่านรูปทรงของ Selection (ตัวอักษรถูก Outline บนสำเนา) → วงปิดหน่วย มม. (y ลง)
+  function readShapes() {
+    status('นัดพอนกำลังอ่านรูปทรง…');
+    return host.call('np_readShapes', {}).then(function (r) {
+      var rings = B.subpathsToRings(r.paths, 0.05);
+      if (!rings.length) throw new Error('ไม่พบ Path ปิดในชิ้นที่เลือก — เลือกตัวอักษรหรือ Shape ที่ปิดแล้ว');
+      return later().then(function () {
+        return { read: r, rings: rings };
+      });
+    });
+  }
+
+  function cncRead() {
+    return readShapes().then(function (r) {
+      status('กำลังคำนวณมุมโค้ง…');
+      return later().then(function () {
+        var res = NC.cnc.roundCorners(r.rings, { rIn: num('cnIn'), rOut: num('cnOut') });
+        S.vec = { kind: 'corner', rings: r.rings, loops: res.loops, flags: res.flags, read: r.read };
+        drawVec();
+        var msg =
+          'อ่าน ' + r.read.count + ' ชิ้น' + (r.read.kinds && r.read.kinds.texts ? ' (ตัวอักษร ' + r.read.kinds.texts + ')' : '') +
+          ' · ได้ ' + res.loops.length + ' วง · มุมใน R' + num('cnIn') + ' · มุมนอก R' + num('cnOut') +
+          (res.flags.length ? ' · ⚠ จุดที่รัศมีลงไม่ได้ ' + res.flags.length + ' จุด' : ' · ดอกลงได้ทุกมุม');
+        status(msg, res.flags.length ? 'warn' : 'ok');
+        return S.vec;
+      });
+    });
+  }
+
+  function cncMake() {
+    return cncRead().then(function (v) {
+      var s = S.settings;
+      var copy = s.cnMode !== 'replace';
+      if (!copy && !host.demo && !window.confirm('แก้ทับของเดิม — ชิ้นต้นฉบับจะถูกลบแล้วแทนด้วยรูปทรงใหม่ (Undo ได้) ทำต่อไหม?')) {
+        throw new Error('ยกเลิกแล้ว — ของเดิมไม่ถูกแตะ');
+      }
+      var bb = G.bounds(v.rings);
+      var dx = copy ? bb.maxX - bb.minX + 10 : 0; // สำเนาวางข้างของเดิม ห่าง 10 มม.
+      var paths = v.loops.map(function (lp) {
+        return {
+          closed: true,
+          points: NC.cnc.toBezier(
+            lp.points.map(function (q) {
+              return [(q[0] + dx) / K, -q[1] / K];
+            }),
+            2 / K
+          ),
+        };
+      });
+      var flags = s.cnFlags
+        ? v.flags.map(function (f) {
+            return { x: (f.x + dx) / K, y: -f.y / K, r: f.r / K };
+          })
+        : [];
+      status('กำลังวาดรูปทรงมุมโค้งลงไฟล์…');
+      return host
+        .call('np_drawShapes', { paths: paths, mode: copy ? 'copy' : 'replace', name: 'มุมโค้ง R' + num('cnIn'), flags: flags, flagLayer: 'ตรวจรัศมี' })
+        .then(function (out) {
+          status(
+            'ทำมุมโค้งแล้ว ' + out.count + ' วง' + (copy ? ' — สำเนาวางข้างของเดิม ห่าง 10 มม.' : ' — แทนของเดิมแล้ว') +
+              (out.flags ? ' · วงกลมตรวจ ' + out.flags + ' จุด บนเลเยอร์ “ตรวจรัศมี”' : ''),
+            out.flags ? 'warn' : 'ok'
+          );
+        });
+    });
+  }
+
+  function ledOpts() {
+    return { stripWidth: num('ledWidth'), minRadius: num('ledRadius'), endMargin: num('ledMargin') };
+  }
+
+  function ledReport(st) {
+    var parts = [
+      'เส้น ' + st.lines + ' เส้น',
+      'ยาวรวม ' + Math.round(st.length) + ' มม. (' + (st.length / 1000).toFixed(2) + ' ม.)',
+      'กว้าง ' + st.minWidth.toFixed(1) + '–' + st.maxWidth.toFixed(1) + ' มม.',
+    ];
+    if (st.narrow) parts.push('แคบกว่าแถบไฟ ' + st.narrow + ' จุด');
+    if (st.tight) parts.push('โค้งแคบกว่า R' + num('ledRadius') + ' ' + st.tight + ' จุด');
+    if (st.wide) parts.push('กว้างเกิน 2 เท่าของแถบไฟ ' + st.wide + ' จุด (อาจต้องใช้ 2 แถว)');
+    if (st.dropped) parts.push('ข้ามเส้นสั้นกว่าระยะเว้นปลาย ' + st.dropped + ' เส้น');
+    return parts.join(' · ');
+  }
+
+  function ledRead() {
+    return readShapes().then(function (r) {
+      status('กำลังหาเส้นกลาง…');
+      return later().then(function () {
+        var res = NC.cnc.centerline(r.rings, ledOpts());
+        if (!res.lines.length) throw new Error('หาเส้นกลางไม่ได้ — ตัวอักษรเล็ก/แคบเกินไปเมื่อเว้นจากปลาย ' + num('ledMargin') + ' มม.');
+        S.vec = { kind: 'led', rings: r.rings, lines: res.lines, flags: res.flags, stats: res.stats };
+        drawVec();
+        var warn = res.stats.narrow || res.stats.tight || res.stats.wide;
+        status(ledReport(res.stats), warn ? 'warn' : 'ok');
+        return S.vec;
+      });
+    });
+  }
+
+  function ledMake() {
+    return ledRead().then(function (v) {
+      var paths = v.lines.map(function (ln) {
+        return {
+          closed: ln.closed,
+          points: ln.points.map(function (q) {
+            var a = [q[0] / K, -q[1] / K];
+            return { a: a, l: a, r: a };
+          }),
+        };
+      });
+      return host
+        .call('np_drawDieCut', { paths: paths, layer: S.settings.ledLayer || 'เส้นกลาง', strokeWidth: 1, color: 'hex', hex: '#00a651' })
+        .then(function (out) {
+          status('สร้างเส้นกลางแล้ว ' + out.count + ' เส้น บนเลเยอร์ “' + out.layer + '” · ' + ledReport(v.stats), 'ok');
+        });
+    });
+  }
+
+  var FLAG_COLOR = { inner: '#ff2d55', outer: '#ff9f1a', narrow: '#ff2d55', tight: '#ff9f1a', wide: '#2f7cf6' };
+
+  function drawVec() {
+    var v = S.vec;
+    var canvas = $('vecCanvas');
+    var tool = S.settings.tool;
+    $('vecTitle').textContent = tool === 'led' ? 'ตัวอย่างเส้นกลาง' : 'ตัวอย่างมุมโค้ง';
+    if (!v || v.kind !== tool) {
+      canvas.hidden = true;
+      $('vecEmpty').hidden = false;
+      $('vecReport').textContent = '';
+      $('vecLegend').innerHTML = '';
+      $('vecSub').textContent = '';
+      return;
+    }
+    canvas.hidden = false;
+    $('vecEmpty').hidden = true;
+    var bb = G.bounds(v.rings);
+    var pad = 4;
+    v.flags.forEach(function (f) {
+      pad = Math.max(pad, (f.r || 0) + 2);
+    });
+    var x0 = bb.minX - pad;
+    var y0 = bb.minY - pad;
+    var wMm = bb.maxX - bb.minX + 2 * pad;
+    var hMm = bb.maxY - bb.minY + 2 * pad;
+    var box = $('vecBox');
+    var cssW = Math.max(160, (box.clientWidth || 300) - 16);
+    var cssH = document.body.classList.contains('wide') ? Math.max(200, box.clientHeight - 16) : 420;
+    var sc = Math.min(cssW / wMm, cssH / hMm);
+    var W = Math.round(wMm * sc);
+    var H = Math.round(hMm * sc);
+    var dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    var ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, W, H);
+    function path(pts, closed) {
+      pts.forEach(function (q, k) {
+        var x = (q[0] - x0) * sc;
+        var y = (q[1] - y0) * sc;
+        if (k) ctx.lineTo(x, y);
+        else ctx.moveTo(x, y);
+      });
+      if (closed) ctx.closePath();
+    }
+    // ของเดิม
+    ctx.beginPath();
+    v.rings.forEach(function (r) {
+      path(r, true);
+    });
+    ctx.fillStyle = v.kind === 'led' ? 'rgba(31,42,68,.85)' : 'rgba(31,42,68,.16)';
+    ctx.fill('evenodd');
+    ctx.strokeStyle = 'rgba(31,42,68,.7)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    if (v.kind === 'corner') {
+      ctx.beginPath();
+      v.loops.forEach(function (lp) {
+        path(lp.points, true);
+      });
+      ctx.fillStyle = 'rgba(200,100,59,.28)';
+      ctx.fill('evenodd');
+      ctx.strokeStyle = '#c8643b';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    } else {
+      ctx.strokeStyle = '#3ee07a';
+      ctx.lineWidth = 2.5;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      v.lines.forEach(function (ln) {
+        ctx.beginPath();
+        path(ln.points, ln.closed);
+        ctx.stroke();
+      });
+    }
+    ctx.setLineDash([4, 3]);
+    ctx.lineWidth = 2;
+    v.flags.forEach(function (f) {
+      var r = Math.max(6, (f.r || Math.max(3, num('ledWidth'))) * sc);
+      ctx.strokeStyle = FLAG_COLOR[f.kind] || '#ff2d55';
+      ctx.beginPath();
+      ctx.arc((f.x - x0) * sc, (f.y - y0) * sc, r, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
+    $('vecSub').textContent = Math.round(bb.maxX - bb.minX) + ' × ' + Math.round(bb.maxY - bb.minY) + ' มม.';
+    var legend =
+      v.kind === 'corner'
+        ? [['#1f2a44', 'ของเดิม'], ['#c8643b', 'มุมโค้งใหม่'], ['#ff2d55', 'มุมใน: ดอกลงไม่ได้'], ['#ff9f1a', 'มุมนอก: บางกว่าดอก']]
+        : [['#3ee07a', 'เส้นกลาง'], ['#ff2d55', 'แคบกว่าแถบไฟ'], ['#ff9f1a', 'โค้งเกิน'], ['#2f7cf6', 'กว้างเกิน 2 เท่า']];
+    var lg = $('vecLegend');
+    lg.innerHTML = '';
+    legend.forEach(function (it) {
+      var span = el('span', null, it[1]);
+      var dot = el('i');
+      dot.style.background = it[0];
+      span.insertBefore(dot, span.firstChild);
+      lg.appendChild(span);
+    });
+    $('vecReport').textContent =
+      v.kind === 'led'
+        ? ledReport(v.stats)
+        : 'ได้ ' + v.loops.length + ' วง · จุดตรวจ ' + v.flags.length + ' จุด' + (v.flags.length ? ' — ร่องแคบกว่าดอกหรือมุมแหลมจัด ดอกกัดลงไม่ถึง' : '');
+  }
+
+  // ---------------------------------------------------------------- เส้นบอกขนาด
+
+  function dimScale() {
+    var s = S.settings;
+    return s.dimScale === 'custom' ? Math.max(0.001, num('dimScaleCustom')) : parseFloat(s.dimScale) || 1;
+  }
+
+  function dimPlan(items) {
+    var s = S.settings;
+    var boxes = items.map(function (it) {
+      return it.vb;
+    });
+    var fmt = { unit: s.dimUnit, scale: dimScale(), decimals: num('dimDecimals') };
+    var side = (s.dimSide === 'auto' ? 'top-right' : s.dimSide).split('-');
+    var size = num('dimSize');
+    var off = num('dimOffset') * PT;
+    var axes = s.dimAxis === 'both' ? ['w', 'h'] : [s.dimAxis];
+    var targets = [];
+    if (s.dimScope !== 'all') boxes.forEach(function (b) {
+      targets.push({ box: b, offset: off });
+    });
+    if (s.dimScope !== 'each' && !(s.dimScope === 'both' && boxes.length < 2)) {
+      targets.push({ box: D.unionBox(boxes), offset: s.dimScope === 'both' ? off * 2 + size * 1.6 : off });
+    }
+    var dims = [];
+    targets.forEach(function (t) {
+      axes.forEach(function (ax) {
+        var d = D.dimension(t.box, ax, { side: ax === 'w' ? side[0] : side[1], offset: t.offset, size: size });
+        d.text.str = D.formatLength(ax === 'w' ? t.box[2] - t.box[0] : t.box[1] - t.box[3], fmt);
+        dims.push(d);
+      });
+    });
+    return dims;
+  }
+
+  function dimMake() {
+    var s = S.settings;
+    status('กำลังวัดขนาด…');
+    return host.call('np_readBounds', {}).then(function (r) {
+      var dims = dimPlan(r.items);
+      return host
+        .call('np_drawDimensions', {
+          dims: dims,
+          layer: s.dimLayer || 'Dimension',
+          hex: s.dimColor,
+          strokeWidth: num('dimStroke'),
+          clear: !!s.dimClear,
+        })
+        .then(function (out) {
+          var values = dims
+            .map(function (d) {
+              return d.text.str;
+            })
+            .slice(0, 6)
+            .join(', ');
+          status(
+            'ใส่เส้นบอกขนาดแล้ว ' + out.count + ' เส้น (สเกล 1:' + dimScale() + ') บนเลเยอร์ “' + out.layer + '”: ' + values +
+              (dims.length > 6 ? ' …' : '') + (out.cleared ? ' · ล้างของเดิม ' + out.cleared + ' ชิ้น' : ''),
+            'ok'
+          );
+        });
+    });
+  }
+
+  // ---------------------------------------------------------------- รันนัมเบอร์
+
+  function numOpts(count) {
+    var s = S.settings;
+    return {
+      start: num('numStart'),
+      step: num('numStep'),
+      prefix: s.numPrefix || '',
+      suffix: s.numSuffix || '',
+      pad: s.numPadMode === 'auto' ? 'auto' : s.numPadMode === 'none' ? 0 : num('numPad'),
+      count: count,
+    };
+  }
+
+  function numStyle() {
+    var s = S.settings;
+    if (s.numStyle !== 'custom') return null;
+    return { font: s.numFont || '', size: num('numSize'), hex: s.numColor, align: s.numAlign, underline: !!s.numUnderline };
+  }
+
+  function numPlan() {
+    var s = S.settings;
+    if (s.numMode === 'page') {
+      return host.call('np_readArtboards', {}).then(function (r) {
+        var abs = r.artboards;
+        var skip = Math.max(0, Math.round(num('numSkip')));
+        var numbered = abs.slice(skip);
+        if (!numbered.length) throw new Error('เว้น ' + skip + ' หน้าแล้วไม่เหลือหน้าให้ใส่เลข (มี ' + abs.length + ' อาร์ตบอร์ด)');
+        var opts = numOpts(numbered.length);
+        var size = s.numStyle === 'custom' ? num('numSize') : 10;
+        return {
+          mode: 'page',
+          skipped: abs.slice(0, skip),
+          pages: numbered.map(function (ab, i) {
+            var pos = D.pagePosition(ab.rect, s.numPos, num('numMargin') * PT, size, !!s.numMirror, skip + i + 1);
+            return { x: pos.x, y: pos.y, justify: pos.justify, text: D.numberText(i, opts), label: ab.name || 'อาร์ตบอร์ด ' + (ab.index + 1) };
+          }),
+        };
+      });
+    }
+    return host.call('np_readTexts', {}).then(function (r) {
+      if (!r.texts.length) throw new Error('ไม่พบ Text Frame ในชิ้นที่เลือก — เลือกกล่องข้อความ (หรือกลุ่มที่มีข้อความ)');
+      var ordered = D.orderItems(r.texts, s.numOrder);
+      var opts = numOpts(ordered.length);
+      return {
+        mode: 'text',
+        items: ordered.map(function (t, i) {
+          return { idx: t.idx, before: t.contents, text: D.fillTemplate(t.contents, D.numberText(i, opts), !!s.numToken) };
+        }),
+      };
+    });
+  }
+
+  function renderNumList(plan) {
+    var ol = $('numList');
+    ol.innerHTML = '';
+    var rows = [];
+    if (plan.mode === 'page') {
+      plan.skipped.forEach(function (ab) {
+        rows.push([ab.name || 'อาร์ตบอร์ด ' + (ab.index + 1), '(เว้น)']);
+      });
+      plan.pages.forEach(function (pg) {
+        rows.push([pg.label, pg.text]);
+      });
+    } else {
+      plan.items.forEach(function (it) {
+        rows.push([it.before, it.text]);
+      });
+    }
+    rows.slice(0, 60).forEach(function (r) {
+      var li = el('li');
+      li.appendChild(el('span', null, r[0] + ' → '));
+      li.appendChild(el('b', null, r[1]));
+      ol.appendChild(li);
+    });
+    if (rows.length > 60) ol.appendChild(el('li', null, '… อีก ' + (rows.length - 60) + ' รายการ'));
+  }
+
+  function numPreview() {
+    status('กำลังอ่าน…');
+    return numPlan().then(function (plan) {
+      renderNumList(plan);
+      var n = plan.mode === 'page' ? plan.pages.length : plan.items.length;
+      status('ตัวอย่าง ' + n + ' รายการ — กด “ใส่เลข” เพื่อเขียนลงไฟล์', 'ok');
+      return plan;
+    });
+  }
+
+  function numMake() {
+    var s = S.settings;
+    return numPreview().then(function (plan) {
+      if (plan.mode === 'page') {
+        return host
+          .call('np_pageNumbers', {
+            pages: plan.pages,
+            style: numStyle() || { size: 10, hex: '#000000' },
+            layer: s.numLayer || 'เลขหน้า',
+            clear: !!s.numClear,
+          })
+          .then(function (out) {
+            status('ใส่เลขหน้าแล้ว ' + out.count + ' หน้า บนเลเยอร์ “' + out.layer + '”', 'ok');
+          });
+      }
+      var items = plan.items.filter(function (it) {
+        return it.text !== it.before;
+      });
+      if (!items.length) throw new Error('ไม่มีข้อความให้เปลี่ยน — ติ๊ก “แทนเฉพาะ {%n}” อยู่ แต่ไม่มีข้อความไหนมี {%n}');
+      return host.call('np_setTexts', { items: items, style: numStyle() }).then(function (out) {
+        status('ใส่เลขแล้ว ' + out.count + ' กล่อง (' + items[0].text + ' … ' + items[items.length - 1].text + ')', 'ok');
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------- ปุ่มลัด (One-key)
+
+  var QUICK_EVENT = 'com.nongploy.nestingcut.quick';
+  var QUICK_FILE = 'NudPon Quick Nest.jsx';
+
+  function asciiOnly(str) {
+    return str.replace(/[\u007f-￿]/g, function (c) {
+      return '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4);
+    });
+  }
+
+  // สคริปต์ที่ Action เรียก: ส่งเหตุการณ์ให้แผงที่เปิดอยู่ (แผงทำงานต่อด้วยค่าล่าสุด)
+  function quickScript() {
+    var needPanel = 'เปิดแผงนัดพอน (Window → Extensions → นัดพอน Nesting Cut) อย่างน้อยหนึ่งครั้งหลังเปิด Illustrator แล้วกดปุ่มลัดอีกครั้ง';
+    var needSel = 'เลือกชิ้นงานก่อน แล้วกดปุ่มลัดอีกครั้ง';
+    return asciiOnly(
+      [
+        '// NudPon Quick Nest - created by the NudPon Nesting Cut panel',
+        '// Select artwork and run this script (from an Action with a function key): the panel',
+        '// nests the selection and builds the die-cut sheet with its latest settings.',
+        '(function () {',
+        '  if (!$.global.NP_PANEL_READY) { alert(' + JSON.stringify(needPanel) + '); return; }',
+        '  var doc = app.documents.length ? app.activeDocument : null;',
+        '  if (!doc || !doc.selection || !doc.selection.length) { alert(' + JSON.stringify(needSel) + '); return; }',
+        '  try { new ExternalObject("lib:PlugPlugExternalObject"); } catch (e) {}',
+        '  var ev = new CSXSEvent();',
+        '  ev.type = "' + QUICK_EVENT + '";',
+        '  ev.data = "go";',
+        '  ev.dispatch();',
+        '})();',
+        '',
+      ].join('\n')
+    );
+  }
+
+  function keyLabel() {
+    var s = S.settings;
+    return [s.hkCmd ? 'Cmd/Ctrl' : '', s.hkShift ? 'Shift' : '', s.hkKey || 'F5']
+      .filter(Boolean)
+      .join(' + ');
+  }
+
+  function renderGuide(r) {
+    var box = $('hkGuide');
+    box.innerHTML = '';
+    box.hidden = false;
+    var head = el('div');
+    head.appendChild(document.createTextNode('ตั้งปุ่ม '));
+    head.appendChild(el('kbd', null, keyLabel()));
+    box.appendChild(head);
+    var ol = el('ol');
+    function step(text, code) {
+      var li = el('li', null, text);
+      if (code) {
+        li.appendChild(document.createTextNode(' '));
+        li.appendChild(el('code', null, code));
+      }
+      ol.appendChild(li);
+    }
+    if (!r.installed) {
+      step('คัดลอกไฟล์สคริปต์', r.path);
+      step('ไปไว้ในโฟลเดอร์ Scripts ของ Illustrator (ต้องใช้สิทธิ์ผู้ดูแลเครื่อง)', r.scripts || '…/Adobe Illustrator …/Presets/<ภาษา>/Scripts');
+    } else step('ติดตั้งสคริปต์แล้วที่', r.path);
+    step('ปิดแล้วเปิด Illustrator ใหม่หนึ่งครั้ง ให้เมนู File → Scripts เห็น “NudPon Quick Nest”');
+    step('เปิด Window → Actions → สร้าง Set ใหม่ (เช่น “นัดพอน”) แล้วกด New Action');
+    step('ตั้ง Function Key = ' + (S.settings.hkKey || 'F5') + (S.settings.hkShift ? ' + Shift' : '') + (S.settings.hkCmd ? ' + Command/Ctrl' : '') + ' → กด Record');
+    step('เมนูของแผง Actions → Insert Menu Item… → เลือก File → Scripts → NudPon Quick Nest → OK แล้วกด Stop');
+    step('ทุกครั้งหลังเปิด Illustrator ให้เปิดแผงนัดพอนหนึ่งครั้ง จากนั้นเลือกชิ้นงานแล้วกด ' + keyLabel() + ' ได้เลย');
+    box.appendChild(ol);
+  }
+
+  function hkSetup() {
+    var code = quickScript();
+    var job = host.demo
+      ? Promise.resolve({ installed: false, path: host.writeText(QUICK_FILE, code) + ' (ดาวน์โหลดแล้ว)' })
+      : host.call('np_installQuickScript', { code: code, fileName: QUICK_FILE });
+    return job.then(function (r) {
+      renderGuide(r);
+      status(
+        r.installed ? 'ติดตั้งสคริปต์แล้ว — ทำตามขั้นตอนด้านล่างเพื่อผูกปุ่ม ' + keyLabel() : 'บันทึกสคริปต์แล้ว — คัดลอกไปโฟลเดอร์ Scripts ตามขั้นตอนด้านล่าง',
+        r.installed ? 'ok' : 'warn'
+      );
+    });
+  }
+
+  // สิ่งที่ปุ่มลัดทำ: ดึง Selection → จัดวางด้วยค่าล่าสุด → สร้างชีตไดคัท
+  function quickRun() {
+    var tool = S.settings.tool === 'run' ? 'run' : 'nest';
+    if (S.settings.tool !== tool) setTool(tool);
+    return scan()
+      .then(prepareForTool)
+      .then(nestNow)
+      .then(function () {
+        if (host.demo) return;
+        return buildLayout();
+      });
+  }
+
+  // ช่องที่แสดงเฉพาะบางตัวเลือก
+  function syncFields() {
+    var s = S.settings;
+    function show(sel, on) {
+      Array.prototype.forEach.call(document.querySelectorAll(sel), function (e) {
+        e.hidden = !on;
+      });
+    }
+    show('[data-dim-custom]', s.dimScale === 'custom');
+    show('[data-num-pad]', s.numPadMode === 'custom');
+    show('[data-num="text"]', s.numMode !== 'page');
+    show('[data-num="page"]', s.numMode === 'page');
+    show('[data-num-style]', s.numStyle === 'custom');
+  }
+
   // ---------------------------------------------------------------- สลับเครื่องมือ
 
   var TOOL_STATUS = {
     nest: 'พร้อมลุย — เลือกชิ้นงานแล้วกด “ดึงชิ้นงานที่เลือก”',
     run: 'เลือกต้นแบบหนึ่งดวง → ดึงชิ้นงาน → กด “คำนวณ” ดูจำนวนดวงและจำนวนครั้งยกใบมีด',
     shape: 'เลือกชิ้นงานใน Illustrator แล้วกด “อ่านรูป / ดูตัวอย่าง”',
+    corner: 'เลือกตัวอักษรหรือ Path แล้วกดวิเคราะห์',
+    led: 'เลือกตัวอักษรปิดแล้วกดวิเคราะห์',
+    dim: 'เลือกงานแล้วกดใส่เส้นบอกขนาด',
+    number: 'เลือก Text Frame (หรือเปิดไฟล์หลายอาร์ตบอร์ด) แล้วกดดูตัวอย่าง',
+    hotkey: 'เลือกปุ่มแล้วกด “วิธีตั้งค่า”',
   };
+  var NO_PREVIEW = ['dim', 'number', 'hotkey'];
 
   function setTool(tool) {
     var prev = S.settings.tool;
@@ -1657,7 +2253,8 @@
     Array.prototype.forEach.call(document.querySelectorAll('#toolTabs button'), function (b) {
       b.classList.toggle('on', b.getAttribute('data-tool') === tool);
     });
-    $('btnBuild').textContent = 'สร้างชีตไดคัท';
+    document.body.classList.toggle('nopreview', NO_PREVIEW.indexOf(tool) >= 0);
+    if (tool === 'corner' || tool === 'led') drawVec();
     if (S.result) {
       drawPreview();
       renderStats();
@@ -1672,6 +2269,7 @@
     'markInset', 'markThick', 'markClearance', 'markEvery', 'headerOn', 'headerHeight', 'cutter', 'media',
     'arrange', 'fillSheet', 'runShape', 'runSize', 'runW', 'runH', 'runRadius', 'runGap', 'runLayout',
   ];
+  var VEC_KEYS = ['cnIn', 'cnOut', 'ledWidth', 'ledRadius', 'ledMargin'];
   var DC_KEYS = ['dcSource', 'dcOffset', 'dcJoin', 'dcMiter', 'dcHoles', 'dcTol', 'dcShadow', 'dcDetail'];
 
   function fields() {
@@ -1726,6 +2324,9 @@
     fillSelect('cutter', L.CUTTERS);
     fillSelect('media', L.MEDIA);
     fillSelect('runShape', NC.diecut.SHAPES);
+    var keys = [];
+    for (var f = 2; f <= 15; f++) keys.push({ id: 'F' + f, label: 'F' + f });
+    fillSelect('hkKey', keys);
     fields().forEach(function (f) {
       var key = f.getAttribute('data-setting');
       writeField(key);
@@ -1750,6 +2351,11 @@
         }
         saveSettings();
         if (DC_KEYS.indexOf(key) >= 0) S.dc = null;
+        if (VEC_KEYS.indexOf(key) >= 0 && S.vec) {
+          S.vec = null;
+          drawVec();
+        }
+        syncFields();
         if (NEST_KEYS.indexOf(key) >= 0) markStale();
         else S.built = false;
         if (S.result && !S.stale) drawPreview();
@@ -1873,6 +2479,48 @@
         if (!S.busy) setTool(b.getAttribute('data-tool'));
       };
     });
+    $('btnCnRead').onclick = function () {
+      run(cncRead);
+    };
+    $('btnCnMake').onclick = function () {
+      run(cncMake);
+    };
+    $('cnBit').onchange = function () {
+      if (!$('cnBit').value) return;
+      setSetting('cnIn', parseFloat($('cnBit').value));
+      saveSettings();
+      S.vec = null;
+      drawVec();
+      $('cnBit').value = '';
+    };
+    $('btnLedRead').onclick = function () {
+      run(ledRead);
+    };
+    $('btnLedMake').onclick = function () {
+      run(ledMake);
+    };
+    $('btnDimMake').onclick = function () {
+      run(dimMake);
+    };
+    $('btnNumPreview').onclick = function () {
+      run(numPreview);
+    };
+    $('btnNumMake').onclick = function () {
+      run(numMake);
+    };
+    $('btnHkSetup').onclick = function () {
+      run(hkSetup);
+    };
+    $('btnHkTest').onclick = function () {
+      run(quickRun);
+    };
+    if (host.onEvent) {
+      host.onEvent(QUICK_EVENT, function () {
+        run(quickRun);
+      });
+    }
+    host.call('np_panelReady', {}).catch(function () {});
+    syncFields();
     $('btnDcRead').onclick = function () {
       run(dcRead);
     };
@@ -1911,7 +2559,16 @@
   }
 
   // เปิดให้เทสต์เรียกได้
-  window.NPPanel = { state: S, go: go, nestNow: nestNow, exportAll: exportAll, cutPaths: cutPaths, setTool: setTool, dcRead: dcRead };
+  window.NPPanel = {
+    state: S,
+    go: go,
+    nestNow: nestNow,
+    exportAll: exportAll,
+    cutPaths: cutPaths,
+    setTool: setTool,
+    dcRead: dcRead,
+    quickScript: quickScript,
+  };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();

@@ -318,6 +318,50 @@
 
   var dieCuts = [];
 
+  // ตัวอักษรตัวอย่าง (มม., y ลง) สำหรับ “ทำมุมโค้ง” และ “หาเส้นกลาง” — U มีร่องแคบ 2 มม. ที่ดอก 1/8 นิ้วลงไม่ได้
+  var LETTERS = { x: 1400, y: 800 };
+  function ringO(cx, cy, r, n, rev) {
+    var out = [];
+    for (var i = 0; i < n; i++) {
+      var t = ((rev ? -i : i) / n) * 2 * Math.PI;
+      out.push([cx + r * Math.cos(t), cy + r * Math.sin(t)]);
+    }
+    return out;
+  }
+  var LETTER_RINGS = [
+    [[0, 0], [12, 0], [12, 48], [40, 48], [40, 60], [0, 60]],
+    [[50, 0], [94, 0], [94, 12], [78, 12], [78, 60], [66, 60], [66, 12], [50, 12]],
+    [[104, 0], [118, 0], [118, 48], [120, 48], [120, 0], [134, 0], [134, 60], [104, 60]],
+    ringO(174, 30, 30, 72, false),
+    ringO(174, 30, 18, 72, true),
+  ];
+  function letterPaths() {
+    return LETTER_RINGS.map(function (ring) {
+      return {
+        closed: true,
+        points: ring.map(function (q) {
+          var a = [LETTERS.x + q[0] * PT, LETTERS.y - q[1] * PT];
+          return { a: a, l: a, r: a };
+        }),
+      };
+    });
+  }
+  function letterBoxes() {
+    return [[0, 40], [50, 94], [104, 134], [144, 204]].map(function (xr) {
+      return [LETTERS.x + xr[0] * PT, LETTERS.y, LETTERS.x + xr[1] * PT, LETTERS.y - 60 * PT];
+    });
+  }
+  // ป้ายคิว 4 × 3 ใบ (ส่งมาแบบสลับลำดับ ให้เห็นว่าเรียงแถว/คอลัมน์ได้)
+  var TICKETS = [];
+  [5, 2, 9, 0, 11, 7, 3, 6, 1, 10, 4, 8].forEach(function (k) {
+    var col = k % 4;
+    var row = Math.floor(k / 4);
+    var l = 100 + col * 160;
+    var t = 700 - row * 90;
+    TICKETS.push({ contents: 'บัตรคิว {%n}', vb: [l, t, l + 140, t - 30] });
+  });
+
+
   var api = {
     np_ping: function () {
       return { version: 'demo', app: 'browser', documents: 1, selection: true };
@@ -387,6 +431,51 @@
         count: 1,
       };
     },
+    np_readShapes: function () {
+      return {
+        paths: letterPaths(),
+        count: 4,
+        kinds: { images: 0, texts: 4, vectors: 0, clips: 0 },
+        bounds: [LETTERS.x, LETTERS.y, LETTERS.x + 204 * PT, LETTERS.y - 60 * PT],
+      };
+    },
+    np_drawShapes: function (a) {
+      return { count: a.paths.length, removed: 0, flags: (a.flags || []).length };
+    },
+    np_readBounds: function () {
+      return {
+        items: letterBoxes().map(function (vb, i) {
+          return { vb: vb, name: 'ตัวที่ ' + (i + 1) };
+        }),
+      };
+    },
+    np_drawDimensions: function (a) {
+      return { count: a.dims.length, cleared: 0, layer: a.layer };
+    },
+    np_readTexts: function () {
+      return {
+        texts: TICKETS.map(function (t, i) {
+          return { idx: i, contents: t.contents, vb: t.vb };
+        }),
+      };
+    },
+    np_setTexts: function (a) {
+      a.items.forEach(function (it) {
+        TICKETS[it.idx].result = it.text;
+      });
+      return { count: a.items.length };
+    },
+    np_readArtboards: function () {
+      var out = [];
+      for (var i = 0; i < 6; i++) out.push({ index: i, rect: [i * 620, 842, i * 620 + 595, 0], name: 'หน้า ' + (i + 1) });
+      return { artboards: out };
+    },
+    np_pageNumbers: function (a) {
+      return { count: a.pages.length, layer: a.layer };
+    },
+    np_panelReady: function () {
+      return { ready: true };
+    },
     np_drawDieCut: function (a) {
       dieCuts = dieCuts.concat(a.paths);
       return { count: a.paths.length, layer: a.layer || 'Die cut' };
@@ -434,6 +523,7 @@
       return null;
     },
     onSkinChange: function () {},
+    onEvent: function () {},
     // รูปชิ้นงานสำหรับพรีวิว
     thumbFor: function (idx, ppi) {
       var it = items[idx];

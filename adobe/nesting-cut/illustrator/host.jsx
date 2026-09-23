@@ -272,6 +272,18 @@ function np_drawPath(container, sp, spot, width) {
 
 function np_drawPathColor(container, sp, color, width, name) {
   var p = container.pathItems.add();
+  np_applyPoints(p, sp);
+  p.filled = false;
+  p.stroked = true;
+  p.strokeColor = color;
+  p.strokeWidth = width > 0 ? width : 0.25;
+  p.strokeOverprint = true;
+  if (name) p.name = name;
+  return p;
+}
+
+// set anchors + handles of a path item from { closed, points: [{ a, l, r }] }
+function np_applyPoints(p, sp) {
   var pts = sp.points;
   var anchors = [];
   var curved = false;
@@ -292,12 +304,6 @@ function np_drawPathColor(container, sp, color, width, name) {
     }
   }
   p.closed = sp.closed !== false;
-  p.filled = false;
-  p.stroked = true;
-  p.strokeColor = color;
-  p.strokeWidth = width > 0 ? width : 0.25;
-  p.strokeOverprint = true;
-  if (name) p.name = name;
   return p;
 }
 
@@ -876,6 +882,31 @@ function np_red(doc) {
   return r;
 }
 
+// '#rrggbb' -> colour for the document (RGB, or a plain CMYK conversion)
+function np_hexColor(doc, hex) {
+  var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || ''));
+  var r = m ? parseInt(m[1], 16) : 0;
+  var g = m ? parseInt(m[2], 16) : 0;
+  var b = m ? parseInt(m[3], 16) : 0;
+  if (doc.documentColorSpace === DocumentColorSpace.CMYK) {
+    var rr = r / 255;
+    var gg = g / 255;
+    var bb = b / 255;
+    var k = 1 - Math.max(rr, gg, bb);
+    var c = new CMYKColor();
+    c.black = k * 100;
+    c.cyan = k < 1 ? ((1 - rr - k) / (1 - k)) * 100 : 0;
+    c.magenta = k < 1 ? ((1 - gg - k) / (1 - k)) * 100 : 0;
+    c.yellow = k < 1 ? ((1 - bb - k) / (1 - k)) * 100 : 0;
+    return c;
+  }
+  var o = new RGBColor();
+  o.red = r;
+  o.green = g;
+  o.blue = b;
+  return o;
+}
+
 // draw the cut lines on their own layer at the top of the stack
 // args: { paths: [{ closed, points: [{ a, l, r }] }], layer, strokeWidth, color: 'red' | 'spot', spotName }
 function np_drawDieCut(args) {
@@ -892,7 +923,8 @@ function np_drawDieCut(args) {
     var spot = np_spot(doc, args.spotName || 'CutContour');
     color = np_spotColor(spot);
     name = spot.name;
-  } else color = np_red(doc);
+  } else if (args.color === 'hex') color = np_hexColor(doc, args.hex);
+  else color = np_red(doc);
   var g = lay.groupItems.add();
   g.name = args.layer || 'Die cut';
   var n = 0;
@@ -905,6 +937,352 @@ function np_drawDieCut(args) {
     g.selected = true;
   } catch (eSel) {}
   return { count: n, layer: lay.name };
+}
+
+// ---------------------------------------------------------------- CNC: rounded corners
+
+function np_cloneColor(c) {
+  if (!c) return null;
+  var o;
+  try {
+    if (c.typename === 'RGBColor') {
+      o = new RGBColor();
+      o.red = c.red;
+      o.green = c.green;
+      o.blue = c.blue;
+      return o;
+    }
+    if (c.typename === 'CMYKColor') {
+      o = new CMYKColor();
+      o.cyan = c.cyan;
+      o.magenta = c.magenta;
+      o.yellow = c.yellow;
+      o.black = c.black;
+      return o;
+    }
+    if (c.typename === 'GrayColor') {
+      o = new GrayColor();
+      o.gray = c.gray;
+      return o;
+    }
+    if (c.typename === 'SpotColor') {
+      o = new SpotColor();
+      o.spot = c.spot;
+      o.tint = c.tint;
+      return o;
+    }
+  } catch (e) {}
+  return null;
+}
+
+// text frames inside a (duplicated) item become outlines
+function np_outlineTexts(it, depth) {
+  if (depth > 40) return it;
+  if (it.typename === 'TextFrame') return it.createOutline();
+  if (it.typename === 'GroupItem') {
+    for (var k = it.pageItems.length - 1; k >= 0; k--) {
+      var c = it.pageItems[k];
+      if (c.typename === 'TextFrame') c.createOutline();
+      else if (c.typename === 'GroupItem') np_outlineTexts(c, depth + 1);
+    }
+  }
+  return it;
+}
+
+// closed, visible paths (no guides / clipping paths)
+function np_collectFills(it, out, count, depth) {
+  if (depth > 40) return;
+  var t = it.typename;
+  var k;
+  if (t === 'PathItem') {
+    if (it.guides || it.clipping || !it.closed || it.pathPoints.length < 2) return;
+    count.n += it.pathPoints.length;
+    if (count.n > count.max) throw np_E('TOO_COMPLEX');
+    out.push(np_readPath(it));
+    if (!NP.cncFill && it.filled) NP.cncFill = np_cloneColor(it.fillColor);
+  } else if (t === 'CompoundPathItem') {
+    for (k = 0; k < it.pathItems.length; k++) np_collectFills(it.pathItems[k], out, count, depth + 1);
+  } else if (t === 'GroupItem') {
+    for (k = 0; k < it.pageItems.length; k++) np_collectFills(it.pageItems[k], out, count, depth + 1);
+  }
+}
+
+// read the shapes of the selection (text is outlined on a throw-away copy, the original stays live)
+function np_readShapes(args) {
+  var items = np_selItems();
+  var out = [];
+  var count = { n: 0, max: (args && args.maxPoints) || 200000 };
+  var kinds = { images: 0, texts: 0, vectors: 0, clips: 0 };
+  var vb = null;
+  NP.cncItems = items;
+  NP.cncFill = null;
+  for (var i = 0; i < items.length; i++) {
+    np_countKinds(items[i], kinds, 0);
+    var b = items[i].geometricBounds;
+    vb = vb ? [Math.min(vb[0], b[0]), Math.max(vb[1], b[1]), Math.max(vb[2], b[2]), Math.min(vb[3], b[3])] : [b[0], b[1], b[2], b[3]];
+    var dup = items[i].duplicate();
+    try {
+      dup = np_outlineTexts(dup, 0);
+      np_collectFills(dup, out, count, 0);
+    } finally {
+      try {
+        dup.remove();
+      } catch (eRm) {}
+    }
+  }
+  return { paths: out, count: items.length, kinds: kinds, bounds: np_rb(vb) };
+}
+
+// args: { paths: [{ closed, points }], mode: 'copy' | 'replace', name, flags: [{ x, y, r }], flagLayer }
+function np_drawShapes(args) {
+  var doc = np_alive(NP.dcDoc) ? NP.dcDoc : app.activeDocument;
+  var items = NP.cncItems || [];
+  var lay = null;
+  try {
+    lay = items[0].layer;
+    if (lay.locked || !lay.visible) lay = null;
+  } catch (e) {}
+  if (!lay) lay = np_layer(doc, 'CNC');
+  var fill = NP.cncFill || np_black(doc);
+  var cp = lay.compoundPathItems.add();
+  for (var i = 0; i < args.paths.length; i++) {
+    var p = cp.pathItems.add();
+    np_applyPoints(p, args.paths[i]);
+    p.closed = true;
+  }
+  for (var j = 0; j < cp.pathItems.length; j++) {
+    cp.pathItems[j].filled = true;
+    cp.pathItems[j].fillColor = fill;
+    cp.pathItems[j].stroked = false;
+  }
+  if (args.name) cp.name = args.name;
+  var removed = 0;
+  if (args.mode === 'replace') {
+    for (var k = 0; k < items.length; k++) {
+      try {
+        if (np_alive(items[k])) {
+          items[k].remove();
+          removed++;
+        }
+      } catch (eR) {}
+    }
+    NP.cncItems = [];
+  }
+  var nFlags = 0;
+  if (args.flags && args.flags.length) {
+    var fl = np_layer(doc, args.flagLayer || 'Check');
+    var red = np_red(doc);
+    for (var f = 0; f < args.flags.length; f++) {
+      var q = args.flags[f];
+      var e = fl.pathItems.ellipse(q.y + q.r, q.x - q.r, 2 * q.r, 2 * q.r);
+      e.filled = false;
+      e.stroked = true;
+      e.strokeColor = red;
+      e.strokeWidth = 0.75;
+      nFlags++;
+    }
+  }
+  doc.selection = null;
+  try {
+    cp.selected = true;
+  } catch (eS) {}
+  return { count: args.paths.length, removed: removed, flags: nFlags };
+}
+
+// ---------------------------------------------------------------- dimensions
+
+function np_readBounds(args) {
+  var items = np_selItems();
+  var out = [];
+  for (var i = 0; i < items.length; i++) out.push({ vb: np_rb(items[i].geometricBounds), name: np_nameOf(items[i]) });
+  return { items: out };
+}
+
+function np_textStyle(doc, tf, st, font) {
+  var ca = tf.textRange.characterAttributes;
+  if (font) {
+    try {
+      ca.textFont = font;
+    } catch (eF) {}
+  }
+  if (st.size > 0) ca.size = st.size;
+  if (st.hex) ca.fillColor = np_hexColor(doc, st.hex);
+  if (st.underline != null) {
+    try {
+      ca.underline = !!st.underline;
+    } catch (eU) {}
+  }
+  if (st.align) {
+    var j = st.align === 'left' ? Justification.LEFT : st.align === 'right' ? Justification.RIGHT : Justification.CENTER;
+    try {
+      tf.textRange.paragraphAttributes.justification = j;
+    } catch (eJ) {}
+  }
+}
+
+// args: { dims: [{ lines, arrows, text: { str, size, vertical, side, line, mid, gap } }], layer, hex, strokeWidth, clear, font }
+function np_drawDimensions(args) {
+  var doc = np_alive(NP.dcDoc) ? NP.dcDoc : app.activeDocument;
+  var lay = np_layer(doc, args.layer || 'Dimension');
+  var cleared = 0;
+  if (args.clear) {
+    while (lay.pageItems.length) {
+      lay.pageItems[0].remove();
+      cleared++;
+    }
+  }
+  var color = np_hexColor(doc, args.hex || '#e6007e');
+  var font = np_thaiFont(args.font);
+  var width = args.strokeWidth > 0 ? args.strokeWidth : 0.5;
+  for (var i = 0; i < args.dims.length; i++) {
+    var d = args.dims[i];
+    var g = lay.groupItems.add();
+    g.name = 'Dimension';
+    var k;
+    for (k = 0; k < d.lines.length; k++) {
+      var l = d.lines[k];
+      var p = g.pathItems.add();
+      p.setEntirePath([[l[0], l[1]], [l[2], l[3]]]);
+      p.closed = false;
+      p.filled = false;
+      p.stroked = true;
+      p.strokeColor = color;
+      p.strokeWidth = width;
+    }
+    for (k = 0; k < d.arrows.length; k++) {
+      var a = g.pathItems.add();
+      a.setEntirePath(d.arrows[k]);
+      a.closed = true;
+      a.stroked = false;
+      a.filled = true;
+      a.fillColor = color;
+    }
+    var t = d.text;
+    var tf = g.textFrames.pointText([0, 0]);
+    tf.contents = t.str;
+    np_textStyle(doc, tf, { size: t.size, hex: args.hex || '#e6007e', align: 'center' }, font);
+    if (t.vertical) tf.rotate(90);
+    var gb = tf.geometricBounds;
+    var dx = 0;
+    var dy = 0;
+    if (t.side === 'top') {
+      dx = t.mid - (gb[0] + gb[2]) / 2;
+      dy = t.line + t.gap - gb[3];
+    } else if (t.side === 'bottom') {
+      dx = t.mid - (gb[0] + gb[2]) / 2;
+      dy = t.line - t.gap - gb[1];
+    } else if (t.side === 'right') {
+      dx = t.line + t.gap - gb[0];
+      dy = t.mid - (gb[1] + gb[3]) / 2;
+    } else {
+      dx = t.line - t.gap - gb[2];
+      dy = t.mid - (gb[1] + gb[3]) / 2;
+    }
+    tf.translate(dx, dy);
+  }
+  return { count: args.dims.length, cleared: cleared, layer: lay.name };
+}
+
+// ---------------------------------------------------------------- numbering
+
+function np_walkTexts(it, out, depth) {
+  if (depth > 40) return;
+  if (it.typename === 'TextFrame') out.push(it);
+  else if (it.typename === 'GroupItem') {
+    for (var k = 0; k < it.pageItems.length; k++) np_walkTexts(it.pageItems[k], out, depth + 1);
+  }
+}
+
+function np_readTexts(args) {
+  var items = np_selItems();
+  var list = [];
+  for (var i = 0; i < items.length; i++) np_walkTexts(items[i], list, 0);
+  NP.texts = list;
+  var out = [];
+  for (var j = 0; j < list.length; j++) out.push({ idx: j, contents: list[j].contents, vb: np_rb(list[j].geometricBounds) });
+  return { texts: out };
+}
+
+// args: { items: [{ idx, text }], style: null | { font, size, hex, align, underline } }
+function np_setTexts(args) {
+  var doc = np_alive(NP.dcDoc) ? NP.dcDoc : app.activeDocument;
+  var font = args.style && args.style.font ? np_thaiFont(args.style.font) : null;
+  var n = 0;
+  for (var i = 0; i < args.items.length; i++) {
+    var tf = (NP.texts || [])[args.items[i].idx];
+    if (!np_alive(tf)) continue;
+    tf.contents = args.items[i].text;
+    if (args.style) np_textStyle(doc, tf, args.style, font);
+    n++;
+  }
+  return { count: n };
+}
+
+function np_readArtboards(args) {
+  if (!app.documents.length) throw np_E('NO_DOC');
+  var doc = app.activeDocument;
+  NP.dcDoc = doc;
+  var out = [];
+  for (var i = 0; i < doc.artboards.length; i++) out.push({ index: i, rect: np_rb(doc.artboards[i].artboardRect), name: doc.artboards[i].name });
+  return { artboards: out };
+}
+
+// args: { pages: [{ x, y, text, justify }], style: { font, size, hex, underline }, layer, clear }
+function np_pageNumbers(args) {
+  var doc = np_alive(NP.dcDoc) ? NP.dcDoc : app.activeDocument;
+  var lay = np_layer(doc, args.layer || 'Page numbers');
+  if (args.clear) {
+    for (var c = lay.pageItems.length - 1; c >= 0; c--) {
+      if (lay.pageItems[c].name === 'PageNo') lay.pageItems[c].remove();
+    }
+  }
+  var st = args.style || {};
+  var font = np_thaiFont(st.font);
+  for (var i = 0; i < args.pages.length; i++) {
+    var pg = args.pages[i];
+    var tf = lay.textFrames.pointText([pg.x, pg.y]);
+    tf.contents = pg.text;
+    tf.name = 'PageNo';
+    np_textStyle(doc, tf, { size: st.size || 10, hex: st.hex || '#000000', underline: st.underline, align: pg.justify }, font);
+  }
+  return { count: args.pages.length, layer: lay.name };
+}
+
+// ---------------------------------------------------------------- one-key workflow
+
+// the panel says it is open (the quick script checks this before it fires the event)
+function np_panelReady(args) {
+  $.global.NP_PANEL_READY = true;
+  return { ready: true };
+}
+
+// write the quick script into Illustrator's Scripts menu folder (falls back to Documents)
+// args: { code, fileName }
+function np_installQuickScript(args) {
+  var name = args.fileName || 'NudPon Quick Nest.jsx';
+  var dirs = [
+    app.path + '/Presets/' + app.locale + '/Scripts',
+    app.path + '/Presets.localized/' + app.locale + '/Scripts'
+  ];
+  for (var i = 0; i < dirs.length; i++) {
+    var d = new Folder(dirs[i]);
+    if (!d.exists) continue;
+    var f = new File(d.fsName + '/' + name);
+    f.encoding = 'UTF-8';
+    if (f.open('w')) {
+      f.write(args.code);
+      f.close();
+      return { installed: true, path: f.fsName };
+    }
+  }
+  var home = new Folder(Folder.myDocuments.fsName + '/NudPon');
+  if (!home.exists) home.create();
+  var g = new File(home.fsName + '/' + name);
+  g.encoding = 'UTF-8';
+  if (!g.open('w')) throw np_E('FS', g.fsName);
+  g.write(args.code);
+  g.close();
+  return { installed: false, path: g.fsName, scripts: dirs[0] };
 }
 
 // select every cut line in the active document (so a cutter plug-in such as

@@ -492,12 +492,7 @@
     var tol = cell / 4;
 
     // ทิศการวน: วงนอก (ซ้อนอยู่ในวงอื่นเป็นจำนวนคู่) พื้นที่บวก รูพื้นที่ลบ
-    var oriented = src.map(function (r, i) {
-      var depth = 0;
-      for (var j = 0; j < src.length; j++) if (j !== i && G.pointInRing(r[0], src[j])) depth++;
-      var want = depth % 2 === 0 ? 1 : -1;
-      return G.signedArea(r) * want > 0 ? r : r.slice().reverse();
-    });
+    var oriented = orientRings(src);
 
     var raw = oriented.map(function (r) {
       return d > 0 ? offsetRing(r, d, join, limit, tol) : r;
@@ -509,9 +504,39 @@
     var oy = bb.minY - d - P * cell;
     var W = Math.ceil((bb.maxX - bb.minX + 2 * d) / cell) + 2 * P + 1;
     var H = Math.ceil((bb.maxY - bb.minY + 2 * d) / cell) + 2 * P + 1;
+    var inside = rasterWinding(raw, ox, oy, W, H, cell);
+    if (o.fillHoles) fillHoles(inside, W, H);
+    else if (o.minHole > 0) fillSmallHoles(inside, W, H, o.minHole / (cell * cell));
+
+    var F = new Float32Array(W * H);
+    for (var m = 0; m < W * H; m++) F[m] = inside[m] ? 1 : -1;
+    var simplify = Math.max(cell * 0.8, o.simplify || 0);
+    var out = [];
+    marchingSquares(F, W, H).forEach(function (lp) {
+      var pts = G.dedupe(
+        lp.map(function (p) {
+          return [ox + (p[0] + 0.5) * cell, oy + (p[1] + 0.5) * cell];
+        }),
+        1e-9
+      );
+      pts = G.simplifyRing(pts, simplify);
+      if (pts.length < 3) return;
+      var area = Math.abs(G.signedArea(pts));
+      if (area < cell * cell * 4) return;
+      out.push({ points: pts, area: area });
+    });
+    out.sort(function (a, b) {
+      return b.area - a.area;
+    });
+    return markHoles(out);
+  }
+
+  // เติมช่องตาราง W × H (ช่องละ cell เริ่มที่ ox, oy) ที่ winding ของวงทั้งหมด > 0 → Uint8Array
+  // วงนอกพื้นที่บวก = +1 ข้างใน, รูพื้นที่ลบ = −1
+  function rasterWinding(rings, ox, oy, W, H, cell) {
     var inside = new Uint8Array(W * H);
     var edges = [];
-    raw.forEach(function (r) {
+    rings.forEach(function (r) {
       for (var i = 0; i < r.length; i++) {
         var a = r[i];
         var b = r[(i + 1) % r.length];
@@ -544,30 +569,17 @@
         if (wind > 0) inside[row * W + col] = 1;
       }
     }
-    if (o.fillHoles) fillHoles(inside, W, H);
-    else if (o.minHole > 0) fillSmallHoles(inside, W, H, o.minHole / (cell * cell));
+    return inside;
+  }
 
-    var F = new Float32Array(W * H);
-    for (var m = 0; m < W * H; m++) F[m] = inside[m] ? 1 : -1;
-    var simplify = Math.max(cell * 0.8, o.simplify || 0);
-    var out = [];
-    marchingSquares(F, W, H).forEach(function (lp) {
-      var pts = G.dedupe(
-        lp.map(function (p) {
-          return [ox + (p[0] + 0.5) * cell, oy + (p[1] + 0.5) * cell];
-        }),
-        1e-9
-      );
-      pts = G.simplifyRing(pts, simplify);
-      if (pts.length < 3) return;
-      var area = Math.abs(G.signedArea(pts));
-      if (area < cell * cell * 4) return;
-      out.push({ points: pts, area: area });
+  // ทิศการวนให้ถูก: วงนอก (ซ้อนในวงอื่นจำนวนคู่) พื้นที่บวก รูพื้นที่ลบ — ใช้ก่อน rasterWinding
+  function orientRings(rings) {
+    return rings.map(function (r, i) {
+      var depth = 0;
+      for (var j = 0; j < rings.length; j++) if (j !== i && G.pointInRing(r[0], rings[j])) depth++;
+      var want = depth % 2 === 0 ? 1 : -1;
+      return G.signedArea(r) * want > 0 ? r : r.slice().reverse();
     });
-    out.sort(function (a, b) {
-      return b.area - a.area;
-    });
-    return markHoles(out);
   }
 
   // เส้นขยายดิบของวงเดียว (พื้นที่บวก = ขยายออก, พื้นที่ลบ = รูหดเข้า)
@@ -632,6 +644,12 @@
     traceAlpha: traceAlpha,
     backgroundMask: backgroundMask,
     offsetOutline: offsetOutline,
+    rasterWinding: rasterWinding,
+    orientRings: orientRings,
+    fillHoles: fillHoles,
+    fillSmallHoles: fillSmallHoles,
+    removeSpecks: removeSpecks,
+    markHoles: markHoles,
     distanceSquared: distanceSquared,
     marchingSquares: marchingSquares,
   };
