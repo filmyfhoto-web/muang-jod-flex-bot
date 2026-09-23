@@ -412,7 +412,7 @@ body.wide #controls {
   flex: 0 0 360px;
   width: 360px;
 }
-body.wide #previewCard {
+body.wide .preview-card {
   height: calc(100vh - 24px);
   display: flex;
   flex-direction: column;
@@ -488,4 +488,60 @@ details.steps > summary::before {
 
 .grid4 > label {
   flex: 1 1 calc(25% - 6px);
+}
+
+/* แถบเครื่องมือ */
+.tools {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 8px;
+  padding: 3px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.tools button {
+  flex: 1 1 0;
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+  padding: 5px 4px;
+  white-space: normal;
+  line-height: 1.25;
+  font-weight: 700;
+}
+.tools button small {
+  display: block;
+  font-weight: 400;
+  font-size: 9.5px;
+  letter-spacing: 0.3px;
+  opacity: 0.8;
+}
+.tools button.on {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #fff;
+}
+.subcard {
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+  margin-bottom: 8px;
+}
+.subcard h3 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--accent);
+}
+.grid3 > label {
+  flex: 1 1 calc(33% - 6px);
+}
+.dc-report {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 6px 0;
+  min-height: 14px;
+}
+#dcPreviewCard .row button {
+  flex: 1;
 }

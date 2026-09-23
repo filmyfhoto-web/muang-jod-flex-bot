@@ -53,6 +53,7 @@
 
   var STORE_KEY = 'nongploy.nestingcut.settings.v2';
   var DEFAULTS = {
+    tool: 'nest',
     cutter: 'circle4',
     media: 'a3',
     sizeUnit: 'mm',
@@ -100,6 +101,28 @@
     pltFeed: 'x',
     overcut: 0,
     folder: '',
+    // ไดคัทต่อเนื่อง
+    runMaterial: '',
+    runGram: '',
+    runShape: 'rounded',
+    runSize: 'art',
+    runW: 50,
+    runH: 30,
+    runRadius: 3,
+    runGap: 3,
+    runLayout: 'straight',
+    // ไดคัทตามรูปทรง
+    dcSource: 'all',
+    dcOffset: 0,
+    dcJoin: 'round',
+    dcMiter: 4,
+    dcHoles: false,
+    dcTol: 40,
+    dcShadow: 50,
+    dcDetail: 100,
+    dcLayer: 'Die cut',
+    dcWidth: 0.25,
+    dcColor: 'red',
   };
 
   function loadSettings() {
@@ -128,6 +151,8 @@
     result: null,
     stale: false,
     built: false,
+    results: {},
+    dc: null,
     busy: false,
     logoImg: null,
   };
@@ -147,16 +172,16 @@
   // ---------------------------------------------------------------- สถานะบนจอ
 
   function status(text, kind) {
-    var el = $('status');
+    var el = $(S.settings.tool === 'shape' ? 'dcStatus' : 'status');
     el.textContent = text;
     el.className = 'status' + (kind ? ' ' + kind : '');
   }
 
   function progress(f) {
-    $('progressBar').style.width = Math.round(Math.max(0, Math.min(1, f)) * 100) + '%';
+    $(S.settings.tool === 'shape' ? 'dcBar' : 'progressBar').style.width = Math.round(Math.max(0, Math.min(1, f)) * 100) + '%';
   }
 
-  var BUTTONS = ['btnGo', 'btnNest', 'btnBuild', 'btnExport', 'btnSelectCut', 'btnScan', 'btnImport', 'btnAddPng'];
+  var BUTTONS = ['btnGo', 'btnNest', 'btnBuild', 'btnExport', 'btnSelectCut', 'btnScan', 'btnImport', 'btnAddPng', 'btnDcRead', 'btnDcMake'];
 
   function run(fn) {
     if (S.busy) return Promise.resolve();
@@ -438,8 +463,9 @@
     return [{ closed: true, points: pts }];
   }
 
-  function prepareCuts() {
+  function prepareCuts(only) {
     var todo = S.parts.filter(function (p) {
+      if (only && only.indexOf(p) < 0) return false;
       return p.qty > 0 && (p.mode === 'auto' || p.mode === 'box' || (p.mode === 'vector' && !p.vec));
     });
     if (!todo.length) return Promise.resolve();
@@ -585,6 +611,7 @@
   }
 
   function nestNow() {
+    if (S.settings.tool === 'run') return runNow();
     var parts = engineParts();
     var missing = S.parts.filter(function (p) {
       return p.qty > 0 && !p.rings.length;
@@ -713,7 +740,112 @@
 
   function ensureNested() {
     if (S.result && !S.stale) return Promise.resolve();
-    return prepareCuts().then(nestNow);
+    return prepareForTool().then(nestNow);
+  }
+
+  // ไดคัทต่อเนื่องใช้ต้นแบบดวงเดียว ทำเส้นตัดให้เฉพาะเมื่อเลือกรูปทรง “ตามเส้นไดคัทของงาน”
+  function prepareForTool() {
+    if (S.settings.tool !== 'run') return prepareCuts();
+    var p = runTemplate();
+    if (!p || S.settings.runShape !== 'artwork') return Promise.resolve();
+    return prepareCuts([p]);
+  }
+
+  // ---------------------------------------------------------------- ไดคัทต่อเนื่อง
+
+  function runTemplate() {
+    return (
+      S.parts.filter(function (p) {
+        return p.qty > 0;
+      })[0] ||
+      S.parts[0] ||
+      null
+    );
+  }
+
+  function runNow() {
+    var p = runTemplate();
+    if (!p) throw new Error('ยังไม่มีต้นแบบ — เลือกสติ๊กเกอร์หนึ่งดวงแล้วกด “ดึงชิ้นงานที่เลือก”');
+    engineParts();
+    var s = S.settings;
+    var plan = L.planSheet(sheetSpec());
+    if (plan.roll) throw new Error('ไดคัทต่อเนื่องต้องใส่ความสูงของแผ่น (เช่น A3 = 420 มม.)');
+    var warnings = [];
+    var art = G.bounds(p.rings.length ? p.rings : [vbRing(p.vb)]);
+    var outer = null;
+    p.rings.forEach(function (r) {
+      if (!outer || Math.abs(G.signedArea(r)) > Math.abs(G.signedArea(outer))) outer = r;
+    });
+    var shape = s.runShape;
+    if (shape === 'artwork' && (!outer || p.mode === 'none')) {
+      shape = 'rect';
+      warnings.push('ต้นแบบ “' + p.name + '” ไม่พบเส้นไดคัท — ใช้กรอบสี่เหลี่ยมแทน ตรวจไฟล์ก่อนสร้างชีต');
+    }
+    var custom = s.runSize === 'custom' && shape !== 'artwork';
+    var w = custom ? num('runW') : art.maxX - art.minX;
+    var h = custom ? num('runH') : art.maxY - art.minY;
+    if (!(w > 0.5 && h > 0.5)) throw new Error('ขนาดดวงต้องมากกว่า 0.5 มม.');
+    var lay = NC.diecut.layout({
+      area: plan.area,
+      shape: shape,
+      w: w,
+      h: h,
+      radius: num('runRadius'),
+      ring: outer,
+      gap: Math.max(0, num('runGap')),
+      stagger: s.runLayout === 'stagger',
+      max: NC.diecut.MAX_PER_SHEET,
+    });
+    if (!lay.cells.length) throw new Error('ดวงใหญ่กว่าพื้นที่วางบนแผ่น — ลดขนาด ระยะขอบ หรือเปลี่ยนขนาดกระดาษ');
+    // ภาพต้นแบบวางกึ่งกลางช่อง (ยึดกรอบเส้นไดคัทของงาน ถ้ามี)
+    var ax = (art.minX + art.maxX) / 2;
+    var ay = (art.minY + art.maxY) / 2;
+    var placements = lay.cells.map(function (c) {
+      return { partId: p.idx, angle: 0, tx: c.x - ax, ty: c.y - ay, cx: c.x, cy: c.y };
+    });
+    var maxY = lay.cells.reduce(function (m, c) {
+      return Math.max(m, c.y + lay.h / 2);
+    }, 0);
+    var len = L.finalLength(plan, maxY);
+    var n = lay.cells.length;
+    var sheet = {
+      index: 0,
+      length: len,
+      placements: placements,
+      partsArea: n * Math.abs(G.signedArea(lay.ring)),
+      marks: L.markShapes(plan.width, len, plan.marks),
+      cutPaths: lay.paths,
+    };
+    var printW = (p.vb[2] - p.vb[0]) * K;
+    var printH = (p.vb[1] - p.vb[3]) * K;
+    // งานพิมพ์ที่เลยรูปทรงของดวงออกไป (bleed) ต้องไม่เกินครึ่งหนึ่งของระยะห่าง ไม่งั้นภาพดวงข้าง ๆ ทับกัน
+    var bleed = Math.max(0, (printW - lay.w) / 2, (printH - lay.h) / 2);
+    if (bleed > 0.05 && bleed * 2 > num('runGap') + 1e-6) {
+      warnings.push(
+        'งานพิมพ์ ' + printW.toFixed(1) + ' × ' + printH.toFixed(1) + ' มม. เลยรูปทรงดวงออกไป ' + bleed.toFixed(1) +
+          ' มม. มากกว่าครึ่งหนึ่งของระยะห่าง — ภาพของดวงข้าง ๆ อาจทับกัน เพิ่มระยะห่างเป็นมากกว่า ' + (Math.ceil(bleed * 20) / 10) + ' มม. หรือขยายขนาดดวง'
+      );
+    }
+    if (lay.capped) warnings.push('ครบ 400 ดวงต่อแผ่นแล้ว (จำกัดสูงสุด 400 ดวง/แผ่น)');
+    S.result = {
+      plan: plan,
+      res: { placedCount: n, totalCount: n, unplaced: [], sheets: [sheet] },
+      sheets: [sheet],
+      ms: 0,
+      fill: null,
+      run: { lay: lay, part: p, shape: shape, w: lay.w, h: lay.h },
+      warnings: warnings,
+    };
+    S.stale = false;
+    S.built = false;
+    $('previewSub').textContent = '';
+    drawPreview();
+    renderStats();
+    var msg =
+      'ได้ ' + n + ' ดวง · ยกใบมีด ' + lay.lifts + ' ครั้ง · เส้นตัดยาว ' + (lay.cutLength / 1000).toFixed(2) + ' ม. · ดวง ' +
+      lay.w.toFixed(1) + ' × ' + lay.h.toFixed(1) + ' มม.';
+    if (warnings.length) status('⚠ ' + warnings.join(' · ') + ' — ' + msg, 'warn');
+    else status(msg, 'ok');
   }
 
   // ---------------------------------------------------------------- สถิติ + พรีวิว
@@ -736,13 +868,20 @@
     var unplaced = r.res.unplaced.reduce(function (s, u) {
       return s + u.count;
     }, 0);
-    [
+    var cells = r.run
+      ? [
+          [r.res.placedCount + ' ดวง', 'ต่อ 1 แผ่น'],
+          [r.run.lay.lifts + ' ครั้ง', 'ยกใบมีด'],
+          [(r.run.lay.cutLength / 1000).toFixed(1) + ' ม.', 'ความยาวเส้นตัด'],
+        ]
+      : null;
+    (cells || [
       r.fill
         ? [r.res.placedCount + ' ดวง', 'ต่อ 1 แผ่น']
         : [r.plan.roll ? (used / 1000).toFixed(2) + ' ม.' : r.sheets.length + ' แผ่น', r.plan.roll ? 'ความยาวม้วนที่ใช้' : 'จำนวนแผ่น'],
       [util.toFixed(0) + '%', 'ใช้เนื้อที่'],
       [r.res.placedCount + '/' + r.res.totalCount, unplaced ? 'วางได้ (ขาด ' + unplaced + ')' : 'ชิ้นที่วาง'],
-    ].forEach(function (s) {
+    ]).forEach(function (s) {
       var d = el('div', 'stat');
       d.appendChild(el('b', null, s[0]));
       d.appendChild(el('span', null, s[1]));
@@ -802,6 +941,11 @@
     var sizes = r.sheets.map(function (sh) {
       return (Math.round(r.plan.width * 10) / 10) + ' × ' + (Math.round(sh.length * 10) / 10) + ' มม.';
     });
+    if (r.run) {
+      $('previewInfo').textContent =
+        r.res.placedCount + ' ดวง · ' + r.run.lay.rows + ' แถว · ' + r.run.lay.w.toFixed(1) + ' × ' + r.run.lay.h.toFixed(1) + ' มม. · หน้า ' + sizes[0];
+      return;
+    }
     $('previewInfo').textContent =
       r.res.placedCount + (r.fill ? ' ดวง' : ' ชิ้น') + ' · ' + (r.sheets.length > 1 ? r.sheets.length + ' แผ่น · ' : 'หน้า ') + sizes[0];
   }
@@ -811,9 +955,12 @@
     var wide = window.innerWidth >= 620;
     document.body.classList.toggle('wide', wide);
     var target = wide ? $('previewSide') : $('previewSlot');
-    var card = $('previewCard');
-    if (card.parentNode !== target) target.appendChild(card);
+    ['previewCard', 'dcPreviewCard'].forEach(function (id) {
+      var card = $(id);
+      if (card.parentNode !== target) target.appendChild(card);
+    });
     if (S.result) drawPreview();
+    if (S.dc) drawDc();
   }
 
   // วาดทุกแผ่นลงแคนวาสกว้าง cssW (ใช้ทั้งพรีวิวบนแผงและรูปส่งลูกค้า)
@@ -872,9 +1019,12 @@
         var p = byIdx(pl.partId);
         if (!p) return;
         var t = { angle: pl.angle, tx: pl.tx, ty: pl.ty };
+        // ไดคัทต่อเนื่อง: รูปทรงของดวงอยู่กึ่งกลางช่อง ไม่ใช่เส้นตัดของต้นแบบ
+        var clipRings = r.run ? [r.run.lay.ring] : p.rings;
+        var ct = r.run ? { angle: 0, tx: pl.cx, ty: pl.cy } : t;
         if (p.thumb && !S.plainPreview) {
           ctx.save();
-          ringPath(ctx, p.rings, t, s);
+          ringPath(ctx, clipRings, ct, s);
           ctx.clip();
           ctx.translate(pl.tx * s, pl.ty * s);
           ctx.rotate((pl.angle * Math.PI) / 180);
@@ -883,13 +1033,13 @@
           ctx.drawImage(p.thumb.img, vb[0] * K, -vb[1] * K, (vb[2] - vb[0]) * K, (vb[1] - vb[3]) * K);
           ctx.restore();
         } else {
-          ringPath(ctx, p.rings, t, s);
+          ringPath(ctx, clipRings, ct, s);
           ctx.fillStyle = 'hsla(' + p.hue + ',70%,60%,.45)';
           ctx.fill('evenodd');
         }
         ctx.strokeStyle = '#e600e6';
         ctx.lineWidth = 1;
-        (useGridCut() ? [] : p.polys).forEach(function (poly) {
+        (useGridCut() || r.run ? [] : p.polys).forEach(function (poly) {
           ctx.beginPath();
           poly.points.forEach(function (pt, i) {
             var q = G.transformPoint(pt, t);
@@ -900,13 +1050,16 @@
           ctx.stroke();
         });
       });
-      if (useGridCut()) {
+      if (useGridCut() || sh.cutPaths) {
         ctx.strokeStyle = '#e600e6';
         ctx.lineWidth = 1;
-        gridLines(sh).forEach(function (l) {
+        (sh.cutPaths || gridLines(sh)).forEach(function (l) {
           ctx.beginPath();
-          ctx.moveTo(l.points[0][0] * s, l.points[0][1] * s);
-          ctx.lineTo(l.points[1][0] * s, l.points[1][1] * s);
+          l.points.forEach(function (q, i) {
+            if (i) ctx.lineTo(q[0] * s, q[1] * s);
+            else ctx.moveTo(q[0] * s, q[1] * s);
+          });
+          if (l.closed) ctx.closePath();
           ctx.stroke();
         });
       }
@@ -937,7 +1090,8 @@
       Math.round(sh.length) +
       ' มม.' +
       (n > 1 ? '  •  แผ่น ' + (i + 1) + '/' + n : '');
-    var line3 = [s.jobNote, cutter ? 'เครื่องตัด ' + cutter.label : '']
+    var material = r.run && (s.runMaterial || s.runGram) ? 'วัสดุ ' + [s.runMaterial, s.runGram ? s.runGram + ' แกรม' : ''].filter(Boolean).join(' ') : '';
+    var line3 = [material, s.jobNote, cutter ? 'เครื่องตัด ' + cutter.label : '']
       .filter(Boolean)
       .join('  •  ');
     return [line1, line2, line3].filter(Boolean);
@@ -1000,7 +1154,7 @@
         target: target,
         spotName: S.settings.spotName || 'CutContour',
         strokeWidth: num('strokeWidth'),
-        dropPieceCuts: grid,
+        dropPieceCuts: grid || !!r.run,
         layerNames: {
           pieces: S.settings.printLayer || 'ไฟล์ปริ้นชิ้นงาน',
           cut: S.settings.cutLayer || 'เส้นไดคัท',
@@ -1028,6 +1182,16 @@
             }),
             marks: marks,
             header: headerPayload(sh, i, n),
+            cutPolys: sh.cutPaths
+              ? sh.cutPaths.map(function (l) {
+                  return {
+                    closed: l.closed,
+                    points: l.points.map(function (q) {
+                      return [q[0] * PT, q[1] * PT];
+                    }),
+                  };
+                })
+              : [],
             gridLines: grid
               ? gridLines(sh).map(function (l) {
                   return [l.points[0][0] * PT, l.points[0][1] * PT, l.points[1][0] * PT, l.points[1][1] * PT];
@@ -1086,10 +1250,11 @@
   }
 
   function useGridCut() {
-    return !!S.settings.gridCut && gridMode();
+    return S.settings.tool !== 'run' && !!S.settings.gridCut && gridMode();
   }
 
   function cutPaths(sh) {
+    if (sh.cutPaths) return sh.cutPaths;
     if (useGridCut()) return gridLines(sh);
     var out = [];
     sh.placements.forEach(function (pl) {
@@ -1200,23 +1365,324 @@
     });
   }
 
+  // ---------------------------------------------------------------- ไดคัทตามรูปทรง
+
+  function clamp(v, lo, hi) {
+    return Math.max(lo, Math.min(hi, v));
+  }
+
+  // ความละเอียดเส้น 1–100 → ความคลาดเคลื่อนตอนลดจุด (มม.) 100 = ตามขอบละเอียดสุด
+  function dcTolMm() {
+    return 0.02 + (100 - clamp(num('dcDetail'), 1, 100)) * 0.004;
+  }
+
+  function toBezier(ring, round) {
+    if (round) return G.smoothRing(ring, 50);
+    return ring.map(function (q) {
+      return { a: q, l: q, r: q };
+    });
+  }
+
+  function countLoops(loops, stats) {
+    stats.shapes = 0;
+    stats.holes = 0;
+    stats.points = 0;
+    loops.forEach(function (lp) {
+      if (lp.hole) stats.holes++;
+      else stats.shapes++;
+      stats.points += lp.points.length;
+    });
+  }
+
+  // อ่านทั้ง Selection เป็นรูป → ลบพื้นหลัง (รูปถ่าย/JPG) → หาขอบ → เผื่อระยะตามแบบมุม
+  function dcFromImage() {
+    var s = S.settings;
+    var ppi = 150 + clamp(num('dcDetail'), 1, 100) * 1.5;
+    return host
+      .call('np_exportSelection', { ppi: ppi, maxPx: 3000 })
+      .then(function (sil) {
+        var src = sil.dataUrl || 'data:image/png;base64,' + host.readBase64(sil.file);
+        return loadImage(src).then(function (img) {
+          return { img: img, sil: sil };
+        });
+      })
+      .then(function (r) {
+        status('นัดพอนกำลังหาขอบรูป…');
+        progress(0.5);
+        var b = r.sil.bounds;
+        var sx = (b[2] - b[0]) / r.img.width;
+        var sy = (b[1] - b[3]) / r.img.height;
+        var pxPerMm = PT / sx;
+        var data = pixels(r.img);
+        var mask = NC.contour.backgroundMask(data, { tolerance: num('dcTol'), shadow: num('dcShadow') });
+        var offPx = Math.max(0, num('dcOffset')) * pxPerMm;
+        var tolPx = Math.max(0.3, dcTolMm() * pxPerMm);
+        var stats = {};
+        var common = {
+          threshold: 128,
+          minAreaPx: Math.max(16, Math.pow(0.8 * pxPerMm, 2)),
+          fillHoles: !s.dcHoles,
+          minHolePx: Math.pow(1.5 * pxPerMm, 2),
+          stats: stats,
+        };
+        var round = s.dcJoin === 'round';
+        var loops;
+        if (round || offPx < 0.01) {
+          common.offsetPx = offPx;
+          common.simplifyPx = tolPx;
+          loops = NC.contour.traceAlpha(mask, common);
+        } else {
+          common.offsetPx = 0;
+          common.simplifyPx = 0.3;
+          var base = NC.contour.traceAlpha(mask, common);
+          loops = NC.contour.offsetOutline(
+            base.map(function (lp) {
+              return lp.points;
+            }),
+            { offset: offPx, join: s.dcJoin, miterLimit: num('dcMiter'), cell: 1, fillHoles: !s.dcHoles, minHole: common.minHolePx, simplify: tolPx }
+          );
+          countLoops(loops, stats);
+        }
+        var paths = loops.map(function (lp) {
+          var ring = lp.points.map(function (q) {
+            return [b[0] + q[0] * sx, b[1] - q[1] * sy];
+          });
+          return { closed: true, points: toBezier(ring, round) };
+        });
+        stats.images = r.sil.kinds ? r.sil.kinds.images : 0;
+        stats.count = r.sil.count;
+        return { paths: paths, loops: loops, img: r.img, mask: mask, bounds: b, sx: sx, sy: sy, stats: stats, source: 'all' };
+      });
+  }
+
+  // ขอบ Clipping Mask (เวกเตอร์) → เผื่อระยะ + รวมเส้นที่ชนกัน
+  function dcFromClips() {
+    var s = S.settings;
+    return host.call('np_readClipPaths', {}).then(function (r) {
+      var rings = [];
+      (r.paths || []).forEach(function (sp) {
+        if (sp.closed === false) return;
+        var poly = G.dedupe(G.flattenBezier(sp.points, true, 0.1));
+        if (poly.length >= 3) rings.push(poly);
+      });
+      if (!rings.length) throw new Error('ไม่พบ Clipping Mask ในชิ้นที่เลือก — เปลี่ยนเป็น “รูปทรงของชิ้นงานทั้งหมด”');
+      var bb = G.bounds(rings);
+      var size = Math.max(bb.maxX - bb.minX, bb.maxY - bb.minY);
+      var cell = Math.max(0.1, size / 1500);
+      var loops = NC.contour.offsetOutline(rings, {
+        offset: Math.max(0, num('dcOffset')) * PT,
+        join: s.dcJoin,
+        miterLimit: num('dcMiter'),
+        cell: cell,
+        fillHoles: !s.dcHoles,
+        minHole: Math.pow(1.5 * PT, 2),
+        simplify: dcTolMm() * PT,
+      });
+      var stats = { images: 0, count: r.count, specks: 0, holesSkipped: 0, clips: rings.length };
+      countLoops(loops, stats);
+      return {
+        paths: loops.map(function (lp) {
+          return { closed: true, points: toBezier(lp.points, s.dcJoin === 'round') };
+        }),
+        loops: loops,
+        clipRings: rings,
+        bounds: [bb.minX, bb.maxY, bb.maxX, bb.minY],
+        stats: stats,
+        source: 'clip',
+      };
+    });
+  }
+
+  function dcRead() {
+    status('นัดพอนกำลังอ่าน Selection… (รูปใหญ่อาจใช้เวลาหลายวินาที)');
+    progress(0.15);
+    var job = S.settings.dcSource === 'clip' ? dcFromClips() : dcFromImage();
+    return job.then(function (dc) {
+      if (!dc.paths.length) throw new Error('หาขอบชิ้นงานไม่เจอ — ลองลด “ความต่างสีพื้น” หรือเลือกชิ้นงานใหม่');
+      S.dc = dc;
+      drawDc();
+      progress(1);
+      status('อ่านเสร็จ: ได้เส้นไดคัท ' + dc.paths.length + ' เส้น — กด “สร้างเส้นไดคัท” เพื่อวาดลงไฟล์', 'ok');
+      return dc;
+    });
+  }
+
+  function dcReportText(dc) {
+    var t = dc.stats;
+    var parts = [];
+    if (dc.source === 'clip') parts.push('อ่านขอบ Clipping Mask ' + t.clips + ' เส้น');
+    else parts.push('อ่านรูปได้ ' + (t.images || 1) + ' รูป');
+    parts.push('ได้รูปทรง ' + t.shapes + ' ชิ้น');
+    parts.push('จุดทั้งหมด ' + t.points + ' จุด');
+    if (t.holes) parts.push('มีรู ' + t.holes + ' รู');
+    if (t.specks) parts.push('ทิ้งเศษจุดเล็ก ' + t.specks + ' จุด');
+    if (t.holesSkipped) parts.push('ข้ามรูที่เล็กเกินกว่าจะตัดได้ ' + t.holesSkipped + ' รู');
+    parts.push('เลือกไว้ ' + t.count + ' ชิ้น');
+    if (dc.mask && dc.mask.bg) parts.push('ลบพื้นหลังสี rgb(' + dc.mask.bg.r + ', ' + dc.mask.bg.g + ', ' + dc.mask.bg.b + ')');
+    return parts.join(' · ') + ' · เส้นที่เผื่อระยะแล้วมาชนกันถูกรวมเป็นเส้นเดียว';
+  }
+
+  function drawDc() {
+    var dc = S.dc;
+    var canvas = $('dcCanvas');
+    if (!dc) {
+      canvas.hidden = true;
+      $('dcEmpty').hidden = false;
+      $('dcReport').textContent = '';
+      return;
+    }
+    canvas.hidden = false;
+    $('dcEmpty').hidden = true;
+    // กรอบ = รูป + เส้นไดคัท (เส้นที่เผื่อระยะอาจเลยขอบรูปออกไป) — pt: [left, top, right, bottom]
+    var flat = dc.paths.map(function (sp) {
+      return G.flattenBezier(sp.points, true, 0.5);
+    });
+    var pb = G.bounds(flat);
+    var ib = dc.bounds;
+    var b = [Math.min(ib[0], pb.minX), Math.max(ib[1], pb.maxY), Math.max(ib[2], pb.maxX), Math.min(ib[3], pb.minY)];
+    var wPt = b[2] - b[0];
+    var hPt = b[1] - b[3];
+    var box = $('dcBox');
+    var cssW = Math.max(120, (box.clientWidth || 300) - 16);
+    var cssH = Math.max(160, document.body.classList.contains('wide') ? box.clientHeight - 16 : 360);
+    var sc = Math.min(cssW / wPt, cssH / hPt);
+    var W = Math.round(wPt * sc);
+    var H = Math.round(hPt * sc);
+    var dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    var ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, W, H);
+    var ix = (ib[0] - b[0]) * sc;
+    var iy = (b[1] - ib[1]) * sc;
+    var iw = (ib[2] - ib[0]) * sc;
+    var ih = (ib[1] - ib[3]) * sc;
+    if (dc.img) {
+      ctx.drawImage(dc.img, ix, iy, iw, ih);
+      // พื้นหลังที่ถูกลบ: ทาขาวทับให้เห็นว่าเหลืออะไร
+      if (dc.mask && dc.mask.bg) {
+        var m = document.createElement('canvas');
+        m.width = dc.mask.width;
+        m.height = dc.mask.height;
+        var mctx = m.getContext('2d');
+        var id = mctx.createImageData(m.width, m.height);
+        for (var i = 0; i < dc.mask.alpha.length; i++) {
+          if (dc.mask.alpha[i]) continue;
+          id.data[i * 4] = 255;
+          id.data[i * 4 + 1] = 255;
+          id.data[i * 4 + 2] = 255;
+          id.data[i * 4 + 3] = 170;
+        }
+        mctx.putImageData(id, 0, 0);
+        ctx.drawImage(m, ix, iy, iw, ih);
+      }
+    } else if (dc.clipRings) {
+      ctx.strokeStyle = 'rgba(31,42,68,.5)';
+      ctx.setLineDash([4, 3]);
+      dc.clipRings.forEach(function (ring) {
+        ctx.beginPath();
+        ring.forEach(function (q, k) {
+          var x = (q[0] - b[0]) * sc;
+          var y = (b[1] - q[1]) * sc;
+          if (k) ctx.lineTo(x, y);
+          else ctx.moveTo(x, y);
+        });
+        ctx.closePath();
+        ctx.stroke();
+      });
+      ctx.setLineDash([]);
+    }
+    ctx.strokeStyle = '#ff1f3d';
+    ctx.lineWidth = 1.5;
+    flat.forEach(function (pts) {
+      ctx.beginPath();
+      pts.forEach(function (q, k) {
+        var x = (q[0] - b[0]) * sc;
+        var y = (b[1] - q[1]) * sc;
+        if (k) ctx.lineTo(x, y);
+        else ctx.moveTo(x, y);
+      });
+      ctx.closePath();
+      ctx.stroke();
+    });
+    $('dcSub').textContent = Math.round(wPt * K) + ' × ' + Math.round(hPt * K) + ' มม.';
+    $('dcReport').textContent = dcReportText(dc);
+  }
+
+  // อ่านใหม่ทุกครั้งก่อนวาด — Selection อาจเปลี่ยนไปหลังดูตัวอย่าง
+  function dcMake() {
+    return dcRead().then(function (dc) {
+      status('กำลังวาดเส้นไดคัทลงไฟล์…');
+      progress(0.9);
+      var s = S.settings;
+      return host
+        .call('np_drawDieCut', {
+          paths: dc.paths,
+          layer: s.dcLayer || 'Die cut',
+          strokeWidth: num('dcWidth'),
+          color: s.dcColor,
+          spotName: s.spotName || 'CutContour',
+        })
+        .then(function (out) {
+          progress(1);
+          status('สร้างเส้นไดคัทแล้ว ' + out.count + ' เส้น อยู่บนเลเยอร์ “' + out.layer + '” (บนสุด)', 'ok');
+        });
+    });
+  }
+
+  // ---------------------------------------------------------------- สลับเครื่องมือ
+
+  var TOOL_STATUS = {
+    nest: 'พร้อมลุย — เลือกชิ้นงานแล้วกด “ดึงชิ้นงานที่เลือก”',
+    run: 'เลือกต้นแบบหนึ่งดวง → ดึงชิ้นงาน → กด “คำนวณ” ดูจำนวนดวงและจำนวนครั้งยกใบมีด',
+    shape: 'เลือกชิ้นงานใน Illustrator แล้วกด “อ่านรูป / ดูตัวอย่าง”',
+  };
+
+  function setTool(tool) {
+    var prev = S.settings.tool;
+    if (!TOOL_STATUS[tool]) tool = 'nest';
+    if (prev !== tool) {
+      S.results[prev] = S.result;
+      S.result = S.results[tool] || null;
+    }
+    S.settings.tool = tool;
+    saveSettings();
+    Array.prototype.forEach.call(document.querySelectorAll('[data-for]'), function (e) {
+      e.hidden = e.getAttribute('data-for').split(' ').indexOf(tool) < 0;
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('#toolTabs button'), function (b) {
+      b.classList.toggle('on', b.getAttribute('data-tool') === tool);
+    });
+    $('btnBuild').textContent = 'สร้างชีตไดคัท';
+    if (S.result) {
+      drawPreview();
+      renderStats();
+    } else clearPreview();
+    if (prev !== tool) status(TOOL_STATUS[tool]);
+  }
+
   // ---------------------------------------------------------------- ฟอร์มค่าตั้ง
 
   var NEST_KEYS = [
     'width', 'length', 'sizeUnit', 'marginTop', 'marginBottom', 'marginLeft', 'marginRight', 'gridCut', 'spacing', 'rotation', 'quality', 'respectBleed', 'markType', 'markSize',
     'markInset', 'markThick', 'markClearance', 'markEvery', 'headerOn', 'headerHeight', 'cutter', 'media',
-    'arrange', 'fillSheet',
+    'arrange', 'fillSheet', 'runShape', 'runSize', 'runW', 'runH', 'runRadius', 'runGap', 'runLayout',
   ];
+  var DC_KEYS = ['dcSource', 'dcOffset', 'dcJoin', 'dcMiter', 'dcHoles', 'dcTol', 'dcShadow', 'dcDetail'];
 
   function fields() {
     return Array.prototype.slice.call(document.querySelectorAll('[data-setting]'));
   }
 
   function writeField(key) {
-    var f = document.querySelector('[data-setting="' + key + '"]');
-    if (!f) return;
-    if (f.type === 'checkbox') f.checked = !!S.settings[key];
-    else f.value = S.settings[key] == null ? '' : S.settings[key];
+    Array.prototype.forEach.call(document.querySelectorAll('[data-setting="' + key + '"]'), function (f) {
+      if (f.type === 'checkbox') f.checked = !!S.settings[key];
+      else f.value = S.settings[key] == null ? '' : S.settings[key];
+    });
   }
 
   function setSetting(key, value) {
@@ -1259,11 +1725,13 @@
   function bindSettings() {
     fillSelect('cutter', L.CUTTERS);
     fillSelect('media', L.MEDIA);
+    fillSelect('runShape', NC.diecut.SHAPES);
     fields().forEach(function (f) {
       var key = f.getAttribute('data-setting');
       writeField(key);
       f.addEventListener('change', function () {
         S.settings[key] = f.type === 'checkbox' ? f.checked : f.value;
+        writeField(key); // ช่องเดียวกันที่อยู่หลายที่ (เช่น หมายเหตุงาน)
         if (key === 'cutter') applyCutter(f.value);
         if (key === 'sizeUnit' && S.settings.media === 'custom') {
           // กำหนดเอง: แปลงตัวเลขเดิมเป็นหน่วยใหม่
@@ -1281,6 +1749,7 @@
           renderParts();
         }
         saveSettings();
+        if (DC_KEYS.indexOf(key) >= 0) S.dc = null;
         if (NEST_KEYS.indexOf(key) >= 0) markStale();
         else S.built = false;
         if (S.result && !S.stale) drawPreview();
@@ -1379,7 +1848,7 @@
     };
     $('btnNest').onclick = function () {
       run(function () {
-        return (S.parts.length ? Promise.resolve() : scan()).then(prepareCuts).then(nestNow);
+        return (S.parts.length ? Promise.resolve() : scan()).then(prepareForTool).then(nestNow);
       });
     };
     $('btnBuild').onclick = function () {
@@ -1399,6 +1868,17 @@
         });
       });
     };
+    Array.prototype.forEach.call(document.querySelectorAll('#toolTabs button'), function (b) {
+      b.onclick = function () {
+        if (!S.busy) setTool(b.getAttribute('data-tool'));
+      };
+    });
+    $('btnDcRead').onclick = function () {
+      run(dcRead);
+    };
+    $('btnDcMake').onclick = function () {
+      run(dcMake);
+    };
     $('btnLogo').onclick = pickLogo;
     $('btnLogoReset').onclick = function () {
       S.settings.logoFile = '';
@@ -1408,18 +1888,21 @@
       S.built = false;
       loadLogoImg();
     };
+    var startTool = S.settings.tool;
+    S.settings.tool = 'nest';
+    setTool(startTool);
     placePreview();
     window.addEventListener('resize', placePreview);
 
     if (host.demo) {
       run(scan).then(function () {
-        status('โหมดทดลอง: มีชิ้นงานตัวอย่างให้แล้ว กด “เจ๊หญิงสั่งลุย!” ได้เลย');
+        if (S.settings.tool === 'nest') status('โหมดทดลอง: มีชิ้นงานตัวอย่างให้แล้ว กด “เจ๊หญิงสั่งลุย!” ได้เลย');
       });
     } else {
       host
         .call('np_ping', {})
         .then(function (p) {
-          status('พร้อมลุย — เลือกชิ้นงานแล้วกด “ดึงชิ้นงานที่เลือก” (Illustrator ' + p.app + ')');
+          status(TOOL_STATUS[S.settings.tool] + ' (Illustrator ' + p.app + ')');
         })
         .catch(function (e) {
           status(errText(e), 'err');
@@ -1428,7 +1911,7 @@
   }
 
   // เปิดให้เทสต์เรียกได้
-  window.NPPanel = { state: S, go: go, nestNow: nestNow, exportAll: exportAll, cutPaths: cutPaths };
+  window.NPPanel = { state: S, go: go, nestNow: nestNow, exportAll: exportAll, cutPaths: cutPaths, setTool: setTool, dcRead: dcRead };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();

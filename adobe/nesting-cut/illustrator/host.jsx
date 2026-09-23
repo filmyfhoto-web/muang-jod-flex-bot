@@ -267,6 +267,10 @@ function np_same(a, b) {
 
 // sp = { closed, points: [{ a, l, r }] } in document coordinates
 function np_drawPath(container, sp, spot, width) {
+  return np_drawPathColor(container, sp, np_spotColor(spot), width, spot.name);
+}
+
+function np_drawPathColor(container, sp, color, width, name) {
   var p = container.pathItems.add();
   var pts = sp.points;
   var anchors = [];
@@ -290,10 +294,10 @@ function np_drawPath(container, sp, spot, width) {
   p.closed = sp.closed !== false;
   p.filled = false;
   p.stroked = true;
-  p.strokeColor = np_spotColor(spot);
+  p.strokeColor = color;
   p.strokeWidth = width > 0 ? width : 0.25;
   p.strokeOverprint = true;
-  p.name = spot.name;
+  if (name) p.name = name;
   return p;
 }
 
@@ -570,6 +574,16 @@ function np_drawLines(layer, lines, ox, oy, spot, width) {
   }
 }
 
+// continuous cut lines: [{ closed, points: [[x, y], ...] }] in pt, artboard-relative, y down
+function np_drawPolys(layer, polys, ox, oy, spot, width) {
+  for (var i = 0; i < polys.length; i++) {
+    var pts = polys[i].points;
+    var anchors = [];
+    for (var k = 0; k < pts.length; k++) anchors.push({ a: [ox + pts[k][0], oy - pts[k][1]] });
+    np_drawPath(layer, { closed: polys[i].closed !== false, points: anchors }, spot, width);
+  }
+}
+
 // args: {
 //   target: 'artboard' (new artboards next to the existing ones in the source document, default)
 //         | 'document' (a separate new document - used for exporting),
@@ -661,6 +675,7 @@ function np_buildLayout(args) {
     if (sh.marks && sh.marks.length) np_drawMarks(layMarks, sh.marks, rect[0], rect[1], color);
     if (sh.header) np_drawHeader(layHeader, sh.header, rect[0], rect[1], color);
     if (sh.gridLines && sh.gridLines.length) np_drawLines(layCut || layPieces, sh.gridLines, rect[0], rect[1], spot, args.strokeWidth);
+    if (sh.cutPolys && sh.cutPolys.length) np_drawPolys(layCut || layPieces, sh.cutPolys, rect[0], rect[1], spot, args.strokeWidth);
   }
   for (i = 0; i < NP.stock.length; i++) {
     if (NP.stock[i] && np_alive(NP.stock[i].item)) NP.stock[i].item.remove();
@@ -740,6 +755,156 @@ function np_export(args) {
     files.push(af.fsName);
   }
   return { folder: folder.fsName, files: files };
+}
+
+// ---------------------------------------------------------------- die cut by shape
+
+// the current selection, skipping locked / hidden items
+function np_selItems() {
+  if (!app.documents.length) throw np_E('NO_DOC');
+  var doc = app.activeDocument;
+  var sel = doc.selection;
+  if (!sel || sel.typename === 'TextRange' || !sel.length) throw np_E('NO_SELECTION');
+  var out = [];
+  for (var i = 0; i < sel.length; i++) {
+    try {
+      if (sel[i].locked || sel[i].hidden) continue;
+    } catch (e) {}
+    out.push(sel[i]);
+  }
+  if (!out.length) throw np_E('ALL_LOCKED');
+  NP.dcDoc = doc;
+  return out;
+}
+
+function np_countKinds(it, c, depth) {
+  if (depth > 40) return;
+  var t = it.typename;
+  var k;
+  if (t === 'PlacedItem' || t === 'RasterItem') c.images++;
+  else if (t === 'TextFrame') c.texts++;
+  else if (t === 'PathItem' || t === 'CompoundPathItem') c.vectors++;
+  else if (t === 'GroupItem') {
+    if (it.clipped) c.clips++;
+    for (k = 0; k < it.pageItems.length; k++) np_countKinds(it.pageItems[k], c, depth + 1);
+  }
+}
+
+// render the whole selection as one PNG (clipping masks, live text and effects included)
+// args: { ppi }
+function np_exportSelection(args) {
+  var items = np_selItems();
+  var src = app.activeDocument;
+  var kinds = { images: 0, texts: 0, vectors: 0, clips: 0 };
+  var vb = null;
+  var i;
+  for (i = 0; i < items.length; i++) {
+    np_countKinds(items[i], kinds, 0);
+    var b = items[i].visibleBounds;
+    if (!vb) vb = [b[0], b[1], b[2], b[3]];
+    else vb = [Math.min(vb[0], b[0]), Math.max(vb[1], b[1]), Math.max(vb[2], b[2]), Math.min(vb[3], b[3])];
+  }
+  var w = vb[2] - vb[0];
+  var h = vb[1] - vb[3];
+  if (!(w > 0.01 && h > 0.01)) throw np_E('EMPTY_ITEM');
+  // keep the longest side under maxPx pixels (big photos would otherwise eat the memory)
+  var ppi = Math.min(args.ppi || 300, 600, ((args.maxPx || 3000) * 72) / Math.max(w, h));
+  ppi = Math.max(36, ppi);
+  var f = new File(Folder.temp.fsName + '/nudpon_dc_' + new Date().getTime() + '.png');
+  var tmp = app.documents.add(DocumentColorSpace.RGB, Math.max(1, w), Math.max(1, h));
+  try {
+    var g = tmp.layers[0].groupItems.add();
+    for (i = 0; i < items.length; i++) items[i].duplicate(g, ElementPlacement.PLACEATEND);
+    var ab = tmp.artboards[0].artboardRect;
+    var gvb = g.visibleBounds;
+    g.translate(ab[0] - gvb[0], ab[1] - gvb[1]);
+    gvb = g.visibleBounds;
+    tmp.artboards[0].artboardRect = [gvb[0], gvb[1], gvb[2], gvb[3]];
+    var o = new ExportOptionsPNG24();
+    o.antiAliasing = true;
+    o.transparency = true;
+    o.artBoardClipping = true;
+    o.horizontalScale = (ppi / 72) * 100;
+    o.verticalScale = (ppi / 72) * 100;
+    tmp.exportFile(f, ExportType.PNG24, o);
+  } finally {
+    tmp.close(SaveOptions.DONOTSAVECHANGES);
+    try {
+      src.activate();
+    } catch (e) {}
+  }
+  if (!f.exists) throw np_E('EXPORT_FAILED');
+  return { file: f.fsName, bounds: np_rb(vb), count: items.length, kinds: kinds };
+}
+
+function np_walkClips(it, out, depth) {
+  if (depth > 40) return;
+  var t = it.typename;
+  var k;
+  if (t === 'PathItem') {
+    if (it.clipping) out.push(np_readPath(it));
+  } else if (t === 'CompoundPathItem') {
+    if (it.pathItems.length && it.pathItems[0].clipping) {
+      for (k = 0; k < it.pathItems.length; k++) out.push(np_readPath(it.pathItems[k]));
+    }
+  } else if (t === 'GroupItem') {
+    for (k = 0; k < it.pageItems.length; k++) np_walkClips(it.pageItems[k], out, depth + 1);
+  }
+}
+
+// edges of every clipping mask inside the selection
+function np_readClipPaths(args) {
+  var items = np_selItems();
+  var out = [];
+  for (var i = 0; i < items.length; i++) np_walkClips(items[i], out, 0);
+  return { paths: out, count: items.length };
+}
+
+function np_red(doc) {
+  if (doc.documentColorSpace === DocumentColorSpace.CMYK) {
+    var c = new CMYKColor();
+    c.cyan = 0;
+    c.magenta = 100;
+    c.yellow = 100;
+    c.black = 0;
+    return c;
+  }
+  var r = new RGBColor();
+  r.red = 255;
+  r.green = 0;
+  r.blue = 0;
+  return r;
+}
+
+// draw the cut lines on their own layer at the top of the stack
+// args: { paths: [{ closed, points: [{ a, l, r }] }], layer, strokeWidth, color: 'red' | 'spot', spotName }
+function np_drawDieCut(args) {
+  var doc = np_alive(NP.dcDoc) ? NP.dcDoc : app.documents.length ? app.activeDocument : null;
+  if (!doc) throw np_E('NO_DOC');
+  doc.activate();
+  var lay = np_layer(doc, args.layer || 'Die cut');
+  try {
+    lay.zOrder(ZOrderMethod.BRINGTOFRONT);
+  } catch (eZ) {}
+  var color;
+  var name = args.layer || 'Die cut';
+  if (args.color === 'spot') {
+    var spot = np_spot(doc, args.spotName || 'CutContour');
+    color = np_spotColor(spot);
+    name = spot.name;
+  } else color = np_red(doc);
+  var g = lay.groupItems.add();
+  g.name = args.layer || 'Die cut';
+  var n = 0;
+  for (var i = 0; i < args.paths.length; i++) {
+    np_drawPathColor(g, args.paths[i], color, args.strokeWidth, name);
+    n++;
+  }
+  doc.selection = null;
+  try {
+    g.selected = true;
+  } catch (eSel) {}
+  return { count: n, layer: lay.name };
 }
 
 // select every cut line in the active document (so a cutter plug-in such as

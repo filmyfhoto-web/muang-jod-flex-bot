@@ -261,6 +261,63 @@
     return e;
   }
 
+  // รูปถ่ายตัวอย่างสำหรับ "ไดคัทตามรูปทรง" — พื้นทึบสีม่วงอ่อน มีเงาจาง ๆ รอบตัวคน (เหมือนไฟล์ JPG)
+  var PHOTO = { x: 1100, y: 800, w: 60, h: 80 };
+
+  function renderPhoto(ppi) {
+    var s = ppi / 25.4;
+    var c = document.createElement('canvas');
+    c.width = Math.round(PHOTO.w * s);
+    c.height = Math.round(PHOTO.h * s);
+    var ctx = c.getContext('2d');
+    ctx.scale(s, s);
+    ctx.fillStyle = '#e8e1f1';
+    ctx.fillRect(0, 0, PHOTO.w, PHOTO.h);
+    // เงาของคนบนฉากหลัง
+    ctx.fillStyle = 'rgba(120,100,150,.18)';
+    ctx.beginPath();
+    ctx.ellipse(33, 52, 25, 30, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // ลำตัว (สูทสีกรม) ยาวถึงขอบล่าง
+    ctx.fillStyle = '#1f2a44';
+    ctx.beginPath();
+    ctx.moveTo(8, 80);
+    ctx.bezierCurveTo(8, 62, 16, 55, 30, 54);
+    ctx.bezierCurveTo(44, 55, 52, 62, 52, 80);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#f3e7da';
+    ctx.beginPath();
+    ctx.moveTo(24, 55);
+    ctx.lineTo(30, 72);
+    ctx.lineTo(36, 55);
+    ctx.closePath();
+    ctx.fill();
+    // คอ + หน้า + ผม
+    ctx.fillStyle = '#e9b99a';
+    ctx.fillRect(26, 44, 8, 12);
+    ctx.fillStyle = '#2b1d16';
+    ctx.beginPath();
+    ctx.ellipse(30, 32, 15, 17, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#efc3a4';
+    ctx.beginPath();
+    ctx.ellipse(30, 35, 10.5, 13, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#2b1d16';
+    ctx.beginPath();
+    ctx.ellipse(30, 24, 11, 6, 0, Math.PI, 0);
+    ctx.fill();
+    ctx.fillStyle = '#3a2a24';
+    ctx.fillRect(25, 33, 3, 1.2);
+    ctx.fillRect(32, 33, 3, 1.2);
+    ctx.fillStyle = '#c0582b';
+    ctx.fillRect(27.5, 41, 5, 1.3);
+    return c;
+  }
+
+  var dieCuts = [];
+
   var api = {
     np_ping: function () {
       return { version: 'demo', app: 'browser', documents: 1, selection: true };
@@ -310,6 +367,29 @@
     },
     np_selectCutLines: function () {
       throw demoError('DEMO');
+    },
+    np_exportSelection: function (a) {
+      var c = renderPhoto(a.ppi || 300);
+      return {
+        dataUrl: c.toDataURL('image/png'),
+        bounds: [PHOTO.x, PHOTO.y, PHOTO.x + PHOTO.w * PT, PHOTO.y - PHOTO.h * PT],
+        count: 1,
+        kinds: { images: 1, texts: 0, vectors: 0, clips: 1 },
+      };
+    },
+    np_readClipPaths: function () {
+      var l = PHOTO.x;
+      var t = PHOTO.y;
+      var r = PHOTO.x + PHOTO.w * PT;
+      var b = PHOTO.y - PHOTO.h * PT;
+      return {
+        paths: [{ closed: true, points: [[l, t], [r, t], [r, b], [l, b]].map(function (q) { return { a: q, l: q, r: q }; }) }],
+        count: 1,
+      };
+    },
+    np_drawDieCut: function (a) {
+      dieCuts = dieCuts.concat(a.paths);
+      return { count: a.paths.length, layer: a.layer || 'Die cut' };
     },
     np_importPack: function () {
       throw demoError('DEMO');
