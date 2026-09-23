@@ -15,6 +15,8 @@ export const STATES = {
   WAITING_FOR_PAYMENT: 'waiting_for_payment_amount',
   WAITING_FOR_BILL_PAYMENT: 'waiting_for_bill_payment_amount',
   WAITING_FOR_SEARCH: 'waiting_for_search',
+  // รอรูป QR รับเงินของร้าน — รูปถัดไปเก็บเป็น QR ไม่ใช่หลักฐานของงาน
+  WAITING_FOR_QR: 'waiting_for_qr',
 };
 
 // Get the current state row for a user (by profile id). Returns null if none.

@@ -41,6 +41,18 @@ const COMMANDS = new Map([
   ['ช่วยเหลือ', 'help'],
   ['วิธีใช้', 'help'],
   ['help', 'help'],
+  // QR รับเงินของร้าน — คำเดียวแล้วรูปเด้ง ไม่ต้องไถหาในอัลบั้ม
+  ['qr', 'shop_qr'],
+  ['คิวอาร์', 'shop_qr'],
+  ['คิวอาร์โค้ด', 'shop_qr'],
+  ['qr code', 'shop_qr'],
+  ['คิวอาร์รับเงิน', 'shop_qr'],
+  ['qr รับเงิน', 'shop_qr'],
+  ['สแกนจ่าย', 'shop_qr'],
+  ['พร้อมเพย์', 'shop_qr'],
+  ['เปลี่ยน qr', 'replace_shop_qr'],
+  ['เปลี่ยนคิวอาร์', 'replace_shop_qr'],
+  ['แก้ qr', 'replace_shop_qr'],
   // extras reachable by text
   ['บันทึกรับเงิน', 'record_payment'],
   ['รับเงิน', 'record_payment'],
