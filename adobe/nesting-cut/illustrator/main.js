@@ -54,6 +54,7 @@
   var STORE_KEY = 'nongploy.nestingcut.settings.v2';
   var DEFAULTS = {
     tool: 'nest',
+    layoutMode: 'auto', // auto | side | stack — ตำแหน่งพรีวิว
     cutter: 'circle4',
     media: 'a3',
     sizeUnit: 'mm',
@@ -1011,8 +1012,14 @@
   }
 
   // แผงกว้างพอ (≥ 620 px) ย้ายพรีวิวไปช่องซ้าย แคบก็กลับมาอยู่ใต้ปุ่มลุย
+  var LAYOUT_LABEL = { auto: 'พรีวิว: อัตโนมัติ', side: 'พรีวิว: ข้าง ๆ', stack: 'พรีวิว: ด้านล่าง' };
+
+  // พรีวิวข้างเมนู: อัตโนมัติ (แผงกว้าง ≥ 560 px) · บังคับข้าง ๆ · บังคับด้านล่าง
   function placePreview() {
-    var wide = window.innerWidth >= 620;
+    var mode = S.settings.layoutMode;
+    var wide = mode === 'side' ? true : mode === 'stack' ? false : window.innerWidth >= 560;
+    var btn = $('btnLayout');
+    if (btn) btn.textContent = LAYOUT_LABEL[mode] || LAYOUT_LABEL.auto;
     document.body.classList.toggle('wide', wide);
     var target = wide ? $('previewSide') : $('previewSlot');
     ['previewCard', 'dcPreviewCard', 'vecPreviewCard'].forEach(function (id) {
@@ -2539,6 +2546,12 @@
     var startTool = S.settings.tool;
     S.settings.tool = 'nest';
     setTool(startTool);
+    $('btnLayout').onclick = function () {
+      var order = ['auto', 'side', 'stack'];
+      S.settings.layoutMode = order[(order.indexOf(S.settings.layoutMode) + 1) % order.length];
+      saveSettings();
+      placePreview();
+    };
     placePreview();
     window.addEventListener('resize', placePreview);
 

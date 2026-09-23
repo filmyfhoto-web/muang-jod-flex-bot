@@ -30,8 +30,8 @@
           <Menu>นัดพอน Nesting Cut</Menu>
           <Geometry>
             <Size>
-              <Height>760</Height>
-              <Width>340</Width>
+              <Height>820</Height>
+              <Width>1000</Width>
             </Size>
             <MinSize>
               <Height>400</Height>
@@ -39,7 +39,7 @@
             </MinSize>
             <MaxSize>
               <Height>2400</Height>
-              <Width>900</Width>
+              <Width>2400</Width>
             </MaxSize>
           </Geometry>
           <Icons>

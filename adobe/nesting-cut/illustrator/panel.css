@@ -50,6 +50,14 @@ body {
 }
 .brand {
   text-align: left;
+  position: relative;
+}
+.layout-btn {
+  position: absolute;
+  top: 4px;
+  right: 0;
+  font-size: 11px;
+  padding: 3px 8px;
 }
 .brand img {
   width: 100%;
@@ -409,8 +417,8 @@ body.wide #previewSide {
   top: 8px;
 }
 body.wide #controls {
-  flex: 0 0 360px;
-  width: 360px;
+  flex: 0 0 min(360px, 58%);
+  width: min(360px, 58%);
 }
 body.wide .preview-card {
   height: calc(100vh - 24px);
