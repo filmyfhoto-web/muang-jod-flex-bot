@@ -27,13 +27,18 @@
       <button type="button" data-tool="number">รันนัมเบอร์<small>Variable Data</small></button>
       <button type="button" data-tool="hotkey">ปุ่มลัด<small>One-key</small></button>
     </nav>
+    <nav class="subtabs" id="subTabs" data-for="nest run">
+      <button type="button" data-sub="main">หลัก</button>
+      <button type="button" data-sub="adv">ปรับแต่งขั้นสูง</button>
+      <button type="button" data-sub="out">ส่งออก</button>
+    </nav>
 
     <div id="demoBanner" class="banner" hidden>
       <b>โหมดทดลอง</b> — หน้านี้ไม่ได้เปิดอยู่ใน Illustrator จึงใช้ชิ้นงานตัวอย่างแทน ลองกด “เจ๊หญิงสั่งลุย!” ได้เลย
       หรือเพิ่มรูป PNG พื้นใสของร้านเองก็ได้ ไฟล์ตัด (PLT / DXF / SVG) จะดาวน์โหลดลงเครื่อง
     </div>
 
-    <details class="card steps" id="secHowto" data-for="nest" open>
+    <details class="card steps" id="secHowto" data-for="nest" data-sub="main" open>
       <summary>วิธีใช้ใน 4 ขั้นตอน</summary>
       <ol class="steplist">
         <li><b>เลือกชิ้นงาน</b><span>เลือกภาพและเส้นไดคัทสีแดงของสติ๊กเกอร์หนึ่งดวงให้ครบ (Group ไว้) แล้วกด “ดึงชิ้นงานที่เลือก”</span></li>
@@ -145,11 +150,13 @@
       </div>
       <label class="check"><input type="checkbox" data-setting="cnFlags" /> วงกลมตรวจจุดที่รัศมีลงไม่ได้ (ร่องแคบกว่าดอก มุมแหลมจัด)</label>
       <p class="note"><b>ตั้งตามดอกจริง</b> — ใช้ดอกขนาดอื่น ให้ใส่รัศมีเท่ากับครึ่งหนึ่งของเส้นผ่านศูนย์กลางดอก มุมที่ออกแบบจะสัมพันธ์กับเครื่องมือผลิต</p>
-      <div class="row">
+      <div class="tool-actions">
+        <div class="row">
         <button id="btnCnRead" class="ghost">วิเคราะห์ / ดูตัวอย่าง</button>
         <button id="btnCnMake">ทำมุมโค้ง</button>
+        </div>
+        <div id="cnStatus" class="status">เลือกตัวอักษรหรือ Path แล้วกดวิเคราะห์</div>
       </div>
-      <div id="cnStatus" class="status">เลือกตัวอักษรหรือ Path แล้วกดวิเคราะห์</div>
     </section>
 
     <!-- หาเส้นกลาง (LED) -->
@@ -171,11 +178,13 @@
         <b>! พื้นที่กว้างมากอาจต้องใช้ 2 แถว</b> — แจ้งเตือนเมื่อความกว้างมากกว่าสองเท่าของแถบไฟ
         แต่เวอร์ชันนี้ยังไม่วาดเส้นคู่ให้อัตโนมัติ ต้องเพิ่มแนวไฟเองหลังตรวจแบบ
       </p>
-      <div class="row">
+      <div class="tool-actions">
+        <div class="row">
         <button id="btnLedRead" class="ghost">วิเคราะห์ / ดูตัวอย่าง</button>
         <button id="btnLedMake">สร้างเส้นกลาง</button>
+        </div>
+        <div id="ledStatus" class="status">เลือกตัวอักษรปิดแล้วกดวิเคราะห์</div>
       </div>
-      <div id="ledStatus" class="status">เลือกตัวอักษรปิดแล้วกดวิเคราะห์</div>
     </section>
 
     <!-- เส้นบอกขนาด -->
@@ -241,10 +250,12 @@
       </div>
       <label class="check"><input type="checkbox" data-setting="dimClear" /> ล้างเส้นบอกขนาดเดิมในเลเยอร์นี้ก่อน</label>
       <p class="note">ไม่ลบของเก่าเป็นค่าเริ่มต้น — ถ้าต้องการแทนชุด Dimension เดิม ให้ติ๊ก “ล้างเส้นบอกขนาดเดิม” ก่อนกดใส่เส้น</p>
+      <div class="tool-actions">
       <div class="row">
         <button id="btnDimMake" class="wide">ใส่เส้นบอกขนาด</button>
       </div>
       <div id="dimStatus" class="status">เลือกงานแล้วกดใส่เส้นบอกขนาด</div>
+      </div>
     </section>
 
     <!-- รันนัมเบอร์ -->
@@ -327,12 +338,14 @@
         >
         <label class="check"><input type="checkbox" data-setting="numUnderline" /> Underline</label>
       </div>
+      <ol id="numList" class="numlist"></ol>
+      <div class="tool-actions">
       <div class="row">
         <button id="btnNumPreview" class="ghost">ดูตัวอย่าง</button>
         <button id="btnNumMake">ใส่เลข</button>
       </div>
-      <ol id="numList" class="numlist"></ol>
       <div id="numStatus" class="status">เลือก Text Frame (หรือเปิดไฟล์หลายอาร์ตบอร์ด) แล้วกดดูตัวอย่าง</div>
+      </div>
     </section>
 
     <!-- ปุ่มลัด -->
@@ -351,20 +364,22 @@
         <li><b>กด “วิธีตั้งค่า”</b><span>แผงติดตั้งสคริปต์ “NudPon Quick Nest” แล้วแสดงขั้นตอน</span></li>
         <li><b>สร้าง Illustrator Action</b><span>ใช้ Insert Menu Item เรียก File → Scripts → NudPon Quick Nest แล้วตั้งปุ่มลัดให้ Action</span></li>
       </ol>
-      <div class="row">
-        <button id="btnHkSetup">วิธีตั้งค่า</button>
-        <button id="btnHkTest" class="ghost">ทดสอบกับชิ้นที่เลือก</button>
-      </div>
       <div id="hkGuide" class="guide" hidden></div>
       <p class="note warnnote">
         <b>ข้อจำกัดของ Illustrator</b> — ปลั๊กอินจองปุ่มลัดเองไม่ได้ จึงต้องเรียกผ่าน Action และจำกัดเฉพาะ F2–F15
         ต้องเปิดแผงนัดพอนอย่างน้อยหนึ่งครั้งหลังเปิด Illustrator
       </p>
-      <div id="hkStatus" class="status">เลือกปุ่มแล้วกด “วิธีตั้งค่า”</div>
+      <div class="tool-actions">
+        <div class="row">
+        <button id="btnHkSetup">วิธีตั้งค่า</button>
+        <button id="btnHkTest" class="ghost">ทดสอบกับชิ้นที่เลือก</button>
+        </div>
+        <div id="hkStatus" class="status">เลือกปุ่มแล้วกด “วิธีตั้งค่า”</div>
+      </div>
     </section>
 
     <!-- 1. ชิ้นงาน -->
-    <section class="card" data-for="nest run">
+    <section class="card" data-for="nest run" data-sub="main">
       <h2><span class="num">1</span> <span data-for="nest">ชิ้นงาน</span><span data-for="run">ต้นแบบหนึ่งดวง</span></h2>
       <div class="row">
         <button id="btnScan">ดึงชิ้นงานที่เลือก</button>
@@ -380,7 +395,7 @@
     </section>
 
     <!-- ไดคัทต่อเนื่อง -->
-    <section class="card" id="secRun" data-for="run">
+    <section class="card" id="secRun" data-for="run" data-sub="main">
       <h2><span class="num">★</span> ไดคัทต่อเนื่อง <span class="sub">STICKER · LABEL</span></h2>
       <p class="hint">
         วางสติ๊กเกอร์หนึ่งต้นแบบซ้ำเต็มชีต แล้วสร้างแนวตัดยาวต่อเนื่อง ลดจำนวนครั้งที่เครื่องยกใบมีด เหมาะกับงานฉลากจำนวนมาก
@@ -421,19 +436,6 @@
       </p>
     </section>
 
-    <!-- ปุ่มหลัก -->
-    <section class="card actions" data-for="nest run">
-      <button id="btnGo" class="go" data-for="nest">เจ๊หญิงสั่งลุย! 🚀</button>
-      <div class="row small">
-        <button id="btnNest" class="ghost" title="จัดวางแล้วดูพรีวิวก่อน ยังไม่แตะไฟล์">คำนวณ</button>
-        <button id="btnBuild" class="ghost" title="สร้างไฟล์เลย์เอาต์ใหม่ใน Illustrator จากผลจัดวาง">สร้างชีตไดคัท</button>
-        <button id="btnExport" class="ghost" title="บันทึก PDF / AI / PLT / DXF / SVG">ส่งออก</button>
-        <button id="btnSelectCut" class="ghost" title="เลือกเส้นตัดทั้งหมด เพื่อส่งผ่านปลั๊กอินของเครื่องตัด">เลือกเส้นตัด</button>
-      </div>
-      <div class="progress"><div id="progressBar"></div></div>
-      <div id="status" class="status">พร้อมลุย</div>
-    </section>
-
     <!-- พรีวิว -->
     <div id="previewSlot">
       <section class="card preview-card" id="previewCard" data-for="nest run">
@@ -471,7 +473,7 @@
     </div>
 
     <!-- 2. วัสดุ & เครื่องตัด -->
-    <details class="card" id="secMedia" data-for="nest run" open>
+    <details class="card" id="secMedia" data-for="nest run" data-sub="main" open>
       <summary><span class="num">2</span> หน้ากระดาษ &amp; การวางดวง</summary>
       <div class="grid2">
         <label>ขนาดกระดาษ <select id="media" data-setting="media"></select></label>
@@ -493,9 +495,10 @@
         <label>ขวา <input id="marginRight" type="number" min="0" step="1" data-setting="marginRight" /></label>
       </div>
       <label data-for="nest"
-        >ระยะห่างระหว่างดวง (มม.) — วัดจากเส้นไดคัทถึงเส้นไดคัท ต้องมากกว่า 2 เท่าของ Bleed
+        >ระยะห่างระหว่างดวง (มม.)
         <input id="spacing" type="number" min="0.2" step="0.5" data-setting="spacing"
       /></label>
+      <p class="hint" data-for="nest">วัดจากเส้นไดคัทถึงเส้นไดคัท ต้องมากกว่า 2 เท่าของ Bleed</p>
       <label>เครื่องตัด <select id="cutter" data-setting="cutter"></select></label>
       <p id="cutterNote" class="note"></p>
       <div class="grid2" data-for="nest">
@@ -530,7 +533,7 @@
     </details>
 
     <!-- 3. เส้นตัด -->
-    <details class="card" id="secCut" data-for="nest run">
+    <details class="card" id="secCut" data-for="nest run" data-sub="adv" open>
       <summary><span class="num">3</span> เส้นตัด (Cut-Line)</summary>
       <label data-for="nest"
         >ชิ้นที่ยังไม่มีเส้นตัด
@@ -570,7 +573,7 @@
     </details>
 
     <!-- 4. มาร์ก -->
-    <details class="card" id="secMarks" data-for="nest run">
+    <details class="card" id="secMarks" data-for="nest run" data-sub="adv" open>
       <summary><span class="num">4</span> มาร์ก (Registration Marks)</summary>
       <label
         >แบบมาร์ก
@@ -592,7 +595,7 @@
     </details>
 
     <!-- 5. หัวงาน -->
-    <details class="card" id="secHeader" data-for="nest run">
+    <details class="card" id="secHeader" data-for="nest run" data-sub="adv" open>
       <summary><span class="num">5</span> หัวงาน (Header Logo)</summary>
       <label class="check"><input id="headerOn" type="checkbox" data-setting="headerOn" /> ใส่หัวงานบนแผ่น</label>
       <div class="grid2">
@@ -609,7 +612,7 @@
     </details>
 
     <!-- 6. ส่งออก -->
-    <details class="card" id="secOut" data-for="nest run">
+    <details class="card" id="secOut" data-for="nest run" data-sub="out" open>
       <summary><span class="num">6</span> ส่งออก</summary>
       <div class="checks">
         <label class="check"><input id="outPdf" type="checkbox" data-setting="outPdf" /> PDF (RIP พิมพ์+ตัด)</label>
@@ -636,6 +639,19 @@
       </div>
       <p class="hint">PLT ลองตัดชิ้นเล็กก่อนครั้งแรก ถ้างานออกมาหมุน/กลับด้าน ให้สลับ “แกน PLT”</p>
     </details>
+
+    <!-- ปุ่มหลัก -->
+    <section class="card actions sticky-actions" data-for="nest run">
+      <button id="btnGo" class="go" data-for="nest">เจ๊หญิงสั่งลุย! 🚀</button>
+      <div class="row small">
+        <button id="btnNest" class="ghost" title="จัดวางแล้วดูพรีวิวก่อน ยังไม่แตะไฟล์">คำนวณ</button>
+        <button id="btnBuild" class="ghost" title="สร้างไฟล์เลย์เอาต์ใหม่ใน Illustrator จากผลจัดวาง">สร้างชีตไดคัท</button>
+        <button id="btnExport" class="ghost" title="บันทึก PDF / AI / PLT / DXF / SVG">ส่งออก</button>
+        <button id="btnSelectCut" class="ghost" title="เลือกเส้นตัดทั้งหมด เพื่อส่งผ่านปลั๊กอินของเครื่องตัด">เลือกเส้นตัด</button>
+      </div>
+      <div class="progress"><div id="progressBar"></div></div>
+      <div id="status" class="status">พร้อมลุย</div>
+    </section>
 
     </div>
     </div>

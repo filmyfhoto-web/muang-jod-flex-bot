@@ -55,6 +55,7 @@
   var DEFAULTS = {
     tool: 'nest',
     layoutMode: 'auto', // auto | side | stack — ตำแหน่งพรีวิว
+    subTab: 'main', // หลัก | ปรับแต่งขั้นสูง | ส่งออก (แถบจัดวางดวง / ไดคัทต่อเนื่อง)
     cutter: 'circle4',
     media: 'a3',
     sizeUnit: 'mm',
@@ -2245,6 +2246,30 @@
   };
   var NO_PREVIEW = ['dim', 'number', 'hotkey'];
 
+  // ส่วนที่แสดง = ตรงกับเครื่องมือ และ (ถ้ามี data-sub) ตรงกับแถบย่อยที่เลือก
+  function applyVisibility() {
+    var tool = S.settings.tool;
+    var sub = S.settings.subTab || 'main';
+    Array.prototype.forEach.call(document.querySelectorAll('[data-for]'), function (e) {
+      var s2 = e.getAttribute('data-sub');
+      e.hidden = e.getAttribute('data-for').split(' ').indexOf(tool) < 0 || (!!s2 && s2 !== sub);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('#toolTabs button'), function (b) {
+      b.classList.toggle('on', b.getAttribute('data-tool') === tool);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('#subTabs button'), function (b) {
+      b.classList.toggle('on', b.getAttribute('data-sub') === sub);
+    });
+  }
+
+  // ช่องกรอกแบบ “ชื่ออยู่ซ้าย ช่องอยู่ขวา” อ่านง่ายเหมือนแผงของ Illustrator
+  function markFields() {
+    Array.prototype.forEach.call(document.querySelectorAll('label'), function (l) {
+      if (l.classList.contains('check')) return;
+      if (l.querySelector('input:not([type="checkbox"]), select')) l.classList.add('field');
+    });
+  }
+
   function setTool(tool) {
     var prev = S.settings.tool;
     if (!TOOL_STATUS[tool]) tool = 'nest';
@@ -2254,12 +2279,7 @@
     }
     S.settings.tool = tool;
     saveSettings();
-    Array.prototype.forEach.call(document.querySelectorAll('[data-for]'), function (e) {
-      e.hidden = e.getAttribute('data-for').split(' ').indexOf(tool) < 0;
-    });
-    Array.prototype.forEach.call(document.querySelectorAll('#toolTabs button'), function (b) {
-      b.classList.toggle('on', b.getAttribute('data-tool') === tool);
-    });
+    applyVisibility();
     document.body.classList.toggle('nopreview', NO_PREVIEW.indexOf(tool) >= 0);
     if (tool === 'corner' || tool === 'led') drawVec();
     if (S.result) {
@@ -2486,6 +2506,15 @@
         if (!S.busy) setTool(b.getAttribute('data-tool'));
       };
     });
+    Array.prototype.forEach.call(document.querySelectorAll('#subTabs button'), function (b) {
+      b.onclick = function () {
+        S.settings.subTab = b.getAttribute('data-sub');
+        saveSettings();
+        applyVisibility();
+        $('controls').scrollTop = 0;
+      };
+    });
+    markFields();
     $('btnCnRead').onclick = function () {
       run(cncRead);
     };
