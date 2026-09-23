@@ -62,7 +62,12 @@
     rotation: 'quarter',
     quality: '1',
     respectBleed: true,
+    arrange: 'shape',
+    fillSheet: false,
     cutMode: 'auto',
+    detectRed: true,
+    printLayer: 'ไฟล์ปริ้นชิ้นงาน',
+    cutLayer: 'เส้นไดคัท',
     cutOffset: 2,
     boxRadius: 0,
     spotName: 'CutContour',
@@ -321,7 +326,7 @@
 
   function scan() {
     status('กำลังดึงชิ้นงานที่เลือก…');
-    return host.call('np_scan', { cutNames: cutNames() }).then(function (res) {
+    return host.call('np_scan', { cutNames: cutNames(), detectRed: !!S.settings.detectRed }).then(function (res) {
       S.parts = res.parts.map(fromHost);
       S.result = null;
       S.stale = false;
@@ -477,7 +482,11 @@
 
   // ขอบงานที่เลยเส้นตัดออกไป (bleed) หน่วย mm — กันสีล้นทับชิ้นข้าง ๆ
   function bleedOf(p) {
-    if (!S.settings.respectBleed || !p.rings.length || p.mode === 'vector') return 0;
+    return S.settings.respectBleed ? rawBleed(p) : 0;
+  }
+
+  function rawBleed(p) {
+    if (!p.rings.length || p.mode === 'vector') return 0;
     var bb = G.bounds(p.rings);
     var e = Math.max(
       0,
@@ -497,12 +506,23 @@
       p.polys = src ? B.subpathsToPolylines(src, 0.1) : [];
       return {
         id: p.idx,
-        rings: p.rings,
+        // แบบตาราง: จัดวางด้วยกรอบสี่เหลี่ยมของชิ้น (เรียงเป็นแถว-คอลัมน์) แต่ตัดตามเส้นจริง
+        rings: S.settings.arrange === 'grid' && p.rings.length ? [bboxRing(p.rings)] : p.rings,
         quantity: p.rings.length ? p.qty : 0,
         rotations: p.rotate ? rots : [0],
         bleed: bleedOf(p),
       };
     });
+  }
+
+  function bboxRing(rings) {
+    var b = G.bounds(rings);
+    return [
+      [b.minX, b.minY],
+      [b.maxX, b.minY],
+      [b.maxX, b.maxY],
+      [b.minX, b.maxY],
+    ];
   }
 
   function markSpec() {
@@ -545,17 +565,39 @@
     }
     var plan = L.planSheet(sheetSpec());
     if (!(plan.area.w > 5 && plan.area.h > 5)) throw new Error('แผ่นเล็กเกินไปเมื่อหักขอบ มาร์ก และหัวงานแล้ว');
-    status('น้องพลอยกำลังจัดวาง ' + total + ' ชิ้น…');
+    var opts = {
+      spacing: Math.max(0.2, num('spacing')),
+      cellSize: num('quality') || 1,
+      iterations: 24,
+      timeLimitMs: 12000,
+    };
     var t0 = Date.now();
-    return NC.nest
-      .nestAsync(parts, plan, {
-        spacing: Math.max(0.2, num('spacing')),
-        cellSize: num('quality') || 1,
-        iterations: 24,
-        timeLimitMs: 12000,
-      }, function (f) {
+    var fill = null;
+    var job;
+    if (S.settings.fillSheet) {
+      // เต็มแผ่น: ดวงแรกที่มีจำนวน ใส่ให้ได้มากที่สุดในแผ่นเดียว
+      if (plan.roll) throw new Error('โหมดเต็มแผ่นต้องใส่ “ยาว (มม.)” ของแผ่นก่อน เช่น 13×19 นิ้ว = 330 × 483');
+      var first = parts.filter(function (p) {
+        return p.quantity > 0;
+      })[0];
+      fill = { part: byIdx(first.id), others: parts.filter(function (p) { return p.quantity > 0; }).length - 1 };
+      status('น้องพลอยกำลังหาวิธีใส่ “' + fill.part.name + '” ให้ได้มากที่สุด…');
+      job = new Promise(function (resolve, reject) {
+        setTimeout(function () {
+          try {
+            resolve(NC.nest.fillSheet(first, plan, opts));
+          } catch (e) {
+            reject(e);
+          }
+        }, 30);
+      });
+    } else {
+      status('น้องพลอยกำลังจัดวาง ' + total + ' ชิ้น…');
+      job = NC.nest.nestAsync(parts, plan, opts, function (f) {
         progress(0.3 + 0.5 * f);
-      })
+      });
+    }
+    return job
       .then(function (res) {
         var sheets = res.sheets.map(function (sh, i) {
           var len = L.finalLength(plan, sh.contentMaxY);
@@ -567,7 +609,7 @@
             marks: L.markShapes(plan.width, len, plan.marks),
           };
         });
-        S.result = { plan: plan, res: res, sheets: sheets, ms: Date.now() - t0 };
+        S.result = { plan: plan, res: res, sheets: sheets, ms: Date.now() - t0, fill: fill };
         S.stale = false;
         S.built = false;
         $('previewSub').textContent = '';
@@ -584,8 +626,28 @@
             .filter(Boolean)
             .join(', ');
           status('วางไม่ได้ ' + unplaced + ' ชิ้น (ใหญ่กว่าพื้นที่วาง?): ' + names, 'warn');
+        } else if (fill) {
+          var b = G.bounds(fill.part.rings);
+          status(
+            'ได้ ' + res.placedCount + ' ดวง ต่อ 1 แผ่น · ดวงขนาด ' + Math.round(b.maxX - b.minX) + ' × ' + Math.round(b.maxY - b.minY) + ' มม.' +
+              (fill.others > 0 ? ' (โหมดเต็มแผ่นใช้แบบแรกแบบเดียว ข้ามอีก ' + fill.others + ' แบบ)' : ''),
+            'ok'
+          );
         } else {
           status('จัดวางครบ ' + res.placedCount + ' ชิ้น ✓', 'ok');
+        }
+        // งานพิมพ์เลยเส้นตัดเกินครึ่งระยะห่าง → สีจะล้นไปทับชิ้นข้าง ๆ
+        if (!S.settings.respectBleed) {
+          var worst = S.parts.reduce(function (m, p) {
+            return p.qty > 0 ? Math.max(m, rawBleed(p)) : m;
+          }, 0);
+          if (worst > opts.spacing / 2) {
+            status(
+              '⚠ งานพิมพ์เลยเส้นตัดออกมา ' + worst.toFixed(1) + ' มม. มากกว่าครึ่งหนึ่งของระยะห่าง — เพิ่มระยะห่างเป็นอย่างน้อย ' +
+                (Math.ceil(worst * 2 * 10) / 10) + ' มม. หรือเปิด “เผื่อ bleed”',
+              'warn'
+            );
+          }
         }
         if (missing.length) {
           status(
@@ -629,7 +691,9 @@
       return s + u.count;
     }, 0);
     [
-      [r.plan.roll ? (used / 1000).toFixed(2) + ' ม.' : r.sheets.length + ' แผ่น', r.plan.roll ? 'ความยาวม้วนที่ใช้' : 'จำนวนแผ่น'],
+      r.fill
+        ? [r.res.placedCount + ' ดวง', 'ต่อ 1 แผ่น']
+        : [r.plan.roll ? (used / 1000).toFixed(2) + ' ม.' : r.sheets.length + ' แผ่น', r.plan.roll ? 'ความยาวม้วนที่ใช้' : 'จำนวนแผ่น'],
       [util.toFixed(0) + '%', 'ใช้เนื้อที่'],
       [r.res.placedCount + '/' + r.res.totalCount, unplaced ? 'วางได้ (ขาด ' + unplaced + ')' : 'ชิ้นที่วาง'],
     ].forEach(function (s) {
@@ -839,7 +903,13 @@
       var r = S.result;
       var n = r.sheets.length;
       var payload = {
-        layerNames: { pieces: 'ชิ้นงาน', marks: 'มาร์ก', header: 'หัวงาน' },
+        layerNames: {
+          pieces: S.settings.printLayer || 'ไฟล์ปริ้นชิ้นงาน',
+          cut: S.settings.cutLayer || 'เส้นไดคัท',
+          marks: 'มาร์ก',
+          header: 'หัวงาน',
+        },
+        cutNames: cutNames(),
         sheets: r.sheets.map(function (sh, i) {
           var copies = {};
           var marks = [];
@@ -986,7 +1056,7 @@
   }
 
   function selectCutLines() {
-    return host.call('np_selectCutLines', { cutNames: cutNames() }).then(function (r) {
+    return host.call('np_selectCutLines', { cutNames: cutNames(), detectRed: !!S.settings.detectRed }).then(function (r) {
       status('เลือกเส้นตัดแล้ว ' + r.count + ' เส้น — กดส่งผ่านปลั๊กอินเครื่องตัด (Cutting Master / CutStudio / FineCut) ได้เลย', 'ok');
     });
   }
@@ -996,6 +1066,7 @@
   var NEST_KEYS = [
     'width', 'length', 'margin', 'spacing', 'rotation', 'quality', 'respectBleed', 'markType', 'markSize',
     'markInset', 'markThick', 'markClearance', 'markEvery', 'headerOn', 'headerHeight', 'cutter', 'media',
+    'arrange', 'fillSheet',
   ];
 
   function fields() {

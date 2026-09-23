@@ -15,7 +15,7 @@
 
 var NP = $.global.NP_STATE;
 if (!NP) {
-  NP = { parts: [], stock: [], sourceDoc: null, layoutDoc: null };
+  NP = { parts: [], stock: [], sourceDoc: null, layoutDoc: null, detectRed: true };
   $.global.NP_STATE = NP;
 }
 
@@ -135,13 +135,28 @@ function np_cs(deg) {
   return [Math.cos((d * Math.PI) / 180), Math.sin((d * Math.PI) / 180)];
 }
 
+// Cut lines are STROKES (a red fill is artwork, not a cut line):
+//  - a spot color whose name is in `names` or contains cut / die / thru / kiss
+//  - or, when NP.detectRed is on, a plain red stroke: RGB red, or CMYK M+Y without C/K
+function np_isRed(c) {
+  if (!c) return false;
+  if (c.typename === 'RGBColor') return c.red >= 200 && c.green <= 80 && c.blue <= 80;
+  if (c.typename === 'CMYKColor') return c.magenta >= 80 && c.yellow >= 80 && c.cyan <= 20 && c.black <= 20;
+  return false;
+}
+
 function np_isCutStroke(p, names) {
   try {
     if (!p.stroked) return false;
     var c = p.strokeColor;
-    if (!c || c.typename !== 'SpotColor') return false;
-    var n = np_norm(c.spot.name);
-    for (var i = 0; i < names.length; i++) if (np_norm(names[i]) === n) return true;
+    if (!c) return false;
+    if (c.typename === 'SpotColor') {
+      var n = np_norm(c.spot.name);
+      for (var i = 0; i < names.length; i++) if (np_norm(names[i]) === n) return true;
+      if (/cut|die|thru|kiss/.test(n)) return true;
+      return NP.detectRed && np_isRed(c.spot.color);
+    }
+    return NP.detectRed && np_isRed(c);
   } catch (e) {}
   return false;
 }
@@ -325,6 +340,7 @@ function np_scan(args) {
   var sel = doc.selection;
   if (!sel || sel.typename === 'TextRange' || !sel.length) throw np_E('NO_SELECTION');
   var names = args.cutNames && args.cutNames.length ? args.cutNames : ['CutContour'];
+  NP.detectRed = args.detectRed !== false;
   NP.sourceDoc = doc;
   NP.parts = [];
   NP.stock = [];
@@ -523,6 +539,11 @@ function np_buildLayout(args) {
   NP.stock = [];
   var layPieces = doc.layers[0];
   layPieces.name = names.pieces || 'Pieces';
+  var layCut = null;
+  if (names.cut) {
+    layCut = doc.layers.add();
+    layCut.name = names.cut;
+  }
   var layMarks = doc.layers.add();
   layMarks.name = names.marks || 'Marks';
   var layHeader = doc.layers.add();
@@ -568,12 +589,34 @@ function np_buildLayout(args) {
     if (NP.stock[i] && np_alive(NP.stock[i].item)) NP.stock[i].item.remove();
   }
   NP.stock = [];
+  if (layCut) np_moveCutLines(doc, layCut, args.cutNames && args.cutNames.length ? args.cutNames : ['CutContour']);
   try {
     doc.artboards.setActiveArtboardIndex(0);
     doc.selection = null;
     app.executeMenuCommand('fitall');
   } catch (eView) {}
   return { document: doc.name, sheets: sheets.length, pieces: placed };
+}
+
+// cut lines go on their own layer (on top), artwork stays on the print layer
+function np_moveCutLines(doc, layer, names) {
+  var todo = [];
+  var i;
+  for (i = 0; i < doc.compoundPathItems.length; i++) {
+    var cp = doc.compoundPathItems[i];
+    if (cp.layer.name !== layer.name && cp.pathItems.length && np_isCutStroke(cp.pathItems[0], names)) todo.push(cp);
+  }
+  for (i = 0; i < doc.pathItems.length; i++) {
+    var p = doc.pathItems[i];
+    if (p.layer.name === layer.name || p.parent.typename === 'CompoundPathItem') continue;
+    if (np_isCutStroke(p, names)) todo.push(p);
+  }
+  for (i = 0; i < todo.length; i++) {
+    try {
+      todo[i].move(layer, ElementPlacement.PLACEATEND);
+    } catch (e) {}
+  }
+  return todo.length;
 }
 
 function np_defaultFolder() {
@@ -629,6 +672,7 @@ function np_selectCutLines(args) {
   if (!app.documents.length) throw np_E('NO_DOC');
   var doc = app.activeDocument;
   var names = args.cutNames && args.cutNames.length ? args.cutNames : ['CutContour'];
+  NP.detectRed = args.detectRed !== false;
   doc.selection = null;
   var n = 0;
   for (var i = 0; i < doc.pathItems.length; i++) {

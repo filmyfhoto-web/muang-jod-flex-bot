@@ -87,6 +87,14 @@
           </select></label
         >
       </div>
+      <label
+        >รูปแบบการเรียง
+        <select id="arrange" data-setting="arrange">
+          <option value="shape">ตามรูปทรง — ได้ดวงเยอะกว่า</option>
+          <option value="grid">ตาราง (แถว × คอลัมน์)</option>
+        </select></label
+      >
+      <label class="check"><input id="fillSheet" type="checkbox" data-setting="fillSheet" /> เต็มแผ่น — ใส่ดวงให้ได้มากที่สุด (ใช้แบบแรก ต้องใส่ความยาวแผ่น)</label>
       <label class="check"><input id="respectBleed" type="checkbox" data-setting="respectBleed" /> เผื่อ bleed ที่เลยเส้นตัด (สีไม่ล้นทับชิ้นข้าง ๆ)</label>
     </details>
 
@@ -107,7 +115,17 @@
         <label>ชื่อสี Spot <input id="spotName" data-setting="spotName" /></label>
         <label>เส้นหนา (pt) <input id="strokeWidth" type="number" min="0.1" step="0.05" data-setting="strokeWidth" /></label>
       </div>
-      <p class="hint">ชิ้นที่มีเส้นสี Spot ชื่อนี้อยู่แล้ว (CutContour) จะใช้เส้นเดิม ไม่สร้างซ้ำ</p>
+      <label class="check"><input id="detectRed" type="checkbox" data-setting="detectRed" /> นับเส้นขอบสีแดงเป็นเส้นไดคัทด้วย</label>
+      <div class="grid2">
+        <label>เลเยอร์เส้นไดคัท <input id="cutLayer" data-setting="cutLayer" /></label>
+        <label>เลเยอร์งานพิมพ์ <input id="printLayer" data-setting="printLayer" /></label>
+      </div>
+      <ul class="hint tips">
+        <li>เส้นไดคัทต้องเป็น <b>เส้นขอบ (stroke)</b> — สีแดงที่เป็นพื้น (fill) ถือว่าเป็นงานพิมพ์</li>
+        <li>รับสี Spot ชื่อที่ตั้งไว้ หรือชื่อที่มีคำว่า cut / die / thru / kiss และสีแดง RGB / CMYK (M+Y)</li>
+        <li>ชิ้นที่ยังไม่มีเส้นตัด สร้างให้ตามแบบที่เลือกข้างบน — ชิ้นที่มีอยู่แล้วใช้เส้นเดิม ไม่สร้างซ้ำ</li>
+        <li>ของเดิมไม่ถูกย้าย — เลย์เอาต์สร้างเป็นไฟล์ใหม่ทุกครั้ง</li>
+      </ul>
     </details>
 
     <!-- 4. มาร์ก -->

@@ -379,3 +379,11 @@ button.go {
   color: var(--muted);
   padding: 24px 8px;
 }
+
+.tips {
+  padding-left: 16px;
+  margin: 4px 0 0;
+}
+.tips li {
+  margin-bottom: 3px;
+}

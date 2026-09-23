@@ -277,6 +277,29 @@
     return null;
   };
 
+  // วาง mask ที่ (x, y) ได้ไหม (ไม่ทับช่องที่เต็มแล้ว)
+  Grid.prototype.fits = function (mask, x, y) {
+    if (x < 0 || y < 0 || x + mask.w > this.cols || y + mask.h > this.maxRows) return false;
+    for (var r = 0; r < mask.h; r++) {
+      var row = this.rows[y + r];
+      if (!row) continue;
+      var runs = mask.rows[r];
+      for (var k = 0; k < runs.length; k += 2) {
+        if (row[x + runs[k + 1]] >= x + runs[k]) return false;
+      }
+    }
+    return true;
+  };
+
+  function makeGrid(geo) {
+    var g = new Grid(geo.cols, geo.maxRows);
+    for (var i = 0; i < geo.obstacleCells.length; i++) {
+      var oc = geo.obstacleCells[i];
+      for (var y = oc.y0; y <= oc.y1; y++) g.fill(y, oc.x0, oc.x1);
+    }
+    return g;
+  }
+
   // ---------- เตรียมชิ้นงาน ----------
 
   function cleanRings(rings) {
@@ -420,11 +443,7 @@
     var placedCount = 0;
 
     function newSheet() {
-      var g = new Grid(geo.cols, geo.maxRows);
-      for (var i = 0; i < geo.obstacleCells.length; i++) {
-        var oc = geo.obstacleCells[i];
-        for (var y = oc.y0; y <= oc.y1; y++) g.fill(y, oc.x0, oc.x1);
-      }
+      var g = makeGrid(geo);
       sheets.push(g);
       return g;
     }
@@ -537,7 +556,7 @@
       var area = 0;
       var placements = g.placements.map(function (pl) {
         var shape = shapes[pl.shape];
-        var m = shape.masks[pl.mask];
+        var m = pl.m || shape.masks[pl.mask];
         var tx = geo.x0 + pl.gx * geo.cell - m.ox;
         var ty = geo.y0 + pl.gy * geo.cell - m.oy;
         var bb = {
@@ -654,8 +673,142 @@
     });
   }
 
+  // ---------- เต็มแผ่น: ดวงเดียวกันให้ได้จำนวนมากที่สุด ----------
+  // ลองวางเป็นแถวซ้ำ ๆ (lattice): แถวคี่เลื่อนเยื้องได้และกลับหัว 180° ได้ — วงกลมจะได้แบบรังผึ้ง
+  // สามเหลี่ยมได้แบบสลับหัวท้าย แล้วเทียบกับการวางทีละดวงแบบปกติ เอาแบบที่ได้ดวงมากกว่า
+
+  // B วางที่ (dx, dy) เทียบกับ A ทับกันไหม
+  function collide(A, B, dx, dy) {
+    var r0 = Math.max(0, dy);
+    var r1 = Math.min(A.h, dy + B.h);
+    for (var y = r0; y < r1; y++) {
+      var ra = A.rows[y];
+      var rb = B.rows[y - dy];
+      var i = 0;
+      var j = 0;
+      while (i < ra.length && j < rb.length) {
+        if (ra[i + 1] < rb[j] + dx) i += 2;
+        else if (rb[j + 1] + dx < ra[i]) j += 2;
+        else return true;
+      }
+    }
+    return false;
+  }
+
+  function pitchOf(m) {
+    for (var px = 1; px < m.w; px++) {
+      var ok = true;
+      for (var k = 1; k * px < m.w && ok; k++) if (collide(m, m, k * px, 0)) ok = false;
+      if (ok) return px;
+    }
+    return m.w;
+  }
+
+  function rowsOk(ma, mb, px, s, dy) {
+    var K = Math.ceil(Math.max(ma.w, mb.w) / px) + 1;
+    for (var k = -K; k <= K; k++) {
+      if (collide(ma, mb, s + k * px, dy)) return false; // แถวคู่ → แถวคี่ถัดลงมา
+      if (collide(mb, ma, k * px - s, dy)) return false; // แถวคี่ → แถวคู่ถัดลงมา
+      if (collide(ma, ma, k * px, 2 * dy)) return false;
+      if (collide(mb, mb, k * px, 2 * dy)) return false;
+    }
+    return true;
+  }
+
+  function latticeFor(ma, mb, grid) {
+    var px = Math.max(pitchOf(ma), pitchOf(mb));
+    var best = null;
+    var step = Math.max(1, Math.floor(px / 24));
+    for (var s = 0; s < px; s += step) {
+      var dy = 1;
+      var limit = ma.h + mb.h;
+      while (dy <= limit && !rowsOk(ma, mb, px, s, dy)) dy++;
+      if (dy > limit) continue;
+      var list = [];
+      var bottom = 0;
+      for (var i = 0; ; i++) {
+        var m = i % 2 ? mb : ma;
+        var y = i * dy;
+        if (y + m.h > grid.maxRows) break;
+        for (var x = i % 2 ? s : 0; x + m.w <= grid.cols; x += px) {
+          if (grid.fits(m, x, y)) {
+            list.push({ shape: 0, m: m, gx: x, gy: y });
+            if (y + m.h > bottom) bottom = y + m.h;
+          }
+        }
+        if (!isFinite(grid.maxRows) && i > 100000) break;
+      }
+      if (!best || list.length > best.list.length || (list.length === best.list.length && bottom < best.bottom)) {
+        best = { list: list, bottom: bottom, pitch: px, shift: s, rowPitch: dy };
+      }
+    }
+    return best;
+  }
+
+  // part = { rings, rotations?, bleed? } — คืนผลรูปแบบเดียวกับ nest() หนึ่งแผ่น
+  function fillSheet(part, plan, opts) {
+    var o = normalizeOptions(opts);
+    var t0 = now();
+    var geo = sheetGeometry(plan, o);
+    if (!isFinite(geo.maxRows)) throw new Error('fillSheet: ต้องรู้ความยาวแผ่น');
+    var shape = prepareShapes([{ id: part.id, rings: part.rings, rotations: part.rotations, bleed: part.bleed, quantity: 0 }], o)[0];
+    var rots = part.rotations && part.rotations.length ? part.rotations : o.rotations;
+    var pad = o.spacing / 2 + shape.bleed;
+    var cache = {};
+    function maskAt(a) {
+      a = ((a % 360) + 360) % 360;
+      if (!(a in cache)) cache[a] = shape.rings.length ? rasterize(shape.rings, a, o.cellSize, pad, o.fillHoles) : null;
+      return cache[a];
+    }
+    var grid = makeGrid(geo);
+    var best = null;
+    rots.forEach(function (a) {
+      var pairs = [[a, a]];
+      if (rots.indexOf((a + 180) % 360) >= 0 && (a + 180) % 360 !== a) pairs.push([a, (a + 180) % 360]);
+      pairs.forEach(function (pr) {
+        var ma = maskAt(pr[0]);
+        var mb = maskAt(pr[1]);
+        if (!ma || !mb) return;
+        var c = latticeFor(ma, mb, grid);
+        if (c && (!best || c.list.length > best.list.length || (c.list.length === best.list.length && c.bottom < best.bottom))) best = c;
+      });
+    });
+
+    // เทียบกับการวางทีละดวง (บางรูปทรงแบบไม่เป็นแถวได้มากกว่า)
+    var first = maskAt(rots[0]);
+    var cap = first ? Math.ceil(((geo.cols * geo.maxRows) / Math.max(1, first.cells)) * 1.3) + 4 : 0;
+    var blf = cap
+      ? nest([{ id: part.id, rings: part.rings, rotations: part.rotations, bleed: part.bleed, quantity: cap }], plan, {
+          spacing: o.spacing,
+          cellSize: o.cellSize,
+          rotations: o.rotations,
+          fillHoles: o.fillHoles,
+          iterations: 1,
+          maxSheets: 1,
+        })
+      : null;
+    var latticeCount = best ? best.list.length : 0;
+    var meta = { method: 'lattice', timeMs: 0, cellSize: o.cellSize };
+    var out;
+    if (blf && blf.placedCount > latticeCount) {
+      out = blf;
+      out.unplaced = [];
+      out.totalCount = blf.placedCount;
+      meta.method = 'blf';
+    } else {
+      grid.placements = best ? best.list : [];
+      shape.quantity = grid.placements.length;
+      out = finalize({ sheets: [grid], unplaced: [], placedCount: grid.placements.length }, [shape], geo, o, meta);
+      if (best) meta.lattice = { pitch: best.pitch * o.cellSize, shift: best.shift * o.cellSize, rowPitch: best.rowPitch * o.cellSize };
+    }
+    meta.timeMs = Math.round(now() - t0);
+    out.stats = meta;
+    return out;
+  }
+
   return {
     ROTATION_SETS: ROTATION_SETS,
+    fillSheet: fillSheet,
     DEFAULTS: DEFAULTS,
     rasterize: rasterize,
     materialArea: materialArea,

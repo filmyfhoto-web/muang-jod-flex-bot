@@ -195,3 +195,35 @@ test('geometry: เบซิเยร์วงกลมแบนลงแล้�
   const smooth = G.smoothRing(G.simplifyRing(poly, 0.05), 60);
   assert.equal(smooth.length > 4, true);
 });
+
+test('fillSheet: วงกลมเรียงแบบเยื้องแถว (รังผึ้ง) ได้มากกว่าตาราง ไม่ทับกัน อยู่ในแผ่น', () => {
+  const plan = { area: { x: 10, y: 10, w: 310, h: 462 } };
+  const r = N.fillSheet({ rings: circle(15, 64) }, plan, { spacing: 1, rotations: 'quarter' });
+  const grid = Math.floor(311 / 31) * Math.floor(463 / 31); // 10 × 14 แบบแถวตรง
+  assert.ok(r.placedCount > grid, `${r.placedCount} ต้องมากกว่าแบบตาราง ${grid}`);
+  assert.equal(r.totalCount, r.placedCount);
+  assert.equal(r.sheets.length, 1);
+  checkLayout(r, [circle(15, 64)], plan, 1);
+});
+
+test('fillSheet: สามเหลี่ยมสลับหัวท้ายได้มากกว่าวางทีละดวง', () => {
+  const tri = [[[0, 0], [40, 0], [20, 30]]];
+  const plan = { area: { x: 0, y: 0, w: 300, h: 300 } };
+  const r = N.fillSheet({ rings: tri }, plan, { spacing: 1, rotations: 'quarter' });
+  const plain = N.nest([{ rings: tri, quantity: 500 }], plan, { spacing: 1, maxSheets: 1, iterations: 1 });
+  assert.ok(r.placedCount >= plain.placedCount);
+  const angles = [...new Set(r.sheets[0].placements.map((p) => p.angle))];
+  assert.equal(angles.length, 2, 'สลับหัวท้าย = สองมุมที่ต่างกัน 180°');
+  assert.equal(Math.abs(angles[0] - angles[1]), 180);
+  checkLayout(r, [tri], plan, 1);
+});
+
+test('fillSheet: หลบมาร์ก/หัวงาน', () => {
+  const obstacle = { x: 0, y: 0, w: 60, h: 60 };
+  const plan = { area: { x: 0, y: 0, w: 200, h: 200 }, obstacles: [obstacle] };
+  const r = N.fillSheet({ rings: square(18) }, plan, { spacing: 2 });
+  for (const p of r.sheets[0].placements) {
+    const b = p.bbox;
+    assert.ok(!(b.minX < 60 && b.maxX > 0 && b.minY < 60 && b.maxY > 0), 'ต้องไม่ทับสิ่งกีดขวาง');
+  }
+});

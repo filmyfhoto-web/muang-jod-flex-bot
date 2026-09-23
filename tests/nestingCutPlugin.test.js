@@ -138,6 +138,29 @@ test('host.jsx: วางชิ้นตรงตำแหน่งที่เ�
   }
 });
 
+test('host.jsx: เส้นไดคัท = เส้นขอบสีแดง / Spot ชื่อ cut-die-thru-kiss ส่วนพื้นสีแดงเป็นงานพิมพ์', () => {
+  const ctx = vm.createContext({ $: { global: {} } });
+  vm.runInContext(HOST + '\nthis.api = { np_isCutStroke: np_isCutStroke, NP: NP };', ctx);
+  const { np_isCutStroke: isCut, NP } = ctx.api;
+  const rgb = (r, g, b) => ({ typename: 'RGBColor', red: r, green: g, blue: b });
+  const cmyk = (c, m, y, k) => ({ typename: 'CMYKColor', cyan: c, magenta: m, yellow: y, black: k });
+  const spot = (name, color) => ({ typename: 'SpotColor', spot: { name, color } });
+  const stroke = (c) => ({ stroked: true, strokeColor: c });
+  const names = ['CutContour'];
+  NP.detectRed = true;
+  assert.equal(isCut(stroke(rgb(255, 0, 0)), names), true);
+  assert.equal(isCut(stroke(cmyk(0, 100, 100, 0)), names), true);
+  assert.equal(isCut(stroke(spot('Thru-cut', cmyk(0, 0, 0, 100))), names), true);
+  assert.equal(isCut(stroke(spot('KissCut', cmyk(0, 0, 0, 100))), names), true);
+  assert.equal(isCut(stroke(spot('cut contour', cmyk(0, 0, 0, 100))), names), true);
+  assert.equal(isCut(stroke(rgb(0, 0, 0)), names), false);
+  assert.equal(isCut(stroke(cmyk(0, 100, 0, 0)), names), false, 'บานเย็นล้วนไม่ใช่แดง');
+  assert.equal(isCut({ stroked: false, filled: true, fillColor: rgb(255, 0, 0) }, names), false, 'พื้นแดง = งานพิมพ์');
+  NP.detectRed = false;
+  assert.equal(isCut(stroke(rgb(255, 0, 0)), names), false);
+  assert.equal(isCut(stroke(spot('CutContour', cmyk(0, 100, 0, 0))), names), true);
+});
+
 test('ปลั๊กอิน: ไฟล์ที่ manifest / HTML อ้างถึงมีครบ', () => {
   const cep = readFileSync(path.join(ROOT, 'CSXS', 'manifest.xml'), 'utf8');
   for (const m of cep.matchAll(/>\.\/([^<]+)</g)) assert.ok(existsSync(path.join(ROOT, m[1])), `CEP: ${m[1]}`);
