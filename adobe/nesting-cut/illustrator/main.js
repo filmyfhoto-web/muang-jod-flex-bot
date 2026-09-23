@@ -16,7 +16,7 @@
   var host = window.NPHost || window.NPDemoHost;
   var PT = G.PT_PER_MM;
   var K = 1 / PT;
-  var LOGO_ASPECT = 1200 / 604; // assets/logo.png
+  var LOGO_ASPECT = 1200 / 325; // assets/logo.png
 
   function $(id) {
     return document.getElementById(id);
@@ -800,7 +800,7 @@
 
       // พื้นที่วาง
       ctx.setLineDash([3, 3]);
-      ctx.strokeStyle = 'rgba(122,31,208,.35)';
+      ctx.strokeStyle = 'rgba(31,42,68,.35)';
       ctx.lineWidth = 1;
       ctx.strokeRect(r.plan.area.x * s, r.plan.area.y * s, r.plan.area.w * s, Math.min(r.plan.area.h, sh.length - r.plan.area.y) * s);
       ctx.setLineDash([]);
@@ -895,7 +895,7 @@
     if (!r.plan.headerBox) return;
     var hl = L.headerLayout(r.plan.headerBox, logoAspect(), 2);
     var hb = r.plan.headerBox;
-    ctx.fillStyle = 'rgba(166,77,255,.08)';
+    ctx.fillStyle = 'rgba(192,88,43,.08)';
     ctx.fillRect(hb.x * s, hb.y * s, hb.w * s, hb.h * s);
     if (hl.logo && S.logoImg && !S.plainPreview) ctx.drawImage(S.logoImg, hl.logo.x * s, hl.logo.y * s, hl.logo.w * s, hl.logo.h * s);
     var lines = headerLines(sh, sh.index, r.sheets.length);
@@ -1189,13 +1189,13 @@
 
   function loadLogoImg() {
     // ใน Illustrator อ่านเป็น data URL (รูปจาก file:// ทำให้ส่งออกพรีวิวเป็น PNG ไม่ได้)
-    var file = host.demo ? '' : S.settings.logoFile || host.extensionRoot() + '/assets/logo-panel.png';
+    var file = host.demo ? '' : S.settings.logoFile || host.extensionRoot() + '/assets/logo.png';
     var mime = /\.jpe?g$/i.test(file) ? 'image/jpeg' : 'image/png';
     var src;
     try {
-      src = file ? 'data:' + mime + ';base64,' + host.readBase64(file) : 'assets/logo-panel.png';
+      src = file ? 'data:' + mime + ';base64,' + host.readBase64(file) : 'assets/logo.png';
     } catch (e) {
-      src = 'assets/logo-panel.png';
+      src = 'assets/logo.png';
     }
     return loadImage(src)
       .then(function (img) {
@@ -1226,6 +1226,9 @@
     if (!c) return;
     var light = (c.r * 299 + c.g * 587 + c.b * 114) / 1000 > 140;
     document.documentElement.classList.toggle('light', light);
+    // โลโก้ตัวอักษรขาวสำหรับพื้นเข้ม / สีกรมสำหรับพื้นสว่าง
+    var brand = document.querySelector('.brand img');
+    if (brand) brand.src = light ? 'assets/logo.png' : 'assets/logo-panel.png';
     document.documentElement.style.setProperty('--bg', 'rgb(' + Math.round(c.r) + ',' + Math.round(c.g) + ',' + Math.round(c.b) + ')');
   }
 

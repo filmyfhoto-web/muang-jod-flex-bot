@@ -90,10 +90,10 @@
       cut: [circle(27, 27, 27)],
       draw: function (ctx, s) {
         tracePath(ctx, circle(27, 27, 25), s);
-        ctx.fillStyle = grad(ctx, 54 * s, 54 * s, '#c46bff', '#5b12a8');
+        ctx.fillStyle = grad(ctx, 54 * s, 54 * s, '#2c3b60', '#1f2a44');
         ctx.fill();
         label(ctx, 'ม่วง', 27 * s, 25 * s, 14 * s);
-        label(ctx, 'ปริ้นท์', 27 * s, 36 * s, 7 * s, '#ffd6ff');
+        label(ctx, 'ปริ้นท์', 27 * s, 36 * s, 7 * s, '#f0a57f');
       },
     },
     {
@@ -125,7 +125,7 @@
       cut: [G.roundedRect(0, 0, 84, 34, 8)],
       draw: function (ctx, s) {
         tracePath(ctx, G.roundedRect(2, 2, 80, 30, 6), s);
-        ctx.fillStyle = grad(ctx, 84 * s, 34 * s, '#7a1fd0', '#ff5fd2');
+        ctx.fillStyle = grad(ctx, 84 * s, 34 * s, '#c0582b', '#e0874f');
         ctx.fill();
         label(ctx, 'น้องพลอย', 42 * s, 17 * s, 11 * s);
       },

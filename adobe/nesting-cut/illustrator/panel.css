@@ -1,28 +1,29 @@
-/* แผงน้องพลอย Nesting Cut — สีตามธีมของ Illustrator (main.js ตั้งตัวแปรจากสีพื้นแผง) */
+/* แผงน้องพลอย Nesting Cut — โทนกรม + ส้มอิฐ (main.js สลับธีมสว่าง/มืดตามแผงของ Illustrator) */
 :root {
-  --bg: #2b2b2b;
-  --card: #353535;
-  --card-2: #3e3e3e;
-  --line: #4a4a4a;
-  --fg: #e8e8e8;
-  --muted: #a9a9a9;
-  --accent: #a64dff;
-  --accent-2: #7a1fd0;
-  --accent-soft: rgba(166, 77, 255, 0.16);
+  --bg: #141b2d;
+  --card: #1c2640;
+  --card-2: #243052;
+  --line: #33416a;
+  --fg: #eef0f5;
+  --muted: #9aa3b8;
+  --accent: #c8643b;
+  --accent-2: #a84a24;
+  --accent-soft: rgba(200, 100, 59, 0.16);
+  --navy: #1f2a44;
   --ok: #3ecf8e;
   --warn: #ffb547;
   --err: #ff6b6b;
-  --input: #262626;
+  --input: #111827;
   --radius: 8px;
 }
 :root.light {
-  --bg: #efefef;
+  --bg: #f4f1ec;
   --card: #ffffff;
-  --card-2: #f5f5f5;
-  --line: #d6d6d6;
-  --fg: #1f1f1f;
-  --muted: #666;
-  --accent-soft: rgba(122, 31, 208, 0.1);
+  --card-2: #f1ede6;
+  --line: #dcd6cc;
+  --fg: #1f2a44;
+  --muted: #5d6680;
+  --accent-soft: rgba(192, 88, 43, 0.1);
   --input: #ffffff;
 }
 
@@ -47,9 +48,12 @@ body {
   text-align: center;
   padding: 2px 0 6px;
 }
+.brand {
+  text-align: left;
+}
 .brand img {
   width: 100%;
-  max-width: 300px;
+  max-width: 240px;
   height: auto;
   display: inline-block;
 }
@@ -218,7 +222,7 @@ button.go {
   font-weight: 700;
   padding: 10px;
   letter-spacing: 0.3px;
-  box-shadow: 0 4px 14px rgba(122, 31, 208, 0.35);
+  box-shadow: 0 4px 14px rgba(168, 74, 36, 0.35);
 }
 .actions .row.small {
   flex-wrap: wrap;
@@ -321,7 +325,7 @@ button.go {
 .progress > div {
   height: 100%;
   width: 0;
-  background: linear-gradient(90deg, var(--accent), #ff5fd2);
+  background: linear-gradient(90deg, var(--accent-2), #e8935f);
   transition: width 0.2s;
 }
 .status {
@@ -413,7 +417,7 @@ body.wide #previewCard {
   display: flex;
   flex-direction: column;
   margin: 0;
-  background: #1e1e1e;
+  background: var(--card);
 }
 body.wide .preview {
   flex: 1;
@@ -421,7 +425,7 @@ body.wide .preview {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #1e1e1e;
+  background: var(--bg);
 }
 body.wide .preview canvas {
   width: auto;

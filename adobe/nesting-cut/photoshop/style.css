@@ -31,7 +31,7 @@ body {
   width: 18px;
   height: 18px;
   border-radius: 9px;
-  background-color: #8e3ae0;
+  background-color: #c0582b;
   color: #fff;
   text-align: center;
   font-size: 11px;
@@ -75,8 +75,8 @@ input {
 button {
   border-radius: 6px;
   padding: 5px 10px;
-  border: 1px solid #8e3ae0;
-  background-color: #8e3ae0;
+  border: 1px solid #c0582b;
+  background-color: #c0582b;
   color: #fff;
   font-size: 12px;
 }
