@@ -380,6 +380,100 @@ button.go {
   padding: 24px 8px;
 }
 
+.preview-info {
+  text-align: right;
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 6px;
+  min-height: 14px;
+}
+
+/* จอกว้าง: พรีวิวซ้าย คำสั่งขวา */
+#previewSide {
+  display: none;
+}
+body.wide .layout {
+  display: flex;
+  align-items: flex-start;
+}
+body.wide #previewSide {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-right: 8px;
+  position: sticky;
+  top: 8px;
+}
+body.wide #controls {
+  flex: 0 0 360px;
+  width: 360px;
+}
+body.wide #previewCard {
+  height: calc(100vh - 24px);
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  background: #1e1e1e;
+}
+body.wide .preview {
+  flex: 1;
+  max-height: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1e1e1e;
+}
+body.wide .preview canvas {
+  width: auto;
+}
+
+details.steps > summary::before {
+  content: '?';
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: 11px;
+}
+.steplist {
+  list-style: none;
+  counter-reset: step;
+  margin: 0;
+  padding: 0;
+}
+.steplist li {
+  counter-increment: step;
+  position: relative;
+  padding: 0 0 8px 34px;
+  min-height: 26px;
+}
+.steplist li::before {
+  content: '0' counter(step);
+  position: absolute;
+  left: 0;
+  top: 1px;
+  width: 26px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 11px;
+  text-align: center;
+  line-height: 22px;
+}
+.steplist b {
+  display: block;
+  font-size: 12px;
+}
+.steplist span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .tips {
   padding-left: 16px;
   margin: 4px 0 0;

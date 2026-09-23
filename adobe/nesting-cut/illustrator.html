@@ -7,6 +7,10 @@
     <link rel="stylesheet" href="illustrator/panel.css" />
   </head>
   <body>
+    <div class="layout">
+    <!-- จอกว้าง: พรีวิวย้ายมาอยู่ช่องซ้าย คู่กับแผงคำสั่ง (main.js ย้ายให้) -->
+    <aside id="previewSide"></aside>
+    <div id="controls">
     <header class="brand">
       <img src="assets/logo-panel.png" alt="น้องพลอย Nesting Cut — เจ๊หญิงสั่งลุย" />
     </header>
@@ -15,6 +19,16 @@
       <b>โหมดทดลอง</b> — หน้านี้ไม่ได้เปิดอยู่ใน Illustrator จึงใช้ชิ้นงานตัวอย่างแทน ลองกด “เจ๊หญิงสั่งลุย!” ได้เลย
       หรือเพิ่มรูป PNG พื้นใสของร้านเองก็ได้ ไฟล์ตัด (PLT / DXF / SVG) จะดาวน์โหลดลงเครื่อง
     </div>
+
+    <details class="card steps" id="secHowto" open>
+      <summary>วิธีใช้ใน 4 ขั้นตอน</summary>
+      <ol class="steplist">
+        <li><b>เลือกชิ้นงาน</b><span>เลือกภาพและเส้นไดคัทสีแดงของสติ๊กเกอร์หนึ่งดวงให้ครบ (Group ไว้) แล้วกด “ดึงชิ้นงานที่เลือก”</span></li>
+        <li><b>ตั้งค่ากระดาษ</b><span>เลือกขนาดกระดาษ ระยะขอบ ระยะห่าง รูปแบบเรียง และมุมหมุน (หัวข้อ 2)</span></li>
+        <li><b>กด “คำนวณ”</b><span>ดูจำนวนดวงและตัวอย่างบนจอ โดยยังไม่แตะเอกสารต้นฉบับ</span></li>
+        <li><b>สร้างชีตไดคัท</b><span>สร้างสำเนาในไฟล์ใหม่ พร้อมแยกเลเยอร์งานพิมพ์และเส้นตัด — หรือกด “เจ๊หญิงสั่งลุย!” ทำครบทุกขั้นรวดเดียวพร้อมส่งออก</span></li>
+      </ol>
+    </details>
 
     <!-- 1. ชิ้นงาน -->
     <section class="card">
@@ -36,8 +50,8 @@
     <section class="card actions">
       <button id="btnGo" class="go">เจ๊หญิงสั่งลุย! 🚀</button>
       <div class="row small">
-        <button id="btnNest" class="ghost" title="จัดวางแล้วดูพรีวิวก่อน ยังไม่แตะไฟล์">จัดวางดูก่อน</button>
-        <button id="btnBuild" class="ghost" title="สร้างไฟล์เลย์เอาต์ใหม่ใน Illustrator จากผลจัดวาง">สร้างเลย์เอาต์</button>
+        <button id="btnNest" class="ghost" title="จัดวางแล้วดูพรีวิวก่อน ยังไม่แตะไฟล์">คำนวณ</button>
+        <button id="btnBuild" class="ghost" title="สร้างไฟล์เลย์เอาต์ใหม่ใน Illustrator จากผลจัดวาง">สร้างชีตไดคัท</button>
         <button id="btnExport" class="ghost" title="บันทึก PDF / AI / PLT / DXF / SVG">ส่งออก</button>
         <button id="btnSelectCut" class="ghost" title="เลือกเส้นตัดทั้งหมด เพื่อส่งผ่านปลั๊กอินของเครื่องตัด">เลือกเส้นตัด</button>
       </div>
@@ -46,14 +60,17 @@
     </section>
 
     <!-- พรีวิว -->
-    <section class="card">
-      <h2>พรีวิว <span id="previewSub" class="sub"></span></h2>
-      <div id="stats" class="stats" hidden></div>
-      <div class="preview">
-        <div id="previewEmpty" class="empty-preview">ยังไม่ได้จัดวาง</div>
-        <canvas id="preview" hidden></canvas>
-      </div>
-    </section>
+    <div id="previewSlot">
+      <section class="card" id="previewCard">
+        <h2>พรีวิว <span id="previewSub" class="sub"></span></h2>
+        <div id="stats" class="stats" hidden></div>
+        <div class="preview" id="previewBox">
+          <div id="previewEmpty" class="empty-preview">ยังไม่ได้จัดวาง</div>
+          <canvas id="preview" hidden></canvas>
+        </div>
+        <div id="previewInfo" class="preview-info"></div>
+      </section>
+    </div>
 
     <!-- 2. วัสดุ & เครื่องตัด -->
     <details class="card" id="secMedia" open>
@@ -195,6 +212,9 @@
       </div>
       <p class="hint">PLT ลองตัดชิ้นเล็กก่อนครั้งแรก ถ้างานออกมาหมุน/กลับด้าน ให้สลับ “แกน PLT”</p>
     </details>
+
+    </div>
+    </div>
 
     <script src="core/geometry.js"></script>
     <script src="core/nest.js"></script>

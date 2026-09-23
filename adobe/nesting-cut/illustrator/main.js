@@ -33,7 +33,7 @@
     TOO_COMPLEX: 'ชิ้นงานเวกเตอร์ซับซ้อนเกินไป — เปลี่ยนเป็น “สร้างตามขอบงาน” แทน',
     NOTHING_PLACED: 'ยังไม่มีชิ้นที่จัดวางได้',
     CANVAS_FULL: 'แผ่นงานยาว/เยอะเกินพื้นที่ของ Illustrator — ลดความยาวหรือแบ่งงานเป็นหลายรอบ',
-    NO_LAYOUT: 'ไฟล์เลย์เอาต์ถูกปิดไปแล้ว — กด “สร้างเลย์เอาต์” ใหม่',
+    NO_LAYOUT: 'ไฟล์ชีตไดคัทถูกปิดไปแล้ว — กด “สร้างชีตไดคัท” ใหม่',
     FOLDER: 'สร้างโฟลเดอร์ไม่ได้: ',
     IMAGE_MISSING: 'หาไฟล์รูปในแพ็กไม่เจอ: ',
     FS: 'อ่าน/เขียนไฟล์ไม่สำเร็จ ',
@@ -560,7 +560,7 @@
     }, 0);
     if (!total) {
       throw new Error(
-        missing.length ? 'ชิ้นงานยังไม่มีเส้นตัด — กด “เจ๊หญิงสั่งลุย!” ให้สร้างเส้นตัดก่อน' : 'ยังไม่มีชิ้นงาน (หรือจำนวนเป็น 0 ทั้งหมด)'
+        missing.length ? 'ชิ้นงานยังไม่มีเส้นตัด — กด “เจ๊หญิงสั่งลุย!” หรือ “คำนวณ” ให้สร้างเส้นตัดก่อน' : 'ยังไม่มีชิ้นงาน (หรือจำนวนเป็น 0 ทั้งหมด)'
       );
     }
     var plan = L.planSheet(sheetSpec());
@@ -706,6 +706,7 @@
   }
 
   function clearPreview() {
+    $('previewInfo').textContent = '';
     $('preview').hidden = true;
     $('previewEmpty').hidden = false;
     $('stats').hidden = true;
@@ -729,7 +730,44 @@
     var canvas = $('preview');
     canvas.hidden = false;
     $('previewEmpty').hidden = true;
-    renderSheets(canvas, canvas.parentNode.clientWidth || 300, Math.min(2, window.devicePixelRatio || 1));
+    var box = $('previewBox');
+    var cssW = box.clientWidth || 300;
+    if (document.body.classList.contains('wide')) {
+      // จอกว้าง: ย่อให้เห็นทั้งแผ่นในกรอบเดียว ไม่ต้องเลื่อน
+      var r = S.result;
+      var total = r.sheets.reduce(function (a, sh) {
+        return a + sh.length;
+      }, 0);
+      var h = Math.max(200, box.clientHeight - 16);
+      cssW = Math.min(cssW - 16, (h - 12 * r.sheets.length) * (r.plan.width / total));
+    }
+    renderSheets(canvas, Math.max(120, cssW), Math.min(2, window.devicePixelRatio || 1));
+    canvas.style.width = Math.max(120, cssW) + 'px';
+    renderInfo();
+  }
+
+  // บรรทัดสรุปใต้พรีวิว: "132 ดวง · หน้า 330.2 × 482.6 มม."
+  function renderInfo() {
+    var r = S.result;
+    if (!r) {
+      $('previewInfo').textContent = '';
+      return;
+    }
+    var sizes = r.sheets.map(function (sh) {
+      return (Math.round(r.plan.width * 10) / 10) + ' × ' + (Math.round(sh.length * 10) / 10) + ' มม.';
+    });
+    $('previewInfo').textContent =
+      r.res.placedCount + (r.fill ? ' ดวง' : ' ชิ้น') + ' · ' + (r.sheets.length > 1 ? r.sheets.length + ' แผ่น · ' : 'หน้า ') + sizes[0];
+  }
+
+  // แผงกว้างพอ (≥ 620 px) ย้ายพรีวิวไปช่องซ้าย แคบก็กลับมาอยู่ใต้ปุ่มลุย
+  function placePreview() {
+    var wide = window.innerWidth >= 620;
+    document.body.classList.toggle('wide', wide);
+    var target = wide ? $('previewSide') : $('previewSlot');
+    var card = $('previewCard');
+    if (card.parentNode !== target) target.appendChild(card);
+    if (S.result) drawPreview();
   }
 
   // วาดทุกแผ่นลงแคนวาสกว้าง cssW (ใช้ทั้งพรีวิวบนแผงและรูปส่งลูกค้า)
@@ -1204,6 +1242,7 @@
       $('btnImport').hidden = true;
       $('btnAddPng').hidden = false;
       $('btnScan').textContent = 'โหลดชิ้นงานตัวอย่าง';
+      $('secHowto').open = false;
     }
 
     $('btnScan').onclick = function () {
@@ -1258,9 +1297,8 @@
       S.built = false;
       loadLogoImg();
     };
-    window.addEventListener('resize', function () {
-      if (S.result) drawPreview();
-    });
+    placePreview();
+    window.addEventListener('resize', placePreview);
 
     if (host.demo) {
       run(scan).then(function () {
