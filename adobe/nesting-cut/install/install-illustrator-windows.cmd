@@ -19,5 +19,5 @@ if %ERRORLEVEL% GEQ 8 (
 
 echo.
 echo Installed to: %DEST%
-echo Restart Illustrator, then open Window ^> Extensions ^> NudPon Nesting Cut (\u0e19\u0e31\u0e14\u0e1e\u0e2d\u0e19)
+echo Restart Illustrator, then open Window ^> Extensions ^> NudPon Nesting Cut
 pause
