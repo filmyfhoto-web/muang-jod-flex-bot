@@ -52,12 +52,24 @@ body {
   text-align: left;
   position: relative;
 }
-.layout-btn {
+.brand-tools {
   position: absolute;
   top: 4px;
   right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.brand-tools button {
   font-size: 11px;
   padding: 3px 8px;
+}
+.clearbox {
+  border-color: var(--warn);
+}
+.clearbox .row button {
+  flex: 1;
 }
 .brand img {
   width: 100%;
@@ -514,7 +526,7 @@ details.steps > summary::before {
 /* แถบเครื่องมือ */
 .tools {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
   gap: 4px;
   margin: 0 0 8px;
   padding: 3px;
@@ -733,4 +745,15 @@ label.field > input[type='color'] {
 .sticky-actions button.go {
   padding: 8px;
   font-size: 14px;
+}
+
+.tools button {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11.5px;
+}
+.tools button small {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

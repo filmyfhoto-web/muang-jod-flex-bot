@@ -52,6 +52,8 @@
   // ---------------------------------------------------------------- ค่าตั้ง
 
   var STORE_KEY = 'nongploy.nestingcut.settings.v2';
+  // ชื่ออาร์ตบอร์ดของชีตที่ปลั๊กอินสร้าง — ปุ่ม “ล้างงานเก่า” ใช้หาชีตเก่า
+  var SHEET_MARK = 'นัดพอน · ';
   var DEFAULTS = {
     tool: 'nest',
     layoutMode: 'auto', // auto | side | stack — ตำแหน่งพรีวิว
@@ -171,6 +173,16 @@
     numColor: '#000000',
     numAlign: 'center',
     numUnderline: false,
+    // ตรายางเลเซอร์
+    stShape: 'rounded',
+    stMargin: 2,
+    stRadius: 2,
+    stGroup: 'one',
+    stMirror: true,
+    stNegative: true,
+    stCutWidth: 0.01,
+    stCutLayer: 'เส้นตัดเลเซอร์',
+    stEngraveLayer: 'งานแกะเลเซอร์',
     // ปุ่มลัด
     hkKey: 'F5',
     hkCmd: false,
@@ -223,7 +235,7 @@
 
   // ---------------------------------------------------------------- สถานะบนจอ
 
-  var STATUS_ID = { shape: 'dcStatus', corner: 'cnStatus', led: 'ledStatus', dim: 'dimStatus', number: 'numStatus', hotkey: 'hkStatus' };
+  var STATUS_ID = { shape: 'dcStatus', corner: 'cnStatus', led: 'ledStatus', stamp: 'stStatus', dim: 'dimStatus', number: 'numStatus', hotkey: 'hkStatus' };
 
   function status(text, kind) {
     var el = $(STATUS_ID[S.settings.tool] || 'status');
@@ -1242,7 +1254,7 @@
           return {
             w: r.plan.width * PT,
             h: sh.length * PT,
-            name: 'แผ่น ' + (i + 1),
+            name: SHEET_MARK + 'แผ่น ' + (i + 1),
             pieces: sh.placements.map(function (pl) {
               var p = byIdx(pl.partId);
               copies[pl.partId] = (copies[pl.partId] || 0) + 1;
@@ -1714,11 +1726,11 @@
   }
 
   // อ่านรูปทรงของ Selection (ตัวอักษรถูก Outline บนสำเนา) → วงปิดหน่วย มม. (y ลง)
-  function readShapes() {
+  function readShapes(allowEmpty) {
     status('นัดพอนกำลังอ่านรูปทรง…');
     return host.call('np_readShapes', {}).then(function (r) {
       var rings = B.subpathsToRings(r.paths, 0.05);
-      if (!rings.length) throw new Error('ไม่พบ Path ปิดในชิ้นที่เลือก — เลือกตัวอักษรหรือ Shape ที่ปิดแล้ว');
+      if (!rings.length && !allowEmpty) throw new Error('ไม่พบ Path ปิดในชิ้นที่เลือก — เลือกตัวอักษรหรือ Shape ที่ปิดแล้ว');
       return later().then(function () {
         return { read: r, rings: rings };
       });
@@ -1831,13 +1843,180 @@
     });
   }
 
+  // ---------------------------------------------------------------- ตรายางเลเซอร์
+
+  function stampOpts() {
+    var s = S.settings;
+    return { shape: s.stShape, margin: num('stMargin'), radius: num('stRadius'), mirror: !!s.stMirror, negative: !!s.stNegative };
+  }
+
+  function vbBox(vb) {
+    return { minX: vb[0] * K, minY: -vb[1] * K, maxX: vb[2] * K, maxY: -vb[3] * K };
+  }
+
+  // แบ่ง Selection เป็นดวงตรา (รวมเป็นดวงเดียว หรือดวงละชิ้น) แล้วคำนวณเส้นตัด + งานแกะ
+  function stampPlan(read) {
+    var items = read.items && read.items.length ? read.items : [{ idx: 0, from: 0, to: read.paths.length, vb: read.bounds }];
+    var groups =
+      S.settings.stGroup === 'each'
+        ? items.map(function (it) {
+            return { idxs: [it.idx], paths: read.paths.slice(it.from, it.to), vb: it.vb };
+          })
+        : [{ idxs: items.map(function (it) { return it.idx; }), paths: read.paths, vb: read.bounds }];
+    var opts = stampOpts();
+    return groups.map(function (g) {
+      var rings = B.subpathsToRings(g.paths, 0.05);
+      var st = NC.stamp.stamp(rings, vbBox(g.vb), opts);
+      st.rings = rings;
+      st.idxs = g.idxs;
+      st.raster = !rings.length;
+      return st;
+    });
+  }
+
+  function stampRead() {
+    return readShapes(true).then(function (r) {
+      var stamps = stampPlan(r.read);
+      S.vec = { kind: 'stamp', rings: r.rings, stamps: stamps, flags: [], read: r.read };
+      drawVec();
+      var raster = stamps.filter(function (st) {
+        return st.raster;
+      }).length;
+      var sizes = stamps
+        .slice(0, 4)
+        .map(function (st) {
+          return (st.box.maxX - st.box.minX).toFixed(1) + '×' + (st.box.maxY - st.box.minY).toFixed(1);
+        })
+        .join(', ');
+      status(
+        'ได้ ' + stamps.length + ' ดวงตรา (' + sizes + (stamps.length > 4 ? ', …' : '') + ' มม.)' +
+          (S.settings.stMirror ? ' · กลับด้านแล้ว' : '') +
+          (raster ? ' · ⚠ ภาพ Raster ' + raster + ' ดวง กลับสีอัตโนมัติไม่ได้ (กลับด้านให้อย่างเดียว)' : ''),
+        raster ? 'warn' : 'ok'
+      );
+      return S.vec;
+    });
+  }
+
+  function stampMake() {
+    return stampRead().then(function (v) {
+      var s = S.settings;
+      var all = [];
+      v.stamps.forEach(function (st) {
+        all = all.concat(st.cut);
+      });
+      var ub = G.bounds(all);
+      var dx = ub.maxX - ub.minX + 10; // สำเนาวางข้างของเดิม ห่าง 10 มม.
+      function toPt(ring) {
+        return {
+          closed: true,
+          points: NC.cnc.toBezier(
+            ring.map(function (q) {
+              return [(q[0] + dx) / K, -q[1] / K];
+            }),
+            2 / K
+          ),
+        };
+      }
+      var stamps = v.stamps.map(function (st) {
+        return {
+          cut: st.cut.map(toPt),
+          engrave: st.engrave && !st.raster
+            ? { mode: 'negative', paths: st.engrave.map(toPt) }
+            : { mode: 'dup', items: st.idxs, dx: dx / K, mirror: !!s.stMirror },
+        };
+      });
+      status('กำลังวาดงานตรายางลงไฟล์…');
+      return host
+        .call('np_drawStamps', {
+          stamps: stamps,
+          cutLayer: s.stCutLayer || 'เส้นตัดเลเซอร์',
+          engraveLayer: s.stEngraveLayer || 'งานแกะเลเซอร์',
+          cutWidth: Math.max(0.001, num('stCutWidth')) / K,
+          cutHex: '#ff0000',
+        })
+        .then(function (out) {
+          status(
+            'สร้างงานตรายางแล้ว ' + out.stamps + ' ดวง — เส้นตัดบนเลเยอร์ “' + out.cutLayer + '” งานแกะบนเลเยอร์ “' + out.engraveLayer +
+              '” (สำเนาวางข้างของเดิม ห่าง 10 มม.)',
+            'ok'
+          );
+        });
+    });
+  }
+
+  // ---------------------------------------------------------------- ล้างงานเก่า
+
+  function resultLayerNames() {
+    var s = S.settings;
+    var names = [s.dcLayer, s.ledLayer, 'ตรวจรัศมี', s.dimLayer, s.numLayer, s.stCutLayer, s.stEngraveLayer].filter(Boolean);
+    return names.filter(function (n, i) {
+      return names.indexOf(n) === i;
+    });
+  }
+
+  function resetPanel() {
+    S.parts = [];
+    S.result = null;
+    S.results = {};
+    S.stale = false;
+    S.built = false;
+    S.dc = null;
+    S.vec = null;
+    renderParts();
+    clearPreview();
+    renderStats();
+    drawDc();
+    drawVec();
+    $('numList').innerHTML = '';
+    $('hkGuide').hidden = true;
+  }
+
+  function clearOld() {
+    var doSheets = $('clearSheets').checked;
+    var doLayers = $('clearLayers').checked;
+    var s = S.settings;
+    resetPanel();
+    var msg = ['ล้างรายการชิ้นงานและพรีวิวแล้ว'];
+    var job = Promise.resolve();
+    if (doSheets) {
+      job = job.then(function () {
+        return host
+          .call('np_clearSheets', {
+            marker: SHEET_MARK,
+            layers: [s.printLayer || 'ไฟล์ปริ้นชิ้นงาน', s.cutLayer || 'เส้นไดคัท', 'มาร์ก', 'หัวงาน'],
+          })
+          .then(function (r) {
+            msg.push(
+              r.artboards || r.kept
+                ? 'ลบชีตเก่า ' + r.artboards + ' แผ่น (' + r.items + ' ชิ้นบนชีต)' + (r.kept ? ' · เหลืออาร์ตบอร์ดสุดท้ายไว้ 1 แผ่น (ไฟล์ต้องมีอย่างน้อย 1)' : '')
+                : 'ไม่พบชีตเก่าของนัดพอนในไฟล์นี้'
+            );
+          });
+      });
+    }
+    if (doLayers) {
+      job = job.then(function () {
+        return host.call('np_clearLayers', { names: resultLayerNames() }).then(function (r) {
+          msg.push('ลบเลเยอร์ผลลัพธ์ ' + r.removed + ' เลเยอร์' + (r.emptied ? ' (ล้างของในเลเยอร์สุดท้าย ' + r.emptied + ')' : ''));
+        });
+      });
+    }
+    return job.then(function () {
+      $('clearBox').hidden = true;
+      $('clearSheets').checked = false;
+      $('clearLayers').checked = false;
+      status(msg.join(' · '), 'ok');
+    });
+  }
+
   var FLAG_COLOR = { inner: '#ff2d55', outer: '#ff9f1a', narrow: '#ff2d55', tight: '#ff9f1a', wide: '#2f7cf6' };
 
   function drawVec() {
     var v = S.vec;
     var canvas = $('vecCanvas');
     var tool = S.settings.tool;
-    $('vecTitle').textContent = tool === 'led' ? 'ตัวอย่างเส้นกลาง' : 'ตัวอย่างมุมโค้ง';
+    $('vecTitle').textContent = tool === 'led' ? 'ตัวอย่างเส้นกลาง' : tool === 'stamp' ? 'ตัวอย่างงานตรายาง' : 'ตัวอย่างมุมโค้ง';
     if (!v || v.kind !== tool) {
       canvas.hidden = true;
       $('vecEmpty').hidden = false;
@@ -1848,7 +2027,13 @@
     }
     canvas.hidden = false;
     $('vecEmpty').hidden = true;
-    var bb = G.bounds(v.rings);
+    var stampRings = [];
+    if (v.kind === 'stamp') {
+      v.stamps.forEach(function (st) {
+        stampRings = stampRings.concat(st.cut);
+      });
+    }
+    var bb = G.bounds(v.kind === 'stamp' ? stampRings : v.rings);
     var pad = 4;
     v.flags.forEach(function (f) {
       pad = Math.max(pad, (f.r || 0) + 2);
@@ -1881,9 +2066,33 @@
       });
       if (closed) ctx.closePath();
     }
+    if (v.kind === 'stamp') {
+      v.stamps.forEach(function (st) {
+        ctx.beginPath();
+        if (st.engrave) {
+          st.engrave.forEach(function (r) {
+            path(r, true);
+          });
+          ctx.fillStyle = '#111';
+        } else {
+          (S.settings.stMirror ? NC.stamp.mirror(st.rings, st.axis) : st.rings).forEach(function (r) {
+            path(r, true);
+          });
+          ctx.fillStyle = '#1f2a44';
+        }
+        ctx.fill('evenodd');
+        ctx.beginPath();
+        st.cut.forEach(function (r) {
+          path(r, true);
+        });
+        ctx.strokeStyle = '#ff1f3d';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      });
+    }
     // ของเดิม
     ctx.beginPath();
-    v.rings.forEach(function (r) {
+    (v.kind === 'stamp' ? [] : v.rings).forEach(function (r) {
       path(r, true);
     });
     ctx.fillStyle = v.kind === 'led' ? 'rgba(31,42,68,.85)' : 'rgba(31,42,68,.16)';
@@ -1891,7 +2100,9 @@
     ctx.strokeStyle = 'rgba(31,42,68,.7)';
     ctx.lineWidth = 1;
     ctx.stroke();
-    if (v.kind === 'corner') {
+    if (v.kind === 'stamp') {
+      // วาดไปแล้วข้างบน
+    } else if (v.kind === 'corner') {
       ctx.beginPath();
       v.loops.forEach(function (lp) {
         path(lp.points, true);
@@ -1924,7 +2135,9 @@
     ctx.setLineDash([]);
     $('vecSub').textContent = Math.round(bb.maxX - bb.minX) + ' × ' + Math.round(bb.maxY - bb.minY) + ' มม.';
     var legend =
-      v.kind === 'corner'
+      v.kind === 'stamp'
+        ? [['#111111', 'ยิงแกะออก (พื้นดำ)'], ['#ffffff', 'เหลือนูน (รับหมึก)'], ['#ff1f3d', 'เส้นตัดขาด']]
+        : v.kind === 'corner'
         ? [['#1f2a44', 'ของเดิม'], ['#c8643b', 'มุมโค้งใหม่'], ['#ff2d55', 'มุมใน: ดอกลงไม่ได้'], ['#ff9f1a', 'มุมนอก: บางกว่าดอก']]
         : [['#3ee07a', 'เส้นกลาง'], ['#ff2d55', 'แคบกว่าแถบไฟ'], ['#ff9f1a', 'โค้งเกิน'], ['#2f7cf6', 'กว้างเกิน 2 เท่า']];
     var lg = $('vecLegend');
@@ -1937,7 +2150,10 @@
       lg.appendChild(span);
     });
     $('vecReport').textContent =
-      v.kind === 'led'
+      v.kind === 'stamp'
+        ? v.stamps.length + ' ดวงตรา · ' + (S.settings.stMirror ? 'กลับด้านแล้ว (ปั๊มออกมาอ่านถูก)' : 'ไม่กลับด้าน') +
+          ' · ' + (S.settings.stNegative ? 'กลับสีสำหรับแกะ' : 'ไม่กลับสี')
+        : v.kind === 'led'
         ? ledReport(v.stats)
         : 'ได้ ' + v.loops.length + ' วง · จุดตรวจ ' + v.flags.length + ' จุด' + (v.flags.length ? ' — ร่องแคบกว่าดอกหรือมุมแหลมจัด ดอกกัดลงไม่ถึง' : '');
   }
@@ -2239,6 +2455,7 @@
     run: 'เลือกต้นแบบหนึ่งดวง → ดึงชิ้นงาน → กด “คำนวณ” ดูจำนวนดวงและจำนวนครั้งยกใบมีด',
     shape: 'เลือกชิ้นงานใน Illustrator แล้วกด “อ่านรูป / ดูตัวอย่าง”',
     corner: 'เลือกตัวอักษรหรือ Path แล้วกดวิเคราะห์',
+    stamp: 'เลือกแบบตรายางแล้วกดวิเคราะห์',
     led: 'เลือกตัวอักษรปิดแล้วกดวิเคราะห์',
     dim: 'เลือกงานแล้วกดใส่เส้นบอกขนาด',
     number: 'เลือก Text Frame (หรือเปิดไฟล์หลายอาร์ตบอร์ด) แล้วกดดูตัวอย่าง',
@@ -2281,7 +2498,7 @@
     saveSettings();
     applyVisibility();
     document.body.classList.toggle('nopreview', NO_PREVIEW.indexOf(tool) >= 0);
-    if (tool === 'corner' || tool === 'led') drawVec();
+    if (tool === 'corner' || tool === 'led' || tool === 'stamp') drawVec();
     if (S.result) {
       drawPreview();
       renderStats();
@@ -2296,7 +2513,7 @@
     'markInset', 'markThick', 'markClearance', 'markEvery', 'headerOn', 'headerHeight', 'cutter', 'media',
     'arrange', 'fillSheet', 'runShape', 'runSize', 'runW', 'runH', 'runRadius', 'runGap', 'runLayout',
   ];
-  var VEC_KEYS = ['cnIn', 'cnOut', 'ledWidth', 'ledRadius', 'ledMargin'];
+  var VEC_KEYS = ['cnIn', 'cnOut', 'ledWidth', 'ledRadius', 'ledMargin', 'stShape', 'stMargin', 'stRadius', 'stGroup', 'stMirror', 'stNegative'];
   var DC_KEYS = ['dcSource', 'dcOffset', 'dcJoin', 'dcMiter', 'dcHoles', 'dcTol', 'dcShadow', 'dcDetail'];
 
   function fields() {
@@ -2351,6 +2568,7 @@
     fillSelect('cutter', L.CUTTERS);
     fillSelect('media', L.MEDIA);
     fillSelect('runShape', NC.diecut.SHAPES);
+    fillSelect('stShape', NC.stamp.SHAPES);
     var keys = [];
     for (var f = 2; f <= 15; f++) keys.push({ id: 'F' + f, label: 'F' + f });
     fillSelect('hkKey', keys);
@@ -2515,6 +2733,22 @@
       };
     });
     markFields();
+    $('btnStRead').onclick = function () {
+      run(stampRead);
+    };
+    $('btnStMake').onclick = function () {
+      run(stampMake);
+    };
+    $('btnClear').onclick = function () {
+      $('clearLayerNames').textContent = resultLayerNames().join(', ');
+      $('clearBox').hidden = !$('clearBox').hidden;
+    };
+    $('btnClearCancel').onclick = function () {
+      $('clearBox').hidden = true;
+    };
+    $('btnClearGo').onclick = function () {
+      run(clearOld);
+    };
     $('btnCnRead').onclick = function () {
       run(cncRead);
     };

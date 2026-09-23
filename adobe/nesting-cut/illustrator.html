@@ -13,8 +13,24 @@
     <div id="controls">
     <header class="brand">
       <img src="assets/logo-panel.png" alt="นัดพอน Nesting Cut — ปลั๊กอิน เจ๊หญิงสั่งลุย" />
-      <button type="button" id="btnLayout" class="ghost layout-btn" title="สลับตำแหน่งพรีวิว: อัตโนมัติ → ข้าง ๆ → ด้านล่าง">พรีวิว: อัตโนมัติ</button>
+      <div class="brand-tools">
+        <button type="button" id="btnLayout" class="ghost" title="สลับตำแหน่งพรีวิว: อัตโนมัติ → ข้าง ๆ → ด้านล่าง">พรีวิว: อัตโนมัติ</button>
+        <button type="button" id="btnClear" class="ghost" title="ล้างรายการชิ้นงาน ผลคำนวณ และพรีวิว (เลือกลบชีตเก่าในไฟล์ได้)">ล้างงานเก่า</button>
+      </div>
     </header>
+
+    <!-- ล้างงานเก่า: ยืนยันในแผง (ไม่ใช้กล่อง confirm) -->
+    <section class="card clearbox" id="clearBox" hidden>
+      <h2>ล้างงานเก่า</h2>
+      <label class="check"><input type="checkbox" checked disabled /> รายการชิ้นงาน ผลคำนวณ และพรีวิวในแผง</label>
+      <label class="check"><input type="checkbox" id="clearSheets" /> ลบชีตไดคัทที่นัดพอนสร้างไว้ในไฟล์นี้ (อาร์ตบอร์ด “นัดพอน · แผ่น …” และของบนชีต)</label>
+      <label class="check"><input type="checkbox" id="clearLayers" /> <span>ลบเลเยอร์ผลลัพธ์ของเครื่องมืออื่น: <span id="clearLayerNames"></span></span></label>
+      <p class="hint">งานต้นฉบับไม่ถูกแตะ · ลบในไฟล์แล้วกด Undo (Ctrl/Cmd+Z) ใน Illustrator ย้อนได้</p>
+      <div class="row">
+        <button type="button" id="btnClearGo">ล้างเลย</button>
+        <button type="button" id="btnClearCancel" class="ghost">ยกเลิก</button>
+      </div>
+    </section>
 
     <!-- เครื่องมือ: อ่านค่าจาก Selection ใน Illustrator แล้วสร้างผลลงเอกสารเดิม -->
     <nav class="tools" id="toolTabs">
@@ -25,6 +41,7 @@
       <button type="button" data-tool="led">หาเส้นกลาง<small>LED Path</small></button>
       <button type="button" data-tool="dim">บอกขนาด<small>Dimension</small></button>
       <button type="button" data-tool="number">รันนัมเบอร์<small>Variable Data</small></button>
+      <button type="button" data-tool="stamp">ตรายางเลเซอร์<small>Stamp Laser</small></button>
       <button type="button" data-tool="hotkey">ปุ่มลัด<small>One-key</small></button>
     </nav>
     <nav class="subtabs" id="subTabs" data-for="nest run">
@@ -348,6 +365,45 @@
       </div>
     </section>
 
+    <!-- ตรายางยิงเลเซอร์ -->
+    <section class="card" id="secStamp" data-for="stamp">
+      <h2><span class="num">◉</span> เส้นไดคัทงานตรายาง <span class="sub">LASER STAMP</span></h2>
+      <p class="hint">
+        ทำเส้นตัดรอบดวงตราสำหรับเครื่องเลเซอร์ พร้อมงานแกะที่กลับด้านและกลับสีให้แล้ว — เส้นแดงบาง = ตัดขาด · พื้นดำ = ยิงแกะออก
+      </p>
+      <ol class="steplist">
+        <li><b>เลือกแบบตรายาง</b><span>ตัวอักษร โลโก้ หรือกลุ่มที่จัดไว้แล้ว — ตัวอักษรยังเป็น Live Text ได้</span></li>
+        <li><b>ตั้งรูปทรงและระยะขอบ</b><span>สี่เหลี่ยมมุมมน / วงกลม / วงรี / ตามรูปทรงงาน · ระยะจากงานถึงเส้นตัด</span></li>
+        <li><b>สร้างงานตรายาง</b><span>ได้สำเนาข้างของเดิม: เลเยอร์ “เส้นตัดเลเซอร์” + “งานแกะเลเซอร์”</span></li>
+      </ol>
+      <label>รูปทรงเส้นตัด <select id="stShape" data-setting="stShape"></select></label>
+      <label>ระยะจากงานถึงเส้นตัด (มม.) <input type="number" min="0" step="0.5" data-setting="stMargin" /></label>
+      <label>มุมมน (มม.) <input type="number" min="0" step="0.5" data-setting="stRadius" /></label>
+      <label
+        >ดวงตรา
+        <select data-setting="stGroup">
+          <option value="one">รวม Selection เป็นตราเดียว</option>
+          <option value="each">แยกแต่ละชิ้นเป็นคนละตรา</option>
+        </select></label
+      >
+      <label class="check"><input type="checkbox" data-setting="stMirror" /> กลับด้าน (Mirror) — ตรายางต้องกลับด้าน</label>
+      <label class="check"><input type="checkbox" data-setting="stNegative" /> กลับสีสำหรับแกะ (พื้นดำยิงออก ตัวหนังสือเหลือนูน)</label>
+      <label>เส้นตัดหนา (มม.) <input type="number" min="0.001" step="0.01" data-setting="stCutWidth" /></label>
+      <label>เลเยอร์เส้นตัด <input data-setting="stCutLayer" /></label>
+      <label>เลเยอร์งานแกะ <input data-setting="stEngraveLayer" /></label>
+      <p class="note">
+        ตั้งในโปรแกรมเลเซอร์ (LightBurn / RDWorks / LaserCAD): สีแดง = Cut ความเร็วต่ำ กำลังสูง · สีดำ = Engrave (Fill)
+        ภาพ Raster กลับสีอัตโนมัติไม่ได้ — ปลั๊กอินจะกลับด้านให้อย่างเดียว
+      </p>
+      <div class="tool-actions">
+        <div class="row">
+          <button id="btnStRead" class="ghost">วิเคราะห์ / ดูตัวอย่าง</button>
+          <button id="btnStMake">สร้างงานตรายาง</button>
+        </div>
+        <div id="stStatus" class="status">เลือกแบบตรายางแล้วกดวิเคราะห์</div>
+      </div>
+    </section>
+
     <!-- ปุ่มลัด -->
     <section class="card" id="secHotkey" data-for="hotkey">
       <h2><span class="num">⌨</span> จัดวางและนำไปใช้ในปุ่มเดียว <span class="sub">ONE-KEY WORKFLOW</span></h2>
@@ -447,7 +503,7 @@
         </div>
         <div id="previewInfo" class="preview-info"></div>
       </section>
-      <section class="card preview-card" id="vecPreviewCard" data-for="corner led">
+      <section class="card preview-card" id="vecPreviewCard" data-for="corner led stamp">
         <h2><span id="vecTitle">ตัวอย่าง</span> <span id="vecSub" class="sub"></span></h2>
         <div class="preview" id="vecBox">
           <div id="vecEmpty" class="empty-preview">เลือกชิ้นงานใน Illustrator แล้วกด “วิเคราะห์ / ดูตัวอย่าง”</div>
@@ -662,6 +718,7 @@
     <script src="core/layout.js"></script>
     <script src="core/cutfile.js"></script>
     <script src="core/diecut.js"></script>
+    <script src="core/stamp.js"></script>
     <script src="core/cnc.js"></script>
     <script src="core/dimension.js"></script>
     <script src="core/pack.js"></script>

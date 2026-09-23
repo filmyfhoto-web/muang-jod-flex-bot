@@ -432,12 +432,33 @@
       };
     },
     np_readShapes: function () {
+      var boxes = letterBoxes();
       return {
         paths: letterPaths(),
         count: 4,
         kinds: { images: 0, texts: 4, vectors: 0, clips: 0 },
         bounds: [LETTERS.x, LETTERS.y, LETTERS.x + 204 * PT, LETTERS.y - 60 * PT],
+        // ตัว O มี 2 วง (นอก + ใน)
+        items: [
+          { idx: 0, from: 0, to: 1, vb: boxes[0] },
+          { idx: 1, from: 1, to: 2, vb: boxes[1] },
+          { idx: 2, from: 2, to: 3, vb: boxes[2] },
+          { idx: 3, from: 3, to: 5, vb: boxes[3] },
+        ],
       };
+    },
+    np_drawStamps: function (a) {
+      var cuts = 0;
+      a.stamps.forEach(function (st) {
+        cuts += st.cut.length;
+      });
+      return { stamps: a.stamps.length, cuts: cuts, cutLayer: a.cutLayer, engraveLayer: a.engraveLayer };
+    },
+    np_clearSheets: function () {
+      return { artboards: 0, items: 0, kept: 0 };
+    },
+    np_clearLayers: function (a) {
+      return { removed: 0, emptied: 0 };
     },
     np_drawShapes: function (a) {
       return { count: a.paths.length, removed: 0, flags: (a.flags || []).length };

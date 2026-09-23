@@ -132,3 +132,45 @@ test('host.jsx + แผง: ฟังก์ชันของเครื่อ�
   assert.match(host, /NP_PANEL_READY = true/);
   assert.match(main, /com\.nongploy\.nestingcut\.quick/);
 });
+
+const ST = require('../adobe/nesting-cut/core/stamp.js');
+
+test('ตรายางเลเซอร์: เส้นตัดรอบงานตามรูปทรง + ระยะขอบ', () => {
+  const L = [[0, 0], [10, 0], [10, 2], [2, 2], [2, 10], [0, 10]];
+  const rect = ST.cutShape([L], null, { shape: 'rect', margin: 2 });
+  assert.deepEqual(G.bounds(rect), { minX: -2, minY: -2, maxX: 12, maxY: 12 });
+  const circle = ST.cutShape([L], null, { shape: 'circle', margin: 1 });
+  const cb = G.bounds(circle);
+  assert.ok(Math.abs(cb.maxX - cb.minX - 2 * (Math.hypot(5, 5) + 1)) < 0.01, 'วงกลมล้อมมุมงาน + ระยะขอบ');
+  const contour = ST.cutShape([L], null, { shape: 'contour', margin: 2 });
+  assert.equal(contour.length, 1);
+  // ไม่มีเวกเตอร์ (ภาพ Raster) ใช้กรอบของชิ้นแทน
+  const box = ST.cutShape([], { minX: 0, minY: 0, maxX: 30, maxY: 20 }, { shape: 'rounded', margin: 1, radius: 2 });
+  assert.deepEqual(G.bounds(box), { minX: -1, minY: -1, maxX: 31, maxY: 21 });
+});
+
+test('ตรายางเลเซอร์: กลับด้าน + กลับสี — ตัวหนังสือเหลือนูน พื้นถูกยิงออก', () => {
+  const L = [[0, 0], [10, 0], [10, 2], [2, 2], [2, 10], [0, 10]];
+  const st = ST.stamp([L], null, { shape: 'rect', margin: 2, mirror: true, negative: true });
+  // ขาตั้งของ L (x 0–2) กลับด้านไปอยู่ x 8–10
+  assert.equal(ST.isEngraved([9, 5], st.engrave), false, 'ตัวหนังสือไม่ถูกยิง');
+  assert.equal(ST.isEngraved([1, 5], st.engrave), true, 'ตำแหน่งเดิมก่อนกลับด้านเป็นพื้น');
+  assert.equal(ST.isEngraved([5, 6], st.engrave), true, 'พื้นในกรอบถูกยิงออก');
+  assert.equal(ST.isEngraved([13, 5], st.engrave), false, 'นอกเส้นตัด');
+  const plain = ST.stamp([L], null, { shape: 'rect', margin: 2, mirror: false, negative: false });
+  assert.equal(plain.engrave, null);
+});
+
+test('host.jsx + แผง: ตรายางเลเซอร์ และปุ่มล้างงานเก่า', () => {
+  const host = readFileSync(new URL('../adobe/nesting-cut/illustrator/host.jsx', import.meta.url), 'utf8');
+  const main = readFileSync(new URL('../adobe/nesting-cut/illustrator/main.js', import.meta.url), 'utf8');
+  const html = readFileSync(new URL('../adobe/nesting-cut/illustrator.html', import.meta.url), 'utf8');
+  for (const fn of ['np_drawStamps', 'np_clearSheets', 'np_clearLayers']) {
+    assert.match(host, new RegExp('function ' + fn + '\\('));
+    assert.ok(main.includes("'" + fn + "'"));
+  }
+  assert.ok(html.includes('data-tool="stamp"'));
+  assert.ok(html.includes('id="btnClear"'));
+  // ชีตที่สร้างต้องมีชื่อขึ้นต้นด้วยเครื่องหมายเดียวกับที่ปุ่มล้างใช้หา
+  assert.match(main, /name: SHEET_MARK \+ 'แผ่น '/);
+});

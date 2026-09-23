@@ -1014,9 +1014,11 @@ function np_readShapes(args) {
   var count = { n: 0, max: (args && args.maxPoints) || 200000 };
   var kinds = { images: 0, texts: 0, vectors: 0, clips: 0 };
   var vb = null;
+  var per = [];
   NP.cncItems = items;
   NP.cncFill = null;
   for (var i = 0; i < items.length; i++) {
+    var from = out.length;
     np_countKinds(items[i], kinds, 0);
     var b = items[i].geometricBounds;
     vb = vb ? [Math.min(vb[0], b[0]), Math.max(vb[1], b[1]), Math.max(vb[2], b[2]), Math.min(vb[3], b[3])] : [b[0], b[1], b[2], b[3]];
@@ -1029,8 +1031,9 @@ function np_readShapes(args) {
         dup.remove();
       } catch (eRm) {}
     }
+    per.push({ idx: i, from: from, to: out.length, vb: np_rb(b) });
   }
-  return { paths: out, count: items.length, kinds: kinds, bounds: np_rb(vb) };
+  return { paths: out, count: items.length, kinds: kinds, bounds: np_rb(vb), items: per };
 }
 
 // args: { paths: [{ closed, points }], mode: 'copy' | 'replace', name, flags: [{ x, y, r }], flagLayer }
@@ -1087,6 +1090,137 @@ function np_drawShapes(args) {
     cp.selected = true;
   } catch (eS) {}
   return { count: args.paths.length, removed: removed, flags: nFlags };
+}
+
+// ---------------------------------------------------------------- rubber stamp (laser)
+
+// args: { stamps: [{ cut: [sp], engrave: { mode: 'negative', paths: [sp] } | { mode: 'dup', items: [idx], dx, mirror } }],
+//         cutLayer, engraveLayer, cutWidth (pt), cutHex }
+function np_drawStamps(args) {
+  var doc = np_alive(NP.dcDoc) ? NP.dcDoc : app.activeDocument;
+  var items = NP.cncItems || [];
+  var cutLay = np_layer(doc, args.cutLayer || 'Laser cut');
+  var engLay = np_layer(doc, args.engraveLayer || 'Laser engrave');
+  try {
+    cutLay.zOrder(ZOrderMethod.BRINGTOFRONT);
+  } catch (eZ) {}
+  var cutColor = np_hexColor(doc, args.cutHex || '#ff0000');
+  var black = np_black(doc);
+  var width = args.cutWidth > 0 ? args.cutWidth : 0.03;
+  var nCut = 0;
+  for (var i = 0; i < args.stamps.length; i++) {
+    var st = args.stamps[i];
+    var k;
+    for (k = 0; k < st.cut.length; k++) {
+      np_drawPathColor(cutLay, st.cut[k], cutColor, width, 'Laser cut');
+      nCut++;
+    }
+    var eg = st.engrave;
+    if (eg.mode === 'negative') {
+      var cp = engLay.compoundPathItems.add();
+      cp.name = 'Engrave';
+      for (k = 0; k < eg.paths.length; k++) {
+        var p = cp.pathItems.add();
+        np_applyPoints(p, eg.paths[k]);
+        p.closed = true;
+      }
+      for (k = 0; k < cp.pathItems.length; k++) {
+        var q = cp.pathItems[k];
+        q.filled = true;
+        q.fillColor = black;
+        q.stroked = false;
+        try {
+          q.evenodd = true;
+        } catch (eEo) {}
+      }
+    } else {
+      var g = engLay.groupItems.add();
+      g.name = 'Engrave';
+      for (k = 0; k < eg.items.length; k++) {
+        var src = items[eg.items[k]];
+        if (np_alive(src)) src.duplicate(g, ElementPlacement.PLACEATEND);
+      }
+      g.translate(eg.dx || 0, 0);
+      if (eg.mirror) g.resize(-100, 100);
+    }
+  }
+  doc.selection = null;
+  return { stamps: args.stamps.length, cuts: nCut, cutLayer: cutLay.name, engraveLayer: engLay.name };
+}
+
+// ---------------------------------------------------------------- clear old work
+
+// remove the die-cut sheets this plug-in made in the active document:
+// artboards whose name starts with args.marker, plus the items on args.layers that sit on them
+function np_clearSheets(args) {
+  if (!app.documents.length) throw np_E('NO_DOC');
+  var doc = app.activeDocument;
+  var marker = String(args.marker || '');
+  var removedBoards = 0;
+  var removedItems = 0;
+  var kept = 0;
+  if (!marker) return { artboards: 0, items: 0, kept: 0 };
+  for (var a = doc.artboards.length - 1; a >= 0; a--) {
+    var ab = doc.artboards[a];
+    if (String(ab.name).substr(0, marker.length) !== marker) continue;
+    var r = ab.artboardRect;
+    var tol = 1;
+    for (var l = 0; l < (args.layers || []).length; l++) {
+      var lay = null;
+      try {
+        lay = doc.layers.getByName(args.layers[l]);
+      } catch (eL) {}
+      if (!lay) continue;
+      try {
+        lay.locked = false;
+      } catch (eLk) {}
+      for (var i = lay.pageItems.length - 1; i >= 0; i--) {
+        var it = lay.pageItems[i];
+        var b = it.visibleBounds;
+        if (b[0] >= r[0] - tol && b[2] <= r[2] + tol && b[1] <= r[1] + tol && b[3] >= r[3] - tol) {
+          try {
+            it.locked = false;
+            it.remove();
+            removedItems++;
+          } catch (eR) {}
+        }
+      }
+    }
+    if (doc.artboards.length > 1) {
+      doc.artboards.remove(a);
+      removedBoards++;
+    } else kept++;
+  }
+  NP.layoutDoc = null;
+  NP.layoutTemp = false;
+  return { artboards: removedBoards, items: removedItems, kept: kept };
+}
+
+// remove whole result layers by name (a document keeps at least one layer: that one is emptied instead)
+function np_clearLayers(args) {
+  if (!app.documents.length) throw np_E('NO_DOC');
+  var doc = app.activeDocument;
+  var removed = 0;
+  var emptied = 0;
+  for (var n = 0; n < (args.names || []).length; n++) {
+    var lay = null;
+    try {
+      lay = doc.layers.getByName(args.names[n]);
+    } catch (e) {}
+    if (!lay) continue;
+    try {
+      lay.locked = false;
+      lay.visible = true;
+    } catch (e2) {}
+    if (doc.layers.length > 1) {
+      lay.remove();
+      removed++;
+    } else {
+      while (lay.pageItems.length) lay.pageItems[0].remove();
+      emptied++;
+    }
+  }
+  return { removed: removed, emptied: emptied };
 }
 
 // ---------------------------------------------------------------- dimensions
