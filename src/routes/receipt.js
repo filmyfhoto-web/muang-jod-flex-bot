@@ -1,7 +1,7 @@
 import express from 'express';
 import { escapeHtml } from '../utils/html.js';
 import { getBillByToken, isCancelledToken } from '../services/billService.js';
-import { getShopProfile, hasShopDetails, shopQrUrl } from '../services/shopService.js';
+import { getShopProfile, hasShopDetails, defaultQrUrl } from '../services/shopService.js';
 import { isShopKey } from '../utils/receiptLink.js';
 import { formatBaht, numText, round2 } from '../utils/currency.js';
 import { formatThaiDate, formatThaiDateTime } from '../utils/dates.js';
@@ -762,7 +762,7 @@ router.get('/:token', async (req, res) => {
     const shopView = isShopKey(req.params.token, String(req.query.k || ''));
     // ลิงก์รูป QR เซ็นสดตอนเปิดหน้า ไม่ได้เก็บลิงก์ไว้ในฐานข้อมูล — ลิงก์ที่เซ็น
     // ไว้มีวันหมดอายุ เก็บไว้แล้ว QR จะหายไปเงียบ ๆ ตอนหมดอายุ
-    const qrUrl = Number(bill.balance_due) > 0 ? await shopQrUrl(shop) : null;
+    const qrUrl = Number(bill.balance_due) > 0 ? await defaultQrUrl(bill.user_id) : null;
     res.type('html').send(renderReceiptHtml(bill, shop, { shopView, qrUrl }));
   } catch (err) {
     logger.error('receipt.render_failed', { message: err?.message });

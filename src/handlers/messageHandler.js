@@ -20,6 +20,8 @@ import { extractDate, extractDueDate } from '../utils/thaiDate.js';
 import { startCollecting } from '../utils/slots.js';
 import { startCollectFlow, handleCollectTurn } from '../services/collectFlow.js';
 import { splitDump, looksLikeDump } from '../utils/dumpSplit.js';
+import { renameShopQr } from '../services/shopService.js';
+import { logger } from '../services/logger.js';
 import { dumpPreviewFlex } from '../flex/dumpFlex.js';
 import { handlePostback } from './postbackHandler.js';
 
@@ -192,6 +194,30 @@ export async function handleTextMessage(event, profile) {
     return reply(replyToken, {
       type: 'text',
       text: 'กำลังรอรูปสลิป/หลักฐานอยู่ค่ะ ส่งรูปมาได้เลยนะคะ 📎',
+    });
+  }
+
+  /* เพิ่งเก็บรูป QR แล้วม่วงถามว่าใบนี้ของธนาคารอะไร
+   *
+   * คำตอบสั้น ๆ คำเดียว ("กสิกร") ซึ่งถ้าปล่อยผ่านไปจะถูกอ่านเป็นการจดงาน
+   * จึงต้องรับตรงนี้ก่อนทางอื่น
+   */
+  if (current === STATES.WAITING_FOR_QR_LABEL && state?.context?.qrId) {
+    const answer = String(text || '').trim();
+    const skipped = /^(ข้าม|ไม่|ไม่เอา|-|ไม่ต้อง)$/i.test(answer);
+    await clearState(profile.id);
+    if (!skipped && answer) {
+      try {
+        await renameShopQr(profile.id, state.context.qrId, answer);
+      } catch (err) {
+        logger.warn('shop.qr_rename_failed', { message: err?.message });
+      }
+    }
+    return reply(replyToken, {
+      type: 'text',
+      text:
+        (skipped || !answer ? 'ได้ค่ะ ไม่ตั้งชื่อก็ได้' : `ตั้งชื่อว่า "${answer}" แล้วค่ะ`) +
+        ' 💜\nพิมพ์ "QR" เพื่อดูและเลือกใบที่จะใช้ · "เพิ่ม QR" เพื่อเก็บใบใหม่',
     });
   }
 

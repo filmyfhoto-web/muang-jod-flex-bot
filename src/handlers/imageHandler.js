@@ -2,7 +2,7 @@ import { reply, getMessageContentBuffer } from '../services/lineService.js';
 import { getState, setState, clearState, STATES } from '../services/stateService.js';
 import { getLatestJob, getJobById, createJob } from '../services/jobService.js';
 import { saveAttachment } from '../services/attachmentService.js';
-import { saveShopQr } from '../services/shopService.js';
+import { addShopQr, listShopQrs } from '../services/shopService.js';
 import { readImage } from '../services/visionService.js';
 import { slipReceiptFlex } from '../flex/slipFlex.js';
 import { jobPreviewMessage } from '../flex/jobCard.js';
@@ -100,19 +100,33 @@ export async function handleImageMessage(event, profile) {
     if (fileType === 'application/pdf') {
       return reply(replyToken, { type: 'text', text: 'QR ต้องเป็นรูปนะคะ (JPG หรือ PNG) ส่งใหม่ได้เลยค่ะ 💜' });
     }
+    let saved;
     try {
-      await saveShopQr(profile.id, { buffer, fileType });
+      saved = await addShopQr(profile.id, { buffer, fileType });
     } catch (err) {
       logger.error('shop.qr_save_failed', { message: err?.message });
       return reply(replyToken, { type: 'text', text: 'เก็บ QR ไม่สำเร็จค่ะ 😢 ลองส่งรูปใหม่อีกครั้งนะคะ' });
     }
-    await clearState(profile.id);
+
+    /* ถามชื่อทันทีตอนที่ร้านยังจำได้ว่าเพิ่งส่งใบไหนมา
+     *
+     * ร้านมีสองบัญชี ถ้าไม่มีชื่อกำกับ พอมาเลือกทีหลังก็ต้องเพ่งรูปเอาเอง
+     * ปุ่มลัดให้กดทีเดียวจบ ไม่ต้องพิมพ์
+     */
+    await setState(profile.id, STATES.WAITING_FOR_QR_LABEL, { qrId: saved.id });
+    const first = (await listShopQrs(profile.id)).length <= 1;
     return reply(replyToken, {
       type: 'text',
       text:
-        'เก็บ QR รับเงินให้แล้วค่ะ 💜\n' +
-        'คราวหลังพิมพ์ว่า "QR" คำเดียว รูปจะเด้งขึ้นมาเลย\n' +
-        'และ QR จะขึ้นท้ายใบเสร็จที่ยังไม่ได้จ่ายให้อัตโนมัติด้วยนะคะ',
+        'เก็บ QR ให้แล้วค่ะ 💜' +
+        (first ? '\nใบนี้จะขึ้นท้ายใบเสร็จที่ยังค้างจ่ายให้อัตโนมัติ' : '') +
+        '\n\nใบนี้ของธนาคารอะไรคะ? กดเลือกหรือพิมพ์มาได้เลย',
+      quickReply: {
+        items: ['กสิกร', 'ออมสิน', 'ไทยพาณิชย์', 'กรุงไทย', 'กรุงเทพ', 'พร้อมเพย์', 'ข้าม'].map((label) => ({
+          type: 'action',
+          action: { type: 'message', label, text: label },
+        })),
+      },
     });
   }
 
