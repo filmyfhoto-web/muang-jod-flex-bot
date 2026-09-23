@@ -1,6 +1,7 @@
 import { reply } from '../services/lineService.js';
 import { addJob, addMoreForCustomer, confirmAddJob, editNewJob, cancelNewJob } from '../actions/addJob.js';
 import { confirmSaveDump, cancelSaveDump } from '../actions/saveDump.js';
+import { shopQr, replaceShopQr } from '../actions/shopQr.js';
 import { attachEvidence } from '../actions/attachEvidence.js';
 import { recentJobs } from '../actions/recentJobs.js';
 import { todaySummary } from '../actions/todaySummary.js';
@@ -71,6 +72,11 @@ export async function handlePostback(event, profile) {
       return confirmSaveDump(ctx);
     case 'cancel_dump':
       return cancelSaveDump(ctx);
+    // QR รับเงินของร้าน
+    case 'shop_qr':
+      return shopQr(ctx);
+    case 'replace_shop_qr':
+      return replaceShopQr(ctx);
     case 'attach_evidence':
       return attachEvidence(ctx);
     case 'recent_jobs':

@@ -1,7 +1,7 @@
 import express from 'express';
 import { escapeHtml } from '../utils/html.js';
 import { getBillByToken, isCancelledToken } from '../services/billService.js';
-import { getShopProfile, hasShopDetails } from '../services/shopService.js';
+import { getShopProfile, hasShopDetails, shopQrUrl } from '../services/shopService.js';
 import { isShopKey } from '../utils/receiptLink.js';
 import { formatBaht, numText, round2 } from '../utils/currency.js';
 import { formatThaiDate, formatThaiDateTime } from '../utils/dates.js';
@@ -499,6 +499,12 @@ export function renderReceiptHtml(bill, shop = {}, opts = {}) {
   const jobs = bill.jobs || [];
   const paid = bill.payment_status === 'paid';
   const shopView = Boolean(opts.shopView);
+  /* QR รับเงิน ขึ้นเฉพาะใบที่ยังค้างจ่าย
+   *
+   * ใบที่จ่ายครบแล้วไม่มีอะไรให้สแกน การโชว์ QR บนใบที่จ่ายแล้วมีแต่จะทำให้
+   * ลูกค้าจ่ายซ้ำ
+   */
+  const qrUrl = Number(bill.balance_due) > 0 ? opts.qrUrl || null : null;
   const shopOnly = shopView ? shopOnlyPrice(bill) : null;
   const rows = jobs
     .map((j, i) => {
@@ -555,6 +561,14 @@ export function renderReceiptHtml(bill, shop = {}, opts = {}) {
   .head .who{font-size:14px;color:var(--ink);font-weight:700}
   .shopinfo{margin-top:10px;color:var(--grey);font-size:12px;line-height:1.7}
   .shopfoot{margin-top:6px;white-space:pre-wrap}
+
+  /* QR รับเงินของร้าน — อยู่ท้ายใบ ตรงที่ลูกค้าเพิ่งเห็นยอดที่ต้องจ่าย
+     กว้างคงที่ ไม่ยืดตามจอ รหัสที่ถูกยืดจนเบลอคือรหัสที่สแกนไม่ติด */
+  .qr{margin-top:14px;padding:12px;border-radius:14px;background:var(--purple-soft);text-align:center}
+  .qr-tag{font-size:13px;font-weight:700;color:var(--purple-dark)}
+  .qr img{display:block;margin:8px auto 6px;width:210px;max-width:100%;height:auto;
+        border-radius:10px;background:#fff;image-rendering:crisp-edges}
+  .qr-due{font-size:14px;font-weight:700;color:var(--ink)}
   .print{display:block;width:100%;margin-top:18px;padding:12px;border:0;border-radius:12px;background:var(--purple);color:#fff;font:inherit;font-weight:700}
   .print:disabled{opacity:.6}
   @media print{body{background:#fff;padding:0}.sheet{box-shadow:none;border-radius:0;max-width:none}.print,.shot{display:none}}
@@ -678,6 +692,16 @@ export function renderReceiptHtml(bill, shop = {}, opts = {}) {
         : ''
     }
 
+    ${
+      qrUrl
+        ? `<div class="qr">
+      <div class="qr-tag">📱 สแกนจ่ายได้เลยค่ะ</div>
+      <img src="${escapeHtml(qrUrl)}" alt="QR รับเงินของร้าน" />
+      <div class="qr-due">ยอดที่ต้องโอน ${escapeHtml(formatBaht(Number(bill.balance_due) || 0))}</div>
+    </div>`
+        : ''
+    }
+
     <button class="print" id="make">📸 ใบของลูกค้า · บันทึกเป็นรูป</button>
     ${shopOnly ? '<button class="print ghost" id="make-shop">🔒 ใบของร้าน · มีราคายังไม่ปัด</button>' : ''}
     <footer>ขอบคุณที่ใช้บริการค่ะ 💜${
@@ -736,7 +760,10 @@ router.get('/:token', async (req, res) => {
     // ลิงก์ที่ยื่นให้ลูกค้าไม่มีติดไปด้วย ใบที่ลูกค้าเปิดจึงไม่มีราคายังไม่ปัดอยู่ใน
     // หน้าเลย — ไม่ใช่มีแล้วซ่อน
     const shopView = isShopKey(req.params.token, String(req.query.k || ''));
-    res.type('html').send(renderReceiptHtml(bill, shop, { shopView }));
+    // ลิงก์รูป QR เซ็นสดตอนเปิดหน้า ไม่ได้เก็บลิงก์ไว้ในฐานข้อมูล — ลิงก์ที่เซ็น
+    // ไว้มีวันหมดอายุ เก็บไว้แล้ว QR จะหายไปเงียบ ๆ ตอนหมดอายุ
+    const qrUrl = Number(bill.balance_due) > 0 ? await shopQrUrl(shop) : null;
+    res.type('html').send(renderReceiptHtml(bill, shop, { shopView, qrUrl }));
   } catch (err) {
     logger.error('receipt.render_failed', { message: err?.message });
     res.status(500).type('html').send('<!doctype html><meta charset="utf-8"><p>เปิดใบเสร็จไม่สำเร็จค่ะ</p>');

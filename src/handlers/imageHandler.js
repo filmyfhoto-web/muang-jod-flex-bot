@@ -2,6 +2,7 @@ import { reply, getMessageContentBuffer } from '../services/lineService.js';
 import { getState, setState, clearState, STATES } from '../services/stateService.js';
 import { getLatestJob, getJobById, createJob } from '../services/jobService.js';
 import { saveAttachment } from '../services/attachmentService.js';
+import { saveShopQr } from '../services/shopService.js';
 import { readImage } from '../services/visionService.js';
 import { slipReceiptFlex } from '../flex/slipFlex.js';
 import { jobPreviewMessage } from '../flex/jobCard.js';
@@ -86,6 +87,32 @@ export async function handleImageMessage(event, profile) {
     return reply(replyToken, {
       type: 'text',
       text: 'รองรับเฉพาะรูป JPG, PNG หรือไฟล์ PDF เท่านั้นค่ะ 💜',
+    });
+  }
+
+  /* รูป QR รับเงินของร้าน — ต้องมาก่อนทุกทาง
+   *
+   * ร้านเพิ่งพิมพ์ว่า "QR" แล้วม่วงขอรูป รูปถัดไปจึงเป็น QR ของร้านแน่ ๆ
+   * ไม่ใช่หลักฐานของงานและไม่ใช่ใบสั่งงานให้อ่าน — ถ้าปล่อยให้ตกไปทางอ่านรูป
+   * ม่วงจะพยายามอ่าน QR เป็นใบสั่งงาน แล้วตั้งงานใหม่ขึ้นมาจากรูปที่ไม่มีงาน
+   */
+  if (current === STATES.WAITING_FOR_QR) {
+    if (fileType === 'application/pdf') {
+      return reply(replyToken, { type: 'text', text: 'QR ต้องเป็นรูปนะคะ (JPG หรือ PNG) ส่งใหม่ได้เลยค่ะ 💜' });
+    }
+    try {
+      await saveShopQr(profile.id, { buffer, fileType });
+    } catch (err) {
+      logger.error('shop.qr_save_failed', { message: err?.message });
+      return reply(replyToken, { type: 'text', text: 'เก็บ QR ไม่สำเร็จค่ะ 😢 ลองส่งรูปใหม่อีกครั้งนะคะ' });
+    }
+    await clearState(profile.id);
+    return reply(replyToken, {
+      type: 'text',
+      text:
+        'เก็บ QR รับเงินให้แล้วค่ะ 💜\n' +
+        'คราวหลังพิมพ์ว่า "QR" คำเดียว รูปจะเด้งขึ้นมาเลย\n' +
+        'และ QR จะขึ้นท้ายใบเสร็จที่ยังไม่ได้จ่ายให้อัตโนมัติด้วยนะคะ',
     });
   }
 
