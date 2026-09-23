@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- แผง CEP สำหรับ Illustrator CC 2019 (23.0) ขึ้นไป -->
-<ExtensionManifest Version="9.0" ExtensionBundleId="com.nongploy.nestingcut" ExtensionBundleVersion="1.0.0" ExtensionBundleName="Nong Ploy Nesting Cut" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<ExtensionManifest Version="9.0" ExtensionBundleId="com.nongploy.nestingcut" ExtensionBundleVersion="1.0.0" ExtensionBundleName="NudPon Nesting Cut" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <ExtensionList>
     <Extension Id="com.nongploy.nestingcut.panel" Version="1.0.0" />
   </ExtensionList>
