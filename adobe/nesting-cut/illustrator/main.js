@@ -275,6 +275,7 @@
         locked.forEach(function (b) {
           b.disabled = false;
         });
+        updateFlow();
         setTimeout(function () {
           if (!S.busy) progress(0);
         }, 600);
@@ -284,6 +285,8 @@
   function markStale() {
     if (S.result) S.stale = true;
     S.built = false;
+    S.exported = false;
+    if (typeof updateFlow === 'function' && $('btnNext')) updateFlow();
     $('previewSub').textContent = S.stale ? '(ค่าเปลี่ยน — กดจัดวางใหม่)' : '';
   }
 
@@ -1413,6 +1416,7 @@
         });
         if (s.outPng) files.push(host.writeBase64(folder + '/' + base + '-preview.png', previewBase64()));
         progress(1);
+        S.exported = true;
         status('ส่งออกแล้ว ' + files.length + ' ไฟล์ → ' + folder, 'ok');
       });
   }
@@ -1961,6 +1965,7 @@
     S.results = {};
     S.stale = false;
     S.built = false;
+    S.exported = false;
     S.dc = null;
     S.vec = null;
     renderParts();
@@ -2448,6 +2453,71 @@
     show('[data-num-style]', s.numStyle === 'custom');
   }
 
+  // ---------------------------------------------------------------- ลำดับงาน (ขั้น 1–5 + ปุ่มขั้นถัดไป)
+
+  // ตอนนี้อยู่ขั้นไหน: 1 เลือกชิ้นงาน · 3 คำนวณ · 4 สร้างชีต · 5 ส่งออก · 6 เสร็จ
+  // (ขั้น 2 ตั้งค่ากระดาษมีค่าเริ่มต้นให้แล้ว นับว่าผ่านเมื่อมีชิ้นงาน)
+  function flowStep() {
+    if (!S.parts.length) return 1;
+    if (!S.result || S.stale) return 3;
+    if (!S.built) return 4;
+    if (!S.exported) return 5;
+    return 6;
+  }
+
+  var NEXT = {
+    1: ['① ดึงชิ้นงานที่เลือก', 'เลือกภาพ + เส้นไดคัทสีแดงใน Illustrator แล้วกดปุ่มด้านล่าง'],
+    3: ['③ คำนวณ — ดูจำนวนดวง', 'ตรวจขนาดกระดาษ/ระยะขอบ (ขั้น 2) แล้วกดคำนวณ ยังไม่แตะไฟล์งาน'],
+    4: ['④ สร้างชีตไดคัท', 'ดูพรีวิวแล้วโอเค กดสร้างชีตบนอาร์ตบอร์ดใหม่ (ของเดิมไม่ถูกย้าย)'],
+    5: ['⑤ ส่งออกไฟล์', 'บันทึก PDF / PLT / DXF / SVG ตามที่ติ๊กไว้ในแถบ “ส่งออก”'],
+    6: ['✓ เสร็จแล้ว — ส่งออกอีกครั้ง', 'เสร็จครบทุกขั้น เปลี่ยนค่าแล้วกดคำนวณใหม่ได้เลย'],
+  };
+
+  function updateFlow() {
+    var step = flowStep();
+    var next = NEXT[step];
+    var btn = $('btnNext');
+    if (btn) {
+      btn.textContent = next[0];
+      btn.classList.toggle('done', step === 6);
+    }
+    $('stepHint').textContent = next[1];
+    Array.prototype.forEach.call(document.querySelectorAll('#stepper li'), function (li) {
+      var n = parseInt(li.getAttribute('data-step'), 10);
+      li.classList.toggle('done', n < step);
+      li.classList.toggle('current', n === step);
+    });
+  }
+
+  function doNext() {
+    var step = flowStep();
+    if (step === 1) return scan();
+    if (step === 3) return prepareForTool().then(nestNow);
+    if (step === 4) return buildLayout();
+    return exportAll();
+  }
+
+  function gotoCard(sub, id) {
+    S.settings.subTab = sub;
+    saveSettings();
+    applyVisibility();
+    var el2 = id && $(id);
+    if (el2) {
+      if (el2.tagName === 'DETAILS') el2.open = true;
+      el2.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
+  }
+
+  function onStepClick(n) {
+    if (n === 1) return gotoCard('main', 'secParts');
+    if (n === 2) return gotoCard('main', 'secMedia');
+    if (n === 3) return run(function () {
+      return (S.parts.length ? Promise.resolve() : scan()).then(prepareForTool).then(nestNow);
+    });
+    if (n === 4) return run(buildLayout);
+    if (n === 5) return gotoCard('out', 'secOut');
+  }
+
   // ---------------------------------------------------------------- สลับเครื่องมือ
 
   var TOOL_STATUS = {
@@ -2504,6 +2574,7 @@
       renderStats();
     } else clearPreview();
     if (prev !== tool) status(TOOL_STATUS[tool]);
+    if ($('btnNext')) updateFlow();
   }
 
   // ---------------------------------------------------------------- ฟอร์มค่าตั้ง
@@ -2673,7 +2744,6 @@
       $('btnImport').hidden = true;
       $('btnAddPng').hidden = false;
       $('btnScan').textContent = 'โหลดชิ้นงานตัวอย่าง';
-      $('secHowto').open = false;
     }
 
     $('btnScan').onclick = function () {
@@ -2733,6 +2803,14 @@
       };
     });
     markFields();
+    $('btnNext').onclick = function () {
+      run(doNext);
+    };
+    Array.prototype.forEach.call(document.querySelectorAll('#stepper li'), function (li) {
+      li.onclick = function () {
+        if (!S.busy) onStepClick(parseInt(li.getAttribute('data-step'), 10));
+      };
+    });
     $('btnStRead').onclick = function () {
       run(stampRead);
     };
@@ -2816,6 +2894,7 @@
       placePreview();
     };
     placePreview();
+    updateFlow();
     window.addEventListener('resize', placePreview);
 
     if (host.demo) {

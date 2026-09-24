@@ -55,15 +55,17 @@
       หรือเพิ่มรูป PNG พื้นใสของร้านเองก็ได้ ไฟล์ตัด (PLT / DXF / SVG) จะดาวน์โหลดลงเครื่อง
     </div>
 
-    <details class="card steps" id="secHowto" data-for="nest" data-sub="main" open>
-      <summary>วิธีใช้ใน 4 ขั้นตอน</summary>
-      <ol class="steplist">
-        <li><b>เลือกชิ้นงาน</b><span>เลือกภาพและเส้นไดคัทสีแดงของสติ๊กเกอร์หนึ่งดวงให้ครบ (Group ไว้) แล้วกด “ดึงชิ้นงานที่เลือก”</span></li>
-        <li><b>ตั้งค่ากระดาษ</b><span>เลือกขนาดกระดาษ ระยะขอบ ระยะห่าง รูปแบบเรียง และมุมหมุน (หัวข้อ 2)</span></li>
-        <li><b>กด “คำนวณ”</b><span>ดูจำนวนดวงและตัวอย่างบนจอ โดยยังไม่แตะเอกสารต้นฉบับ</span></li>
-        <li><b>สร้างชีตไดคัท</b><span>สร้างสำเนาในไฟล์ใหม่ พร้อมแยกเลเยอร์งานพิมพ์และเส้นตัด — หรือกด “เจ๊หญิงสั่งลุย!” ทำครบทุกขั้นรวดเดียวพร้อมส่งออก</span></li>
+    <!-- ลำดับงาน: กดขั้นไหนก็ได้ ขั้นถัดไปไฮไลต์ให้ -->
+    <nav class="card stepper-card" id="secFlow" data-for="nest run">
+      <ol class="stepper" id="stepper">
+        <li data-step="1"><i>1</i><span>เลือกชิ้นงาน</span></li>
+        <li data-step="2"><i>2</i><span>ตั้งค่ากระดาษ</span></li>
+        <li data-step="3"><i>3</i><span>คำนวณ</span></li>
+        <li data-step="4"><i>4</i><span>สร้างชีต</span></li>
+        <li data-step="5"><i>5</i><span>ส่งออก</span></li>
       </ol>
-    </details>
+      <p class="stepper-hint" id="stepHint"></p>
+    </nav>
 
     <!-- ไดคัทตามรูปทรง -->
     <section class="card" id="secShape" data-for="shape">
@@ -72,11 +74,13 @@
         สร้างเส้น Stroke สีแดงตาม Silhouette จริงของเวกเตอร์ ขอบ Clipping Mask หรือรูปภาพ PNG / JPG พร้อม Offset
         และรวมเส้นที่สัมผัสกันเป็นเส้นเดียว — บันทึกไฟล์ก่อน แล้วเลือกชิ้นงานให้ครบทุกส่วน
       </p>
+      <details class="howto"><summary>วิธีใช้</summary>
       <ol class="steplist">
         <li><b>เลือกเวกเตอร์ รูปภาพ หรือกลุ่ม Clipping Mask</b><span>ข้อความเป็น Live Text ได้ ปลั๊กอินอ่านจากสำเนา ไม่แตะงานเดิม</span></li>
         <li><b>เลือกแหล่งขอบ</b><span>ทุกชิ้นงานหรือเฉพาะ Clipping Mask แล้วตั้ง Offset มุม มน / ตัดมุม / แหลม และการตัดรูด้านใน</span></li>
         <li><b>กำหนดเลเยอร์แล้วสร้าง</b><span>ค่าเริ่มต้นคือเลเยอร์ “Die cut” เส้น 0.25 pt อยู่บนสุดของไฟล์</span></li>
       </ol>
+      </details>
       <div class="subcard">
         <h3>เส้นไดคัท</h3>
         <label
@@ -136,11 +140,13 @@
     <section class="card" id="secCorner" data-for="corner">
       <h2><span class="num">◜</span> ทำมุมโค้ง <span class="sub">CNC FIT</span></h2>
       <p class="hint">ปรับมุมในและมุมนอกของตัวอักษรหรือชิ้นเวกเตอร์ให้สัมพันธ์กับรัศมีดอกกัด เหมาะกับงานประกบหน้า–หลังและชิ้นเสียบ</p>
+      <details class="howto"><summary>วิธีใช้</summary>
       <ol class="steplist">
         <li><b>เลือกตัวอักษรหรือ Path</b><span>บันทึกไฟล์ก่อน โดยเฉพาะเมื่อจะเลือกแก้ทับของเดิม — ตัวอักษรอ่านจากสำเนาที่ Outline แล้ว</span></li>
         <li><b>ใส่รัศมีมุมใน</b><span>เริ่มต้น 1.5875 มม. = รัศมีดอก 1/8 นิ้ว · มุมนอกเริ่มต้น 0 (ไม่โค้ง)</span></li>
         <li><b>เลือกผลลัพธ์</b><span>แนะนำ “สร้างสำเนาข้างของเดิม” และเปิดวงกลมตรวจจุดที่รัศมีลงไม่ได้</span></li>
       </ol>
+      </details>
       <div class="grid2">
         <label
           >ขนาดดอก
@@ -180,11 +186,13 @@
     <section class="card" id="secLed" data-for="led">
       <h2><span class="num">⌇</span> หาเส้นกลาง <span class="sub">LED PATH</span></h2>
       <p class="hint">คำนวณแนวกลางภายในตัวอักษรปิดสำหรับวาง LED Strip พร้อมสรุปความยาว และเตือนบริเวณที่แคบหรือโค้งเกินข้อกำหนด</p>
+      <details class="howto"><summary>วิธีใช้</summary>
       <ol class="steplist">
         <li><b>เลือกตัวอักษรปิด</b><span>ใช้ชิ้นงานที่เป็น Shape / Path ชัดเจน ไม่มีเส้นเปิดเกินจำเป็น</span></li>
         <li><b>ตั้งคุณสมบัติแถบไฟ</b><span>ความกว้างเริ่มต้น 6 มม. · รัศมีโค้งต่ำสุด 15 มม. · เว้นจากปลาย 10 มม.</span></li>
         <li><b>ตรวจรายงานแล้ววาด</b><span>ดูจำนวนเส้น ความยาวรวม ความกว้างต่ำสุด–สูงสุด แล้วสร้างลงเลเยอร์ “เส้นกลาง”</span></li>
       </ol>
+      </details>
       <div class="grid2">
         <label>ความกว้างแถบไฟ (มม.) <input type="number" min="1" step="0.5" data-setting="ledWidth" /></label>
         <label>รัศมีโค้งต่ำสุด (มม.) <input type="number" min="0" step="1" data-setting="ledRadius" /></label>
@@ -371,11 +379,13 @@
       <p class="hint">
         ทำเส้นตัดรอบดวงตราสำหรับเครื่องเลเซอร์ พร้อมงานแกะที่กลับด้านและกลับสีให้แล้ว — เส้นแดงบาง = ตัดขาด · พื้นดำ = ยิงแกะออก
       </p>
+      <details class="howto"><summary>วิธีใช้</summary>
       <ol class="steplist">
         <li><b>เลือกแบบตรายาง</b><span>ตัวอักษร โลโก้ หรือกลุ่มที่จัดไว้แล้ว — ตัวอักษรยังเป็น Live Text ได้</span></li>
         <li><b>ตั้งรูปทรงและระยะขอบ</b><span>สี่เหลี่ยมมุมมน / วงกลม / วงรี / ตามรูปทรงงาน · ระยะจากงานถึงเส้นตัด</span></li>
         <li><b>สร้างงานตรายาง</b><span>ได้สำเนาข้างของเดิม: เลเยอร์ “เส้นตัดเลเซอร์” + “งานแกะเลเซอร์”</span></li>
       </ol>
+      </details>
       <label>รูปทรงเส้นตัด <select id="stShape" data-setting="stShape"></select></label>
       <label>ระยะจากงานถึงเส้นตัด (มม.) <input type="number" min="0" step="0.5" data-setting="stMargin" /></label>
       <label>มุมมน (มม.) <input type="number" min="0" step="0.5" data-setting="stRadius" /></label>
@@ -415,11 +425,13 @@
         <label class="check"><input type="checkbox" data-setting="hkCmd" /> Cmd / Ctrl</label>
         <label class="check"><input type="checkbox" data-setting="hkShift" /> Shift</label>
       </div>
+      <details class="howto"><summary>วิธีใช้</summary>
       <ol class="steplist">
         <li><b>เลือกปุ่ม F2–F15</b><span>เพิ่ม Cmd / Ctrl หรือ Shift ได้</span></li>
         <li><b>กด “วิธีตั้งค่า”</b><span>แผงติดตั้งสคริปต์ “NudPon Quick Nest” แล้วแสดงขั้นตอน</span></li>
         <li><b>สร้าง Illustrator Action</b><span>ใช้ Insert Menu Item เรียก File → Scripts → NudPon Quick Nest แล้วตั้งปุ่มลัดให้ Action</span></li>
       </ol>
+      </details>
       <div id="hkGuide" class="guide" hidden></div>
       <p class="note warnnote">
         <b>ข้อจำกัดของ Illustrator</b> — ปลั๊กอินจองปุ่มลัดเองไม่ได้ จึงต้องเรียกผ่าน Action และจำกัดเฉพาะ F2–F15
@@ -435,7 +447,7 @@
     </section>
 
     <!-- 1. ชิ้นงาน -->
-    <section class="card" data-for="nest run" data-sub="main">
+    <section class="card" id="secParts" data-for="nest run" data-sub="main">
       <h2><span class="num">1</span> <span data-for="nest">ชิ้นงาน</span><span data-for="run">ต้นแบบหนึ่งดวง</span></h2>
       <div class="row">
         <button id="btnScan">ดึงชิ้นงานที่เลือก</button>
@@ -456,11 +468,13 @@
       <p class="hint">
         วางสติ๊กเกอร์หนึ่งต้นแบบซ้ำเต็มชีต แล้วสร้างแนวตัดยาวต่อเนื่อง ลดจำนวนครั้งที่เครื่องยกใบมีด เหมาะกับงานฉลากจำนวนมาก
       </p>
+      <details class="howto"><summary>วิธีใช้</summary>
       <ol class="steplist">
         <li><b>เลือกต้นแบบหนึ่งดวง</b><span>เลือกภาพกับเส้นตัดหรือวัตถุที่ต้องการทำซ้ำให้ครบ แล้วกด “ดึงชิ้นงานที่เลือก”</span></li>
         <li><b>ตั้งวัสดุและหน้ากระดาษ</b><span>ชื่อวัสดุ แกรม ขนาดหน้า ระยะขอบ (หัวข้อ 2) รูปทรง ขนาด ระยะห่าง และแบบเรียงตรงหรือสลับแถว</span></li>
         <li><b>ตรวจตัวอย่างแล้วสร้าง</b><span>ดูจำนวนดวงและจำนวนครั้งยกใบมีด จากนั้นกด “สร้างชีตไดคัท”</span></li>
       </ol>
+      </details>
       <div class="grid2">
         <label>ชื่อวัสดุ <input data-setting="runMaterial" placeholder="เช่น PP ขาวเงา" /></label>
         <label>แกรม <input type="number" min="0" step="1" data-setting="runGram" /></label>
@@ -698,13 +712,14 @@
 
     <!-- ปุ่มหลัก -->
     <section class="card actions sticky-actions" data-for="nest run">
-      <button id="btnGo" class="go" data-for="nest">เจ๊หญิงสั่งลุย! 🚀</button>
+      <button id="btnNext" class="go">ดึงชิ้นงานที่เลือก</button>
       <div class="row small">
         <button id="btnNest" class="ghost" title="จัดวางแล้วดูพรีวิวก่อน ยังไม่แตะไฟล์">คำนวณ</button>
         <button id="btnBuild" class="ghost" title="สร้างไฟล์เลย์เอาต์ใหม่ใน Illustrator จากผลจัดวาง">สร้างชีตไดคัท</button>
         <button id="btnExport" class="ghost" title="บันทึก PDF / AI / PLT / DXF / SVG">ส่งออก</button>
         <button id="btnSelectCut" class="ghost" title="เลือกเส้นตัดทั้งหมด เพื่อส่งผ่านปลั๊กอินของเครื่องตัด">เลือกเส้นตัด</button>
       </div>
+      <button id="btnGo" class="linkish" data-for="nest" title="ดึงชิ้นงาน → คำนวณ → สร้างชีต → ส่งออก ในปุ่มเดียว">⚡ เจ๊หญิงสั่งลุย! — ทำครบทุกขั้นรวดเดียว</button>
       <div class="progress"><div id="progressBar"></div></div>
       <div id="status" class="status">พร้อมลุย</div>
     </section>
