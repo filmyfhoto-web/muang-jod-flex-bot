@@ -1,0 +1,745 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>นัดพอน Nesting Cut</title>
+    <link rel="stylesheet" href="illustrator/panel.css" />
+  </head>
+  <body>
+    <div class="layout">
+    <!-- จอกว้าง: พรีวิวย้ายมาอยู่ช่องซ้าย คู่กับแผงคำสั่ง (main.js ย้ายให้) -->
+    <aside id="previewSide"></aside>
+    <div id="controls">
+    <header class="brand">
+      <img src="assets/logo-panel.png" alt="นัดพอน Nesting Cut — ปลั๊กอิน เจ๊หญิงสั่งลุย" />
+      <div class="brand-tools">
+        <button type="button" id="btnLayout" class="ghost" title="สลับตำแหน่งพรีวิว: อัตโนมัติ → ข้าง ๆ → ด้านล่าง">พรีวิว: อัตโนมัติ</button>
+        <button type="button" id="btnClear" class="ghost" title="ล้างรายการชิ้นงาน ผลคำนวณ และพรีวิว (เลือกลบชีตเก่าในไฟล์ได้)">ล้างงานเก่า</button>
+      </div>
+    </header>
+
+    <!-- ล้างงานเก่า: ยืนยันในแผง (ไม่ใช้กล่อง confirm) -->
+    <section class="card clearbox" id="clearBox" hidden>
+      <h2>ล้างงานเก่า</h2>
+      <label class="check"><input type="checkbox" checked disabled /> รายการชิ้นงาน ผลคำนวณ และพรีวิวในแผง</label>
+      <label class="check"><input type="checkbox" id="clearSheets" /> ลบชีตไดคัทที่นัดพอนสร้างไว้ในไฟล์นี้ (อาร์ตบอร์ด “นัดพอน · แผ่น …” และของบนชีต)</label>
+      <label class="check"><input type="checkbox" id="clearLayers" /> <span>ลบเลเยอร์ผลลัพธ์ของเครื่องมืออื่น: <span id="clearLayerNames"></span></span></label>
+      <p class="hint">งานต้นฉบับไม่ถูกแตะ · ลบในไฟล์แล้วกด Undo (Ctrl/Cmd+Z) ใน Illustrator ย้อนได้</p>
+      <div class="row">
+        <button type="button" id="btnClearGo">ล้างเลย</button>
+        <button type="button" id="btnClearCancel" class="ghost">ยกเลิก</button>
+      </div>
+    </section>
+
+    <!-- เครื่องมือ: อ่านค่าจาก Selection ใน Illustrator แล้วสร้างผลลงเอกสารเดิม -->
+    <nav class="tools" id="toolTabs">
+      <button type="button" data-tool="nest">จัดวางดวง<small>Nesting</small></button>
+      <button type="button" data-tool="run">ไดคัทต่อเนื่อง<small>Sticker · Label</small></button>
+      <button type="button" data-tool="shape">ไดคัทตามรูป<small>Contour</small></button>
+      <button type="button" data-tool="corner">ทำมุมโค้ง<small>CNC Fit</small></button>
+      <button type="button" data-tool="led">หาเส้นกลาง<small>LED Path</small></button>
+      <button type="button" data-tool="dim">บอกขนาด<small>Dimension</small></button>
+      <button type="button" data-tool="number">รันนัมเบอร์<small>Variable Data</small></button>
+      <button type="button" data-tool="stamp">ตรายางเลเซอร์<small>Stamp Laser</small></button>
+      <button type="button" data-tool="hotkey">ปุ่มลัด<small>One-key</small></button>
+    </nav>
+    <nav class="subtabs" id="subTabs" data-for="nest run">
+      <button type="button" data-sub="main">หลัก</button>
+      <button type="button" data-sub="adv">ปรับแต่งขั้นสูง</button>
+      <button type="button" data-sub="out">ส่งออก</button>
+    </nav>
+
+    <div id="demoBanner" class="banner" hidden>
+      <b>โหมดทดลอง</b> — หน้านี้ไม่ได้เปิดอยู่ใน Illustrator จึงใช้ชิ้นงานตัวอย่างแทน ลองกด “เจ๊หญิงสั่งลุย!” ได้เลย
+      หรือเพิ่มรูป PNG พื้นใสของร้านเองก็ได้ ไฟล์ตัด (PLT / DXF / SVG) จะดาวน์โหลดลงเครื่อง
+    </div>
+
+    <!-- ลำดับงาน: กดขั้นไหนก็ได้ ขั้นถัดไปไฮไลต์ให้ -->
+    <nav class="card stepper-card" id="secFlow" data-for="nest run">
+      <ol class="stepper" id="stepper">
+        <li data-step="1"><i>1</i><span>เลือกชิ้นงาน</span></li>
+        <li data-step="2"><i>2</i><span>ตั้งค่ากระดาษ</span></li>
+        <li data-step="3"><i>3</i><span>คำนวณ</span></li>
+        <li data-step="4"><i>4</i><span>สร้างชีต</span></li>
+        <li data-step="5"><i>5</i><span>ส่งออก</span></li>
+      </ol>
+      <p class="stepper-hint" id="stepHint"></p>
+    </nav>
+
+    <!-- ไดคัทตามรูปทรง -->
+    <section class="card" id="secShape" data-for="shape">
+      <h2><span class="num">✂</span> ไดคัทตามรูปทรง</h2>
+      <p class="hint">
+        สร้างเส้น Stroke สีแดงตาม Silhouette จริงของเวกเตอร์ ขอบ Clipping Mask หรือรูปภาพ PNG / JPG พร้อม Offset
+        และรวมเส้นที่สัมผัสกันเป็นเส้นเดียว — บันทึกไฟล์ก่อน แล้วเลือกชิ้นงานให้ครบทุกส่วน
+      </p>
+      <details class="howto"><summary>วิธีใช้</summary>
+      <ol class="steplist">
+        <li><b>เลือกเวกเตอร์ รูปภาพ หรือกลุ่ม Clipping Mask</b><span>ข้อความเป็น Live Text ได้ ปลั๊กอินอ่านจากสำเนา ไม่แตะงานเดิม</span></li>
+        <li><b>เลือกแหล่งขอบ</b><span>ทุกชิ้นงานหรือเฉพาะ Clipping Mask แล้วตั้ง Offset มุม มน / ตัดมุม / แหลม และการตัดรูด้านใน</span></li>
+        <li><b>กำหนดเลเยอร์แล้วสร้าง</b><span>ค่าเริ่มต้นคือเลเยอร์ “Die cut” เส้น 0.25 pt อยู่บนสุดของไฟล์</span></li>
+      </ol>
+      </details>
+      <div class="subcard">
+        <h3>เส้นไดคัท</h3>
+        <label
+          >ให้เส้นวิ่งตาม
+          <select data-setting="dcSource">
+            <option value="all">รูปทรงของชิ้นงานทั้งหมด</option>
+            <option value="clip">เฉพาะขอบ Clipping Mask</option>
+          </select></label
+        >
+        <div class="grid2">
+          <label>เผื่อห่างจากชิ้นงาน (มม.) <input type="number" min="0" step="0.5" data-setting="dcOffset" /></label>
+          <label
+            >มุมของเส้น
+            <select data-setting="dcJoin">
+              <option value="round">มน (Round)</option>
+              <option value="bevel">ตัดมุม (Bevel)</option>
+              <option value="miter">มุมแหลม (Sharp)</option>
+            </select></label
+          >
+          <label>จำกัดความยาวปลายแหลม (Miter) <input type="number" min="1" step="0.5" data-setting="dcMiter" /></label>
+        </div>
+        <label class="check"><input type="checkbox" data-setting="dcHoles" /> ตัดรูข้างในด้วย (งานรูปภาพ แนะนำให้ปิด)</label>
+      </div>
+      <div class="subcard">
+        <h3>อ่านรูปภาพ</h3>
+        <p class="hint">
+          ภาพ Raster ใช้เวลาวิเคราะห์มากกว่าเวกเตอร์ — ภาพใหญ่หรือพื้นหลังซับซ้อนอาจใช้เวลาประมาณ 5–10 วินาที
+          ระหว่างนั้น Illustrator จะไม่ตอบสนอง เป็นเรื่องปกติ รอจนเสร็จ
+        </p>
+        <ul class="hint tips">
+          <li>เพิ่ม Contrast ให้ตัวแบบแยกจากพื้นหลังชัด ๆ ก่อนอ่าน</li>
+          <li>บันทึกงานก่อนเริ่มวิเคราะห์ภาพหนัก</li>
+        </ul>
+        <div class="grid2 grid3">
+          <label>ความต่างสีพื้น <input type="number" min="0" max="255" step="1" data-setting="dcTol" /></label>
+          <label>ตัดเงาทิ้ง (%) <input type="number" min="0" max="100" step="5" data-setting="dcShadow" /></label>
+          <label>ความละเอียดเส้น <input type="number" min="1" max="100" step="1" data-setting="dcDetail" /></label>
+        </div>
+      </div>
+      <div class="subcard">
+        <h3>เลเยอร์และเส้น</h3>
+        <div class="grid2">
+          <label>ชื่อเลเยอร์เส้นตัด <input data-setting="dcLayer" /></label>
+          <label>ความหนาเส้น (pt) <input type="number" min="0.1" step="0.05" data-setting="dcWidth" /></label>
+          <label
+            >สีเส้น
+            <select data-setting="dcColor">
+              <option value="red">แดง (Stroke สีแดง)</option>
+              <option value="spot">สี Spot (ชื่อตามหัวข้อ 3)</option>
+            </select></label
+          >
+        </div>
+      </div>
+    </section>
+
+    <!-- ทำมุมโค้ง (CNC) -->
+    <section class="card" id="secCorner" data-for="corner">
+      <h2><span class="num">◜</span> ทำมุมโค้ง <span class="sub">CNC FIT</span></h2>
+      <p class="hint">ปรับมุมในและมุมนอกของตัวอักษรหรือชิ้นเวกเตอร์ให้สัมพันธ์กับรัศมีดอกกัด เหมาะกับงานประกบหน้า–หลังและชิ้นเสียบ</p>
+      <details class="howto"><summary>วิธีใช้</summary>
+      <ol class="steplist">
+        <li><b>เลือกตัวอักษรหรือ Path</b><span>บันทึกไฟล์ก่อน โดยเฉพาะเมื่อจะเลือกแก้ทับของเดิม — ตัวอักษรอ่านจากสำเนาที่ Outline แล้ว</span></li>
+        <li><b>ใส่รัศมีมุมใน</b><span>เริ่มต้น 1.5875 มม. = รัศมีดอก 1/8 นิ้ว · มุมนอกเริ่มต้น 0 (ไม่โค้ง)</span></li>
+        <li><b>เลือกผลลัพธ์</b><span>แนะนำ “สร้างสำเนาข้างของเดิม” และเปิดวงกลมตรวจจุดที่รัศมีลงไม่ได้</span></li>
+      </ol>
+      </details>
+      <div class="grid2">
+        <label
+          >ขนาดดอก
+          <select id="cnBit">
+            <option value="">— เลือกเพื่อเติมรัศมี —</option>
+            <option value="1.5875">1/8 นิ้ว (3.175 มม.)</option>
+            <option value="3.175">1/4 นิ้ว (6.35 มม.)</option>
+            <option value="0.79375">1/16 นิ้ว (1.5875 มม.)</option>
+            <option value="1">2 มม.</option>
+            <option value="1.5">3 มม.</option>
+            <option value="2">4 มม.</option>
+            <option value="3">6 มม.</option>
+          </select></label
+        >
+        <label>รัศมีมุมใน (มม.) <input type="number" min="0" step="0.1" data-setting="cnIn" /></label>
+        <label>รัศมีมุมนอก (มม.) <input type="number" min="0" step="0.1" data-setting="cnOut" /></label>
+        <label
+          >ผลลัพธ์
+          <select data-setting="cnMode">
+            <option value="copy">สร้างสำเนาข้างของเดิม (แนะนำ)</option>
+            <option value="replace">แก้ทับของเดิม</option>
+          </select></label
+        >
+      </div>
+      <label class="check"><input type="checkbox" data-setting="cnFlags" /> วงกลมตรวจจุดที่รัศมีลงไม่ได้ (ร่องแคบกว่าดอก มุมแหลมจัด)</label>
+      <p class="note"><b>ตั้งตามดอกจริง</b> — ใช้ดอกขนาดอื่น ให้ใส่รัศมีเท่ากับครึ่งหนึ่งของเส้นผ่านศูนย์กลางดอก มุมที่ออกแบบจะสัมพันธ์กับเครื่องมือผลิต</p>
+      <div class="tool-actions">
+        <div class="row">
+        <button id="btnCnRead" class="ghost">วิเคราะห์ / ดูตัวอย่าง</button>
+        <button id="btnCnMake">ทำมุมโค้ง</button>
+        </div>
+        <div id="cnStatus" class="status">เลือกตัวอักษรหรือ Path แล้วกดวิเคราะห์</div>
+      </div>
+    </section>
+
+    <!-- หาเส้นกลาง (LED) -->
+    <section class="card" id="secLed" data-for="led">
+      <h2><span class="num">⌇</span> หาเส้นกลาง <span class="sub">LED PATH</span></h2>
+      <p class="hint">คำนวณแนวกลางภายในตัวอักษรปิดสำหรับวาง LED Strip พร้อมสรุปความยาว และเตือนบริเวณที่แคบหรือโค้งเกินข้อกำหนด</p>
+      <details class="howto"><summary>วิธีใช้</summary>
+      <ol class="steplist">
+        <li><b>เลือกตัวอักษรปิด</b><span>ใช้ชิ้นงานที่เป็น Shape / Path ชัดเจน ไม่มีเส้นเปิดเกินจำเป็น</span></li>
+        <li><b>ตั้งคุณสมบัติแถบไฟ</b><span>ความกว้างเริ่มต้น 6 มม. · รัศมีโค้งต่ำสุด 15 มม. · เว้นจากปลาย 10 มม.</span></li>
+        <li><b>ตรวจรายงานแล้ววาด</b><span>ดูจำนวนเส้น ความยาวรวม ความกว้างต่ำสุด–สูงสุด แล้วสร้างลงเลเยอร์ “เส้นกลาง”</span></li>
+      </ol>
+      </details>
+      <div class="grid2">
+        <label>ความกว้างแถบไฟ (มม.) <input type="number" min="1" step="0.5" data-setting="ledWidth" /></label>
+        <label>รัศมีโค้งต่ำสุด (มม.) <input type="number" min="0" step="1" data-setting="ledRadius" /></label>
+        <label>เว้นจากปลาย (มม.) <input type="number" min="0" step="1" data-setting="ledMargin" /></label>
+        <label>ชื่อเลเยอร์ <input data-setting="ledLayer" /></label>
+      </div>
+      <p class="note warnnote">
+        <b>! พื้นที่กว้างมากอาจต้องใช้ 2 แถว</b> — แจ้งเตือนเมื่อความกว้างมากกว่าสองเท่าของแถบไฟ
+        แต่เวอร์ชันนี้ยังไม่วาดเส้นคู่ให้อัตโนมัติ ต้องเพิ่มแนวไฟเองหลังตรวจแบบ
+      </p>
+      <div class="tool-actions">
+        <div class="row">
+        <button id="btnLedRead" class="ghost">วิเคราะห์ / ดูตัวอย่าง</button>
+        <button id="btnLedMake">สร้างเส้นกลาง</button>
+        </div>
+        <div id="ledStatus" class="status">เลือกตัวอักษรปิดแล้วกดวิเคราะห์</div>
+      </div>
+    </section>
+
+    <!-- เส้นบอกขนาด -->
+    <section class="card" id="secDim" data-for="dim">
+      <h2><span class="num">⇹</span> ใส่สเกลและเส้นบอกขนาด <span class="sub">DIMENSION</span></h2>
+      <p class="hint">วัดกว้าง–สูงแล้ววาดเส้น Dimension แสดงขนาดจริงของงานที่เขียนย่อสเกลได้ โดยไม่เปลี่ยนขนาดวัตถุต้นฉบับ</p>
+      <div class="grid2">
+        <label
+          >วัด
+          <select data-setting="dimScope">
+            <option value="all">Selection รวม</option>
+            <option value="each">แต่ละชิ้น</option>
+            <option value="both">ทั้งสองแบบ</option>
+          </select></label
+        >
+        <label
+          >ขนาด
+          <select data-setting="dimAxis">
+            <option value="both">กว้างและสูง</option>
+            <option value="w">กว้าง</option>
+            <option value="h">สูง</option>
+          </select></label
+        >
+        <label
+          >หน่วย
+          <select data-setting="dimUnit">
+            <option value="mm">mm</option>
+            <option value="cm">cm</option>
+            <option value="m">m</option>
+            <option value="in">inch</option>
+          </select></label
+        >
+        <label
+          >สเกลไฟล์
+          <select data-setting="dimScale">
+            <option value="1">1:1</option>
+            <option value="2">1:2</option>
+            <option value="5">1:5</option>
+            <option value="10">1:10</option>
+            <option value="20">1:20</option>
+            <option value="25">1:25</option>
+            <option value="50">1:50</option>
+            <option value="100">1:100</option>
+            <option value="custom">กำหนดเอง</option>
+          </select></label
+        >
+        <label data-dim-custom>1 : <input type="number" min="0.001" step="1" data-setting="dimScaleCustom" /></label>
+        <label
+          >ด้าน
+          <select data-setting="dimSide">
+            <option value="auto">อัตโนมัติ (กว้างบน สูงขวา)</option>
+            <option value="top-left">กว้างบน สูงซ้าย</option>
+            <option value="bottom-right">กว้างล่าง สูงขวา</option>
+            <option value="bottom-left">กว้างล่าง สูงซ้าย</option>
+          </select></label
+        >
+        <label>สี <input type="color" data-setting="dimColor" /></label>
+        <label>ขนาดตัวหนังสือ (pt) <input type="number" min="4" step="1" data-setting="dimSize" /></label>
+        <label>น้ำหนักเส้น (pt) <input type="number" min="0.1" step="0.1" data-setting="dimStroke" /></label>
+        <label>ทศนิยม <input type="number" min="0" max="4" step="1" data-setting="dimDecimals" /></label>
+        <label>ห่างจากงาน (มม.) <input type="number" min="1" step="1" data-setting="dimOffset" /></label>
+        <label>เลเยอร์ผลลัพธ์ <input data-setting="dimLayer" /></label>
+      </div>
+      <label class="check"><input type="checkbox" data-setting="dimClear" /> ล้างเส้นบอกขนาดเดิมในเลเยอร์นี้ก่อน</label>
+      <p class="note">ไม่ลบของเก่าเป็นค่าเริ่มต้น — ถ้าต้องการแทนชุด Dimension เดิม ให้ติ๊ก “ล้างเส้นบอกขนาดเดิม” ก่อนกดใส่เส้น</p>
+      <div class="tool-actions">
+      <div class="row">
+        <button id="btnDimMake" class="wide">ใส่เส้นบอกขนาด</button>
+      </div>
+      <div id="dimStatus" class="status">เลือกงานแล้วกดใส่เส้นบอกขนาด</div>
+      </div>
+    </section>
+
+    <!-- รันนัมเบอร์ -->
+    <section class="card" id="secNumber" data-for="number">
+      <h2><span class="num">#</span> รันนัมเบอร์ <span class="sub">VARIABLE DATA</span></h2>
+      <p class="hint">เติมเลขต่อเนื่องลง Text Frame ที่เลือก หรือสร้างเลขหน้าบนอาร์ตบอร์ดทุกหน้า รองรับเลขเริ่ม ช่วงก้าว Prefix / Suffix และเลขศูนย์นำหน้า</p>
+      <label
+        >โหมด
+        <select data-setting="numMode">
+          <option value="text">เติมข้อความที่เลือก (ป้าย / คูปอง)</option>
+          <option value="page">เลขหน้าอาร์ตบอร์ด (เอกสารหลายหน้า)</option>
+        </select></label
+      >
+      <div class="grid2">
+        <label>Start <input type="number" step="1" data-setting="numStart" /></label>
+        <label>Step (ติดลบได้) <input type="number" step="1" data-setting="numStep" /></label>
+        <label>Prefix <input data-setting="numPrefix" /></label>
+        <label>Suffix <input data-setting="numSuffix" /></label>
+        <label
+          >Padding
+          <select data-setting="numPadMode">
+            <option value="auto">อัตโนมัติ (ตามเลขที่ยาวสุด)</option>
+            <option value="custom">กำหนดเอง</option>
+            <option value="none">ไม่เติมศูนย์</option>
+          </select></label
+        >
+        <label data-num-pad>จำนวนหลัก <input type="number" min="1" max="12" step="1" data-setting="numPad" /></label>
+      </div>
+      <div data-num="text">
+        <div class="grid2">
+          <label
+            >เรียงตาม
+            <select data-setting="numOrder">
+              <option value="rows">แถว (บน→ล่าง ซ้าย→ขวา)</option>
+              <option value="cols">คอลัมน์ (ซ้าย→ขวา บน→ล่าง)</option>
+              <option value="layer">ลำดับในเลเยอร์</option>
+            </select></label
+          >
+        </div>
+        <label class="check"><input type="checkbox" data-setting="numToken" /> แทนเฉพาะ {%n} (ข้อความที่ไม่มี {%n} ไม่แตะ)</label>
+      </div>
+      <div data-num="page">
+        <div class="grid2">
+          <label
+            >ตำแหน่ง
+            <select data-setting="numPos">
+              <option value="top-left">บนซ้าย</option>
+              <option value="top-center">บนกลาง</option>
+              <option value="top-right">บนขวา</option>
+              <option value="bottom-left">ล่างซ้าย</option>
+              <option value="bottom-center">ล่างกลาง</option>
+              <option value="bottom-right">ล่างขวา</option>
+            </select></label
+          >
+          <label>ระยะขอบ (มม.) <input type="number" min="0" step="1" data-setting="numMargin" /></label>
+          <label>หน้าเว้น (ไม่ใส่เลข N หน้าแรก) <input type="number" min="0" step="1" data-setting="numSkip" /></label>
+          <label>เลเยอร์ <input data-setting="numLayer" /></label>
+        </div>
+        <label class="check"><input type="checkbox" data-setting="numMirror" /> Mirror หน้าคู่ (สลับซ้าย↔ขวา)</label>
+        <label class="check"><input type="checkbox" data-setting="numClear" /> ลบเลขหน้าเดิมในเลเยอร์นี้ก่อน</label>
+      </div>
+      <label
+        >รูปแบบตัวอักษร
+        <select data-setting="numStyle">
+          <option value="keep">ใช้สไตล์ข้อความเดิมของ Illustrator</option>
+          <option value="custom">กำหนดใหม่</option>
+        </select></label
+      >
+      <div class="grid2" data-num-style>
+        <label>ฟอนต์ <input data-setting="numFont" placeholder="เช่น Tahoma" /></label>
+        <label>ขนาด (pt) <input type="number" min="1" step="1" data-setting="numSize" /></label>
+        <label>สี <input type="color" data-setting="numColor" /></label>
+        <label
+          >Alignment
+          <select data-setting="numAlign">
+            <option value="left">ชิดซ้าย</option>
+            <option value="center">กลาง</option>
+            <option value="right">ชิดขวา</option>
+          </select></label
+        >
+        <label class="check"><input type="checkbox" data-setting="numUnderline" /> Underline</label>
+      </div>
+      <ol id="numList" class="numlist"></ol>
+      <div class="tool-actions">
+      <div class="row">
+        <button id="btnNumPreview" class="ghost">ดูตัวอย่าง</button>
+        <button id="btnNumMake">ใส่เลข</button>
+      </div>
+      <div id="numStatus" class="status">เลือก Text Frame (หรือเปิดไฟล์หลายอาร์ตบอร์ด) แล้วกดดูตัวอย่าง</div>
+      </div>
+    </section>
+
+    <!-- ตรายางยิงเลเซอร์ -->
+    <section class="card" id="secStamp" data-for="stamp">
+      <h2><span class="num">◉</span> เส้นไดคัทงานตรายาง <span class="sub">LASER STAMP</span></h2>
+      <p class="hint">
+        ทำเส้นตัดรอบดวงตราสำหรับเครื่องเลเซอร์ พร้อมงานแกะที่กลับด้านและกลับสีให้แล้ว — เส้นแดงบาง = ตัดขาด · พื้นดำ = ยิงแกะออก
+      </p>
+      <details class="howto"><summary>วิธีใช้</summary>
+      <ol class="steplist">
+        <li><b>เลือกแบบตรายาง</b><span>ตัวอักษร โลโก้ หรือกลุ่มที่จัดไว้แล้ว — ตัวอักษรยังเป็น Live Text ได้</span></li>
+        <li><b>ตั้งรูปทรงและระยะขอบ</b><span>สี่เหลี่ยมมุมมน / วงกลม / วงรี / ตามรูปทรงงาน · ระยะจากงานถึงเส้นตัด</span></li>
+        <li><b>สร้างงานตรายาง</b><span>ได้สำเนาข้างของเดิม: เลเยอร์ “เส้นตัดเลเซอร์” + “งานแกะเลเซอร์”</span></li>
+      </ol>
+      </details>
+      <label>รูปทรงเส้นตัด <select id="stShape" data-setting="stShape"></select></label>
+      <label>ระยะจากงานถึงเส้นตัด (มม.) <input type="number" min="0" step="0.5" data-setting="stMargin" /></label>
+      <label>มุมมน (มม.) <input type="number" min="0" step="0.5" data-setting="stRadius" /></label>
+      <label
+        >ดวงตรา
+        <select data-setting="stGroup">
+          <option value="one">รวม Selection เป็นตราเดียว</option>
+          <option value="each">แยกแต่ละชิ้นเป็นคนละตรา</option>
+        </select></label
+      >
+      <label class="check"><input type="checkbox" data-setting="stMirror" /> กลับด้าน (Mirror) — ตรายางต้องกลับด้าน</label>
+      <label class="check"><input type="checkbox" data-setting="stNegative" /> กลับสีสำหรับแกะ (พื้นดำยิงออก ตัวหนังสือเหลือนูน)</label>
+      <label>เส้นตัดหนา (มม.) <input type="number" min="0.001" step="0.01" data-setting="stCutWidth" /></label>
+      <label>เลเยอร์เส้นตัด <input data-setting="stCutLayer" /></label>
+      <label>เลเยอร์งานแกะ <input data-setting="stEngraveLayer" /></label>
+      <p class="note">
+        ตั้งในโปรแกรมเลเซอร์ (LightBurn / RDWorks / LaserCAD): สีแดง = Cut ความเร็วต่ำ กำลังสูง · สีดำ = Engrave (Fill)
+        ภาพ Raster กลับสีอัตโนมัติไม่ได้ — ปลั๊กอินจะกลับด้านให้อย่างเดียว
+      </p>
+      <div class="tool-actions">
+        <div class="row">
+          <button id="btnStRead" class="ghost">วิเคราะห์ / ดูตัวอย่าง</button>
+          <button id="btnStMake">สร้างงานตรายาง</button>
+        </div>
+        <div id="stStatus" class="status">เลือกแบบตรายางแล้วกดวิเคราะห์</div>
+      </div>
+    </section>
+
+    <!-- ปุ่มลัด -->
+    <section class="card" id="secHotkey" data-for="hotkey">
+      <h2><span class="num">⌨</span> จัดวางและนำไปใช้ในปุ่มเดียว <span class="sub">ONE-KEY WORKFLOW</span></h2>
+      <p class="hint">เลือกชิ้นงานแล้วกดคีย์ลัด นัดพอนจะจัดวางและสร้างชีตไดคัทด้วยค่าล่าสุดของแถบ “จัดวางดวง” (หรือ “ไดคัทต่อเนื่อง” ถ้าเปิดค้างไว้) ทันที</p>
+      <div class="grid2">
+        <label>ปุ่ม <select id="hkKey" data-setting="hkKey"></select></label>
+      </div>
+      <div class="checks">
+        <label class="check"><input type="checkbox" data-setting="hkCmd" /> Cmd / Ctrl</label>
+        <label class="check"><input type="checkbox" data-setting="hkShift" /> Shift</label>
+      </div>
+      <details class="howto"><summary>วิธีใช้</summary>
+      <ol class="steplist">
+        <li><b>เลือกปุ่ม F2–F15</b><span>เพิ่ม Cmd / Ctrl หรือ Shift ได้</span></li>
+        <li><b>กด “วิธีตั้งค่า”</b><span>แผงติดตั้งสคริปต์ “NudPon Quick Nest” แล้วแสดงขั้นตอน</span></li>
+        <li><b>สร้าง Illustrator Action</b><span>ใช้ Insert Menu Item เรียก File → Scripts → NudPon Quick Nest แล้วตั้งปุ่มลัดให้ Action</span></li>
+      </ol>
+      </details>
+      <div id="hkGuide" class="guide" hidden></div>
+      <p class="note warnnote">
+        <b>ข้อจำกัดของ Illustrator</b> — ปลั๊กอินจองปุ่มลัดเองไม่ได้ จึงต้องเรียกผ่าน Action และจำกัดเฉพาะ F2–F15
+        ต้องเปิดแผงนัดพอนอย่างน้อยหนึ่งครั้งหลังเปิด Illustrator
+      </p>
+      <div class="tool-actions">
+        <div class="row">
+        <button id="btnHkSetup">วิธีตั้งค่า</button>
+        <button id="btnHkTest" class="ghost">ทดสอบกับชิ้นที่เลือก</button>
+        </div>
+        <div id="hkStatus" class="status">เลือกปุ่มแล้วกด “วิธีตั้งค่า”</div>
+      </div>
+    </section>
+
+    <!-- 1. ชิ้นงาน -->
+    <section class="card" id="secParts" data-for="nest run" data-sub="main">
+      <h2><span class="num">1</span> <span data-for="nest">ชิ้นงาน</span><span data-for="run">ต้นแบบหนึ่งดวง</span></h2>
+      <div class="row">
+        <button id="btnScan">ดึงชิ้นงานที่เลือก</button>
+        <button id="btnImport" class="ghost">นำเข้าจาก Photoshop</button>
+        <button id="btnAddPng" class="ghost" hidden>+ PNG ของฉัน</button>
+        <input id="pngInput" type="file" accept="image/png" multiple hidden />
+      </div>
+      <p id="partsEmpty" class="hint">
+        เลือกชิ้นงานบนหน้างาน (กี่ชิ้นก็ได้) แล้วกด “ดึงชิ้นงานที่เลือก” — ตั้งจำนวนไว้ในชื่อได้ เช่น “โลโก้ร้าน x20”
+      </p>
+      <ul id="partsList" class="parts"></ul>
+      <div id="partsTotal" class="total"></div>
+    </section>
+
+    <!-- ไดคัทต่อเนื่อง -->
+    <section class="card" id="secRun" data-for="run" data-sub="main">
+      <h2><span class="num">★</span> ไดคัทต่อเนื่อง <span class="sub">STICKER · LABEL</span></h2>
+      <p class="hint">
+        วางสติ๊กเกอร์หนึ่งต้นแบบซ้ำเต็มชีต แล้วสร้างแนวตัดยาวต่อเนื่อง ลดจำนวนครั้งที่เครื่องยกใบมีด เหมาะกับงานฉลากจำนวนมาก
+      </p>
+      <details class="howto"><summary>วิธีใช้</summary>
+      <ol class="steplist">
+        <li><b>เลือกต้นแบบหนึ่งดวง</b><span>เลือกภาพกับเส้นตัดหรือวัตถุที่ต้องการทำซ้ำให้ครบ แล้วกด “ดึงชิ้นงานที่เลือก”</span></li>
+        <li><b>ตั้งวัสดุและหน้ากระดาษ</b><span>ชื่อวัสดุ แกรม ขนาดหน้า ระยะขอบ (หัวข้อ 2) รูปทรง ขนาด ระยะห่าง และแบบเรียงตรงหรือสลับแถว</span></li>
+        <li><b>ตรวจตัวอย่างแล้วสร้าง</b><span>ดูจำนวนดวงและจำนวนครั้งยกใบมีด จากนั้นกด “สร้างชีตไดคัท”</span></li>
+      </ol>
+      </details>
+      <div class="grid2">
+        <label>ชื่อวัสดุ <input data-setting="runMaterial" placeholder="เช่น PP ขาวเงา" /></label>
+        <label>แกรม <input type="number" min="0" step="1" data-setting="runGram" /></label>
+        <label>รูปทรง <select id="runShape" data-setting="runShape"></select></label>
+        <label
+          >ขนาด
+          <select data-setting="runSize">
+            <option value="art">จากงาน</option>
+            <option value="custom">กำหนดเอง</option>
+          </select></label
+        >
+        <label>กว้าง (มม.) <input id="runW" type="number" min="1" step="0.5" data-setting="runW" /></label>
+        <label>สูง (มม.) <input id="runH" type="number" min="1" step="0.5" data-setting="runH" /></label>
+        <label>มุมมน (มม.) <input type="number" min="0" step="0.5" data-setting="runRadius" /></label>
+        <label>ระยะห่าง (มม.) <input type="number" min="0" step="0.5" data-setting="runGap" /></label>
+      </div>
+      <label
+        >แบบเรียง
+        <select data-setting="runLayout">
+          <option value="straight">เรียงตรง — แถวตรงคอลัมน์ตรง</option>
+          <option value="stagger">สลับแถว — เยื้องครึ่งดวง (วงกลมได้เพิ่ม)</option>
+        </select></label
+      >
+      <label>หมายเหตุงาน (พิมพ์บนหัวงาน) <input data-setting="jobNote" /></label>
+      <p class="note">
+        ความต่อเนื่องของเส้น: 1 แถว = 1 เส้น (ยกใบมีดครั้งเดียว) เส้นวิ่งตามขอบบนไปจนสุดแถวแล้ววนกลับตามขอบล่าง
+        ช่วงที่ข้ามระหว่างดวงอยู่ในเนื้อกระดาษทิ้ง — สี่เหลี่ยมชิดกัน (ระยะห่าง 0) ใช้เส้นตรงยาวทั้งแถว/คอลัมน์แทน
+        ดูจำนวนครั้งยกใบมีดในพรีวิวก่อนสร้างจริง
+      </p>
+    </section>
+
+    <!-- พรีวิว -->
+    <div id="previewSlot">
+      <section class="card preview-card" id="previewCard" data-for="nest run">
+        <h2>พรีวิว <span id="previewSub" class="sub"></span></h2>
+        <div id="stats" class="stats" hidden></div>
+        <div class="preview" id="previewBox">
+          <div id="previewEmpty" class="empty-preview">ยังไม่ได้จัดวาง</div>
+          <canvas id="preview" hidden></canvas>
+        </div>
+        <div id="previewInfo" class="preview-info"></div>
+      </section>
+      <section class="card preview-card" id="vecPreviewCard" data-for="corner led stamp">
+        <h2><span id="vecTitle">ตัวอย่าง</span> <span id="vecSub" class="sub"></span></h2>
+        <div class="preview" id="vecBox">
+          <div id="vecEmpty" class="empty-preview">เลือกชิ้นงานใน Illustrator แล้วกด “วิเคราะห์ / ดูตัวอย่าง”</div>
+          <canvas id="vecCanvas" hidden></canvas>
+        </div>
+        <div id="vecLegend" class="legend"></div>
+        <p id="vecReport" class="dc-report"></p>
+      </section>
+      <section class="card preview-card" id="dcPreviewCard" data-for="shape">
+        <h2>ตัวอย่างเส้นไดคัท <span id="dcSub" class="sub"></span></h2>
+        <div class="preview" id="dcBox">
+          <div id="dcEmpty" class="empty-preview">เลือกชิ้นงานใน Illustrator แล้วกด “อ่านรูป / ดูตัวอย่าง”</div>
+          <canvas id="dcCanvas" hidden></canvas>
+        </div>
+        <p id="dcReport" class="dc-report"></p>
+        <div class="row">
+          <button id="btnDcRead" class="ghost">อ่านรูป / ดูตัวอย่าง</button>
+          <button id="btnDcMake">สร้างเส้นไดคัท</button>
+        </div>
+        <div class="progress"><div id="dcBar"></div></div>
+        <div id="dcStatus" class="status">เลือกชิ้นงานแล้วกดอ่านรูป</div>
+      </section>
+    </div>
+
+    <!-- 2. วัสดุ & เครื่องตัด -->
+    <details class="card" id="secMedia" data-for="nest run" data-sub="main" open>
+      <summary><span class="num">2</span> หน้ากระดาษ &amp; การวางดวง</summary>
+      <div class="grid2">
+        <label>ขนาดกระดาษ <select id="media" data-setting="media"></select></label>
+        <label
+          >หน่วย
+          <select id="sizeUnit" data-setting="sizeUnit">
+            <option value="mm">มม.</option>
+            <option value="in">นิ้ว</option>
+          </select></label
+        >
+        <label>กว้าง <input id="width" type="number" min="1" step="0.1" data-setting="width" /></label>
+        <label>สูง <input id="length" type="number" min="0" step="0.1" placeholder="ม้วน" data-setting="length" /></label>
+      </div>
+      <label>ระยะขอบกระดาษ (มม.) — ไม่วางดวงล้ำเข้าไปในขอบ</label>
+      <div class="grid2 grid4">
+        <label>บน <input id="marginTop" type="number" min="0" step="1" data-setting="marginTop" /></label>
+        <label>ล่าง <input id="marginBottom" type="number" min="0" step="1" data-setting="marginBottom" /></label>
+        <label>ซ้าย <input id="marginLeft" type="number" min="0" step="1" data-setting="marginLeft" /></label>
+        <label>ขวา <input id="marginRight" type="number" min="0" step="1" data-setting="marginRight" /></label>
+      </div>
+      <label data-for="nest"
+        >ระยะห่างระหว่างดวง (มม.)
+        <input id="spacing" type="number" min="0.2" step="0.5" data-setting="spacing"
+      /></label>
+      <p class="hint" data-for="nest">วัดจากเส้นไดคัทถึงเส้นไดคัท ต้องมากกว่า 2 เท่าของ Bleed</p>
+      <label>เครื่องตัด <select id="cutter" data-setting="cutter"></select></label>
+      <p id="cutterNote" class="note"></p>
+      <div class="grid2" data-for="nest">
+        <label
+          >การหมุนดวง
+          <select id="rotation" data-setting="rotation">
+            <option value="none">ไม่หมุน</option>
+            <option value="half">180°</option>
+            <option value="quarter">ทุก 90°</option>
+            <option value="fine">อิสระ (ทุก 15°)</option>
+          </select></label
+        >
+        <label
+          >ความละเอียด
+          <select id="quality" data-setting="quality">
+            <option value="2">เร็ว (2 มม.)</option>
+            <option value="1">ปกติ (1 มม.)</option>
+            <option value="0.5">แน่น (0.5 มม.)</option>
+          </select></label
+        >
+      </div>
+      <label data-for="nest"
+        >รูปแบบการเรียง
+        <select id="arrange" data-setting="arrange">
+          <option value="shape">ตามรูปทรง — ได้ดวงเยอะกว่า</option>
+          <option value="grid">ตาราง — เป็นแถวเป็นแนว ลอกง่าย นับง่าย</option>
+        </select></label
+      >
+      <label class="check" data-for="nest"><input id="gridCut" type="checkbox" data-setting="gridCut" /> เส้นตัดแบบตาราง — ลากเส้นยาวทั้งแผ่น (ใช้กับแบบตาราง)</label>
+      <label class="check" data-for="nest"><input id="fillSheet" type="checkbox" data-setting="fillSheet" /> เต็มแผ่น — ใส่ดวงให้ได้มากที่สุด (ใช้แบบแรก ต้องใส่ความยาวแผ่น)</label>
+      <label class="check" data-for="nest"><input id="respectBleed" type="checkbox" data-setting="respectBleed" /> เผื่อ bleed ที่เลยเส้นตัด (สีไม่ล้นทับชิ้นข้าง ๆ)</label>
+    </details>
+
+    <!-- 3. เส้นตัด -->
+    <details class="card" id="secCut" data-for="nest run" data-sub="adv" open>
+      <summary><span class="num">3</span> เส้นตัด (Cut-Line)</summary>
+      <label data-for="nest"
+        >ชิ้นที่ยังไม่มีเส้นตัด
+        <select id="cutMode" data-setting="cutMode">
+          <option value="auto">สร้างตามขอบงานให้อัตโนมัติ</option>
+          <option value="vector">ตัดตามเส้นเวกเตอร์ของงาน</option>
+          <option value="none">ใช้กรอบสี่เหลี่ยม + เรียงแบบตาราง (ไม่วาดเส้นตัด)</option>
+          <option value="box">วาดกรอบสี่เหลี่ยมเป็นเส้นตัด</option>
+        </select></label
+      >
+      <div class="grid2">
+        <label data-for="nest">เส้นตัดห่างขอบงาน (มม.) <input id="cutOffset" type="number" min="0" step="0.5" data-setting="cutOffset" /></label>
+        <label data-for="nest">มุมมนกรอบ (มม.) <input id="boxRadius" type="number" min="0" step="0.5" data-setting="boxRadius" /></label>
+        <label>ชื่อสี Spot <input id="spotName" data-setting="spotName" /></label>
+        <label>เส้นหนา (pt) <input id="strokeWidth" type="number" min="0.1" step="0.05" data-setting="strokeWidth" /></label>
+      </div>
+      <label class="check" data-for="nest"><input id="detectRed" type="checkbox" data-setting="detectRed" /> นับเส้นขอบสีแดงเป็นเส้นไดคัทด้วย</label>
+      <label
+        >สร้างชีตที่
+        <select id="target" data-setting="target">
+          <option value="artboard">อาร์ตบอร์ดใหม่ในไฟล์เดิม</option>
+          <option value="document">ไฟล์ใหม่</option>
+        </select></label
+      >
+      <div class="grid2">
+        <label>เลเยอร์เส้นไดคัท <input id="cutLayer" data-setting="cutLayer" /></label>
+        <label>เลเยอร์งานพิมพ์ <input id="printLayer" data-setting="printLayer" /></label>
+      </div>
+      <ul class="hint tips" data-for="nest">
+        <li>เส้นไดคัทต้องเป็น <b>เส้นขอบ (stroke)</b> — สีแดงที่เป็นพื้น (fill) ถือว่าเป็นงานพิมพ์</li>
+        <li>รับสี Spot ชื่อที่ตั้งไว้ หรือชื่อที่มีคำว่า cut / die / thru / kiss และสีแดง RGB / CMYK (M+Y)</li>
+        <li>ชิ้นที่ยังไม่มีเส้นตัด สร้างให้ตามแบบที่เลือกข้างบน — ชิ้นที่มีอยู่แล้วใช้เส้นเดิม ไม่สร้างซ้ำ</li>
+        <li>ถ้าไม่พบเส้นไดคัท จะใช้กรอบสี่เหลี่ยมของชิ้นงานแทน เรียงแบบตาราง และเตือนก่อนสร้างชีต</li>
+        <li>ถ้ามีเลเยอร์ชื่อนี้อยู่แล้ว ใช้อันเดิม พร้อมปลดล็อกและเปิดการมองเห็นให้</li>
+        <li>ดวงต้นฉบับไม่ถูกย้าย — สร้างสำเนาใหม่ทั้งหมดบนอาร์ตบอร์ดใหม่ · การวางยึดเส้นไดคัท ไม่ใช่ขอบภาพ · สูงสุด 400 ดวงต่อแผ่น</li>
+      </ul>
+    </details>
+
+    <!-- 4. มาร์ก -->
+    <details class="card" id="secMarks" data-for="nest run" data-sub="adv" open>
+      <summary><span class="num">4</span> มาร์ก (Registration Marks)</summary>
+      <label
+        >แบบมาร์ก
+        <select id="markType" data-setting="markType">
+          <option value="none">ไม่ใส่ (RIP/เครื่องตัดใส่เอง)</option>
+          <option value="circle">จุดวงกลม 4 มุม</option>
+          <option value="square">สี่เหลี่ยมทึบ 4 มุม</option>
+          <option value="L">L 4 มุม</option>
+          <option value="silhouette">Silhouette (3 มุม)</option>
+        </select></label
+      >
+      <div class="grid2">
+        <label>ขนาด (มม.) <input id="markSize" type="number" min="1" step="0.5" data-setting="markSize" /></label>
+        <label>ห่างขอบ (มม.) <input id="markInset" type="number" min="0" step="0.5" data-setting="markInset" /></label>
+        <label>ความหนาเส้น L (มม.) <input id="markThick" type="number" min="0.1" step="0.1" data-setting="markThick" /></label>
+        <label>ระยะปลอดรอบมาร์ก (มม.) <input id="markClearance" type="number" min="0" step="0.5" data-setting="markClearance" /></label>
+        <label>มาร์กกลางทุก (มม.) <input id="markEvery" type="number" min="0" step="50" placeholder="0 = ไม่ใส่" data-setting="markEvery" /></label>
+      </div>
+    </details>
+
+    <!-- 5. หัวงาน -->
+    <details class="card" id="secHeader" data-for="nest run" data-sub="adv" open>
+      <summary><span class="num">5</span> หัวงาน (Header Logo)</summary>
+      <label class="check"><input id="headerOn" type="checkbox" data-setting="headerOn" /> ใส่หัวงานบนแผ่น</label>
+      <div class="grid2">
+        <label>ชื่องาน <input id="jobName" data-setting="jobName" placeholder="งานสติ๊กเกอร์" /></label>
+        <label>ลูกค้า <input id="customer" data-setting="customer" /></label>
+        <label>หมายเหตุ <input id="jobNote" data-setting="jobNote" /></label>
+        <label>สูง (มม.) <input id="headerHeight" type="number" min="8" step="1" data-setting="headerHeight" /></label>
+      </div>
+      <div class="row">
+        <button id="btnLogo" class="ghost">เปลี่ยนโลโก้</button>
+        <button id="btnLogoReset" class="ghost">ใช้โลโก้นัดพอน</button>
+      </div>
+      <p id="logoName" class="hint"></p>
+    </details>
+
+    <!-- 6. ส่งออก -->
+    <details class="card" id="secOut" data-for="nest run" data-sub="out" open>
+      <summary><span class="num">6</span> ส่งออก</summary>
+      <div class="checks">
+        <label class="check"><input id="outPdf" type="checkbox" data-setting="outPdf" /> PDF (RIP พิมพ์+ตัด)</label>
+        <label class="check"><input id="outAi" type="checkbox" data-setting="outAi" /> ไฟล์ .ai</label>
+        <label class="check"><input id="outPlt" type="checkbox" data-setting="outPlt" /> PLT (HP-GL)</label>
+        <label class="check"><input id="outDxf" type="checkbox" data-setting="outDxf" /> DXF</label>
+        <label class="check"><input id="outSvg" type="checkbox" data-setting="outSvg" /> SVG</label>
+        <label class="check"><input id="outPng" type="checkbox" data-setting="outPng" /> รูปพรีวิว (ส่งลูกค้า)</label>
+      </div>
+      <div class="grid2">
+        <label
+          >แกน PLT
+          <select id="pltFeed" data-setting="pltFeed">
+            <option value="x">X ตามทางม้วนไหล</option>
+            <option value="y">Y ตามทางม้วนไหล</option>
+          </select></label
+        >
+        <label>Overcut (มม.) <input id="overcut" type="number" min="0" step="0.1" data-setting="overcut" /></label>
+      </div>
+      <label>โฟลเดอร์</label>
+      <div class="row">
+        <input id="folder" data-setting="folder" placeholder="ข้างไฟล์งาน / NestingCut" />
+        <button id="btnFolder" class="ghost">เลือก</button>
+      </div>
+      <p class="hint">PLT ลองตัดชิ้นเล็กก่อนครั้งแรก ถ้างานออกมาหมุน/กลับด้าน ให้สลับ “แกน PLT”</p>
+    </details>
+
+    <!-- ปุ่มหลัก -->
+    <section class="card actions sticky-actions" data-for="nest run">
+      <button id="btnNext" class="go">ดึงชิ้นงานที่เลือก</button>
+      <div class="row small">
+        <button id="btnNest" class="ghost" title="จัดวางแล้วดูพรีวิวก่อน ยังไม่แตะไฟล์">คำนวณ</button>
+        <button id="btnBuild" class="ghost" title="สร้างไฟล์เลย์เอาต์ใหม่ใน Illustrator จากผลจัดวาง">สร้างชีตไดคัท</button>
+        <button id="btnExport" class="ghost" title="บันทึก PDF / AI / PLT / DXF / SVG">ส่งออก</button>
+        <button id="btnSelectCut" class="ghost" title="เลือกเส้นตัดทั้งหมด เพื่อส่งผ่านปลั๊กอินของเครื่องตัด">เลือกเส้นตัด</button>
+      </div>
+      <button id="btnGo" class="linkish" data-for="nest" title="ดึงชิ้นงาน → คำนวณ → สร้างชีต → ส่งออก ในปุ่มเดียว">⚡ เจ๊หญิงสั่งลุย! — ทำครบทุกขั้นรวดเดียว</button>
+      <div class="progress"><div id="progressBar"></div></div>
+      <div id="status" class="status">พร้อมลุย</div>
+    </section>
+
+    </div>
+    </div>
+
+    <script src="core/geometry.js"></script>
+    <script src="core/nest.js"></script>
+    <script src="core/contour.js"></script>
+    <script src="core/layout.js"></script>
+    <script src="core/cutfile.js"></script>
+    <script src="core/diecut.js"></script>
+    <script src="core/stamp.js"></script>
+    <script src="core/cnc.js"></script>
+    <script src="core/dimension.js"></script>
+    <script src="core/pack.js"></script>
+    <script src="core/bridge.js"></script>
+    <script src="illustrator/host-bridge.js"></script>
+    <script src="illustrator/demo.js"></script>
+    <script src="illustrator/main.js"></script>
+  </body>
+</html>
