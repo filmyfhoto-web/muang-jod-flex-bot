@@ -138,6 +138,34 @@
     font-size: 11px; font-weight: 700; background: var(--tint); color: var(--sub);
   }
   .q-day.late { background: var(--red-bg); color: var(--red); }
+
+  /* ปุ่มสามปุ่มใต้งานในคิว: ✅ รับแล้ว · 📛 ค้างจ่าย · ❎ ยังไม่มารับ
+     เตี้ยและชิดกัน เพราะมันคือของต่อท้ายแถว ไม่ใช่ของหลักในหน้า */
+  .states { display: flex; gap: 6px; margin: -2px 0 10px 46px; }
+  .states .st {
+    flex: 1;
+    border: 1.5px solid var(--line);
+    background: var(--tint);
+    color: var(--grey);
+    border-radius: 9px;
+    padding: 7px 2px;
+    font: inherit;
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  /* ปุ่มที่เป็นสถานะตอนนี้ ติดสีของเรื่องนั้น ๆ — เขียวคือจบ แดงคือค้างเงิน
+     เทาเข้มคือยังไม่มารับ ซึ่งไม่ใช่เรื่องร้ายแรง แค่ยังไม่เกิดขึ้น */
+  .states .st.on { color: var(--white); border-color: transparent; }
+  .states .st-done.on { background: var(--green); }
+  .states .st-owed.on { background: var(--red); }
+  .states .st-waiting.on { background: var(--sub); }
+  .states.saving { opacity: .55; pointer-events: none; }
+  @media (max-width: 360px) {
+    .states { margin-left: 0; }
+    .states .st { font-size: 11px; padding: 7px 1px; }
+  }
   .q-day.today { background: var(--accent-soft, #dce7fb); color: var(--accent-text); }
   .job .late { color: var(--red); font-weight: 700; }
 
@@ -463,6 +491,21 @@ const $ = (id) => document.getElementById(id);
 const baht = (n) => '฿' + (Number(n) || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
 const thb = (n) => (Number(n) || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 }) + ' บาท';
 const BADGE = { paid: ['b-paid', 'รับเงินแล้ว'], partial: ['b-partial', 'รับบางส่วน'], pending: ['b-pending', 'ค้างรับ'] };
+
+/* สามสถานะที่ร้านใช้จริง — ต้องตรงกับ src/utils/jobState.js
+ *
+ * "ของออกจากร้านไปหรือยัง" กับ "ได้เงินหรือยัง" เป็นคนละเรื่อง งานที่ทำเสร็จ
+ * วางรออยู่หน้าร้าน กับงานที่ลูกค้าหอบไปแล้วแต่ยังไม่จ่าย ต้องตามคนละแบบ
+ */
+const JOB_STATES = [
+  { id: 'done', icon: '✅', label: 'รับแล้ว' },
+  { id: 'owed', icon: '📛', label: 'ค้างจ่าย' },
+  { id: 'waiting', icon: '❎', label: 'ยังไม่มารับ' },
+];
+function jobStateOf(job) {
+  if (!job.picked_up_at) return 'waiting';
+  return (Number(job.balance_due) || 0) > 0.009 ? 'owed' : 'done';
+}
 // สีวงโดนัท — ชุดเดิมเป็นพาสเทลสำหรับพื้นเข้ม พอมาอยู่บนขาวแล้วจาง
 // แยกสีกันไม่ออก ชุดนี้เข้มพอที่จะอ่านบนขาวและยังต่างกันชัด
 const COLORS = { sign: '#db2777', print: '#7c3aed', design: '#1c4fd8', food: '#d97706', shipping: '#0d9488', other: '#64748b' };
@@ -633,6 +676,10 @@ function jobRow(job, opts = {}) {
     const ic = el.querySelector('.ic');
     ic.className = 'ic qn' + (opts.done ? ' done' : '');
     ic.textContent = String(opts.n);
+    /* ป้ายสถานะการจ่ายออกจากแถวในคิว เพราะปุ่มสามปุ่มใต้แถวบอกเรื่องเดียวกัน
+       อยู่แล้ว — สองป้ายที่พูดคนละคำบนแถวเดียว ("ค้างรับ" กับ "ยังไม่มารับ")
+       ทำให้ต้องหยุดอ่านว่าอันไหนคืออันจริง */
+    el.querySelector('.badge').remove();
   } else {
     el.querySelector('.ic').textContent = iconOf(job);
   }
@@ -791,6 +838,56 @@ function dayLabel(iso, today, done) {
 // คิวงานสองกอง: ค้างรับก่อน เพราะนั่นคืองานที่ยังต้องตามเก็บเงิน แล้วในแต่ละกอง
 // คั่นเป็นวัน ๆ ตามวันนัดรับ — ร้านขอ "แยกงานรับแล้วกับค้างงาน" และ "คิวงานตาม
 // ลำดับวัน" ซึ่งเป็นการแบ่งคนละชั้นกัน ไม่ใช่สองวิธีเรียงที่ต้องเลือกอย่างเดียว
+/* ปุ่มสามปุ่มใต้งานในคิว — ร้านขอมาตรง ๆ
+ *
+ * โชว์ทั้งสามปุ่มตลอด ไม่ใช่ซ่อนไว้ใต้การกด เพราะสิ่งที่ร้านทำคือกวาดตาดูทั้ง
+ * คิวแล้วกดอัปเดตทีละงาน การต้องเปิดเมนูก่อนทุกครั้งคือหนึ่งจังหวะที่เสียไป
+ * ยี่สิบรอบ
+ *
+ * กดแล้วเปลี่ยนหน้าจอให้เห็นก่อนเลย ไม่ต้องรอเน็ต — ถ้าเซิร์ฟเวอร์ปฏิเสธค่อย
+ * ถอยกลับ ร้านกดรัว ๆ ยี่สิบงานแล้วรอโหลดทีละครั้งคือการรอที่ไม่จำเป็น
+ */
+function stateBar(job) {
+  const bar = document.createElement('div');
+  bar.className = 'states';
+  const current = jobStateOf(job);
+
+  JOB_STATES.forEach((st) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'st st-' + st.id + (st.id === current ? ' on' : '');
+    b.textContent = st.icon + ' ' + st.label;
+    b.setAttribute('aria-pressed', String(st.id === current));
+    b.onclick = async (e) => {
+      e.stopPropagation();
+      if (st.id === jobStateOf(job)) return;
+      const before = { picked_up_at: job.picked_up_at, balance_due: job.balance_due, paid_amount: job.paid_amount };
+      [...bar.children].forEach((x) => x.classList.remove('on'));
+      b.classList.add('on');
+      bar.classList.add('saving');
+      try {
+        const { job: saved } = await api('/jobs/' + job.id + '/state', {
+          method: 'POST',
+          body: JSON.stringify({ state: st.id }),
+        });
+        Object.assign(job, saved);
+        toast(st.icon + ' ' + st.label);
+        // ยอดบนหัวข้อกองและตัวเลขบนปุ่มกรองเปลี่ยนตามสถานะที่เพิ่งกด
+        await loadQueue();
+      } catch (err) {
+        Object.assign(job, before);
+        toast(err.message || 'บันทึกไม่สำเร็จ', true);
+        paintQueue();
+      } finally {
+        bar.classList.remove('saving');
+      }
+    };
+    bar.appendChild(b);
+  });
+
+  return bar;
+}
+
 function renderQueue(el, owed, paid, filter = 'all') {
   el.textContent = '';
   if (!owed.length && !paid.length) {
@@ -838,6 +935,7 @@ function renderQueue(el, owed, paid, filter = 'all') {
         el.appendChild(tag);
       }
       el.appendChild(jobRow(j, { queue: true, n: i + 1, done: opts.done, today }));
+      el.appendChild(stateBar(j));
     });
   };
 
