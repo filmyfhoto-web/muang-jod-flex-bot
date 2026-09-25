@@ -22,6 +22,7 @@ import { receiptUrl } from '../flex/billFlex.js';
 import { withShopKey } from '../utils/receiptLink.js';
 import { createBill, getBillById } from '../services/billService.js';
 import { derivePaymentFields } from '../utils/payment.js';
+import { pickupPatch, jobState } from '../utils/jobState.js';
 import { round2 } from '../utils/currency.js';
 import { deriveJobName } from '../utils/category.js';
 import { getState as readState, clearState as dropState, STATES } from '../services/stateService.js';
@@ -501,6 +502,34 @@ export function createApiRouter(deps = {}) {
       const job = await cancelJob(req.profile.id, req.params.id);
       if (!job) return res.status(404).json({ error: 'not_found' });
       logger.info('api.job_cancelled', { user: maskUserId(req.profile.line_user_id), jobId: req.params.id });
+      res.json({ job });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /* ปุ่มสามปุ่มบนคิวงาน: ✅ รับแล้ว · 📛 ค้างจ่าย · ❎ ยังไม่มารับ
+   *
+   * แยกจาก PATCH /jobs/:id เพราะนี่ไม่ใช่การแก้ข้อมูลงาน แต่เป็นการบอกว่า
+   * "เกิดอะไรขึ้นกับงานนี้แล้ว" — และการกดปุ่มเดียวไม่ควรต้องรู้ว่าเบื้องหลัง
+   * มันแตะสี่ช่อง (เวลาที่มารับ ยอดที่จ่าย ยอดคงเหลือ สถานะการจ่าย)
+   */
+  router.post('/jobs/:id/state', async (req, res, next) => {
+    try {
+      const want = String(req.body?.state || '');
+      const current = await findJob(req.profile.id, req.params.id);
+      if (!current) return res.status(404).json({ error: 'not_found' });
+
+      const patch = pickupPatch(current, want);
+      if (!patch) return res.status(400).json({ error: 'invalid', message: 'unknown state' });
+
+      await saveJob(req.profile.id, req.params.id, patch);
+      const job = await findJob(req.profile.id, req.params.id);
+      logger.info('api.job_state', {
+        user: maskUserId(req.profile.line_user_id),
+        jobId: req.params.id,
+        state: jobState(job),
+      });
       res.json({ job });
     } catch (err) {
       next(err);

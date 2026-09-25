@@ -361,6 +361,7 @@ export async function updateJob(userId, jobId, patch, client = supabase) {
     'category',
     'category_type',
     'note',
+    'picked_up_at',
   ];
   for (const f of fields) {
     if (patch[f] !== undefined) allowed[f] = patch[f];
