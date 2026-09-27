@@ -256,6 +256,40 @@ export function statedLineTotal(line) {
   return total > 0 ? total : null;
 }
 
+/* ขั้นตอนสุดท้ายที่ร้านเขียน: "ราคาต่อชิ้น × จำนวน = ยอด"
+ *
+ * ร้านอธิบายวิธีคิดที่ต้องการมาเป็นบรรทัด ๆ:
+ *   "ป้ายเกษียณ 1.2*1.7*600 = 900   900*2=1800"
+ *                             ↑ ต่อชิ้น  ↑ จำนวน  ↑ ยอด
+ * จำนวนอยู่ในขั้นตอนสุดท้ายนี้เท่านั้น ไม่ได้เขียนเป็นคำว่า "2 อัน" ทุกบรรทัด
+ * ถ้าไม่อ่าน ป้ายเกษียณจะออกมาชิ้นเดียวทั้งที่ลูกค้าสั่งสอง
+ *
+ * รับเฉพาะเมื่อ "ต่อชิ้น × จำนวน" เท่ากับยอดที่ร้านเขียนพอดี — เส้นแบ่งนี้คือ
+ * ทั้งหมดที่กันไม่ให้ขนาดถูกอ่านเป็นจำนวน: "ป้าย 100*150 = 600" ก็ลงรูปแบบ
+ * เดียวกันเป๊ะ แต่ 100 × 150 ไม่เท่ากับ 600 จึงไม่ใช่ขั้นตอนคิดเงิน — ถ้ารับไป
+ * ลูกค้าจะโดนคิด 150 ชิ้น
+ */
+const LAST_STEP_RE = /(\d[\d,]*(?:\.\d+)?)\s*[*x×]\s*(\d+)\s*$/i;
+
+function finalStep(raw, stated) {
+  const last = raw.lastIndexOf('=');
+  if (last === -1) return null;
+  // เฉพาะช่วงหลังเท่ากับตัวก่อนหน้า ไม่งั้นจะคว้าตัวคูณจากคนละขั้นตอน
+  const seg = raw.slice(raw.lastIndexOf('=', last - 1) + 1, last).trim();
+  const m = LAST_STEP_RE.exec(seg);
+  if (!m) return null;
+  const perPiece = toNumber(m[1]);
+  const count = toNumber(m[2]);
+  if (!(perPiece > 0) || !(count > 0)) return null;
+  if (Math.abs(perPiece * count - stated) > 0.009) return null;
+  return { count, match: m[0].trim() };
+}
+
+function dropLast(text, fragment) {
+  const at = text.lastIndexOf(fragment);
+  return at === -1 ? text : `${text.slice(0, at)} ${text.slice(at + fragment.length)}`;
+}
+
 function parseSingleLine(line) {
   const raw = String(line || '').replace(/\s+/g, ' ').trim();
   /* ยอดที่ร้านคิดมาเอง และส่วนที่เหลือของบรรทัดหลังตัดวิธีคิดออก
@@ -264,7 +298,12 @@ function parseSingleLine(line) {
    * การคิดเลข ไม่ใช่ของที่ลูกค้าสั่ง ("=1,428+200=1,628")
    */
   const stated = statedLineTotal(raw);
-  let working = ` ${(stated != null ? raw.slice(0, raw.indexOf('=')) : raw).trim()} `;
+  const step = stated == null ? null : finalStep(raw, stated);
+  let head = stated != null ? raw.slice(0, raw.indexOf('=')) : raw;
+  // ขั้นตอนสุดท้ายบางทีอยู่ก่อนเท่ากับตัวแรก ("ชุดละ 1400  1400*2=2800") ถ้า
+  // ปล่อยไว้ "1400*2" จะถูกอ่านเป็นขนาดของงาน
+  if (step) head = dropLast(head, step.match);
+  let working = ` ${head.replace(/\s+/g, ' ').trim()} `;
 
   // "ไวนิล ขนาด 160*300 ตรมละ 165" — คิดพื้นที่ให้ก่อน ไม่งั้น "ละ 165"
   // จะถูกอ่านเป็นราคาต่อชิ้น
@@ -273,7 +312,7 @@ function parseSingleLine(line) {
     const found = extractPieces(area.rest);
     // จำนวนที่เขียนเป็นตัวคูณที่สี่ ชนะการเดาจากคำ ("2 แผ่น") เพราะมันอยู่ใน
     // สูตรที่ร้านเขียนเอง
-    const pieces = area.pieces || found.pieces;
+    const pieces = step?.count || area.pieces || found.pieces;
     const rest = found.rest;
     /* แยกชื่อของออกจากรายละเอียด เหมือนทางที่ไม่ได้คิดตามพื้นที่
      *
@@ -354,7 +393,8 @@ function parseSingleLine(line) {
     // ที่ฟอร์มจดงานส่งมา — ใบเสร็จกับใบสรุปจึงพิมพ์ออกมาเหมือนกันทั้งสองทาง
     size: subLine(size, split.detail, split.name),
     detail: split.detail,
-    quantity,
+    // จำนวนในขั้นตอนคิดเงินที่ร้านเขียนเอง ชนะการเดาจากคำในบรรทัด
+    quantity: step?.count || quantity,
     unit: unitWord || null,
     unit_price: round2(unitPrice),
     total: round2(unitPrice * quantity),
@@ -403,14 +443,34 @@ function applyStated(item, stated) {
  *
  * ดาวคร่อมตัวเลขเป็นการเน้นข้อความแบบที่คนพิมพ์ในไลน์ ไม่ใช่ตัวคูณ
  */
-const GRAND_TOTAL_RE =
-  /^(?:ยอด)?(?:รวม(?:ทั้งหมด|ทั้งสิ้น|เป็น)?|ราคารวม|เหมา(?:ทั้งหมด|หมด)?|คิด(?:รวม)?|สรุป|ทั้งหมด|ปัด(?:เศษ)?(?:เป็น)?)\s*(?:[\d,.\s*x×+]*=)?\s*(?:เป็น|ที่|[=:])?\s*\*?\s*฿?\s*(\d[\d,]*(?:\.\d+)?)\s*\*?\s*(?:บาท|฿)?$/;
+const TOTAL_WORD =
+  '(?:ยอด)?(?:รวม(?:ทั้งหมด|ทั้งสิ้น|เป็น)?|ราคารวม|เหมา(?:ทั้งหมด|หมด)?|คิด(?:รวม)?|สรุป|ทั้งหมด|ปัด(?:เศษ)?(?:เป็น)?)';
+
+const GRAND_TOTAL_RE = new RegExp(
+  `^${TOTAL_WORD}\\s*(?:[\\d,.\\s*x×+]*=)?\\s*(?:เป็น|ที่|[=:])?\\s*\\*?\\s*฿?\\s*(\\d[\\d,]*(?:\\.\\d+)?)\\s*\\*?\\s*(?:บาท|฿)?$`
+);
+
+/* บรรทัดสรุปที่มีคำพูดต่อท้าย — "ทั้งหมด 2100+2100+1800+2800 = 8,800. มันต้องคิดแบบนี้"
+ *
+ * ร้านคุยกับม่วงต่อในบรรทัดเดียวกับยอด แบบข้างบนต้องจบที่ตัวเลขพอดีถึงจะรับ
+ * บรรทัดนี้จึงตกไปเป็น "รายการชื่อ ทั้งหมด ราคา 8,800" — บวกยอดทั้งกองซ้ำอีก
+ * รอบบนใบเสร็จ
+ *
+ * ปล่อยให้ต่อท้ายได้เฉพาะเมื่อร้านเขียนวิธีคิดมาด้วย (มีเครื่องหมายเท่ากับ)
+ * เพราะนั่นคือสิ่งที่บอกว่าเลขตัวนี้เป็นผลลัพธ์ ไม่ใช่จำนวน — "ทั้งหมด 2 ป้าย"
+ * ไม่มีเท่ากับ จึงยังเป็นของที่สั่ง ไม่ใช่ยอดรวมสองบาท
+ */
+const GRAND_TOTAL_WORKING_RE = new RegExp(
+  // จุดปิดประโยคไม่ใช่จุดทศนิยม — "= 8,800. มันต้องคิดแบบนี้" ยอดคือ 8,800
+  // ไม่ใช่ 8 (ถ้าห้ามจุดตามหลังเฉย ๆ ตัวจับจะถอยไปเอาแค่หลักแรก)
+  `^${TOTAL_WORD}\\s*[\\d,.\\s*x×+]+=\\s*\\*?\\s*฿?\\s*(\\d[\\d,]*(?:\\.\\d+)?)(?!\\d|\\.\\d)`
+);
 
 export function extractGrandTotal(text) {
   let total = null;
   const rest = [];
   for (const line of String(text || '').split('\n')) {
-    const m = GRAND_TOTAL_RE.exec(line.trim());
+    const m = GRAND_TOTAL_RE.exec(line.trim()) || GRAND_TOTAL_WORKING_RE.exec(line.trim());
     const amount = m ? toNumber(m[1]) : 0;
     // Every one of these comes out, not just the one that wins: a shop that
     // changes its mind types the new figure below the old, and a leftover
@@ -434,6 +494,19 @@ function splitHeading(lines) {
   return { heading: lines.filter((l) => !/\d/.test(l)).join(' ').replace(/\s+/g, ' ').trim() || null, body };
 }
 
+/* ดาวคร่อมตัวเลขคือการเน้นข้อความ ไม่ใช่ตัวคูณ
+ *
+ * ร้านพิมพ์ "= *1,050*  2 อัน 1050*2 = *2,100*" — ดาวคู่ที่คร่อมเลขไว้เป็นวิธี
+ * เน้นข้อความแบบที่คนพิมพ์ในไลน์ แต่ดาวเป็นเครื่องหมายคูณของเราด้วย ยอดที่ร้าน
+ * เขียนไว้ท้ายบรรทัดจึงอ่านไม่ออกเพราะมีดาวปิดท้าย แล้วม่วงก็ไปคิดเลขเอง
+ *
+ * ตัวคูณจริงไม่มีช่องว่างหรือเท่ากับนำหน้า ("1050*2") ส่วนดาวเน้นข้อความมาเป็น
+ * คู่คร่อมตัวเลขไว้พอดี — เอาออกเฉพาะคู่ที่คร่อมครบ
+ */
+export function stripEmphasis(text) {
+  return String(text ?? '').replace(/(?<![\d.])\*\s*(\d[\d,]*(?:\.\d+)?)\s*\*(?!\d)/g, '$1');
+}
+
 /* Parse a whole message into a normalized job draft.
  *
  * `opts.customerKnown` says the caller already knows whose job this is, so the
@@ -443,7 +516,7 @@ function splitHeading(lines) {
  * on one receipt and nobody can tell which picture is which.
  */
 export function parseNaturalJob(rawText, opts = {}) {
-  const text = String(rawText || '');
+  const text = stripEmphasis(rawText);
   /* "จ่ายเงินแล้ว" ไม่มีตัวเลข = จ่ายครบ — เอาวลีออกจากข้อความก่อนอ่านรายการ
    * ไม่งั้นมันจะไปติดอยู่ในชื่อของ ("กรอบรูป จ่ายแล้ว")
    */
