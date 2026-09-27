@@ -57,7 +57,7 @@ const AREA_RE = new RegExp(`(${NUM})\\s*${SQM}`);
  * ("100*150 600" = เหมา 600)
  */
 const CHAIN_RATE_RE = new RegExp(
-  `(${NUM})\\s*(${UNIT})?\\s*${TIMES}\\s*(${NUM})\\s*(${UNIT})?\\s*(${TIMES}\\s*(${NUM}))`
+  `(${NUM})\\s*(${UNIT})?\\s*${TIMES}\\s*(${NUM})\\s*(${UNIT})?\\s*(${TIMES}\\s*(${NUM}))(\\s*${TIMES}\\s*(${NUM}))?`
 );
 
 /* ต่ำกว่านี้ไม่ใช่เรตต่อตารางเมตร
@@ -113,13 +113,24 @@ export function matchSqmRate(text) {
     if (rate > 0) return { match: m[0], rate };
   }
 
-  // คำว่า "ตรมละ" ชนะเสมอ ถ้าไม่มีค่อยดูรูปแบบสามตัวคูณกัน
+  // คำว่า "ตรมละ" ชนะเสมอ ถ้าไม่มีค่อยดูรูปแบบตัวเลขคูณกัน
   const chain = CHAIN_RATE_RE.exec(line);
   if (!chain) return null;
   const rate = toNumber(chain[6]);
   if (!(rate >= RATE_FLOOR)) return null;
-  // ตัดเฉพาะหาง "*600" ทิ้ง ขนาด "100*150" ต้องเหลือไว้ให้ตัวอ่านขนาดหยิบต่อ
-  return { match: chain[5], rate };
+
+  /* ตัวที่สี่คือจำนวนชิ้น — "1*1.5*700*2" = 1.5 ตร.ม. × 700 × 2 ชิ้น
+   *
+   * ร้านเขียนแบบนี้เองในแชต ("รูปครูยิ้ม 1*1.5*700*2=2,100") ของเดิมทิ้งตัวที่สี่
+   * ทั้งดุ้น งานนี้จึงคิดได้ ฿1,050 แทนที่จะเป็น ฿2,100 — ครึ่งเดียว
+   *
+   * ไม่ต้องกลัวกำกวมเหมือนตัวที่สาม เพราะกว่าจะมาถึงตัวที่สี่ ตัวที่สามผ่าน
+   * ด่านเรตมาแล้ว สิ่งเดียวที่เหลือให้เป็นได้คือจำนวน
+   */
+  const pieces = chain[8] ? toNumber(chain[8]) : null;
+  // ตัดเฉพาะหาง "*600" (และ "*2" ถ้ามี) ทิ้ง ขนาด "100*150" ต้องเหลือไว้
+  const match = chain[5] + (chain[7] || '');
+  return { match, rate, pieces: pieces > 0 ? pieces : null };
 }
 
 // พื้นที่เป็นตารางเมตรจากขนาด + หน่วย — ปัดสองตำแหน่งสำหรับ "แสดงผล"
@@ -183,6 +194,8 @@ export function parseAreaPricing(rawLine) {
   return {
     rest: rest.replace(/ขนาด|พื้นที่|กว้าง|ยาว|สูง/g, ' ').replace(/\s+/g, ' ').trim(),
     rate: round2(rate.rate),
+    // จำนวนชิ้นที่เขียนเป็นตัวคูณที่สี่ — null แปลว่าไม่ได้เขียนมา
+    pieces: rate.pieces || null,
     sqm,
     // `sqm` is what the shop reads; this is what the money is worked out from.
     sqmExact: exact ?? sqm,

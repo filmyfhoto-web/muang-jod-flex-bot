@@ -1,5 +1,5 @@
 import { parseNaturalJob, extractCustomer } from './nlParser.js';
-import { deriveJobName, classifyJob } from './category.js';
+import { deriveJobName, classifyJob, classifyItem } from './category.js';
 import { round2 } from './currency.js';
 
 /* จดรวดเดียวทั้งวัน แล้วให้ม่วงแยกเป็นงาน ๆ ให้
@@ -69,8 +69,16 @@ export function groupLines(text) {
      * ยังไม่เดาเกินที่ร้านเขียนอยู่ดี: ต้องมี "หัวกลุ่ม" (บรรทัดที่มีแต่ชื่อ
      * ไม่มีของ) มาก่อนเท่านั้น บรรทัดที่มีทั้งชื่อและของไม่เปิดกลุ่มให้ใคร
      * งานขายหน้าร้านที่จดต่อท้ายจึงไม่ถูกยัดให้ลูกค้าคนก่อนหน้า
+     *
+     * กลุ่มจบเมื่อร้านเขียนชื่อลูกค้า "นำหน้าบรรทัด" — ตำแหน่งคือสิ่งเดียวที่
+     * แยก "โรงเรียนบ้านปงสนุก ตรายาง 2 อัน" (ลูกค้าคนใหม่) ออกจาก "รูปครูยิ้ม
+     * 1*1.5*700*2" (ชื่อชิ้นงาน ไม่ใช่ลูกค้าชื่อครูยิ้ม) เพราะคนจดขึ้นต้นบรรทัด
+     * ด้วยชื่อลูกค้าเสมอเวลาเปลี่ยนคน ของเดิมชื่อที่อยู่กลางบรรทัดก็ตัดกลุ่ม
+     * ด้วย ใบสั่งของโรงเรียนใบเดียวจึงแตกเป็นสี่งานที่มีลูกค้าปลอมสี่คน
      */
-    if (heading && !extractCustomer(line).customerName) {
+    if (heading && extractCustomer(line).index === 0) heading = null;
+
+    if (heading) {
       const last = groups[groups.length - 1];
       if (last && last.customer === heading) last.lines.push(line);
       else groups.push({ customer: heading, lines: [line] });
@@ -97,7 +105,35 @@ function draftOf(group, index) {
    * กลืนไปอยู่ในชื่อสินค้า ส่วนตัวอ่านบรรทัดเดียวได้ ฿250 ซึ่งถูก — กลุ่มที่มี
    * หลายบรรทัดจึงต้องอ่านทีละบรรทัดแล้วค่อยเอารายการมารวมกัน
    */
-  const perLine = group.lines.map((line) => parseNaturalJob(line));
+  /* บรรทัดที่ไม่มีตัวเลขเลย ไม่ใช่ของที่สั่ง แต่บอกว่าของข้างล่างคืออะไร
+   *
+   * ร้านเขียนวัสดุไว้บรรทัดเดียวข้างบน ("โฟมบอร์ด") แล้วไล่ชิ้นงานข้างใต้
+   * และบางทีเขียนชื่อชิ้นงานไว้บรรทัดหนึ่ง ตัวเลขอีกบรรทัดหนึ่ง ("สแตนดี้ สูง"
+   * แล้วขึ้นบรรทัดใหม่เป็น "0.6*1.7*700*2=...")
+   *
+   * ของเดิมบรรทัดพวกนี้ถูกทิ้งทั้งคู่ — วัสดุหายไป และชิ้นงานกลายเป็นรายการ
+   * ไม่มีชื่อ
+   */
+  const lines = [];
+  let carry = null;
+  let groupName = null;
+  for (const line of group.lines) {
+    if (hasDigit(line)) {
+      lines.push(carry ? `${carry} ${line}` : line);
+      carry = null;
+      continue;
+    }
+    // ชื่อวัสดุที่ระบบรู้จัก = ชื่องานของทั้งกอง ส่วนคำอื่นเป็นชื่อของชิ้นถัดไป
+    if (classifyItem(line)) groupName = groupName || line;
+    else carry = carry ? `${carry} ${line}` : line;
+  }
+
+  /* หัวกลุ่มบอกชื่อลูกค้าไว้แล้ว บรรทัดข้างใต้จึงไม่มีชื่อลูกค้าอยู่ข้างใน
+   *
+   * ไม่งั้น "รูปครูยิ้ม" ถูกอ่านเป็นลูกค้าชื่อครูยิ้ม แล้วเหลือของชื่อ "รูป"
+   * — ในใบเดียวกันมีรูปสองรายการชื่อ "รูป" เหมือนกัน ร้านแยกไม่ออกว่าอันไหน
+   */
+  const perLine = lines.map((line) => parseNaturalJob(line, { customerKnown: Boolean(group.customer) }));
 
   /* บรรทัดสรุป ("ทั้งหมด 6*50 = 300") บอกยอด ไม่ได้สั่งของ
    *
@@ -120,14 +156,14 @@ function draftOf(group, index) {
   return {
     no: index + 1,
     customerName: group.customer || parsed.customerName || null,
-    jobName: parsed.jobName || deriveJobName(items) || 'งาน',
+    jobName: groupName || parsed.jobName || deriveJobName(items) || 'งาน',
     items,
     subtotal,
     discount: round2(subtotal - total),
     total,
     paidAmount: parsed.paidAmount || 0,
     // บรรทัดที่ร้านพิมพ์มาจริง ๆ เอาไว้โชว์บนการ์ดให้ตรวจว่าแยกถูกไหม
-    source: group.lines.join(' · '),
+    source: lines.join(' · '),
   };
 }
 
