@@ -165,6 +165,8 @@ const NOISE_WORDS = new Set([
   // "ขอตรายาง ของโรงเรียนเปียงซ้อ" — พอชื่อลูกค้าถูกยกออกไป เหลือ "ของ" ลอยอยู่
   // คำเดียวโดด ๆ เป็นคำเชื่อม ไม่ใช่ชื่อของ ("ของที่ระลึก" เป็นคนละคำ ไม่โดน)
   'ของ',
+  // "คนสั่งน้องทีน" — พอชื่อคนถูกยกออกไป เหลือ "คนสั่ง" ลอยอยู่
+  'คนสั่ง',
 ]);
 
 /* คำนำหน้าที่ติดหัวชื่อของมาเลย: "สั่งสติ๊กเกอร์" "ขอทำป้าย"
@@ -238,8 +240,18 @@ function parseSingleLine(line) {
   const area = parseAreaPricing(working);
   if (area) {
     const { pieces, rest } = extractPieces(area.rest);
-    const itemName = cleanItemName(rest) || 'งานป้าย';
+    /* แยกชื่อของออกจากรายละเอียด เหมือนทางที่ไม่ได้คิดตามพื้นที่
+     *
+     * ของเดิมทางนี้ข้ามการแยก ชื่อรายการจึงกลายเป็นทั้งก้อน — "โฟมบอร์ด รร
+     * สบกอน" แทนที่จะเป็นชื่อ "โฟมบอร์ด" กับรายละเอียด "รร สบกอน" ทั้งที่อีก
+     * ทางหนึ่งแยกให้อยู่แล้ว งานเดียวกันจึงหน้าตาไม่เหมือนกันแค่เพราะคิดราคา
+     * คนละแบบ
+     */
+    const split = splitNameDetail(cleanItemName(rest) || 'งานป้าย');
+    const itemName = split.name;
     const item = areaItem(area, { itemName, pieces });
+    item.detail = split.detail;
+    item.size = subLine(area.sizeLabel, split.detail, itemName);
     // ติดวิธีคิดไว้กับรายการ ให้ผู้เรียกเก็บลงหมายเหตุ ไม่ใช่ลงใบเสร็จ
     item.working = areaWorking(area, { itemName, pieces });
     return item;
