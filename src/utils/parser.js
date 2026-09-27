@@ -1,8 +1,22 @@
 import { round2 } from './currency.js';
 import { parseAreaPricing, areaItem, areaWorking } from './area.js';
 
+// บรรทัดที่เป็นตัวเลขล้วน ๆ = ราคา ไม่ใช่ของที่สั่ง (เกณฑ์เดียวกับที่ใช้ตอบ
+// "พิมพ์ราคามาได้เลย" ใน jobDraft.parseBarePrice — เขียนไว้ตรงนี้เพราะ
+// jobDraft import ไฟล์นี้อยู่แล้ว ย้อนกลับไปหาอีกทีจะวนกัน)
+const BARE_PRICE_RE = /^฿?\s*[\d,]+(?:\.\d+)?\s*(?:บาท|฿)?$/;
+
+function parseBarePrice(line) {
+  const text = String(line ?? '').trim();
+  if (!BARE_PRICE_RE.test(text)) return null;
+  const amount = round2(Number(text.replace(/[^0-9.]/g, '')));
+  return amount > 0 ? amount : null;
+}
+
 const SIZE_RE = /(\d+(?:\.\d+)?\s*[xX×*]\s*\d+(?:\.\d+)?(?:\s*[xX×*]\s*\d+(?:\.\d+)?)?)/;
-const UNIT_WORDS = ['ชิ้น', 'อัน', 'ใบ', 'แผ่น', 'ตัว', 'ม้วน', 'กล่อง', 'ชุด', 'เมตร', 'ตร.ม.', 'ตารางเมตร'];
+// "ผืน" นับป้ายผ้าใบ เป็นคำนับอย่างเดียว ไม่เคยเป็นชื่อของ จึงอยู่ตรงนี้ได้
+// (ต่างจาก "ป้าย" ที่เป็นทั้งชื่อของและหน่วยนับ จึงอยู่ใน PIECE_WORDS เท่านั้น)
+const UNIT_WORDS = ['ชิ้น', 'อัน', 'ใบ', 'แผ่น', 'ผืน', 'ตัว', 'ม้วน', 'กล่อง', 'ชุด', 'เมตร', 'ตร.ม.', 'ตารางเมตร'];
 // หน่วยนับ "ผืน/ป้าย" ใช้เฉพาะบรรทัดที่คิดราคาแบบตารางเมตร
 const PIECE_WORDS = ['ผืน', 'ป้าย', 'แผ่น', 'ชิ้น', 'อัน', 'ใบ', 'ชุด'];
 const PIECE_RE = new RegExp(`(\\d+)\\s*(?:${PIECE_WORDS.join('|')})`);
@@ -142,8 +156,29 @@ export function parseJobText(text) {
     .map((l) => l.trim())
     .filter(Boolean);
 
+  /* ราคาที่ขึ้นบรรทัดใหม่ เป็นราคาของบรรทัดบน ไม่ใช่รายการใหม่
+   *
+   * ร้านพิมพ์งานหนึ่งงานเป็นสามบรรทัด:
+   *   งานไวนิล งานสีดำน้องป่านสั่ง
+   *   ขนาด 0.6*1.6  1 ผืน
+   *   200 บาท
+   * ของเดิมบรรทัดสุดท้ายกลายเป็นรายการที่สองชื่อ "รายการ" ราคา 200 ส่วนป้ายจริง
+   * เหลือราคา 1 บาท (เลข 1 ของ "1 ผืน" ถูกอ่านเป็นราคา) — ใบเสร็จได้ ฿201
+   * ทั้งที่ร้านคิด ฿200 และมีของสองบรรทัดที่ลูกค้าสั่งมาอย่างเดียว
+   *
+   * บรรทัดที่มีแต่ตัวเลขล้วน ๆ ไม่มีชื่อของ จึงไม่ใช่ของที่สั่ง — และรับเฉพาะ
+   * เมื่อบรรทัดบนยังไม่มีราคา ถ้ามีแล้วก็ไม่รู้ว่าเลขนั้นของใคร เดาไม่ได้
+   */
   const items = [];
   for (const line of lines) {
+    const bare = parseBarePrice(line);
+    const last = items[items.length - 1];
+    if (bare != null && last && !(last.total > 0)) {
+      const count = Number(last.quantity) > 0 ? Number(last.quantity) : 1;
+      last.unit_price = round2(bare / count);
+      last.total = round2(bare);
+      continue;
+    }
     const item = parseLine(line);
     if (item) items.push(item);
   }

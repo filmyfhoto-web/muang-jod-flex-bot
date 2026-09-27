@@ -113,6 +113,22 @@ export function saysPaidInFull(text) {
 const NOT_A_NAME =
   /^(ขนาด|ราคา|จำนวน|ไวนิล|สติกเกอร์|สติ๊กเกอร์|ป้าย|งาน|ทำ|ละ|ค่า|กว้าง|ยาว|หน้า|ร้าน|พิมพ์|โฟม|สี|ตรา|บาท)/;
 
+/* คำกริยาที่ร้านพิมพ์ติดท้ายชื่อคน — "น้องป่านสั่ง" คือน้องป่านเป็นคนสั่ง
+ *
+ * ภาษาไทยไม่เว้นวรรค ตัวจับชื่อจึงกวาดคำที่ติดมาข้างหลังไปด้วยทั้งคำ ใบเสร็จ
+ * เลยออกในชื่อ "น้องป่านสั่ง" ซึ่งไม่ใช่ชื่อใคร
+ *
+ * ตัดเฉพาะที่ "ท้ายชื่อ" และเฉพาะคำที่เป็นกริยาสั่งงานชัด ๆ เท่านั้น และต้อง
+ * เหลือชื่ออย่างน้อยสองตัวอักษร — ตัดพลาดแปลว่าออกใบเสร็จผิดคน
+ */
+const NAME_TAIL_RE = /(?:มาสั่ง|สั่งของ|สั่งมา|สั่ง|ฝากมา|ฝาก)$/;
+
+export function trimNameTail(name) {
+  const clean = String(name || '').trim();
+  const cut = clean.replace(NAME_TAIL_RE, '');
+  return cut.length >= 2 ? cut : clean;
+}
+
 // Pull out a customer name: an honorific + name (พี่นก), an organisation
 // (รพสตบ้านชี, โรงเรียนบ้านหนอง), else "ร้าน<name>".
 export function extractCustomer(text) {
@@ -124,7 +140,7 @@ export function extractCustomer(text) {
     // keep what follows ("ผอ กิ้ก โรงเรียนบ้านนาบง") without also keeping what
     // came before ("งานงานบุญ" in front of "วัดบ้านชี").
     return {
-      customerName: `${m[1]}${m[2]}`.replace(/\s+/g, ''),
+      customerName: trimNameTail(`${m[1]}${m[2]}`.replace(/\s+/g, '')),
       rest: text.replace(m[0], ' '),
       match: m[0],
       index: m.index,
@@ -134,7 +150,7 @@ export function extractCustomer(text) {
   const org = text.match(new RegExp(`(${ORG_PREFIXES.join('|')})\\s*([ก-๙A-Za-z]{2,20})`));
   if (org && !NOT_A_NAME.test(org[2])) {
     return {
-      customerName: `${org[1]}${org[2]}`.replace(/\s+/g, ''),
+      customerName: trimNameTail(`${org[1]}${org[2]}`.replace(/\s+/g, '')),
       rest: text.replace(org[0], ' '),
       match: org[0],
       index: org.index,
@@ -542,7 +558,7 @@ export function parseNaturalJob(rawText, opts = {}) {
   // which school it is for. Anything in front of the name is not part of it.
   const rest = heading ? body.join('\n') : grand.rest;
   const cust = found?.customerName
-    ? { customerName: named.slice(found.index).trim(), rest: body.join('\n') }
+    ? { customerName: trimNameTail(named.slice(found.index).trim()), rest: body.join('\n') }
     : opts.customerKnown
       ? { customerName: null, rest }
       : extractCustomer(rest);
@@ -552,8 +568,30 @@ export function parseNaturalJob(rawText, opts = {}) {
   const cleaned = cust.rest.replace(/ลูกค้า/g, ' ');
   const lines = cleaned.split('\n').map((l) => l.trim()).filter(Boolean);
 
+  /* หัวเรื่องบอกว่าทำอะไร บรรทัดล่างบอกรายละเอียดของอันนั้น = ของชิ้นเดียว
+   *
+   * ร้านพิมพ์งานหนึ่งงานเป็นสามบรรทัด:
+   *   งานไวนิล งานสีดำน้องป่านสั่ง
+   *   ขนาด 0.6*1.6  1 ผืน
+   *   200 บาท
+   * ของเดิมนับบรรทัดล่างเป็นคนละรายการ ใบเสร็จจึงมีของสองอย่างที่ลูกค้าสั่งมา
+   * อย่างเดียว แถมคิดเงินได้ ฿201 แทนที่จะเป็น ฿200
+   *
+   * ตัวตัดสินคือ "บรรทัดล่างมีชื่อของเป็นของตัวเองไหม" — ใช้ classifyItem
+   * ตัวเดียวกับที่ใช้จัดหมวดงาน ถ้าทุกบรรทัดไม่มีชื่อของเลย แปลว่ามันเป็น
+   * รายละเอียดของสิ่งที่เขียนไว้บนหัวเรื่อง ไม่ใช่ของคนละชิ้น
+   * ("สติ๊กเกอร์ 50 ดวง" กับ "ตรายาง 1 อัน" ต่างมีชื่อของ จึงยังแยกกันเหมือนเดิม)
+   *
+   * ชื่อของอยู่บนหัวเรื่อง ต้องเอามาด้วย ไม่งั้นรายการจะไม่มีชื่อ
+   */
+  const headText = headingIsCustomer ? named.slice(0, found.index).trim() : heading || '';
+  const detailsOnly =
+    lines.length > 1 && Boolean(heading) && lines.every((line) => !classifyItem(line));
+
   let items;
-  if (lines.length > 1) {
+  if (detailsOnly) {
+    items = [parseSingleLine([headText, ...lines].filter(Boolean).join(' '))];
+  } else if (lines.length > 1) {
     // Multi-line list — reuse the tested line parser.
     items = parseJobText(cleaned).items;
   } else {

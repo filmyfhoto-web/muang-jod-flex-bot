@@ -1,5 +1,5 @@
 import { classifyItem } from './category.js';
-import { matchSize, sizeLabel } from './area.js';
+import { matchSize, sizeLabel, inferUnit } from './area.js';
 import { extractCustomer } from './nlParser.js';
 import { extractDueDate } from './thaiDate.js';
 import { round2, numText } from './currency.js';
@@ -67,14 +67,33 @@ const BARE_NUMBER_RE = /^฿?\s*(\d[\d,]*(?:\.\d+)?)\s*(?:บาท|฿)?$/;
  *   take     อ่านค่าจากข้อความที่เป็น "คำตอบของคำถามนี้โดยตรง"
  *   say      บอกค่าที่เก็บไว้เป็นภาษาคน ใช้ตอนสรุปและตอนบอกว่าแก้ให้แล้ว
  */
+/* ไม่ได้ใส่หน่วยมา แล้วจะเดาเป็นอะไร — ขึ้นกับว่ากำลังสั่งงานอะไร
+ *
+ * ร้านพิมพ์ "งานไวนิล ขนาด 0.6*1.6" แล้วม่วงตอบว่า "แก้ขนาดเป็น 0.6 × 1.6 นิ้ว"
+ * ป้ายไวนิลขนาดนิ้วครึ่งไม่มีในโลกของร้าน ที่ถูกคือ 0.6 × 1.6 เมตร
+ *
+ * ของเดิมตรงนี้เดา "เลขน้อย = นิ้ว" ซึ่งขัดกับ inferUnit() ใน area.js ที่เดาว่า
+ * "เลขน้อย = เมตร" — คำถามเดียวกันมีคำตอบสองแบบอยู่คนละไฟล์ งานเดียวกันจึงได้
+ * หน่วยคนละอย่างแล้วแต่ว่าร้านพิมพ์มาทางไหน
+ *
+ * ตัวแปรจริงคือประเภทงาน ไม่ใช่ขนาดของตัวเลข: กรอบรูปกับอัดรูปวัดเป็นนิ้ว
+ * (12 × 18 นิ้ว) ส่วนป้าย สติ๊กเกอร์ โฟมบอร์ด วัดเป็นเมตร/เซนติเมตร ซึ่ง
+ * inferUnit() ตัดสินให้อยู่แล้ว
+ */
+const INCH_WORK = new Set(['frame', 'photo']);
+
+function bareUnit(workType, size) {
+  if (INCH_WORK.has(workType)) return 'inch';
+  return inferUnit(size.width, size.height);
+}
+
 const SLOTS = {
   size: {
     ask: 'ขนาดเท่าไหร่คะ?',
-    read: (text) => {
+    read: (text, workType) => {
       const s = matchSize(text);
       if (!s) return null;
-      const unit = s.unit || (s.width < 20 && s.height < 20 ? 'inch' : 'cm');
-      return { value: { width: s.width, height: s.height, unit }, match: s.match };
+      return { value: { width: s.width, height: s.height, unit: s.unit || bareUnit(workType, s) }, match: s.match };
     },
     say: (v) => sizeLabel(v),
   },
@@ -321,7 +340,7 @@ export function readTurn(state, text) {
   for (const id of set) {
     const slot = SLOTS[id];
     if (!slot.read) continue;
-    const hit = slot.read(rest);
+    const hit = slot.read(rest, state.workType);
     if (!hit) continue;
     put(id, hit.value);
     if (hit.match) rest = rest.replace(hit.match, ' ').replace(/\s+/g, ' ').trim();
@@ -346,12 +365,29 @@ export function readTurn(state, text) {
 
 /* ------------------------------------------------------ ถามข้อถัดไป */
 
+/* ช่องที่ไม่ต้องรู้ก็ออกบิลได้
+ *
+ * ร้านบอกว่า "บางที ฉันจะออกบิลเลย ม่วงก็แค่ออกบิลแล้วเอางานลงไว้ให้เป็นหมวด ๆ"
+ * — พอร้านพิมพ์ราคามาแล้ว ของพวกนี้ไม่ได้เปลี่ยนตัวเลขบนบิลสักบาท แต่ร้านต้อง
+ * พิมพ์ตอบอีกหลายรอบกว่าจะได้บิล ("ต้องการเจาะตาไก่ไหมคะ?" "ต้องการแนบรูป
+ * หรือหลักฐานประกอบงานไหมคะ?" — สองคำถามที่ร้านบ่นถึงทั้งคู่)
+ *
+ * วันนัดรับไม่ได้อยู่ในนี้ เพราะคิวงานถามว่า "ของใครยังวางรออยู่" จากวันนั้น
+ * และร้านไม่เคยบ่นถึงคำถามข้อนั้น
+ *
+ * ยังถามอยู่ถ้ายังคิดเงินไม่ได้ — ตอนนั้นร้านกำลังให้ม่วงพาไปทีละข้ออยู่แล้ว
+ * และของพวกนี้แก้จากการ์ดทีหลังได้ทุกช่อง
+ */
+const OPTIONAL_SLOTS = new Set(['eyelet', 'diecut', 'colour', 'sides', 'background', 'attach']);
+
 // ช่องแรกที่ยังไม่รู้และยังไม่ได้ข้าม — null แปลว่าครบแล้ว พร้อมสรุป
 export function nextSlot(state) {
   const { fields = {}, skipped = [] } = state;
+  const canBill = Number(fields.unitPrice) > 0;
   for (const id of questionSet(state.workType)) {
     if (fields[id] !== undefined && fields[id] !== null) continue;
     if (skipped.includes(id)) continue;
+    if (canBill && OPTIONAL_SLOTS.has(id)) continue;
     return id;
   }
   return null;
