@@ -1,5 +1,5 @@
 import { parseJobText } from './parser.js';
-import { round2 } from './currency.js';
+import { round2, numText } from './currency.js';
 import { parseAreaPricing, areaItem, areaWorking } from './area.js';
 import { classifyItem } from './category.js';
 import { subLine } from './itemLine.js';
@@ -370,8 +370,20 @@ function parseSingleLine(line) {
  */
 function applyStated(item, stated) {
   const count = Number(item.quantity) > 0 ? Number(item.quantity) : 1;
+  const computed = round2(Number(item.total) || 0);
   item.total = round2(stated);
   item.unit_price = round2(stated / count);
+
+  /* วิธีคิดต้องจบที่ยอดเดียวกับที่ขึ้นใบเสร็จ
+   *
+   * "0.6*1.7*700*2=1,428+200=1,628" — ค่าขาตั้ง 200 ที่ร้านบวกเพิ่มไม่ได้อยู่
+   * ในสูตรพื้นที่ บรรทัดวิธีคิดจึงจบที่ 1,428 ทั้งที่ราคาบนการ์ดเป็น 1,628
+   * ร้านอ่านแล้วนึกว่าม่วงคิดผิด ทั้งที่ยอดถูก — ต่อท้ายให้เห็นว่าส่วนต่างมา
+   * จากที่ร้านเขียนมาเอง
+   */
+  if (item.working && Math.abs(computed - item.total) > 0.009) {
+    item.working += ` → ร้านคิด ${numText(item.total)}`;
+  }
 }
 
 // A line that is nothing but "รวม 4,900" — the shop's own price for the lot.
