@@ -47,13 +47,23 @@ function isHeading(line) {
 export function groupLines(text) {
   const groups = [];
   let heading = null;
+  let headingJob = null;
 
   for (const raw of String(text || '').split('\n')) {
     const line = raw.trim().replace(BULLET, '').trim();
     if (!line || NOISE_LINE.test(line)) continue;
 
     if (isHeading(line)) {
-      heading = extractCustomer(line).customerName;
+      const found = extractCustomer(line);
+      heading = found.customerName;
+      /* หัวกลุ่มบอกทั้งวัสดุและลูกค้าในบรรทัดเดียวก็ได้ — "โฟมบอร์ด รร สบกอน"
+       *
+       * ร้านเขียนสองแบบสลับกัน บางทีแยกสองบรรทัด บางทีรวมบรรทัดเดียว ของเดิม
+       * แบบรวมบรรทัดทิ้งวัสดุไปทั้งคำ ชื่องานเลยกลายเป็นชื่อที่เดาจากรายการ
+       * ("งานป้าย / ป้ายตั้งโต๊ะ") แทนที่จะเป็น "โฟมบอร์ด" ที่ร้านพิมพ์มาเอง
+       */
+      const leftover = found.rest.replace(/\s+/g, ' ').trim();
+      headingJob = leftover && classifyItem(leftover) ? leftover : null;
       continue;
     }
 
@@ -76,18 +86,18 @@ export function groupLines(text) {
      * ด้วยชื่อลูกค้าเสมอเวลาเปลี่ยนคน ของเดิมชื่อที่อยู่กลางบรรทัดก็ตัดกลุ่ม
      * ด้วย ใบสั่งของโรงเรียนใบเดียวจึงแตกเป็นสี่งานที่มีลูกค้าปลอมสี่คน
      */
-    if (heading && extractCustomer(line).index === 0) heading = null;
+    if (heading && extractCustomer(line).index === 0) heading = headingJob = null;
 
     if (heading) {
       const last = groups[groups.length - 1];
       if (last && last.customer === heading) last.lines.push(line);
-      else groups.push({ customer: heading, lines: [line] });
+      else groups.push({ customer: heading, jobName: headingJob, lines: [line] });
       continue;
     }
 
     // บรรทัดที่มีชื่อลูกค้าของตัวเอง ออกจากกลุ่มข้างบนแล้ว
-    heading = null;
-    groups.push({ customer: null, lines: [line] });
+    heading = headingJob = null;
+    groups.push({ customer: null, jobName: null, lines: [line] });
   }
 
   return groups;
@@ -156,7 +166,7 @@ function draftOf(group, index) {
   return {
     no: index + 1,
     customerName: group.customer || parsed.customerName || null,
-    jobName: groupName || parsed.jobName || deriveJobName(items) || 'งาน',
+    jobName: group.jobName || groupName || parsed.jobName || deriveJobName(items) || 'งาน',
     items,
     subtotal,
     discount: round2(subtotal - total),
