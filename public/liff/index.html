@@ -139,6 +139,24 @@
   }
   .q-day.late { background: var(--red-bg); color: var(--red); }
 
+  /* หัวกองหมวดงาน — กดพับได้ เพราะยี่สิบงานเรียงยาวคือการเลื่อนหาทีละใบ
+     ร้านบอกว่า "อ่านแล้ว งง ปรับให้ใช้งานง่ายกว่านี้ได้มั้ย" — พับไว้แล้วเปิด
+     เฉพาะหมวดที่กำลังหา ทำให้ทั้งคิวอยู่ในหน้าจอเดียว */
+  .q-cat {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    margin: 8px 0 0; padding: 11px 12px; border: 0;
+    border-radius: 13px; background: var(--tint); font: inherit; text-align: left; cursor: pointer;
+  }
+  .q-cat .dot { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; font-size: 15px; flex: none; }
+  .q-cat .nm { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .q-cat .ct { font-size: 11.5px; font-weight: 600; color: var(--grey); flex: none; }
+  .q-cat .mny { font-size: 13px; font-weight: 700; color: var(--sub); flex: none; }
+  .q-cat .car { font-size: 10px; color: var(--grey); flex: none; transition: transform .15s; }
+  .q-cat[aria-expanded="true"] .car { transform: rotate(90deg); }
+  /* งานค้างจ่ายในหมวดนี้กี่ใบ — ตัวเลขที่ร้านตามเก็บเงิน ต้องเห็นตอนพับอยู่ */
+  .q-cat .owe { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: var(--red-bg); color: var(--red); flex: none; }
+  .q-body[hidden] { display: none; }
+
   /* ปุ่มสามปุ่มใต้งานในคิว: ✅ รับแล้ว · 📛 ค้างจ่าย · ❎ ยังไม่มารับ
      เตี้ยและชิดกัน เพราะมันคือของต่อท้ายแถว ไม่ใช่ของหลักในหน้า */
   .states { display: flex; gap: 6px; margin: -2px 0 10px 46px; }
@@ -222,9 +240,13 @@
   .mine .mine-row .down { color: var(--red); }
   .mine .mine-round { display: flex; gap: 6px; margin-top: 8px; }
   .mine .mine-round button { flex: 1; border: 1.5px solid #fed7aa; background: #fff; border-radius: 10px; padding: 8px 4px; font: inherit; font-size: 12.5px; font-weight: 700; color: #b45309; }
-  .seg { display: flex; gap: 7px; }
+  .seg { display: flex; gap: 7px; margin-bottom: 8px; }
   .seg button { flex: 1; border: 1.5px solid var(--line); background: var(--tint); border-radius: 12px; padding: 13px 4px; font: inherit; font-size: 13.5px; font-weight: 600; color: var(--sub); }
   .seg button[aria-pressed="true"] { border-color: var(--accent-text); background: var(--accent-dim); color: var(--white); font-weight: 700; }
+  /* แถวที่สอง "จะแบ่งกองด้วยอะไร" เป็นของรอง ไม่ใช่ตัวกรองหลัก จึงเตี้ยและจางกว่า */
+  .seg.sub { margin-bottom: 11px; }
+  .seg.sub button { padding: 8px 4px; font-size: 12.5px; border-radius: 10px; }
+  .seg.sub button[aria-pressed="true"] { background: var(--accent-soft, #dce7fb); border-color: transparent; color: var(--accent-text); }
   .btn { width: 100%; border: 0; border-radius: 13px; padding: 13px; font: inherit; font-size: 15px; font-weight: 700; margin-top: 15px; }
   .btn-primary { background: var(--accent); color: #fff; }
   .btn-danger { background: var(--red-bg); color: var(--red); }
@@ -278,15 +300,25 @@
       <div class="donut"><div id="t-donut"></div><div class="legend" id="t-legend"></div></div>
     </div>
     <div class="card mascot-foot">
-      <h2>คิวงาน <span class="link" data-go="pending">ดูค้างรับ ›</span></h2>
-      <div class="sub-line" id="t-queue-sum"></div>
+      <h2>คิวงาน</h2>
       <!-- ร้านขอ "แบ่งช่องว่าอันไหนรับแล้ว อันไหนยังไม่ได้รับ เพื่อจะได้ส่ง
            ใบเสร็จออกให้ลูกค้าหรือคนลงบัญชีร้าน" — สองกองมีอยู่แล้ว แต่กอง
-           "รับแล้ว" อยู่ใต้งานค้างรับสิบงาน กว่าจะเลื่อนถึงก็ลืมแล้วว่าหาอะไร -->
-      <div class="seg" id="t-queue-filter" style="margin-bottom:11px">
+           "รับแล้ว" อยู่ใต้งานค้างรับสิบงาน กว่าจะเลื่อนถึงก็ลืมแล้วว่าหาอะไร
+
+           บรรทัดสรุปใต้หัวข้อ ("ค้างรับ 7 งาน · รับแล้ว 13 งาน") กับลิงก์
+           "ดูค้างรับ ›" ถูกเอาออก เพราะปุ่มสามปุ่มข้างล่างบอกเรื่องเดียวกัน
+           พร้อมตัวเลขอยู่แล้ว — ร้านบอกว่า "อ่านแล้ว งง" -->
+      <div class="seg" id="t-queue-filter">
         <button type="button" data-v="all" aria-pressed="true">ทั้งหมด</button>
         <button type="button" data-v="owed" aria-pressed="false">ค้างรับ</button>
         <button type="button" data-v="paid" aria-pressed="false">รับแล้ว</button>
+      </div>
+      <!-- ร้านขอ "แยกช่องหมวดงานให้หน่อย" — คิวเรียงตามวันนัดรับอย่างเดียว
+           ตรายาง กรอบรูป ป้าย สติ๊กเกอร์ จึงปนกันทั้งกอง เลือกได้ว่าจะแบ่ง
+           กองด้วยอะไร ไม่ใช่ซ้อนสองแบบเข้าด้วยกันจนอ่านไม่ออก -->
+      <div class="seg sub" id="t-queue-group">
+        <button type="button" data-g="day" aria-pressed="true">📅 ตามวันนัด</button>
+        <button type="button" data-g="cat" aria-pressed="false">🗂️ ตามหมวดงาน</button>
       </div>
       <div id="t-recent"></div>
       <img class="peek front" src="/brand/ui/rest.png" alt="" style="right:10px;bottom:-14px;width:88px" />
@@ -699,10 +731,17 @@ function jobRow(job, opts = {}) {
     small.appendChild(document.createTextNode((chip ? ' · ' : '') + rest.join(' · ')));
   }
 
-  if (opts.queue && job.due_date && opts.today && job.due_date < opts.today && !opts.done) {
+  /* "เลยกำหนดแล้ว" ขึ้นเฉพาะตอนที่หัวกองไม่ได้บอกวันไว้แล้ว
+   *
+   * ตอนแบ่งกองตามวันนัด ชิปสีแดงข้างบนเขียนว่า "เลยกำหนด · 13 ก.ย." อยู่แล้ว
+   * คำว่า "เลยกำหนดแล้ว" ในแถวจึงเป็นเรื่องเดิมที่พูดซ้ำรอบที่สอง ร้านบอกว่า
+   * "อ่านแล้ว งง" — แต่ตอนแบ่งกองตามหมวดงาน ไม่มีชิปวัน บรรทัดนี้คือที่เดียว
+   * ที่บอกว่างานใบนี้เลยกำหนด
+   */
+  if (opts.lateNote && job.due_date && opts.today && job.due_date < opts.today && !opts.done) {
     const late = document.createElement('span');
     late.className = 'late';
-    late.textContent = (chip ? ' · ' : '') + 'เลยกำหนดแล้ว';
+    late.textContent = (chip ? ' · ' : '') + 'เลยกำหนด · ' + shortThaiDate(job.due_date);
     small.appendChild(late);
   }
   el.querySelector('.amt b').textContent = baht(job.total);
@@ -776,6 +815,21 @@ try {
   if (saved === 'owed' || saved === 'paid' || saved === 'all') queueFilter = saved;
 } catch (e) { /* โหมดส่วนตัวอ่านไม่ได้ ก็ใช้ค่าตั้งต้น */ }
 
+/* จะแบ่งกองด้วยอะไร — วันนัดรับ หรือหมวดงาน
+ *
+ * จำไว้เหมือนตัวกรอง เพราะร้านคนหนึ่งทำงานแบบเดียวทุกวัน การต้องกดเลือกใหม่
+ * ทุกครั้งที่เปิดหน้าคือหนึ่งจังหวะที่เสียไปวันละหลายรอบ
+ */
+const QUEUE_GROUP_KEY = 'mj.queue.group';
+let queueGroup = 'day';
+try {
+  const saved = localStorage.getItem(QUEUE_GROUP_KEY);
+  if (saved === 'day' || saved === 'cat') queueGroup = saved;
+} catch (e) { /* เหมือนกัน */ }
+
+// หมวดที่ร้านกางไว้ อยู่แค่ในหน้าที่เปิดอยู่ — วาดใหม่แล้วยังกางเหมือนเดิม
+const queueOpenCats = new Set();
+
 // งานที่ยังอยู่ในมือ เรียงตามวันนัดรับ พร้อมเลขคิว
 async function loadQueue() {
   try {
@@ -791,15 +845,14 @@ function paintQueue() {
   const owed = jobs.filter((j) => j.payment_status !== 'paid');
   const paid = jobs.filter((j) => j.payment_status === 'paid');
 
-  $('t-queue-sum').textContent = jobs.length
-    ? 'ค้างรับ ' + owed.length + ' งาน · รับแล้ว ' + paid.length + ' งาน'
-    : '';
-
   // ตัวเลขอยู่บนปุ่มเลย ไม่ต้องกดเข้าไปดูว่ามีกี่งาน
   const counts = { all: jobs.length, owed: owed.length, paid: paid.length };
   const names = { all: 'ทั้งหมด', owed: 'ค้างรับ', paid: 'รับแล้ว' };
   const seg = $('t-queue-filter');
   seg.hidden = !jobs.length;
+  const grp = $('t-queue-group');
+  grp.hidden = !jobs.length;
+  [...grp.children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.g === queueGroup)));
   [...seg.children].forEach((b) => {
     const v = b.dataset.v;
     b.textContent = names[v] + (counts[v] ? ' ' + counts[v] : '');
@@ -913,20 +966,32 @@ function renderQueue(el, owed, paid, filter = 'all') {
     return String(a.created_at || a.job_date || '').localeCompare(String(b.created_at || b.job_date || ''));
   };
 
-  const section = (title, list, opts) => {
-    if (!list.length) return;
-    const jobs = [...list].sort(byDue);
+  const sumOf = (jobs, done) =>
+    jobs.reduce((t, j) => t + (Number(done ? j.total : j.balance_due ?? j.total) || 0), 0);
+
+  const sectionHead = (title, jobs, done) => {
     const head = document.createElement('div');
     head.className = 'q-head';
-    const sum = jobs.reduce((t, j) => t + (Number(opts.done ? j.total : j.balance_due ?? j.total) || 0), 0);
     head.innerHTML = '<span></span><span class="amt"></span>';
     head.querySelector('span').textContent = title + ' · ' + jobs.length + ' งาน';
-    head.querySelector('.amt').textContent = thb(sum);
+    head.querySelector('.amt').textContent = thb(sumOf(jobs, done));
     el.appendChild(head);
+  };
 
+  // หนึ่งงาน = แถว + ปุ่มสถานะ ใช้ร่วมกันทั้งสองแบบการแบ่งกอง
+  const appendJob = (parent, j, n, done, lateNote) => {
+    parent.appendChild(jobRow(j, { queue: true, n, done, today, lateNote }));
+    parent.appendChild(stateBar(j));
+  };
+
+  // แบ่งตามวันนัดรับ — ของเดิม
+  const byDay = (title, list, done) => {
+    if (!list.length) return;
+    const jobs = [...list].sort(byDue);
+    sectionHead(title, jobs, done);
     let day = null;
     jobs.forEach((j, i) => {
-      const d = dayLabel(j.due_date, today, opts.done);
+      const d = dayLabel(j.due_date, today, done);
       if (d.key !== day) {
         day = d.key;
         const tag = document.createElement('div');
@@ -934,13 +999,77 @@ function renderQueue(el, owed, paid, filter = 'all') {
         tag.textContent = d.text;
         el.appendChild(tag);
       }
-      el.appendChild(jobRow(j, { queue: true, n: i + 1, done: opts.done, today }));
-      el.appendChild(stateBar(j));
+      // ชิปวันข้างบนบอกไปแล้วว่าเลยกำหนด ไม่ต้องพูดซ้ำในแถว
+      appendJob(el, j, i + 1, done, false);
     });
   };
 
-  if (filter !== 'paid') section('💰 ค้างรับ', owed, { done: false });
-  if (filter !== 'owed') section('✅ รับเงินแล้ว', paid, { done: true });
+  /* แบ่งตามหมวดงาน — ร้านขอ "แยกช่องหมวดงานให้หน่อย"
+   *
+   * พับไว้ทุกกอง เปิดเฉพาะกองที่กด: ยี่สิบงานเรียงยาวสามพันพิกเซลกลายเป็น
+   * สี่บรรทัดที่เห็นครบในหน้าจอเดียว ว่าหมวดไหนมีกี่งาน ค้างเงินกี่ใบ เท่าไหร่
+   *
+   * กองไหนมีงานเลยกำหนด เปิดไว้ให้เลย เพราะนั่นคือกองที่ต้องทำก่อน
+   */
+  const byCat = (list, done) => {
+    if (!list.length) return;
+    const buckets = new Map();
+    for (const j of list) {
+      const key = j.category || 'other';
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(j);
+    }
+    // กองใหญ่ก่อน — หมวดที่มีงานเยอะคือหมวดที่ร้านเปิดหาบ่อยที่สุด
+    const order = [...buckets.entries()].sort((a, b) => b[1].length - a[1].length);
+
+    for (const [key, raw] of order) {
+      const jobs = raw.sort(byDue);
+      const g = groups.find((x) => x.id === key);
+      const late = jobs.filter((j) => !done && j.due_date && j.due_date < today).length;
+
+      const head = document.createElement('button');
+      head.type = 'button';
+      head.className = 'q-cat';
+      head.innerHTML =
+        '<span class="dot"></span><span class="nm"></span>' +
+        (late ? '<span class="owe"></span>' : '') +
+        '<span class="ct"></span><span class="mny"></span><span class="car">▶</span>';
+      const dot = head.querySelector('.dot');
+      dot.textContent = g?.icon || '📦';
+      dot.style.background = (g?.color || '#e9eef7') + '33';
+      head.querySelector('.nm').textContent = g?.label || 'อื่น ๆ';
+      if (late) head.querySelector('.owe').textContent = 'เลยกำหนด ' + late;
+      head.querySelector('.ct').textContent = jobs.length + ' งาน';
+      head.querySelector('.mny').textContent = thb(sumOf(jobs, done));
+
+      const body = document.createElement('div');
+      body.className = 'q-body';
+      jobs.forEach((j, i) => appendJob(body, j, i + 1, done, true));
+
+      const open = late > 0 || queueOpenCats.has(key);
+      body.hidden = !open;
+      head.setAttribute('aria-expanded', String(open));
+      head.onclick = () => {
+        const now = body.hidden;
+        body.hidden = !now;
+        head.setAttribute('aria-expanded', String(now));
+        if (now) queueOpenCats.add(key);
+        else queueOpenCats.delete(key);
+      };
+
+      el.appendChild(head);
+      el.appendChild(body);
+    }
+  };
+
+  if (queueGroup === 'cat') {
+    if (filter !== 'paid' && owed.length) { sectionHead('💰 ค้างรับ', owed, false); byCat(owed, false); }
+    if (filter !== 'owed' && paid.length) { sectionHead('✅ รับเงินแล้ว', paid, true); byCat(paid, true); }
+    return;
+  }
+
+  if (filter !== 'paid') byDay('💰 ค้างรับ', owed, false);
+  if (filter !== 'owed') byDay('✅ รับเงินแล้ว', paid, true);
 }
 
 async function loadReport() {
@@ -1359,6 +1488,15 @@ $('t-queue-filter').onclick = (e) => {
   if (!b) return;
   queueFilter = b.dataset.v;
   try { localStorage.setItem(QUEUE_FILTER_KEY, queueFilter); } catch (err) { /* ไม่เป็นไร */ }
+  paintQueue();
+};
+
+// แบ่งกองตามวันนัด หรือตามหมวดงาน — ข้อมูลชุดเดิมเหมือนกัน ไม่ต้องโหลดใหม่
+$('t-queue-group').onclick = (e) => {
+  const b = e.target.closest('button[data-g]');
+  if (!b || b.dataset.g === queueGroup) return;
+  queueGroup = b.dataset.g;
+  try { localStorage.setItem(QUEUE_GROUP_KEY, queueGroup); } catch (err) { /* ไม่เป็นไร */ }
   paintQueue();
 };
 
