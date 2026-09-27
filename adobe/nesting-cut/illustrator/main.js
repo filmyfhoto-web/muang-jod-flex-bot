@@ -56,6 +56,8 @@
   var SHEET_MARK = 'นัดพอน · ';
   var DEFAULTS = {
     tool: 'nest',
+    guideOn: true, // ตัวช่วยสอนทีละขั้น (ป้ายเลข + กรอบกะพริบ)
+    guideSeen: false, // เคยเห็นการ์ด “เริ่มตรงนี้” แล้ว
     layoutMode: 'auto', // auto | side | stack — ตำแหน่งพรีวิว
     subTab: 'main', // หลัก | ปรับแต่งขั้นสูง | ส่งออก (แถบจัดวางดวง / ไดคัทต่อเนื่อง)
     cutter: 'circle4',
@@ -266,16 +268,23 @@
     progress(0.02);
     return Promise.resolve()
       .then(fn)
-      .catch(function (e) {
-        console.error(e);
-        status(errText(e), 'err');
-      })
-      .then(function () {
+      .then(
+        function () {
+          return true;
+        },
+        function (e) {
+          console.error(e);
+          status(errText(e), 'err');
+          return false;
+        }
+      )
+      .then(function (ok) {
         S.busy = false;
         locked.forEach(function (b) {
           b.disabled = false;
         });
         updateFlow();
+        guideAfterRun(ok);
         setTimeout(function () {
           if (!S.busy) progress(0);
         }, 600);
@@ -2487,6 +2496,7 @@
       li.classList.toggle('done', n < step);
       li.classList.toggle('current', n === step);
     });
+    if (S.settings.guideOn && $('coach') && !S.busy) guideSync();
   }
 
   function doNext() {
@@ -2516,6 +2526,336 @@
     });
     if (n === 4) return run(buildLayout);
     if (n === 5) return gotoCard('out', 'secOut');
+  }
+
+  // ---------------------------------------------------------------- ตัวช่วยสอนทีละขั้น
+
+  // แต่ละเครื่องมือ = รายการขั้น { id ของปุ่ม/การ์ด, sub แถบย่อย, t หัวข้อ, d คำอธิบาย, done เช็กว่าผ่านแล้ว }
+  // ขั้นที่ไม่มี done: ผ่านเมื่อกดปุ่มนั้นสำเร็จ หรือกด “ทำแล้ว ถัดไป”
+  function hasParts() {
+    return S.parts.length > 0;
+  }
+  function hasResult() {
+    return !!S.result && !S.stale;
+  }
+  function isBuilt() {
+    return !!S.built;
+  }
+  function isExported() {
+    return !!S.exported;
+  }
+  var G_SCAN = {
+    id: 'btnScan',
+    sub: 'main',
+    t: 'เลือกชิ้นงาน แล้วกด “ดึงชิ้นงานที่เลือก”',
+    d: 'ใน Illustrator ลากคลุมภาพ + เส้นไดคัทสีแดงให้ครบทุกดวง แล้วกลับมากดปุ่มที่มีป้ายเลข 1',
+    done: hasParts,
+  };
+  var G_MEDIA = {
+    id: 'secMedia',
+    sub: 'main',
+    t: 'ตั้งขนาดกระดาษ',
+    d: 'เลือกขนาดกระดาษ ระยะขอบ และระยะห่างระหว่างดวง — ถ้าใช้ค่าเดิมได้ กด “ทำแล้ว ถัดไป” ได้เลย',
+  };
+  var G_NEST = { id: 'btnNest', t: 'กด “คำนวณ”', d: 'ดูพรีวิวว่าได้กี่ดวงต่อแผ่น ขั้นนี้ยังไม่แตะไฟล์งาน', done: hasResult };
+  var G_BUILD = { id: 'btnBuild', t: 'กด “สร้างชีตไดคัท”', d: 'พรีวิวโอเคแล้ว กดสร้างชีตบนอาร์ตบอร์ดใหม่ (งานเดิมไม่ถูกย้าย)', done: isBuilt };
+  var G_EXPORT = {
+    id: 'btnExport',
+    sub: 'out',
+    t: 'ติ๊กชนิดไฟล์ แล้วกด “ส่งออก”',
+    d: 'ในแถบ “ส่งออก” ติ๊ก PDF / PLT / DXF / SVG ที่ต้องการ แล้วกดส่งออก — ได้ไฟล์ไปเข้าเครื่องตัดเลย',
+    done: isExported,
+  };
+
+  function readMake(readId, makeId, what, setId, setText) {
+    return [
+      { id: readId, t: 'เลือก' + what + ' แล้วกด “วิเคราะห์ / ดูตัวอย่าง”', d: 'ใน Illustrator คลิกเลือก' + what + 'ก่อน แล้วกลับมากดปุ่มที่มีป้ายเลข 1 — ดูผลในพรีวิว' },
+      { id: setId, t: 'ปรับค่าให้พอดี', d: setText },
+      { id: makeId, t: 'กดสร้างลงไฟล์', d: 'พรีวิวโอเคแล้ว กดปุ่มนี้ ผลจะอยู่ในเลเยอร์ใหม่ งานเดิมไม่ถูกแตะ' },
+    ];
+  }
+
+  var GUIDE = {
+    // 5 ขั้นเท่ากับแถบลำดับงานและปุ่มใหญ่ ①–⑤
+    nest: [G_SCAN, G_MEDIA, G_NEST, G_BUILD, G_EXPORT],
+    run: [
+      { id: 'btnScan', sub: 'main', t: 'เลือกต้นแบบ 1 ดวง แล้วกด “ดึงชิ้นงานที่เลือก”', d: 'ใน Illustrator เลือกภาพ + เส้นตัดของสติ๊กเกอร์ดวงเดียว แล้วกลับมากดปุ่มที่มีป้ายเลข 1', done: hasParts },
+      {
+        id: 'secRun',
+        sub: 'main',
+        t: 'ตั้งขนาดสติ๊กเกอร์และกระดาษ',
+        d: 'เลือกรูปทรง ขนาด ระยะห่าง แล้วเลื่อนลงดูขนาดกระดาษ/ระยะขอบ — เสร็จแล้วกด “ทำแล้ว ถัดไป”',
+      },
+      G_NEST,
+      G_BUILD,
+      G_EXPORT,
+    ],
+    shape: [
+      { id: 'btnDcRead', t: 'เลือกชิ้นงาน แล้วกด “อ่านรูป / ดูตัวอย่าง”', d: 'บันทึกไฟล์ก่อน แล้วใน Illustrator เลือกเวกเตอร์ / รูป PNG / Clipping Mask ให้ครบทุกส่วน แล้วกดปุ่มที่มีป้ายเลข 1' },
+      { id: 'secShape', t: 'ปรับ Offset และมุม', d: 'ถ้าเส้นแดงในพรีวิวยังห่าง/ชิดไป ปรับ Offset แล้วกดอ่านรูปอีกครั้ง — พอใจแล้วกด “ทำแล้ว ถัดไป”' },
+      { id: 'btnDcMake', t: 'กด “สร้างเส้นไดคัท”', d: 'วาดเส้นไดคัทสีแดงลงไฟล์ (เลเยอร์ใหม่) งานเดิมไม่ถูกแตะ' },
+    ],
+    corner: readMake('btnCnRead', 'btnCnMake', 'ตัวอักษรหรือ Path', 'cnBit', 'เลือกขนาดดอกกัดที่ใช้จริง ปลั๊กอินจะคำนวณรัศมีมุมให้ — แล้วกด “ทำแล้ว ถัดไป”'),
+    led: readMake('btnLedRead', 'btnLedMake', 'ตัวอักษรปิด (Path ปิด)', 'secLed', 'ตั้งความกว้างโมดูล LED และระยะจากขอบ แล้วกด “ทำแล้ว ถัดไป”'),
+    stamp: readMake('btnStRead', 'btnStMake', 'แบบตรายาง', 'stShape', 'เลือกรูปทรงเส้นตัด ระยะขอบ และติ๊กกลับด้าน/กลับสีตามต้องการ แล้วกด “ทำแล้ว ถัดไป”'),
+    dim: [
+      { id: 'secDim', t: 'เลือกงานใน Illustrator แล้วตั้งค่า', d: 'คลิกเลือกชิ้นงานที่จะบอกขนาด เลือกแกน หน่วย และมาตราส่วน แล้วกด “ทำแล้ว ถัดไป”' },
+      { id: 'btnDimMake', t: 'กด “ใส่เส้นบอกขนาด”', d: 'เส้นบอกขนาดจะอยู่ในเลเยอร์แยก ลบทิ้งได้ง่าย' },
+    ],
+    number: [
+      { id: 'secNumber', t: 'เลือก Text Frame แล้วตั้งเลข', d: 'ใน Illustrator เลือกกล่องข้อความที่จะใส่เลข แล้วตั้งเลขเริ่ม ช่วงก้าว และ Prefix — เสร็จแล้วกด “ทำแล้ว ถัดไป”' },
+      { id: 'btnNumPreview', t: 'กด “ดูตัวอย่าง”', d: 'ตรวจว่าเลขเรียงถูกก่อนใส่จริง' },
+      { id: 'btnNumMake', t: 'กด “ใส่เลข”', d: 'เติมเลขลงไฟล์จริง — กด Undo (Ctrl/Cmd+Z) ย้อนได้' },
+    ],
+    hotkey: [
+      { id: 'hkKey', t: 'เลือกปุ่มลัดที่อยากใช้', d: 'เลือกปุ่ม เช่น F5 แล้วกด “ทำแล้ว ถัดไป”' },
+      { id: 'btnHkSetup', t: 'กด “วิธีตั้งค่า”', d: 'ทำตามที่แผงบอก เพื่อผูกปุ่มลัดใน Illustrator' },
+      { id: 'btnHkTest', t: 'เลือกชิ้นงานแล้วกด “ทดสอบ”', d: 'ลองกับชิ้นงานจริงหนึ่งชิ้น ถ้าได้ผล ต่อไปกดปุ่มลัดบนคีย์บอร์ดได้เลย' },
+    ],
+  };
+
+  // งานที่ให้เลือกในการ์ด “เริ่มตรงนี้” — ภาษาคนทำร้าน ไม่ใช่ชื่อฟีเจอร์
+  var GUIDE_JOBS = [
+    ['nest', '🧩', 'วางสติ๊กเกอร์หลายแบบลงแผ่นให้ประหยัด', 'แล้วส่งไฟล์เข้าเครื่องตัด (จัดวางดวง)'],
+    ['run', '🏷️', 'สติ๊กเกอร์แบบเดียว ซ้ำเต็มแผ่น', 'ฉลากจำนวนมาก ตัดต่อเนื่อง (ไดคัทต่อเนื่อง)'],
+    ['shape', '✂️', 'สร้างเส้นไดคัทตามขอบรูป', 'จากโลโก้ / PNG พื้นใส (ไดคัทตามรูป)'],
+    ['corner', '🔧', 'ทำมุมโค้งให้ดอกกัด CNC เข้าได้', 'ตัวอักษรอะคริลิก / ไม้ (ทำมุมโค้ง)'],
+    ['led', '💡', 'หาเส้นกลางตัวอักษรไว้วาง LED', 'ป้ายไฟตัวอักษร (หาเส้นกลาง)'],
+    ['dim', '📏', 'ใส่เส้นบอกขนาดงาน', 'ส่งลูกค้าดู / ส่งช่าง (บอกขนาด)'],
+    ['number', '🔢', 'รันเลขลงป้าย / คูปอง', 'เลขต่อเนื่องหรือเลขหน้า (รันนัมเบอร์)'],
+    ['stamp', '🔴', 'ทำตรายางสำหรับเลเซอร์', 'กลับด้าน + เส้นตัดรอบ (ตรายางเลเซอร์)'],
+    ['hotkey', '⌨️', 'ตั้งปุ่มลัดกดทีเดียว', 'สั่งงานที่ใช้บ่อยจากคีย์บอร์ด (ปุ่มลัด)'],
+  ];
+  var CIRCLED = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨'];
+
+  var GD = { idx: {}, ok: {}, click: null };
+
+  function guideSteps() {
+    return GUIDE[S.settings.tool] || [];
+  }
+  function guideKey(step) {
+    return S.settings.tool + ':' + step.id;
+  }
+  function guideDone(step) {
+    return step.done ? step.done() : !!GD.ok[guideKey(step)];
+  }
+  function guideIdx() {
+    var n = guideSteps().length;
+    return Math.max(0, Math.min(n - 1, GD.idx[S.settings.tool] || 0));
+  }
+  function guideFinished() {
+    var steps = guideSteps();
+    var i = guideIdx();
+    return !!steps.length && i === steps.length - 1 && guideDone(steps[i]);
+  }
+
+  // ถอยกลับถ้าขั้นก่อนหน้าไม่ผ่านแล้ว (เช่นแก้ค่าจนผลคำนวณเก่า) แล้วเดินหน้าข้ามขั้นที่ทำแล้ว
+  function guideSync() {
+    var steps = guideSteps();
+    var i = guideIdx();
+    for (var j = 0; j < i; j++) {
+      if (steps[j].done && !steps[j].done()) {
+        i = j;
+        break;
+      }
+    }
+    while (i < steps.length - 1 && guideDone(steps[i])) i++;
+    guideSet(i);
+  }
+
+  function guideSet(i) {
+    var prev = guideIdx();
+    GD.idx[S.settings.tool] = i;
+    guideRender();
+    if (i !== prev) guideShow(false);
+  }
+
+  // ช่องเลือก (select) วาดป้าย ::before ไม่ได้ — ติดป้ายที่ label ที่ครอบอยู่แทน
+  function guideEl(st) {
+    var e = $(st.id);
+    if (e && (e.tagName === 'SELECT' || e.tagName === 'INPUT')) return e.closest('label') || e.parentNode;
+    return e;
+  }
+
+  function guideRender() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-coach-n]'), function (e) {
+      e.removeAttribute('data-coach-n');
+      e.classList.remove('coach-now', 'coach-done');
+    });
+    var box = $('coach');
+    if (!box) return;
+    var steps = guideSteps();
+    var on = !!S.settings.guideOn && steps.length > 0;
+    box.hidden = !on;
+    document.body.classList.toggle('coaching', on);
+    $('btnGuide').classList.toggle('on', on);
+    if (!on) return;
+    var i = guideIdx();
+    var fin = guideFinished();
+    steps.forEach(function (st, k) {
+      var e = guideEl(st);
+      if (!e) return;
+      var done = guideDone(st) && (k !== i || fin);
+      e.setAttribute('data-coach-n', done ? '✓' : String(k + 1));
+      if (done) e.classList.add('coach-done');
+      if (k === i && !fin) e.classList.add('coach-now');
+    });
+    var st = steps[i];
+    $('coachCount').textContent = fin ? 'เสร็จ ' + steps.length + '/' + steps.length : 'ขั้น ' + (i + 1) + '/' + steps.length;
+    $('coachTitle').textContent = fin ? '🎉 เสร็จครบทุกขั้นแล้ว!' : CIRCLED[i] + ' ' + st.t;
+    $('coachText').textContent = fin
+      ? 'งานต่อไป: เลือกชิ้นงานใหม่แล้วกด “เริ่มรอบใหม่” หรือกด ❓ สอนทีละขั้น เพื่อเปลี่ยนงาน'
+      : st.d;
+    $('btnCoachBack').disabled = i === 0;
+    $('btnCoachShow').hidden = fin;
+    $('btnCoachNext').textContent = fin ? '↺ เริ่มรอบใหม่' : i === steps.length - 1 ? 'ทำแล้ว ✓' : 'ทำแล้ว ถัดไป ›';
+    var dots = $('coachDots');
+    dots.innerHTML = '';
+    steps.forEach(function (s2, k) {
+      var li = document.createElement('li');
+      li.textContent = k + 1;
+      li.title = s2.t;
+      if (guideDone(s2)) li.className = 'done';
+      if (k === i) li.className += ' current';
+      li.onclick = function () {
+        guideSet(k);
+        guideShow(true);
+      };
+      dots.appendChild(li);
+    });
+  }
+
+  // พาไปที่ปุ่มของขั้นปัจจุบัน: สลับแถบย่อย เปิดการ์ด แล้วเลื่อนจอไปให้เห็น
+  function guideShow(force) {
+    var st = guideSteps()[guideIdx()];
+    if (!st || !S.settings.guideOn || !$('guideStart').hidden) return;
+    if (st.sub && S.settings.subTab !== st.sub) {
+      S.settings.subTab = st.sub;
+      saveSettings();
+      applyVisibility();
+    }
+    var e = guideEl(st);
+    if (!e) return;
+    var card = e.closest ? e.closest('details') : null;
+    if (card) card.open = true;
+    if (e.tagName === 'DETAILS') e.open = true;
+    if (force || !isInView(e)) {
+      try {
+        e.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      } catch (err) {
+        e.scrollIntoView();
+      }
+    }
+    e.classList.remove('coach-flash');
+    void e.offsetWidth;
+    e.classList.add('coach-flash');
+  }
+
+  function isInView(e) {
+    var r = e.getBoundingClientRect();
+    return r.top >= 0 && r.bottom <= (window.innerHeight || document.documentElement.clientHeight);
+  }
+
+  function guideNext() {
+    var steps = guideSteps();
+    if (guideFinished()) {
+      steps.forEach(function (st) {
+        delete GD.ok[guideKey(st)];
+      });
+      guideSet(0);
+      guideShow(true);
+      return;
+    }
+    var i = guideIdx();
+    GD.ok[guideKey(steps[i])] = true;
+    guideSet(Math.min(i + 1, steps.length - 1));
+    guideShow(true);
+  }
+
+  function guideBack() {
+    guideSet(Math.max(0, guideIdx() - 1));
+    guideShow(true);
+  }
+
+  // เรียกตอนงานใน run() จบ: ปุ่มของขั้นปัจจุบันทำสำเร็จ = ผ่านขั้นนั้น
+  function guideAfterRun(ok) {
+    var id = GD.click;
+    GD.click = null;
+    if (ok && id) {
+      guideSteps().forEach(function (st) {
+        if (st.id === id) GD.ok[guideKey(st)] = true;
+      });
+    }
+    if (S.settings.guideOn) guideSync();
+  }
+
+  function guideOpenStart() {
+    var list = $('guideList');
+    if (!list.children.length) {
+      GUIDE_JOBS.forEach(function (j) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'guide-job';
+        b.setAttribute('data-job', j[0]);
+        b.innerHTML = '<span class="gj-ico"></span><span class="gj-txt"><b></b><small></small></span>';
+        b.querySelector('.gj-ico').textContent = j[1];
+        b.querySelector('b').textContent = j[2];
+        b.querySelector('small').textContent = j[3];
+        b.onclick = function () {
+          guideStart(j[0]);
+        };
+        list.appendChild(b);
+      });
+    }
+    Array.prototype.forEach.call(list.children, function (b) {
+      b.classList.toggle('on', b.getAttribute('data-job') === S.settings.tool);
+    });
+    $('guideStart').hidden = false;
+    $('controls').scrollTop = 0;
+  }
+
+  function guideStart(tool) {
+    if (S.busy) return;
+    S.settings.guideOn = true;
+    S.settings.guideSeen = true;
+    saveSettings();
+    $('guideStart').hidden = true;
+    setTool(tool);
+    guideSync();
+    guideShow(true);
+  }
+
+  function guideClose() {
+    S.settings.guideOn = false;
+    S.settings.guideSeen = true;
+    saveSettings();
+    $('guideStart').hidden = true;
+    guideRender();
+  }
+
+  function bindGuide() {
+    $('btnGuide').onclick = function () {
+      if ($('guideStart').hidden) guideOpenStart();
+      else $('guideStart').hidden = true;
+    };
+    $('btnGuideOff').onclick = guideClose;
+    $('btnCoachClose').onclick = guideClose;
+    $('btnCoachNext').onclick = guideNext;
+    $('btnCoachBack').onclick = guideBack;
+    $('btnCoachShow').onclick = function () {
+      guideShow(true);
+    };
+    // จำว่ากดปุ่มไหน ก่อนที่ run() จะเริ่ม — ใช้ตัดสินว่าผ่านขั้นหรือยัง
+    document.addEventListener(
+      'click',
+      function (ev) {
+        var b = ev.target && ev.target.closest ? ev.target.closest('button[id]') : null;
+        if (b && !S.busy) GD.click = b.id;
+      },
+      true
+    );
+    if (!S.settings.guideSeen) guideOpenStart();
+    guideSync();
   }
 
   // ---------------------------------------------------------------- สลับเครื่องมือ
@@ -2575,6 +2915,7 @@
     } else clearPreview();
     if (prev !== tool) status(TOOL_STATUS[tool]);
     if ($('btnNext')) updateFlow();
+    if ($('coach')) guideRender();
   }
 
   // ---------------------------------------------------------------- ฟอร์มค่าตั้ง
@@ -2895,6 +3236,7 @@
     };
     placePreview();
     updateFlow();
+    bindGuide();
     window.addEventListener('resize', placePreview);
 
     if (host.demo) {
@@ -2923,6 +3265,7 @@
     setTool: setTool,
     dcRead: dcRead,
     quickScript: quickScript,
+    guide: { start: guideStart, next: guideNext, back: guideBack, close: guideClose, steps: guideSteps, index: guideIdx },
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

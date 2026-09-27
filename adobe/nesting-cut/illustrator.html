@@ -14,6 +14,7 @@
     <header class="brand">
       <img src="assets/logo-panel.png" alt="นัดพอน Nesting Cut — ปลั๊กอิน เจ๊หญิงสั่งลุย" />
       <div class="brand-tools">
+        <button type="button" id="btnGuide" class="ghost guide-btn" title="เปิดตัวช่วยสอนใช้ทีละขั้น — บอกว่าต้องกดอะไรก่อนหลัง">❓ สอนทีละขั้น</button>
         <button type="button" id="btnLayout" class="ghost" title="สลับตำแหน่งพรีวิว: อัตโนมัติ → ข้าง ๆ → ด้านล่าง">พรีวิว: อัตโนมัติ</button>
         <button type="button" id="btnClear" class="ghost" title="ล้างรายการชิ้นงาน ผลคำนวณ และพรีวิว (เลือกลบชีตเก่าในไฟล์ได้)">ล้างงานเก่า</button>
       </div>
@@ -29,6 +30,16 @@
       <div class="row">
         <button type="button" id="btnClearGo">ล้างเลย</button>
         <button type="button" id="btnClearCancel" class="ghost">ยกเลิก</button>
+      </div>
+    </section>
+
+    <!-- เริ่มตรงนี้: เลือกงานที่จะทำ แล้วตัวช่วยพาไปทีละขั้น (main.js เติมรายการให้) -->
+    <section class="card guide-start" id="guideStart" hidden>
+      <h2><span class="num">👋</span> เริ่มตรงนี้ — วันนี้จะทำอะไร?</h2>
+      <p class="hint">กดเลือกงานข้างล่าง แผงจะพาไปทีละขั้น: มีป้ายเลข ① ② ③ บอกลำดับ และกรอบกะพริบสีส้มตรงที่ต้องกดต่อ</p>
+      <div class="guide-list" id="guideList"></div>
+      <div class="row">
+        <button type="button" id="btnGuideOff" class="ghost">ไม่ต้องสอน ฉันใช้เป็นแล้ว</button>
       </div>
     </section>
 
@@ -49,6 +60,22 @@
       <button type="button" data-sub="adv">ปรับแต่งขั้นสูง</button>
       <button type="button" data-sub="out">ส่งออก</button>
     </nav>
+
+    <!-- ตัวช่วยสอน: บอกขั้นปัจจุบัน + ปุ่มย้อน/ถัดไป (ติดขอบบน) -->
+    <div class="coach" id="coach" hidden>
+      <div class="coach-head">
+        <span class="coach-count" id="coachCount">ขั้น 1/5</span>
+        <b id="coachTitle"></b>
+        <button type="button" id="btnCoachClose" class="coach-x" title="ปิดตัวช่วยสอน (เปิดใหม่ได้ที่ ❓ สอนทีละขั้น)">✕</button>
+      </div>
+      <p id="coachText"></p>
+      <div class="coach-nav">
+        <button type="button" id="btnCoachBack" class="ghost">‹ ย้อน</button>
+        <button type="button" id="btnCoachShow" class="ghost">👉 พาไปที่ปุ่ม</button>
+        <button type="button" id="btnCoachNext">ทำแล้ว ถัดไป ›</button>
+      </div>
+      <ol class="coach-dots" id="coachDots"></ol>
+    </div>
 
     <div id="demoBanner" class="banner" hidden>
       <b>โหมดทดลอง</b> — หน้านี้ไม่ได้เปิดอยู่ใน Illustrator จึงใช้ชิ้นงานตัวอย่างแทน ลองกด “เจ๊หญิงสั่งลุย!” ได้เลย

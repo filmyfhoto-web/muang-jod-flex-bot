@@ -868,3 +868,196 @@ details.howto > summary {
   font-size: 11.5px;
   margin-bottom: 4px;
 }
+
+/* ---------------------------------------------------------------- ตัวช่วยสอนทีละขั้น */
+
+.brand-tools .guide-btn {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+.brand-tools .guide-btn.on {
+  background: var(--accent-soft);
+}
+
+.guide-start {
+  border: 2px solid var(--accent);
+}
+.guide-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 6px;
+  margin: 8px 0;
+}
+.guide-job {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  background: var(--card-2);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  padding: 8px;
+  white-space: normal;
+}
+.guide-job:hover,
+.guide-job.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.guide-job .gj-ico {
+  font-size: 20px;
+  flex: none;
+}
+.guide-job .gj-txt {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.guide-job small {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.coach {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  background: var(--navy);
+  color: #fff;
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+}
+.coach-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.coach-head b {
+  flex: 1;
+  font-size: 13px;
+}
+.coach-count {
+  flex: none;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.coach .coach-x {
+  flex: none;
+  background: transparent;
+  border: 0;
+  color: #fff;
+  padding: 2px 6px;
+  opacity: 0.8;
+}
+.coach p {
+  margin: 4px 0 6px;
+  color: #d8dcea;
+  font-size: 12px;
+}
+.coach-nav {
+  display: flex;
+  gap: 6px;
+}
+.coach-nav button {
+  flex: 1;
+  padding: 5px 4px;
+}
+.coach-nav .ghost {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+.coach-dots {
+  display: flex;
+  gap: 4px;
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+.coach-dots li {
+  flex: 1;
+  text-align: center;
+  font-size: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #d8dcea;
+  cursor: pointer;
+  padding: 1px 0;
+}
+.coach-dots li.done {
+  background: var(--ok);
+  color: #10321f;
+}
+.coach-dots li.current {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+/* ป้ายเลขลำดับบนปุ่ม/การ์ดของแต่ละขั้น */
+[data-coach-n] {
+  position: relative;
+}
+[data-coach-n]::before {
+  content: attr(data-coach-n);
+  position: absolute;
+  top: -7px;
+  left: -5px;
+  z-index: 3;
+  min-width: 18px;
+  height: 18px;
+  line-height: 18px;
+  padding: 0 3px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: var(--navy);
+  border: 1px solid var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  pointer-events: none;
+}
+[data-coach-n].coach-done::before {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: #10321f;
+}
+.coach-now {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  animation: coach-pulse 1.4s ease-in-out infinite;
+}
+[data-coach-n].coach-now::before {
+  background: var(--accent);
+  border-color: #fff;
+  top: -11px;
+  padding: 0 5px;
+  content: '👉 ' attr(data-coach-n);
+}
+/* ตอนเปิดตัวช่วย แถบตัวเลขในหัวผู้ช่วยแทนแถบลำดับงานเดิม (ตัวเลขชุดเดียวกัน) */
+body.coaching #secFlow {
+  display: none;
+}
+.coach-flash {
+  animation: coach-pulse 0.5s ease-in-out 3;
+}
+.coach-now.coach-flash {
+  animation: coach-pulse 0.5s ease-in-out 3, coach-pulse 1.4s ease-in-out 1.5s infinite;
+}
+@keyframes coach-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(200, 100, 59, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(200, 100, 59, 0);
+  }
+}
