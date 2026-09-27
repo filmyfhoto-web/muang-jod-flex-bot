@@ -60,6 +60,12 @@ const ORG_PREFIXES = [
   'รพ\\.',
   'โรงเรียน',
   'ร\\.?ร\\.',
+  /* "รร สบกอน" — ร้านเขียนย่อแบบไม่มีจุด
+   *
+   * ต้องอยู่ต้นคำเท่านั้น ไม่งั้น "ธรรม" "บรรทัด" "กรรไกร" จะกลายเป็นโรงเรียน
+   * ชื่อ "ม" "ทัด" "ไกร" — "รร" สองตัวติดกันกลางคำไทยมีเยอะ
+   */
+  '(?<![ก-๙])รร\\.?',
   'มหาวิทยาลัย',
   'เทศบาล',
   'อบต\\.?',
@@ -232,14 +238,43 @@ function extractPieces(working) {
 
 // Parse a single free-form line into one item, understanding "ป้ายละ 350"
 // (price per unit) and "2 ป้าย" (leading quantity + unit).
+/* "1*1.5*700*2=2,100" — เลขหลังเท่ากับคือยอดที่ร้านคิดมาเองแล้ว
+ *
+ * ร้านพิมพ์วิธีคิดพร้อมคำตอบมาในบรรทัดเดียว บางบรรทัดมีบวกเพิ่มด้วย
+ * ("1,428+200=1,628" — ค่าขาตั้ง) เลขตัวสุดท้ายหลังเท่ากับตัวสุดท้ายคือยอดจริง
+ *
+ * เชื่อเลขที่ร้านเขียนดีกว่าคิดเอง: มันคือยอดที่ร้านจะเก็บลูกค้าจริง ๆ และการ
+ * ที่ร้านอุตส่าห์พิมพ์มาแปลว่าเขาคิดแล้ว ส่วนที่เหลือของบรรทัดยังอ่านต่อได้
+ * ตามปกติ เพื่อเอาขนาดกับจำนวนขึ้นใบเสร็จ
+ */
+const STATED_TOTAL_RE = /=\s*(\d[\d,]*(?:\.\d+)?)\s*$/;
+
+export function statedLineTotal(line) {
+  const m = STATED_TOTAL_RE.exec(String(line || '').trim());
+  if (!m) return null;
+  const total = toNumber(m[1]);
+  return total > 0 ? total : null;
+}
+
 function parseSingleLine(line) {
-  let working = ` ${String(line || '').replace(/\s+/g, ' ').trim()} `;
+  const raw = String(line || '').replace(/\s+/g, ' ').trim();
+  /* ยอดที่ร้านคิดมาเอง และส่วนที่เหลือของบรรทัดหลังตัดวิธีคิดออก
+   *
+   * ตัดตั้งแต่เครื่องหมายเท่ากับตัวแรกไปจนจบ เพราะทุกอย่างหลังจากนั้นคือ
+   * การคิดเลข ไม่ใช่ของที่ลูกค้าสั่ง ("=1,428+200=1,628")
+   */
+  const stated = statedLineTotal(raw);
+  let working = ` ${(stated != null ? raw.slice(0, raw.indexOf('=')) : raw).trim()} `;
 
   // "ไวนิล ขนาด 160*300 ตรมละ 165" — คิดพื้นที่ให้ก่อน ไม่งั้น "ละ 165"
   // จะถูกอ่านเป็นราคาต่อชิ้น
   const area = parseAreaPricing(working);
   if (area) {
-    const { pieces, rest } = extractPieces(area.rest);
+    const found = extractPieces(area.rest);
+    // จำนวนที่เขียนเป็นตัวคูณที่สี่ ชนะการเดาจากคำ ("2 แผ่น") เพราะมันอยู่ใน
+    // สูตรที่ร้านเขียนเอง
+    const pieces = area.pieces || found.pieces;
+    const rest = found.rest;
     /* แยกชื่อของออกจากรายละเอียด เหมือนทางที่ไม่ได้คิดตามพื้นที่
      *
      * ของเดิมทางนี้ข้ามการแยก ชื่อรายการจึงกลายเป็นทั้งก้อน — "โฟมบอร์ด รร
@@ -254,6 +289,7 @@ function parseSingleLine(line) {
     item.size = subLine(area.sizeLabel, split.detail, itemName);
     // ติดวิธีคิดไว้กับรายการ ให้ผู้เรียกเก็บลงหมายเหตุ ไม่ใช่ลงใบเสร็จ
     item.working = areaWorking(area, { itemName, pieces });
+    if (stated != null) applyStated(item, stated);
     return item;
   }
 
@@ -312,7 +348,7 @@ function parseSingleLine(line) {
   if (!itemName) itemName = unitWord || 'งาน';
 
   const split = splitNameDetail(itemName);
-  return {
+  const item = {
     item_name: split.name,
     // ขนาดกับรายละเอียดอยู่ช่องเดียวกัน ตามที่ตาราง job_items มีให้ และตรงกับ
     // ที่ฟอร์มจดงานส่งมา — ใบเสร็จกับใบสรุปจึงพิมพ์ออกมาเหมือนกันทั้งสองทาง
@@ -323,6 +359,19 @@ function parseSingleLine(line) {
     unit_price: round2(unitPrice),
     total: round2(unitPrice * quantity),
   };
+  if (stated != null) applyStated(item, stated);
+  return item;
+}
+
+/* ยอดที่ร้านเขียนเองชนะยอดที่คิดได้
+ *
+ * ราคาต่อชิ้นคิดย้อนจากยอดที่ร้านเขียน เพื่อให้ "ราคา × จำนวน = ยอด" บนใบเสร็จ
+ * ยังบวกกันได้ลงตัว ไม่ใช่โชว์ยอดของร้านแต่ราคาต่อชิ้นเป็นของเรา
+ */
+function applyStated(item, stated) {
+  const count = Number(item.quantity) > 0 ? Number(item.quantity) : 1;
+  item.total = round2(stated);
+  item.unit_price = round2(stated / count);
 }
 
 // A line that is nothing but "รวม 4,900" — the shop's own price for the lot.
@@ -373,8 +422,15 @@ function splitHeading(lines) {
   return { heading: lines.filter((l) => !/\d/.test(l)).join(' ').replace(/\s+/g, ' ').trim() || null, body };
 }
 
-// Parse a whole message into a normalized job draft.
-export function parseNaturalJob(rawText) {
+/* Parse a whole message into a normalized job draft.
+ *
+ * `opts.customerKnown` says the caller already knows whose job this is, so the
+ * line carries none: the shop wrote the customer on a heading line above and
+ * these are the things they ordered. Without it "รูปครูยิ้ม 1*1.5*700*2" reads
+ * as a customer called ครูยิ้ม and the item is left named "รูป" — two of those
+ * on one receipt and nobody can tell which picture is which.
+ */
+export function parseNaturalJob(rawText, opts = {}) {
   const text = String(rawText || '');
   /* "จ่ายเงินแล้ว" ไม่มีตัวเลข = จ่ายครบ — เอาวลีออกจากข้อความก่อนอ่านรายการ
    * ไม่งั้นมันจะไปติดอยู่ในชื่อของ ("กรอบรูป จ่ายแล้ว")
@@ -395,13 +451,16 @@ export function parseNaturalJob(rawText) {
   // customer it is the name of the job, which beats one derived from the items.
   // "ลูกค้า" / "ชื่อลูกค้า" are labels on the line, never part of the name.
   const named = heading ? heading.replace(/(?:ชื่อ)?ลูกค้า\s*:?\s*/g, '').trim() : null;
-  const found = named ? extractCustomer(named) : null;
+  const found = opts.customerKnown || !named ? null : extractCustomer(named);
   // From where the name starts to the end of the line: "ผอ กิ้ก" is only half
   // of "ผอ กิ้ก โรงเรียนบ้านนาบง", and a receipt made out to the half has lost
   // which school it is for. Anything in front of the name is not part of it.
+  const rest = heading ? body.join('\n') : grand.rest;
   const cust = found?.customerName
     ? { customerName: named.slice(found.index).trim(), rest: body.join('\n') }
-    : extractCustomer(heading ? body.join('\n') : grand.rest);
+    : opts.customerKnown
+      ? { customerName: null, rest }
+      : extractCustomer(rest);
   const headingIsCustomer = Boolean(found?.customerName);
 
   // Drop the label word "ลูกค้า" so it can't be parsed as an item.
