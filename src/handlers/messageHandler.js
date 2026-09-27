@@ -53,6 +53,29 @@ export function isJobEntry(text) {
   return looksLikeJob(text) || HAS_NUMBER.test(String(text ?? ''));
 }
 
+/* ข้อความนี้เป็น "งานใหม่ทั้งใบ" หรือเป็นคำตอบของคำถามที่ม่วงถามค้างไว้
+ *
+ * ร้านพิมพ์งานใหม่เข้ามาตอนที่ม่วงกำลังถามรายละเอียดงานเก่าอยู่ ของเดิมข้อความ
+ * นั้นถูกอ่านเป็นคำตอบ งานใหม่เลยกลายเป็นการ "แก้" งานเก่า — ร้านเห็นม่วงตอบ
+ * ว่า "แก้ขนาดเป็น 0.6 × 1.6 และจำนวนเป็น 1 ผืน และชื่อลูกค้าเป็นน้องป่านแล้วค่ะ"
+ * ทั้งที่เพิ่งสั่งงานใหม่ ต้องพิมพ์ "ยกเลิก" ก่อนถึงจะจดงานใหม่ได้
+ *
+ * เส้นแบ่ง: คำตอบข้อเดียวไม่เคยมีทั้งชื่อของ ราคา และอย่างอื่นอีกสองอย่างพร้อมกัน
+ * "200 บาท" "0.6*1.6" "2 ผืน" ตอบคำถามได้ข้อเดียว ส่วน "งานไวนิล สีดำน้องป่าน
+ * ขนาด 0.6*1.6 1 ผืน 200 บาท" เป็นใบสั่งงานทั้งใบ
+ */
+export function isWholeNewJob(text) {
+  try {
+    const d = parseNaturalJob(text);
+    if (!(d.total > 0) || !d.items.length || !classifyJob(d.items)) return false;
+    const [it] = d.items;
+    const marks = [it.size, it.unit, d.customerName, Number(it.quantity) > 1].filter(Boolean);
+    return marks.length >= 2;
+  } catch {
+    return false;
+  }
+}
+
 // งานที่ยังไม่ได้ตั้งราคาก็เป็นงาน — ร้านรับออเดอร์เข้ามาก่อน แล้วค่อยคิดราคา
 // ทีหลัง "ตรายาง ของโรงเรียนเปียงซ้อ 1 อัน" คือใบสั่งงาน ไม่ใช่การทักทาย
 //
@@ -171,6 +194,8 @@ export async function handleTextMessage(event, profile) {
 
   // กำลังถามรายละเอียดทีละข้ออยู่
   if (current === STATES.COLLECTING_JOB) {
+    // พิมพ์งานใหม่ทั้งใบเข้ามากลางคัน = จดงานใหม่ ไม่ใช่ตอบคำถามงานเก่า
+    if (isWholeNewJob(text)) return handleNewJob(replyToken, profile, text);
     return handleCollectTurn(replyToken, profile, state, text);
   }
 

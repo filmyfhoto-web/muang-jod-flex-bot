@@ -56,7 +56,11 @@ test('the bot asks one thing at a time, in order, and stops when it has enough',
     'ราคากรอบละเท่าไหร่คะ?',
     'ลูกค้าชื่ออะไรคะ?',
     'นัดรับวันไหนคะ?',
-    'ต้องการแนบรูปหรือหลักฐานประกอบงานไหมคะ?',
+    /* ไม่ถาม "ต้องการแนบรูปหรือหลักฐานประกอบงานไหมคะ?" อีกแล้ว
+     *
+     * ร้านบอกว่า "บางที ฉันจะออกบิลเลย ม่วงก็แค่ออกบิลแล้วเอางานลงไว้ให้เป็น
+     * หมวด ๆ" — พอรู้ราคาแล้ว คำถามที่ไม่เปลี่ยนตัวเลขบนบิลก็ข้ามไป
+     */
   ]);
   assert.ok(done, 'ถามครบแล้วแต่ยังไม่ยอมไปสรุป');
 
@@ -76,7 +80,8 @@ test('everything in one message means nothing gets asked twice', () => {
   const state = startCollecting(
     'มีงานกรอบรูป 12×18 จำนวน 2 กรอบ กรอบละ 350 ลูกค้าคุณแอน รับวันศุกร์'
   );
-  assert.equal(nextSlot(state), 'attach', 'ยังจะถามเรื่องที่บอกมาแล้วอีก');
+  // บอกมาครบทั้งใบในข้อความเดียว = ไม่มีอะไรให้ถาม ไปสรุปเลย
+  assert.equal(nextSlot(state), null, 'ยังจะถามเรื่องที่บอกมาแล้วอีก');
   assert.equal(state.fields.qty.count, 2);
   assert.equal(state.fields.unitPrice, 350);
   assert.equal(state.fields.customer, 'คุณแอน');
