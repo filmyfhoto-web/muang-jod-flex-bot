@@ -74,6 +74,18 @@ function bearer(req) {
   return m ? m[1].trim() : null;
 }
 
+/* ฐานข้อมูลยังไม่มีช่อง picked_up_at (ยังไม่ได้รัน migration 014)
+ *
+ * PostgREST ตอบรหัส PGRST204 พร้อมชื่อช่องในข้อความ ดูทั้งสองอย่างเพราะรหัส
+ * เดียวกันใช้กับช่องอื่นได้ และข้อความอย่างเดียวก็เปลี่ยนถ้อยคำได้ตามเวอร์ชัน
+ */
+export function missingPickupColumn(err) {
+  const code = String(err?.code || '');
+  const text = `${err?.message || ''} ${err?.details || ''}`;
+  if (!text.includes('picked_up_at')) return false;
+  return code === 'PGRST204' || code === '42703' || /column|schema cache/i.test(text);
+}
+
 // A photo from the form, as a data: URL. Only the two types the storage
 // bucket already knows, and small enough that the browser must downscale
 // first — the client does that, this is the backstop.
@@ -523,7 +535,24 @@ export function createApiRouter(deps = {}) {
       const patch = pickupPatch(current, want);
       if (!patch) return res.status(400).json({ error: 'invalid', message: 'unknown state' });
 
-      await saveJob(req.profile.id, req.params.id, patch);
+      /* ช่อง picked_up_at ยังไม่มีในฐานข้อมูล = ยังไม่ได้รัน migration 014
+       *
+       * ของเดิมเคสนี้ตกไปเป็น error 500 แล้วหน้าเว็บขึ้นว่า "บันทึกไม่สำเร็จ"
+       * เฉย ๆ ปุ่มเด้งกลับที่เดิมทุกครั้ง ร้านเห็นเป็น "กดไม่ได้" โดยไม่มีอะไร
+       * บอกว่าต้องทำอะไรถึงจะกดได้ — บอกไปตรง ๆ ดีกว่าให้เดา
+       */
+      try {
+        await saveJob(req.profile.id, req.params.id, patch);
+      } catch (err) {
+        if (missingPickupColumn(err)) {
+          logger.warn('api.job_state_no_column', { jobId: req.params.id });
+          return res.status(503).json({
+            error: 'not_ready',
+            message: 'ยังเปิดใช้ปุ่มนี้ไม่ได้ค่ะ — ต้องรัน migration 014_job_pickup.sql ใน Supabase ก่อน',
+          });
+        }
+        throw err;
+      }
       const job = await findJob(req.profile.id, req.params.id);
       logger.info('api.job_state', {
         user: maskUserId(req.profile.line_user_id),
