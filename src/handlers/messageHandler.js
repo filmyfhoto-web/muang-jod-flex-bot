@@ -11,7 +11,7 @@ import { paymentConfirmationFlex } from '../flex/paymentFlex.js';
 import { searchResultsFlex } from '../flex/searchResultsFlex.js';
 import { billReceiptFlex } from '../flex/billFlex.js';
 import { recordBillPayment } from '../services/billService.js';
-import { resolveMenuCommand, splitLeadingAddJob } from '../utils/menuCommands.js';
+import { resolveMenuCommand, splitLeadingAddJob, suggestMenuCommand, labelForAction } from '../utils/menuCommands.js';
 import { parseChatIntent } from '../utils/chatIntent.js';
 import { parseNaturalJob } from '../utils/nlParser.js';
 import { deriveJobName, classifyJob } from '../utils/category.js';
@@ -273,6 +273,27 @@ export async function handleTextMessage(event, profile) {
   // customer named before the work arrives. Answer it like a person would.
   const intent = parseChatIntent(text);
   if (intent) return handleChatIntent(replyToken, profile, intent);
+
+  /* ยังไม่เข้าใจ — แต่ถ้าเดาได้ว่าใกล้เคียงคำสั่งไหน ให้ถามกลับด้วยปุ่ม
+   *
+   * ร้านพิมพ์ "ดูงานค้างหน่อย" แล้วได้คำทักทายกลับไปสองรอบ พร้อมบอกว่า "อยากให้
+   * บอทตอบได้ในสิ่งที่เราถาม" — คำทักทายที่ไม่เกี่ยวกับสิ่งที่ถามเลยคือคำตอบ
+   * ที่แย่ที่สุดที่ตอบได้ เพราะมันไม่ได้บอกด้วยซ้ำว่าม่วงไม่เข้าใจ
+   *
+   * เสนอเป็นปุ่ม ไม่ใช่ทำให้เลย เพราะการเดาจากคำที่อยู่กลางประโยคหลวมเกินกว่า
+   * จะลงมือเอง — กดครั้งเดียวก็ได้คำตอบ และร้านเห็นว่าม่วงเข้าใจว่าอะไร
+   */
+  const guess = suggestMenuCommand(text);
+  const guessLabel = guess && labelForAction(guess);
+  if (guessLabel) {
+    return reply(replyToken, {
+      type: 'text',
+      text: `ยังไม่แน่ใจว่าหมายถึงอะไรค่ะ 🤔\nหมายถึง "${guessLabel}" ไหมคะ?`,
+      quickReply: {
+        items: [{ type: 'action', action: { type: 'message', label: guessLabel.slice(0, 20), text: guessLabel } }],
+      },
+    });
+  }
 
   // Idle: nudge toward the menu.
   return reply(replyToken, { type: 'text', text: DEFAULT_REPLY });

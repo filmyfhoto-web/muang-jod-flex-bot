@@ -111,12 +111,71 @@ function normalise(text) {
     .toLowerCase();
 }
 
+/* คำสุภาพที่คนพูดหุ้มคำสั่งไว้ — "ดูงานค้างหน่อย" คือ "งานค้าง"
+ *
+ * ร้านพิมพ์ "ดูงานค้างหน่อย" สองรอบ แล้วม่วงตอบคำทักทายกลับไปทั้งสองรอบ เพราะ
+ * ตารางคำสั่งเทียบแบบตรงตัวเป๊ะ ๆ ("งานค้าง" เท่านั้น) — ร้านบอกว่า "อยากให้
+ * บอทตอบได้ในสิ่งที่เราถาม"
+ *
+ * ปอกหัวท้ายออกแล้วค่อยเทียบใหม่ ไม่ได้ทำให้การเทียบหลวมลงเลย เพราะผลที่ปอก
+ * แล้วยังต้องตรงกับชื่อคำสั่งเป๊ะ ๆ อยู่ดี "ขอตรายาง 2 อัน" ปอกแล้วได้
+ * "ตรายาง 2 อัน" ซึ่งไม่ใช่คำสั่ง ก็ยังตกไปเป็นการจดงานเหมือนเดิม
+ */
+const LEAD_RE = /^(?:ช่วย|ขอ|อยาก(?:ได้)?|ไหน)?\s*(?:ดู|เปิด|เช็ค|เช็ก|เรียก)?\s*/;
+const TAIL_RE = /\s*(?:ให้|หน่อย|ด้วย|ที|ซิ|สิ|นะ|น่ะ|จ้า|ครับ|คับ|ค่ะ|คะ|ๆ)+$/;
+
+function undress(cleaned) {
+  let out = cleaned.replace(LEAD_RE, '').trim();
+  // ปอกหางซ้ำได้ ("ให้หน่อยค่ะ" = สามคำต่อกัน)
+  let before;
+  do {
+    before = out;
+    out = out.replace(TAIL_RE, '').trim();
+  } while (out !== before);
+  return out;
+}
+
 // Normalise: trim, collapse spaces, drop a leading emoji/number decoration,
 // lower-case latin. Returns the action name or null.
 export function resolveMenuCommand(text) {
   const cleaned = normalise(text);
   if (!cleaned) return null;
-  return COMMANDS.get(cleaned) ?? null;
+
+  // เทียบตรงตัวก่อนเสมอ — คำสั่งที่ขึ้นต้นด้วย "ดู" อยู่แล้ว ("ดูงานทั้งหมด")
+  // ต้องไม่ถูกปอกหัวทิ้งจนหาไม่เจอ
+  const exact = COMMANDS.get(cleaned);
+  if (exact) return exact;
+
+  const bare = undress(cleaned);
+  return bare && bare !== cleaned ? COMMANDS.get(bare) ?? null : null;
+}
+
+/* เดาว่าร้านน่าจะหมายถึงคำสั่งไหน — สำหรับ "เสนอเป็นปุ่ม" เท่านั้น
+ *
+ * ต่างจาก resolveMenuCommand ตรงที่มองหาคำสั่งที่ "อยู่ข้างใน" ประโยค ซึ่งหลวม
+ * เกินกว่าจะสั่งทำงานเองได้ แต่พอดีสำหรับถามกลับว่า "หมายถึงอันนี้ไหมคะ" แทน
+ * ที่จะตอบคำทักทายกลับไปเฉย ๆ ทั้งที่ร้านถามมาชัด ๆ
+ *
+ * ยาวก่อนสั้น — ประโยคหนึ่งมีได้หลายคำสั่งซ้อนกัน ("บิล" อยู่ข้างใน "แยกบิล")
+ * คำที่ยาวกว่าคือคำที่ตรงกับที่ร้านพิมพ์มามากกว่า
+ */
+export function suggestMenuCommand(text) {
+  const cleaned = normalise(text);
+  if (!cleaned) return null;
+  let best = null;
+  for (const [label, action] of COMMANDS) {
+    if (!cleaned.includes(label)) continue;
+    if (!best || label.length > best.label.length) best = { label, action };
+  }
+  return best?.action ?? null;
+}
+
+// ป้ายบนปุ่มที่จะเสนอ — ใช้ชื่อแรกที่เจอ ซึ่งเป็นชื่อที่เขียนบนเมนูจริง
+export function labelForAction(action) {
+  for (const [label, act] of COMMANDS) {
+    if (act === action) return label;
+  }
+  return null;
 }
 
 // "งานวันนี้ ป้ายไวนิล 150 บาท" -> { action: 'add_job', rest: 'ป้ายไวนิล 150 บาท' }
