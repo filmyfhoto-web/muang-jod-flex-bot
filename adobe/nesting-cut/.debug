@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- เปิดดีบักแผงได้ที่ http://localhost:8095 (ตอน Illustrator เปิดแผงอยู่) -->
+<ExtensionList>
+  <Extension Id="com.nongploy.nestingcut.panel">
+    <HostList>
+      <Host Name="ILST" Port="8095" />
+    </HostList>
+  </Extension>
+</ExtensionList>

@@ -1,0 +1,7 @@
+{
+  "name": "nongploy-nesting-cut",
+  "version": "1.0.0",
+  "private": true,
+  "description": "นัดพอน Nesting Cut — ปลั๊กอิน Illustrator (CEP) + Photoshop (UXP) จัดวางชิ้นงานตามรูปทรงจริงและส่งออกเครื่องตัด",
+  "type": "commonjs"
+}
