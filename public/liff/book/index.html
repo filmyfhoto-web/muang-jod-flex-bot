@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>ม่วงจดให้ — สมุดลูกค้า</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /* ฟอนต์ระบบของเครื่อง — Mac/iPhone ได้ SF กับ Thonburi ตัวเดียวกับที่เห็นในแอป
+     อื่นบนเครื่อง เครื่องที่ไม่มีค่อยตกไปใช้ Noto Sans Thai ที่โหลดไว้ */
+  :root {
+    color-scheme: light;
+    --navy: #35486E;
+    --navy-deep: #2C3C5E;
+    --navy-soft: #43578A;
+    --gold: #DDA83D;
+    --gold-tint: #F6E7C6;
+    --ink: #1F2B45;
+    --muted: #5E6E8C;
+    --faint: #97A3B8;
+    --line: #E2E6EE;
+    --hair: #EEF1F6;
+    --bg: #EFF1F5;
+    --card: #ffffff;
+    --green: #2E7D5B;
+    --green-tint: #E4F0EA;
+    --red: #B3402F;
+    --red-tint: #F8E4E1;
+    --blue: #3E6FA8;
+    --blue-tint: #E8ECF5;
+  }
+  * { box-sizing: border-box; }
+  /* ทุกกล่องในหน้านี้เป็น flex/grid ซึ่งทับ hidden ของเบราว์เซอร์ ถ้าไม่บอกไว้
+     ตรงนี้ ปุ่มย้อนกลับกับแถบเลือกหมวดจะโผล่ในหน้าที่ไม่ควรมี */
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Thonburi", Thonburi,
+                 "Noto Sans Thai", "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-text-size-adjust: 100%;
+  }
+  button, input { font: inherit; }
+  button { cursor: pointer; }
+  a { color: var(--blue); }
+
+  header {
+    background: var(--navy);
+    border-radius: 0 0 26px 26px;
+    padding: 14px 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .htop { display: flex; align-items: center; gap: 11px; }
+  .htop img { width: 44px; height: 44px; object-fit: contain; flex-shrink: 0; }
+  .htitle { flex: 1; min-width: 0; }
+  .htitle b { display: block; font-size: 16px; font-weight: 600; color: #fff; line-height: 1.3; }
+  .htitle span { font-size: 11.5px; color: #C6CFE0; line-height: 1.4; }
+  .back {
+    width: 38px; height: 38px; margin-left: -8px; border: 0; background: none;
+    border-radius: 999px; display: flex; align-items: center; justify-content: center;
+  }
+  .pill {
+    font-size: 10.5px; font-weight: 600; padding: 2px 9px; border-radius: 999px;
+    background: var(--gold); color: var(--navy-deep); white-space: nowrap;
+  }
+  .search {
+    width: 100%; height: 42px; border: 0; border-radius: 12px;
+    background: #fff; padding: 0 15px; font-size: 13px; color: var(--ink);
+  }
+  .owed { display: flex; align-items: flex-end; gap: 10px; }
+  .owed b { display: block; font-size: 19px; font-weight: 700; color: #fff; line-height: 1.3; }
+  .owed small { font-size: 11.5px; color: #C6CFE0; line-height: 1.45; }
+  .owed .amt { text-align: right; flex-shrink: 0; }
+  .owed .amt b { font-size: 24px; color: var(--gold); line-height: 1.2; }
+
+  main { padding: 12px 18px 22px; display: flex; flex-direction: column; gap: 10px; }
+
+  .tabs { display: flex; gap: 4px; background: var(--line); border-radius: 13px; padding: 4px; }
+  .tabs button {
+    flex: 1; height: 38px; border: 0; border-radius: 10px; background: none;
+    font-size: 12.5px; font-weight: 500; color: var(--muted);
+  }
+  .tabs button[aria-pressed="true"] {
+    background: #fff; color: var(--ink); font-weight: 600;
+    box-shadow: 0 1px 3px rgba(31,43,69,.12);
+  }
+
+  .headline { display: flex; align-items: baseline; gap: 8px; padding: 0 2px; }
+  .headline span { flex: 1; font-size: 12.5px; color: var(--muted); }
+  .headline b { font-size: 12.5px; color: var(--ink); }
+
+  .row {
+    width: 100%; text-align: inherit; border: 0;
+    background: var(--card); border-radius: 16px; padding: 11px 13px;
+    display: flex; align-items: center; gap: 11px;
+    box-shadow: 0 1px 2px rgba(31,43,69,.05), 0 4px 12px rgba(31,43,69,.05);
+  }
+  .chip {
+    width: 34px; height: 34px; border-radius: 11px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; line-height: 1;
+  }
+  .row .who { flex: 1; min-width: 0; }
+  .row .who b { display: block; font-size: 14.5px; font-weight: 600; line-height: 1.35; }
+  .row .who span { font-size: 11.5px; color: var(--muted); line-height: 1.45; }
+  .row .money { text-align: right; flex-shrink: 0; }
+  .row .money b { display: block; font-size: 14px; font-weight: 700; white-space: nowrap; }
+  .row .money span { font-size: 10.5px; color: var(--muted); }
+
+  /* หมวดงานมีสีประจำหมวด — แถบสีซ้ายกับจุด ส่วนตัวหนังสือเป็นสีเข้มเสมอ
+     เพราะสีหมวดบางสี (เขียว/ชมพู) อ่านบนพื้นขาวไม่ออกถ้าเอามาเป็นตัวอักษร */
+  .catband {
+    display: flex; align-items: center; gap: 8px;
+    margin: 8px 0 3px; padding: 7px 10px 7px 8px; border-radius: 9px;
+    background: var(--band); border-left: 4px solid var(--c);
+  }
+  .catband b { flex: 1; font-size: 12.5px; font-weight: 700; }
+  .catband span { font-size: 10.5px; color: var(--muted); }
+  .catband .sum { font-size: 12px; font-weight: 600; color: var(--ink); }
+
+  .jobrow { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--hair); }
+  .jobrow:last-child { border-bottom: 0; }
+  .tick {
+    width: 26px; height: 26px; flex-shrink: 0; border-radius: 8px; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: #fff; border: 2px solid var(--faint);
+  }
+  .tick[aria-pressed="true"] { background: var(--c, var(--navy)); border-color: var(--c, var(--navy)); }
+  .tick[disabled] { border-color: var(--line); cursor: default; }
+  .jobrow .what { flex: 1; min-width: 0; }
+  .jobrow .what b { display: block; font-size: 13.5px; font-weight: 500; line-height: 1.35; }
+  .jobrow .what span { font-size: 11px; color: var(--muted); line-height: 1.45; }
+  .tag { font-size: 10px; font-weight: 600; padding: 1px 8px; border-radius: 999px; flex-shrink: 0; }
+  .tag.owe { background: var(--red-tint); color: var(--red); }
+  .tag.paid { background: var(--green-tint); color: var(--green); }
+  .tag.billed { background: var(--blue-tint); color: var(--blue); }
+  .jobrow .amt { font-size: 13.5px; font-weight: 600; white-space: nowrap; width: 58px; text-align: right; }
+
+  .card { background: var(--card); border-radius: 16px; padding: 4px 13px 9px;
+          box-shadow: 0 1px 2px rgba(31,43,69,.05), 0 4px 12px rgba(31,43,69,.05); }
+
+  .picker { background: var(--card); border-radius: 14px; padding: 9px 11px; display: flex; flex-direction: column; gap: 7px;
+            box-shadow: 0 1px 2px rgba(31,43,69,.05), 0 4px 12px rgba(31,43,69,.05); }
+  .picker .line { display: flex; align-items: center; gap: 9px; }
+  .picker .line > span { width: 52px; flex-shrink: 0; font-size: 11px; color: var(--muted); }
+  .seg { flex: 1; display: flex; gap: 3px; background: #E9EDF4; border-radius: 10px; padding: 3px; }
+  .seg button { flex: 1; height: 30px; border: 0; border-radius: 8px; background: none; font-size: 11.5px; color: var(--muted); }
+  .seg button[aria-pressed="true"] { background: #fff; color: var(--ink); font-weight: 700; box-shadow: 0 1px 3px rgba(31,43,69,.14); }
+
+  .bar { background: var(--navy); border-radius: 16px; padding: 11px 13px; display: flex; align-items: center; gap: 10px; }
+  .bar .sum { flex: 1; min-width: 0; }
+  .bar .sum span { display: block; font-size: 11px; color: #C6CFE0; line-height: 1.45; }
+  .bar .sum b { font-size: 19px; font-weight: 700; color: var(--gold); line-height: 1.2; }
+  .go {
+    flex-shrink: 0; min-height: 44px; padding: 0 16px; border: 0; border-radius: 12px;
+    background: var(--gold); color: var(--navy-deep); font-size: 12.5px; font-weight: 700;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .go[disabled] { background: var(--navy-soft); color: #C6CFE0; font-weight: 500; }
+
+  .hint { display: flex; align-items: center; gap: 10px; background: #F1ECF8; border-radius: 14px; padding: 10px 12px; }
+  .hint img { width: 34px; height: 34px; object-fit: contain; flex-shrink: 0; }
+  .hint span { font-size: 11.5px; color: #4A3475; line-height: 1.5; }
+
+  .empty { text-align: center; color: var(--muted); font-size: 13px; padding: 26px 10px; line-height: 1.6; }
+  .empty img { width: 92px; height: 92px; object-fit: contain; display: block; margin: 0 auto 10px; }
+
+  #toast {
+    position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+    background: var(--ink); color: #fff; font-size: 12.5px; padding: 10px 16px;
+    border-radius: 999px; max-width: 88vw; box-shadow: 0 8px 24px rgba(31,43,69,.28);
+  }
+  #toast[hidden] { display: none; }
+  #toast.bad { background: var(--red); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="htop">
+    <button class="back" id="back" type="button" aria-label="กลับสมุดลูกค้า" hidden>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>
+    </button>
+    <img src="/brand/ui/wave.png" alt="ม่วงจด" id="mascot" />
+    <div class="htitle">
+      <b id="h-title">สมุดลูกค้า</b>
+      <span id="h-sub">ม่วงแยกเก็บให้ทีละเจ้า ค้นย้อนหลังง่าย</span>
+    </div>
+    <span class="pill" id="h-pill" hidden></span>
+  </div>
+
+  <input class="search" id="q" type="search" placeholder="ค้นชื่อโรงเรียน · ชื่อลูกค้า · หมวดงาน" aria-label="ค้นหาในสมุดลูกค้า" />
+
+  <div class="owed" id="h-owed" hidden>
+    <div style="flex:1;min-width:0">
+      <b id="o-name"></b>
+      <small id="o-meta"></small>
+    </div>
+    <div class="amt">
+      <small>ยังค้างชำระ</small>
+      <b id="o-amt"></b>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="tabs" id="tabs">
+    <button type="button" data-tab="org" aria-pressed="true">โรงเรียน · หน่วยงาน</button>
+    <button type="button" data-tab="walk" aria-pressed="false">งานทั่วไป</button>
+  </div>
+
+  <div class="headline" id="headline"><span></span><b></b></div>
+
+  <div id="list" style="display:flex;flex-direction:column;gap:9px"></div>
+
+  <div class="hint" id="hint" hidden>
+    <img src="/brand/ui/rest.png" alt="" />
+    <span id="hint-text"></span>
+  </div>
+
+  <div class="picker" id="picker" hidden>
+    <div class="line">
+      <span>รูปแบบ</span>
+      <div class="seg" id="mode">
+        <button type="button" data-mode="split" aria-pressed="false">แยกใบละงาน</button>
+        <button type="button" data-mode="merge" aria-pressed="true">รวมเป็นใบเดียว</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="bar" id="bar" hidden>
+    <div class="sum">
+      <span id="b-text">ยังไม่ได้เลือกงาน</span>
+      <b id="b-sum">฿0</b>
+    </div>
+    <button class="go" id="go" type="button" disabled>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h11l3 3v13H5z"/><path d="M8 11h8"/><path d="M8 15h5"/></svg>
+      <span id="go-text">ออกใบเสร็จ</span>
+    </button>
+  </div>
+</main>
+
+<div id="toast" hidden></div>
+
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+let token = '';
+let book = null;      // { orgs, walkins, totals }
+let account = null;   // บัญชีของเจ้าที่เปิดอยู่
+let tab = 'org';
+let mode = 'merge';
+const picked = new Set();
+
+const baht = (n) => '฿' + Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
+
+let toastTimer = 0;
+function toast(msg, bad = false) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.toggle('bad', bad);
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => (el.hidden = true), bad ? 5200 : 2600);
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch('/api' + path, {
+    ...opts,
+    headers: { Authorization: 'Bearer ' + token, ...(opts.body ? { 'Content-Type': 'application/json' } : {}) },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message || body.error || 'เกิดข้อผิดพลาด');
+  }
+  return res.json();
+}
+
+/* ป้ายสีของหมวดงาน — สีเข้มพอเป็นแถบและจุด ส่วนตัวหนังสือใช้สีเข้มเสมอ
+ * สีหมวดมาจากเซิร์ฟเวอร์ (utils/category.js) หมวดที่ไม่มีสีได้เทากลาง
+ */
+function paint(el, color) {
+  const c = color || '#8796A5';
+  el.style.setProperty('--c', c);
+  el.style.setProperty('--band', `color-mix(in srgb, ${c} 15%, #ffffff)`);
+}
+
+function matches(text) {
+  const q = $('q').value.trim().toLowerCase();
+  return !q || String(text || '').toLowerCase().includes(q);
+}
+
+// --- สมุด: รายชื่อเจ้า / รายหมวด -----------------------------------------
+
+function renderBook() {
+  const list = $('list');
+  list.innerHTML = '';
+  $('picker').hidden = true;
+  $('bar').hidden = true;
+  $('tabs').hidden = false;
+  $('back').hidden = false;
+  $('back').setAttribute('aria-label', 'กลับหน้างานวันนี้');
+  $('h-owed').hidden = true;
+  $('h-pill').hidden = true;
+  $('mascot').src = '/brand/ui/wave.png';
+  $('h-title').textContent = 'สมุดลูกค้า';
+  $('h-sub').textContent = 'ม่วงแยกเก็บให้ทีละเจ้า ค้นย้อนหลังง่าย';
+  $('q').placeholder = 'ค้นชื่อโรงเรียน · ชื่อลูกค้า · หมวดงาน';
+
+  const org = tab === 'org';
+  const rows = org ? book.orgs.filter((o) => matches(o.name)) : book.walkins.filter((c) => matches(c.label));
+
+  $('headline').firstElementChild.textContent = org
+    ? `บัญชีรายเจ้า · ${book.totals.orgCount} เจ้า`
+    : `แยกตามหมวดงาน · ${book.totals.walkinJobs} งาน`;
+  $('headline').lastElementChild.textContent = org
+    ? `ค้างรวม ${baht(book.totals.orgOwed)}`
+    : `รวม ${baht(book.totals.walkinTotal)}`;
+
+  $('hint').hidden = false;
+  $('hint-text').textContent = org
+    ? 'จดงานโดยใส่ชื่อโรงเรียนไว้ ม่วงจะเก็บเข้าบัญชีเจ้านั้นให้เอง'
+    : 'งานหน้าร้านไม่ต้องใส่ชื่อลูกค้าก็ได้ ม่วงจัดเข้าหมวดงานให้เอง';
+
+  if (!rows.length) {
+    list.innerHTML = `<p class="empty"><img src="/brand/ui/nap.png" alt="" />ยังไม่มีงานในส่วนนี้ค่ะ</p>`;
+    return;
+  }
+
+  for (const r of rows) {
+    const el = document.createElement(org ? 'button' : 'div');
+    el.className = 'row';
+    if (org) el.type = 'button';
+
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    if (org) {
+      chip.style.background = 'var(--navy)';
+      chip.innerHTML = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><path d="M5 20V9l7-4 7 4v11"/><path d="M10 20v-5h4v5"/></svg>';
+    } else {
+      chip.style.background = `color-mix(in srgb, ${r.color || '#8796A5'} 22%, #ffffff)`;
+      chip.textContent = r.icon || '📦';
+    }
+
+    const who = document.createElement('div');
+    who.className = 'who';
+    who.innerHTML = `<b></b><span></span>`;
+    who.querySelector('b').textContent = org ? r.name : r.label;
+    who.querySelector('span').textContent = org
+      ? `${r.jobCount} งาน${r.openCount ? ` · ค้าง ${r.openCount} ใบ` : ''}`
+      : `${r.jobCount} งาน`;
+
+    const money = document.createElement('div');
+    money.className = 'money';
+    money.innerHTML = `<b></b><span></span>`;
+    if (org) {
+      money.querySelector('b').textContent = r.owed > 0 ? baht(r.owed) : 'ครบแล้ว';
+      money.querySelector('b').style.color = r.owed > 0 ? 'var(--red)' : 'var(--green)';
+      money.querySelector('span').textContent = r.owed > 0 ? 'ยังค้าง' : 'ไม่มีค้าง';
+    } else {
+      money.querySelector('b').textContent = baht(r.total);
+      money.querySelector('span').textContent = r.owed > 0 ? `ค้าง ${baht(r.owed)}` : 'เก็บครบ';
+    }
+
+    el.append(chip, who, money);
+    if (org) {
+      el.insertAdjacentHTML('beforeend',
+        '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#A8B2C4" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>');
+      el.onclick = () => openAccount(r.key);
+    }
+    list.append(el);
+  }
+}
+
+// --- บัญชีของเจ้าเดียว ----------------------------------------------------
+
+async function openAccount(key) {
+  try {
+    const got = await api('/book/account?key=' + encodeURIComponent(key));
+    account = got.account;
+    picked.clear();
+    // ตั้งต้นให้ติ๊กงานที่ยังค้างและยังไม่ได้ออกบิลไว้ทั้งหมด — เป็นสิ่งที่ร้าน
+    // ทำบ่อยที่สุด แล้วค่อยติ๊กออกใบที่ยังไม่อยากออกรอบนี้
+    for (const g of account.groups) for (const j of g.jobs) if (!j.billed && !j.paid) picked.add(j.id);
+    history.replaceState(null, '', '?key=' + encodeURIComponent(key));
+    renderAccount();
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+function renderAccount() {
+  const list = $('list');
+  list.innerHTML = '';
+  $('tabs').hidden = true;
+  $('back').hidden = false;
+  $('back').setAttribute('aria-label', 'กลับสมุดลูกค้า');
+  $('hint').hidden = false;
+  $('h-pill').hidden = false;
+  $('h-pill').textContent = account.kind === 'org' ? 'หน่วยงาน' : 'หน้าร้าน';
+  $('mascot').src = '/brand/ui/happy.png';
+  $('h-title').textContent = 'บัญชีลูกค้า';
+  $('h-sub').textContent = 'งานแต่ละใบ แยกตามหมวด';
+  $('q').placeholder = 'ค้นชื่องานในบัญชีนี้';
+
+  $('h-owed').hidden = false;
+  $('o-name').textContent = account.name;
+  $('o-meta').textContent = `${account.jobCount} งาน · ${account.groups.length} หมวด`;
+  $('o-amt').textContent = baht(account.owed);
+
+  $('headline').firstElementChild.textContent = 'ติ๊กเลือกงานที่จะออกใบ';
+  $('headline').lastElementChild.textContent = `รวม ${baht(account.total)}`;
+  $('hint-text').textContent = 'งานไหนยังไม่อยากออกใบ ก็ติ๊กออก เก็บไว้ออกรอบหน้าได้';
+
+  const card = document.createElement('div');
+  card.className = 'card';
+  let shown = 0;
+
+  for (const g of account.groups) {
+    const jobs = g.jobs.filter((j) => matches(j.jobName) || matches(g.label));
+    if (!jobs.length) continue;
+    shown += jobs.length;
+
+    const band = document.createElement('div');
+    band.className = 'catband';
+    paint(band, g.color);
+    band.innerHTML = `<b></b><span></span><span class="sum"></span>`;
+    band.querySelector('b').textContent = `${g.icon || ''} ${g.label}`.trim();
+    band.querySelectorAll('span')[0].textContent = `${g.jobs.length} งาน`;
+    band.querySelector('.sum').textContent = baht(g.total);
+    card.append(band);
+
+    for (const j of jobs) {
+      const row = document.createElement('div');
+      row.className = 'jobrow';
+      paint(row, g.color);
+
+      const tick = document.createElement('button');
+      tick.type = 'button';
+      tick.className = 'tick';
+      const locked = j.billed;
+      tick.disabled = locked;
+      tick.setAttribute('aria-pressed', String(picked.has(j.id)));
+      tick.setAttribute('aria-label', (locked ? 'ออกใบไปแล้ว ' : 'เลือกออกใบ ') + (j.jobName || 'งาน'));
+      tick.innerHTML = picked.has(j.id)
+        ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>'
+        : '';
+      tick.onclick = () => {
+        if (picked.has(j.id)) picked.delete(j.id);
+        else picked.add(j.id);
+        renderAccount();
+      };
+
+      const what = document.createElement('div');
+      what.className = 'what';
+      what.innerHTML = '<b></b><span></span>';
+      what.querySelector('b').textContent = j.jobName || 'งาน';
+      what.querySelector('span').textContent = [j.jobDate, j.jobNumber].filter(Boolean).join(' · ');
+
+      const tag = document.createElement('span');
+      tag.className = 'tag ' + (j.billed ? 'billed' : j.paid ? 'paid' : 'owe');
+      tag.textContent = j.billed ? 'ออกใบแล้ว' : j.paid ? 'จ่ายแล้ว' : 'ค้าง';
+
+      const amt = document.createElement('span');
+      amt.className = 'amt';
+      amt.textContent = baht(j.total);
+
+      row.append(tick, what, tag, amt);
+      card.append(row);
+    }
+  }
+
+  if (!shown) card.innerHTML = '<p class="empty">ไม่พบงานที่ค้นค่ะ</p>';
+  list.append(card);
+
+  renderPicker();
+}
+
+function renderPicker() {
+  const ids = [...picked];
+  const jobs = account.groups.flatMap((g) => g.jobs).filter((j) => picked.has(j.id));
+  const sum = jobs.reduce((n, j) => n + Number(j.total || 0), 0);
+  const openCount = account.groups.flatMap((g) => g.jobs).filter((j) => !j.billed).length;
+
+  $('picker').hidden = false;
+  $('bar').hidden = false;
+  [...$('mode').children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
+
+  $('b-text').textContent = ids.length ? `เลือกไว้ ${ids.length} จาก ${openCount} งานที่ออกใบได้` : 'ยังไม่ได้เลือกงาน';
+  $('b-sum').textContent = baht(sum);
+  $('go').disabled = !ids.length;
+  $('go-text').textContent = !ids.length
+    ? 'ออกใบเสร็จ'
+    : mode === 'split'
+      ? `ออกใบเสร็จ ${ids.length} ใบ`
+      : 'ออกใบเสร็จ 1 ใบ';
+}
+
+async function issue() {
+  const ids = [...picked];
+  if (!ids.length) return;
+  $('go').disabled = true;
+  try {
+    const out = await api('/bills', {
+      method: 'POST',
+      body: JSON.stringify({ jobIds: ids, mode, customerName: account.name }),
+    });
+    const short = out.billed < out.requested ? ` (อีก ${out.requested - out.billed} ใบออกไปแล้ว)` : '';
+    toast(`ออกใบเสร็จ ${out.bills.length} ใบแล้วค่ะ${short}`);
+    // ใบแรกเปิดให้ดูเลย ที่เหลืออยู่ในแชตและในบัญชีนี้
+    const url = out.bills[0]?.url;
+    if (url) window.open(url, '_blank', 'noopener');
+    await openAccount(account.key);
+  } catch (err) {
+    toast(err.message, true);
+    $('go').disabled = false;
+  }
+}
+
+// --- เชื่อมปุ่ม -----------------------------------------------------------
+
+$('tabs').onclick = (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  tab = b.dataset.tab;
+  [...$('tabs').children].forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  renderBook();
+};
+
+$('mode').onclick = (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  mode = b.dataset.mode;
+  renderPicker();
+};
+
+$('go').onclick = issue;
+
+$('back').onclick = () => {
+  // อยู่ในบัญชีเจ้า = ถอยมาที่สมุด · อยู่ที่สมุดแล้ว = ถอยไปหน้างานวันนี้
+  if (!account) return void (location.href = '../');
+  account = null;
+  picked.clear();
+  history.replaceState(null, '', location.pathname);
+  renderBook();
+};
+
+$('q').oninput = () => (account ? renderAccount() : renderBook());
+
+(async function start() {
+  try {
+    const cfg = await (await fetch('/api/config')).json();
+    if (!cfg.liffId) {
+      document.body.innerHTML = '<p class="empty">ยังไม่ได้ตั้งค่า LIFF_ID ค่ะ — ดูขั้นตอนใน DEPLOYMENT.md</p>';
+      return;
+    }
+    await liff.init({ liffId: cfg.liffId });
+    if (!liff.isLoggedIn()) return liff.login({ redirectUri: location.href });
+    token = liff.getAccessToken();
+
+    book = await api('/book');
+    const want = new URLSearchParams(location.search).get('key');
+    if (want) await openAccount(want);
+    else renderBook();
+  } catch (err) {
+    document.body.innerHTML = `<p class="empty"><img src="/brand/ui/nap.png" alt="" />เปิดหน้านี้ไม่สำเร็จค่ะ<br>${err.message || ''}</p>`;
+  }
+})();
+</script>
+</body>
+</html>

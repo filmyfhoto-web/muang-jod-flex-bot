@@ -11,6 +11,7 @@ import {
   getJobsInPeriod,
   getJobsByCategory,
   getQueueJobs,
+  getBookJobs,
   replaceJobItems,
   buildReport,
 } from '../services/jobService.js';
@@ -28,6 +29,7 @@ import { createBill, getBillById } from '../services/billService.js';
 import { derivePaymentFields } from '../utils/payment.js';
 import { pickupPatch, jobState } from '../utils/jobState.js';
 import { round2 } from '../utils/currency.js';
+import { buildBook, buildAccount } from '../utils/customerBook.js';
 import { deriveJobName } from '../utils/category.js';
 import { getState as readState, clearState as dropState, STATES } from '../services/stateService.js';
 import { todayISO } from '../utils/dates.js';
@@ -96,6 +98,8 @@ export function missingPickupColumn(err) {
 const IMAGE_TYPES = { 'image/jpeg': true, 'image/png': true };
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_IMAGES = 4;
+// ออกบิลทีละไม่เกินเท่านี้ — กันการกดพลาดที่กวาดงานทั้งปีเข้าบิลเดียว
+const MAX_BILL_JOBS = 60;
 
 export function decodeDataUrl(value) {
   const m = /^data:([a-z]+\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=\s]+)$/i.exec(String(value || ''));
@@ -122,6 +126,7 @@ export function createApiRouter(deps = {}) {
   const readBill = deps.getBillById || getBillById;
   const saveJob = deps.updateJob || updateJob;
   const queueJobs = deps.getQueueJobs || getQueueJobs;
+  const bookJobs = deps.getBookJobs || getBookJobs;
   const readCheckin = deps.getCheckinSettings || getCheckinSettings;
   const writeCheckin = deps.saveCheckinSettings || saveCheckinSettings;
   // Tell the chat about a job saved from the form. Never throws: the job is
@@ -381,6 +386,97 @@ export function createApiRouter(deps = {}) {
         shopUrl: withShopKey(url, bill.share_token),
         billNumber: bill.bill_number || null,
         reused: Boolean(job.bill_id),
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /* สมุดลูกค้า — งานย้อนหลัง แยกเก็บทีละเจ้า
+   *
+   * หน่วยงานเป็นบัญชีรายเจ้า (รร.สบกอนสั่งอะไรไปบ้าง ค้างเท่าไหร่) ส่วนงาน
+   * หน้าร้านรวมเป็นงานทั่วไปแล้วแยกตามหมวดงาน เพราะจ่ายจบไปตั้งแต่หน้าร้าน
+   * ชื่อคนจึงไม่ใช่สิ่งที่ร้านใช้ค้น
+   */
+  router.get('/book', async (req, res, next) => {
+    try {
+      const jobs = await bookJobs(req.profile.id);
+      res.json(buildBook(jobs));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /* บัญชีของเจ้าเดียว — งานทุกใบ แยกตามหมวดงาน
+   *
+   * คีย์มาทาง query ไม่ใช่ส่วนของ path เพราะชื่อเจ้าเป็นภาษาไทยและมีจุด ซึ่ง
+   * เป็นสิ่งที่ path segment ทำหล่นได้ง่ายกว่า
+   */
+  router.get('/book/account', async (req, res, next) => {
+    try {
+      const key = String(req.query.key || '').trim();
+      if (!key) return res.status(400).json({ error: 'invalid', message: 'ต้องบอกว่าเป็นบัญชีของใคร' });
+
+      const account = buildAccount(await bookJobs(req.profile.id), key);
+      if (!account) return res.status(404).json({ error: 'not_found' });
+      res.json({ account });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /* ออกใบจากงานที่ติ๊กเลือกไว้
+   *
+   *   mode = merge  งานที่เลือกรวมเป็นใบเดียว — วางบิลโรงเรียนทีเดียวจบ
+   *   mode = split  งานละใบ — ใครจ่ายใบไหนก็ตัดใบนั้น
+   *
+   * createBill อ่านงานใหม่ทุกใบภายใต้เจ้าของคนนี้ และรับเฉพาะใบที่ยังไม่มีบิล
+   * งานของคนอื่นหรือใบที่เพิ่งถูกออกบิลไปจึงหลุดเข้ามาไม่ได้
+   */
+  router.post('/bills', async (req, res, next) => {
+    try {
+      const ids = [...new Set((Array.isArray(req.body?.jobIds) ? req.body.jobIds : []).map(String).filter(Boolean))];
+      if (!ids.length) return res.status(400).json({ error: 'invalid', message: 'ยังไม่ได้เลือกงานค่ะ' });
+      if (ids.length > MAX_BILL_JOBS) {
+        return res.status(400).json({ error: 'invalid', message: `เลือกได้ครั้งละไม่เกิน ${MAX_BILL_JOBS} งานค่ะ` });
+      }
+
+      const split = req.body?.mode === 'split';
+      const customerName = typeof req.body?.customerName === 'string' ? req.body.customerName : undefined;
+      const opts = customerName === undefined ? {} : { customerName: customerName || null };
+
+      const made = [];
+      for (const group of split ? ids.map((id) => [id]) : [ids]) {
+        const bill = await openBill(req.profile.id, group, opts);
+        if (bill) made.push(bill);
+      }
+
+      /* ไม่ได้สักใบ = งานที่เลือกถูกออกบิลไปแล้ว หรือถูกยกเลิกไปแล้ว
+       * ซึ่งไม่ใช่ความผิดพลาดของระบบ แต่เป็นเรื่องที่ร้านต้องรู้ว่าเกิดอะไรขึ้น
+       */
+      if (!made.length) {
+        return res.status(409).json({ error: 'nothing_billed', message: 'งานที่เลือกออกใบไปแล้วค่ะ' });
+      }
+
+      logger.info('api.bills_created', {
+        user: maskUserId(req.profile.line_user_id),
+        mode: split ? 'split' : 'merge',
+        bills: made.length,
+        jobs: made.reduce((n, b) => n + (b.jobs?.length || 0), 0),
+      });
+
+      res.status(201).json({
+        bills: made.map((bill) => ({
+          id: bill.id,
+          billNumber: bill.bill_number || null,
+          customerName: bill.customer_name || null,
+          total: bill.total,
+          jobCount: bill.jobs?.length || 0,
+          url: receiptUrl(bill) || null,
+        })),
+        // เลือกมา 4 ใบ ได้บิล 3 ใบ = มีใบนึงถูกออกไปก่อนหน้าแล้ว บอกไว้ให้เห็น
+        requested: ids.length,
+        billed: made.reduce((n, b) => n + (b.jobs?.length || 0), 0),
       });
     } catch (err) {
       next(err);

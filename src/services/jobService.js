@@ -240,6 +240,31 @@ export async function getRecentJobs(userId, limit = 5, client = supabase) {
   return attachItems(jobs || [], client);
 }
 
+/* งานทุกใบที่ยังไม่ถูกยกเลิก — ของสมุดลูกค้า
+ *
+ * สมุดลูกค้าจัดกลุ่มเองในเครื่อง (utils/customerBook.js) เพราะ "เจ้าเดียวกัน"
+ * ตัดสินจากชื่อที่สะกดได้หลายแบบ ซึ่งเป็นกฎของร้าน ไม่ใช่ของฐานข้อมูล — ถาม
+ * ฐานข้อมูลให้จัดกลุ่มให้ จะได้ รร.สบกอน สามบัญชีจากการเว้นวรรคคนละที่
+ *
+ * ไม่ดึง items มาด้วย: หน้าสมุดโชว์แค่ชื่องานกับยอด และงานสี่ร้อยใบคูณรายการ
+ * ย่อยคือข้อมูลที่โหลดไปทิ้งเกือบทั้งหมด
+ */
+export async function getBookJobs(userId, limit = 400, client = supabase) {
+  const { data, error } = await client
+    .from('jobs')
+    .select('*')
+    .eq('user_id', userId)
+    .in('status', ACTIVE_STATUSES)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    logger.error('job.book_failed', { message: error.message });
+    throw error;
+  }
+  return data || [];
+}
+
 // Replace the lines inside a job.
 //
 // Job items were write-once: created with the job and never touched again, so
