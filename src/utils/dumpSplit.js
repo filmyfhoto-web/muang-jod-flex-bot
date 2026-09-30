@@ -138,12 +138,47 @@ function draftOf(group, index) {
     else carry = carry ? `${carry} ${line}` : line;
   }
 
+  const perLine = lines.map((line) => parseNaturalJob(line, { customerKnown: Boolean(group.customer) }));
+
+  /* ทุกบรรทัดเป็นรายละเอียดของของชิ้นเดียว = อ่านรวดเดียว ไม่ใช่ทีละบรรทัด
+   *
+   * ร้านพิมพ์งานเดียวเป็นสามบรรทัด:
+   *     งานไวนิล งานสีดำน้องป่านสั่ง
+   *     ขนาด 0.6*1.6  1 ผืน
+   *     200 บาท
+   * ทางนี้อ่านทีละบรรทัด ใบเสร็จจึงได้สองรายการ — "ผืน ฿0" กับ "งาน ฿200" —
+   * ทั้งที่ลูกค้าสั่งป้ายผืนเดียว (ยอดรวมถูก แต่บนใบเสร็จอ่านไม่รู้เรื่อง)
+   *
+   * เส้นแบ่งคือ "มีบรรทัดเดียวที่มีราคา" — ขนาดกับจำนวนไม่มีราคาของตัวเอง
+   * มันเป็นรายละเอียดของราคาบรรทัดนั้น ส่วนกองที่ทุกบรรทัดมีราคาของตัวเอง
+   * คือของคนละชิ้นจริง ๆ ("สติ๊กเกอร์ 50 ดวง ฿250" กับ "ตรายาง 1 อัน ฿250")
+   *
+   * เคยใช้ classifyItem ตัดสินแทน แล้วบรรทัด "รูปครูยิ้ม 1*1.5*700 = 1,050
+   * 2 อัน 1050*2 = 2,100" อ่านไม่ออกว่ามีชื่อของ สองบรรทัดจึงโดนยุบรวมกัน
+   * แล้วเงินหายไป ฿2,100 เงียบ ๆ — นับราคาปลอดภัยกว่าเดาจากชื่อ
+   */
+  const priced = perLine.filter((p) => Number(p.total) > 0).length;
+  if (lines.length > 1 && priced <= 1) {
+    const whole = [group.jobName, groupName, ...lines].filter(Boolean).join(' ');
+    const one = parseNaturalJob(whole, { customerKnown: Boolean(group.customer) });
+    return {
+      no: index + 1,
+      customerName: group.customer || one.customerName || null,
+      jobName: group.jobName || groupName || one.jobName || deriveJobName(one.items) || 'งาน',
+      items: one.items,
+      subtotal: one.subtotal,
+      discount: one.discount,
+      total: one.total,
+      paidAmount: one.paidAmount || 0,
+      source: lines.join(' · '),
+    };
+  }
+
   /* หัวกลุ่มบอกชื่อลูกค้าไว้แล้ว บรรทัดข้างใต้จึงไม่มีชื่อลูกค้าอยู่ข้างใน
    *
    * ไม่งั้น "รูปครูยิ้ม" ถูกอ่านเป็นลูกค้าชื่อครูยิ้ม แล้วเหลือของชื่อ "รูป"
    * — ในใบเดียวกันมีรูปสองรายการชื่อ "รูป" เหมือนกัน ร้านแยกไม่ออกว่าอันไหน
    */
-  const perLine = lines.map((line) => parseNaturalJob(line, { customerKnown: Boolean(group.customer) }));
 
   /* บรรทัดสรุป ("ทั้งหมด 6*50 = 300") บอกยอด ไม่ได้สั่งของ
    *

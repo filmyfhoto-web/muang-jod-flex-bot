@@ -952,6 +952,67 @@ function addShipping() {
   setTimeout(() => $('.i-rate', itemsBox.children[index])?.focus(), 350);
 }
 
+/* พิมพ์ทีเดียว แล้วให้ม่วงกรอกตารางให้
+ *
+ * ร้านบอกว่า "ขอแบบกระชับ ตารางไม่เยอะ ไม่พิมพ์หลายรอบ" — ตารางข้างล่างมีสิบ
+ * ช่องต่อหนึ่งรายการ ทั้งที่ร้านพิมพ์ประโยคเดียวในแชตแล้วม่วงอ่านออกมาตั้งนาน
+ * แล้ว ปุ่มนี้ส่งข้อความไปให้ตัวอ่านตัวเดียวกับในแชต แล้วเอาผลมากรอกช่องให้
+ *
+ * กรอกให้แล้วยังแก้ได้ทุกช่องเหมือนเดิม — ม่วงกรอกให้ ไม่ใช่ม่วงตัดสินใจแทน
+ */
+async function pasteFill() {
+  const box = $('#p-text');
+  const note = $('#p-note');
+  const btn = $('#p-go');
+  const text = box.value.trim();
+
+  const say = (msg, cls) => {
+    note.textContent = msg;
+    note.className = 'paste-note' + (cls ? ' ' + cls : '');
+  };
+
+  if (!text) return say('พิมพ์รายการงานลงในช่องก่อนนะคะ', 'bad');
+
+  btn.disabled = true;
+  say('กำลังอ่านให้ค่ะ…');
+  try {
+    const res = await fetch('/api/parse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ text }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body?.message || 'อ่านไม่ออกค่ะ');
+
+    const rows = (body.draft?.items || []).length;
+    if (!rows) return say('ยังอ่านไม่ออกค่ะ ลองใส่ราคาหรือขนาดมาด้วยนะคะ', 'bad');
+
+    fromDraft(body.draft);
+    syncHeaderFields();
+    renderItems();
+    saveDraft();
+
+    /* หลายงานหลายลูกค้าในข้อความเดียว ฟอร์มนี้กรอกได้ทีละงาน
+     *
+     * บอกไปตรง ๆ ว่าเหลืออีกกี่งาน ดีกว่ากลืนหายไปเงียบ ๆ แล้วร้านมารู้ทีหลัง
+     * ตอนที่งานของลูกค้าอีกสามคนไม่เคยถูกบันทึก
+     */
+    const more = Number(body.more) || 0;
+    say(
+      more
+        ? `กรอกให้แล้ว ${rows} รายการ · ยังมีอีก ${more} งานในข้อความนี้ พิมพ์ในแชตจะแยกให้ครบกว่าค่ะ`
+        : `กรอกให้แล้ว ${rows} รายการ ตรวจดูได้เลยค่ะ`,
+      more ? 'bad' : 'good'
+    );
+    box.value = '';
+  } catch (err) {
+    say(err.message || 'อ่านไม่ออกค่ะ', 'bad');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+$('#p-go').onclick = pasteFill;
 $('#btn-add').onclick = addItem;
 $('#btn-ship').onclick = addShipping;
 $('#btn-save').onclick = save;

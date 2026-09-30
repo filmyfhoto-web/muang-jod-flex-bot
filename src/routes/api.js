@@ -15,6 +15,10 @@ import {
   buildReport,
 } from '../services/jobService.js';
 import { createJob } from '../services/jobService.js';
+import { parseNaturalJob } from '../utils/nlParser.js';
+import { splitDump, looksLikeDump } from '../utils/dumpSplit.js';
+import { makeDraft } from '../utils/jobDraft.js';
+import { extractDueDate } from '../utils/thaiDate.js';
 import { saveAttachment } from '../services/attachmentService.js';
 import { push } from '../services/lineService.js';
 import { receiptFlex } from '../flex/receiptFlex.js';
@@ -283,6 +287,55 @@ export function createApiRouter(deps = {}) {
       const state = await readState(req.profile.id);
       const draft = state?.state === STATES.CONFIRMING_JOB ? state?.context?.draft : null;
       res.json({ draft: draft || null });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /* พิมพ์ทีเดียว แล้วให้ม่วงกรอกตารางให้
+   *
+   * ร้านบอกว่า "ขอแบบกระชับ ตารางไม่เยอะ ไม่พิมพ์หลายรอบ" — ฟอร์มจดงานมีสิบช่อง
+   * ต่อหนึ่งรายการ (ชื่อ · รายละเอียด · กว้าง · ยาว · จำนวน · หน่วย · วิธีคิด ·
+   * เรต · ราคาต่อชิ้น · ยอดรวม) ซึ่งร้านต้องไล่กรอกเองทุกช่อง ทั้งที่พิมพ์
+   * ประโยคเดียวในแชตแล้วม่วงอ่านออกมาตั้งนานแล้ว
+   *
+   * ตรงนี้คือตัวอ่านเดียวกับในแชตเป๊ะ ๆ ไม่ใช่ของใหม่ที่ต้องมาไล่แก้อีกชุด —
+   * พิมพ์แบบไหนในแชตได้ ก็พิมพ์แบบนั้นในฟอร์มได้
+   *
+   * ไม่แตะฐานข้อมูลเลย อ่านอย่างเดียวแล้วคืนร่างให้ฟอร์มเอาไปกรอกช่อง ร้านยัง
+   * ตรวจและแก้ได้ก่อนกดบันทึกเหมือนเดิม
+   */
+  router.post('/parse', async (req, res, next) => {
+    try {
+      const text = String(req.body?.text || '').trim();
+      if (!text) return res.status(400).json({ error: 'invalid', message: 'ยังไม่ได้พิมพ์อะไรมาค่ะ' });
+
+      /* หลายงานหลายลูกค้าในข้อความเดียว ก็ยังเป็นฟอร์มใบเดียว
+       *
+       * ฟอร์มนี้กรอกได้ทีละงาน จึงเอางานแรกมาให้ แล้วบอกไปว่ายังมีอีกกี่งาน
+       * เพื่อให้ฟอร์มเตือนได้ ดีกว่ากลืนงานที่เหลือหายไปเงียบ ๆ
+       */
+      const dump = looksLikeDump(text) ? splitDump(text) : null;
+      const first = dump?.jobs?.[0];
+      const parsed = first
+        ? {
+            jobName: first.jobName,
+            customerName: first.customerName,
+            items: first.items,
+            subtotal: first.subtotal,
+            discount: first.discount,
+            total: first.total,
+            paidAmount: first.paidAmount,
+          }
+        : parseNaturalJob(text);
+
+      const draft = makeDraft({
+        ...parsed,
+        jobDate: todayISO(),
+        dueDate: extractDueDate(text).date || null,
+      });
+
+      res.json({ draft, more: dump ? Math.max(0, (dump.jobs?.length || 0) - 1) : 0 });
     } catch (err) {
       next(err);
     }
