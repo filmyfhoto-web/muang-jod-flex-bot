@@ -51,9 +51,29 @@
     </div>
     <div class="msg">
       <span class="pic ghost" aria-hidden="true"></span>
-      <div class="bubble">กรอกทีละบรรทัดได้เลยค่ะ กด "➕ เพิ่มบรรทัด" เมื่อมีรายการถัดไปนะคะ 💜</div>
+      <div class="bubble">พิมพ์ทีเดียวให้ม่วงกรอกให้ก็ได้ หรือกรอกเองทีละบรรทัดก็ได้ค่ะ 💜</div>
     </div>
   </div>
+
+  <!-- พิมพ์ทีเดียว แล้วให้ม่วงกรอกตารางให้
+       ร้านบอกว่า "ขอแบบกระชับ ตารางไม่เยอะ ไม่พิมพ์หลายรอบ" — ตารางข้างล่างมี
+       สิบช่องต่อหนึ่งรายการ ทั้งที่ร้านพิมพ์ประโยคเดียวในแชตแล้วม่วงอ่านออก
+       มาตั้งนานแล้ว ช่องนี้ใช้ตัวอ่านเดียวกันเป๊ะ พิมพ์แบบไหนในแชตได้ ก็พิมพ์
+       แบบนั้นตรงนี้ได้ -->
+  <section class="card paste" id="paste">
+    <div class="card-top">
+      <span class="chip-ic">⚡</span>
+      <div class="titles">
+        <h2>พิมพ์ทีเดียว</h2>
+        <p>พิมพ์แบบที่พิมพ์ในแชตได้เลย ม่วงกรอกตารางให้</p>
+      </div>
+    </div>
+    <textarea id="p-text" rows="3" placeholder="รร สบกอน&#10;โฟมบอร์ด 1*1.5*700*2=2,100"></textarea>
+    <div class="paste-act">
+      <button type="button" class="btn btn-primary" id="p-go">✨ ให้ม่วงกรอกให้</button>
+      <span class="paste-note" id="p-note"></span>
+    </div>
+  </section>
 
   <!-- รายการงาน: เรียงลงมาเป็นบรรทัดเหมือนใบเสร็จ ไม่ต้องปัดหาทีละใบ -->
   <div class="track" id="items" tabindex="-1"></div>

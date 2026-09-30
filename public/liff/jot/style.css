@@ -669,3 +669,22 @@ body.quick .link-full { display: block; }
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* พิมพ์ทีเดียว แล้วให้ม่วงกรอกตารางให้
+ *
+ * ร้านบอกว่า "ขอแบบกระชับ ตารางไม่เยอะ ไม่พิมพ์หลายรอบ" — อยู่บนสุดก่อนตาราง
+ * เพราะมันคือทางที่เร็วกว่า ไม่ใช่ของเสริมที่ซ่อนไว้ข้างล่าง
+ */
+.paste { margin-bottom: 14px; }
+.paste textarea {
+  width: 100%; box-sizing: border-box; margin-top: 10px;
+  border: 1.5px solid var(--line); border-radius: 12px; padding: 11px 12px;
+  font: inherit; font-size: 14px; line-height: 1.55; resize: vertical;
+  background: var(--tint); color: var(--ink);
+}
+.paste textarea:focus { outline: none; border-color: var(--accent-text); background: var(--card, #fff); }
+.paste-act { display: flex; align-items: center; gap: 10px; margin-top: 9px; }
+.paste-act .btn { flex: none; }
+.paste-note { font-size: 11.5px; color: var(--grey); flex: 1; min-width: 0; }
+.paste-note.bad { color: var(--red); }
+.paste-note.good { color: var(--green); }
