@@ -139,6 +139,43 @@
   }
   .q-day.late { background: var(--red-bg); color: var(--red); }
 
+  /* ปุ่มเลือกว่าลูกค้าแบบไหน — ตัวตัดสินว่าหน้าแก้ไขจะถามอะไรบ้าง
+     สองปุ่มเต็มความกว้าง เพราะมันคือคำถามแรกของหน้านี้ ไม่ใช่ของเสริม */
+  .kinds { display: flex; gap: 8px; margin: 2px 0 14px; }
+  .kinds button {
+    flex: 1; display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
+    border: 1.5px solid var(--line); background: var(--tint); border-radius: 13px;
+    padding: 11px 12px; font: inherit; text-align: left; cursor: pointer; color: var(--sub);
+  }
+  .kinds button b { font-size: 13.5px; font-weight: 700; }
+  .kinds button small { font-size: 10.5px; color: var(--grey); }
+  .kinds button[aria-pressed="true"] { border-color: var(--accent-text); background: var(--accent-dim); color: var(--white); }
+  .kinds button[aria-pressed="true"] small { color: rgba(255,255,255,.82); }
+
+  /* ติ๊กเดียวแทนการกรอกสถานะการเงิน + ช่องรับมาแล้ว */
+  .cash {
+    display: flex; gap: 11px; align-items: center; margin: 4px 0 14px;
+    padding: 12px 13px; border-radius: 13px; border: 1.5px solid var(--line); background: var(--tint);
+    cursor: pointer;
+  }
+  .cash input { width: 21px; height: 21px; flex: none; accent-color: var(--green); margin: 0; }
+  .cash span { display: flex; flex-direction: column; gap: 1px; }
+  .cash b { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+  .cash small { font-size: 10.5px; color: var(--grey); }
+  .cash:has(input:checked) { border-color: var(--green); background: var(--green-bg, #e8f7ee); }
+
+  /* ของที่ม่วงเดาให้ถูกอยู่แล้ว พับไว้ ไม่ต้องเอามาขวางตา */
+  #e-more { margin: 4px 0 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+  #e-more summary {
+    cursor: pointer; font-size: 12.5px; font-weight: 700; color: var(--sub);
+    list-style: none; padding: 4px 0;
+  }
+  #e-more summary::-webkit-details-marker { display: none; }
+  #e-more summary::before { content: '▸ '; color: var(--grey); }
+  #e-more[open] summary::before { content: '▾ '; }
+
+  [data-kind][hidden] { display: none; }
+
   /* หัวกองหมวดงาน — กดพับได้ เพราะยี่สิบงานเรียงยาวคือการเลื่อนหาทีละใบ
      ร้านบอกว่า "อ่านแล้ว งง ปรับให้ใช้งานง่ายกว่านี้ได้มั้ย" — พับไว้แล้วเปิด
      เฉพาะหมวดที่กำลังหา ทำให้ทั้งคิวอยู่ในหน้าจอเดียว */
@@ -317,8 +354,9 @@
            ตรายาง กรอบรูป ป้าย สติ๊กเกอร์ จึงปนกันทั้งกอง เลือกได้ว่าจะแบ่ง
            กองด้วยอะไร ไม่ใช่ซ้อนสองแบบเข้าด้วยกันจนอ่านไม่ออก -->
       <div class="seg sub" id="t-queue-group">
-        <button type="button" data-g="day" aria-pressed="true">📅 ตามวันนัด</button>
-        <button type="button" data-g="cat" aria-pressed="false">🗂️ ตามหมวดงาน</button>
+        <button type="button" data-g="day" aria-pressed="true">📅 วันนัด</button>
+        <button type="button" data-g="cat" aria-pressed="false">🗂️ หมวดงาน</button>
+        <button type="button" data-g="kind" aria-pressed="false">🏫 ลูกค้า</button>
       </div>
       <div id="t-recent"></div>
       <img class="peek front" src="/brand/ui/rest.png" alt="" style="right:10px;bottom:-14px;width:88px" />
@@ -457,49 +495,78 @@
           <button type="button" class="icon-btn" id="e-delete" aria-label="ยกเลิกรายการนี้">🗑</button>
         </span>
       </h2>
+      <!-- ลูกค้าสองแบบ ที่ร้านทำงานกับมันคนละอย่างกันจริง ๆ
+           ร้านบอกว่า "แยกงานโรงเรียนกับงานทั่วไปให้หน่อย ฟีลแบบ เก็บเงินสด
+           หน้าร้านแล้ว แล้วก็ลงบัญชี" — ปุ่มนี้เป็นตัวตัดสินว่าหน้านี้จะถาม
+           อะไรบ้าง เพราะงานสองแบบต้องการคนละเรื่องกัน -->
+      <div class="kinds" id="e-kind">
+        <button type="button" data-k="org"><b>🏫 หน่วยงาน</b><small>วางบิล · ออกใบเสร็จ</small></button>
+        <button type="button" data-k="walkin"><b>🏪 หน้าร้าน</b><small>เก็บเงินสดแล้ว</small></button>
+      </div>
+
       <label for="e-name">รายละเอียด <span class="req">*</span></label>
       <input id="e-name" maxlength="200" />
-      <label for="e-customer">ลูกค้า</label>
+      <label for="e-customer" id="e-customer-lab">ลูกค้า</label>
       <input id="e-customer" maxlength="200" placeholder="เช่น พี่นก" />
-      <label for="e-group">ประเภทงาน</label>
-      <select id="e-group"></select>
-      <label for="e-type">หมวด</label>
-      <select id="e-type"></select>
-      <label>สถานะการเงิน</label>
-      <div class="seg" id="e-status">
-        <button type="button" data-v="pending">ค้างรับ</button>
-        <button type="button" data-v="partial">รับบางส่วน</button>
-        <button type="button" data-v="paid">รับแล้ว</button>
+      <label for="e-total">ราคาที่เก็บลูกค้า <span class="req">*</span></label>
+      <div class="with-unit"><input id="e-total" type="number" inputmode="decimal" min="0" step="1" /><span class="unit">฿</span></div>
+
+      <!-- หน้าร้าน: เงินเข้ากระเป๋าไปแล้ว เหลือแค่ติ๊กว่าเก็บแล้ว
+           ติ๊กเดียวแทนการกรอกสถานะการเงิน + ช่องรับมาแล้ว -->
+      <label class="cash" id="e-cash-row">
+        <input type="checkbox" id="e-cash" />
+        <span><b>💵 เก็บเงินสดแล้ว</b><small>ลงบัญชีเป็นขายวันนี้ ไม่ต้องตามเก็บ</small></span>
+      </label>
+
+      <!-- หน่วยงาน: ของออกไปก่อน เงินตามทีหลัง จึงต้องรู้ว่าค้างเท่าไหร่
+           และนัดรับวันไหน -->
+      <div data-kind="org">
+        <label>สถานะการเงิน</label>
+        <div class="seg" id="e-status">
+          <button type="button" data-v="pending">ค้างรับ</button>
+          <button type="button" data-v="partial">รับบางส่วน</button>
+          <button type="button" data-v="paid">รับแล้ว</button>
+        </div>
+        <label for="e-paid">รับมาแล้ว</label>
+        <div class="with-unit"><input id="e-paid" type="number" inputmode="decimal" min="0" step="1" /><span class="unit">฿</span></div>
+        <label for="e-due">วันรับงาน (นัดรับ / ส่งก่อน)</label>
+        <input id="e-due" type="date" />
       </div>
+
       <!-- งานที่พิมพ์มาหลายรายการ แก้ได้แค่ยอดรวมก้อนเดียวในหน้านี้ — บรรทัด
            ย่อยอยู่ในฟอร์มจดงาน ซึ่งแก้ทีละรายการได้ -->
       <a class="btn btn-soft" id="e-items" hidden></a>
       <!-- ที่ที่ร้านยืนอยู่ตอนงานเสร็จคือหน้านี้ แต่ใบเสร็จเคยออกได้จากแชต
            อย่างเดียว -->
       <button type="button" class="btn btn-soft" id="e-receipt">🧾 ออกใบเสร็จ / ปริ้น</button>
-      <label for="e-total">ราคาที่เก็บลูกค้า <span class="req">*</span></label>
-      <div class="with-unit"><input id="e-total" type="number" inputmode="decimal" min="0" step="1" /><span class="unit">฿</span></div>
-      <!-- ราคาที่คิดได้จากรายการ กับราคาที่ร้านเก็บจริง เป็นคนละตัว ร้านปัดขึ้น
-           เป็นเลขกลม ๆ ได้ ลูกค้าเห็นแค่ตัวที่เก็บ ส่วนตัวที่คิดได้ยังอยู่ครบ -->
-      <div class="mine" id="e-mine" hidden>
-        <span class="mine-tag">🔒 เฉพาะร้าน · ลูกค้าไม่เห็นบรรทัดนี้</span>
-        <label class="mine-lab" for="e-listed">ราคายังไม่ปัด</label>
-        <div class="with-unit"><input id="e-listed" type="number" inputmode="decimal" min="0" step="1" /><span class="unit">฿</span></div>
-        <div class="mine-row"><span id="e-rows"></span><b id="e-gap"></b></div>
-        <div class="mine-round">
-          <button type="button" data-round="10">ปัดขึ้นสิบ</button>
-          <button type="button" data-round="100">ปัดขึ้นร้อย</button>
-          <button type="button" data-round="0">ไม่ปัด</button>
+
+      <!-- ที่เหลือพับไว้ — ม่วงเดาให้หมดแล้วตอนจด ร้านบอกว่า "ไม่ต้องกรอกเยอะ
+           บางทีไม่มีเวลากรอกเอง" ของที่ถูกอยู่แล้วไม่ต้องเอามาขวางตา -->
+      <details id="e-more">
+        <summary>ตัวเลือกเพิ่มเติม</summary>
+        <label for="e-group">ประเภทงาน</label>
+        <select id="e-group"></select>
+        <label for="e-type">หมวด</label>
+        <select id="e-type"></select>
+        <label for="e-date">วันที่จด</label>
+        <input id="e-date" type="date" />
+        <!-- ราคาที่คิดได้จากรายการ กับราคาที่ร้านเก็บจริง เป็นคนละตัว ร้านปัดขึ้น
+             เป็นเลขกลม ๆ ได้ ลูกค้าเห็นแค่ตัวที่เก็บ ส่วนตัวที่คิดได้ยังอยู่ครบ -->
+        <div class="mine" id="e-mine" hidden>
+          <span class="mine-tag">🔒 เฉพาะร้าน · ลูกค้าไม่เห็นบรรทัดนี้</span>
+          <label class="mine-lab" for="e-listed">ราคายังไม่ปัด</label>
+          <div class="with-unit"><input id="e-listed" type="number" inputmode="decimal" min="0" step="1" /><span class="unit">฿</span></div>
+          <div class="mine-row"><span id="e-rows"></span><b id="e-gap"></b></div>
+          <div class="mine-round">
+            <button type="button" data-round="10">ปัดขึ้นสิบ</button>
+            <button type="button" data-round="100">ปัดขึ้นร้อย</button>
+            <button type="button" data-round="0">ไม่ปัด</button>
+          </div>
         </div>
-      </div>
-      <label for="e-paid">รับมาแล้ว</label>
-      <div class="with-unit"><input id="e-paid" type="number" inputmode="decimal" min="0" step="1" /><span class="unit">฿</span></div>
-      <label for="e-date">วันที่จด</label>
-      <input id="e-date" type="date" />
-      <label for="e-due">วันรับงาน (นัดรับ / ส่งก่อน)</label>
-      <input id="e-due" type="date" />
-      <label for="e-note">หมายเหตุ (ถ้ามี)</label>
-      <textarea id="e-note" rows="2" maxlength="500" placeholder="เช่น ส่งของวันจันทร์"></textarea>
+        <label for="e-note">หมายเหตุ (ถ้ามี)</label>
+        <textarea id="e-note" rows="2" maxlength="500" placeholder="เช่น ส่งของวันจันทร์"></textarea>
+      </details>
+
       <button class="btn btn-primary" id="e-save">บันทึก</button>
       <button class="btn btn-ghost" id="e-back">← กลับ</button>
     </div>
@@ -824,7 +891,7 @@ const QUEUE_GROUP_KEY = 'mj.queue.group';
 let queueGroup = 'day';
 try {
   const saved = localStorage.getItem(QUEUE_GROUP_KEY);
-  if (saved === 'day' || saved === 'cat') queueGroup = saved;
+  if (saved === 'day' || saved === 'cat' || saved === 'kind') queueGroup = saved;
 } catch (e) { /* เหมือนกัน */ }
 
 // หมวดที่ร้านกางไว้ อยู่แค่ในหน้าที่เปิดอยู่ — วาดใหม่แล้วยังกางเหมือนเดิม
@@ -1061,6 +1128,37 @@ function renderQueue(el, owed, paid, filter = 'all') {
       el.appendChild(body);
     }
   };
+
+  /* แบ่งตามลูกค้าสองแบบ — ร้านขอ "แยกงานโรงเรียนกับงานทั่วไปให้หน่อย"
+   *
+   * งานโรงเรียนคือของที่ต้องตามเก็บเงินและออกใบเสร็จ ส่วนงานหน้าร้านเก็บเงินสด
+   * ไปแล้วตั้งแต่ลูกค้ายืนอยู่ตรงนั้น สองกองนี้ร้านทำคนละอย่างกับมัน
+   */
+  const byKind = (list, done) => {
+    if (!list.length) return;
+    for (const k of ['org', 'walkin']) {
+      const jobs = list.filter((j) => kindOf(j.customer_name) === k).sort(byDue);
+      if (!jobs.length) continue;
+      const meta = k === 'org'
+        ? { icon: '🏫', label: 'หน่วยงาน · โรงเรียน' }
+        : { icon: '🏪', label: 'หน้าร้าน · ลูกค้าทั่วไป' };
+
+      const head = document.createElement('div');
+      head.className = 'q-head';
+      head.innerHTML = '<span></span><span class="amt"></span>';
+      head.querySelector('span').textContent = `${meta.icon} ${meta.label} · ${jobs.length} งาน`;
+      head.querySelector('.amt').textContent = thb(sumOf(jobs, done));
+      el.appendChild(head);
+
+      jobs.forEach((j, i) => appendJob(el, j, i + 1, done, true));
+    }
+  };
+
+  if (queueGroup === 'kind') {
+    if (filter !== 'paid' && owed.length) { sectionHead('💰 ค้างรับ', owed, false); byKind(owed, false); }
+    if (filter !== 'owed' && paid.length) { sectionHead('✅ รับเงินแล้ว', paid, true); byKind(paid, true); }
+    return;
+  }
 
   if (queueGroup === 'cat') {
     if (filter !== 'paid' && owed.length) { sectionHead('💰 ค้างรับ', owed, false); byCat(owed, false); }
@@ -1314,6 +1412,55 @@ function fillTypes(groupId, typeId) {
 
 $('e-group').onchange = () => fillTypes($('e-group').value, '');
 
+/* ลูกค้าแบบไหน — ตัวเดียวกับ src/utils/customerKind.js
+ *
+ * เขียนซ้ำตรงนี้เพราะหน้าเว็บโหลดเป็นไฟล์เดียวไม่มีตัวรวมโมดูล แต่กติกาต้อง
+ * ตรงกับฝั่งเซิร์ฟเวอร์ ไม่งั้นงานเดียวกันอยู่คนละกองแล้วแต่ว่าถามจากตรงไหน
+ * (tests/customerKind.test.js คุมไว้ว่าสองที่ต้องตรงกัน)
+ */
+const ORG_RE = /^\s*(?:รพ\.?\s?สต\.?|โรงพยาบาลส่งเสริมสุขภาพตำบล|โรงพยาบาล|รพ\.|โรงเรียน|ร\.?ร\.|รร\.?|มหาวิทยาลัย|เทศบาล|อบต\.?|อบจ\.?|สำนักงาน|บริษัท|หจก\.?|ธ\.?ก\.?ส\.?|สหกรณ์|กศน\.?|วัด|ร้าน)/;
+const kindOf = (name) => (ORG_RE.test(String(name || '').trim()) ? 'org' : 'walkin');
+
+let editKind = 'walkin';
+
+/* หน้านี้ถามอะไรบ้าง ขึ้นกับว่าลูกค้าแบบไหน
+ *
+ * หน่วยงาน = ของออกไปก่อน เงินตามทีหลัง ต้องรู้ว่าค้างเท่าไหร่ นัดรับวันไหน
+ * หน้าร้าน  = เงินเข้ากระเป๋าไปแล้ว เหลือแค่ติ๊กว่าเก็บแล้ว
+ */
+function setKind(k) {
+  editKind = k === 'org' ? 'org' : 'walkin';
+  [...$('e-kind').children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.k === editKind)));
+  document.querySelectorAll('#v-edit [data-kind]').forEach((el) => {
+    el.hidden = el.dataset.kind !== editKind;
+  });
+  $('e-cash-row').hidden = editKind !== 'walkin';
+  $('e-customer-lab').textContent = editKind === 'org' ? 'ชื่อหน่วยงาน' : 'ลูกค้า (ไม่ใส่ก็ได้)';
+  $('e-customer').placeholder = editKind === 'org' ? 'เช่น โรงเรียนบ้านปงสนุก' : 'เช่น พี่นก';
+}
+
+$('e-kind').onclick = (e) => {
+  const b = e.target.closest('button[data-k]');
+  if (!b) return;
+  setKind(b.dataset.k);
+};
+
+/* ติ๊ก "เก็บเงินสดแล้ว" = จ่ายครบ · เอาติ๊กออก = ยังไม่ได้เก็บ
+ *
+ * ช่องสถานะการเงินกับช่องรับมาแล้วยังเป็นตัวจริงที่ถูกบันทึก ติ๊กนี้แค่กรอก
+ * ให้ — ไม่ได้มีทางเก็บสถานะสองทางที่มีวันขัดกันเอง
+ */
+function syncCash() {
+  const on = $('e-cash').checked;
+  setStatus(on ? 'paid' : 'pending');
+  $('e-paid').value = on ? Number($('e-total').value) || 0 : 0;
+}
+
+$('e-cash').onchange = syncCash;
+$('e-total').addEventListener('input', () => {
+  if (editKind === 'walkin' && $('e-cash').checked) $('e-paid').value = Number($('e-total').value) || 0;
+});
+
 function setStatus(v) {
   [...$('e-status').children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
 }
@@ -1392,6 +1539,9 @@ async function openEdit(id) {
     fillGroups(job.category || 'other');
     fillTypes($('e-group').value, job.category_type || '');
     setStatus(job.payment_status || 'pending');
+    // เดาจากชื่อลูกค้า แล้วร้านกดสลับได้ถ้าเดาผิด
+    setKind(kindOf(job.customer_name));
+    $('e-cash').checked = (job.payment_status || 'pending') === 'paid';
     paintMine();
 
     // ทางไปแก้บรรทัดย่อย หน้านี้มีช่องยอดรวมช่องเดียว งานที่พิมพ์มาสองรายการ
