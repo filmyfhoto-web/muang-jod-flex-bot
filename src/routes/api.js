@@ -27,9 +27,10 @@ import { receiptUrl } from '../flex/billFlex.js';
 import { withShopKey } from '../utils/receiptLink.js';
 import { createBill, getBillById } from '../services/billService.js';
 import { derivePaymentFields } from '../utils/payment.js';
-import { pickupPatch, jobState } from '../utils/jobState.js';
+import { pickupPatch, jobState, stagePatch, jobStage, JOB_STAGES } from '../utils/jobState.js';
 import { round2 } from '../utils/currency.js';
 import { buildBook, buildAccount } from '../utils/customerBook.js';
+import { buildLedger } from '../utils/ledger.js';
 import { deriveJobName } from '../utils/category.js';
 import { getState as readState, clearState as dropState, STATES } from '../services/stateService.js';
 import { todayISO } from '../utils/dates.js';
@@ -86,11 +87,23 @@ function bearer(req) {
  * เดียวกันใช้กับช่องอื่นได้ และข้อความอย่างเดียวก็เปลี่ยนถ้อยคำได้ตามเวอร์ชัน
  */
 export function missingPickupColumn(err) {
+  return missingColumn(err, 'picked_up_at');
+}
+
+/* ช่องที่ migration เพิ่งเพิ่ม ยังไม่มีในฐานข้อมูล
+ *
+ * ของเดิมเคสนี้ตกไปเป็น error 500 แล้วหน้าเว็บขึ้นว่า "บันทึกไม่สำเร็จ" เฉย ๆ
+ * ปุ่มเด้งกลับที่เดิมทุกครั้ง ร้านเห็นเป็น "กดไม่ได้" โดยไม่มีอะไรบอกว่าต้อง
+ * ทำอะไรถึงจะกดได้ — บอกไปตรง ๆ ดีกว่าให้เดา
+ */
+export function missingColumn(err, ...fields) {
   const code = String(err?.code || '');
   const text = `${err?.message || ''} ${err?.details || ''}`;
-  if (!text.includes('picked_up_at')) return false;
+  if (!fields.some((f) => text.includes(f))) return false;
   return code === 'PGRST204' || code === '42703' || /column|schema cache/i.test(text);
 }
+
+const STAGE_COLUMNS = ['done_at', 'booked_at', 'pay_method'];
 
 // A photo from the form, as a data: URL. Only the two types the storage
 // bucket already knows, and small enough that the browser must downscale
@@ -127,6 +140,7 @@ export function createApiRouter(deps = {}) {
   const saveJob = deps.updateJob || updateJob;
   const queueJobs = deps.getQueueJobs || getQueueJobs;
   const bookJobs = deps.getBookJobs || getBookJobs;
+  const takePayment = deps.recordPayment || recordPayment;
   const readCheckin = deps.getCheckinSettings || getCheckinSettings;
   const writeCheckin = deps.saveCheckinSettings || saveCheckinSettings;
   // Tell the chat about a job saved from the form. Never throws: the job is
@@ -483,6 +497,20 @@ export function createApiRouter(deps = {}) {
     }
   });
 
+  /* ใบลงบัญชีประจำวัน — เงินที่รับมาจริงทั้งวัน แยกเงินสดกับเงินโอน
+   *
+   * คนละใบกับใบเสร็จ: ใบเสร็จเป็นของลูกค้าทีละเจ้า ใบนี้เป็นของคนทำบัญชี
+   */
+  router.get('/ledger', async (req, res, next) => {
+    try {
+      const wanted = String(req.query.date || '').trim();
+      const date = /^\d{4}-\d{2}-\d{2}$/.test(wanted) ? wanted : todayISO();
+      res.json(buildLedger(await bookJobs(req.profile.id), date));
+    } catch (err) {
+      next(err);
+    }
+  });
+
   router.get('/jobs', async (req, res, next) => {
     try {
       const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 50);
@@ -714,12 +742,71 @@ export function createApiRouter(deps = {}) {
     }
   });
 
+  /* แตะช่องในตารางสี่ขั้น — งานเดินถึงขั้นนั้น
+   *
+   * ส่งขั้นที่ต้องการมาทั้งตัว ไม่ใช่ "เดินหน้าหนึ่งขั้น" เพราะหน้าจอกับ
+   * ฐานข้อมูลอาจไม่ตรงกันถ้าเปิดสองเครื่อง — บอกปลายทางมา แล้วผลลัพธ์จะ
+   * เหมือนกันไม่ว่ากดจากที่ไหน กี่ครั้ง
+   */
+  router.post('/jobs/:id/stage', async (req, res, next) => {
+    try {
+      const current = await findJob(req.profile.id, req.params.id);
+      if (!current) return res.status(404).json({ error: 'not_found' });
+
+      const patch = stagePatch(current, req.body?.stage);
+      if (!patch) {
+        return res.status(400).json({ error: 'invalid', message: 'ขั้นที่ส่งมาไม่มีอยู่จริงค่ะ' });
+      }
+
+      try {
+        await saveJob(req.profile.id, req.params.id, patch);
+      } catch (err) {
+        if (missingColumn(err, ...STAGE_COLUMNS)) {
+          logger.warn('api.job_stage_no_column', { jobId: req.params.id });
+          return res.status(503).json({
+            error: 'not_ready',
+            message: 'ยังเปิดใช้ปุ่มนี้ไม่ได้ค่ะ — ต้องรัน migration 015_job_stages.sql ใน Supabase ก่อน',
+          });
+        }
+        throw err;
+      }
+
+      const job = await findJob(req.profile.id, req.params.id);
+      logger.info('api.job_stage', {
+        user: maskUserId(req.profile.line_user_id),
+        jobId: req.params.id,
+        stage: jobStage(job),
+      });
+      res.json({ job, stage: jobStage(job), stages: JOB_STAGES.map((s) => s.label) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   router.post('/jobs/:id/payments', async (req, res, next) => {
     try {
       const check = safe(paymentAmountSchema, req.body?.amount);
       if (!check.ok) return res.status(400).json({ error: 'invalid', message: check.error });
-      const job = await recordPayment(req.profile.id, req.params.id, check.data);
+      const job = await takePayment(req.profile.id, req.params.id, check.data);
       if (!job) return res.status(404).json({ error: 'not_found' });
+
+      /* เงินสดหรือโอน — ใบลงบัญชีต้องแยก เพราะเงินสดอยู่ในลิ้นชัก เงินโอน
+       * อยู่ในบัญชีธนาคาร คนทำบัญชีกระทบยอดคนละทาง
+       *
+       * ไม่ได้บอกมาก็ไม่เดา: ว่างคือ "ยังไม่ได้บอก" ซึ่งไม่เหมือนเงินสด
+       */
+      const method = req.body?.method;
+      if (method === 'cash' || method === 'transfer') {
+        try {
+          const marked = await saveJob(req.profile.id, req.params.id, { pay_method: method });
+          if (marked) return res.json({ job: marked });
+        } catch (err) {
+          // เงินลงไปแล้ว การจดวิธีจ่ายไม่ผ่านต้องไม่ทำให้ยอดที่รับมาหายไปด้วย
+          if (!missingColumn(err, 'pay_method')) throw err;
+          logger.warn('api.pay_method_no_column', { jobId: req.params.id });
+        }
+      }
+
       res.json({ job });
     } catch (err) {
       next(err);

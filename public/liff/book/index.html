@@ -218,6 +218,14 @@
 
   <div id="list" style="display:flex;flex-direction:column;gap:9px"></div>
 
+  <a id="to-ledger" href="../ledger/" style="display:flex;align-items:center;gap:11px;background:#fff;border-radius:16px;padding:11px 13px;text-decoration:none;color:inherit;box-shadow:0 1px 2px rgba(31,43,69,.05),0 4px 12px rgba(31,43,69,.05)">
+    <span class="chip" style="background:#35486E">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/></svg>
+    </span>
+    <div class="who"><b>ใบลงบัญชีวันนี้</b><span>เงินที่รับมาจริงทั้งวัน แยกสด/โอน</span></div>
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#A8B2C4" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+  </a>
+
   <div class="hint" id="hint" hidden>
     <img src="/brand/ui/rest.png" alt="" />
     <span id="hint-text"></span>
@@ -302,6 +310,7 @@ function renderBook() {
   list.innerHTML = '';
   $('picker').hidden = true;
   $('bar').hidden = true;
+  $('to-ledger').hidden = false;
   $('tabs').hidden = false;
   $('back').hidden = false;
   $('back').setAttribute('aria-label', 'กลับหน้างานวันนี้');
@@ -398,6 +407,7 @@ function renderAccount() {
   const list = $('list');
   list.innerHTML = '';
   $('tabs').hidden = true;
+  $('to-ledger').hidden = true;
   $('back').hidden = false;
   $('back').setAttribute('aria-label', 'กลับสมุดลูกค้า');
   $('hint').hidden = false;
