@@ -579,6 +579,7 @@
   <button data-tab="today" aria-selected="true"><span>🏠</span>งานวันนี้</button>
   <button data-tab="report" aria-selected="false"><span>📊</span>สรุปรายการ</button>
   <button data-tab="pending" aria-selected="false"><span>📋</span>งานค้างรับ</button>
+  <button data-go="book/"><span>📒</span>สมุดลูกค้า</button>
   <button data-tab="settings" aria-selected="false"><span>⚙️</span>ตั้งค่า</button>
 </nav>
 
@@ -1630,7 +1631,12 @@ $('e-delete').onclick = async () => {
 $('e-back').onclick = () => show(tab === 'edit' ? 'today' : tab);
 $('s-close').onclick = () => (liff.isInClient() ? liff.closeWindow() : show('today'));
 
-document.querySelectorAll('nav button').forEach((b) => (b.onclick = () => show(b.dataset.tab)));
+document.querySelectorAll('nav button').forEach((b) => (b.onclick = () => {
+  // ปุ่มที่พาไปอีกหน้าในแอปเดียวกัน (สมุดลูกค้า) — โดเมนเดียวกัน จึงไม่ต้อง
+  // init LIFF ใหม่ ส่วนปุ่มที่เหลือเป็นแท็บของหน้านี้
+  if (b.dataset.go) return void (location.href = b.dataset.go);
+  show(b.dataset.tab);
+}));
 document.querySelectorAll('[data-go]').forEach((el) => (el.onclick = () => show(el.dataset.go)));
 // สลับช่องคิวงาน — ข้อมูลชุดเดิม คนละมุม ไม่ต้องโหลดใหม่
 $('t-queue-filter').onclick = (e) => {
