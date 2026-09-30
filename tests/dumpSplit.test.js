@@ -242,7 +242,9 @@ test('"จ่ายเงินแล้ว" โดยไม่บอกจำ�
   assert.equal(saysPaidInFull('มัดจำ 300'), false);
 });
 
-test('"รับไปแล้ว" ตอบคำถามวันนัดได้ แปลว่าวันนี้', async () => {
+test('"รับไปแล้ว" ตอบคำถามวันนัดได้ แปลว่าวันนี้', async (t) => {
+  // หยุดนาฬิกา ไม่งั้นพอเลย 25 ก.ย. บรรทัดสุดท้ายตีเป็นปีหน้า แล้วเทสต์แดงเอง
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-09-20T03:00:00Z') });
   const { extractDueDate } = await import('../src/utils/thaiDate.js');
   const { todayISO } = await import('../src/utils/dates.js');
   const today = todayISO();
