@@ -196,30 +196,24 @@
 
   /* ปุ่มสามปุ่มใต้งานในคิว: ✅ รับแล้ว · 📛 ค้างจ่าย · ❎ ยังไม่มารับ
      เตี้ยและชิดกัน เพราะมันคือของต่อท้ายแถว ไม่ใช่ของหลักในหน้า */
-  .states { display: flex; gap: 6px; margin: -2px 0 10px 46px; }
-  .states .st {
-    flex: 1;
-    border: 1.5px solid var(--line);
-    background: var(--tint);
-    color: var(--grey);
-    border-radius: 9px;
-    padding: 7px 2px;
-    font: inherit;
-    font-size: 11.5px;
-    font-weight: 600;
-    white-space: nowrap;
-    cursor: pointer;
+  /* สี่ขั้นของงานใบหนึ่ง: ทำเสร็จ -> ลูกค้ารับ -> ได้เงิน -> ลงบัญชี
+     ช่องที่ลงแล้วเป็นเขียว ช่องที่รออยู่เป็นขอบประ ที่เหลือจาง */
+  .stages { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: -2px 0 10px 46px; }
+  .stages.saving { opacity: .55; pointer-events: none; }
+  .stages .sg { border: 0; background: none; padding: 0; text-align: center; }
+  .stages .sg .box {
+    width: 100%; height: 34px; border-radius: 10px; display: flex;
+    align-items: center; justify-content: center; font-size: 11px;
+    background: var(--white); border: 1.5px solid var(--line); color: var(--sub);
   }
-  /* ปุ่มที่เป็นสถานะตอนนี้ ติดสีของเรื่องนั้น ๆ — เขียวคือจบ แดงคือค้างเงิน
-     เทาเข้มคือยังไม่มารับ ซึ่งไม่ใช่เรื่องร้ายแรง แค่ยังไม่เกิดขึ้น */
-  .states .st.on { color: var(--white); border-color: transparent; }
-  .states .st-done.on { background: var(--green); }
-  .states .st-owed.on { background: var(--red); }
-  .states .st-waiting.on { background: var(--sub); }
-  .states.saving { opacity: .55; pointer-events: none; }
+  .stages .sg.on .box { background: var(--green); border-color: var(--green); color: var(--white); font-weight: 700; }
+  .stages .sg.next .box { border-style: dashed; border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+  .stages .sg .lab { font-size: 10px; color: var(--sub); margin-top: 3px; line-height: 1.3; }
+  .stages .sg.on .lab { color: var(--green); }
+  .stages .sg.next .lab { color: var(--accent-text); font-weight: 600; }
   @media (max-width: 360px) {
-    .states { margin-left: 0; }
-    .states .st { font-size: 11px; padding: 7px 1px; }
+    .stages { margin-left: 0; gap: 4px; }
+    .stages .sg .box { font-size: 10.5px; }
   }
   .q-day.today { background: var(--accent-soft, #dce7fb); color: var(--accent-text); }
   .job .late { color: var(--red); font-weight: 700; }
@@ -597,14 +591,19 @@ const BADGE = { paid: ['b-paid', 'รับเงินแล้ว'], partial: 
  * "ของออกจากร้านไปหรือยัง" กับ "ได้เงินหรือยัง" เป็นคนละเรื่อง งานที่ทำเสร็จ
  * วางรออยู่หน้าร้าน กับงานที่ลูกค้าหอบไปแล้วแต่ยังไม่จ่าย ต้องตามคนละแบบ
  */
-const JOB_STATES = [
-  { id: 'done', icon: '✅', label: 'รับแล้ว' },
-  { id: 'owed', icon: '📛', label: 'ค้างจ่าย' },
-  { id: 'waiting', icon: '❎', label: 'ยังไม่มารับ' },
-];
-function jobStateOf(job) {
-  if (!job.picked_up_at) return 'waiting';
-  return (Number(job.balance_due) || 0) > 0.009 ? 'owed' : 'done';
+/* สี่ขั้นที่ร้านเขียนมาเอง — ต้องตรงกับ src/utils/jobState.js
+ *
+ * นับแบบ "เดินมาถึงไหน" ไม่ใช่ติ๊กอิสระสี่ช่อง งานจริงเดินทางเดียว และร้าน
+ * อ่านคิวด้วยการกวาดตาหาว่าแถวไหนหยุดอยู่ตรงไหน
+ */
+const JOB_STAGES = ['ทำเสร็จ', 'ลูกค้ารับ', 'ได้เงิน', 'ลงบัญชี'];
+function jobStageOf(job) {
+  const paid = (Number(job.total) || 0) > 0 && (Number(job.balance_due) || 0) <= 0.009;
+  // ลูกค้ารับของไปแล้ว แปลว่างานเสร็จแน่ ถึงจะไม่เคยกดปุ่มทำเสร็จ
+  const steps = [Boolean(job.done_at || job.picked_up_at), Boolean(job.picked_up_at), paid, Boolean(job.booked_at)];
+  let at = 0;
+  for (const ok of steps) { if (!ok) break; at += 1; }
+  return at;
 }
 // สีวงโดนัท — ชุดเดิมเป็นพาสเทลสำหรับพื้นเข้ม พอมาอยู่บนขาวแล้วจาง
 // แยกสีกันไม่ออก ชุดนี้เข้มพอที่จะอ่านบนขาวและยังต่างกันชัด
@@ -959,41 +958,54 @@ function dayLabel(iso, today, done) {
 // คิวงานสองกอง: ค้างรับก่อน เพราะนั่นคืองานที่ยังต้องตามเก็บเงิน แล้วในแต่ละกอง
 // คั่นเป็นวัน ๆ ตามวันนัดรับ — ร้านขอ "แยกงานรับแล้วกับค้างงาน" และ "คิวงานตาม
 // ลำดับวัน" ซึ่งเป็นการแบ่งคนละชั้นกัน ไม่ใช่สองวิธีเรียงที่ต้องเลือกอย่างเดียว
-/* ปุ่มสามปุ่มใต้งานในคิว — ร้านขอมาตรง ๆ
+/* สี่ขั้นใต้งานในคิว — ร้านเขียนมาเอง
  *
- * โชว์ทั้งสามปุ่มตลอด ไม่ใช่ซ่อนไว้ใต้การกด เพราะสิ่งที่ร้านทำคือกวาดตาดูทั้ง
- * คิวแล้วกดอัปเดตทีละงาน การต้องเปิดเมนูก่อนทุกครั้งคือหนึ่งจังหวะที่เสียไป
- * ยี่สิบรอบ
+ *   เสร็จแล้ว *รับแล้ว *จ่ายแล้ว *ลงบัญชี
  *
- * กดแล้วเปลี่ยนหน้าจอให้เห็นก่อนเลย ไม่ต้องรอเน็ต — ถ้าเซิร์ฟเวอร์ปฏิเสธค่อย
- * ถอยกลับ ร้านกดรัว ๆ ยี่สิบงานแล้วรอโหลดทีละครั้งคือการรอที่ไม่จำเป็น
+ * ของเดิมเป็นสามปุ่มที่เลือกอย่างใดอย่างหนึ่ง (รับแล้ว / ค้างจ่าย / ยังไม่มารับ)
+ * ซึ่งตอบได้แค่สองขั้นกลาง ตอบไม่ได้ว่างานทำเสร็จหรือยัง และลงบัญชีไปหรือยัง
+ *
+ * โชว์ทั้งสี่ช่องตลอด ไม่ซ่อนไว้ใต้การกด เพราะสิ่งที่ร้านทำคือกวาดตาดูทั้งคิว
+ * แล้วกดอัปเดตทีละงาน การต้องเปิดเมนูก่อนทุกครั้งคือหนึ่งจังหวะที่เสียไปยี่สิบรอบ
+ *
+ * กดแล้วบันทึกเลย ถ้าเซิร์ฟเวอร์ปฏิเสธค่อยถอยค่ากลับและบอกว่าทำไม
  */
-function stateBar(job) {
+function stageBar(job) {
   const bar = document.createElement('div');
-  bar.className = 'states';
-  const current = jobStateOf(job);
+  bar.className = 'stages';
+  const at = jobStageOf(job);
 
-  JOB_STATES.forEach((st) => {
+  JOB_STAGES.forEach((label, i) => {
+    const n = i + 1;
+    const done = n <= at;
+    const next = n === at + 1;
+
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'st st-' + st.id + (st.id === current ? ' on' : '');
-    b.textContent = st.icon + ' ' + st.label;
-    b.setAttribute('aria-pressed', String(st.id === current));
+    b.className = 'sg' + (done ? ' on' : next ? ' next' : '');
+    b.setAttribute('aria-pressed', String(done));
+    b.setAttribute('aria-label', label + ' — ' + (job.job_name || 'งาน'));
+    b.innerHTML = '<span class="box">' + (done ? '✓' : next ? 'แตะลง' : '—') + '</span>' +
+                  '<span class="lab">' + label + '</span>';
+
     b.onclick = async (e) => {
       e.stopPropagation();
-      if (st.id === jobStateOf(job)) return;
-      const before = { picked_up_at: job.picked_up_at, balance_due: job.balance_due, paid_amount: job.paid_amount };
-      [...bar.children].forEach((x) => x.classList.remove('on'));
-      b.classList.add('on');
+      // แตะช่องที่งานอยู่ = ถอยกลับหนึ่งขั้น · แตะช่องอื่น = เดินไปถึงขั้นนั้น
+      const now = jobStageOf(job);
+      const want = now === n ? i : n;
+      const before = {
+        done_at: job.done_at, picked_up_at: job.picked_up_at, booked_at: job.booked_at,
+        balance_due: job.balance_due, paid_amount: job.paid_amount, payment_status: job.payment_status,
+      };
       bar.classList.add('saving');
       try {
-        const { job: saved } = await api('/jobs/' + job.id + '/state', {
+        const { job: saved } = await api('/jobs/' + job.id + '/stage', {
           method: 'POST',
-          body: JSON.stringify({ state: st.id }),
+          body: JSON.stringify({ stage: want }),
         });
         Object.assign(job, saved);
-        toast(st.icon + ' ' + st.label);
-        // ยอดบนหัวข้อกองและตัวเลขบนปุ่มกรองเปลี่ยนตามสถานะที่เพิ่งกด
+        toast(want === 0 ? 'ถอยกลับไปยังไม่เริ่มแล้วค่ะ' : JOB_STAGES[want - 1] + ' แล้วค่ะ');
+        // ยอดบนหัวข้อกองและตัวเลขบนปุ่มกรองเปลี่ยนตามขั้นที่เพิ่งกด
         await loadQueue();
       } catch (err) {
         Object.assign(job, before);
@@ -1049,7 +1061,7 @@ function renderQueue(el, owed, paid, filter = 'all') {
   // หนึ่งงาน = แถว + ปุ่มสถานะ ใช้ร่วมกันทั้งสองแบบการแบ่งกอง
   const appendJob = (parent, j, n, done, lateNote) => {
     parent.appendChild(jobRow(j, { queue: true, n, done, today, lateNote }));
-    parent.appendChild(stateBar(j));
+    parent.appendChild(stageBar(j));
   };
 
   // แบ่งตามวันนัดรับ — ของเดิม

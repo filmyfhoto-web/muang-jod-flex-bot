@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>ม่วงจดให้ — ใบลงบัญชี</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    color-scheme: light;
+    --navy: #35486E;
+    --navy-deep: #2C3C5E;
+    --navy-soft: #43578A;
+    --gold: #DDA83D;
+    --ink: #1F2B45;
+    --muted: #5E6E8C;
+    --faint: #97A3B8;
+    --line: #E2E6EE;
+    --hair: #EEF1F6;
+    --bg: #EFF1F5;
+    --green: #2E7D5B;
+    --green-tint: #E4F0EA;
+    --red: #B3402F;
+    --blue: #3E6FA8;
+    --blue-tint: #E8ECF5;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Thonburi", Thonburi,
+                 "Noto Sans Thai", "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-text-size-adjust: 100%;
+  }
+  button, input { font: inherit; }
+  button { cursor: pointer; }
+
+  header {
+    background: var(--navy);
+    border-radius: 0 0 26px 26px;
+    padding: 14px 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .htop { display: flex; align-items: center; gap: 11px; }
+  .htop img { width: 52px; height: 52px; object-fit: contain; flex-shrink: 0; }
+  .htitle { flex: 1; min-width: 0; }
+  .htitle b { display: block; font-size: 16px; font-weight: 600; color: #fff; line-height: 1.3; }
+  .htitle span { font-size: 11.5px; color: #C6CFE0; line-height: 1.4; }
+  .back { width: 38px; height: 38px; margin-left: -8px; border: 0; background: none;
+          border-radius: 999px; display: flex; align-items: center; justify-content: center; }
+
+  .when { display: flex; align-items: center; gap: 8px; }
+  .when input {
+    flex: 1; height: 38px; border: 0; border-radius: 11px; background: #fff;
+    padding: 0 12px; font-size: 13px; color: var(--ink);
+  }
+  .when button {
+    height: 38px; padding: 0 13px; border: 0; border-radius: 11px;
+    background: var(--navy-soft); color: #fff; font-size: 12px; font-weight: 600;
+  }
+
+  .sums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .sums div { background: var(--navy-soft); border-radius: 13px; padding: 8px 11px; }
+  /* ก้อนรวมกินเต็มแถว เวลามีวิธีรับเงินครบสามแบบแล้วมันตกลงมาอยู่แถวล่าง
+     คนเดียว — เต็มแถวอ่านเป็น "รวม" ชัดกว่าก้อนเล็กลอยอยู่มุมซ้าย */
+  .sums div.big { background: #fff; grid-column: 1 / -1; }
+  .sums small { display: block; font-size: 10.5px; color: #C6CFE0; line-height: 1.4; }
+  .sums div.big small { color: var(--muted); }
+  .sums b { font-size: 16px; font-weight: 700; color: #fff; line-height: 1.25; }
+  .sums div.big b { color: var(--ink); }
+
+  main { padding: 12px 18px 22px; display: flex; flex-direction: column; gap: 10px; }
+  .headline { display: flex; align-items: baseline; gap: 8px; padding: 0 2px; }
+  .headline span { flex: 1; font-size: 12.5px; color: var(--muted); }
+  .headline b { font-size: 12.5px; }
+
+  .card { background: #fff; border-radius: 16px; padding: 3px 13px 8px;
+          box-shadow: 0 1px 2px rgba(31,43,69,.05), 0 4px 12px rgba(31,43,69,.05); }
+  .row { display: flex; align-items: center; gap: 9px; padding: 8px 0; border-bottom: 1px solid var(--hair); }
+  .row:last-child { border-bottom: 0; }
+  .row .no { font-size: 10.5px; color: var(--faint); width: 16px; flex-shrink: 0; }
+  .row .what { flex: 1; min-width: 0; }
+  .row .what b { display: block; font-size: 13px; font-weight: 600; line-height: 1.35; }
+  .row .what span { font-size: 10.5px; color: var(--muted); line-height: 1.4; }
+  .tag { font-size: 10px; font-weight: 600; padding: 1px 8px; border-radius: 999px; flex-shrink: 0; }
+  .tag.cash { background: var(--green-tint); color: var(--green); }
+  .tag.transfer { background: var(--blue-tint); color: var(--blue); }
+  .tag.unknown { background: #F1F4F9; color: var(--muted); }
+  .row .amt { font-size: 13px; font-weight: 600; white-space: nowrap; width: 66px; text-align: right; }
+
+  .total { background: var(--navy); border-radius: 16px; padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
+  .total span { flex: 1; font-size: 13px; font-weight: 600; color: #fff; }
+  .total b { font-size: 21px; font-weight: 700; color: var(--gold); }
+
+  .carry { background: #fff; border-radius: 16px; padding: 11px 13px; display: flex; align-items: center; gap: 10px;
+           box-shadow: 0 1px 2px rgba(31,43,69,.05), 0 4px 12px rgba(31,43,69,.05); }
+  .carry div { flex: 1; min-width: 0; }
+  .carry b { display: block; font-size: 12.5px; font-weight: 600; line-height: 1.4; }
+  .carry span { font-size: 10.5px; color: var(--muted); line-height: 1.45; }
+  .carry .amt { font-size: 17px; font-weight: 700; color: var(--red); white-space: nowrap; }
+
+  .foot { display: flex; align-items: center; gap: 11px; border-top: 1px solid var(--line); padding-top: 11px; }
+  .foot img { width: 86px; height: 86px; object-fit: contain; flex-shrink: 0; }
+  .foot b { display: block; font-size: 14px; font-weight: 700; color: #4A3475; line-height: 1.4; }
+  .foot span { font-size: 10.5px; color: var(--muted); line-height: 1.55; }
+
+  .empty { text-align: center; color: var(--muted); font-size: 13px; padding: 24px 10px; line-height: 1.6; }
+  .empty img { width: 92px; height: 92px; object-fit: contain; display: block; margin: 0 auto 10px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="htop">
+    <button class="back" id="back" type="button" aria-label="กลับหน้างานวันนี้">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>
+    </button>
+    <img src="/brand/ui/sit.png" alt="ม่วงจด" />
+    <div class="htitle">
+      <b>ใบลงบัญชี</b>
+      <span id="h-sub">เงินที่รับมาจริงทั้งวัน</span>
+    </div>
+  </div>
+
+  <div class="when">
+    <input type="date" id="date" aria-label="ใบลงบัญชีของวันไหน" />
+    <button type="button" id="today">วันนี้</button>
+  </div>
+
+  <div class="sums" id="sums"></div>
+</header>
+
+<main>
+  <div class="headline"><span id="h-count"></span><b id="h-note"></b></div>
+  <div id="list"></div>
+
+  <div class="total" id="total" hidden>
+    <span>รวมรับเป็นเงินทั้งสิ้น</span>
+    <b id="t-amt">฿0</b>
+  </div>
+
+  <div class="carry" id="carry" hidden>
+    <div>
+      <b id="c-head"></b>
+      <span>ส่งของแล้วยังไม่ได้เก็บเงิน ไม่นับเป็นรายรับของวันนี้</span>
+    </div>
+    <span class="amt" id="c-amt"></span>
+  </div>
+
+  <div class="foot">
+    <img src="/brand/ui/rest.png" alt="ม่วงจด" />
+    <div>
+      <b id="f-head">ม่วงรวมให้แล้วค่ะ</b>
+      <span id="f-note"></span>
+    </div>
+  </div>
+</main>
+
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+let token = '';
+
+const baht = (n) => '฿' + Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
+
+// วันนี้ตามเวลาไทย — ไม่ใช่ของเครื่อง ซึ่งอาจตั้งเขตเวลาอื่นไว้
+function todayTH() {
+  const now = new Date();
+  return new Date(now.getTime() + (now.getTimezoneOffset() + 420) * 60_000).toISOString().slice(0, 10);
+}
+
+const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+function thaiDate(iso) {
+  const [y, m, d] = String(iso || '').split('-').map(Number);
+  if (!y) return iso || '';
+  return `${d} ${THAI_MONTHS[m - 1]} ${y + 543}`;
+}
+
+async function api(path) {
+  const res = await fetch('/api' + path, { headers: { Authorization: 'Bearer ' + token } });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message || body.error || 'เกิดข้อผิดพลาด');
+  }
+  return res.json();
+}
+
+function render(led) {
+  $('h-sub').textContent = thaiDate(led.date);
+
+  $('sums').innerHTML = '';
+  for (const m of led.methods) {
+    const el = document.createElement('div');
+    el.innerHTML = '<small></small><b></b>';
+    el.querySelector('small').textContent = `${m.label} · ${m.jobCount}`;
+    el.querySelector('b').textContent = baht(m.total);
+    $('sums').append(el);
+  }
+  const all = document.createElement('div');
+  all.className = 'big';
+  all.innerHTML = '<small>รวมรับวันนี้</small><b></b>';
+  all.querySelector('b').textContent = baht(led.total);
+  $('sums').append(all);
+
+  $('h-count').textContent = led.jobCount ? `${led.jobCount} รายการ` : 'ยังไม่มีรายการ';
+  $('h-note').textContent = led.methods.length > 1 ? 'แยกตามวิธีรับเงิน' : '';
+
+  const list = $('list');
+  list.innerHTML = '';
+  $('total').hidden = !led.jobCount;
+  $('t-amt').textContent = baht(led.total);
+
+  if (!led.jobCount) {
+    list.innerHTML = `<p class="empty"><img src="/brand/ui/nap.png" alt="" />วันนี้ยังไม่มีงานที่ลงบัญชีค่ะ<br>
+      กดขั้น "ลงบัญชี" บนงานในหน้างานวันนี้ แล้วเงินก้อนนั้นจะมาโผล่ที่นี่</p>`;
+  } else {
+    const card = document.createElement('div');
+    card.className = 'card';
+    led.rows.forEach((r, i) => {
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.innerHTML = `<span class="no"></span>
+        <div class="what"><b></b><span></span></div>
+        <span class="tag"></span><span class="amt"></span>`;
+      row.querySelector('.no').textContent = String(i + 1);
+      row.querySelector('.what b').textContent = r.customerName || 'ไม่ได้ใส่ชื่อ';
+      row.querySelector('.what span').textContent = [r.jobName, r.jobNumber].filter(Boolean).join(' · ');
+      const tag = row.querySelector('.tag');
+      tag.classList.add(r.method);
+      tag.textContent = r.method === 'cash' ? 'สด' : r.method === 'transfer' ? 'โอน' : '—';
+      row.querySelector('.amt').textContent = baht(r.amount);
+      card.append(row);
+    });
+    list.append(card);
+  }
+
+  $('carry').hidden = !led.carry.jobCount;
+  $('c-head').textContent = `ค้างรับยกไป · ${led.carry.jobCount} งาน`;
+  $('c-amt').textContent = baht(led.carry.owed);
+
+  const unknown = led.methods.find((m) => m.id === 'unknown');
+  $('f-head').textContent = led.jobCount ? `วันนี้เก็บได้ ${baht(led.total)} ค่ะ` : 'ม่วงรออยู่ค่ะ';
+  $('f-note').textContent = unknown
+    ? `มี ${unknown.jobCount} รายการที่ยังไม่ได้บอกว่ารับเป็นเงินสดหรือโอน ม่วงไม่เดาให้นะคะ`
+    : 'ส่งต่อให้คนทำบัญชีได้เลยค่ะ';
+}
+
+async function load(date) {
+  try {
+    const led = await api('/ledger?date=' + encodeURIComponent(date));
+    $('date').value = led.date;
+    render(led);
+  } catch (err) {
+    $('list').innerHTML = `<p class="empty">${err.message || 'เปิดใบไม่สำเร็จค่ะ'}</p>`;
+  }
+}
+
+$('back').onclick = () => (location.href = '../');
+$('date').onchange = () => load($('date').value || todayTH());
+$('today').onclick = () => load(todayTH());
+
+(async function start() {
+  try {
+    const cfg = await (await fetch('/api/config')).json();
+    if (!cfg.liffId) {
+      document.body.innerHTML = '<p class="empty">ยังไม่ได้ตั้งค่า LIFF_ID ค่ะ — ดูขั้นตอนใน DEPLOYMENT.md</p>';
+      return;
+    }
+    await liff.init({ liffId: cfg.liffId });
+    if (!liff.isLoggedIn()) return liff.login({ redirectUri: location.href });
+    token = liff.getAccessToken();
+
+    const want = new URLSearchParams(location.search).get('date');
+    await load(/^\d{4}-\d{2}-\d{2}$/.test(want || '') ? want : todayTH());
+  } catch (err) {
+    document.body.innerHTML = `<p class="empty"><img src="/brand/ui/nap.png" alt="" />เปิดหน้านี้ไม่สำเร็จค่ะ<br>${err.message || ''}</p>`;
+  }
+})();
+</script>
+</body>
+</html>
