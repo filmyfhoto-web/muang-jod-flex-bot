@@ -58,3 +58,21 @@ test('บนจอคอม แถบปุ่มอยู่ข้างซ้�
   assert.match(wide, /flex-direction: column/);
   assert.match(wide, /border-right: 1px solid var\(--line\)/);
 });
+
+/* ช่องวันที่ของเบราว์เซอร์แสดงตามภาษาเครื่อง ซึ่งขึ้นเป็น 09/30/2026 แบบ
+ * อเมริกันบนแอปภาษาไทย และสั่งให้แสดงแบบไทยไม่ได้
+ */
+test('วันที่บนใบเป็นแบบไทย และเลื่อนวันได้', () => {
+  // เขียนวันที่ไทยเอง แล้ววางช่องจริงทับแบบโปร่งใส แตะยังได้ปฏิทินของเครื่อง
+  assert.match(ledger, /\$\('shown'\)\.textContent = thaiDate\(led\.date\);/);
+  assert.match(ledger, /\.pick input \{[^}]*opacity: 0/s);
+
+  // เลื่อนทีละวันด้วยตัวเลขของวันที่ ไม่ใช่เวลาจริง จะได้ไม่โดนเขตเวลาดึง
+  assert.match(ledger, /function shiftDay\(iso, step\)/);
+  assert.match(ledger, /new Date\(iso \+ 'T12:00:00Z'\)/);
+  assert.match(ledger, /\$\('prev'\)\.onclick/);
+  assert.match(ledger, /\$\('next'\)\.onclick/);
+
+  // วันในอนาคตยังไม่มีเงินให้ลง
+  assert.match(ledger, /\$\('next'\)\.disabled = led\.date >= todayTH\(\);/);
+});
