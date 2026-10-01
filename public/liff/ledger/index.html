@@ -56,13 +56,22 @@
           border-radius: 999px; display: flex; align-items: center; justify-content: center; }
 
   .when { display: flex; align-items: center; gap: 8px; }
-  .when input {
-    flex: 1; height: 38px; border: 0; border-radius: 11px; background: #fff;
-    padding: 0 12px; font-size: 13px; color: var(--ink);
+  /* ช่องวันที่ของเบราว์เซอร์แสดงตามภาษาเครื่อง ซึ่งขึ้นเป็น 09/30/2026 แบบ
+     อเมริกัน และสั่งให้แสดงแบบไทยไม่ได้ — จึงเขียนวันที่ไทยเอง แล้ววางช่องจริง
+     ทับไว้แบบโปร่งใส แตะแล้วยังได้ปฏิทินของเครื่องเหมือนเดิม */
+  .pick { position: relative; flex: 1; height: 38px; border-radius: 11px; background: #fff; }
+  .pick .shown {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 13.5px; font-weight: 600; color: var(--ink); pointer-events: none;
+  }
+  .pick input {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    opacity: 0; border: 0; background: none; -webkit-appearance: none; appearance: none;
   }
   .when button {
-    height: 38px; padding: 0 13px; border: 0; border-radius: 11px;
+    height: 38px; min-width: 38px; padding: 0 12px; border: 0; border-radius: 11px;
     background: var(--navy-soft); color: #fff; font-size: 12px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
   }
 
   .sums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
@@ -141,7 +150,16 @@
   </div>
 
   <div class="when">
-    <input type="date" id="date" aria-label="ใบลงบัญชีของวันไหน" />
+    <button type="button" id="prev" aria-label="วันก่อนหน้า">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>
+    </button>
+    <span class="pick">
+      <span class="shown" id="shown"></span>
+      <input type="date" id="date" aria-label="ใบลงบัญชีของวันไหน" />
+    </span>
+    <button type="button" id="next" aria-label="วันถัดไป">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+    </button>
     <button type="button" id="today">วันนี้</button>
   </div>
 
@@ -318,6 +336,10 @@ async function load(date) {
   try {
     const led = await api('/ledger?date=' + encodeURIComponent(date));
     $('date').value = led.date;
+    $('shown').textContent = thaiDate(led.date);
+    // วันในอนาคตยังไม่มีเงินให้ลง เลยไม่ต้องให้กดเลยวันนี้ไป
+    $('next').disabled = led.date >= todayTH();
+    $('next').style.opacity = $('next').disabled ? '.4' : '1';
     render(led);
     $('save').hidden = !led.jobCount;
     $('save').onclick = () => saveCsv(led);
@@ -326,9 +348,18 @@ async function load(date) {
   }
 }
 
+// เลื่อนวันทีละวัน คิดบนตัวเลขของวันที่ ไม่ใช่เวลาจริง จะได้ไม่โดนเขตเวลาดึง
+function shiftDay(iso, step) {
+  const d = new Date(iso + 'T12:00:00Z');
+  d.setUTCDate(d.getUTCDate() + step);
+  return d.toISOString().slice(0, 10);
+}
+
 $('back').onclick = () => (location.href = '../');
 $('date').onchange = () => load($('date').value || todayTH());
 $('today').onclick = () => load(todayTH());
+$('prev').onclick = () => load(shiftDay($('date').value || todayTH(), -1));
+$('next').onclick = () => load(shiftDay($('date').value || todayTH(), 1));
 
 (async function start() {
   try {
