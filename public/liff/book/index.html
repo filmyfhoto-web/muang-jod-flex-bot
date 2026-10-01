@@ -224,7 +224,7 @@
 
   <div id="list" style="display:flex;flex-direction:column;gap:9px"></div>
 
-  <a id="to-ledger" href="../ledger/" style="display:flex;align-items:center;gap:11px;background:#fff;border-radius:16px;padding:11px 13px;text-decoration:none;color:inherit;box-shadow:0 1px 2px rgba(31,43,69,.05),0 4px 12px rgba(31,43,69,.05)">
+  <a id="to-ledger" href="/app/ledger/" style="display:flex;align-items:center;gap:11px;background:#fff;border-radius:16px;padding:11px 13px;text-decoration:none;color:inherit;box-shadow:0 1px 2px rgba(31,43,69,.05),0 4px 12px rgba(31,43,69,.05)">
     <span class="chip" style="background:#35486E">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/></svg>
     </span>
@@ -559,7 +559,7 @@ $('go').onclick = issue;
 
 $('back').onclick = () => {
   // อยู่ในบัญชีเจ้า = ถอยมาที่สมุด · อยู่ที่สมุดแล้ว = ถอยไปหน้างานวันนี้
-  if (!account) return void (location.href = '../');
+  if (!account) return void (location.href = '/app/');
   account = null;
   picked.clear();
   history.replaceState(null, '', location.pathname);

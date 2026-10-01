@@ -607,7 +607,7 @@
   <button data-tab="today" aria-selected="true"><span>🏠</span>งานวันนี้</button>
   <button data-tab="report" aria-selected="false"><span>📊</span>สรุปรายการ</button>
   <button data-tab="pending" aria-selected="false"><span>📋</span>งานค้างรับ</button>
-  <button data-go="book/"><span>📒</span>สมุดลูกค้า</button>
+  <button data-page="/app/book/"><span>📒</span>สมุดลูกค้า</button>
   <button data-tab="settings" aria-selected="false"><span>⚙️</span>ตั้งค่า</button>
 </nav>
 
@@ -1448,9 +1448,16 @@ async function loadCategory() {
 const LOADERS = { today: loadToday, report: loadReport, pending: loadPending, settings: loadSettings, category: loadCategory };
 
 async function show(name) {
+  const view = $('v-' + name);
+  if (!view) {
+    // ชื่อแท็บผิด แปลว่าโค้ดพลาด ไม่ใช่ความผิดของคนใช้ แต่อย่างน้อย
+    // ต้องมีข้อความบอก ไม่ใช่ซ่อนทุกอย่างทิ้งไว้เป็นหน้าว่าง
+    fatal('เปิดหน้า "' + (TAB_NAMES[name] || name) + '" ไม่ได้ค่ะ', { retry: () => show('today') });
+    return;
+  }
   tab = name;
   document.querySelectorAll('main > section').forEach((s) => (s.hidden = true));
-  $('v-' + name).hidden = false;
+  view.hidden = false;
   $('nav').hidden = false;
   document.querySelectorAll('nav button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
   scrollTo(0, 0);
@@ -1707,7 +1714,8 @@ $('s-close').onclick = () => (liff.isInClient() ? liff.closeWindow() : show('tod
 document.querySelectorAll('nav button').forEach((b) => (b.onclick = () => {
   // ปุ่มที่พาไปอีกหน้าในแอปเดียวกัน (สมุดลูกค้า) — โดเมนเดียวกัน จึงไม่ต้อง
   // init LIFF ใหม่ ส่วนปุ่มที่เหลือเป็นแท็บของหน้านี้
-  if (b.dataset.go) return void (location.href = b.dataset.go);
+  // data-page = ออกไปอีกหน้าหนึ่ง ส่วน data-go (ด้านล่าง) = สลับแท็บในหน้านี้
+  if (b.dataset.page) return void (location.href = b.dataset.page);
   show(b.dataset.tab);
 }));
 document.querySelectorAll('[data-go]').forEach((el) => (el.onclick = () => show(el.dataset.go)));
