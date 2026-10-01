@@ -1,30 +1,35 @@
-// ม่วงจด Flex design system — white cards, blue accents.
+// ม่วงจด Flex design system — white cards, navy and gold.
 // Single source of truth for colours so cards stay consistent.
 //
-// The names are what each colour is FOR, not what it looks like. Two blues,
+// The names are what each colour is FOR, not what it looks like. Two navies,
 // because one cannot do both jobs: `accent` is the button FILL that white
-// labels sit on, `accentText` is the blue that is READ as text on the card.
-// The fill is too heavy for a line of text and the text blue is too pale
+// labels sit on, `accentText` is the navy that is READ as text on the card.
+// The fill is too heavy for a line of text and the text navy is too pale
 // behind white labels. The brand's purple lives in the wordmark and the mascot.
+//
+// ร้านเลือกชุดนี้เองตอนออกแบบ (กรม + ทอง) แล้วบอกว่า "ธีมที่ออกแบบก็ไม่เหมือน"
+// ตอนเห็นของจริงยังเป็นน้ำเงินชุดเดิม — สีอยู่ที่ไฟล์นี้ไฟล์เดียว การ์ดในแชต
+// ฟอร์มจดงาน และหน้าเว็บจึงย้ายพร้อมกันได้ ไม่มีหน้าไหนหลงเหลือเป็นคนละแอป
 
 export const COLORS = {
-  accent: '#1C4FD8', // filled things — buttons, badges, the numbered circle
-  accentText: '#17357E', // blue as TEXT on the white card: totals, links
-  title: '#17357E', // headings
-  tint: '#F2F6FF', // a panel inside a card: stat tiles, badges, icon chips
+  accent: '#35486E', // filled things — buttons, badges, the numbered circle
+  accentText: '#2F5A8A', // navy as TEXT on the white card: totals, links
+  title: '#1F2B45', // headings
+  gold: '#DDA83D', // the money figure on a navy panel, and the "เลขที่" chip
+  tint: '#E8ECF5', // a panel inside a card: stat tiles, badges, icon chips
   surface: '#FFFFFF', // the card itself
-  line: '#DCE3F5', // separators and card borders
+  line: '#E2E6EE', // separators and card borders
 
-  ink: '#1B2540', // primary text
-  sub: '#3D4C73', // secondary text
-  grey: '#8794B4', // muted text
+  ink: '#1F2B45', // primary text
+  sub: '#5E6E8C', // secondary text
+  grey: '#7E8CA3', // muted text
 
   white: '#FFFFFF', // literal white — text sitting on the accent colour
 
   // Status colours, darkened so they read on a white surface.
-  green: '#15803D',
-  orange: '#B45309',
-  red: '#DC2626',
+  green: '#2E7D5B',
+  orange: '#8A6114',
+  red: '#B3402F',
 };
 
 // Flex gives a bubble a white background unless told otherwise. That happens
@@ -53,11 +58,11 @@ export function themedContents(contents) {
 export function paymentPresentation(status) {
   switch (status) {
     case 'paid':
-      return { text: 'รับเงินแล้ว', color: COLORS.green, bg: '#E7F7EE' };
+      return { text: 'รับเงินแล้ว', color: COLORS.green, bg: '#E4F0EA' };
     case 'partial':
-      return { text: 'รับบางส่วน', color: COLORS.orange, bg: '#FDF1DC' };
+      return { text: 'รับบางส่วน', color: COLORS.orange, bg: '#FBEFD8' };
     case 'pending':
     default:
-      return { text: 'ค้างรับ', color: COLORS.red, bg: '#FDEAEA' };
+      return { text: 'ค้างรับ', color: COLORS.red, bg: '#F8E4E1' };
   }
 }

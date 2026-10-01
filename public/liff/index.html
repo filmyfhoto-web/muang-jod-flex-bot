@@ -18,20 +18,22 @@
 
        สองน้ำเงิน: --accent เป็นพื้นของปุ่ม (ตัวหนังสือขาวต้องอ่านออก)
        --accent-text เป็นน้ำเงินที่ใช้เป็น 'ตัวหนังสือ' บนพื้นขาว */
-    --accent: #1c4fd8; --accent-text: #17357e; --accent-dim: #1c4fd8;
-    --bg: #eef3fd; --surface: #ffffff; --tint: #f2f6ff; --line: #dce3f5;
-    --ink: #1b2540; --sub: #3d4c73; --grey: #8794b4; --white: #fff;
-    --pink: #db2777; --blue: #1c4fd8; --amber: #b45309;
-    --green: #15803d; --green-bg: #e7f7ee;
-    --orange: #b45309; --orange-bg: #fdf1dc;
-    --red: #dc2626; --red-bg: #fdeaea;
-    --shadow: rgba(23, 53, 126, .12);
+    --accent: #35486E; --accent-text: #2F5A8A; --accent-dim: #43578A;
+    --gold: #DDA83D;
+    --bg: #EFF1F5; --surface: #ffffff; --tint: #E8ECF5; --line: #E2E6EE;
+    --ink: #1F2B45; --sub: #5E6E8C; --grey: #7E8CA3; --white: #fff;
+    --pink: #A0476B; --blue: #3E6FA8; --amber: #8A6114;
+    --green: #2E7D5B; --green-bg: #E4F0EA;
+    --orange: #8A6114; --orange-bg: #FBEFD8;
+    --red: #B3402F; --red-bg: #F8E4E1;
+    --shadow: rgba(31, 43, 69, .10);
     --r: 18px;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body {
     margin: 0; background: var(--bg); color: var(--ink);
-    font-family: 'Noto Sans Thai', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Thonburi', Thonburi,
+                 'Noto Sans Thai', 'Segoe UI', sans-serif;
     font-size: 15px; line-height: 1.5; padding-bottom: 104px;
   }
   /* หน้านี้ถูกออกแบบมาสำหรับจอมือถือ แต่เปิดบนคอมได้ด้วย และบนจอกว้าง ๆ
@@ -309,6 +311,12 @@
   }
   .toast.on { opacity: 1; transform: translate(-50%, 0); }
   .toast.err { background: var(--red); }
+  #fatal-msg { white-space: pre-line; }
+  .retry {
+    display: block; margin: 0 auto; min-height: 44px; padding: 0 22px;
+    border: 0; border-radius: 999px; background: var(--accent); color: var(--white);
+    font: inherit; font-size: 14px; font-weight: 600;
+  }
   [hidden] { display: none !important; }
 
   /* บนจอคอม แถบปุ่มย้ายไปอยู่ข้างซ้ายเหมือนแอปบนเครื่อง
@@ -589,7 +597,10 @@
     </div>
   </section>
 
-  <div id="fatal" class="card" hidden><div class="empty" id="fatal-msg"></div></div>
+  <div id="fatal" class="card" hidden>
+    <div class="empty" id="fatal-msg"></div>
+    <button type="button" id="fatal-retry" class="retry">ลองอีกครั้ง</button>
+  </div>
 </main>
 
 <nav id="nav" hidden>
@@ -642,21 +653,44 @@ function toast(msg, isErr) {
   toast._t = setTimeout(() => (t.className = 'toast'), 2600);
 }
 
-function fatal(msg) {
+/* เปิดมาแล้วหน้าขาว เป็นความล้มเหลวที่แย่ที่สุด — ร้านไม่รู้ว่าเน็ตไม่ดี
+ * เซิร์ฟเวอร์ล่ม หรือแอปพัง และไม่รู้ว่าต้องทำอะไรต่อ
+ *
+ * ของเดิมความผิดพลาดตอนโหลดแท็บถูกโยนให้ toast ซึ่งจางหายไปในสามวินาที
+ * เหลือหน้าว่าง ๆ ให้เดาเอง ตอนนี้บอกค้างไว้พร้อมปุ่มลองใหม่
+ */
+function fatal(msg, { retry = null } = {}) {
   document.querySelectorAll('main > section').forEach((s) => (s.hidden = true));
-  $('nav').hidden = true;
+  $('nav').hidden = Boolean(retry) ? false : true;
   $('fatal').hidden = false;
   $('fatal-msg').textContent = msg;
+  $('fatal-retry').hidden = !retry;
+  $('fatal-retry').onclick = retry;
+}
+
+function clearFatal() {
+  $('fatal').hidden = true;
 }
 
 async function api(path, opts = {}) {
-  const res = await fetch('/api' + path, {
-    ...opts,
-    headers: { Authorization: 'Bearer ' + token, ...(opts.body ? { 'Content-Type': 'application/json' } : {}) },
-  });
+  /* ต่อเซิร์ฟเวอร์ไม่ติดเลย ต่างจากเซิร์ฟเวอร์ตอบว่าผิดพลาด
+   *
+   * เครื่องที่โฮสต์อยู่หลับเมื่อไม่มีคนใช้ ครั้งแรกของวันจึงต้องรอให้มันตื่น
+   * ซึ่งนานพอที่ fetch จะยอมแพ้ก่อน — ถ้าไม่บอก ร้านจะเห็นแค่หน้าว่าง ๆ
+   * แล้วไม่รู้ว่าควรกดใหม่หรือแอปเสีย
+   */
+  let res;
+  try {
+    res = await fetch('/api' + path, {
+      ...opts,
+      headers: { Authorization: 'Bearer ' + token, ...(opts.body ? { 'Content-Type': 'application/json' } : {}) },
+    });
+  } catch {
+    throw new Error('ต่อเซิร์ฟเวอร์ไม่ได้ค่ะ — เน็ตอาจหลุด หรือเครื่องยังตื่นไม่ทัน รอสักครู่แล้วกดลองอีกครั้ง');
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.message || body.error || 'เกิดข้อผิดพลาด');
+    throw new Error(body.message || body.error || 'เซิร์ฟเวอร์ตอบว่าผิดพลาด (' + res.status + ')');
   }
   return res.json();
 }
@@ -1420,12 +1454,16 @@ async function show(name) {
   $('nav').hidden = false;
   document.querySelectorAll('nav button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
   scrollTo(0, 0);
+  clearFatal();
   try {
     await LOADERS[name]();
   } catch (err) {
-    toast(err.message, true);
+    fatal('เปิด "' + (TAB_NAMES[name] || name) + '" ไม่สำเร็จค่ะ\n' + (err.message || 'ไม่รู้สาเหตุ'),
+          { retry: () => show(name) });
   }
 }
+
+const TAB_NAMES = { today: 'งานวันนี้', report: 'สรุปรายการ', pending: 'งานค้างรับ', settings: 'ตั้งค่า', category: 'หมวดงาน' };
 
 // --- edit -----------------------------------------------------------------
 
@@ -1721,7 +1759,7 @@ $('r-period').onclick = async (e) => {
       await show(TABS.includes(want) ? want : 'today');
     }
   } catch (err) {
-    fatal(err.message || 'เปิดหน้านี้ไม่สำเร็จค่ะ');
+    fatal(err.message || 'เปิดหน้านี้ไม่สำเร็จค่ะ', { retry: () => location.reload() });
   }
 })();
 </script>
