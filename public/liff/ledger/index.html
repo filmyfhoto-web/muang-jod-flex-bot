@@ -355,7 +355,7 @@ function shiftDay(iso, step) {
   return d.toISOString().slice(0, 10);
 }
 
-$('back').onclick = () => (location.href = '../');
+$('back').onclick = () => (location.href = '/app/');
 $('date').onchange = () => load($('date').value || todayTH());
 $('today').onclick = () => load(todayTH());
 $('prev').onclick = () => load(shiftDay($('date').value || todayTH(), -1));
