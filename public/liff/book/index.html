@@ -105,9 +105,9 @@
     display: flex; align-items: center; justify-content: center;
     font-size: 17px; line-height: 1;
   }
-  .row .who { flex: 1; min-width: 0; }
-  .row .who b { display: block; font-size: 14.5px; font-weight: 600; line-height: 1.35; }
-  .row .who span { font-size: 11.5px; color: var(--muted); line-height: 1.45; }
+  .who { flex: 1; min-width: 0; }
+  .who b { display: block; font-size: 14.5px; font-weight: 600; line-height: 1.35; }
+  .who span { display: block; font-size: 11.5px; color: var(--muted); line-height: 1.45; }
   .row .money { text-align: right; flex-shrink: 0; }
   .row .money b { display: block; font-size: 14px; font-weight: 700; white-space: nowrap; }
   .row .money span { font-size: 10.5px; color: var(--muted); }
@@ -177,6 +177,12 @@
   }
   #toast[hidden] { display: none; }
   #toast.bad { background: var(--red); }
+  /* เปิดบนคอมได้ด้วย และบนจอกว้างทุกแถวจะยืดไปพันกว่าพิกเซลจนอ่านไม่รู้เรื่อง
+     แถบสีกรมยังเต็มความกว้าง แต่ของข้างในจำกัดแล้วจัดกลาง เท่ากับหน้างานวันนี้ */
+  @media (min-width: 720px) {
+    header { padding-left: max(18px, calc((100% - 640px) / 2)); padding-right: max(18px, calc((100% - 640px) / 2)); }
+    main { max-width: 640px; margin-inline: auto; }
+  }
 </style>
 </head>
 <body>
