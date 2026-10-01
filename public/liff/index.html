@@ -310,6 +310,29 @@
   .toast.on { opacity: 1; transform: translate(-50%, 0); }
   .toast.err { background: var(--red); }
   [hidden] { display: none !important; }
+
+  /* บนจอคอม แถบปุ่มย้ายไปอยู่ข้างซ้ายเหมือนแอปบนเครื่อง
+     ร้านขอ "เอาเครื่องมือกดอยู่ไว้แบบระบบ mac"
+     บนมือถือยังเป็นแถบล่างเหมือนเดิม เพราะนิ้วโป้งอยู่ตรงนั้น */
+  @media (min-width: 900px) {
+    body { padding-bottom: 24px; padding-left: 236px; }
+    header, main { margin-inline: 0 auto; }
+
+    nav {
+      top: 0; bottom: 0; right: auto; width: 236px;
+      flex-direction: column; align-items: stretch; gap: 2px;
+      border-top: 0; border-right: 1px solid var(--line);
+      padding: 18px 12px; box-shadow: 2px 0 14px var(--shadow);
+    }
+    nav button {
+      flex: 0 0 auto; display: flex; align-items: center; gap: 11px;
+      font-size: 13.5px; padding: 10px 12px; border-radius: 11px; text-align: left;
+    }
+    nav button span { font-size: 18px; line-height: 1; }
+    nav button[aria-selected="true"] { background: var(--tint); }
+
+    .toast { left: calc(50% + 118px); }
+  }
 </style>
 </head>
 <body>
