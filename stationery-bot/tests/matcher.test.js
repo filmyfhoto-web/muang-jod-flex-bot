@@ -53,6 +53,43 @@ test('faq and fallback are flex cards; handoff stays text', () => {
   assert.equal(buildReply('แอดมิน', shop).messages[0].type, 'text');
 });
 
+test('supplies button asks for the school, with a chip per school', () => {
+  const r = buildReply('อุปกรณ์การเรียน 2-2569', shop);
+  assert.equal(r.awaitingSchool, true);
+  assert.match(r.messages[0].text, /โรงเรียนไหน/);
+  assert.equal(r.messages[0].quickReply.items.length, shop.schoolSupplies.schools.length);
+});
+
+test('school name after being asked → link card', () => {
+  const r = buildReply('โรงเรียนตัวอย่าง A', shop, { awaitingSchool: true });
+  assert.equal(r.awaitingSchool, false);
+  assert.equal(r.messages[0].type, 'flex');
+  assert.match(JSON.stringify(r.messages[0]), /example\.com\/school-a/);
+});
+
+test('school named together with supplies → link straight away', () => {
+  const r = buildReply('ขอรายการอุปกรณ์ ตัวอย่างบี', shop);
+  assert.match(JSON.stringify(r.messages[0]), /school-b/);
+});
+
+test('school name alone, not asked → not treated as supplies', () => {
+  assert.equal(buildReply('โรงเรียนตัวอย่าง A', shop).messages[0].type, 'flex');
+  assert.doesNotMatch(JSON.stringify(buildReply('โรงเรียนตัวอย่าง A', shop).messages[0]), /school-a/);
+});
+
+test('unknown school while asked → ask again; other topics still work', () => {
+  const again = buildReply('โรงเรียนอะไรไม่รู้', shop, { awaitingSchool: true });
+  assert.equal(again.awaitingSchool, true);
+  assert.match(again.messages[0].text, /ยังไม่พบ/);
+  const faq = buildReply('ร้านเปิดกี่โมง', shop, { awaitingSchool: true });
+  assert.equal(faq.awaitingSchool, false);
+  assert.equal(faq.messages[0].type, 'flex');
+});
+
+test('สั่งของ has an answer', () => {
+  assert.equal(matchIntent('สั่งของ', shop).faq.label, 'สั่งของ');
+});
+
 test('signature check', () => {
   const body = Buffer.from('{"events":[]}');
   const sig = crypto.createHmac('sha256', 's').update(body).digest('base64');

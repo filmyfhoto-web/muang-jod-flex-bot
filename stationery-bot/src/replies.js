@@ -1,5 +1,5 @@
-import { matchIntent } from './matcher.js';
-import { menuCard, faqCard, productCards } from './flex.js';
+import { matchIntent, findSchool, mentionsSupplies } from './matcher.js';
+import { menuCard, faqCard, productCards, schoolLinkCard } from './flex.js';
 
 function quick(shop, extra = []) {
   const labels = [...(shop.quickReplies ?? []), ...extra].slice(0, 13);
@@ -12,21 +12,56 @@ function quick(shop, extra = []) {
   };
 }
 
+function schoolChips(cfg) {
+  const items = (cfg.schools ?? []).slice(0, 13).map((sc) => ({
+    type: 'action',
+    action: { type: 'message', label: sc.name.slice(0, 20), text: sc.name },
+  }));
+  return items.length ? { items } : undefined;
+}
+
+const sendSchool = (shop, school) => ({
+  messages: [schoolLinkCard(shop, school, shop.schoolSupplies.found.replace('{school}', school.name))],
+  awaitingSchool: false,
+});
+
+const askSchool = (shop, text) => ({
+  messages: [{ type: 'text', text, quickReply: schoolChips(shop.schoolSupplies) }],
+  awaitingSchool: true,
+});
+
 // Builds the LINE message array for an incoming text.
-export function buildReply(text, shop) {
+//
+// `session.awaitingSchool` is true right after the customer was asked which
+// school they are from, so a bare school name is read as the answer.
+// Returns { messages, awaitingSchool } — the caller remembers the flag.
+export function buildReply(text, shop, session = {}) {
+  const cfg = shop.schoolSupplies;
+
+  if (cfg) {
+    const school = findSchool(text, cfg.schools);
+    if (school && (session.awaitingSchool || mentionsSupplies(text, cfg))) return sendSchool(shop, school);
+    if (mentionsSupplies(text, cfg)) return askSchool(shop, cfg.ask);
+    if (session.awaitingSchool) {
+      const other = matchIntent(text, shop);
+      if (other.type === 'fallback') return askSchool(shop, cfg.notFound);
+    }
+  }
+
   const intent = matchIntent(text, shop);
   const qr = quick(shop);
+  const out = (m) => ({ messages: [m], awaitingSchool: false });
   switch (intent.type) {
     case 'handoff':
-      return { messages: [{ type: 'text', text: shop.handoff }], handoff: true };
+      return { messages: [{ type: 'text', text: shop.handoff }], awaitingSchool: false, handoff: true };
     case 'products':
-      return { messages: [productCards(shop, intent.products, qr)] };
+      return out(productCards(shop, intent.products, qr));
     case 'faq':
-      return { messages: [faqCard(shop, intent.faq, qr)] };
+      return out(faqCard(shop, intent.faq, qr));
     case 'greeting':
-      return { messages: [menuCard(shop, shop.name, shop.greeting)] };
+      return out(menuCard(shop, shop.name, shop.greeting));
     default:
-      return { messages: [menuCard(shop, 'ขออภัยค่ะ', shop.fallback)] };
+      return out(menuCard(shop, 'ขออภัยค่ะ', shop.fallback));
   }
 }
 

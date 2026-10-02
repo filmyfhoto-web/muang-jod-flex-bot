@@ -32,6 +32,16 @@ app.post('/webhook', express.raw({ type: '*/*' }), (req, res) => {
   for (const ev of events) handleEvent(ev).catch((e) => console.error('[event]', e.message));
 });
 
+// Who is mid-way through "which school?" — in memory, so a restart forgets it
+// (the customer is simply asked again). Entries expire after 10 minutes.
+const awaiting = new Map();
+const AWAIT_MS = 10 * 60 * 1000;
+function isAwaiting(userId) {
+  const until = awaiting.get(userId);
+  if (until && until < Date.now()) awaiting.delete(userId);
+  return awaiting.has(userId);
+}
+
 async function handleEvent(ev) {
   if (!ev.replyToken) return;
   let shop;
@@ -46,7 +56,10 @@ async function handleEvent(ev) {
   }
   if (ev.type !== 'message') return;
   if (ev.message.type === 'text') {
-    const { messages } = buildReply(ev.message.text, shop);
+    const userId = ev.source?.userId ?? 'anon';
+    const { messages, awaitingSchool } = buildReply(ev.message.text, shop, { awaitingSchool: isAwaiting(userId) });
+    if (awaitingSchool) awaiting.set(userId, Date.now() + AWAIT_MS);
+    else awaiting.delete(userId);
     return replyMessage(ev.replyToken, messages, token);
   }
   // Slips, photos, stickers: acknowledge, a person follows up.

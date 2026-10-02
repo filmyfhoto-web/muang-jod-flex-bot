@@ -13,19 +13,31 @@ export function normalize(text) {
 const GREETING = /^(?:สวัสดี|หวัดดี|hello|hi|ดีจ้า|ดีค่ะ|ดีครับ)/;
 const HANDOFF = /แอดมิน|admin|คุยกับคน|เจ้าของร้าน|พนักงาน/;
 
-// Longest product alias contained in the message wins, so "กระดาษa4" picks the
-// A4 entry over a shorter generic alias like "กระดาษ" on another product.
-export function findProducts(text, products) {
+// Longest alias contained in the message wins, so "กระดาษa4" picks the A4
+// entry over a shorter generic alias like "กระดาษ" on another item.
+function findByNames(text, items) {
   const q = normalize(text);
   if (!q) return [];
   const scored = [];
-  for (const p of products) {
+  for (const p of items) {
     const names = [p.name, ...(p.aliases ?? [])].map(normalize).filter(Boolean);
     const hit = names.filter((n) => q.includes(n)).sort((a, b) => b.length - a.length)[0];
     if (hit) scored.push({ p, score: hit.length });
   }
   const best = Math.max(0, ...scored.map((s) => s.score));
   return scored.filter((s) => s.score === best).map((s) => s.p);
+}
+
+export const findProducts = findByNames;
+
+export function findSchool(text, schools) {
+  const hits = findByNames(text, schools ?? []);
+  return hits.length === 1 ? hits[0] : null;
+}
+
+export function mentionsSupplies(text, cfg) {
+  const q = normalize(text);
+  return Boolean(cfg) && (cfg.keywords ?? []).map(normalize).some((k) => k && q.includes(k));
 }
 
 export function findFaq(text, faq) {

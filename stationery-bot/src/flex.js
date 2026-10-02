@@ -105,3 +105,30 @@ export function productCards(shop, products, quickReply) {
       : { type: 'carousel', contents: shown.map((p) => productBubble(p, shop)) };
   return flex(alt, contents, quickReply);
 }
+
+// ส่งลิงก์รายการอุปกรณ์ของโรงเรียน — ปุ่มเปิดลิงก์ + ลิงก์ตัวหนังสือให้ก๊อปได้
+export function schoolLinkCard(shop, school, message) {
+  return flex(`${school.name}: ${school.link}`, {
+    type: 'bubble',
+    header: header(school.name, shop),
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      spacing: 'md',
+      contents: [text(message, { size: 'sm' }), text(school.link, { size: 'xs', color: '#666666' })],
+    },
+    footer: {
+      type: 'box',
+      layout: 'vertical',
+      contents: [
+        {
+          type: 'button',
+          style: 'primary',
+          height: 'sm',
+          color: color(shop),
+          action: { type: 'uri', label: 'เปิดรายการอุปกรณ์', uri: school.link },
+        },
+      ],
+    },
+  });
+}
