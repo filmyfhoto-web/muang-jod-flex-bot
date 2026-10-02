@@ -58,3 +58,11 @@ export function buildReply(text, shop, session = {}) {
 }
 
 export const welcomeMessage = (shop) => menuCard(shop, shop.name, shop.greeting);
+
+// Shows the shop's own picture as the bot's avatar on each message (LINE `sender`).
+// Without a public base URL the messages are returned untouched.
+export function withSender(messages, baseUrl) {
+  const base = String(baseUrl ?? '').trim().replace(/\/+$/, '');
+  if (!/^https:\/\//.test(base)) return messages;
+  return messages.map((m) => ({ ...m, sender: { iconUrl: `${base}/assets/icon.png` } }));
+}

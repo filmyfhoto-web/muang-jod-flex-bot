@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { matchIntent } from '../src/matcher.js';
-import { buildReply } from '../src/replies.js';
+import { buildReply, withSender } from '../src/replies.js';
 import { verifySignature } from '../src/line.js';
 import crypto from 'node:crypto';
 
@@ -120,6 +120,19 @@ test('unknown school while asked → ask again; other topics still work', () => 
 
 test('สั่งของ has an answer', () => {
   assert.equal(matchIntent('สั่งของ', shop).faq.label, 'สั่งของ');
+});
+
+test('greeting asks what the customer is contacting about', () => {
+  const card = JSON.stringify(buildReply('สวัสดีค่ะ', shop).messages[0]);
+  assert.match(card, /ติดต่อสอบถามเรื่องอะไร/);
+});
+
+test('withSender adds the shop icon only with a public https base url', () => {
+  const msgs = [{ type: 'text', text: 'x' }];
+  assert.equal(withSender(msgs, '')[0].sender, undefined);
+  assert.equal(withSender(msgs, 'http://localhost:3000')[0].sender, undefined);
+  assert.equal(withSender(msgs, 'https://bot.onrender.com/')[0].sender.iconUrl, 'https://bot.onrender.com/assets/icon.png');
+  assert.equal(msgs[0].sender, undefined); // input not mutated
 });
 
 test('signature check', () => {
