@@ -199,12 +199,12 @@ test('without a public address nothing breaks: no pictures, plain header and tex
 });
 
 test('every picture the cards point at exists in public/ and is a PNG with transparency', () => {
-  for (const n of ['banner', 'order', 'school', 'ask', 'admin', 'icon']) {
+  for (const n of ['banner', 'order', 'school', 'ask', 'admin', 'staff', 'icon']) {
     const f = readFileSync(new URL(`../public/${n}.png`, import.meta.url));
     assert.equal(f.subarray(1, 4).toString(), 'PNG', n);
     assert.ok(f.length < 1_000_000, `${n} must stay under LINE's 1MB image limit`);
   }
-  for (const n of ['banner', 'order', 'school', 'ask', 'admin']) {
+  for (const n of ['banner', 'order', 'school', 'ask', 'admin', 'staff']) {
     const f = readFileSync(new URL(`../public/${n}.png`, import.meta.url));
     assert.ok([4, 6].includes(f[25]), `${n} should have an alpha channel`); // PNG colour type 6 = RGBA
   }
@@ -260,6 +260,14 @@ test('pastel theme: cream paper, apricot headers, pastel topic buttons, black pr
   const all = JSON.stringify([bubbles, menu]);
   assert.ok(!/#2E7D6B|#1B8A3B|#C62828/i.test(all));
   assert.ok(colors(all).every((c) => /^#[0-9A-F]{6}$/i.test(c)));
+});
+
+test('thank-you reply wears the staff picture when pictures are available, plain text otherwise', () => {
+  const card = buildReply('ขอบคุณค่ะ', withPics).messages[0];
+  assert.equal(heroUrl(card), 'https://bot.example/assets/staff.png');
+  assert.match(card.altText, /ยินดีค่ะ/);
+  assert.ok(card.quickReply);
+  assert.equal(buildReply('ขอบคุณค่ะ', shop).messages[0].type, 'text');
 });
 
 test('signature check', () => {

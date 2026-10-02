@@ -202,11 +202,12 @@ export function schoolLinkCard(shop, school, message) {
 
 // A short message under a picture. Returns null without a picture so the caller
 // can fall back to plain text.
-export function noteCard(shop, imageName, body) {
+export function noteCard(shop, imageName, body, quickReply) {
   const hero = picture(shop, imageName);
   if (!hero) return null;
   return flex(
     body,
-    bubble(shop, { hero, body: { type: 'box', layout: 'vertical', contents: [text(body, { size: 'sm' })] } })
+    bubble(shop, { hero, body: { type: 'box', layout: 'vertical', contents: [text(body, { size: 'sm' })] } }),
+    quickReply
   );
 }

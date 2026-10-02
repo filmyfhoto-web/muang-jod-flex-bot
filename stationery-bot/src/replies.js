@@ -67,7 +67,8 @@ export function buildReply(text, shop, session = {}) {
 
 export function thanksReply(shop) {
   const text = shop.thanks || 'ยินดีค่ะ หากต้องการสอบถามรายละเอียดเพิ่มเติม แจ้งได้เลยนะคะ';
-  return { messages: [{ type: 'text', text, quickReply: quick(shop) }], awaitingSchool: false };
+  const qr = quick(shop);
+  return { messages: [noteCard(shop, 'staff', text, qr) ?? { type: 'text', text, quickReply: qr }], awaitingSchool: false };
 }
 
 export const welcomeMessage = (shop) => menuCard(shop, shop.name, shop.greeting, { banner: true });
