@@ -238,6 +238,30 @@ test('thank-you stickers are recognised by their keywords; others are not', () =
   assert.equal(thanksReply(shop).messages[0].text, 'ยินดีค่ะ หากต้องการสอบถามรายละเอียดเพิ่มเติม แจ้งได้เลยนะคะ');
 });
 
+test('pastel theme: cream paper, apricot headers, pastel topic buttons, black primary button', () => {
+  const t = shop.theme;
+  const colors = (x) => JSON.stringify(x).match(/#[0-9A-Fa-f]{6}/g) ?? [];
+  const bubbles = [
+    buildReply('สวัสดี', shop).messages[0].contents,
+    buildReply('ร้านเปิดกี่โมง', shop).messages[0].contents,
+    buildReply('ไฮไลท์', shop).messages[0].contents,
+    buildReply('บ้านกอก', shop, { awaitingSchool: true }).messages[0].contents,
+  ];
+  for (const b of bubbles) {
+    for (const k of ['header', 'hero', 'body', 'footer']) assert.equal(b.styles[k].backgroundColor, t.cream, k);
+  }
+  const menu = buildReply('xyz', shop).messages[0].contents;
+  assert.equal(menu.header.backgroundColor, t.apricot);
+  const btns = menu.footer.contents;
+  assert.deepEqual(btns.slice(0, 3).map((b) => b.color), [t.apricot, t.yellow, t.blue]);
+  assert.equal(btns.at(-1).style, 'primary');
+  assert.equal(btns.at(-1).color, t.ink);
+  // nothing from the old green theme is left anywhere
+  const all = JSON.stringify([bubbles, menu]);
+  assert.ok(!/#2E7D6B|#1B8A3B|#C62828/i.test(all));
+  assert.ok(colors(all).every((c) => /^#[0-9A-F]{6}$/i.test(c)));
+});
+
 test('signature check', () => {
   const body = Buffer.from('{"events":[]}');
   const sig = crypto.createHmac('sha256', 's').update(body).digest('base64');

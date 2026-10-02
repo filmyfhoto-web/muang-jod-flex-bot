@@ -1,19 +1,50 @@
 // LINE Flex Message builders. Everything here is plain data → easy to test.
 
-const DEFAULT_THEME = '#2E7D6B';
-
-const color = (shop) => shop.theme || DEFAULT_THEME;
+// Pastel palette: cream paper, apricot / butter-yellow / powder-blue accents, black
+// for the one button that matters. shop.theme (an object) may override any key.
+const PALETTE = {
+  cream: '#FBF7EF',
+  apricot: '#FFB493',
+  yellow: '#FFE68A',
+  blue: '#BFDBFF',
+  ink: '#2B2B2B',
+  accent: '#E8643A', // prices, highlights
+  muted: '#7A7468',
+  ok: '#2F9E6E',
+  warn: '#E5533D',
+};
+const pal = (shop) => ({ ...PALETTE, ...(shop.theme && typeof shop.theme === 'object' ? shop.theme : {}) });
+const TONES = ['apricot', 'yellow', 'blue'];
 const baht = (n) => `${Number(n).toLocaleString('th-TH')} บาท`;
 const clip = (s, n) => String(s).slice(0, n);
 
-const text = (t, extra = {}) => ({ type: 'text', text: t, wrap: true, ...extra });
+const text = (t, extra = {}) => ({ type: 'text', text: t, wrap: true, color: PALETTE.ink, ...extra });
 
-export const msgButton = (label, sendText, shop, style = 'secondary') => ({
+// primary → black; secondary → a pastel chosen by `tone` (index into TONES)
+export const msgButton = (label, sendText, shop, style = 'secondary', tone = 0) => ({
   type: 'button',
   style,
   height: 'sm',
-  ...(style === 'primary' ? { color: color(shop) } : {}),
+  color: style === 'primary' ? pal(shop).ink : pal(shop)[TONES[tone % TONES.length]],
   action: { type: 'message', label: clip(label, 20), text: sendText ?? label },
+});
+
+const uriButton = (label, uri, shop) => ({
+  type: 'button',
+  style: 'primary',
+  height: 'sm',
+  color: pal(shop).ink,
+  action: { type: 'uri', label: clip(label, 20), uri },
+});
+
+// Every bubble gets the cream paper behind it.
+const bubble = (shop, parts) => ({
+  type: 'bubble',
+  ...parts,
+  styles: ['header', 'hero', 'body', 'footer'].reduce(
+    (o, k) => ({ ...o, [k]: { backgroundColor: pal(shop).cream } }),
+    {}
+  ),
 });
 
 // Pictures live in public/ and are reachable only once the server knows its own
@@ -21,14 +52,13 @@ export const msgButton = (label, sendText, shop, style = 'secondary') => ({
 const SIZE = { banner: '953:375' };
 export function picture(shop, name) {
   if (!shop.assetBase) return null;
-  const banner = name === 'banner';
   return {
     type: 'image',
     url: `${shop.assetBase}/assets/${name}.png`,
     size: 'full',
     aspectRatio: SIZE[name] || '20:13',
     aspectMode: 'fit',
-    backgroundColor: banner ? '#FAF7F0' : '#FFFFFF',
+    backgroundColor: pal(shop).cream,
   };
 }
 
@@ -43,9 +73,9 @@ function header(title, shop) {
   return {
     type: 'box',
     layout: 'vertical',
-    backgroundColor: color(shop),
+    backgroundColor: pal(shop).apricot,
     paddingAll: 'lg',
-    contents: [text(title, { color: '#FFFFFF', weight: 'bold', size: 'md' })],
+    contents: [text(title, { weight: 'bold', size: 'md' })],
   };
 }
 
@@ -69,20 +99,22 @@ export function menuCard(shop, title, body, { banner = false } = {}) {
       }
     : message;
   const hero = banner ? picture(shop, 'banner') : null;
-  return flex(title, {
-    type: 'bubble',
-    ...(hero ? { hero } : { header: header(title, shop) }),
-    body: { type: 'box', layout: 'vertical', spacing: 'md', contents: [content] },
-    footer: {
-      type: 'box',
-      layout: 'vertical',
-      spacing: 'sm',
-      contents: [
-        ...topicList.map((t) => msgButton(t.label, t.text, shop)),
-        msgButton('คุยกับแอดมิน', 'แอดมิน', shop, 'primary'),
-      ],
-    },
-  });
+  return flex(
+    title,
+    bubble(shop, {
+      ...(hero ? { hero } : { header: header(title, shop) }),
+      body: { type: 'box', layout: 'vertical', spacing: 'md', contents: [content] },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        contents: [
+          ...topicList.map((t, i) => msgButton(t.label, t.text, shop, 'secondary', i)),
+          msgButton('คุยกับแอดมิน', 'แอดมิน', shop, 'primary'),
+        ],
+      },
+    })
+  );
 }
 
 // An FAQ entry may carry `link: { label, url }` → a button that opens the page,
@@ -93,8 +125,7 @@ export function faqCard(shop, entry, quickReply) {
   const hero = entry.image ? picture(shop, entry.image) : null;
   return flex(
     `${title}: ${entry.answer}${link ? ` ${link.url}` : ''}`,
-    {
-      type: 'bubble',
+    bubble(shop, {
       ...(hero ? { hero } : {}),
       header: header(title, shop),
       body: {
@@ -103,35 +134,18 @@ export function faqCard(shop, entry, quickReply) {
         spacing: 'md',
         contents: [
           text(entry.answer, { size: 'sm' }),
-          ...(link ? [text(link.url, { size: 'xs', color: '#666666' })] : []),
+          ...(link ? [text(link.url, { size: 'xs', color: pal(shop).muted })] : []),
         ],
       },
-      ...(link
-        ? {
-            footer: {
-              type: 'box',
-              layout: 'vertical',
-              contents: [
-                {
-                  type: 'button',
-                  style: 'primary',
-                  height: 'sm',
-                  color: color(shop),
-                  action: { type: 'uri', label: clip(link.label || 'เปิดลิงก์', 20), uri: link.url },
-                },
-              ],
-            },
-          }
-        : {}),
-    },
+      ...(link ? { footer: { type: 'box', layout: 'vertical', contents: [uriButton(link.label || 'เปิดลิงก์', link.url, shop)] } } : {}),
+    }),
     quickReply
   );
 }
 
 function productBubble(p, shop) {
   const inStock = p.inStock !== false;
-  return {
-    type: 'bubble',
+  return bubble(shop, {
     size: 'kilo',
     body: {
       type: 'box',
@@ -139,23 +153,21 @@ function productBubble(p, shop) {
       spacing: 'sm',
       contents: [
         text(p.name, { weight: 'bold', size: 'md' }),
-        text(`${baht(p.price)} / ${p.unit ?? 'ชิ้น'}`, { size: 'xl', weight: 'bold', color: color(shop) }),
-        ...(p.bulk ? [text(`จำนวนมาก: ${p.bulk}`, { size: 'xs', color: '#666666' })] : []),
+        text(`${baht(p.price)} / ${p.unit ?? 'ชิ้น'}`, { size: 'xl', weight: 'bold', color: pal(shop).accent }),
+        ...(p.bulk ? [text(`จำนวนมาก: ${p.bulk}`, { size: 'xs', color: pal(shop).muted })] : []),
         text(inStock ? '● มีสินค้า' : '● สินค้าหมดชั่วคราว', {
           size: 'sm',
           weight: 'bold',
-          color: inStock ? '#1B8A3B' : '#C62828',
+          color: inStock ? pal(shop).ok : pal(shop).warn,
         }),
       ],
     },
     footer: {
       type: 'box',
       layout: 'vertical',
-      contents: [
-        msgButton(inStock ? 'สั่งซื้อ/สอบถาม' : 'ถามวันเข้าสินค้า', 'แอดมิน', shop, 'primary'),
-      ],
+      contents: [msgButton(inStock ? 'สั่งซื้อ/สอบถาม' : 'ถามวันเข้าสินค้า', 'แอดมิน', shop, 'primary')],
     },
-  };
+  });
 }
 
 // LINE carousel allows at most 12 bubbles.
@@ -172,41 +184,29 @@ export function productCards(shop, products, quickReply) {
 // ส่งลิงก์รายการอุปกรณ์ของโรงเรียน — ปุ่มเปิดลิงก์ + ลิงก์ตัวหนังสือให้ก๊อปได้
 export function schoolLinkCard(shop, school, message) {
   const hero = picture(shop, 'school');
-  return flex(`${school.name}: ${school.link}`, {
-    type: 'bubble',
-    ...(hero ? { hero } : {}),
-    header: header(school.name, shop),
-    body: {
-      type: 'box',
-      layout: 'vertical',
-      spacing: 'md',
-      contents: [text(message, { size: 'sm' }), text(school.link, { size: 'xs', color: '#666666' })],
-    },
-    footer: {
-      type: 'box',
-      layout: 'vertical',
-      contents: [
-        {
-          type: 'button',
-          style: 'primary',
-          height: 'sm',
-          color: color(shop),
-          action: { type: 'uri', label: 'เปิดรายการอุปกรณ์', uri: school.link },
-        },
-      ],
-    },
-  });
+  return flex(
+    `${school.name}: ${school.link}`,
+    bubble(shop, {
+      ...(hero ? { hero } : {}),
+      header: header(school.name, shop),
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'md',
+        contents: [text(message, { size: 'sm' }), text(school.link, { size: 'xs', color: pal(shop).muted })],
+      },
+      footer: { type: 'box', layout: 'vertical', contents: [uriButton('เปิดรายการอุปกรณ์', school.link, shop)] },
+    })
+  );
 }
-
 
 // A short message under a picture. Returns null without a picture so the caller
 // can fall back to plain text.
 export function noteCard(shop, imageName, body) {
   const hero = picture(shop, imageName);
   if (!hero) return null;
-  return flex(body, {
-    type: 'bubble',
-    hero,
-    body: { type: 'box', layout: 'vertical', contents: [text(body, { size: 'sm' })] },
-  });
+  return flex(
+    body,
+    bubble(shop, { hero, body: { type: 'box', layout: 'vertical', contents: [text(body, { size: 'sm' })] } })
+  );
 }
