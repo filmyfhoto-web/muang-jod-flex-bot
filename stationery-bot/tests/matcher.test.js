@@ -53,28 +53,56 @@ test('faq and fallback are flex cards; handoff stays text', () => {
   assert.equal(buildReply('แอดมิน', shop).messages[0].type, 'text');
 });
 
-test('supplies button asks for the school, with a chip per school', () => {
+const countButtons = (m) => JSON.stringify(m).split('"type":"button"').length - 1;
+
+test('supplies button asks for the school and lists every school as a button', () => {
   const r = buildReply('อุปกรณ์การเรียน 2-2569', shop);
   assert.equal(r.awaitingSchool, true);
   assert.match(r.messages[0].text, /โรงเรียนไหน/);
-  assert.equal(r.messages[0].quickReply.items.length, shop.schoolSupplies.schools.length);
+  assert.equal(r.messages[1].contents.type, 'carousel');
+  assert.equal(countButtons(r.messages[1]), shop.schoolSupplies.schools.length);
 });
 
-test('school name after being asked → link card', () => {
-  const r = buildReply('โรงเรียนตัวอย่าง A', shop, { awaitingSchool: true });
-  assert.equal(r.awaitingSchool, false);
-  assert.equal(r.messages[0].type, 'flex');
-  assert.match(JSON.stringify(r.messages[0]), /example\.com\/school-a/);
+test('picker labels fit LINE (<=20) and send a full school name', () => {
+  const r = buildReply('อุปกรณ์', shop);
+  const buttons = [];
+  (function walk(n) {
+    if (Array.isArray(n)) return n.forEach(walk);
+    if (n && typeof n === 'object') {
+      if (n.type === 'button') buttons.push(n.action);
+      Object.values(n).forEach(walk);
+    }
+  })(r.messages[1]);
+  assert.equal(buttons.length, shop.schoolSupplies.schools.length);
+  for (const a of buttons) {
+    assert.ok(a.label.length <= 20, a.label);
+    assert.ok(shop.schoolSupplies.schools.some((s) => s.name === a.text));
+  }
+});
+
+test('every school resolves to its own link, by full or short name', () => {
+  for (const sc of shop.schoolSupplies.schools) {
+    for (const typed of [sc.name, sc.name.replace(/^โรงเรียน/, '')]) {
+      const r = buildReply(typed, shop, { awaitingSchool: true });
+      assert.equal(r.awaitingSchool, false, typed);
+      assert.ok(JSON.stringify(r.messages[0]).includes(sc.link), typed);
+    }
+  }
+});
+
+test('all school links are https and unique', () => {
+  const links = shop.schoolSupplies.schools.map((s) => s.link);
+  assert.ok(links.every((l) => /^https:\/\/\S+$/.test(l)));
+  assert.equal(new Set(links).size, links.length);
 });
 
 test('school named together with supplies → link straight away', () => {
-  const r = buildReply('ขอรายการอุปกรณ์ ตัวอย่างบี', shop);
-  assert.match(JSON.stringify(r.messages[0]), /school-b/);
+  const r = buildReply('ขอรายการอุปกรณ์ บ้านปางกอม', shop);
+  assert.match(JSON.stringify(r.messages[0]), /dcbt7/);
 });
 
-test('school name alone, not asked → not treated as supplies', () => {
-  assert.equal(buildReply('โรงเรียนตัวอย่าง A', shop).messages[0].type, 'flex');
-  assert.doesNotMatch(JSON.stringify(buildReply('โรงเรียนตัวอย่าง A', shop).messages[0]), /school-a/);
+test('school name alone, not asked → link is not sent', () => {
+  assert.doesNotMatch(JSON.stringify(buildReply('โรงเรียนบ้านกอก', shop).messages[0]), /qeujy/);
 });
 
 test('unknown school while asked → ask again; other topics still work', () => {

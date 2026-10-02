@@ -162,24 +162,154 @@
       "อุปกรณ์การเรียน",
       "อุปกรณ์"
     ],
-    "ask": "รบกวนแจ้งหน่อยค่ะ ว่าลูกค้าอยู่ \"โรงเรียนไหน\" 🏫\nพิมพ์ชื่อโรงเรียน หรือกดเลือกด้านล่างได้เลยค่ะ",
+    "ask": "รบกวนแจ้งหน่อยค่ะ ว่าลูกค้าอยู่ \"โรงเรียนไหน\" 🏫\nพิมพ์ชื่อโรงเรียน หรือเลื่อนการ์ดด้านล่างแล้วกดเลือกได้เลยค่ะ",
     "found": "ส่งรายการอุปกรณ์การเรียนของ {school} ให้แล้วค่ะ 📚",
     "notFound": "ยังไม่พบโรงเรียนนี้ในรายการค่ะ 🙏\nลองพิมพ์ชื่อโรงเรียนใหม่อีกครั้ง หรือพิมพ์ \"แอดมิน\" ให้แอดมินช่วยดูให้นะคะ",
     "schools": [
       {
-        "name": "โรงเรียนตัวอย่าง A",
-        "aliases": [
-          "ตัวอย่างเอ",
-          "ร.ร.ตัวอย่าง a"
-        ],
-        "link": "https://example.com/school-a"
+        "name": "โรงเรียนชุมชนเจดีย์เชียงโคม",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/x7mep"
       },
       {
-        "name": "โรงเรียนตัวอย่าง B",
-        "aliases": [
-          "ตัวอย่างบี"
-        ],
-        "link": "https://example.com/school-b"
+        "name": "โรงเรียนไตรมิตรวิทยา",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/bc2m4"
+      },
+      {
+        "name": "โรงเรียนไทยรัฐวิทยา 98",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/c99h3"
+      },
+      {
+        "name": "โรงเรียนบรรณโศภิษฐ์",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/ey25m"
+      },
+      {
+        "name": "โรงเรียนบ้านกอก",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/qeujy"
+      },
+      {
+        "name": "โรงเรียนบ้านกอกจูน",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/bdtwk"
+      },
+      {
+        "name": "โรงเรียนบ้านกิ่วจันทร์",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/vkewq"
+      },
+      {
+        "name": "โรงเรียนบ้านดอนแก้ว",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/7mcc7"
+      },
+      {
+        "name": "โรงเรียนบ้านด่าน",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/x38jb"
+      },
+      {
+        "name": "โรงเรียนบ้านนางบง",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/29pne"
+      },
+      {
+        "name": "โรงเรียนบ้านน้ำช้างพัฒนา",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/n3tyr"
+      },
+      {
+        "name": "โรงเรียนบ้านน้ำรีพัฒนา",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/dya6k"
+      },
+      {
+        "name": "โรงเรียนบ้านน้ำลาด",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/deuqk"
+      },
+      {
+        "name": "โรงเรียนบ้านน้ำเลียง",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/3khsn"
+      },
+      {
+        "name": "โรงเรียนบ้านบ่อหยวก",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/e9pds"
+      },
+      {
+        "name": "โรงเรียนบ้านปอน",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/8c6dq"
+      },
+      {
+        "name": "โรงเรียนบ้านปางกอม",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/dcbt7"
+      },
+      {
+        "name": "โรงเรียนบ้านปางหก",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/nxhnn"
+      },
+      {
+        "name": "โรงเรียนบ้านเปียงซ้อ",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/bc9u9"
+      },
+      {
+        "name": "โรงเรียนบ้านผาหลัก",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/xyqhs"
+      },
+      {
+        "name": "โรงเรียนบ้านเพียงหลวง7",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/hgtzx"
+      },
+      {
+        "name": "โรงเรียนบ้านแพะกลาง",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/x5pkf"
+      },
+      {
+        "name": "โรงเรียนบ้านมณีพฤกษ์",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/qym2r"
+      },
+      {
+        "name": "โรงเรียนบ้านสบกอน",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/29m9m"
+      },
+      {
+        "name": "โรงเรียนบ้านสะเกิน",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/9eqk5"
+      },
+      {
+        "name": "โรงเรียนบ้านห้วยฟอง",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/rxdku"
+      },
+      {
+        "name": "โรงเรียนมัธยมพระราชทานเฉลิมพระเกียรติ",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/775kt"
+      },
+      {
+        "name": "โรงเรียนสกาดพัฒนา",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/kwpzu"
+      },
+      {
+        "name": "โรงเรียนอนุบาลภูกามยาว",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/fzhee"
       }
     ]
   }

@@ -30,8 +30,12 @@ function findByNames(text, items) {
 
 export const findProducts = findByNames;
 
+// "โรงเรียนบ้านกอก" is also reachable as "บ้านกอก"; the longest match still wins,
+// so "บ้านกอกจูน" never lands on "บ้านกอก".
+const withShortName = (sc) => ({ ...sc, aliases: [...(sc.aliases ?? []), sc.name.replace(/^โรงเรียน/, '')] });
+
 export function findSchool(text, schools) {
-  const hits = findByNames(text, schools ?? []);
+  const hits = findByNames(text, (schools ?? []).map(withShortName));
   return hits.length === 1 ? hits[0] : null;
 }
 
