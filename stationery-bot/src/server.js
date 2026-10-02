@@ -3,7 +3,7 @@ import express from 'express';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { verifySignature, replyMessage } from './line.js';
-import { buildReply } from './replies.js';
+import { buildReply, welcomeMessage } from './replies.js';
 
 const token = (process.env.LINE_CHANNEL_ACCESS_TOKEN ?? '').trim();
 const secret = (process.env.LINE_CHANNEL_SECRET ?? '').trim();
@@ -42,7 +42,7 @@ async function handleEvent(ev) {
     return;
   }
   if (ev.type === 'follow') {
-    return replyMessage(ev.replyToken, [{ type: 'text', text: shop.greeting }], token);
+    return replyMessage(ev.replyToken, [welcomeMessage(shop)], token);
   }
   if (ev.type !== 'message') return;
   if (ev.message.type === 'text') {

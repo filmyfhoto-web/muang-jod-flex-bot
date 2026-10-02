@@ -31,9 +31,26 @@ test('handoff, greeting, fallback', () => {
   assert.equal(matchIntent('xyz', shop).type, 'fallback');
 });
 
-test('out-of-stock product says so', () => {
-  const { messages } = buildReply('ไฮไลท์', shop);
-  assert.match(messages[0].text, /หมดชั่วคราว/);
+test('greeting replies with a flex card with menu buttons', () => {
+  const { messages } = buildReply('สวัสดีค่ะ', shop);
+  assert.equal(messages[0].type, 'flex');
+  const buttons = messages[0].contents.footer.contents;
+  assert.ok(buttons.length > 1);
+  assert.ok(buttons.every((b) => b.action.label.length <= 20));
+});
+
+test('single product → bubble, several → carousel; out-of-stock flagged', () => {
+  const one = buildReply('ไฮไลท์', shop).messages[0];
+  assert.equal(one.contents.type, 'bubble');
+  assert.match(JSON.stringify(one), /สินค้าหมดชั่วคราว/);
+  const many = buildReply('ปากกา', shop).messages[0];
+  assert.ok(['bubble', 'carousel'].includes(many.contents.type));
+});
+
+test('faq and fallback are flex cards; handoff stays text', () => {
+  assert.equal(buildReply('ร้านเปิดกี่โมง', shop).messages[0].type, 'flex');
+  assert.equal(buildReply('xyz', shop).messages[0].type, 'flex');
+  assert.equal(buildReply('แอดมิน', shop).messages[0].type, 'text');
 });
 
 test('signature check', () => {

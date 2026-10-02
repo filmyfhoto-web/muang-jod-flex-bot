@@ -1,16 +1,5 @@
 import { matchIntent } from './matcher.js';
-
-const baht = (n) => `${Number(n).toLocaleString('th-TH')} บาท`;
-
-export function productText(p) {
-  const lines = [
-    `📦 ${p.name}`,
-    `ราคา ${baht(p.price)}/${p.unit ?? 'ชิ้น'}`,
-    p.bulk ? `ราคาซื้อจำนวนมาก: ${p.bulk}` : null,
-    p.inStock === false ? 'สถานะ: สินค้าหมดชั่วคราวค่ะ 🙏 พิมพ์ "แอดมิน" เพื่อสอบถามวันเข้าสินค้า' : 'สถานะ: มีสินค้าพร้อมส่งค่ะ ✅',
-  ];
-  return lines.filter(Boolean).join('\n');
-}
+import { menuCard, faqCard, productCards } from './flex.js';
 
 function quick(shop, extra = []) {
   const labels = [...(shop.quickReplies ?? []), ...extra].slice(0, 13);
@@ -30,17 +19,15 @@ export function buildReply(text, shop) {
   switch (intent.type) {
     case 'handoff':
       return { messages: [{ type: 'text', text: shop.handoff }], handoff: true };
-    case 'products': {
-      const shown = intent.products.slice(0, 5);
-      const body = shown.map(productText).join('\n\n');
-      const more = intent.products.length > shown.length ? '\n\nมีสินค้าอื่นที่ตรงกันอีก พิมพ์ชื่อให้ละเอียดขึ้นได้ค่ะ' : '';
-      return { messages: [{ type: 'text', text: body + more, quickReply: qr }] };
-    }
+    case 'products':
+      return { messages: [productCards(shop, intent.products, qr)] };
     case 'faq':
-      return { messages: [{ type: 'text', text: intent.faq.answer, quickReply: qr }] };
+      return { messages: [faqCard(shop, intent.faq, qr)] };
     case 'greeting':
-      return { messages: [{ type: 'text', text: shop.greeting, quickReply: qr }] };
+      return { messages: [menuCard(shop, shop.name, shop.greeting)] };
     default:
-      return { messages: [{ type: 'text', text: shop.fallback, quickReply: quick(shop, ['แอดมิน']) }] };
+      return { messages: [menuCard(shop, 'ขออภัยค่ะ', shop.fallback)] };
   }
 }
+
+export const welcomeMessage = (shop) => menuCard(shop, shop.name, shop.greeting);
