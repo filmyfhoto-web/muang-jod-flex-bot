@@ -17,7 +17,11 @@ const baseUrl = process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL |
 
 const shopFile = fileURLToPath(new URL('../data/shop.json', import.meta.url));
 // Re-read on every message so the owner can edit shop.json without a restart.
-const loadShop = () => ({ ...JSON.parse(readFileSync(shopFile, 'utf8')), iconUrl: iconUrlFor(baseUrl) });
+const loadShop = () => ({
+  ...JSON.parse(readFileSync(shopFile, 'utf8')),
+  iconUrl: iconUrlFor(baseUrl),
+  assetBase: iconUrlFor(baseUrl) ? baseUrl.replace(/\/+$/, '') : null,
+});
 loadShop(); // fail fast on a broken file
 
 const app = express();

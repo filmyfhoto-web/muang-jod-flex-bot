@@ -174,6 +174,42 @@ test('สั่งของ: chat-order instructions plus a button to the web sh
   assert.ok(!json.includes('shop.json'));
 });
 
+const withPics = { ...shop, assetBase: 'https://bot.example', iconUrl: 'https://bot.example/assets/icon.png' };
+const heroUrl = (m) => m.contents.hero?.url;
+
+test('with a public address: banner on the greeting, pictures on order / school / ask / admin cards', () => {
+  const greet = buildReply('สวัสดี', withPics).messages[0];
+  assert.equal(heroUrl(greet), 'https://bot.example/assets/banner.png');
+  assert.equal(greet.contents.header, undefined); // the banner already carries the shop name
+
+  assert.equal(heroUrl(buildReply('สั่งของ', withPics).messages[0]), 'https://bot.example/assets/order.png');
+  assert.equal(heroUrl(buildReply('อุปกรณ์การเรียน 2-69', withPics).messages[0]), 'https://bot.example/assets/ask.png');
+  assert.equal(heroUrl(buildReply('แอดมิน', withPics).messages[0]), 'https://bot.example/assets/admin.png');
+  const link = buildReply('บ้านกอก', withPics, { awaitingSchool: true }).messages[0];
+  assert.equal(heroUrl(link), 'https://bot.example/assets/school.png');
+  assert.match(JSON.stringify(link), /qeujy/);
+});
+
+test('without a public address nothing breaks: no pictures, plain header and text', () => {
+  const greet = buildReply('สวัสดี', shop).messages[0];
+  assert.equal(greet.contents.hero, undefined);
+  assert.ok(greet.contents.header);
+  assert.equal(buildReply('แอดมิน', shop).messages[0].type, 'text');
+  assert.equal(buildReply('อุปกรณ์การเรียน 2-69', shop).messages[0].type, 'text');
+});
+
+test('every picture the cards point at exists in public/ and is a PNG with transparency', () => {
+  for (const n of ['banner', 'order', 'school', 'ask', 'admin', 'icon']) {
+    const f = readFileSync(new URL(`../public/${n}.png`, import.meta.url));
+    assert.equal(f.subarray(1, 4).toString(), 'PNG', n);
+    assert.ok(f.length < 1_000_000, `${n} must stay under LINE's 1MB image limit`);
+  }
+  for (const n of ['banner', 'order', 'school', 'ask', 'admin']) {
+    const f = readFileSync(new URL(`../public/${n}.png`, import.meta.url));
+    assert.ok([4, 6].includes(f[25]), `${n} should have an alpha channel`); // PNG colour type 6 = RGBA
+  }
+});
+
 test('signature check', () => {
   const body = Buffer.from('{"events":[]}');
   const sig = crypto.createHmac('sha256', 's').update(body).digest('base64');

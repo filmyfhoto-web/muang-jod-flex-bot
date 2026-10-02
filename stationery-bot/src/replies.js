@@ -1,5 +1,5 @@
 import { matchIntent, findSchool, mentionsSupplies } from './matcher.js';
-import { menuCard, faqCard, productCards, schoolLinkCard } from './flex.js';
+import { menuCard, faqCard, productCards, schoolLinkCard, noteCard } from './flex.js';
 
 // quickReplies entries are "text" or { label, text } — LINE button labels stop at
 // 20 characters, so a long message can wear a shorter label.
@@ -19,7 +19,7 @@ const sendSchool = (shop, school) => ({
 });
 
 const askSchool = (shop, text) => ({
-  messages: [{ type: 'text', text }],
+  messages: [noteCard(shop, 'ask', text) ?? { type: 'text', text }],
   awaitingSchool: true,
 });
 
@@ -46,19 +46,23 @@ export function buildReply(text, shop, session = {}) {
   const out = (m) => ({ messages: [m], awaitingSchool: false });
   switch (intent.type) {
     case 'handoff':
-      return { messages: [{ type: 'text', text: shop.handoff }], awaitingSchool: false, handoff: true };
+      return {
+        messages: [noteCard(shop, 'admin', shop.handoff) ?? { type: 'text', text: shop.handoff }],
+        awaitingSchool: false,
+        handoff: true,
+      };
     case 'products':
       return out(productCards(shop, intent.products, qr));
     case 'faq':
       return out(faqCard(shop, intent.faq, qr));
     case 'greeting':
-      return out(menuCard(shop, shop.name, shop.greeting));
+      return out(menuCard(shop, shop.name, shop.greeting, { banner: true }));
     default:
       return out(menuCard(shop, 'ขออภัยค่ะ', shop.fallback));
   }
 }
 
-export const welcomeMessage = (shop) => menuCard(shop, shop.name, shop.greeting);
+export const welcomeMessage = (shop) => menuCard(shop, shop.name, shop.greeting, { banner: true });
 
 // Shows the shop's own picture as the bot's avatar on each message (LINE `sender`).
 // Without a public base URL the messages are returned untouched.
