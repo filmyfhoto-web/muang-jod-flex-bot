@@ -54,7 +54,7 @@ test('faq and fallback are flex cards; handoff stays text', () => {
 });
 
 test('supplies button only asks which school — no school list, no link', () => {
-  const r = buildReply('อุปกรณ์การเรียน 2-2569', shop);
+  const r = buildReply('อุปกรณ์การเรียน 2-69', shop);
   assert.equal(r.awaitingSchool, true);
   assert.equal(r.messages.length, 1);
   assert.equal(r.messages[0].type, 'text');
