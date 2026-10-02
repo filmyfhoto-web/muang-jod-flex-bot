@@ -53,31 +53,15 @@ test('faq and fallback are flex cards; handoff stays text', () => {
   assert.equal(buildReply('แอดมิน', shop).messages[0].type, 'text');
 });
 
-const countButtons = (m) => JSON.stringify(m).split('"type":"button"').length - 1;
-
-test('supplies button asks for the school and lists every school as a button', () => {
+test('supplies button only asks which school — no school list, no link', () => {
   const r = buildReply('อุปกรณ์การเรียน 2-2569', shop);
   assert.equal(r.awaitingSchool, true);
+  assert.equal(r.messages.length, 1);
+  assert.equal(r.messages[0].type, 'text');
   assert.match(r.messages[0].text, /โรงเรียนไหน/);
-  assert.equal(r.messages[1].contents.type, 'carousel');
-  assert.equal(countButtons(r.messages[1]), shop.schoolSupplies.schools.length);
-});
-
-test('picker labels fit LINE (<=20) and send a full school name', () => {
-  const r = buildReply('อุปกรณ์', shop);
-  const buttons = [];
-  (function walk(n) {
-    if (Array.isArray(n)) return n.forEach(walk);
-    if (n && typeof n === 'object') {
-      if (n.type === 'button') buttons.push(n.action);
-      Object.values(n).forEach(walk);
-    }
-  })(r.messages[1]);
-  assert.equal(buttons.length, shop.schoolSupplies.schools.length);
-  for (const a of buttons) {
-    assert.ok(a.label.length <= 20, a.label);
-    assert.ok(shop.schoolSupplies.schools.some((s) => s.name === a.text));
-  }
+  assert.equal(r.messages[0].quickReply, undefined);
+  const out = JSON.stringify(r);
+  assert.ok(!shop.schoolSupplies.schools.some((s) => out.includes(s.link) || out.includes(s.name)));
 });
 
 test('every school resolves to its own link, by full or short name', () => {

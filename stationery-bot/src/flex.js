@@ -133,22 +133,3 @@ export function schoolLinkCard(shop, school, message) {
   });
 }
 
-// LINE quick replies stop at 13 buttons, so schools go in a carousel instead:
-// 10 per page, each button sends the full school name as the customer's message.
-export function schoolPicker(shop, schools) {
-  const PAGE = 10;
-  const pages = [];
-  for (let i = 0; i < schools.length && pages.length < 12; i += PAGE) pages.push(schools.slice(i, i + PAGE));
-  const bubbles = pages.map((group, i) => ({
-    type: 'bubble',
-    size: 'kilo',
-    header: header(`เลือกโรงเรียน (${i + 1}/${pages.length})`, shop),
-    body: {
-      type: 'box',
-      layout: 'vertical',
-      spacing: 'xs',
-      contents: group.map((sc) => msgButton(sc.name.replace(/^โรงเรียน/, ''), sc.name, shop)),
-    },
-  }));
-  return flex('เลือกโรงเรียน', bubbles.length === 1 ? bubbles[0] : { type: 'carousel', contents: bubbles });
-}

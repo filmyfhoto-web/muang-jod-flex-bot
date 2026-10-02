@@ -1,5 +1,5 @@
 import { matchIntent, findSchool, mentionsSupplies } from './matcher.js';
-import { menuCard, faqCard, productCards, schoolLinkCard, schoolPicker } from './flex.js';
+import { menuCard, faqCard, productCards, schoolLinkCard } from './flex.js';
 
 function quick(shop, extra = []) {
   const labels = [...(shop.quickReplies ?? []), ...extra].slice(0, 13);
@@ -18,7 +18,7 @@ const sendSchool = (shop, school) => ({
 });
 
 const askSchool = (shop, text) => ({
-  messages: [{ type: 'text', text }, schoolPicker(shop, shop.schoolSupplies.schools ?? [])],
+  messages: [{ type: 'text', text }],
   awaitingSchool: true,
 });
 
