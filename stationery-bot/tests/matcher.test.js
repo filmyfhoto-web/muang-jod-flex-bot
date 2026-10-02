@@ -64,14 +64,34 @@ test('supplies button only asks which school — no school list, no link', () =>
   assert.ok(!shop.schoolSupplies.schools.some((s) => out.includes(s.link) || out.includes(s.name)));
 });
 
-test('every school resolves to its own link, by full or short name', () => {
+test('every school resolves to its own link however the customer writes it', () => {
   for (const sc of shop.schoolSupplies.schools) {
-    for (const typed of [sc.name, sc.name.replace(/^โรงเรียน/, '')]) {
+    const short = sc.name.replace(/^โรงเรียน/, '');
+    const bare = short.replace(/^บ้าน/, '');
+    const variants = [sc.name, short, bare, `ร.ร.${short}`, `ร.ร. ${short}`, `รร${short}`, `รร ${short}`, `รร.${short}`,
+      `${short} ค่ะ`, `อยู่โรงเรียน${short}ค่ะ`, `ร.ร.${bare}`];
+    for (const typed of variants) {
       const r = buildReply(typed, shop, { awaitingSchool: true });
       assert.equal(r.awaitingSchool, false, typed);
       assert.ok(JSON.stringify(r.messages[0]).includes(sc.link), typed);
     }
   }
+});
+
+test('a distinctive part of a name is enough; an ambiguous one is not guessed', () => {
+  const link = (t) => {
+    const r = buildReply(t, shop, { awaitingSchool: true });
+    return r.awaitingSchool ? null : JSON.stringify(r.messages[0]);
+  };
+  assert.match(link('ไตรมิตร'), /bc2m4/);
+  assert.match(link('เปียงซ้อ'), /bc9u9/);
+  assert.match(link('ไทยรัฐ 98'), /c99h3/);
+  assert.match(link('เจดีย์เชียงโคม'), /x7mep/);
+  assert.match(link('กอกจูน'), /bdtwk/);
+  assert.match(link('บ้านกอก'), /qeujy/);
+  assert.equal(link('บ้าน'), null);
+  assert.equal(link('น้ำ'), null);
+  assert.equal(link('ร.ร.'), null);
 });
 
 test('all school links are https and unique', () => {

@@ -30,13 +30,52 @@ function findByNames(text, items) {
 
 export const findProducts = findByNames;
 
-// "โรงเรียนบ้านกอก" is also reachable as "บ้านกอก"; the longest match still wins,
-// so "บ้านกอกจูน" never lands on "บ้านกอก".
-const withShortName = (sc) => ({ ...sc, aliases: [...(sc.aliases ?? []), sc.name.replace(/^โรงเรียน/, '')] });
+// Customers write a school many ways: "โรงเรียนบ้านกอก", "ร.ร.บ้านกอก", "รร บ้านกอก",
+// "บ้านกอก", "กอก". Compare on a key with the school prefix, the word "บ้าน", dots,
+// spaces and politeness removed. "รร" is only a prefix at the start or after a
+// space — "บรรณโศภิษฐ์" has one inside and must keep it.
+const schoolKey = (s) =>
+  String(s ?? '')
+    .toLowerCase()
+    .replace(/โรงเรียน/g, '')
+    .replace(/(^|\s)ร\s*\.?\s*ร\s*\.?/g, '$1')
+    .replace(/บ้าน/g, '')
+    .replace(/[\s.]+/g, '')
+    .replace(POLITE, '');
 
+// Order of trust: the key is exactly the school's → the school's key is inside the
+// message ("อยู่โรงเรียนบ้านกอกค่ะ"; longest wins so กอกจูน never lands on กอก) → the
+// message is a distinctive part of one school's key ("ไตรมิตร"). Anything that
+// fits two schools is ambiguous and returns null rather than guessing.
 export function findSchool(text, schools) {
-  const hits = findByNames(text, (schools ?? []).map(withShortName));
-  return hits.length === 1 ? hits[0] : null;
+  const q = schoolKey(text);
+  if (!q) return null;
+  const cands = (schools ?? []).map((sc) => ({
+    sc,
+    keys: [sc.name, ...(sc.aliases ?? [])].map(schoolKey).filter(Boolean),
+  }));
+  const only = (list) => (list.length === 1 ? list[0].sc : null);
+
+  const exact = cands.filter((c) => c.keys.includes(q));
+  if (exact.length) return only(exact);
+
+  const inside = cands
+    .map((c) => ({ ...c, len: Math.max(0, ...c.keys.filter((k) => q.includes(k)).map((k) => k.length)) }))
+    .filter((c) => c.len > 0);
+  if (inside.length) {
+    const best = Math.max(...inside.map((c) => c.len));
+    return only(inside.filter((c) => c.len === best));
+  }
+
+  if (q.length >= 3) {
+    const part = only(cands.filter((c) => c.keys.some((k) => k.includes(q))));
+    if (part) return part;
+  }
+
+  // "ไทยรัฐ 98" for "ไทยรัฐวิทยา 98": the number pins it down, the words may be short.
+  const m = /^(\D{3,})(\d+)$/.exec(q);
+  if (m) return only(cands.filter((c) => c.keys.some((k) => k.includes(m[1]) && k.endsWith(m[2]))));
+  return null;
 }
 
 export function mentionsSupplies(text, cfg) {
