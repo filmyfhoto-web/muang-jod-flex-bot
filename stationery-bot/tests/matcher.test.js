@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { matchIntent } from '../src/matcher.js';
-import { buildReply, withSender } from '../src/replies.js';
+import { matchIntent, isThanks, isThanksSticker } from '../src/matcher.js';
+import { buildReply, withSender, thanksReply } from '../src/replies.js';
 import { verifySignature } from '../src/line.js';
 import crypto from 'node:crypto';
 
@@ -208,6 +208,34 @@ test('every picture the cards point at exists in public/ and is a PNG with trans
     const f = readFileSync(new URL(`../public/${n}.png`, import.meta.url));
     assert.ok([4, 6].includes(f[25]), `${n} should have an alpha channel`); // PNG colour type 6 = RGBA
   }
+});
+
+test('thanks in its usual spellings gets the fixed reply', () => {
+  for (const t of ['ขอบคุณ', 'ขอบคุณค่ะ', 'ขอบคุณมากครับ', 'ขอบคุณนะคะ 🙏', 'ขอบคุณที่ช่วยนะคะ', 'ขอบคุณมากๆ ค่ะ', 'ขอบใจจ้า', 'thanks', 'Thank you!', 'ขอบพระคุณค่ะ']) {
+    assert.ok(isThanks(t), t);
+    assert.equal(buildReply(t, shop).messages[0].text, 'ยินดีค่ะ สอบถามรายละเอียดเพิ่มเติม แจ้งได้เลยนะคะ', t);
+  }
+});
+
+test('thanks plus a real question is still a question', () => {
+  assert.ok(!isThanks('ขอบคุณค่ะ ปากการาคาเท่าไหร่'));
+  assert.equal(buildReply('ขอบคุณค่ะ ร้านเปิดกี่โมง', shop).messages[0].type, 'flex');
+  assert.ok(!isThanks('สวัสดีค่ะ'));
+  assert.ok(!isThanks(''));
+});
+
+test('thanks while a school is being asked ends the question and sends no link', () => {
+  const r = buildReply('ขอบคุณค่ะ', shop, { awaitingSchool: true });
+  assert.equal(r.awaitingSchool, false);
+  assert.ok(!JSON.stringify(r).includes('nattagroup'));
+});
+
+test('thank-you stickers are recognised by their keywords; others are not', () => {
+  assert.ok(isThanksSticker(['thanks', 'thank you', 'grateful']));
+  assert.ok(isThanksSticker(['Thank']));
+  assert.ok(!isThanksSticker(['hello', 'hi']));
+  assert.ok(!isThanksSticker(undefined));
+  assert.equal(thanksReply(shop).messages[0].text, 'ยินดีค่ะ สอบถามรายละเอียดเพิ่มเติม แจ้งได้เลยนะคะ');
 });
 
 test('signature check', () => {

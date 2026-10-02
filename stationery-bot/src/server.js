@@ -3,7 +3,8 @@ import express from 'express';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { verifySignature, replyMessage } from './line.js';
-import { buildReply, welcomeMessage, withSender, iconUrlFor } from './replies.js';
+import { buildReply, welcomeMessage, withSender, iconUrlFor, thanksReply } from './replies.js';
+import { isThanksSticker } from './matcher.js';
 
 const token = (process.env.LINE_CHANNEL_ACCESS_TOKEN ?? '').trim();
 const secret = (process.env.LINE_CHANNEL_SECRET ?? '').trim();
@@ -72,7 +73,14 @@ async function handleEvent(ev) {
     else awaiting.delete(userId);
     return replyMessage(ev.replyToken, send(messages), token);
   }
-  // Slips, photos, stickers: acknowledge, a person follows up.
+  if (ev.message.type === 'sticker') {
+    awaiting.delete(ev.source?.userId ?? 'anon');
+    // A thank-you sticker gets the same answer as a typed "ขอบคุณ". Any other sticker
+    // is left alone — "ได้รับแล้ว แอดมินจะตรวจสอบ" is wrong for a wave or an OK.
+    if (!isThanksSticker(ev.message.keywords)) return;
+    return replyMessage(ev.replyToken, send(thanksReply(shop).messages), token);
+  }
+  // Slips and photos: acknowledge, a person follows up.
   return replyMessage(
     ev.replyToken,
     send([{ type: 'text', text: 'ได้รับแล้วค่ะ 🙏 แอดมินจะตรวจสอบและตอบกลับนะคะ' }]),

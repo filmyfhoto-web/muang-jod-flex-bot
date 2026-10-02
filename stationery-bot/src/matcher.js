@@ -95,10 +95,26 @@ export function findFaq(text, faq) {
   return best?.entry ?? null;
 }
 
+// "ขอบคุณค่ะ", "ขอบคุณมากครับ", "thanks" — but not "ขอบคุณ ปากกาเท่าไหร่": a message
+// that still says something else is a question, not a goodbye.
+const THANKS = /ขอบคุณ|ขอบใจ|ขอบพระคุณ|thank(?:s|you)?|thx/g;
+const THANKS_FILLER = /มากๆ|มาก|เลย|นะคะ|นะครับ|นะ|ค่ะ|คะ|ครับ|คับ|จ้า|จ้ะ|ล่วงหน้า|ที่|ช่วย|ๆ/g;
+export function isThanks(text) {
+  const q = String(text ?? '').toLowerCase().replace(/[^\p{L}\p{M}\p{N}]/gu, '');
+  if (!THANKS.test(q)) return false;
+  THANKS.lastIndex = 0;
+  return q.replace(THANKS, '').replace(THANKS_FILLER, '') === '';
+}
+
+// A LINE sticker carries English keywords describing it; "thanks" ones count.
+export const isThanksSticker = (keywords) =>
+  Array.isArray(keywords) && keywords.some((k) => /thank|thx|ขอบคุณ/i.test(String(k)));
+
 // → { type: 'handoff' | 'greeting' | 'products' | 'faq' | 'fallback', ... }
 export function matchIntent(text, shop) {
   const q = normalize(text);
   if (HANDOFF.test(q)) return { type: 'handoff' };
+  if (isThanks(text)) return { type: 'thanks' };
   const products = findProducts(text, shop.products ?? []);
   if (products.length) return { type: 'products', products };
   const faq = findFaq(text, shop.faq ?? []);

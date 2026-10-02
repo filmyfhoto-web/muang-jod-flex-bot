@@ -1,4 +1,4 @@
-import { matchIntent, findSchool, mentionsSupplies } from './matcher.js';
+import { matchIntent, findSchool, mentionsSupplies, isThanks } from './matcher.js';
 import { menuCard, faqCard, productCards, schoolLinkCard, noteCard } from './flex.js';
 
 // quickReplies entries are "text" or { label, text } — LINE button labels stop at
@@ -31,6 +31,9 @@ const askSchool = (shop, text) => ({
 export function buildReply(text, shop, session = {}) {
   const cfg = shop.schoolSupplies;
 
+  // "ขอบคุณ" ends whatever was in progress, including a pending "which school?"
+  if (isThanks(text)) return thanksReply(shop);
+
   if (cfg) {
     const school = findSchool(text, cfg.schools);
     if (school && (session.awaitingSchool || mentionsSupplies(text, cfg))) return sendSchool(shop, school);
@@ -60,6 +63,11 @@ export function buildReply(text, shop, session = {}) {
     default:
       return out(menuCard(shop, 'ขออภัยค่ะ', shop.fallback));
   }
+}
+
+export function thanksReply(shop) {
+  const text = shop.thanks || 'ยินดีค่ะ สอบถามรายละเอียดเพิ่มเติม แจ้งได้เลยนะคะ';
+  return { messages: [{ type: 'text', text, quickReply: quick(shop) }], awaitingSchool: false };
 }
 
 export const welcomeMessage = (shop) => menuCard(shop, shop.name, shop.greeting, { banner: true });
