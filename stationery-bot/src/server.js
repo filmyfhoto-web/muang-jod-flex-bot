@@ -3,7 +3,7 @@ import express from 'express';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { verifySignature, replyMessage } from './line.js';
-import { buildReply, welcomeMessage, withSender } from './replies.js';
+import { buildReply, welcomeMessage, withSender, iconUrlFor } from './replies.js';
 
 const token = (process.env.LINE_CHANNEL_ACCESS_TOKEN ?? '').trim();
 const secret = (process.env.LINE_CHANNEL_SECRET ?? '').trim();
@@ -12,16 +12,17 @@ if (!token || !secret) {
   process.exit(1);
 }
 
+// Public https address of this server — Render sets RENDER_EXTERNAL_URL itself.
+const baseUrl = process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || '';
+
 const shopFile = fileURLToPath(new URL('../data/shop.json', import.meta.url));
 // Re-read on every message so the owner can edit shop.json without a restart.
-const loadShop = () => JSON.parse(readFileSync(shopFile, 'utf8'));
+const loadShop = () => ({ ...JSON.parse(readFileSync(shopFile, 'utf8')), iconUrl: iconUrlFor(baseUrl) });
 loadShop(); // fail fast on a broken file
 
 const app = express();
 app.use('/assets', express.static(fileURLToPath(new URL('../public', import.meta.url)), { maxAge: '1d' }));
 
-// Public https address of this server — Render sets RENDER_EXTERNAL_URL itself.
-const baseUrl = process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || '';
 const send = (messages) => withSender(messages, baseUrl);
 app.get('/health', (_req, res) => res.json({ ok: true }));
 

@@ -135,6 +135,34 @@ test('withSender adds the shop icon only with a public https base url', () => {
   assert.equal(msgs[0].sender, undefined); // input not mutated
 });
 
+test('shop name and opening hours are the real ones', () => {
+  assert.equal(shop.name, 'ร้านนัฐภรณ์ เชียงกลาง');
+  const hours = matchIntent('เวลาเปิดร้าน', shop).faq.answer;
+  assert.match(hours, /จันทร์ - ศุกร์\s+07\.30 - 18\.00/);
+  assert.match(hours, /เสาร์\s+หยุด/);
+  assert.match(hours, /อาทิตย์\s+07\.30 - 17\.00/);
+});
+
+test('every button label fits LINE (<=20) and sends a message the bot understands', () => {
+  const card = buildReply('สวัสดี', shop).messages[0];
+  const buttons = card.contents.footer.contents.map((b) => b.action);
+  for (const a of buttons) assert.ok(a.label.length <= 20, a.label);
+  const supplies = buttons.find((a) => a.label.startsWith('อุปกรณ์'));
+  assert.equal(buildReply(supplies.text, shop).awaitingSchool, true);
+  const chips = buildReply('ปากกา', shop).messages[0].quickReply.items;
+  for (const c of chips) assert.ok(c.action.label.length <= 20, c.action.label);
+});
+
+test('greeting card shows the shop picture in front of the text when a url is known', () => {
+  const none = JSON.stringify(buildReply('สวัสดี', shop).messages[0]);
+  assert.ok(!none.includes('"type":"image"'));
+  const withIcon = buildReply('สวัสดี', { ...shop, iconUrl: 'https://bot.example/assets/icon.png' }).messages[0];
+  const body = withIcon.contents.body.contents[0];
+  assert.equal(body.layout, 'horizontal');
+  assert.equal(body.contents[0].type, 'image');
+  assert.equal(body.contents[1].type, 'text');
+});
+
 test('signature check', () => {
   const body = Buffer.from('{"events":[]}');
   const sig = crypto.createHmac('sha256', 's').update(body).digest('base64');

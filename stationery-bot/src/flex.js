@@ -34,18 +34,34 @@ function header(title, shop) {
 }
 
 // ข้อความสั้นพร้อมปุ่มหัวข้อ (ใช้ทั้งทักทายและตอบไม่ตรง)
+// shop.iconUrl (set by the server when it knows its public address) puts the
+// shop's picture in front of the text.
 export function menuCard(shop, title, body) {
-  const topics = (shop.quickReplies ?? []).slice(0, 6);
+  const topicList = (shop.quickReplies ?? [])
+    .slice(0, 6)
+    .map((t) => (typeof t === 'string' ? { label: t, text: t } : t));
+  const message = text(body, { size: 'sm', flex: 1, gravity: 'center' });
+  const content = shop.iconUrl
+    ? {
+        type: 'box',
+        layout: 'horizontal',
+        spacing: 'md',
+        contents: [
+          { type: 'image', url: shop.iconUrl, size: '64px', aspectRatio: '1:1', aspectMode: 'cover', flex: 0 },
+          message,
+        ],
+      }
+    : message;
   return flex(title, {
     type: 'bubble',
     header: header(title, shop),
-    body: { type: 'box', layout: 'vertical', spacing: 'md', contents: [text(body, { size: 'sm' })] },
+    body: { type: 'box', layout: 'vertical', spacing: 'md', contents: [content] },
     footer: {
       type: 'box',
       layout: 'vertical',
       spacing: 'sm',
       contents: [
-        ...topics.map((t) => msgButton(t, t, shop)),
+        ...topicList.map((t) => msgButton(t.label, t.text, shop)),
         msgButton('คุยกับแอดมิน', 'แอดมิน', shop, 'primary'),
       ],
     },

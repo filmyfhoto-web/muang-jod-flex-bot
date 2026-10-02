@@ -1,15 +1,16 @@
 import { matchIntent, findSchool, mentionsSupplies } from './matcher.js';
 import { menuCard, faqCard, productCards, schoolLinkCard } from './flex.js';
 
-function quick(shop, extra = []) {
-  const labels = [...(shop.quickReplies ?? []), ...extra].slice(0, 13);
-  if (!labels.length) return undefined;
-  return {
-    items: labels.map((l) => ({
-      type: 'action',
-      action: { type: 'message', label: l.slice(0, 20), text: l },
-    })),
-  };
+// quickReplies entries are "text" or { label, text } — LINE button labels stop at
+// 20 characters, so a long message can wear a shorter label.
+export const topics = (shop) =>
+  (shop.quickReplies ?? []).map((t) => (typeof t === 'string' ? { label: t, text: t } : t));
+
+function quick(shop) {
+  const items = topics(shop)
+    .slice(0, 13)
+    .map((t) => ({ type: 'action', action: { type: 'message', label: t.label.slice(0, 20), text: t.text } }));
+  return items.length ? { items } : undefined;
 }
 
 const sendSchool = (shop, school) => ({
@@ -61,8 +62,12 @@ export const welcomeMessage = (shop) => menuCard(shop, shop.name, shop.greeting)
 
 // Shows the shop's own picture as the bot's avatar on each message (LINE `sender`).
 // Without a public base URL the messages are returned untouched.
-export function withSender(messages, baseUrl) {
+export function iconUrlFor(baseUrl) {
   const base = String(baseUrl ?? '').trim().replace(/\/+$/, '');
-  if (!/^https:\/\//.test(base)) return messages;
-  return messages.map((m) => ({ ...m, sender: { iconUrl: `${base}/assets/icon.png` } }));
+  return /^https:\/\//.test(base) ? `${base}/assets/icon.png` : null;
+}
+
+export function withSender(messages, baseUrl) {
+  const iconUrl = iconUrlFor(baseUrl);
+  return iconUrl ? messages.map((m) => ({ ...m, sender: { iconUrl } })) : messages;
 }
