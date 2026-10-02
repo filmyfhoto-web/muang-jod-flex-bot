@@ -68,14 +68,42 @@ export function menuCard(shop, title, body) {
   });
 }
 
+// An FAQ entry may carry `link: { label, url }` → a button that opens the page,
+// and the address is also written out so it can be copied.
 export function faqCard(shop, entry, quickReply) {
   const title = entry.label || 'ข้อมูลร้าน';
+  const link = entry.link?.url ? entry.link : null;
   return flex(
-    `${title}: ${entry.answer}`,
+    `${title}: ${entry.answer}${link ? ` ${link.url}` : ''}`,
     {
       type: 'bubble',
       header: header(title, shop),
-      body: { type: 'box', layout: 'vertical', contents: [text(entry.answer, { size: 'sm' })] },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'md',
+        contents: [
+          text(entry.answer, { size: 'sm' }),
+          ...(link ? [text(link.url, { size: 'xs', color: '#666666' })] : []),
+        ],
+      },
+      ...(link
+        ? {
+            footer: {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                {
+                  type: 'button',
+                  style: 'primary',
+                  height: 'sm',
+                  color: color(shop),
+                  action: { type: 'uri', label: clip(link.label || 'เปิดลิงก์', 20), uri: link.url },
+                },
+              ],
+            },
+          }
+        : {}),
     },
     quickReply
   );

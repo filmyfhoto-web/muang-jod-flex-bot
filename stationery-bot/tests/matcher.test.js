@@ -163,6 +163,17 @@ test('greeting card shows the shop picture in front of the text when a url is kn
   assert.equal(body.contents[1].type, 'text');
 });
 
+test('สั่งของ: chat-order instructions plus a button to the web shop', () => {
+  const card = buildReply('สั่งของ', shop).messages[0];
+  const json = JSON.stringify(card);
+  assert.match(json, /พิมพ์ชื่อสินค้าและจำนวน/);
+  const btn = card.contents.footer.contents[0].action;
+  assert.equal(btn.type, 'uri');
+  assert.equal(btn.uri, 'https://www.nattagroup.com/');
+  assert.ok(btn.label.length <= 20);
+  assert.ok(!json.includes('shop.json'));
+});
+
 test('signature check', () => {
   const body = Buffer.from('{"events":[]}');
   const sig = crypto.createHmac('sha256', 's').update(body).digest('base64');
