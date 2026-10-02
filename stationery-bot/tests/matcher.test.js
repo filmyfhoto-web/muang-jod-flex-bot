@@ -213,7 +213,7 @@ test('every picture the cards point at exists in public/ and is a PNG with trans
 test('thanks in its usual spellings gets the fixed reply', () => {
   for (const t of ['ขอบคุณ', 'ขอบคุณค่ะ', 'ขอบคุณมากครับ', 'ขอบคุณนะคะ 🙏', 'ขอบคุณที่ช่วยนะคะ', 'ขอบคุณมากๆ ค่ะ', 'ขอบใจจ้า', 'thanks', 'Thank you!', 'ขอบพระคุณค่ะ']) {
     assert.ok(isThanks(t), t);
-    assert.equal(buildReply(t, shop).messages[0].text, 'ยินดีค่ะ สอบถามรายละเอียดเพิ่มเติม แจ้งได้เลยนะคะ', t);
+    assert.equal(buildReply(t, shop).messages[0].text, 'ยินดีค่ะ หากต้องการสอบถามรายละเอียดเพิ่มเติม แจ้งได้เลยนะคะ', t);
   }
 });
 
@@ -235,7 +235,7 @@ test('thank-you stickers are recognised by their keywords; others are not', () =
   assert.ok(isThanksSticker(['Thank']));
   assert.ok(!isThanksSticker(['hello', 'hi']));
   assert.ok(!isThanksSticker(undefined));
-  assert.equal(thanksReply(shop).messages[0].text, 'ยินดีค่ะ สอบถามรายละเอียดเพิ่มเติม แจ้งได้เลยนะคะ');
+  assert.equal(thanksReply(shop).messages[0].text, 'ยินดีค่ะ หากต้องการสอบถามรายละเอียดเพิ่มเติม แจ้งได้เลยนะคะ');
 });
 
 test('signature check', () => {

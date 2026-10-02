@@ -66,7 +66,7 @@ export function buildReply(text, shop, session = {}) {
 }
 
 export function thanksReply(shop) {
-  const text = shop.thanks || 'ยินดีค่ะ สอบถามรายละเอียดเพิ่มเติม แจ้งได้เลยนะคะ';
+  const text = shop.thanks || 'ยินดีค่ะ หากต้องการสอบถามรายละเอียดเพิ่มเติม แจ้งได้เลยนะคะ';
   return { messages: [{ type: 'text', text, quickReply: quick(shop) }], awaitingSchool: false };
 }
 
