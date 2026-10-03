@@ -19,7 +19,7 @@ const sendSchool = (shop, school) => ({
 });
 
 const askSchool = (shop, text) => ({
-  messages: [noteCard(shop, 'ask', text) ?? { type: 'text', text }],
+  messages: [noteCard(shop, 'ask', 'อุปกรณ์การเรียน', text) ?? { type: 'text', text }],
   awaitingSchool: true,
 });
 
@@ -50,7 +50,7 @@ export function buildReply(text, shop, session = {}) {
   switch (intent.type) {
     case 'handoff':
       return {
-        messages: [noteCard(shop, 'admin', shop.handoff) ?? { type: 'text', text: shop.handoff }],
+        messages: [noteCard(shop, 'admin', 'คุยกับแอดมิน', shop.handoff) ?? { type: 'text', text: shop.handoff }],
         awaitingSchool: false,
         handoff: true,
       };
@@ -59,19 +59,19 @@ export function buildReply(text, shop, session = {}) {
     case 'faq':
       return out(faqCard(shop, intent.faq, qr));
     case 'greeting':
-      return out(menuCard(shop, shop.name, shop.greeting, { banner: true }));
+      return out(menuCard(shop, shop.name, shop.greeting, { image: 'staff' }));
     default:
-      return out(menuCard(shop, 'ขออภัยค่ะ', shop.fallback));
+      return out(menuCard(shop, 'ขออภัยค่ะ', shop.fallback, { image: 'admin' }));
   }
 }
 
 export function thanksReply(shop) {
   const text = shop.thanks || 'ยินดีค่ะ หากต้องการสอบถามรายละเอียดเพิ่มเติม แจ้งได้เลยนะคะ';
   const qr = quick(shop);
-  return { messages: [noteCard(shop, 'staff', text, qr) ?? { type: 'text', text, quickReply: qr }], awaitingSchool: false };
+  return { messages: [noteCard(shop, 'staff', shop.name, text, qr) ?? { type: 'text', text, quickReply: qr }], awaitingSchool: false };
 }
 
-export const welcomeMessage = (shop) => menuCard(shop, shop.name, shop.greeting, { banner: true });
+export const welcomeMessage = (shop) => menuCard(shop, shop.name, shop.greeting, { image: 'staff' });
 
 // Shows the shop's own picture as the bot's avatar on each message (LINE `sender`).
 // Without a public base URL the messages are returned untouched.

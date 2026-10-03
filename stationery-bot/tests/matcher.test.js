@@ -153,16 +153,6 @@ test('every button label fits LINE (<=20) and sends a message the bot understand
   for (const c of chips) assert.ok(c.action.label.length <= 20, c.action.label);
 });
 
-test('greeting card shows the shop picture in front of the text when a url is known', () => {
-  const none = JSON.stringify(buildReply('สวัสดี', shop).messages[0]);
-  assert.ok(!none.includes('"type":"image"'));
-  const withIcon = buildReply('สวัสดี', { ...shop, iconUrl: 'https://bot.example/assets/icon.png' }).messages[0];
-  const body = withIcon.contents.body.contents[0];
-  assert.equal(body.layout, 'horizontal');
-  assert.equal(body.contents[0].type, 'image');
-  assert.equal(body.contents[1].type, 'text');
-});
-
 test('สั่งของ: chat-order instructions plus a button to the web shop', () => {
   const card = buildReply('สั่งของ', shop).messages[0];
   const json = JSON.stringify(card);
@@ -175,12 +165,21 @@ test('สั่งของ: chat-order instructions plus a button to the web sh
 });
 
 const withPics = { ...shop, assetBase: 'https://bot.example', iconUrl: 'https://bot.example/assets/icon.png' };
-const heroUrl = (m) => m.contents.hero?.url;
+// the picture sits in the top-right corner of the header band
+const heroUrl = (m) => m.contents.header?.contents.find((c) => c.type === 'image')?.url;
 
-test('with a public address: banner on the greeting, pictures on order / school / ask / admin cards', () => {
+test('with a public address: a picture in the corner of every card header', () => {
   const greet = buildReply('สวัสดี', withPics).messages[0];
-  assert.equal(heroUrl(greet), 'https://bot.example/assets/banner.png');
-  assert.equal(greet.contents.header, undefined); // the banner already carries the shop name
+  assert.equal(heroUrl(greet), 'https://bot.example/assets/staff.png');
+  const head = greet.contents.header;
+  assert.equal(head.contents[0].type, 'text'); // title on the left …
+  assert.equal(head.contents[0].text, shop.name);
+  assert.equal(head.contents[1].type, 'image'); // … picture in the corner
+  assert.equal(head.contents[1].align, 'end');
+  assert.equal(greet.contents.hero, undefined);
+  assert.equal(heroUrl(buildReply('ร้านเปิดกี่โมง', withPics).messages[0]), 'https://bot.example/assets/staff.png');
+  assert.equal(heroUrl(buildReply('ที่ตั้งร้าน', withPics).messages[0]), 'https://bot.example/assets/admin.png');
+  assert.equal(heroUrl(buildReply('xyz', withPics).messages[0]), 'https://bot.example/assets/admin.png'); // fallback card
 
   assert.equal(heroUrl(buildReply('สั่งของ', withPics).messages[0]), 'https://bot.example/assets/order.png');
   assert.equal(heroUrl(buildReply('อุปกรณ์การเรียน 2-69', withPics).messages[0]), 'https://bot.example/assets/ask.png');
@@ -192,19 +191,19 @@ test('with a public address: banner on the greeting, pictures on order / school 
 
 test('without a public address nothing breaks: no pictures, plain header and text', () => {
   const greet = buildReply('สวัสดี', shop).messages[0];
-  assert.equal(greet.contents.hero, undefined);
+  assert.equal(heroUrl(greet), undefined);
   assert.ok(greet.contents.header);
   assert.equal(buildReply('แอดมิน', shop).messages[0].type, 'text');
   assert.equal(buildReply('อุปกรณ์การเรียน 2-69', shop).messages[0].type, 'text');
 });
 
 test('every picture the cards point at exists in public/ and is a PNG with transparency', () => {
-  for (const n of ['banner', 'order', 'school', 'ask', 'admin', 'staff', 'icon']) {
+  for (const n of ['order', 'school', 'ask', 'admin', 'staff', 'icon']) {
     const f = readFileSync(new URL(`../public/${n}.png`, import.meta.url));
     assert.equal(f.subarray(1, 4).toString(), 'PNG', n);
     assert.ok(f.length < 1_000_000, `${n} must stay under LINE's 1MB image limit`);
   }
-  for (const n of ['banner', 'order', 'school', 'ask', 'admin', 'staff']) {
+  for (const n of ['order', 'school', 'ask', 'admin', 'staff']) {
     const f = readFileSync(new URL(`../public/${n}.png`, import.meta.url));
     assert.ok([4, 6].includes(f[25]), `${n} should have an alpha channel`); // PNG colour type 6 = RGBA
   }
@@ -276,4 +275,18 @@ test('signature check', () => {
   assert.ok(verifySignature(body, sig, 's'));
   assert.ok(!verifySignature(body, sig, 'other'));
   assert.ok(!verifySignature(body, null, 's'));
+});
+
+test('every picture a card can ask for has a spec and a file; ratios match the files', () => {
+  const names = new Set(shop.faq.map((f) => f.image).filter(Boolean));
+  for (const n of ['staff', 'admin', 'order', 'ask', 'school']) names.add(n);
+  for (const n of names) {
+    const card = buildReply('ร้านเปิดกี่โมง', { ...shop, assetBase: 'https://b.example', faq: [{ ...shop.faq[0], image: n }] }).messages[0];
+    const pic = card.contents.header.contents[1];
+    assert.ok(pic, `${n} has a picture spec`);
+    const f = readFileSync(new URL(`../public/${n}.png`, import.meta.url));
+    const [w, h] = [f.readUInt32BE(16), f.readUInt32BE(20)];
+    assert.equal(pic.aspectRatio, `${w}:${h}`, `${n} ratio`);
+    assert.ok(h <= 3 * w); // LINE limit
+  }
 });

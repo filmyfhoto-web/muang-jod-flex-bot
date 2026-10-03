@@ -49,16 +49,26 @@ const bubble = (shop, parts) => ({
 
 // Pictures live in public/ and are reachable only once the server knows its own
 // https address (shop.assetBase). Without it every card simply has no picture.
-const SIZE = { banner: '953:375' };
+// Each one sits in the top-right corner of the card's header band.
+const PICTURES = {
+  staff: { w: 84, ratio: '773:800' },
+  admin: { w: 80, ratio: '800:778' },
+  school: { w: 92, ratio: '800:630' },
+  order: { w: 112, ratio: '1024:377' },
+  ask: { w: 112, ratio: '1024:398' },
+};
 export function picture(shop, name) {
-  if (!shop.assetBase) return null;
+  const spec = PICTURES[name];
+  if (!shop.assetBase || !spec) return null;
   return {
     type: 'image',
     url: `${shop.assetBase}/assets/${name}.png`,
-    size: 'full',
-    aspectRatio: SIZE[name] || '20:13',
+    size: `${spec.w}px`,
+    aspectRatio: spec.ratio,
     aspectMode: 'fit',
-    backgroundColor: pal(shop).cream,
+    flex: 0,
+    align: 'end',
+    gravity: 'center',
   };
 }
 
@@ -69,41 +79,28 @@ const flex = (altText, contents, quickReply) => ({
   ...(quickReply ? { quickReply } : {}),
 });
 
-function header(title, shop) {
+function header(title, shop, imageName) {
+  const pic = imageName ? picture(shop, imageName) : null;
   return {
     type: 'box',
-    layout: 'vertical',
+    layout: 'horizontal',
     backgroundColor: pal(shop).apricot,
     paddingAll: 'lg',
-    contents: [text(title, { weight: 'bold', size: 'md' })],
+    spacing: 'md',
+    contents: [text(title, { weight: 'bold', size: 'md', flex: 1, gravity: 'center' }), ...(pic ? [pic] : [])],
   };
 }
 
 // ข้อความสั้นพร้อมปุ่มหัวข้อ (ใช้ทั้งทักทายและตอบไม่ตรง)
-// shop.iconUrl (set by the server when it knows its public address) puts the
-// shop's picture in front of the text.
-export function menuCard(shop, title, body, { banner = false } = {}) {
+export function menuCard(shop, title, body, { image } = {}) {
   const topicList = (shop.quickReplies ?? [])
     .slice(0, 6)
     .map((t) => (typeof t === 'string' ? { label: t, text: t } : t));
-  const message = text(body, { size: 'sm', flex: 1, gravity: 'center' });
-  const content = shop.iconUrl
-    ? {
-        type: 'box',
-        layout: 'horizontal',
-        spacing: 'md',
-        contents: [
-          { type: 'image', url: shop.iconUrl, size: '64px', aspectRatio: '1:1', aspectMode: 'cover', flex: 0 },
-          message,
-        ],
-      }
-    : message;
-  const hero = banner ? picture(shop, 'banner') : null;
   return flex(
     title,
     bubble(shop, {
-      ...(hero ? { hero } : { header: header(title, shop) }),
-      body: { type: 'box', layout: 'vertical', spacing: 'md', contents: [content] },
+      header: header(title, shop, image),
+      body: { type: 'box', layout: 'vertical', spacing: 'md', contents: [text(body, { size: 'sm' })] },
       footer: {
         type: 'box',
         layout: 'vertical',
@@ -122,12 +119,10 @@ export function menuCard(shop, title, body, { banner = false } = {}) {
 export function faqCard(shop, entry, quickReply) {
   const title = entry.label || 'ข้อมูลร้าน';
   const link = entry.link?.url ? entry.link : null;
-  const hero = entry.image ? picture(shop, entry.image) : null;
   return flex(
     `${title}: ${entry.answer}${link ? ` ${link.url}` : ''}`,
     bubble(shop, {
-      ...(hero ? { hero } : {}),
-      header: header(title, shop),
+      header: header(title, shop, entry.image),
       body: {
         type: 'box',
         layout: 'vertical',
@@ -183,12 +178,10 @@ export function productCards(shop, products, quickReply) {
 
 // ส่งลิงก์รายการอุปกรณ์ของโรงเรียน — ปุ่มเปิดลิงก์ + ลิงก์ตัวหนังสือให้ก๊อปได้
 export function schoolLinkCard(shop, school, message) {
-  const hero = picture(shop, 'school');
   return flex(
     `${school.name}: ${school.link}`,
     bubble(shop, {
-      ...(hero ? { hero } : {}),
-      header: header(school.name, shop),
+      header: header(school.name, shop, 'school'),
       body: {
         type: 'box',
         layout: 'vertical',
@@ -200,14 +193,16 @@ export function schoolLinkCard(shop, school, message) {
   );
 }
 
-// A short message under a picture. Returns null without a picture so the caller
-// can fall back to plain text.
-export function noteCard(shop, imageName, body, quickReply) {
-  const hero = picture(shop, imageName);
-  if (!hero) return null;
+// A short message under a titled header with a picture in its corner. Returns null
+// without a picture so the caller can fall back to plain text.
+export function noteCard(shop, imageName, title, body, quickReply) {
+  if (!picture(shop, imageName)) return null;
   return flex(
-    body,
-    bubble(shop, { hero, body: { type: 'box', layout: 'vertical', contents: [text(body, { size: 'sm' })] } }),
+    `${title}: ${body}`,
+    bubble(shop, {
+      header: header(title, shop, imageName),
+      body: { type: 'box', layout: 'vertical', contents: [text(body, { size: 'sm' })] },
+    }),
     quickReply
   );
 }
