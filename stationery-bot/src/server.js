@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { verifySignature, replyMessage } from './line.js';
 import { buildReply, welcomeMessage, withSender, iconUrlFor, thanksReply } from './replies.js';
-import { isThanksSticker } from './matcher.js';
+import { isThanksSticker, isThanks } from './matcher.js';
+import { applyHoliday, createNoticeTracker } from './holiday.js';
 
 const token = (process.env.LINE_CHANNEL_ACCESS_TOKEN ?? '').trim();
 const secret = (process.env.LINE_CHANNEL_SECRET ?? '').trim();
@@ -53,6 +54,8 @@ function isAwaiting(userId) {
   return awaiting.has(userId);
 }
 
+const noticed = createNoticeTracker();
+
 async function handleEvent(ev) {
   if (!ev.replyToken) return;
   let shop;
@@ -62,19 +65,21 @@ async function handleEvent(ev) {
     console.error('[shop.json]', e.message);
     return;
   }
+  const userId = ev.source?.userId ?? 'anon';
+  const holiday = (messages, extra = {}) => applyHoliday(messages, { shop, userId, tracker: noticed, ...extra });
   if (ev.type === 'follow') {
-    return replyMessage(ev.replyToken, send([welcomeMessage(shop)]), token);
+    return replyMessage(ev.replyToken, send(holiday([welcomeMessage(shop)])), token);
   }
   if (ev.type !== 'message') return;
   if (ev.message.type === 'text') {
-    const userId = ev.source?.userId ?? 'anon';
-    const { messages, awaitingSchool } = buildReply(ev.message.text, shop, { awaitingSchool: isAwaiting(userId) });
+    const { messages, awaitingSchool, handoff } = buildReply(ev.message.text, shop, { awaitingSchool: isAwaiting(userId) });
     if (awaitingSchool) awaiting.set(userId, Date.now() + AWAIT_MS);
     else awaiting.delete(userId);
-    return replyMessage(ev.replyToken, send(messages), token);
+    const out = holiday(messages, { handoff, skip: isThanks(ev.message.text) });
+    return replyMessage(ev.replyToken, send(out), token);
   }
   if (ev.message.type === 'sticker') {
-    awaiting.delete(ev.source?.userId ?? 'anon');
+    awaiting.delete(userId);
     // A thank-you sticker gets the same answer as a typed "ขอบคุณ". Any other sticker
     // is left alone — "ได้รับแล้ว แอดมินจะตรวจสอบ" is wrong for a wave or an OK.
     if (!isThanksSticker(ev.message.keywords)) return;
@@ -83,7 +88,7 @@ async function handleEvent(ev) {
   // Slips and photos: acknowledge, a person follows up.
   return replyMessage(
     ev.replyToken,
-    send([{ type: 'text', text: 'ได้รับแล้วค่ะ 🙏 แอดมินจะตรวจสอบและตอบกลับนะคะ' }]),
+    send(holiday([{ type: 'text', text: 'ได้รับแล้วค่ะ 🙏 แอดมินจะตรวจสอบและตอบกลับนะคะ' }])),
     token
   );
 }
