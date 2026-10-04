@@ -188,7 +188,8 @@ async function handleEvent(ev) {
       if (r.awaitingSchool) awaitSchool.set(userId);
       else awaitSchool.clear(userId);
       let messages = r.messages;
-      if (r.needsPhotos) messages = [contactCard(shopNow, shopNow.contact.ask, await adminPhotos(shopNow))];
+      if (r.needsPhotos) messages = [contactCard(shopNow, r.askText ?? shopNow.contact.ask, await adminPhotos(shopNow))];
+      if (r.alertAdmins && hasContacts) escalate(userId, said, shopNow, cfg); // an order: the admins are told too
       if (r.silent && hasContacts) escalate(userId, said, shopNow, cfg); // the bot says nothing; the admins are told
       const out = holiday(shopNow, messages, { skip: isThanks(said, people(shopNow).map((p) => p.name)) });
       if (!out.length) return; // nothing to say

@@ -122,6 +122,9 @@ export function matchIntent(text, shop) {
   const q = normalize(text);
   if (isThanks(text)) return { type: 'thanks' };
   if (shop.contact?.button && q === normalize(shop.contact.button)) return { type: 'contact' };
+  // A job or an order the bot cannot take: point the customer at the admins.
+  const orderWords = (shop.contact?.orderWords ?? []).map(normalize).filter(Boolean);
+  if (orderWords.some((w) => q.includes(w))) return { type: 'order' };
   const products = shop.productsEnabled === false ? [] : findProducts(text, shop.products ?? []);
   if (products.length) return { type: 'products', products };
   const faq = findFaq(text, (shop.faq ?? []).filter((f) => f.enabled !== false));

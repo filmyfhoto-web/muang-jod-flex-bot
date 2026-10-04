@@ -201,9 +201,20 @@ test('contactPhotos maps names to photos and skips people without an id or photo
 
 test('unknown messages and media get no reply from the bot: they go to the admins instead', () => {
   assert.equal(shop.replyOnlyKnown, true);
-  assert.deepEqual(buildReply('อยากทำป้ายไวนิลค่ะ', shop).messages, []);
-  assert.equal(buildReply('อยากทำป้ายไวนิลค่ะ', shop).silent, true); // the server turns this into an alert
+  assert.deepEqual(buildReply('ขอดูรูปตัวอย่างหน่อยค่ะ', shop).messages, []);
+  assert.equal(buildReply('ขอดูรูปตัวอย่างหน่อยค่ะ', shop).silent, true); // the server turns this into an alert
   assert.equal(shop.contact.notifyAllMinutes, 10);
   assert.equal(shop.contact.unknown, undefined); // no "reminder" card any more
   assert.equal(shop.contact.remind, undefined);
+});
+
+test('a customer asking for a job or an order is pointed to the admins with the contact card', () => {
+  for (const t of ['ส่งโฟมบอร์ดจ้า 4 แผ่น\nรร พระธาตุพิทยาคม', 'อยากสั่งทำป้ายไวนิล', 'สั่งงานหน่อยค่ะ']) {
+    const r = buildReply(t, shop, {});
+    assert.equal(r.needsPhotos, true, t);
+    assert.equal(r.alertAdmins, true, t);
+    assert.ok(r.askText.includes('แอดมิน'));
+  }
+  assert.equal(buildReply('สั่งของ', shop, {}).needsPhotos, undefined); // the web-shop answer stays
+  assert.equal(buildReply('ขอบคุณค่ะ', shop, {}).needsPhotos, undefined);
 });
