@@ -110,17 +110,22 @@ test('each person has a name and a well-formed LINE user id (U + 32 hex), all di
   assert.equal(new Set(ppl.map((p) => p.userId)).size, ppl.length);
 });
 
-test('the notification carries a link into the OA chat, and says not to answer in the notification room', () => {
-  const link = chatLink('UBOT123', 'UCUST456');
-  assert.equal(link, 'https://chat.line.biz/UBOT123/chat/UCUST456');
-  const t = notificationText({ customer: 'สมชาย', contact: { name: 'ฟิล์ม' }, said: 'ทดสอบ', link });
-  assert.ok(t.includes(link));
-  assert.match(t, /อย่าตอบในห้องนี้/);
-  // without the bot id (lookup failed) the text still says where to answer
-  const bare = notificationText({ customer: 'x', contact: null, said: '', link: null });
-  assert.match(bare, /ไม่ใช่ห้องแชทนี้/);
-  assert.equal(chatLink(undefined, 'U1'), null);
-  assert.equal(chatLink('UBOT', 'anon'), null);
+test('chat links come only from a template the shop sets; none by default', () => {
+  assert.equal(chatLink('UBOT', 'UCUST', ''), null);
+  assert.equal(chatLink('UBOT', 'UCUST', undefined), null);
+  assert.equal(shop.contact.chatLinkTemplate, ''); // nothing verified yet → no dead button
+  assert.equal(chatLink('UBOT', 'UCUST', 'https://x.example/{bot}/chat/{customer}'), 'https://x.example/UBOT/chat/UCUST');
+  assert.equal(chatLink(undefined, 'UCUST', 'https://x.example/{bot}/chat/{customer}'), null);
+  assert.equal(chatLink('UBOT', 'anon', 'https://x.example/{customer}'), null);
+  assert.equal(chatLink(null, 'UCUST', 'https://x.example/c/{customer}'), 'https://x.example/c/UCUST');
+});
+
+test('without a link the notification says where to answer: in the OA app', () => {
+  const t = notificationText({ customer: 'สมชาย', contact: { name: 'ฟิล์ม' }, said: 'ทดสอบ', link: null });
+  assert.match(t, /แอป LINE Official Account/);
+  assert.match(t, /ไม่ใช่ห้องแชทนี้/);
+  const withLink = notificationText({ customer: 'x', contact: null, said: '', link: 'https://x.example/c/1' });
+  assert.match(withLink, /https:\/\/x\.example\/c\/1/);
 });
 
 import { contactCard } from '../src/flex.js';
@@ -157,6 +162,7 @@ test('notification card: customer photo and name, whom they chose, the message a
   assert.match(json, /อยากทำป้ายไวนิล/);
   assert.ok(json.includes(PHOTO) && json.includes(PHOTO + 'f'));
   assert.equal(card.contents.footer.contents[0].action.uri, link);
+  assert.equal(notificationCard(shop, { customer: { name: 'ก' }, contact: null, said: '', link: null }).contents.footer, undefined);
   // the phone's banner shows the plain text version
   assert.match(card.altText, /🔔 มีลูกค้าทักมา — ต้องการติดต่อ ฟิล์ม/);
   assert.ok(card.altText.includes(link));

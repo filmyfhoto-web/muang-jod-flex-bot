@@ -352,7 +352,10 @@
         "name": "พี่ปิ่น",
         "userId": "U1c08cef7ba4ff33a93d3d37b7ab8f4f8"
       }
-    ]
+    ],
+    "notify": true,
+    "chatLinkTemplate": "",
+    "chatLinkLabel": "เปิดแชทตอบลูกค้า"
   },
   "adminPauseHours": 4
 }

@@ -344,11 +344,11 @@ export function notifyCard(shop, { title, customerName, customerPhoto, contactNa
           { type: 'box', layout: 'horizontal', spacing: 'md', alignItems: 'center', contents: who },
           wants,
           ...(said ? [text(`“${said}”`, { size: 'sm', color: pal(shop).ink })] : []),
-          text('ตอบในแชท OA ของร้าน (ไม่ใช่ห้องนี้)', { size: 'xs', color: pal(shop).muted }),
+          text('ตอบในแอป LINE Official Account ของร้าน (ไม่ใช่ห้องแชทนี้)', { size: 'xs', color: pal(shop).muted }),
         ],
       },
       ...(link
-        ? { footer: { type: 'box', layout: 'vertical', contents: [uriButton('เปิดแชทตอบลูกค้า', link, shop)] } }
+        ? { footer: { type: 'box', layout: 'vertical', contents: [uriButton(shop.contact?.chatLinkLabel || 'เปิดแชทตอบลูกค้า', link, shop)] } }
         : {}),
     })
   );

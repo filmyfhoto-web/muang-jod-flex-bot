@@ -113,7 +113,12 @@ const adminPhotos = (shop) => contactPhotos(shop, (id) => getProfileCached(id, t
 
 // Pops up on the admins' LINE as a card from the OA. `to` = the people to tell.
 async function notifyAdmins(to, shop, { customerId, contact, said }) {
-  const [customer, link] = await Promise.all([getProfile(customerId, token), getBotUserId(token).then((b) => chatLink(b, customerId))]);
+  if (shop.contact?.notify === false) return; // the shop relies on the OA app's own alerts
+  const template = shop.contact?.chatLinkTemplate;
+  const [customer, link] = await Promise.all([
+    getProfile(customerId, token),
+    template?.includes('{bot}') ? getBotUserId(token).then((b) => chatLink(b, customerId, template)) : chatLink(null, customerId, template),
+  ]);
   const contactProfile = contact?.userId ? await getProfileCached(contact.userId, token) : null;
   const card = notificationCard(shop, { customer, contact: contact && { ...contact, picture: contactProfile?.picture }, said, link });
   for (const p of to) {

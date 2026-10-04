@@ -81,7 +81,12 @@ export async function getBotUserId(token) {
   return botUserId;
 }
 
-// Opens this customer's chat in the OA's manager, where the shop (not a private account)
-// answers. Needs the admin to be signed in with a LINE account that has a role on the OA.
-export const chatLink = (botId, customerId) =>
-  botId && customerId && customerId !== 'anon' ? `https://chat.line.biz/${botId}/chat/${customerId}` : null;
+// A link to this customer's chat, built from the shop's own template, e.g.
+//   "https://example/{bot}/chat/{customer}"
+// There is no default: a link that does not open is worse than none. Returns null unless a
+// template is set.
+export function chatLink(botId, customerId, template) {
+  if (!template || !customerId || customerId === 'anon') return null;
+  if (template.includes('{bot}') && !botId) return null;
+  return template.replace('{bot}', botId ?? '').replace('{customer}', customerId);
+}

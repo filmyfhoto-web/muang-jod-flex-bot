@@ -25,7 +25,7 @@ export function notificationText({ customer, contact, said, link }) {
   const lines = [head, `ลูกค้า: ${customer || 'ไม่ทราบชื่อ'}`];
   const preview = String(said ?? '').replace(/\s+/g, ' ').trim();
   if (preview) lines.push(`ข้อความ: ${preview.slice(0, 80)}`);
-  lines.push(link ? `ตอบในแชท OA (อย่าตอบในห้องนี้): ${link}` : 'ตอบในแชท OA ของร้านเลยค่ะ (ไม่ใช่ห้องแชทนี้)');
+  lines.push(link ? `ตอบในแชท OA (อย่าตอบในห้องนี้): ${link}` : 'ตอบในแอป LINE Official Account ของร้าน (ไม่ใช่ห้องแชทนี้)');
   return lines.join('\n');
 }
 
