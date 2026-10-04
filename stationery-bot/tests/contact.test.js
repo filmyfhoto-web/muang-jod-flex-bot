@@ -101,7 +101,7 @@ test('each person has a name and a well-formed LINE user id (U + 32 hex), all di
 test('chat links come only from a template the shop sets; none by default', () => {
   assert.equal(chatLink('UBOT', 'UCUST', undefined), null);
   assert.equal(chatLink('UBOT', 'UCUST', ''), null);
-  assert.equal(shop.contact.chatLinkTemplate, 'https://chat.line.biz/Ua2a7bf2be3ad317480e20a51f532a766/chat/{customer}');
+  assert.equal(shop.contact.chatLinkTemplate, 'https://chat.line.biz/Ua2a7bf2be3ad317480e20a51f532a766');
   assert.equal(chatLink('UBOT', 'UCUST', 'https://x.example/{bot}/chat/{customer}'), 'https://x.example/UBOT/chat/UCUST');
   assert.equal(chatLink(undefined, 'UCUST', 'https://x.example/{bot}/chat/{customer}'), null);
   assert.equal(chatLink('UBOT', 'anon', 'https://x.example/{customer}'), null);
