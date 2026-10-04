@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { buildReply } from '../src/replies.js';
+import { isPaused } from '../src/quiet.js';
 import { applyHoliday, createNoticeTracker } from '../src/holiday.js';
 
 const shop = JSON.parse(readFileSync(new URL('../data/shop.json', import.meta.url), 'utf8'));
@@ -45,4 +46,17 @@ test('on a Saturday an unknown message still earns the closing notice, once', ()
 test('switching replyOnlyKnown off brings the "sorry" card back', () => {
   const r = buildReply('xyz', { ...shop, replyOnlyKnown: false });
   assert.equal(r.messages[0].type, 'flex');
+});
+
+test('master pause switch: shop file or environment variable', () => {
+  assert.equal(isPaused({ paused: true }, {}), true);
+  assert.equal(isPaused({}, { BOT_PAUSED: '1' }), true);
+  assert.equal(isPaused({}, { BOT_PAUSED: 'true' }), true);
+  assert.equal(isPaused({ paused: false }, {}), false);
+  assert.equal(isPaused({}, {}), false);
+  for (const off of ['0', 'false', 'off', 'no', '']) assert.equal(isPaused({}, { BOT_PAUSED: off }), false, off);
+});
+
+test('the file ships paused for now', () => {
+  assert.equal(shop.paused, true);
 });

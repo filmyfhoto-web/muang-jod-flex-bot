@@ -6,7 +6,7 @@ import { verifySignature, replyMessage } from './line.js';
 import { buildReply, welcomeMessage, withSender, iconUrlFor, thanksReply } from './replies.js';
 import { isThanksSticker, isThanks } from './matcher.js';
 import { applyHoliday, createNoticeTracker } from './holiday.js';
-import { createQuiet, parseAdminIds, parseAdminCommand, isWakeWord, isWhoAmI } from './quiet.js';
+import { isPaused, createQuiet, parseAdminIds, parseAdminCommand, isWakeWord, isWhoAmI } from './quiet.js';
 
 const token = (process.env.LINE_CHANNEL_ACCESS_TOKEN ?? '').trim();
 const secret = (process.env.LINE_CHANNEL_SECRET ?? '').trim();
@@ -88,6 +88,7 @@ async function handleEvent(ev) {
     console.error('[shop.json]', e.message);
     return;
   }
+  if (isPaused(shop, process.env)) return; // paused: no replies, no welcome, nothing
   const userId = ev.source?.userId ?? 'anon';
   const holiday = (messages, extra = {}) => applyHoliday(messages, { shop, userId, tracker: noticed, ...extra });
   if (ev.type === 'follow') {

@@ -65,3 +65,10 @@ export const isWakeWord = (text) =>
   /^(?:เมนู|บอท|menu|เริ่มใหม่)\s*(?:ค่ะ|คะ|ครับ|คับ|นะคะ|นะครับ|นะ)*$/i.test(String(text ?? '').trim());
 
 export const isWhoAmI = (text) => /^(?:ไอดีฉัน|myid)$/i.test(String(text ?? '').trim());
+
+// Master switch: while paused the bot answers nobody and does nothing at all.
+// Set "paused": true in data/shop.json, or BOT_PAUSED=1 in the host's environment.
+export function isPaused(shop, env = {}) {
+  const v = String(env.BOT_PAUSED ?? '').trim().toLowerCase();
+  return shop?.paused === true || (v !== '' && !['0', 'false', 'off', 'no'].includes(v));
+}
