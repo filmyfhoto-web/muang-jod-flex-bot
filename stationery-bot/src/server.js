@@ -2,7 +2,7 @@ import 'node:process';
 import express from 'express';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { verifySignature, replyMessage } from './line.js';
+import { verifySignature, replyMessage, describeEvent } from './line.js';
 import { buildReply, welcomeMessage, withSender, iconUrlFor, thanksReply } from './replies.js';
 import { isThanksSticker, isThanks } from './matcher.js';
 import { applyHoliday, createNoticeTracker } from './holiday.js';
@@ -42,7 +42,10 @@ app.post('/webhook', express.raw({ type: '*/*' }), (req, res) => {
   } catch {
     return;
   }
-  for (const ev of events) handleEvent(ev).catch((e) => console.error('[event]', e.message));
+  for (const ev of events) {
+    console.log(describeEvent(ev)); // even while paused
+    handleEvent(ev).catch((e) => console.error('[event]', e.message));
+  }
 });
 
 // Who is mid-way through a two-step question ("which school?") — in memory, so a restart forgets it (the customer is simply asked again).

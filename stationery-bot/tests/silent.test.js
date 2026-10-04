@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { buildReply } from '../src/replies.js';
 import { isPaused } from '../src/quiet.js';
+import { describeEvent } from '../src/line.js';
 import { applyHoliday, createNoticeTracker } from '../src/holiday.js';
 
 const shop = JSON.parse(readFileSync(new URL('../data/shop.json', import.meta.url), 'utf8'));
@@ -85,4 +86,11 @@ test('no card offers "คุยกับแอดมิน" any more, and produc
   const out = buildReply('ไฮไลท์', shop).messages[0].contents.footer.contents[0].action;
   assert.match(out.text, /^ถามวันเข้าสินค้า /);
   assert.ok(out.label.length <= 20);
+});
+
+test('event log lines describe the kind of event and never include what was written', () => {
+  const line = describeEvent({ type: 'message', mode: 'active', source: { type: 'user', userId: 'U123' }, message: { type: 'text', text: 'secret words' }, replyToken: 'x' });
+  assert.equal(line, '[webhook] type=message source=user message=text mode=active');
+  assert.ok(!line.includes('secret') && !line.includes('U123'));
+  assert.match(describeEvent({ type: 'follow', source: { type: 'user' }, strange: 1 }), /other=strange/);
 });
