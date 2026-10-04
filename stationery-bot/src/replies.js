@@ -32,11 +32,13 @@ const genericHandoff = (shop) => ({
   quiet: true,
 });
 
-// Subject chosen → the right admin's LINE. After this the bot leaves the chat alone.
+// Subject chosen → name the admin who handles it and leave the chat to them (the bot
+// goes quiet). The conversation stays in the shop's OA; nothing is sent to anyone's
+// personal LINE.
 function routeToAdmin(shop, topic) {
   const admin = shop.adminRouting.admins[topic.admin];
-  if (!admin?.link) return genericHandoff(shop);
-  const message = (shop.adminRouting.routed || 'เรื่อง "{topic}" ติดต่อ{admin}ได้ที่ปุ่มด้านล่างเลยค่ะ')
+  if (!admin) return genericHandoff(shop);
+  const message = (shop.adminRouting.routed || 'รับเรื่อง "{topic}" แล้วค่ะ {admin}จะตอบกลับในแชทนี้นะคะ')
     .replace('{topic}', topic.label)
     .replace('{admin}', admin.name);
   return { messages: [adminRouteCard(shop, admin, message)], awaitingSchool: false, quiet: true };

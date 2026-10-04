@@ -233,23 +233,30 @@ export function adminTopicsCard(shop, routing) {
   );
 }
 
-// The chosen admin's LINE: a button that opens their chat, and the address as text.
+// The subject is taken and the right admin is named; the chat stays here in the shop's
+// OA, where that admin answers. `admin.link` (a personal LINE address) is optional and
+// not used by default — when set it adds a button that opens that chat instead.
 export function adminRouteCard(shop, admin, message) {
+  const link = admin.link || null;
   return flex(
-    `${message} ${admin.link}`,
+    link ? `${message} ${link}` : message,
     bubble(shop, {
       header: header(admin.name, shop, 'admin'),
       body: {
         type: 'box',
         layout: 'vertical',
         spacing: 'md',
-        contents: [text(message, { size: 'sm' }), text(admin.link, { size: 'xs', color: pal(shop).muted })],
+        contents: [text(message, { size: 'sm' }), ...(link ? [text(link, { size: 'xs', color: pal(shop).muted })] : [])],
       },
-      footer: {
-        type: 'box',
-        layout: 'vertical',
-        contents: [uriButton(admin.buttonLabel || `เปิดไลน์${admin.name}`, admin.link, shop)],
-      },
+      ...(link
+        ? {
+            footer: {
+              type: 'box',
+              layout: 'vertical',
+              contents: [uriButton(admin.buttonLabel || `เปิดไลน์${admin.name}`, link, shop)],
+            },
+          }
+        : {}),
     })
   );
 }
