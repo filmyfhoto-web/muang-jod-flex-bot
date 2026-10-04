@@ -19,12 +19,12 @@ export function findContact(text, shop) {
 }
 
 // The line that pops up on the admin's LINE.
-export function notificationText({ customer, contact, said }) {
+export function notificationText({ customer, contact, said, link }) {
   const head = contact ? `🔔 มีลูกค้าทักมา — ต้องการติดต่อ ${contact.name}` : '🔔 มีลูกค้าทักมา แต่ยังไม่ได้เลือกว่าจะติดต่อใคร';
   const lines = [head, `ลูกค้า: ${customer || 'ไม่ทราบชื่อ'}`];
   const preview = String(said ?? '').replace(/\s+/g, ' ').trim();
   if (preview) lines.push(`ข้อความ: ${preview.slice(0, 80)}`);
-  lines.push('ตอบได้ในแชท OA เลยค่ะ');
+  lines.push(link ? `ตอบในแชท OA (อย่าตอบในห้องนี้): ${link}` : 'ตอบในแชท OA ของร้านเลยค่ะ (ไม่ใช่ห้องแชทนี้)');
   return lines.join('\n');
 }
 

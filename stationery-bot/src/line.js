@@ -55,3 +55,21 @@ export async function getDisplayName(userId, token) {
     return null;
   }
 }
+
+// The OA's own user id (needed to build links into OA Manager's chat screen). Cached.
+let botUserId;
+export async function getBotUserId(token) {
+  if (botUserId) return botUserId;
+  try {
+    const res = await fetch('https://api.line.me/v2/bot/info', { headers: { Authorization: `Bearer ${token}` } });
+    if (res.ok) botUserId = (await res.json()).userId;
+  } catch {
+    /* no link then */
+  }
+  return botUserId;
+}
+
+// Opens this customer's chat in the OA's manager, where the shop (not a private account)
+// answers. Needs the admin to be signed in with a LINE account that has a role on the OA.
+export const chatLink = (botId, customerId) =>
+  botId && customerId && customerId !== 'anon' ? `https://chat.line.biz/${botId}/chat/${customerId}` : null;

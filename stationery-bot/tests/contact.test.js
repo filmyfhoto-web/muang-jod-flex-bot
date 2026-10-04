@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { buildReply, contactMessages } from '../src/replies.js';
 import { createContactState, findContact, notificationText, contactLabel } from '../src/contact.js';
 import { isWakeWord } from '../src/wake.js';
+import { chatLink } from '../src/line.js';
 
 const shop = JSON.parse(readFileSync(new URL('../data/shop.json', import.meta.url), 'utf8'));
 const MIN = 60_000;
@@ -105,4 +106,17 @@ test('the notification names the customer and the person they chose', () => {
 
 test('user ids are blank in the shipped file and each person has a name', () => {
   assert.ok(shop.contact.people.every((p) => p.name && typeof p.userId === 'string'));
+});
+
+test('the notification carries a link into the OA chat, and says not to answer in the notification room', () => {
+  const link = chatLink('UBOT123', 'UCUST456');
+  assert.equal(link, 'https://chat.line.biz/UBOT123/chat/UCUST456');
+  const t = notificationText({ customer: 'สมชาย', contact: { name: 'ฟิล์ม' }, said: 'ทดสอบ', link });
+  assert.ok(t.includes(link));
+  assert.match(t, /อย่าตอบในห้องนี้/);
+  // without the bot id (lookup failed) the text still says where to answer
+  const bare = notificationText({ customer: 'x', contact: null, said: '', link: null });
+  assert.match(bare, /ไม่ใช่ห้องแชทนี้/);
+  assert.equal(chatLink(undefined, 'U1'), null);
+  assert.equal(chatLink('UBOT', 'anon'), null);
 });

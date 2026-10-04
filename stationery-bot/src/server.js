@@ -2,7 +2,7 @@ import 'node:process';
 import express from 'express';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { verifySignature, replyMessage, pushMessage, getDisplayName, describeEvent } from './line.js';
+import { verifySignature, replyMessage, pushMessage, getDisplayName, getBotUserId, chatLink, describeEvent } from './line.js';
 import { buildReply, welcomeMessage, withSender, iconUrlFor, thanksReply, contactMessages } from './replies.js';
 import { isThanksSticker, isThanks } from './matcher.js';
 import { applyHoliday, createNoticeTracker } from './holiday.js';
@@ -162,7 +162,8 @@ async function handleEvent(ev) {
     if (chosen) {
       contacts.choose(userId, cfg.windowMs);
       const customer = await getDisplayName(userId, token);
-      const text = notificationText({ customer, contact: chosen, said });
+      const link = chatLink(await getBotUserId(token), userId);
+      const text = notificationText({ customer, contact: chosen, said, link });
       void notifyAdmins([chosen], text);
       return; // no reply at all
     }
@@ -218,7 +219,8 @@ function scheduleReminder(userId, said, shop, cfg) {
       if (isPaused(shopNow, process.env) || quiet.allPaused()) return;
       await pushMessage(userId, send(contactMessages(shopNow, 'remind')), token);
       const customer = await getDisplayName(userId, token);
-      await notifyAdmins(people(shopNow), notificationText({ customer, contact: null, said }));
+      const link = chatLink(await getBotUserId(token), userId);
+      await notifyAdmins(people(shopNow), notificationText({ customer, contact: null, said, link }));
     } catch (e) {
       console.error('[reminder]', e.message);
     }
