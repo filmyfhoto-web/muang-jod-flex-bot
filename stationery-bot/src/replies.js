@@ -1,5 +1,5 @@
 import { matchIntent, findSchool, mentionsSupplies, isThanks } from './matcher.js';
-import { menuCard, faqCard, productCards, schoolLinkCard, noteCard } from './flex.js';
+import { menuCard, faqCard, productCards, schoolLinkCard, noteCard, contactCard } from './flex.js';
 
 // quickReplies entries are "text" or { label, text } — LINE button labels stop at
 // 20 characters, so a long message can wear a shorter label.
@@ -46,6 +46,7 @@ export function buildReply(text, shop, session = {}) {
 
   const intent = matchIntent(text, shop);
   const qr = quick(shop);
+  if (intent.type === 'contact') return { messages: [contactCard(shop, shop.contact.ask)], awaitingSchool: false };
   const out = (m) => ({ messages: [m], awaitingSchool: false });
   switch (intent.type) {
     case 'products':
@@ -82,3 +83,6 @@ export function withSender(messages, baseUrl) {
   const iconUrl = iconUrlFor(baseUrl);
   return iconUrl ? messages.map((m) => ({ ...m, sender: { iconUrl } })) : messages;
 }
+
+// What the bot sends when a customer must choose whom to contact.
+export const contactMessages = (shop, kind) => [contactCard(shop, kind === 'remind' ? shop.contact.remind : shop.contact.unknown)];

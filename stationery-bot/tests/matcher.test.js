@@ -265,7 +265,10 @@ test('pastel theme: cream paper (no coloured header band), pastel topic buttons,
   assert.equal(menu.header.backgroundColor, t.cream); // picture on the plain paper, no band
   const btns = menu.footer.contents;
   assert.deepEqual(btns.slice(0, 3).map((b) => b.color), [t.apricot, t.yellow, t.blue]);
-  assert.ok(btns.every((b) => b.style === 'secondary')); // topic buttons are all pastel
+  assert.ok(btns.slice(0, -1).every((b) => b.style === 'secondary')); // topic buttons are all pastel
+  assert.equal(btns.at(-1).style, 'primary'); // … and the contact button is the black one
+  assert.equal(btns.at(-1).color, t.ink);
+  assert.equal(btns.at(-1).action.label, 'ติดต่อแอดมิน');
   // the one black button left is the "order" button on a product card
   const buy = buildReply('ปากกา', shop).messages[0].contents.footer.contents[0];
   assert.equal(buy.style, 'primary');

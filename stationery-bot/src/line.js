@@ -42,3 +42,16 @@ export function describeEvent(ev) {
   if (extra.length) parts.push(`other=${extra.join(',')}`);
   return `[webhook] ${parts.join(' ')}`;
 }
+
+// The customer's LINE display name, for the notification. Never throws.
+export async function getDisplayName(userId, token) {
+  try {
+    const res = await fetch(`https://api.line.me/v2/bot/profile/${encodeURIComponent(userId)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    return (await res.json()).displayName ?? null;
+  } catch {
+    return null;
+  }
+}

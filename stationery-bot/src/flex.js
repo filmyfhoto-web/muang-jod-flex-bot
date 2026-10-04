@@ -151,6 +151,7 @@ export function menuCard(shop, title, body, { image } = {}) {
         spacing: 'sm',
         contents: [
           ...topicList.map((t, i) => msgButton(t.label, t.text, shop, 'secondary', i)),
+          ...(shop.contact?.button ? [msgButton(shop.contact.button, shop.contact.button, shop, 'primary')] : []),
         ],
       },
     })
@@ -258,3 +259,22 @@ export function noteCard(shop, imageName, title, body, quickReply) {
     quickReply
   );
 }
+
+// "ต้องการติดต่อใคร?" — one button per person; the button sends "ติดต่อ <name>".
+export function contactCard(shop, text) {
+  const ppl = shop.contact?.people ?? [];
+  return flex(
+    `${text} ${ppl.map((p) => `ติดต่อ ${p.name}`).join(' / ')}`,
+    bubble(shop, {
+      header: header('ติดต่อแอดมิน', shop, 'admin'),
+      body: { type: 'box', layout: 'vertical', contents: [text_(text)] },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        contents: ppl.map((p, i) => msgButton(`ติดต่อ ${p.name}`, `ติดต่อ ${p.name}`, shop, 'secondary', i)),
+      },
+    })
+  );
+}
+const text_ = (t) => text(t, { size: 'sm' });
