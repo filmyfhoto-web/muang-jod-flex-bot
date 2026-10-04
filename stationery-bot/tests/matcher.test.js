@@ -269,6 +269,32 @@ test('thank-you reply wears the staff picture when pictures are available, plain
   assert.equal(buildReply('ขอบคุณค่ะ', shop).messages[0].type, 'text');
 });
 
+test('product cards: name beside a picture in the header, price / stock below', () => {
+  const card = buildReply('ปากกา', withPics).messages[0].contents;
+  assert.equal(card.header.contents[0].text, 'ปากกาลูกลื่น 0.5 สีน้ำเงิน');
+  assert.equal(card.header.contents[1].type, 'image');
+  assert.match(card.header.contents[1].url, /^https:\/\/bot\.example\/assets\/\w+\.png$/);
+  const body = JSON.stringify(card.body);
+  assert.match(body, /10 บาท/);
+  assert.ok(!body.includes('ปากกาลูกลื่น')); // the name is not repeated in the body
+  // several products take turns with the pictures
+  const many = buildReply('xyz', { ...withPics, products: [] });
+  const twoShop = { ...withPics, products: [
+    { name: 'ก', aliases: ['ก'], price: 1, unit: 'ชิ้น' },
+    { name: 'ข', aliases: ['ก'], price: 2, unit: 'ชิ้น' },
+  ] };
+  const urls = buildReply('ก', twoShop).messages[0].contents.contents.map((b) => b.header.contents[1].url);
+  assert.equal(new Set(urls).size, 2);
+  assert.ok(many);
+  const heights = buildReply('ก', twoShop).messages[0].contents.contents.map((b) => b.header.height);
+  assert.deepEqual(heights, ['104px', '104px']); // carousel headers line up
+  // an explicit image on the product wins
+  const own = buildReply('ก', { ...twoShop, products: [{ ...twoShop.products[0], image: 'order' }] }).messages[0].contents;
+  assert.match(own.header.contents[1].url, /order\.png$/);
+  // without pictures the header still carries the name
+  assert.equal(buildReply('ปากกา', shop).messages[0].contents.header.contents[0].text, 'ปากกาลูกลื่น 0.5 สีน้ำเงิน');
+});
+
 test('signature check', () => {
   const body = Buffer.from('{"events":[]}');
   const sig = crypto.createHmac('sha256', 's').update(body).digest('base64');

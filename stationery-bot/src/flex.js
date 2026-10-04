@@ -79,7 +79,7 @@ const flex = (altText, contents, quickReply) => ({
   ...(quickReply ? { quickReply } : {}),
 });
 
-function header(title, shop, imageName) {
+function header(title, shop, imageName, height) {
   const pic = imageName ? picture(shop, imageName) : null;
   return {
     type: 'box',
@@ -87,6 +87,7 @@ function header(title, shop, imageName) {
     backgroundColor: pal(shop).apricot,
     paddingAll: 'lg',
     spacing: 'md',
+    ...(height ? { height } : {}),
     contents: [text(title, { weight: 'bold', size: 'md', flex: 1, gravity: 'center' }), ...(pic ? [pic] : [])],
   };
 }
@@ -138,16 +139,21 @@ export function faqCard(shop, entry, quickReply) {
   );
 }
 
-function productBubble(p, shop) {
+// Products without their own `image` take turns with these (the roomy, roughly
+// square pictures; the wide ones would leave no room for the name).
+const PRODUCT_PICTURES = ['school', 'staff', 'admin'];
+
+function productBubble(p, shop, index = 0) {
   const inStock = p.inStock !== false;
   return bubble(shop, {
     size: 'kilo',
+    // fixed height so the cards of one carousel line up whatever the picture's shape
+    header: header(p.name, shop, p.image || PRODUCT_PICTURES[index % PRODUCT_PICTURES.length], '104px'),
     body: {
       type: 'box',
       layout: 'vertical',
       spacing: 'sm',
       contents: [
-        text(p.name, { weight: 'bold', size: 'md' }),
         text(`${baht(p.price)} / ${p.unit ?? 'ชิ้น'}`, { size: 'xl', weight: 'bold', color: pal(shop).accent }),
         ...(p.bulk ? [text(`จำนวนมาก: ${p.bulk}`, { size: 'xs', color: pal(shop).muted })] : []),
         text(inStock ? '● มีสินค้า' : '● สินค้าหมดชั่วคราว', {
@@ -171,8 +177,8 @@ export function productCards(shop, products, quickReply) {
   const alt = shown.map((p) => `${p.name} ${baht(p.price)}/${p.unit ?? 'ชิ้น'}`).join(' | ');
   const contents =
     shown.length === 1
-      ? productBubble(shown[0], shop)
-      : { type: 'carousel', contents: shown.map((p) => productBubble(p, shop)) };
+      ? productBubble(shown[0], shop, 0)
+      : { type: 'carousel', contents: shown.map((p, i) => productBubble(p, shop, i)) };
   return flex(alt, contents, quickReply);
 }
 
