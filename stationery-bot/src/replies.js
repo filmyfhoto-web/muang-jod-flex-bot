@@ -85,4 +85,6 @@ export function withSender(messages, baseUrl) {
 }
 
 // What the bot sends when a customer must choose whom to contact.
-export const contactMessages = (shop, kind) => [contactCard(shop, kind === 'remind' ? shop.contact.remind : shop.contact.unknown)];
+export const contactMessages = (shop, kind, photos = {}) => [
+  contactCard(shop, kind === 'remind' ? shop.contact.remind : shop.contact.unknown, photos),
+];

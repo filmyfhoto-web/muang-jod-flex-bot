@@ -43,17 +43,29 @@ export function describeEvent(ev) {
   return `[webhook] ${parts.join(' ')}`;
 }
 
-// The customer's LINE display name, for the notification. Never throws.
-export async function getDisplayName(userId, token) {
+// A LINE profile: { name, picture } (picture is an https URL or null). Never throws.
+export async function getProfile(userId, token) {
   try {
     const res = await fetch(`https://api.line.me/v2/bot/profile/${encodeURIComponent(userId)}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!res.ok) return null;
-    return (await res.json()).displayName ?? null;
+    if (!res.ok) return { name: null, picture: null };
+    const j = await res.json();
+    const picture = typeof j.pictureUrl === 'string' && j.pictureUrl.startsWith('https://') ? j.pictureUrl : null;
+    return { name: j.displayName ?? null, picture };
   } catch {
-    return null;
+    return { name: null, picture: null };
   }
+}
+
+// Profiles that rarely change (the admins') are kept for an hour.
+const profileCache = new Map();
+export async function getProfileCached(userId, token, ttlMs = 60 * 60 * 1000, now = Date.now()) {
+  const hit = profileCache.get(userId);
+  if (hit && now - hit.at < ttlMs) return hit.profile;
+  const profile = await getProfile(userId, token);
+  if (profile.name || profile.picture) profileCache.set(userId, { at: now, profile });
+  return profile;
 }
 
 // The OA's own user id (needed to build links into OA Manager's chat screen). Cached.

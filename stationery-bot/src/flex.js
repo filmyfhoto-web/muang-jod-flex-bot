@@ -260,8 +260,22 @@ export function noteCard(shop, imageName, title, body, quickReply) {
   );
 }
 
-// "ต้องการติดต่อใคร?" — one button per person; the button sends "ติดต่อ <name>".
-export function contactCard(shop, text) {
+// A round profile photo. A box with a corner radius clips the image to a circle.
+function avatar(url, size = 44) {
+  return {
+    type: 'box',
+    layout: 'vertical',
+    flex: 0,
+    width: `${size}px`,
+    height: `${size}px`,
+    cornerRadius: `${Math.round(size / 2)}px`,
+    contents: [{ type: 'image', url, size: `${size}px`, aspectRatio: '1:1', aspectMode: 'cover' }],
+  };
+}
+
+// "ต้องการติดต่อใคร?" — one button per person, with their photo when LINE gave us one
+// (`photos` maps a person's name to an https image URL). The button sends "ติดต่อ <name>".
+export function contactCard(shop, text, photos = {}) {
   const ppl = shop.contact?.people ?? [];
   return flex(
     `${text} ${ppl.map((p) => `ติดต่อ ${p.name}`).join(' / ')}`,
@@ -272,9 +286,70 @@ export function contactCard(shop, text) {
         type: 'box',
         layout: 'vertical',
         spacing: 'sm',
-        contents: ppl.map((p, i) => msgButton(`ติดต่อ ${p.name}`, `ติดต่อ ${p.name}`, shop, 'secondary', i)),
+        contents: ppl.map((p, i) => {
+          const button = { ...msgButton(`ติดต่อ ${p.name}`, `ติดต่อ ${p.name}`, shop, 'secondary', i), flex: 1 };
+          return photos[p.name]
+            ? { type: 'box', layout: 'horizontal', spacing: 'md', alignItems: 'center', contents: [avatar(photos[p.name]), button] }
+            : button;
+        }),
       },
     })
   );
 }
 const text_ = (t) => text(t, { size: 'sm' });
+
+// What pops up on the admin's LINE. `customer` / `contactPhoto` are optional photos.
+export function notifyCard(shop, { title, customerName, customerPhoto, contactName, contactPhoto, said, link, altText }) {
+  const who = [
+    ...(customerPhoto ? [avatar(customerPhoto, 48)] : []),
+    {
+      type: 'box',
+      layout: 'vertical',
+      flex: 1,
+      justifyContent: 'center',
+      contents: [
+        text(customerName || 'ไม่ทราบชื่อ', { weight: 'bold', size: 'md' }),
+        text('ลูกค้า', { size: 'xs', color: pal(shop).muted }),
+      ],
+    },
+  ];
+  const wants = contactName
+    ? {
+        type: 'box',
+        layout: 'horizontal',
+        spacing: 'md',
+        alignItems: 'center',
+        contents: [
+          text('ต้องการติดต่อ', { size: 'sm', color: pal(shop).muted, flex: 0 }),
+          ...(contactPhoto ? [avatar(contactPhoto, 32)] : []),
+          text(contactName, { weight: 'bold', size: 'md', flex: 1 }),
+        ],
+      }
+    : text('ยังไม่ได้เลือกว่าจะติดต่อใคร', { size: 'sm', weight: 'bold', color: pal(shop).accent });
+  return flex(
+    altText,
+    bubble(shop, {
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: pal(shop).cream,
+        paddingAll: 'lg',
+        contents: [text(title, { weight: 'bold', size: 'md' })],
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'md',
+        contents: [
+          { type: 'box', layout: 'horizontal', spacing: 'md', alignItems: 'center', contents: who },
+          wants,
+          ...(said ? [text(`“${said}”`, { size: 'sm', color: pal(shop).ink })] : []),
+          text('ตอบในแชท OA ของร้าน (ไม่ใช่ห้องนี้)', { size: 'xs', color: pal(shop).muted }),
+        ],
+      },
+      ...(link
+        ? { footer: { type: 'box', layout: 'vertical', contents: [uriButton('เปิดแชทตอบลูกค้า', link, shop)] } }
+        : {}),
+    })
+  );
+}

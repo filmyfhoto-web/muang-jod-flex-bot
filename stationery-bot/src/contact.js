@@ -6,6 +6,7 @@
 // chosen, is shown the card — and reminded once if they still do not choose.
 // State is in memory: a restart just means the card may be shown again.
 import { normalize } from './matcher.js';
+import { notifyCard } from './flex.js';
 
 export const contactLabel = (person) => `ติดต่อ ${person.name}`;
 
@@ -78,4 +79,33 @@ export function createContactState(now = () => Date.now()) {
       return m.get(id)?.status === 'prompted';
     },
   };
+}
+
+// The notification as a Flex card (its alt text — what shows in the phone's banner — is
+// the plain text version).
+export function notificationCard(shop, { customer, contact, said, link }) {
+  const altText = notificationText({ customer: customer?.name, contact, said, link });
+  return notifyCard(shop, {
+    title: contact ? '🔔 มีลูกค้าทักมา' : '🔔 มีลูกค้ารออยู่',
+    customerName: customer?.name,
+    customerPhoto: customer?.picture,
+    contactName: contact?.name,
+    contactPhoto: contact?.picture,
+    said: String(said ?? '').replace(/\s+/g, ' ').trim().slice(0, 80),
+    link,
+    altText,
+  });
+}
+
+// Photos of the people on the card, keyed by name: { หญิง: 'https://…', … }.
+export async function contactPhotos(shop, getProfile) {
+  const out = {};
+  await Promise.all(
+    people(shop).map(async (p) => {
+      if (!p.userId) return;
+      const { picture } = await getProfile(p.userId);
+      if (picture) out[p.name] = picture;
+    })
+  );
+  return out;
 }

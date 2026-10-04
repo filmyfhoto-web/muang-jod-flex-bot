@@ -2,11 +2,11 @@ import 'node:process';
 import express from 'express';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { verifySignature, replyMessage, pushMessage, getDisplayName, getBotUserId, chatLink, describeEvent } from './line.js';
+import { verifySignature, replyMessage, pushMessage, getProfile, getProfileCached, getBotUserId, chatLink, describeEvent } from './line.js';
 import { buildReply, welcomeMessage, withSender, iconUrlFor, thanksReply, contactMessages } from './replies.js';
 import { isThanksSticker, isThanks } from './matcher.js';
 import { applyHoliday, createNoticeTracker } from './holiday.js';
-import { createContactState, findContact, notificationText, people } from './contact.js';
+import { createContactState, findContact, notificationCard, contactPhotos, people } from './contact.js';
 import { waitFor } from './delay.js';
 import { isPaused, createQuiet, parseAdminIds, parseAdminCommand, isWhoAmI } from './quiet.js';
 import { isWakeWord } from './wake.js';
@@ -109,12 +109,17 @@ function later(secs, fn) {
   setTimeout(() => fn().catch((e) => console.error('[event]', e.message)), secs * 1000);
 }
 
-// Pops up on the admins' LINE as a message from the OA. `to` = the people to tell.
-async function notifyAdmins(to, text) {
+const adminPhotos = (shop) => contactPhotos(shop, (id) => getProfileCached(id, token));
+
+// Pops up on the admins' LINE as a card from the OA. `to` = the people to tell.
+async function notifyAdmins(to, shop, { customerId, contact, said }) {
+  const [customer, link] = await Promise.all([getProfile(customerId, token), getBotUserId(token).then((b) => chatLink(b, customerId))]);
+  const contactProfile = contact?.userId ? await getProfileCached(contact.userId, token) : null;
+  const card = notificationCard(shop, { customer, contact: contact && { ...contact, picture: contactProfile?.picture }, said, link });
   for (const p of to) {
     if (!p.userId) continue; // no LINE id set yet for this person
     try {
-      await pushMessage(p.userId, [{ type: 'text', text }], token);
+      await pushMessage(p.userId, [card], token);
     } catch (e) {
       console.error('[notify]', p.name, e.message);
     }
@@ -161,10 +166,7 @@ async function handleEvent(ev) {
     const chosen = hasContacts ? findContact(said, shop) : null;
     if (chosen) {
       contacts.choose(userId, cfg.windowMs);
-      const customer = await getDisplayName(userId, token);
-      const link = chatLink(await getBotUserId(token), userId);
-      const text = notificationText({ customer, contact: chosen, said, link });
-      void notifyAdmins([chosen], text);
+      void notifyAdmins([chosen], shop, { customerId: userId, contact: chosen, said });
       return; // no reply at all
     }
     if (quietNow) {
@@ -183,7 +185,7 @@ async function handleEvent(ev) {
       if (r.silent && hasContacts) {
         // nothing ready to say: put the names in front of the customer
         const kind = contacts.onUnknown(userId, cfg);
-        messages = kind === 'silent' ? [] : contactMessages(shopNow, kind);
+        messages = kind === 'silent' ? [] : contactMessages(shopNow, kind, await adminPhotos(shopNow));
         if (kind === 'card') scheduleReminder(userId, said, shopNow, cfg);
       }
       const out = holiday(shopNow, messages, { skip: isThanks(said) });
@@ -204,7 +206,7 @@ async function handleEvent(ev) {
   const kind = contacts.onUnknown(userId, cfg);
   if (kind === 'silent') return;
   if (kind === 'card') scheduleReminder(userId, '(ส่งรูป/ไฟล์)', shop, cfg);
-  const out = holiday(shop, contactMessages(shop, kind));
+  const out = holiday(shop, contactMessages(shop, kind, await adminPhotos(shop)));
   if (out.length) await deliver(ev, userId, out);
 }
 
@@ -217,10 +219,8 @@ function scheduleReminder(userId, said, shop, cfg) {
       if (!contacts.dueReminder(userId)) return;
       const shopNow = loadShop();
       if (isPaused(shopNow, process.env) || quiet.allPaused()) return;
-      await pushMessage(userId, send(contactMessages(shopNow, 'remind')), token);
-      const customer = await getDisplayName(userId, token);
-      const link = chatLink(await getBotUserId(token), userId);
-      await notifyAdmins(people(shopNow), notificationText({ customer, contact: null, said, link }));
+      await pushMessage(userId, send(contactMessages(shopNow, 'remind', await adminPhotos(shopNow))), token);
+      await notifyAdmins(people(shopNow), shopNow, { customerId: userId, contact: null, said });
     } catch (e) {
       console.error('[reminder]', e.message);
     }
