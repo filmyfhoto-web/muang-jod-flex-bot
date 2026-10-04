@@ -212,3 +212,44 @@ export function noteCard(shop, imageName, title, body, quickReply) {
     quickReply
   );
 }
+
+// "คุยกับแอดมิน" → which subject? Topics are grouped under the admin who handles them,
+// so the customer sees whom each button goes to.
+export function adminTopicsCard(shop, routing) {
+  const rows = [];
+  Object.entries(routing.admins).forEach(([key, admin], i) => {
+    const topics = routing.topics.filter((t) => t.admin === key);
+    if (!topics.length) return;
+    rows.push(text(admin.name, { size: 'xs', weight: 'bold', color: pal(shop).muted }));
+    topics.forEach((t) => rows.push(msgButton(t.label, t.label, shop, 'secondary', i)));
+  });
+  return flex(
+    routing.ask,
+    bubble(shop, {
+      header: header('คุยกับแอดมิน', shop, 'admin'),
+      body: { type: 'box', layout: 'vertical', contents: [text(routing.ask, { size: 'sm' })] },
+      footer: { type: 'box', layout: 'vertical', spacing: 'sm', contents: rows },
+    })
+  );
+}
+
+// The chosen admin's LINE: a button that opens their chat, and the address as text.
+export function adminRouteCard(shop, admin, message) {
+  return flex(
+    `${message} ${admin.link}`,
+    bubble(shop, {
+      header: header(admin.name, shop, 'admin'),
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'md',
+        contents: [text(message, { size: 'sm' }), text(admin.link, { size: 'xs', color: pal(shop).muted })],
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [uriButton(admin.buttonLabel || `เปิดไลน์${admin.name}`, admin.link, shop)],
+      },
+    })
+  );
+}

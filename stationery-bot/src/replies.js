@@ -1,5 +1,5 @@
-import { matchIntent, findSchool, mentionsSupplies, isThanks } from './matcher.js';
-import { menuCard, faqCard, productCards, schoolLinkCard, noteCard } from './flex.js';
+import { matchIntent, findSchool, mentionsSupplies, isThanks, findAdminTopic } from './matcher.js';
+import { menuCard, faqCard, productCards, schoolLinkCard, noteCard, adminTopicsCard, adminRouteCard } from './flex.js';
 
 // quickReplies entries are "text" or { label, text } — LINE button labels stop at
 // 20 characters, so a long message can wear a shorter label.
@@ -23,6 +23,25 @@ const askSchool = (shop, text) => ({
   awaitingSchool: true,
 });
 
+// The generic "an admin will answer" reply, used when no admin routing is configured
+// or the chosen admin has no LINE link yet.
+const genericHandoff = (shop) => ({
+  messages: [noteCard(shop, 'admin', 'คุยกับแอดมิน', shop.handoff) ?? { type: 'text', text: shop.handoff }],
+  awaitingSchool: false,
+  handoff: true,
+  quiet: true,
+});
+
+// Subject chosen → the right admin's LINE. After this the bot leaves the chat alone.
+function routeToAdmin(shop, topic) {
+  const admin = shop.adminRouting.admins[topic.admin];
+  if (!admin?.link) return genericHandoff(shop);
+  const message = (shop.adminRouting.routed || 'เรื่อง "{topic}" ติดต่อ{admin}ได้ที่ปุ่มด้านล่างเลยค่ะ')
+    .replace('{topic}', topic.label)
+    .replace('{admin}', admin.name);
+  return { messages: [adminRouteCard(shop, admin, message)], awaitingSchool: false, quiet: true };
+}
+
 // Builds the LINE message array for an incoming text.
 //
 // `session.awaitingSchool` is true right after the customer was asked which
@@ -30,9 +49,15 @@ const askSchool = (shop, text) => ({
 // Returns { messages, awaitingSchool } — the caller remembers the flag.
 export function buildReply(text, shop, session = {}) {
   const cfg = shop.schoolSupplies;
+  const routing = shop.adminRouting;
 
   // "ขอบคุณ" ends whatever was in progress, including a pending "which school?"
   if (isThanks(text)) return thanksReply(shop);
+
+  if (routing) {
+    const topic = findAdminTopic(text, routing, { loose: Boolean(session.awaitingAdmin) });
+    if (topic) return routeToAdmin(shop, topic);
+  }
 
   if (cfg) {
     const school = findSchool(text, cfg.schools);
@@ -49,11 +74,9 @@ export function buildReply(text, shop, session = {}) {
   const out = (m) => ({ messages: [m], awaitingSchool: false });
   switch (intent.type) {
     case 'handoff':
-      return {
-        messages: [noteCard(shop, 'admin', 'คุยกับแอดมิน', shop.handoff) ?? { type: 'text', text: shop.handoff }],
-        awaitingSchool: false,
-        handoff: true,
-      };
+      // With routing set up, first ask what it is about; the admin comes after.
+      if (routing) return { messages: [adminTopicsCard(shop, routing)], awaitingSchool: false, awaitingAdmin: true };
+      return genericHandoff(shop);
     case 'products':
       return out(productCards(shop, intent.products, qr));
     case 'faq':

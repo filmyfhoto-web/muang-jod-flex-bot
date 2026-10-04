@@ -50,7 +50,7 @@ test('single product → bubble, several → carousel; out-of-stock flagged', ()
 test('faq and fallback are flex cards; handoff stays text', () => {
   assert.equal(buildReply('ร้านเปิดกี่โมง', shop).messages[0].type, 'flex');
   assert.equal(buildReply('xyz', shop).messages[0].type, 'flex');
-  assert.equal(buildReply('แอดมิน', shop).messages[0].type, 'text');
+  assert.equal(buildReply('แอดมิน', { ...shop, adminRouting: undefined }).messages[0].type, 'text');
 });
 
 test('supplies button only asks which school — no school list, no link', () => {
@@ -193,7 +193,7 @@ test('without a public address nothing breaks: no pictures, plain header and tex
   const greet = buildReply('สวัสดี', shop).messages[0];
   assert.equal(heroUrl(greet), undefined);
   assert.ok(greet.contents.header);
-  assert.equal(buildReply('แอดมิน', shop).messages[0].type, 'text');
+  assert.equal(buildReply('แอดมิน', { ...shop, adminRouting: undefined }).messages[0].type, 'text');
   assert.equal(buildReply('อุปกรณ์การเรียน 2-69', shop).messages[0].type, 'text');
 });
 
