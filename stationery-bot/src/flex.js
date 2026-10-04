@@ -51,11 +51,11 @@ const bubble = (shop, parts) => ({
 // https address (shop.assetBase). Without it every card simply has no picture.
 // Each one sits in the top-right corner of the card's header band.
 const PICTURES = {
-  staff: { w: 84, ratio: '773:800' },
-  admin: { w: 80, ratio: '800:778' },
-  school: { w: 92, ratio: '800:630' },
-  order: { w: 112, ratio: '1024:377' },
-  ask: { w: 112, ratio: '1024:398' },
+  staff: { w: 104, ratio: '773:800' },
+  admin: { w: 106, ratio: '800:778' },
+  school: { w: 122, ratio: '800:630' },
+  order: { w: 170, ratio: '1024:377' },
+  ask: { w: 170, ratio: '1024:398' },
 };
 export function picture(shop, name) {
   const spec = PICTURES[name];
@@ -68,7 +68,7 @@ export function picture(shop, name) {
     aspectMode: 'fit',
     flex: 0,
     align: 'end',
-    gravity: 'center',
+    gravity: 'bottom', // stands on the lower edge of the band
   };
 }
 
@@ -79,16 +79,23 @@ const flex = (altText, contents, quickReply) => ({
   ...(quickReply ? { quickReply } : {}),
 });
 
+// Title on the left; the picture is big and tucked into the top-right corner, no
+// padding on its side or underneath, like a character leaning on the band.
 function header(title, shop, imageName, height) {
   const pic = imageName ? picture(shop, imageName) : null;
   return {
     type: 'box',
     layout: 'horizontal',
     backgroundColor: pal(shop).apricot,
-    paddingAll: 'lg',
+    ...(pic
+      ? { paddingTop: 'md', paddingBottom: 'none', paddingStart: 'lg', paddingEnd: 'sm' }
+      : { paddingAll: 'lg' }),
     spacing: 'md',
     ...(height ? { height } : {}),
-    contents: [text(title, { weight: 'bold', size: 'md', flex: 1, gravity: 'center' }), ...(pic ? [pic] : [])],
+    contents: [
+      text(title, { weight: 'bold', size: 'md', flex: 1, gravity: 'center' }),
+      ...(pic ? [pic] : []),
+    ],
   };
 }
 
@@ -147,7 +154,7 @@ function productBubble(p, shop, index = 0) {
   return bubble(shop, {
     size: 'kilo',
     // fixed height so the cards of one carousel line up whatever the picture's shape
-    header: header(p.name, shop, p.image || PRODUCT_PICTURES[index % PRODUCT_PICTURES.length], '104px'),
+    header: header(p.name, shop, p.image || PRODUCT_PICTURES[index % PRODUCT_PICTURES.length], '116px'),
     body: {
       type: 'box',
       layout: 'vertical',

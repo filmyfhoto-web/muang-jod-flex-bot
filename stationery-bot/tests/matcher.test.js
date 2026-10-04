@@ -178,6 +178,11 @@ test('with a public address: a picture in the corner of every card header', () =
   assert.equal(head.contents[0].text, shop.name);
   assert.equal(head.contents[1].type, 'image'); // … picture in the corner
   assert.equal(head.contents[1].align, 'end');
+  // big and flush with the corner: no padding on its side or underneath
+  assert.equal(head.paddingEnd, 'sm');
+  assert.equal(head.paddingBottom, 'none');
+  assert.equal(head.contents[1].gravity, 'bottom');
+  assert.ok(parseInt(head.contents[1].size) >= 100);
   assert.equal(greet.contents.hero, undefined);
   assert.equal(heroUrl(buildReply('ร้านเปิดกี่โมง', withPics).messages[0]), 'https://bot.example/assets/staff.png');
   assert.equal(heroUrl(buildReply('ที่ตั้งร้าน', withPics).messages[0]), 'https://bot.example/assets/admin.png');
@@ -290,7 +295,7 @@ test('product cards: name beside a picture in the header, price / stock below', 
   assert.equal(new Set(urls).size, 2);
   assert.ok(many);
   const heights = buildReply('ก', twoShop).messages[0].contents.contents.map((b) => b.header.height);
-  assert.deepEqual(heights, ['104px', '104px']); // carousel headers line up
+  assert.deepEqual(heights, ['116px', '116px']); // carousel headers line up
   // an explicit image on the product wins
   const own = buildReply('ก', { ...twoShop, products: [{ ...twoShop.products[0], image: 'order' }] }).messages[0].contents;
   assert.match(own.header.contents[1].url, /order\.png$/);
