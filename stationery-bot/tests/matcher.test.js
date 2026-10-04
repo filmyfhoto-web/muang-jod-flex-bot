@@ -168,7 +168,8 @@ test('สั่งของ: chat-order instructions plus a button to the web sh
 
 const withPics = { ...shop, assetBase: 'https://bot.example', iconUrl: 'https://bot.example/assets/icon.png' };
 // the picture sits in the top-right corner of the header band
-const heroUrl = (m) => m.contents.header?.contents.find((c) => c.type === 'image')?.url;
+const headerImg = (card) => card.header?.contents[1]?.contents?.find((c) => c.type === 'image');
+const heroUrl = (m) => headerImg(m.contents)?.url;
 
 test('with a public address: a picture in the corner of every card header', () => {
   const greet = buildReply('สวัสดี', withPics).messages[0];
@@ -176,13 +177,16 @@ test('with a public address: a picture in the corner of every card header', () =
   const head = greet.contents.header;
   assert.equal(head.contents[0].type, 'text'); // title on the left …
   assert.equal(head.contents[0].text, shop.name);
-  assert.equal(head.contents[1].type, 'image'); // … picture in the corner
-  assert.equal(head.contents[1].align, 'end');
+  const art = head.contents[1]; // … picture block in the corner: pastel shape + the picture
+  assert.equal(art.type, 'box');
+  assert.equal(art.contents[0].position, 'absolute'); // the shape sits behind
+  assert.ok(art.contents[0].backgroundColor);
+  assert.equal(art.contents[1].type, 'image'); // the picture on top (after the shape)
+  assert.equal(art.contents[1].position, 'absolute');
   // big and flush with the corner: no padding on its side or underneath
   assert.equal(head.paddingEnd, 'sm');
   assert.equal(head.paddingBottom, 'none');
-  assert.equal(head.contents[1].gravity, 'bottom');
-  assert.ok(parseInt(head.contents[1].size) >= 100);
+  assert.ok(parseInt(art.contents[1].size) >= 100);
   assert.equal(greet.contents.hero, undefined);
   assert.equal(heroUrl(buildReply('ร้านเปิดกี่โมง', withPics).messages[0]), 'https://bot.example/assets/staff.png');
   assert.equal(heroUrl(buildReply('ที่ตั้งร้าน', withPics).messages[0]), 'https://bot.example/assets/admin.png');
@@ -280,8 +284,8 @@ test('thank-you reply wears the staff picture when pictures are available, plain
 test('product cards: name beside a picture in the header, price / stock below', () => {
   const card = buildReply('ปากกา', withPics).messages[0].contents;
   assert.equal(card.header.contents[0].text, 'ปากกาลูกลื่น 0.5 สีน้ำเงิน');
-  assert.equal(card.header.contents[1].type, 'image');
-  assert.match(card.header.contents[1].url, /^https:\/\/bot\.example\/assets\/\w+\.png$/);
+  assert.equal(headerImg(card).type, 'image');
+  assert.match(headerImg(card).url, /^https:\/\/bot\.example\/assets\/\w+\.png$/);
   const body = JSON.stringify(card.body);
   assert.match(body, /10 บาท/);
   assert.ok(!body.includes('ปากกาลูกลื่น')); // the name is not repeated in the body
@@ -291,14 +295,14 @@ test('product cards: name beside a picture in the header, price / stock below', 
     { name: 'ก', aliases: ['ก'], price: 1, unit: 'ชิ้น' },
     { name: 'ข', aliases: ['ก'], price: 2, unit: 'ชิ้น' },
   ] };
-  const urls = buildReply('ก', twoShop).messages[0].contents.contents.map((b) => b.header.contents[1].url);
+  const urls = buildReply('ก', twoShop).messages[0].contents.contents.map((b) => headerImg(b).url);
   assert.equal(new Set(urls).size, 2);
   assert.ok(many);
   const heights = buildReply('ก', twoShop).messages[0].contents.contents.map((b) => b.header.height);
   assert.deepEqual(heights, ['116px', '116px']); // carousel headers line up
   // an explicit image on the product wins
   const own = buildReply('ก', { ...twoShop, products: [{ ...twoShop.products[0], image: 'order' }] }).messages[0].contents;
-  assert.match(own.header.contents[1].url, /order\.png$/);
+  assert.match(headerImg(own).url, /order\.png$/);
   // without pictures the header still carries the name
   assert.equal(buildReply('ปากกา', shop).messages[0].contents.header.contents[0].text, 'ปากกาลูกลื่น 0.5 สีน้ำเงิน');
 });
@@ -316,7 +320,7 @@ test('every picture a card can ask for has a spec and a file; ratios match the f
   for (const n of ['staff', 'admin', 'order', 'ask', 'school']) names.add(n);
   for (const n of names) {
     const card = buildReply('ร้านเปิดกี่โมง', { ...shop, assetBase: 'https://b.example', faq: [{ ...shop.faq[0], image: n }] }).messages[0];
-    const pic = card.contents.header.contents[1];
+    const pic = headerImg(card.contents);
     assert.ok(pic, `${n} has a picture spec`);
     const f = readFileSync(new URL(`../public/${n}.png`, import.meta.url));
     const [w, h] = [f.readUInt32BE(16), f.readUInt32BE(20)];

@@ -50,12 +50,14 @@ const bubble = (shop, parts) => ({
 // Pictures live in public/ and are reachable only once the server knows its own
 // https address (shop.assetBase). Without it every card simply has no picture.
 // Each one sits in the top-right corner of the card's header band.
+// `blob` is the soft pastel shape behind the character: a circle for the tall pictures,
+// a rounded pill for the wide ones.
 const PICTURES = {
-  staff: { w: 104, ratio: '773:800' },
-  admin: { w: 106, ratio: '800:778' },
-  school: { w: 122, ratio: '800:630' },
-  order: { w: 170, ratio: '1024:377' },
-  ask: { w: 170, ratio: '1024:398' },
+  staff: { w: 104, ratio: '773:800', blob: 'circle', tint: '#FFE1D3' },
+  admin: { w: 106, ratio: '800:778', blob: 'circle', tint: '#DCEBFF' },
+  school: { w: 122, ratio: '800:630', blob: 'circle', tint: '#FFF0B3' },
+  order: { w: 170, ratio: '1024:377', blob: 'pill', tint: '#FFF0B3' },
+  ask: { w: 170, ratio: '1024:398', blob: 'pill', tint: '#DCEBFF' },
 };
 export function picture(shop, name) {
   const spec = PICTURES[name];
@@ -72,6 +74,39 @@ export function picture(shop, name) {
   };
 }
 
+// The picture with its pastel shape behind it, as one block for the header's corner.
+function cornerArt(shop, name) {
+  const pic = picture(shop, name);
+  if (!pic) return null;
+  const spec = PICTURES[name];
+  const [rw, rh] = spec.ratio.split(':').map(Number);
+  const h = Math.round((spec.w * rh) / rw);
+  const boxW = spec.w + 8;
+  const circle = spec.blob === 'circle';
+  const d = Math.round(Math.min(spec.w, h) * 0.94);
+  const blob = {
+    type: 'box',
+    layout: 'vertical',
+    position: 'absolute',
+    contents: [],
+    backgroundColor: spec.tint,
+    width: `${circle ? d : Math.round(spec.w * 0.96)}px`,
+    height: `${circle ? d : h}px`,
+    cornerRadius: circle ? `${Math.round(d / 2)}px` : '22px',
+    offsetBottom: '0px',
+    offsetStart: `${circle ? Math.round((boxW - d) / 2) : 4}px`,
+  };
+  return {
+    type: 'box',
+    layout: 'vertical',
+    flex: 0,
+    width: `${boxW}px`,
+    height: `${h + 6}px`,
+    // both layers are placed absolutely, shape first, so the picture is always on top
+    contents: [blob, { ...pic, position: 'absolute', offsetBottom: '0px', offsetStart: '4px', align: undefined, gravity: undefined }],
+  };
+}
+
 const flex = (altText, contents, quickReply) => ({
   type: 'flex',
   altText: clip(altText, 400),
@@ -83,7 +118,7 @@ const flex = (altText, contents, quickReply) => ({
 // padding on its side or underneath. No coloured band: the picture sits straight on the
 // card's cream paper.
 function header(title, shop, imageName, height) {
-  const pic = imageName ? picture(shop, imageName) : null;
+  const pic = imageName ? cornerArt(shop, imageName) : null;
   return {
     type: 'box',
     layout: 'horizontal',
