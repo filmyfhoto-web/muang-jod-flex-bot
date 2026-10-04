@@ -404,5 +404,7 @@
         ]
       }
     ]
-  }
+  },
+  "replyOnlyKnown": true,
+  "ackMedia": false
 }

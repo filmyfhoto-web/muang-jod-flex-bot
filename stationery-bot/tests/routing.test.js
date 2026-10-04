@@ -45,7 +45,7 @@ test('vinyl / framed photo / rubber stamp → admin Film is named', () => {
 });
 
 test('looser wording counts only right after the question', () => {
-  const who = (t, st) => buildReply(t, shop, st).messages[0].contents?.header.contents[0].text;
+  const who = (t, st) => buildReply(t, shop, st).messages[0]?.contents?.header.contents[0].text;
   assert.equal(who('อยากทำไวนิลค่ะ', { awaitingAdmin: true }), 'แอดมินฟิล์ม');
   assert.equal(who('ขอใบเสนอราคาหน่อย', { awaitingAdmin: true }), 'แอดมินหญิง');
   assert.equal(who('ตรายาง', { awaitingAdmin: true }), 'แอดมินฟิล์ม');

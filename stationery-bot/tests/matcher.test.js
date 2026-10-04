@@ -7,6 +7,8 @@ import { verifySignature } from '../src/line.js';
 import crypto from 'node:crypto';
 
 const shop = JSON.parse(readFileSync(new URL('../data/shop.json', import.meta.url), 'utf8'));
+// the "sorry, I don't understand" card is only built when replyOnlyKnown is switched off
+const chatty = { ...shop, replyOnlyKnown: false };
 
 test('product by alias', () => {
   const r = matchIntent('ปากกาลูกลื่นราคาเท่าไหร่คะ', shop);
@@ -49,7 +51,7 @@ test('single product → bubble, several → carousel; out-of-stock flagged', ()
 
 test('faq and fallback are flex cards; handoff stays text', () => {
   assert.equal(buildReply('ร้านเปิดกี่โมง', shop).messages[0].type, 'flex');
-  assert.equal(buildReply('xyz', shop).messages[0].type, 'flex');
+  assert.equal(buildReply('xyz', chatty).messages[0].type, 'flex');
   assert.equal(buildReply('แอดมิน', { ...shop, adminRouting: undefined }).messages[0].type, 'text');
 });
 
@@ -106,7 +108,7 @@ test('school named together with supplies → link straight away', () => {
 });
 
 test('school name alone, not asked → link is not sent', () => {
-  assert.doesNotMatch(JSON.stringify(buildReply('โรงเรียนบ้านกอก', shop).messages[0]), /qeujy/);
+  assert.doesNotMatch(JSON.stringify(buildReply('โรงเรียนบ้านกอก', shop).messages), /qeujy/);
 });
 
 test('unknown school while asked → ask again; other topics still work', () => {
@@ -179,7 +181,7 @@ test('with a public address: a picture in the corner of every card header', () =
   assert.equal(greet.contents.hero, undefined);
   assert.equal(heroUrl(buildReply('ร้านเปิดกี่โมง', withPics).messages[0]), 'https://bot.example/assets/staff.png');
   assert.equal(heroUrl(buildReply('ที่ตั้งร้าน', withPics).messages[0]), 'https://bot.example/assets/admin.png');
-  assert.equal(heroUrl(buildReply('xyz', withPics).messages[0]), 'https://bot.example/assets/admin.png'); // fallback card
+  assert.equal(heroUrl(buildReply('xyz', { ...withPics, replyOnlyKnown: false }).messages[0]), 'https://bot.example/assets/admin.png'); // fallback card
 
   assert.equal(heroUrl(buildReply('สั่งของ', withPics).messages[0]), 'https://bot.example/assets/order.png');
   assert.equal(heroUrl(buildReply('อุปกรณ์การเรียน 2-69', withPics).messages[0]), 'https://bot.example/assets/ask.png');
@@ -249,7 +251,7 @@ test('pastel theme: cream paper, apricot headers, pastel topic buttons, black pr
   for (const b of bubbles) {
     for (const k of ['header', 'hero', 'body', 'footer']) assert.equal(b.styles[k].backgroundColor, t.cream, k);
   }
-  const menu = buildReply('xyz', shop).messages[0].contents;
+  const menu = buildReply('xyz', chatty).messages[0].contents;
   assert.equal(menu.header.backgroundColor, t.apricot);
   const btns = menu.footer.contents;
   assert.deepEqual(btns.slice(0, 3).map((b) => b.color), [t.apricot, t.yellow, t.blue]);
@@ -278,7 +280,7 @@ test('product cards: name beside a picture in the header, price / stock below', 
   assert.match(body, /10 บาท/);
   assert.ok(!body.includes('ปากกาลูกลื่น')); // the name is not repeated in the body
   // several products take turns with the pictures
-  const many = buildReply('xyz', { ...withPics, products: [] });
+  const many = buildReply('xyz', { ...withPics, products: [], replyOnlyKnown: false });
   const twoShop = { ...withPics, products: [
     { name: 'ก', aliases: ['ก'], price: 1, unit: 'ชิ้น' },
     { name: 'ข', aliases: ['ก'], price: 2, unit: 'ชิ้น' },

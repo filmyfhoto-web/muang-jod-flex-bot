@@ -120,6 +120,7 @@ async function handleEvent(ev) {
     // Once the customer has asked for the admin, leave the chat to them.
     if (leaveToAdmin || handoff) quiet.silenceUser(userId, (shop.handoffQuietMinutes ?? 180) * 60 * 1000);
     const out = holiday(messages, { handoff, skip: isThanks(ev.message.text) });
+    if (!out.length) return; // nothing the shop answers → stay silent, the admin sees the chat
     return replyMessage(ev.replyToken, send(out), token);
   }
   if (quiet.silentFor(userId)) return; // photos, slips and stickers too: the admin sees them
@@ -131,12 +132,12 @@ async function handleEvent(ev) {
     if (!isThanksSticker(ev.message.keywords)) return;
     return replyMessage(ev.replyToken, send(thanksReply(shop).messages), token);
   }
-  // Slips and photos: acknowledge, a person follows up.
-  return replyMessage(
-    ev.replyToken,
-    send(holiday([{ type: 'text', text: 'ได้รับแล้วค่ะ 🙏 แอดมินจะตรวจสอบและตอบกลับนะคะ' }])),
-    token
-  );
+  // Slips and photos: say nothing unless the shop asked for an acknowledgement
+  // ("ackMedia": true in shop.json); a person follows up either way.
+  const ack = shop.ackMedia ? [{ type: 'text', text: 'ได้รับแล้วค่ะ 🙏 แอดมินจะตรวจสอบและตอบกลับนะคะ' }] : [];
+  const out = holiday(ack);
+  if (!out.length) return;
+  return replyMessage(ev.replyToken, send(out), token);
 }
 
 const port = Number(process.env.PORT) || 3000;
