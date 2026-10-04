@@ -96,13 +96,21 @@ export function findFaq(text, faq) {
 
 // "ขอบคุณค่ะ", "ขอบคุณมากครับ", "thanks" — but not "ขอบคุณ ปากกาเท่าไหร่": a message
 // that still says something else is a question, not a goodbye.
-const THANKS = /ขอบคุณ|ขอบใจ|ขอบพระคุณ|thank(?:s|you)?|thx/g;
-const THANKS_FILLER = /มากๆ|มาก|เลย|นะคะ|นะครับ|นะ|ค่ะ|คะ|ครับ|คับ|จ้า|จ้ะ|ล่วงหน้า|ที่|ช่วย|ๆ/g;
-export function isThanks(text) {
+const THANKS = /ขอบคุณ|ขอบใจ|ขอบพระคุณ|ขอบคุน|ขอบคูณ|thank(?:s|you)?|thx/g;
+// Words that may sit around a thank-you without making it a question: politeness, the
+// Northern "เจ้า / เน้อ / เด้อ / หนา", and ways of addressing someone.
+const THANKS_FILLER =
+  /เจ้าค่ะ|เจ้าพี่|เจ้านาย|เจ้า|เจ้ะ|มากมาย|มากๆ|มาก|ที่ช่วย|ที่ดูแล|ที่แนะนำ|ที่ตอบ|ที่สละเวลา|ที่|ช่วย|ล่วงหน้า|อีกครั้ง|ทุกคน|ทุกท่าน|เลย|นะคะ|นะครับ|นะจ๊ะ|นะจ๊า|นะ|ค่ะ|ค่า|คะ|คร้าบ|ครับผม|ครับ|คับ|ค้าบ|ขอรับ|จ้า|จ้ะ|จ๊ะ|จ๋า|เด้อ|เน้อ|หนา|เน่อ|พี่|น้อง|น้า|ป้า|ลุง|อา|แม่|พ่อ|คุณ|ๆ|555+|ฮ่า|55/g;
+export function isThanks(text, names = []) {
   const q = String(text ?? '').toLowerCase().replace(/[^\p{L}\p{M}\p{N}]/gu, '');
   if (!THANKS.test(q)) return false;
   THANKS.lastIndex = 0;
-  return q.replace(THANKS, '').replace(THANKS_FILLER, '') === '';
+  let rest = q.replace(THANKS, '');
+  // "ขอบคุณพี่ปิ่น" — thanking one of the admins by name is still just thanks. Names go
+  // first (longest first), before "พี่" is taken for a plain form of address.
+  const clean = (n) => String(n).toLowerCase().replace(/[^\p{L}\p{M}\p{N}]/gu, '');
+  for (const n of [...names].map(clean).filter(Boolean).sort((a, b) => b.length - a.length)) rest = rest.split(n).join('');
+  return rest.replace(THANKS_FILLER, '') === '';
 }
 
 // A LINE sticker carries English keywords describing it; "thanks" ones count.

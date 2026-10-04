@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildReply, contactMessages } from '../src/replies.js';
+import { buildReply } from '../src/replies.js';
 import { createContactState, findContact, notificationText, contactLabel } from '../src/contact.js';
 import { isWakeWord } from '../src/wake.js';
 import { chatLink } from '../src/line.js';
@@ -12,7 +12,7 @@ const clock = () => {
   let t = 1_000_000;
   return { now: () => t, tick: (ms) => (t += ms) };
 };
-const cfg = { windowMs: 20 * MIN, gapMs: 60_000 };
+const WINDOW = 20 * MIN;
 
 test('the three people are หญิง, ฟิล์ม, พี่ปิ่น and the bot answers at once', () => {
   assert.deepEqual(shop.contact.people.map((p) => p.name), ['หญิง', 'ฟิล์ม', 'พี่ปิ่น']);
@@ -21,12 +21,11 @@ test('the three people are หญิง, ฟิล์ม, พี่ปิ่น 
 });
 
 test('the contact card shows the three names as buttons that send "ติดต่อ <name>"', () => {
-  const card = contactMessages(shop, 'card')[0];
+  const card = buildReply('ติดต่อแอดมิน', shop).messages[0];
   const buttons = card.contents.footer.contents;
   assert.deepEqual(buttons.map((b) => b.action.label), ['ติดต่อ หญิง', 'ติดต่อ ฟิล์ม', 'ติดต่อ พี่ปิ่น']);
   assert.deepEqual(buttons.map((b) => b.action.text), buttons.map((b) => b.action.label));
   assert.ok(buttons.every((b) => b.action.label.length <= 20));
-  assert.match(JSON.stringify(contactMessages(shop, 'remind')[0]), /ย้ำนะคะ/);
 });
 
 test('the black "ติดต่อแอดมิน" button on the menu opens the same card', () => {
@@ -34,6 +33,7 @@ test('the black "ติดต่อแอดมิน" button on the menu opens 
   assert.equal(r.messages[0].contents.footer.contents.length, 3);
   assert.match(JSON.stringify(r.messages[0]), /ต้องการติดต่อใคร/);
   assert.ok(!r.silent);
+  assert.equal(r.needsPhotos, true); // the server adds the admins' LINE photos
 });
 
 test('tapping a name is recognised, however it is spaced', () => {
@@ -45,49 +45,37 @@ test('tapping a name is recognised, however it is spaced', () => {
   assert.equal(contactLabel({ name: 'ฟิล์ม' }), 'ติดต่อ ฟิล์ม');
 });
 
-test('first unknown message → card; another within a minute → nothing; later → one reminder', () => {
+test('"the bot did not understand" alerts: once per customer per window, per customer', () => {
   const c = clock();
   const st = createContactState(c.now);
-  assert.equal(st.onUnknown('u1', cfg), 'card');
-  c.tick(10_000);
-  assert.equal(st.onUnknown('u1', cfg), 'silent'); // no spamming
+  const win = 10 * MIN;
+  assert.equal(st.alertDue('u1', win), true);
   c.tick(2 * MIN);
-  assert.equal(st.onUnknown('u1', cfg), 'remind');
-  c.tick(2 * MIN);
-  assert.equal(st.onUnknown('u1', cfg), 'silent'); // reminded once only
-});
-
-test('the timed reminder fires once, and only for a customer who has not chosen', () => {
-  const st = createContactState(clock().now);
-  st.onUnknown('u1', cfg);
-  assert.equal(st.dueReminder('u1'), true);
-  assert.equal(st.dueReminder('u1'), false);
-  st.onUnknown('u2', cfg);
-  st.choose('u2', cfg.windowMs);
-  assert.equal(st.dueReminder('u2'), false);
-  assert.equal(st.dueReminder('nobody'), false);
+  assert.equal(st.alertDue('u1', win), false); // same customer, still inside the window
+  assert.equal(st.alertDue('u2', win), true); // another customer is separate
+  c.tick(9 * MIN); // 11 minutes since u1's alert
+  assert.equal(st.alertDue('u1', win), true);
 });
 
 test('once a name is tapped the bot is quiet for 20 minutes of silence, each message extends it', () => {
   const c = clock();
   const st = createContactState(c.now);
-  st.choose('u1', cfg.windowMs);
-  assert.equal(st.isQuiet('u1', cfg.windowMs), true);
+  st.choose('u1');
+  assert.equal(st.isQuiet('u1', WINDOW), true);
   c.tick(15 * MIN);
-  assert.equal(st.isQuiet('u1', cfg.windowMs), true); // a message at 15 min extends the window
+  assert.equal(st.isQuiet('u1', WINDOW), true); // a message at 15 min extends the window
   c.tick(15 * MIN);
-  assert.equal(st.isQuiet('u1', cfg.windowMs), true);
+  assert.equal(st.isQuiet('u1', WINDOW), true);
   c.tick(21 * MIN); // 20+ minutes of nothing
-  assert.equal(st.isQuiet('u1', cfg.windowMs), false);
-  assert.equal(st.onUnknown('u1', cfg), 'card'); // BOT MODE again
+  assert.equal(st.isQuiet('u1', WINDOW), false); // BOT MODE again
 });
 
 test('the customer can bring the bot back, and other customers are not affected', () => {
   const st = createContactState(clock().now);
-  st.choose('u1', cfg.windowMs);
-  assert.equal(st.isQuiet('u2', cfg.windowMs), false);
+  st.choose('u1');
+  assert.equal(st.isQuiet('u2', WINDOW), false);
   st.wake('u1');
-  assert.equal(st.isQuiet('u1', cfg.windowMs), false);
+  assert.equal(st.isQuiet('u1', WINDOW), false);
   for (const w of ['เมนู', 'เมนูค่ะ', 'บอท', 'menu']) assert.ok(isWakeWord(w), w);
   assert.ok(!isWakeWord('ขอดูเมนูอาหาร'));
 });
@@ -98,7 +86,7 @@ test('the notification names the customer and the person they chose', () => {
   assert.match(t, /ลูกค้า: สมชาย/);
   assert.match(t, /ข้อความ: อยากทำไวนิล ขนาด 1x2/);
   const none = notificationText({ customer: null, contact: null, said: '' });
-  assert.match(none, /ยังไม่ได้เลือกว่าจะติดต่อใคร/);
+  assert.match(none, /บอทตอบเรื่องนี้ไม่ได้/);
   assert.match(none, /ไม่ทราบชื่อ/);
   assert.ok(!none.includes('ข้อความ:'));
   assert.ok(notificationText({ customer: 'x', contact: null, said: 'ก'.repeat(500) }).length < 250);
@@ -169,14 +157,14 @@ test('notification card: customer photo and name, whom they chose, the message a
   assert.ok(card.altText.length <= 400);
 });
 
-test('notification card without photos or link still works; undecided variant says so', () => {
+test('notification card without photos or link still works; the "bot could not answer" variant says so', () => {
   const card = notificationCard(shop, { customer: { name: null, picture: null }, contact: null, said: '', link: null });
   const json = JSON.stringify(card);
   assert.match(json, /ไม่ทราบชื่อ/);
-  assert.match(json, /ยังไม่ได้เลือกว่าจะติดต่อใคร/);
+  assert.match(json, /บอทตอบเรื่องนี้ไม่ได้/);
   assert.equal(card.contents.footer, undefined);
   assert.ok(!json.includes('"type":"image"'));
-  assert.match(card.contents.header.contents[0].text, /รออยู่/);
+  assert.match(card.contents.header.contents[0].text, /บอทตอบไม่ได้/);
 });
 
 test('profile lookups: https photos only, failures give empty, admins are cached', async () => {
@@ -209,4 +197,13 @@ test('contactPhotos maps names to photos and skips people without an id or photo
   const s = { contact: { people: [{ name: 'ก', userId: 'U1' }, { name: 'ข', userId: 'U2' }, { name: 'ค', userId: '' }] } };
   const out = await contactPhotos(s, async (id) => ({ picture: id === 'U1' ? PHOTO : null }));
   assert.deepEqual(out, { ก: PHOTO });
+});
+
+test('unknown messages and media get no reply from the bot: they go to the admins instead', () => {
+  assert.equal(shop.replyOnlyKnown, true);
+  assert.deepEqual(buildReply('อยากทำป้ายไวนิลค่ะ', shop).messages, []);
+  assert.equal(buildReply('อยากทำป้ายไวนิลค่ะ', shop).silent, true); // the server turns this into an alert
+  assert.equal(shop.contact.notifyAllMinutes, 10);
+  assert.equal(shop.contact.unknown, undefined); // no "reminder" card any more
+  assert.equal(shop.contact.remind, undefined);
 });

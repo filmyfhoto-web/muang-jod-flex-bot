@@ -325,7 +325,7 @@ export function notifyCard(shop, { title, customerName, customerPhoto, contactNa
           text(contactName, { weight: 'bold', size: 'md', flex: 1 }),
         ],
       }
-    : text('ยังไม่ได้เลือกว่าจะติดต่อใคร', { size: 'sm', weight: 'bold', color: pal(shop).accent });
+    : text('บอทตอบเรื่องนี้ไม่ได้ รบกวนดูแชทด้วยค่ะ', { size: 'sm', weight: 'bold', color: pal(shop).accent });
   return flex(
     altText,
     bubble(shop, {

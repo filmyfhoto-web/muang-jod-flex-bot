@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { buildReply } from '../src/replies.js';
+import { isThanks } from '../src/matcher.js';
 import { isPaused } from '../src/quiet.js';
 import { describeEvent } from '../src/line.js';
 import { applyHoliday, createNoticeTracker } from '../src/holiday.js';
@@ -118,4 +119,16 @@ test('event log lines describe the kind of event and never include what was writ
   assert.equal(line, '[webhook] type=message source=user message=text mode=active');
   assert.ok(!line.includes('secret') && !line.includes('U123'));
   assert.match(describeEvent({ type: 'follow', source: { type: 'user' }, strange: 1 }), /other=strange/);
+});
+
+test('thanks that name an admin is still thanks; a thank-you with a question is not', () => {
+  const names = ['หญิง', 'ฟิล์ม', 'พี่ปิ่น'];
+  assert.ok(isThanks('ขอบคุณพี่ปิ่นค่ะ', names));
+  assert.ok(isThanks('ขอบคุณหญิงเจ้า', names));
+  assert.ok(isThanks('ขอบคุณเจ้าพี่', names));
+  assert.ok(!isThanks('ขอบคุณค่ะ ราคาเท่าไหร่', names));
+  assert.ok(!isThanks('ขอบคุณ ป้าย 2 ผืน', names));
+  // through the reply builder: "ขอบคุณเจ้าพี่" now gets the thank-you card
+  assert.match(JSON.stringify(buildReply('ขอบคุณเจ้าพี่', shop).messages), /ยินดีค่ะ/);
+  assert.match(JSON.stringify(buildReply('ขอบคุณพี่ปิ่น', shop).messages), /ยินดีค่ะ/);
 });

@@ -32,7 +32,7 @@ export function buildReply(text, shop, session = {}) {
   const cfg = shop.schoolSupplies;
 
   // "ขอบคุณ" ends whatever was in progress, including a pending "which school?"
-  if (isThanks(text)) return thanksReply(shop);
+  if (isThanks(text, (shop.contact?.people ?? []).map((p) => p.name))) return thanksReply(shop);
 
   if (cfg) {
     const school = findSchool(text, cfg.schools);
@@ -46,7 +46,7 @@ export function buildReply(text, shop, session = {}) {
 
   const intent = matchIntent(text, shop);
   const qr = quick(shop);
-  if (intent.type === 'contact') return { messages: [contactCard(shop, shop.contact.ask)], awaitingSchool: false };
+  if (intent.type === 'contact') return { messages: [contactCard(shop, shop.contact.ask)], awaitingSchool: false, needsPhotos: true };
   const out = (m) => ({ messages: [m], awaitingSchool: false });
   switch (intent.type) {
     case 'products':
@@ -84,7 +84,3 @@ export function withSender(messages, baseUrl) {
   return iconUrl ? messages.map((m) => ({ ...m, sender: { iconUrl } })) : messages;
 }
 
-// What the bot sends when a customer must choose whom to contact.
-export const contactMessages = (shop, kind, photos = {}) => [
-  contactCard(shop, kind === 'remind' ? shop.contact.remind : shop.contact.unknown, photos),
-];

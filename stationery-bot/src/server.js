@@ -3,7 +3,8 @@ import express from 'express';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { verifySignature, replyMessage, pushMessage, getProfile, getProfileCached, getBotUserId, chatLink, describeEvent } from './line.js';
-import { buildReply, welcomeMessage, withSender, iconUrlFor, thanksReply, contactMessages } from './replies.js';
+import { buildReply, welcomeMessage, withSender, iconUrlFor, thanksReply } from './replies.js';
+import { contactCard } from './flex.js';
 import { isThanksSticker, isThanks } from './matcher.js';
 import { applyHoliday, createNoticeTracker } from './holiday.js';
 import { createContactState, findContact, notificationCard, contactPhotos, people } from './contact.js';
@@ -87,8 +88,7 @@ const contacts = createContactState();
 const MIN = 60 * 1000;
 const contactCfg = (shop) => ({
   windowMs: (shop.contact?.quietMinutes ?? 20) * MIN,
-  gapMs: 60 * 1000, // not more than one reminder card a minute
-  reminderMs: (shop.contact?.reminderMinutes ?? 3) * MIN,
+  alertEveryMs: (shop.contact?.notifyAllMinutes ?? 10) * MIN, // one "bot did not understand" alert per customer per this long
 });
 
 // A reply token is only good for a short while; when it is gone the message goes out as
@@ -170,7 +170,7 @@ async function handleEvent(ev) {
     // The customer chose whom to contact → the bot goes quiet and that person is told.
     const chosen = hasContacts ? findContact(said, shop) : null;
     if (chosen) {
-      contacts.choose(userId, cfg.windowMs);
+      contacts.choose(userId);
       void notifyAdmins([chosen], shop, { customerId: userId, contact: chosen, said });
       return; // no reply at all
     }
@@ -187,13 +187,9 @@ async function handleEvent(ev) {
       if (r.awaitingSchool) awaitSchool.set(userId);
       else awaitSchool.clear(userId);
       let messages = r.messages;
-      if (r.silent && hasContacts) {
-        // nothing ready to say: put the names in front of the customer
-        const kind = contacts.onUnknown(userId, cfg);
-        messages = kind === 'silent' ? [] : contactMessages(shopNow, kind, await adminPhotos(shopNow));
-        if (kind === 'card') scheduleReminder(userId, said, shopNow, cfg);
-      }
-      const out = holiday(shopNow, messages, { skip: isThanks(said) });
+      if (r.needsPhotos) messages = [contactCard(shopNow, shopNow.contact.ask, await adminPhotos(shopNow))];
+      if (r.silent && hasContacts) escalate(userId, said, shopNow, cfg); // the bot says nothing; the admins are told
+      const out = holiday(shopNow, messages, { skip: isThanks(said, people(shopNow).map((p) => p.name)) });
       if (!out.length) return; // nothing to say
       await deliver(ev, userId, out);
     });
@@ -206,30 +202,17 @@ async function handleEvent(ev) {
     if (!isThanksSticker(ev.message.keywords)) return;
     return replyMessage(ev.replyToken, send(thanksReply(shop).messages), token);
   }
-  // A slip or photo with nobody chosen yet: show the names.
-  if (!hasContacts) return;
-  const kind = contacts.onUnknown(userId, cfg);
-  if (kind === 'silent') return;
-  if (kind === 'card') scheduleReminder(userId, '(ส่งรูป/ไฟล์)', shop, cfg);
-  const out = holiday(shop, contactMessages(shop, kind, await adminPhotos(shop)));
+  // A slip or photo: the bot cannot read it, so the admins are told (and the customer gets
+  // nothing from the bot).
+  if (hasContacts) escalate(userId, '(ส่งรูป/ไฟล์)', shop, cfg);
+  const out = holiday(shop, []); // only the Saturday notice, if it is Saturday
   if (out.length) await deliver(ev, userId, out);
 }
 
-// Still no choice a few minutes after the card: remind the customer once, and tell the
-// admins that somebody is waiting. Both go out as pushes — the reply token is long gone.
-function scheduleReminder(userId, said, shop, cfg) {
-  if (userId === 'anon') return;
-  setTimeout(async () => {
-    try {
-      if (!contacts.dueReminder(userId)) return;
-      const shopNow = loadShop();
-      if (isPaused(shopNow, process.env) || quiet.allPaused()) return;
-      await pushMessage(userId, send(contactMessages(shopNow, 'remind', await adminPhotos(shopNow))), token);
-      await notifyAdmins(people(shopNow), shopNow, { customerId: userId, contact: null, said });
-    } catch (e) {
-      console.error('[reminder]', e.message);
-    }
-  }, cfg.reminderMs);
+// The bot did not understand: tell all the admins, once per customer per window.
+function escalate(userId, said, shop, cfg) {
+  if (userId === 'anon' || !contacts.alertDue(userId, cfg.alertEveryMs)) return;
+  void notifyAdmins(people(shop), shop, { customerId: userId, contact: null, said });
 }
 
 const port = Number(process.env.PORT) || 3000;

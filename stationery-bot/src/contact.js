@@ -21,7 +21,7 @@ export function findContact(text, shop) {
 
 // The line that pops up on the admin's LINE.
 export function notificationText({ customer, contact, said, link }) {
-  const head = contact ? `🔔 มีลูกค้าทักมา — ต้องการติดต่อ ${contact.name}` : '🔔 มีลูกค้าทักมา แต่ยังไม่ได้เลือกว่าจะติดต่อใคร';
+  const head = contact ? `🔔 มีลูกค้าทักมา — ต้องการติดต่อ ${contact.name}` : '🔔 มีลูกค้าทักมา — บอทตอบเรื่องนี้ไม่ได้ รบกวนดูแชทด้วยค่ะ';
   const lines = [head, `ลูกค้า: ${customer || 'ไม่ทราบชื่อ'}`];
   const preview = String(said ?? '').replace(/\s+/g, ' ').trim();
   if (preview) lines.push(`ข้อความ: ${preview.slice(0, 80)}`);
@@ -30,53 +30,33 @@ export function notificationText({ customer, contact, said, link }) {
 }
 
 export function createContactState(now = () => Date.now()) {
-  const m = new Map(); // userId → { status: 'prompted' | 'chosen', at, last, reminded }
-  const alive = (id, windowMs) => {
-    const e = m.get(id);
-    if (e && now() - e.last > windowMs) m.delete(id); // idle too long → back to BOT MODE
-    return m.get(id);
-  };
+  const chosen = new Map(); // userId → time of their last message, once they have chosen someone
+  const alerted = new Map(); // userId → when the admins were last told the bot did not understand
   return {
-    choose(id, windowMs) {
-      alive(id, windowMs);
-      m.set(id, { status: 'chosen', at: now(), last: now(), reminded: true });
+    choose(id) {
+      chosen.set(id, now());
     },
-    // chosen someone and still within the quiet window? (every message from them extends it)
+    // chose someone and still within the quiet window? (every message from them extends it)
     isQuiet(id, windowMs) {
-      const e = alive(id, windowMs);
-      if (e?.status !== 'chosen') return false;
-      e.last = now();
+      const last = chosen.get(id);
+      if (last === undefined) return false;
+      if (now() - last > windowMs) {
+        chosen.delete(id); // idle too long → back to BOT MODE
+        return false;
+      }
+      chosen.set(id, now());
       return true;
     },
     wake(id) {
-      m.delete(id);
+      chosen.delete(id);
     },
-    // → 'card' (first time) | 'remind' (still not chosen after a pause) | 'silent'
-    onUnknown(id, { windowMs, gapMs }) {
-      const e = alive(id, windowMs);
+    // true when the admins should be told about this customer: not more than once per window
+    alertDue(id, windowMs) {
       const t = now();
-      if (!e) {
-        m.set(id, { status: 'prompted', at: t, last: t, reminded: false });
-        return 'card';
-      }
-      e.last = t;
-      if (e.status === 'prompted' && !e.reminded && t - e.at >= gapMs) {
-        e.reminded = true;
-        return 'remind';
-      }
-      return 'silent';
-    },
-    // timer: true once if the customer still has not chosen
-    dueReminder(id) {
-      const e = m.get(id);
-      if (e?.status === 'prompted' && !e.reminded) {
-        e.reminded = true;
-        return true;
-      }
-      return false;
-    },
-    stillUndecided(id) {
-      return m.get(id)?.status === 'prompted';
+      for (const [k, at] of alerted) if (t - at > windowMs) alerted.delete(k);
+      if (alerted.has(id)) return false;
+      alerted.set(id, t);
+      return true;
     },
   };
 }
@@ -86,7 +66,7 @@ export function createContactState(now = () => Date.now()) {
 export function notificationCard(shop, { customer, contact, said, link }) {
   const altText = notificationText({ customer: customer?.name, contact, said, link });
   return notifyCard(shop, {
-    title: contact ? '🔔 มีลูกค้าทักมา' : '🔔 มีลูกค้ารออยู่',
+    title: contact ? '🔔 มีลูกค้าทักมา' : '🔔 มีลูกค้าทักมา — บอทตอบไม่ได้',
     customerName: customer?.name,
     customerPhoto: customer?.picture,
     contactName: contact?.name,
