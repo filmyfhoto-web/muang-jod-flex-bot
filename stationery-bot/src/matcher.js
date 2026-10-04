@@ -11,7 +11,6 @@ export function normalize(text) {
 }
 
 const GREETING = /^(?:สวัสดี|หวัดดี|hello|hi|ดีจ้า|ดีค่ะ|ดีครับ|เมนู|menu|บอท|เริ่มใหม่)/;
-const HANDOFF = /แอดมิน|admin|คุยกับคน|เจ้าของร้าน|พนักงาน/;
 
 // Longest alias contained in the message wins, so "กระดาษa4" picks the A4
 // entry over a shorter generic alias like "กระดาษ" on another item.
@@ -110,10 +109,9 @@ export function isThanks(text) {
 export const isThanksSticker = (keywords) =>
   Array.isArray(keywords) && keywords.some((k) => /thank|thx|ขอบคุณ/i.test(String(k)));
 
-// → { type: 'handoff' | 'greeting' | 'products' | 'faq' | 'fallback', ... }
+// → { type: 'thanks' | 'greeting' | 'products' | 'faq' | 'fallback', ... }
 export function matchIntent(text, shop) {
   const q = normalize(text);
-  if (HANDOFF.test(q)) return { type: 'handoff' };
   if (isThanks(text)) return { type: 'thanks' };
   const products = findProducts(text, shop.products ?? []);
   if (products.length) return { type: 'products', products };
@@ -121,22 +119,4 @@ export function matchIntent(text, shop) {
   if (faq) return { type: 'faq', faq };
   if (GREETING.test(q)) return { type: 'greeting' };
   return { type: 'fallback' };
-}
-
-// Which subject did the customer pick for the admin? A button sends the topic's exact
-// label, which is always accepted; looser wording ("ทำไวนิลหน่อย") counts only while the
-// customer has just been asked, so ordinary chat is never swept up into a handoff.
-export function findAdminTopic(text, routing, { loose = false } = {}) {
-  const q = normalize(text);
-  if (!q || !routing?.topics) return null;
-  const exact = routing.topics.find((t) => normalize(t.label) === q);
-  if (exact) return exact;
-  if (!loose) return null;
-  let best = null;
-  for (const t of routing.topics) {
-    for (const k of [t.label, ...(t.keywords ?? [])].map(normalize)) {
-      if (k && q.includes(k) && (!best || k.length > best.len)) best = { t, len: k.length };
-    }
-  }
-  return best?.t ?? null;
 }

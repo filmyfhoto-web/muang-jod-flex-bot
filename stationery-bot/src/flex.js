@@ -108,7 +108,6 @@ export function menuCard(shop, title, body, { image } = {}) {
         spacing: 'sm',
         contents: [
           ...topicList.map((t, i) => msgButton(t.label, t.text, shop, 'secondary', i)),
-          msgButton('คุยกับแอดมิน', 'แอดมิน', shop, 'primary'),
         ],
       },
     })
@@ -166,7 +165,11 @@ function productBubble(p, shop, index = 0) {
     footer: {
       type: 'box',
       layout: 'vertical',
-      contents: [msgButton(inStock ? 'สั่งซื้อ/สอบถาม' : 'ถามวันเข้าสินค้า', 'แอดมิน', shop, 'primary')],
+      contents: [
+        inStock
+          ? msgButton('สั่งซื้อ', 'สั่งของ', shop, 'primary')
+          : msgButton('ถามวันเข้าสินค้า', `ถามวันเข้าสินค้า ${p.name}`, shop, 'primary'),
+      ],
     },
   });
 }
@@ -210,53 +213,5 @@ export function noteCard(shop, imageName, title, body, quickReply) {
       body: { type: 'box', layout: 'vertical', contents: [text(body, { size: 'sm' })] },
     }),
     quickReply
-  );
-}
-
-// "คุยกับแอดมิน" → which subject? Topics are grouped under the admin who handles them,
-// so the customer sees whom each button goes to.
-export function adminTopicsCard(shop, routing) {
-  const rows = [];
-  Object.entries(routing.admins).forEach(([key, admin], i) => {
-    const topics = routing.topics.filter((t) => t.admin === key);
-    if (!topics.length) return;
-    rows.push(text(admin.name, { size: 'xs', weight: 'bold', color: pal(shop).muted }));
-    topics.forEach((t) => rows.push(msgButton(t.label, t.label, shop, 'secondary', i)));
-  });
-  return flex(
-    routing.ask,
-    bubble(shop, {
-      header: header('คุยกับแอดมิน', shop, 'admin'),
-      body: { type: 'box', layout: 'vertical', contents: [text(routing.ask, { size: 'sm' })] },
-      footer: { type: 'box', layout: 'vertical', spacing: 'sm', contents: rows },
-    })
-  );
-}
-
-// The subject is taken and the right admin is named; the chat stays here in the shop's
-// OA, where that admin answers. `admin.link` (a personal LINE address) is optional and
-// not used by default — when set it adds a button that opens that chat instead.
-export function adminRouteCard(shop, admin, message) {
-  const link = admin.link || null;
-  return flex(
-    link ? `${message} ${link}` : message,
-    bubble(shop, {
-      header: header(admin.name, shop, 'admin'),
-      body: {
-        type: 'box',
-        layout: 'vertical',
-        spacing: 'md',
-        contents: [text(message, { size: 'sm' }), ...(link ? [text(link, { size: 'xs', color: pal(shop).muted })] : [])],
-      },
-      ...(link
-        ? {
-            footer: {
-              type: 'box',
-              layout: 'vertical',
-              contents: [uriButton(admin.buttonLabel || `เปิดไลน์${admin.name}`, link, shop)],
-            },
-          }
-        : {}),
-    })
   );
 }

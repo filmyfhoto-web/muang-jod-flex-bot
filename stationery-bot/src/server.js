@@ -6,7 +6,7 @@ import { verifySignature, replyMessage } from './line.js';
 import { buildReply, welcomeMessage, withSender, iconUrlFor, thanksReply } from './replies.js';
 import { isThanksSticker, isThanks } from './matcher.js';
 import { applyHoliday, createNoticeTracker } from './holiday.js';
-import { isPaused, createQuiet, parseAdminIds, parseAdminCommand, isWakeWord, isWhoAmI } from './quiet.js';
+import { isPaused, createQuiet, parseAdminIds, parseAdminCommand, isWhoAmI } from './quiet.js';
 
 const token = (process.env.LINE_CHANNEL_ACCESS_TOKEN ?? '').trim();
 const secret = (process.env.LINE_CHANNEL_SECRET ?? '').trim();
@@ -45,8 +45,7 @@ app.post('/webhook', express.raw({ type: '*/*' }), (req, res) => {
   for (const ev of events) handleEvent(ev).catch((e) => console.error('[event]', e.message));
 });
 
-// Who is mid-way through a two-step question ("which school?", "which subject for the
-// admin?") — in memory, so a restart forgets it (the customer is simply asked again).
+// Who is mid-way through a two-step question ("which school?") — in memory, so a restart forgets it (the customer is simply asked again).
 // Entries expire after 10 minutes.
 function createAwait(ms = 10 * 60 * 1000) {
   const m = new Map();
@@ -61,7 +60,6 @@ function createAwait(ms = 10 * 60 * 1000) {
   };
 }
 const awaitSchool = createAwait();
-const awaitAdmin = createAwait();
 
 const noticed = createNoticeTracker();
 const quiet = createQuiet();
@@ -103,31 +101,18 @@ async function handleEvent(ev) {
     }
     const cmd = adminIds.has(userId) ? parseAdminCommand(said) : null;
     if (cmd) return replyMessage(ev.replyToken, [{ type: 'text', text: adminReply(cmd, shop) }], token);
-    // An admin is talking: say nothing. The customer can still bring the bot back
-    // with "เมนู" — unless an admin silenced everyone.
+    // An admin silenced the bot for everyone: say nothing.
     if (quiet.allPaused()) return;
-    if (quiet.userQuiet(userId)) {
-      if (!isWakeWord(said)) return;
-      quiet.wake(userId);
-    }
-    const { messages, awaitingSchool, awaitingAdmin, handoff, quiet: leaveToAdmin } = buildReply(ev.message.text, shop, {
-      awaitingSchool: awaitSchool.has(userId),
-      awaitingAdmin: awaitAdmin.has(userId),
-    });
+    const { messages, awaitingSchool } = buildReply(ev.message.text, shop, { awaitingSchool: awaitSchool.has(userId) });
     if (awaitingSchool) awaitSchool.set(userId);
     else awaitSchool.clear(userId);
-    if (awaitingAdmin) awaitAdmin.set(userId);
-    else awaitAdmin.clear(userId);
-    // Once the customer has asked for the admin, leave the chat to them.
-    if (leaveToAdmin || handoff) quiet.silenceUser(userId, (shop.handoffQuietMinutes ?? 180) * 60 * 1000);
-    const out = holiday(messages, { handoff, skip: isThanks(ev.message.text) });
+    const out = holiday(messages, { skip: isThanks(ev.message.text) });
     if (!out.length) return; // nothing the shop answers → stay silent, the admin sees the chat
     return replyMessage(ev.replyToken, send(out), token);
   }
-  if (quiet.silentFor(userId)) return; // photos, slips and stickers too: the admin sees them
+  if (quiet.allPaused()) return; // photos, slips and stickers too
   if (ev.message.type === 'sticker') {
     awaitSchool.clear(userId);
-    awaitAdmin.clear(userId);
     // A thank-you sticker gets the same answer as a typed "ขอบคุณ". Any other sticker
     // is left alone — "ได้รับแล้ว แอดมินจะตรวจสอบ" is wrong for a wave or an OK.
     if (!isThanksSticker(ev.message.keywords)) return;

@@ -50,13 +50,12 @@ test('a new Saturday tells the same customer again', () => {
   assert.equal(applyHoliday(msg, { shop, userId: 'u1', tracker, now: next }).length, 2);
 });
 
-test('weekdays are untouched; thanks is not stamped; handoff is just the notice', () => {
+test('weekdays are untouched; thanks is not stamped and does not use up the notice', () => {
   const tracker = createNoticeTracker();
   assert.equal(applyHoliday(msg, { shop, userId: 'u1', tracker, now: FRI }), msg);
   assert.equal(applyHoliday(msg, { shop, userId: 'u1', tracker, now: SAT, skip: true }), msg);
-  // skipping must not use up the customer's notice
-  const out = applyHoliday(msg, { shop, userId: 'u1', tracker, now: SAT, handoff: true });
-  assert.equal(out.length, 1);
+  const out = applyHoliday(msg, { shop, userId: 'u1', tracker, now: SAT });
+  assert.equal(out.length, 2);
   assert.match(out[0].text, /ร้านหยุดทุกวันเสาร์/);
 });
 

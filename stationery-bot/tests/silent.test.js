@@ -22,7 +22,7 @@ test('text the shop has no answer for gets no reply at all', () => {
 
 test('everything that is set up still answers', () => {
   const known = ['สวัสดีค่ะ', 'ร้านเปิดกี่โมง', 'สั่งของ', 'ที่ตั้งร้าน', 'ค่าส่งเท่าไหร่', 'โอนยังไง', 'ใบเสร็จ',
-    'ปากกา', 'ดินสอ', 'สมุด', 'กระดาษ a4', 'อุปกรณ์การเรียน 2-69', 'ขอบคุณค่ะ', 'แอดมิน', 'เมนู', 'ทำไวนิล', 'ใบเสนอราคา'];
+    'ปากกา', 'ดินสอ', 'สมุด', 'กระดาษ a4', 'อุปกรณ์การเรียน 2-69', 'ขอบคุณค่ะ', 'เมนู'];
   for (const t of known) assert.ok(buildReply(t, shop).messages.length > 0, t);
 });
 
@@ -59,4 +59,30 @@ test('master pause switch: shop file or environment variable', () => {
 
 test('the file ships paused for now', () => {
   assert.equal(shop.paused, true);
+});
+
+test('the admin chat feature is gone: "แอดมิน" and the old topics get no bot answer', () => {
+  for (const t of ['แอดมิน', 'ขอคุยกับแอดมิน', 'ทำไวนิล', 'ใบเสนอราคา', 'ทำตรายาง']) {
+    assert.deepEqual(buildReply(t, shop).messages, [], t);
+  }
+  assert.equal(shop.adminRouting, undefined);
+  assert.equal(shop.handoff, undefined);
+});
+
+test('no card offers "คุยกับแอดมิน" any more, and product buttons lead somewhere the bot answers', () => {
+  const withPics = { ...shop, assetBase: 'https://b.example' };
+  const all = JSON.stringify([
+    buildReply('สวัสดี', withPics).messages,
+    buildReply('ปากกา', withPics).messages,
+    buildReply('ไฮไลท์', withPics).messages,
+    buildReply('ขอบคุณ', withPics).messages,
+    buildReply('xyz', { ...withPics, replyOnlyKnown: false }).messages,
+  ]);
+  assert.ok(!all.includes('คุยกับแอดมิน'));
+  const inStock = buildReply('ปากกา', shop).messages[0].contents.footer.contents[0].action;
+  assert.equal(inStock.text, 'สั่งของ');
+  assert.ok(buildReply(inStock.text, shop).messages.length > 0);
+  const out = buildReply('ไฮไลท์', shop).messages[0].contents.footer.contents[0].action;
+  assert.match(out.text, /^ถามวันเข้าสินค้า /);
+  assert.ok(out.label.length <= 20);
 });

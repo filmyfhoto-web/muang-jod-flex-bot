@@ -27,8 +27,9 @@ test('faq', () => {
   assert.equal(matchIntent('ค่าส่งเท่าไหร่', shop).faq.label, 'การจัดส่ง');
 });
 
-test('handoff, greeting, fallback', () => {
-  assert.equal(matchIntent('ขอคุยกับแอดมิน', shop).type, 'handoff');
+test('greeting, fallback; the word "แอดมิน" is not something the bot answers', () => {
+  assert.equal(matchIntent('ขอคุยกับแอดมิน', shop).type, 'fallback');
+  assert.deepEqual(buildReply('แอดมิน', shop).messages, []);
   assert.equal(matchIntent('สวัสดีค่ะ', shop).type, 'greeting');
   assert.equal(matchIntent('xyz', shop).type, 'fallback');
 });
@@ -49,10 +50,9 @@ test('single product → bubble, several → carousel; out-of-stock flagged', ()
   assert.ok(['bubble', 'carousel'].includes(many.contents.type));
 });
 
-test('faq and fallback are flex cards; handoff stays text', () => {
+test('faq and fallback are flex cards', () => {
   assert.equal(buildReply('ร้านเปิดกี่โมง', shop).messages[0].type, 'flex');
   assert.equal(buildReply('xyz', chatty).messages[0].type, 'flex');
-  assert.equal(buildReply('แอดมิน', { ...shop, adminRouting: undefined }).messages[0].type, 'text');
 });
 
 test('supplies button only asks which school — no school list, no link', () => {
@@ -185,7 +185,6 @@ test('with a public address: a picture in the corner of every card header', () =
 
   assert.equal(heroUrl(buildReply('สั่งของ', withPics).messages[0]), 'https://bot.example/assets/order.png');
   assert.equal(heroUrl(buildReply('อุปกรณ์การเรียน 2-69', withPics).messages[0]), 'https://bot.example/assets/ask.png');
-  assert.equal(heroUrl(buildReply('แอดมิน', withPics).messages[0]), 'https://bot.example/assets/admin.png');
   const link = buildReply('บ้านกอก', withPics, { awaitingSchool: true }).messages[0];
   assert.equal(heroUrl(link), 'https://bot.example/assets/school.png');
   assert.match(JSON.stringify(link), /qeujy/);
@@ -195,7 +194,6 @@ test('without a public address nothing breaks: no pictures, plain header and tex
   const greet = buildReply('สวัสดี', shop).messages[0];
   assert.equal(heroUrl(greet), undefined);
   assert.ok(greet.contents.header);
-  assert.equal(buildReply('แอดมิน', { ...shop, adminRouting: undefined }).messages[0].type, 'text');
   assert.equal(buildReply('อุปกรณ์การเรียน 2-69', shop).messages[0].type, 'text');
 });
 
@@ -255,8 +253,11 @@ test('pastel theme: cream paper, apricot headers, pastel topic buttons, black pr
   assert.equal(menu.header.backgroundColor, t.apricot);
   const btns = menu.footer.contents;
   assert.deepEqual(btns.slice(0, 3).map((b) => b.color), [t.apricot, t.yellow, t.blue]);
-  assert.equal(btns.at(-1).style, 'primary');
-  assert.equal(btns.at(-1).color, t.ink);
+  assert.ok(btns.every((b) => b.style === 'secondary')); // topic buttons are all pastel
+  // the one black button left is the "order" button on a product card
+  const buy = buildReply('ปากกา', shop).messages[0].contents.footer.contents[0];
+  assert.equal(buy.style, 'primary');
+  assert.equal(buy.color, t.ink);
   // nothing from the old green theme is left anywhere
   const all = JSON.stringify([bubbles, menu]);
   assert.ok(!/#2E7D6B|#1B8A3B|#C62828/i.test(all));

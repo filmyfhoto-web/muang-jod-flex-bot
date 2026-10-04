@@ -51,11 +51,10 @@ export function createNoticeTracker() {
 }
 
 // Puts the notice in front of `messages` when it applies.
-//  - handoff: the notice already says the admin will answer, so it stands alone
 //  - skip: e.g. a thank-you, which ends the chat and needs no apology
-export function applyHoliday(messages, { shop, userId, tracker, now = new Date(), handoff = false, skip = false }) {
+export function applyHoliday(messages, { shop, userId, tracker, now = new Date(), skip = false }) {
   if (skip) return messages;
   const notice = holidayNotice(shop, now);
   if (!notice || !tracker.firstToday(userId, notice.key)) return messages;
-  return handoff ? [notice.message] : [notice.message, ...messages].slice(0, 5);
+  return [notice.message, ...messages].slice(0, 5);
 }
