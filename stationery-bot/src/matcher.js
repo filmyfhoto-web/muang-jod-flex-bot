@@ -10,7 +10,7 @@ export function normalize(text) {
     .replace(POLITE, '');
 }
 
-const GREETING = /^(?:สวัสดี|หวัดดี|hello|hi|ดีจ้า|ดีค่ะ|ดีครับ)/;
+const GREETING = /^(?:สวัสดี|หวัดดี|hello|hi|ดีจ้า|ดีค่ะ|ดีครับ|เมนู|menu|บอท|เริ่มใหม่)/;
 const HANDOFF = /แอดมิน|admin|คุยกับคน|เจ้าของร้าน|พนักงาน/;
 
 // Longest alias contained in the message wins, so "กระดาษa4" picks the A4

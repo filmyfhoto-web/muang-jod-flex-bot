@@ -6,6 +6,7 @@ import { verifySignature, replyMessage } from './line.js';
 import { buildReply, welcomeMessage, withSender, iconUrlFor, thanksReply } from './replies.js';
 import { isThanksSticker, isThanks } from './matcher.js';
 import { applyHoliday, createNoticeTracker } from './holiday.js';
+import { createQuiet, parseAdminIds, parseAdminCommand, isWakeWord, isWhoAmI } from './quiet.js';
 
 const token = (process.env.LINE_CHANNEL_ACCESS_TOKEN ?? '').trim();
 const secret = (process.env.LINE_CHANNEL_SECRET ?? '').trim();
@@ -55,6 +56,20 @@ function isAwaiting(userId) {
 }
 
 const noticed = createNoticeTracker();
+const quiet = createQuiet();
+const adminIds = parseAdminIds(process.env.ADMIN_USER_IDS);
+const hoursText = (h) => `${h} ชั่วโมง`;
+
+// Admin switches (only from LINE accounts listed in ADMIN_USER_IDS).
+function adminReply(cmd, shop) {
+  if (cmd.type === 'resume') {
+    quiet.resumeAll();
+    return 'เปิดบอทแล้วค่ะ บอทจะกลับมาตอบลูกค้าตามปกติ 💬';
+  }
+  const hours = cmd.hours ?? shop.adminPauseHours ?? 4;
+  quiet.pauseAll(hours * 3600 * 1000);
+  return `ปิดบอทชั่วคราว ${hoursText(hours)} แล้วค่ะ บอทจะไม่ตอบลูกค้าเลยในช่วงนี้\nพิมพ์ "เปิดบอท" เพื่อให้บอทกลับมาตอบก่อนเวลาได้`;
+}
 
 async function handleEvent(ev) {
   if (!ev.replyToken) return;
@@ -72,12 +87,29 @@ async function handleEvent(ev) {
   }
   if (ev.type !== 'message') return;
   if (ev.message.type === 'text') {
+    const said = ev.message.text;
+    // Setup helper: lets an admin find the id to put in ADMIN_USER_IDS.
+    if (isWhoAmI(said)) {
+      return replyMessage(ev.replyToken, [{ type: 'text', text: `ไอดี LINE ของคุณคือ\n${userId}` }], token);
+    }
+    const cmd = adminIds.has(userId) ? parseAdminCommand(said) : null;
+    if (cmd) return replyMessage(ev.replyToken, [{ type: 'text', text: adminReply(cmd, shop) }], token);
+    // An admin is talking: say nothing. The customer can still bring the bot back
+    // with "เมนู" — unless an admin silenced everyone.
+    if (quiet.allPaused()) return;
+    if (quiet.userQuiet(userId)) {
+      if (!isWakeWord(said)) return;
+      quiet.wake(userId);
+    }
     const { messages, awaitingSchool, handoff } = buildReply(ev.message.text, shop, { awaitingSchool: isAwaiting(userId) });
     if (awaitingSchool) awaiting.set(userId, Date.now() + AWAIT_MS);
     else awaiting.delete(userId);
+    // Once the customer has asked for the admin, leave the chat to them.
+    if (handoff) quiet.silenceUser(userId, (shop.handoffQuietMinutes ?? 180) * 60 * 1000);
     const out = holiday(messages, { handoff, skip: isThanks(ev.message.text) });
     return replyMessage(ev.replyToken, send(out), token);
   }
+  if (quiet.silentFor(userId)) return; // photos, slips and stickers too: the admin sees them
   if (ev.message.type === 'sticker') {
     awaiting.delete(userId);
     // A thank-you sticker gets the same answer as a typed "ขอบคุณ". Any other sticker
