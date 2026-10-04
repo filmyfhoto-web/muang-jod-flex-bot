@@ -30,13 +30,13 @@ export function notificationText({ customer, contact, said, link }) {
 }
 
 export function createContactState(now = () => Date.now()) {
-  const chosen = new Map(); // userId → time of their last message, once they have chosen someone
-  const alerted = new Map(); // userId → when the admins were last told the bot did not understand
+  const chosen = new Map(); // userId → last message time (the quiet window slides)
+  const told = new Map(); // userId → when the admins were last told "the bot cannot answer this"
   return {
     choose(id) {
       chosen.set(id, now());
     },
-    // chose someone and still within the quiet window? (every message from them extends it)
+    // chosen someone and still within the quiet window? (every message from them extends it)
     isQuiet(id, windowMs) {
       const last = chosen.get(id);
       if (last === undefined) return false;
@@ -50,12 +50,12 @@ export function createContactState(now = () => Date.now()) {
     wake(id) {
       chosen.delete(id);
     },
-    // true when the admins should be told about this customer: not more than once per window
-    alertDue(id, windowMs) {
+    // true when the admins should be told about this customer now (not more than once per cooldown)
+    alertDue(id, cooldownMs) {
       const t = now();
-      for (const [k, at] of alerted) if (t - at > windowMs) alerted.delete(k);
-      if (alerted.has(id)) return false;
-      alerted.set(id, t);
+      for (const [k, at] of told) if (t - at > cooldownMs) told.delete(k);
+      if (told.has(id)) return false;
+      told.set(id, t);
       return true;
     },
   };

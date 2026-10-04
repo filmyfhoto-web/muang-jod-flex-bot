@@ -2,12 +2,13 @@ import 'node:process';
 import express from 'express';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { verifySignature, replyMessage, pushMessage, getProfile, getProfileCached, getBotUserId, chatLink, describeEvent } from './line.js';
+import { verifySignature, replyMessage, pushMessage, getProfile, getProfileCached, getBotUserId, getMessageContent, chatLink, describeEvent } from './line.js';
 import { buildReply, welcomeMessage, withSender, iconUrlFor, thanksReply } from './replies.js';
 import { contactCard } from './flex.js';
 import { isThanksSticker, isThanks } from './matcher.js';
 import { applyHoliday, createNoticeTracker } from './holiday.js';
 import { createContactState, findContact, notificationCard, contactPhotos, people } from './contact.js';
+import { readSlip, slipReply } from './slip.js';
 import { waitFor } from './delay.js';
 import { isPaused, createQuiet, parseAdminIds, parseAdminCommand, isWhoAmI } from './quiet.js';
 import { isWakeWord } from './wake.js';
@@ -202,8 +203,13 @@ async function handleEvent(ev) {
     if (!isThanksSticker(ev.message.keywords)) return;
     return replyMessage(ev.replyToken, send(thanksReply(shop).messages), token);
   }
-  // A slip or photo: the bot cannot read it, so the admins are told (and the customer gets
-  // nothing from the bot).
+  // A payment slip is read and thanked; anything else the bot cannot read is passed to the
+  // admins (and the customer gets nothing from the bot).
+  if (ev.message.type === 'image') {
+    const file = await getMessageContent(ev.message.id, token);
+    const slip = file && (await readSlip(file.buffer, file.mimeType));
+    if (slip) return deliver(ev, userId, holiday(shop, [slipReply(shop, slip)]));
+  }
   if (hasContacts) escalate(userId, '(ส่งรูป/ไฟล์)', shop, cfg);
   const out = holiday(shop, []); // only the Saturday notice, if it is Saturday
   if (out.length) await deliver(ev, userId, out);

@@ -90,3 +90,18 @@ export function chatLink(botId, customerId, template) {
   if (template.includes('{bot}') && !botId) return null;
   return template.replace('{bot}', botId ?? '').replace('{customer}', customerId);
 }
+
+// The bytes of a picture the customer sent. Never throws; null when it cannot be had.
+export async function getMessageContent(messageId, token) {
+  try {
+    const res = await fetch(`https://api-data.line.me/v2/bot/message/${encodeURIComponent(messageId)}/content`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) return null;
+    const mimeType = (res.headers.get('content-type') ?? '').split(';')[0].trim();
+    return { buffer: Buffer.from(await res.arrayBuffer()), mimeType };
+  } catch {
+    return null;
+  }
+}
