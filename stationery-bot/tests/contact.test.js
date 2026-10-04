@@ -104,8 +104,10 @@ test('the notification names the customer and the person they chose', () => {
   assert.ok(notificationText({ customer: 'x', contact: null, said: 'ก'.repeat(500) }).length < 250);
 });
 
-test('user ids are blank in the shipped file and each person has a name', () => {
-  assert.ok(shop.contact.people.every((p) => p.name && typeof p.userId === 'string'));
+test('each person has a name and a well-formed LINE user id (U + 32 hex), all different', () => {
+  const ppl = shop.contact.people;
+  assert.ok(ppl.every((p) => p.name && /^U[0-9a-f]{32}$/.test(p.userId)), 'every id is U + 32 hex characters');
+  assert.equal(new Set(ppl.map((p) => p.userId)).size, ppl.length);
 });
 
 test('the notification carries a link into the OA chat, and says not to answer in the notification room', () => {
