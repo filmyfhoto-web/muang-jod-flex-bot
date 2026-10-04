@@ -7,24 +7,49 @@ import { describeEvent } from '../src/line.js';
 import { applyHoliday, createNoticeTracker } from '../src/holiday.js';
 
 const shop = JSON.parse(readFileSync(new URL('../data/shop.json', import.meta.url), 'utf8'));
+const demo = { ...shop, productsEnabled: true, faq: shop.faq.map((f) => ({ ...f, enabled: true })) };
 
 test('shipped config answers only what it knows', () => {
   assert.equal(shop.replyOnlyKnown, true);
-  assert.equal(shop.ackMedia, false);
 });
 
 test('text the shop has no answer for gets no reply at all', () => {
-  for (const t of ['xyz', 'มีเวลาว่างไหม', 'ช่วยหน่อยครับพี่', 'ราคาเท่าไหร่', '555', 'ok']) {
+  for (const t of ['xyz', 'มีเวลาว่างไหม', 'ช่วยหน่อยครับพี่', 'ราคาเท่าไหร่', '555', 'ok',
+    // answers that exist but are switched off until the shop has real data for them
+    'ปากกา', 'ดินสอ', 'โอนยังไง', 'ค่าส่งเท่าไหร่', 'ส่วนลดมีไหม', 'ขอใบเสร็จ']) {
     const r = buildReply(t, shop);
     assert.deepEqual(r.messages, [], t);
     assert.equal(r.silent, true);
   }
 });
 
-test('everything that is set up still answers', () => {
-  const known = ['สวัสดีค่ะ', 'ร้านเปิดกี่โมง', 'สั่งของ', 'ที่ตั้งร้าน', 'ค่าส่งเท่าไหร่', 'โอนยังไง', 'ใบเสร็จ',
-    'ปากกา', 'ดินสอ', 'สมุด', 'กระดาษ a4', 'อุปกรณ์การเรียน 2-69', 'ขอบคุณค่ะ', 'เมนู'];
+test('everything that is set up with real data still answers', () => {
+  const known = ['สวัสดีค่ะ', 'ร้านเปิดกี่โมง', 'สั่งของ', 'ที่ตั้งร้าน', 'อุปกรณ์การเรียน 2-69', 'ขอบคุณค่ะ', 'เมนู'];
   for (const t of known) assert.ok(buildReply(t, shop).messages.length > 0, t);
+});
+
+test('sample-data answers stay switched off in the shipped file, and can be switched back on', () => {
+  assert.equal(shop.productsEnabled, false);
+  const off = shop.faq.filter((f) => f.enabled === false).map((f) => f.label);
+  assert.deepEqual(off.sort(), ['การชำระเงิน', 'ใบเสร็จ/หน่วยงาน', 'โปรโมชั่น/ราคาส่ง'].sort());
+  assert.ok(buildReply('ปากกา', demo).messages.length > 0);
+  assert.ok(buildReply('โอนยังไง', demo).messages.length > 0);
+});
+
+test('no shipping: nothing about delivery is answered', () => {
+  assert.ok(!shop.faq.some((f) => /จัดส่ง|ค่าส่ง/.test(f.label + f.answer)));
+});
+
+test('location: real shop name and a Google Maps button, no made-up address', () => {
+  const card = buildReply('ที่ตั้งร้าน', shop).messages[0];
+  const json = JSON.stringify(card);
+  assert.match(json, /ร้านนัฐภรณ์ เชียงกลาง/);
+  assert.ok(!/ตัวอย่าง|shop\.json|123 /.test(json));
+  const btn = card.contents.footer.contents[0].action;
+  assert.equal(btn.type, 'uri');
+  assert.match(btn.uri, /^https:\/\/www\.google\.com\/maps\/place\/.*19\.2906561,100\.8612987/);
+  assert.ok(btn.uri.length < 1000); // LINE's limit for a link
+  assert.ok(!btn.uri.includes('g_ep')); // tracking parameters trimmed
 });
 
 test('in the middle of "which school?", an unknown name is still answered (asked again)', () => {
@@ -58,8 +83,8 @@ test('master pause switch: shop file or environment variable', () => {
   for (const off of ['0', 'false', 'off', 'no', '']) assert.equal(isPaused({}, { BOT_PAUSED: off }), false, off);
 });
 
-test('the file ships paused for now', () => {
-  assert.equal(shop.paused, true);
+test('the file is switched on (paused is a real boolean)', () => {
+  assert.equal(shop.paused, false);
 });
 
 test('the admin chat feature is gone: "แอดมิน" and the old topics get no bot answer', () => {
@@ -74,16 +99,16 @@ test('no card offers "คุยกับแอดมิน" any more, and produc
   const withPics = { ...shop, assetBase: 'https://b.example' };
   const all = JSON.stringify([
     buildReply('สวัสดี', withPics).messages,
-    buildReply('ปากกา', withPics).messages,
-    buildReply('ไฮไลท์', withPics).messages,
+    buildReply('ปากกา', { ...demo, assetBase: 'https://b.example' }).messages,
+    buildReply('ไฮไลท์', { ...demo, assetBase: 'https://b.example' }).messages,
     buildReply('ขอบคุณ', withPics).messages,
     buildReply('xyz', { ...withPics, replyOnlyKnown: false }).messages,
   ]);
   assert.ok(!all.includes('คุยกับแอดมิน'));
-  const inStock = buildReply('ปากกา', shop).messages[0].contents.footer.contents[0].action;
+  const inStock = buildReply('ปากกา', demo).messages[0].contents.footer.contents[0].action;
   assert.equal(inStock.text, 'สั่งของ');
   assert.ok(buildReply(inStock.text, shop).messages.length > 0);
-  const out = buildReply('ไฮไลท์', shop).messages[0].contents.footer.contents[0].action;
+  const out = buildReply('ไฮไลท์', demo).messages[0].contents.footer.contents[0].action;
   assert.match(out.text, /^ถามวันเข้าสินค้า /);
   assert.ok(out.label.length <= 20);
 });

@@ -113,9 +113,9 @@ export const isThanksSticker = (keywords) =>
 export function matchIntent(text, shop) {
   const q = normalize(text);
   if (isThanks(text)) return { type: 'thanks' };
-  const products = findProducts(text, shop.products ?? []);
+  const products = shop.productsEnabled === false ? [] : findProducts(text, shop.products ?? []);
   if (products.length) return { type: 'products', products };
-  const faq = findFaq(text, shop.faq ?? []);
+  const faq = findFaq(text, (shop.faq ?? []).filter((f) => f.enabled !== false));
   if (faq) return { type: 'faq', faq };
   if (GREETING.test(q)) return { type: 'greeting' };
   return { type: 'fallback' };

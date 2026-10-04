@@ -6,7 +6,10 @@ import { buildReply, withSender, thanksReply } from '../src/replies.js';
 import { verifySignature } from '../src/line.js';
 import crypto from 'node:crypto';
 
-const shop = JSON.parse(readFileSync(new URL('../data/shop.json', import.meta.url), 'utf8'));
+const real = JSON.parse(readFileSync(new URL('../data/shop.json', import.meta.url), 'utf8'));
+// These tests exercise every answer the bot can give, including the ones switched off
+// in the shipped file (sample products, payment, …), so they switch them back on.
+const shop = { ...real, productsEnabled: true, faq: real.faq.map((f) => ({ ...f, enabled: true })) };
 // the "sorry, I don't understand" card is only built when replyOnlyKnown is switched off
 const chatty = { ...shop, replyOnlyKnown: false };
 
@@ -24,7 +27,7 @@ test('longest alias wins', () => {
 
 test('faq', () => {
   assert.equal(matchIntent('ร้านเปิดกี่โมงคะ', shop).faq.label, 'เวลาเปิดร้าน');
-  assert.equal(matchIntent('ค่าส่งเท่าไหร่', shop).faq.label, 'การจัดส่ง');
+  assert.equal(matchIntent('โอนยังไง', shop).faq.label, 'การชำระเงิน');
 });
 
 test('greeting, fallback; the word "แอดมิน" is not something the bot answers', () => {

@@ -13,7 +13,18 @@ export async function replyMessage(replyToken, messages, token) {
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ replyToken, messages }),
   });
-  if (!res.ok) throw new Error(`LINE reply failed: ${res.status} ${await res.text()}`);
+  if (!res.ok) throw Object.assign(new Error(`LINE reply failed: ${res.status} ${await res.text()}`), { status: res.status });
+}
+
+// Push costs a message from the plan's monthly quota, unlike a reply — use it only when
+// the reply token can no longer be used (e.g. after the 90 s wait).
+export async function pushMessage(to, messages, token) {
+  const res = await fetch('https://api.line.me/v2/bot/message/push', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ to, messages }),
+  });
+  if (!res.ok) throw Object.assign(new Error(`LINE push failed: ${res.status} ${await res.text()}`), { status: res.status });
 }
 
 // One log line per webhook event — what kind it is, never what anyone wrote. Used to
