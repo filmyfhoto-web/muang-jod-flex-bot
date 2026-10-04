@@ -242,7 +242,7 @@ test('thank-you stickers are recognised by their keywords; others are not', () =
   assert.equal(thanksReply(shop).messages[0].text, 'ยินดีค่ะ หากต้องการสอบถามรายละเอียดเพิ่มเติม แจ้งได้เลยนะคะ');
 });
 
-test('pastel theme: cream paper, apricot headers, pastel topic buttons, black primary button', () => {
+test('pastel theme: cream paper (no coloured header band), pastel topic buttons, black primary button', () => {
   const t = shop.theme;
   const colors = (x) => JSON.stringify(x).match(/#[0-9A-Fa-f]{6}/g) ?? [];
   const bubbles = [
@@ -255,7 +255,7 @@ test('pastel theme: cream paper, apricot headers, pastel topic buttons, black pr
     for (const k of ['header', 'hero', 'body', 'footer']) assert.equal(b.styles[k].backgroundColor, t.cream, k);
   }
   const menu = buildReply('xyz', chatty).messages[0].contents;
-  assert.equal(menu.header.backgroundColor, t.apricot);
+  assert.equal(menu.header.backgroundColor, t.cream); // picture on the plain paper, no band
   const btns = menu.footer.contents;
   assert.deepEqual(btns.slice(0, 3).map((b) => b.color), [t.apricot, t.yellow, t.blue]);
   assert.ok(btns.every((b) => b.style === 'secondary')); // topic buttons are all pastel

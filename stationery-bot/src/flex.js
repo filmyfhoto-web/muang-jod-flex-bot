@@ -79,14 +79,15 @@ const flex = (altText, contents, quickReply) => ({
   ...(quickReply ? { quickReply } : {}),
 });
 
-// Title on the left; the picture is big and tucked into the top-right corner, no
-// padding on its side or underneath, like a character leaning on the band.
+// Title on the left; the picture is big and tucked into the top-right corner with no
+// padding on its side or underneath. No coloured band: the picture sits straight on the
+// card's cream paper.
 function header(title, shop, imageName, height) {
   const pic = imageName ? picture(shop, imageName) : null;
   return {
     type: 'box',
     layout: 'horizontal',
-    backgroundColor: pal(shop).apricot,
+    backgroundColor: pal(shop).cream,
     ...(pic
       ? { paddingTop: 'md', paddingBottom: 'none', paddingStart: 'lg', paddingEnd: 'sm' }
       : { paddingAll: 'lg' }),
