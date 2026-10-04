@@ -351,7 +351,7 @@
       }
     ],
     "notify": true,
-    "chatLinkTemplate": "https://chat.line.biz/{bot}/chat/{customer}",
+    "chatLinkTemplate": "https://chat.line.biz/Ua2a7bf2be3ad317480e20a51f532a766/chat/{customer}",
     "chatLinkLabel": "เปิดแชทตอบลูกค้า",
     "notifyAllMinutes": 10
   },
