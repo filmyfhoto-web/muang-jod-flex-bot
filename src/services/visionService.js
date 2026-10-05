@@ -163,7 +163,7 @@ export function normalizeJobSheet(raw) {
   };
 }
 
-async function defaultVisionExtract(buffer, mimeType) {
+async function defaultVisionExtract(buffer, mimeType, hooks = {}) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
 
@@ -185,6 +185,13 @@ async function defaultVisionExtract(buffer, mimeType) {
       },
     ],
   });
+
+  // จำนวนโทเคนจริงที่ใช้ — ให้คนเรียกเก็บยอดค่า AI (ไม่ทำให้การอ่านล้มถ้าเก็บไม่ได้)
+  try {
+    hooks.onUsage?.({ model, usage: res.usage });
+  } catch (err) {
+    logger.warn('vision.on_usage_failed', { message: err?.message });
+  }
 
   const out = (res.content || [])
     .filter((b) => b.type === 'text')
@@ -232,7 +239,7 @@ export async function readImage(buffer, mimeType, deps = {}) {
       return null;
     }
 
-    const raw = await extract(ready.buffer, ready.mimeType);
+    const raw = await extract(ready.buffer, ready.mimeType, { onUsage: deps.onUsage });
     if (raw?.kind === 'other') {
       diag.reason = 'other'; // a photo, not paperwork: just attach it
       return null;
