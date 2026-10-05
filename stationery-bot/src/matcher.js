@@ -129,6 +129,10 @@ export function matchIntent(text, shop) {
   if (products.length) return { type: 'products', products };
   const faq = findFaq(text, (shop.faq ?? []).filter((f) => f.enabled !== false));
   if (faq) return { type: 'faq', faq };
+  // A topic the shop has switched off (payment, promotions, receipts, products): nothing is
+  // sent and nobody is alerted — the admins deal with it when they see the chat.
+  if (shop.productsEnabled === false && findProducts(text, shop.products ?? []).length) return { type: 'off' };
+  if (findFaq(text, (shop.faq ?? []).filter((f) => f.enabled === false))) return { type: 'off' };
   // A question the bot has no answer for ("ขอถาม…", "มีสินค้าแบบนี้ไหม"): known answers above win,
   // anything left over goes to the admins.
   const askWords = (shop.contact?.askWords ?? []).map(normalize).filter(Boolean);

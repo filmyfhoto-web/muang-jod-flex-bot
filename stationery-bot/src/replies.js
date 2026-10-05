@@ -46,6 +46,7 @@ export function buildReply(text, shop, session = {}) {
 
   const intent = matchIntent(text, shop);
   const qr = quick(shop);
+  if (intent.type === 'off') return { messages: [], awaitingSchool: false, silent: true, quiet: true };
   if (intent.type === 'order') return { messages: [], awaitingSchool: false, needsPhotos: true, askText: shop.contact.orderAsk ?? shop.contact.ask, alertAdmins: true };
   if (intent.type === 'contact') return { messages: [contactCard(shop, shop.contact.ask)], awaitingSchool: false, needsPhotos: true };
   const out = (m) => ({ messages: [m], awaitingSchool: false });

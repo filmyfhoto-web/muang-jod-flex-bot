@@ -190,7 +190,7 @@ async function handleEvent(ev) {
       let messages = r.messages;
       if (r.needsPhotos) messages = [contactCard(shopNow, r.askText ?? shopNow.contact.ask, await adminPhotos(shopNow))];
       if (r.alertAdmins && hasContacts) escalate(userId, said, shopNow, cfg); // an order: the admins are told too
-      if (r.silent && hasContacts) {
+      if (r.silent && !r.quiet && hasContacts) {
         escalate(userId, said, shopNow, cfg); // the admins are told
         messages = receipt(shopNow); // the customer only gets a short note (with the topic buttons)
       }

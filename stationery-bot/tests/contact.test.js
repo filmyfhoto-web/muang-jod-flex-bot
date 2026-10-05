@@ -244,3 +244,13 @@ test('the topic buttons ride on the last message of every reply, contact card in
 test('the short note shown when the bot cannot answer is configured', () => {
   assert.ok(shop.contact.receivedNote.includes('แอดมิน'));
 });
+
+test('switched-off topics (payment, promotion, receipt, products) get nothing and alert nobody', () => {
+  for (const t of ['โอนยังไง', 'ส่วนลดมีไหม', 'ขอใบเสร็จ', 'ปากกา', 'ขอถามเรื่องโปรโมชั่นหน่อย']) {
+    const r = buildReply(t, shop, {});
+    assert.deepEqual(r.messages, [], t);
+    assert.equal(r.silent, true, t);
+    assert.equal(r.quiet, true, t); // the server neither sends the note nor alerts the admins
+  }
+  assert.equal(buildReply('xyz', shop, {}).quiet, undefined); // other unknowns still reach the admins
+});
