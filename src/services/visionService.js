@@ -169,7 +169,7 @@ async function defaultVisionExtract(buffer, mimeType) {
 
   const { default: Anthropic } = await import('@anthropic-ai/sdk');
   const client = new Anthropic({ apiKey });
-  const model = process.env.VISION_MODEL || process.env.NLP_MODEL || 'claude-haiku-4-5';
+  const model = process.env.VISION_MODEL || 'claude-sonnet-5-5';
 
   const res = await client.messages.create({
     model,
