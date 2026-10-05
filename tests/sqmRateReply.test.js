@@ -129,3 +129,20 @@ test('บทสนทนาต่อกันครบ: ถามของใค
   assert.ok(handler.includes('ไล่คิดทีละแผ่น') || handler.includes('ตรมละ'), 'ไม่แนะนำเรต');
   assert.ok(image.includes('ตรมละ'), 'ทางรูปไม่แนะนำเรต');
 });
+
+/* ร้านส่งรูปใบสั่งงานแล้วบอกว่า "ก็ยังไม่อ่านนะ" — เครื่องที่ไม่มีกุญแจอ่านรูป
+ * เอารูปไปแนบงานล่าสุดเงียบ ๆ โดยไม่บอกว่าอ่านไม่ได้ และไม่บอกทางไปต่อ
+ */
+test('อ่านรูปไม่ได้ ต้องพูดออกมา ไม่ใช่แนบงานเก่าเงียบ ๆ', async () => {
+  const { visionEnabled } = await import('../src/services/visionService.js');
+  assert.equal(visionEnabled({}), false);
+  assert.equal(visionEnabled({ ANTHROPIC_API_KEY: '  ' }), false);
+  assert.equal(visionEnabled({ ANTHROPIC_API_KEY: 'sk-ant-x' }), true);
+
+  const image = readFileSync(new URL('../src/handlers/imageHandler.js', import.meta.url), 'utf8');
+  assert.match(image, /!attaching && !visionEnabled\(\)/);
+  assert.ok(image.includes('ม่วงยังอ่านรูปเป็นงานใหม่เองไม่ได้'), 'ไม่ยอมบอกความจริง');
+  // ตอนร้านตั้งใจแนบหลักฐานเอง ไม่ต้องขึ้นคำเตือนนี้
+  const hint = image.slice(image.indexOf('const cantReadHint'));
+  assert.ok(hint.indexOf('!attaching') >= 0);
+});
