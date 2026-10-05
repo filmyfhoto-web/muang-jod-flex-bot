@@ -193,6 +193,50 @@ export function dashboardFlex(dash, opts = {}) {
     },
   ];
 
+  /* "ให้สรุปแยกเป็น 2 ร้านให้ชัดเจน" — แถวละร้าน: ชื่อ จำนวนงานวันนี้ ยอด
+   * งานที่ยังไม่ระบุร้านโชว์ด้วยเสมอ ไม่งั้นสองแถวบวกกันไม่เท่ายอดรวมข้างบน
+   */
+  if (dash.shops?.shops?.length) {
+    body.push(divider());
+    body.push({ type: 'text', text: '🏪 แยกตามร้าน', weight: 'bold', size: 'sm', color: COLORS.title });
+    for (const shop of dash.shops.shops) {
+      body.push({
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: shop.branch.name, size: 'sm', color: COLORS.ink, wrap: true, flex: 5 },
+          {
+            type: 'text',
+            text: shop.todayCount ? `${shop.todayCount} งาน · ${formatBaht(shop.todayTotal)}` : 'ยังไม่มีงาน',
+            size: 'xs',
+            color: shop.todayCount ? COLORS.accentText : COLORS.grey,
+            align: 'end',
+            gravity: 'center',
+            flex: 4,
+          },
+        ],
+      });
+    }
+    if (dash.shops.unassigned.todayCount > 0) {
+      body.push({
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: 'ยังไม่ระบุร้าน', size: 'sm', color: COLORS.orange, flex: 5 },
+          {
+            type: 'text',
+            text: `${dash.shops.unassigned.todayCount} งาน · ${formatBaht(dash.shops.unassigned.todayTotal)}`,
+            size: 'xs',
+            color: COLORS.orange,
+            align: 'end',
+            gravity: 'center',
+            flex: 4,
+          },
+        ],
+      });
+    }
+  }
+
   if (categories.length) {
     body.push(...categoryTiles(categories.slice(0, 4)));
     body.push(divider());

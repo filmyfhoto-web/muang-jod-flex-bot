@@ -89,6 +89,10 @@ export async function createJob(userId, payload, client = supabase) {
   // over a date the shop can always fill in later.
   const dueDate = /^\d{4}-\d{2}-\d{2}$/.test(String(payload.dueDate || '')) ? payload.dueDate : null;
 
+  // ร้านที่งานนี้สังกัด — แสตมป์ทีหลังแบบเดียวกับ due_date: RPC รุ่นเก่าไม่รู้จัก
+  // ช่องนี้ และฐานข้อมูลที่ยังไม่รันไมเกรชัน 016 ก็ต้องจดงานได้เหมือนเดิม
+  const branchId = payload.branchId || null;
+
   const itemRows = items.map((it) => ({
     item_name: it.item_name,
     size: it.size ?? null,
@@ -132,7 +136,11 @@ export async function createJob(userId, payload, client = supabase) {
     let job = Array.isArray(rpc.data) ? rpc.data[0] : rpc.data;
     // The RPC predates categories; stamp them on afterwards. Derived metadata,
     // so a failure here must never lose the job that was just created.
-    const stamp = { ...(job && !job.category ? cat : {}), ...(dueDate ? { due_date: dueDate } : {}) };
+    const stamp = {
+      ...(job && !job.category ? cat : {}),
+      ...(dueDate ? { due_date: dueDate } : {}),
+      ...(branchId ? { branch_id: branchId } : {}),
+    };
     if (job && Object.keys(stamp).length) {
       const { data: restamped, error: stampErr } = await client
         .from('jobs')
@@ -192,10 +200,11 @@ export async function createJob(userId, payload, client = supabase) {
     throw error;
   }
 
-  if (dueDate) {
+  const extras = { ...(dueDate ? { due_date: dueDate } : {}), ...(branchId ? { branch_id: branchId } : {}) };
+  if (Object.keys(extras).length) {
     const { data: dated, error: dueErr } = await client
       .from('jobs')
-      .update({ due_date: dueDate })
+      .update(extras)
       .eq('id', job.id)
       .eq('user_id', userId)
       .select('*')

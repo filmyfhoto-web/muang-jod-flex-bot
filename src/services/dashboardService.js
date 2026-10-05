@@ -3,6 +3,8 @@ import { todayISO, addDays } from '../utils/dates.js';
 import { round2 } from '../utils/currency.js';
 import { jobCategory } from '../utils/category.js';
 import { summarizeJobs, getRecentJobs, getPendingJobs } from './jobService.js';
+import { listBranches } from './branchService.js';
+import { summarizeBranches } from '../utils/branchSummary.js';
 import { logger } from './logger.js';
 
 const ACTIVE_STATUSES = ['active', 'completed'];
@@ -77,6 +79,14 @@ export async function getDashboard(userId, opts = {}, client = supabase) {
   const recent = await getRecentJobs(userId, recentLimit, client);
   const pending = includePending ? await getPendingJobs(userId, client) : undefined;
 
+  /* "ให้สรุปแยกเป็น 2 ร้านให้ชัดเจน" — สรุปวันนี้พกยอดแยกร้านไปด้วย
+   *
+   * คิดจากงานของวันนี้กองเดียวกับยอดรวมข้างบน ยอดสองร้าน (บวกที่ยังไม่ระบุ)
+   * จึงเท่ากับยอดรวมเสมอ — listBranches คืน [] เมื่อยังไม่รันไมเกรชัน
+   * การ์ดก็แค่ไม่มีช่วงแยกร้าน ไม่ใช่การ์ดทั้งใบพัง
+   */
+  const branches = await listBranches(userId, client);
+
   return {
     date,
     summary,
@@ -84,6 +94,7 @@ export async function getDashboard(userId, opts = {}, client = supabase) {
     categories: breakdownByCategory(rows),
     trend: trendVs(summary.total, summarizeJobs(yesterday, addDays(date, -1)).total),
     recent,
+    ...(branches.length ? { shops: summarizeBranches(rows, branches, date) } : {}),
     ...(pending ? { pending } : {}),
   };
 }

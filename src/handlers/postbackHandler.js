@@ -1,10 +1,11 @@
 import { reply } from '../services/lineService.js';
-import { addJob, addMoreForCustomer, confirmAddJob, editNewJob, cancelNewJob } from '../actions/addJob.js';
+import { addJob, addMoreForCustomer, confirmAddJob, pickBranchAndSave, editNewJob, cancelNewJob } from '../actions/addJob.js';
 import { confirmSaveDump, cancelSaveDump } from '../actions/saveDump.js';
 import { shopQr, addShopQrPrompt, sendShopQr, useShopQr, removeShopQr } from '../actions/shopQr.js';
 import { attachEvidence } from '../actions/attachEvidence.js';
 import { recentJobs } from '../actions/recentJobs.js';
 import { todaySummary } from '../actions/todaySummary.js';
+import { branchView } from '../actions/branchView.js';
 import { editLatest } from '../actions/editLatest.js';
 import { cancelLatest, confirmCancel, cancelCancel } from '../actions/cancelLatest.js';
 import { editJob, deleteJob } from '../actions/jobActions.js';
@@ -63,6 +64,12 @@ export async function handlePostback(event, profile) {
       return addMoreForCustomer(ctx);
     case 'confirm_add_job':
       return confirmAddJob(ctx);
+    // คำตอบของ "งานนี้ลงร้านไหนดีคะ? 💜"
+    case 'pick_branch':
+      return pickBranchAndSave(ctx);
+    // การ์ดสรุปร้าน — ไม่ใส่ branch มา = การ์ดรวมทั้งสองร้าน
+    case 'branch_view':
+      return branchView(ctx);
     case 'edit_new_job':
       return editNewJob(ctx);
     case 'cancel_new_job':
