@@ -1,10 +1,11 @@
 import { reply, getMessageContentBuffer } from '../services/lineService.js';
 import { getState, setState, clearState, STATES } from '../services/stateService.js';
-import { getLatestJob, getJobById, createJob } from '../services/jobService.js';
+import { getLatestJob, getJobById, createJob, getRecentCustomerNames } from '../services/jobService.js';
 import { saveAttachment } from '../services/attachmentService.js';
 import { addShopQr, listShopQrs } from '../services/shopService.js';
 import { readImage, visionEnabled } from '../services/visionService.js';
 import { recordAiUsage } from '../services/aiUsageService.js';
+import { withDraftGuide } from '../flex/draftGuide.js';
 import { slipReceiptFlex } from '../flex/slipFlex.js';
 import { jobPreviewMessage } from '../flex/jobCard.js';
 import { makeDraft, draftToBubble } from '../utils/jobDraft.js';
@@ -187,18 +188,26 @@ export async function handleImageMessage(event, profile) {
           ? '\nพิมพ์ราคามาได้เลย เช่น 1500 หรือ "ตรมละ 350" แล้วม่วงจดจะใส่ให้ค่ะ'
           : '\nบอกเรตมาได้เลยค่ะ เช่น "ตรมละ 350" เดี๋ยวม่วงไล่คิดทีละแผ่นตามขนาดให้';
       const askWho = !draft.customerName ? '\nงานนี้ของลูกค้าท่านไหนคะ? พิมพ์ชื่อมาได้เลยค่ะ' : '';
-      return reply(replyToken, [
-        {
-          type: 'text',
-          text:
-            (noPrice
-              ? 'อ่านจากรูปได้แล้วค่ะ แต่ในเอกสารไม่มีราคา 💜'
-              : 'อ่านจากรูปได้แล้วค่ะ ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลย 💜') +
-            priceLine +
-            askWho,
-        },
-        jobPreviewMessage(draftToBubble(draft)),
-      ]);
+      const names = !draft.customerName ? await getRecentCustomerNames(profile.id) : [];
+      return reply(
+        replyToken,
+        withDraftGuide(
+          [
+            {
+              type: 'text',
+              text:
+                (noPrice
+                  ? 'อ่านจากรูปได้แล้วค่ะ แต่ในเอกสารไม่มีราคา 💜'
+                  : 'อ่านจากรูปได้แล้วค่ะ ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลย 💜') +
+                priceLine +
+                askWho,
+            },
+            jobPreviewMessage(draftToBubble(draft)),
+          ],
+          draft,
+          names
+        )
+      );
     }
 
     const slip = read?.kind === 'slip' ? read : null;

@@ -1,6 +1,7 @@
 import { reply } from '../services/lineService.js';
 import { getState, setState, clearState, STATES } from '../services/stateService.js';
-import { getJobById, updateJob, recordPayment, searchJobs } from '../services/jobService.js';
+import { getJobById, updateJob, recordPayment, searchJobs, getRecentCustomerNames } from '../services/jobService.js';
+import { withDraftGuide } from '../flex/draftGuide.js';
 import { extractJobDraft } from '../services/nlpService.js';
 import { round2, numText, parsePrice } from '../utils/currency.js';
 import { derivePaymentFields } from '../utils/payment.js';
@@ -223,10 +224,16 @@ export async function handleTextMessage(event, profile) {
       if (name) {
         const draft = { ...state.context.draft, customerName: name };
         await setState(profile.id, STATES.CONFIRMING_JOB, { ...state.context, draft });
-        return reply(replyToken, [
-          { type: 'text', text: `ลงชื่อลูกค้า "${name}" ให้แล้วค่ะ 💜 ครบแล้วกด "✅ บันทึกงาน" ได้เลยนะคะ` },
-          jobPreviewMessage(draftToBubble(draft)),
-        ]);
+        return reply(
+          replyToken,
+          withDraftGuide(
+            [
+              { type: 'text', text: `ลงชื่อลูกค้า "${name}" ให้แล้วค่ะ 💜 ครบแล้วกด "✅ บันทึกงาน" ได้เลยนะคะ` },
+              jobPreviewMessage(draftToBubble(draft)),
+            ],
+            draft
+          )
+        );
       }
     }
     return reply(replyToken, { type: 'text', text: hasDraft ? DRAFT_WAITING_REPLY : WAITING_JOB_REPLY });
@@ -390,17 +397,25 @@ async function handleDraftPrice(replyToken, profile, state, text) {
   const bySqm = rate ? priceDraftBySqm(draft, rate) : null;
   if (bySqm) {
     await setState(profile.id, STATES.CONFIRMING_JOB, { ...state.context, draft: bySqm.draft });
-    return reply(replyToken, [
-      {
-        type: 'text',
-        text:
-          `คิดตารางเมตรละ ${numText(bySqm.rate)} ให้แล้วค่ะ 💜\n` +
-          bySqm.lines.join('\n') +
-          `\nรวมทั้งใบ ${numText(bySqm.draft.total)} บาท\n` +
-          'ถูกต้องกด "✅ บันทึกงาน" ได้เลยนะคะ',
-      },
-      jobPreviewMessage(draftToBubble(bySqm.draft)),
-    ]);
+    const names = !bySqm.draft.customerName ? await getRecentCustomerNames(profile.id) : [];
+    return reply(
+      replyToken,
+      withDraftGuide(
+        [
+          {
+            type: 'text',
+            text:
+              `คิดตารางเมตรละ ${numText(bySqm.rate)} ให้แล้วค่ะ 💜\n` +
+              bySqm.lines.join('\n') +
+              `\nรวมทั้งใบ ${numText(bySqm.draft.total)} บาท\n` +
+              'ถูกต้องกด "✅ บันทึกงาน" ได้เลยนะคะ',
+          },
+          jobPreviewMessage(draftToBubble(bySqm.draft)),
+        ],
+        bySqm.draft,
+        names
+      )
+    );
   }
 
   const amount = parseBarePrice(text);
@@ -533,7 +548,8 @@ async function handleNewJob(replyToken, profile, text, knownCustomer = null, par
   // ที่ค้นย้อนหลังไม่เจอ
   const askWho = !draft.customerName ? '\nงานนี้ของลูกค้าท่านไหนคะ? พิมพ์ชื่อมาได้เลยค่ะ' : '';
 
-  return reply(replyToken, [
+  const guideNames = !draft.customerName ? await getRecentCustomerNames(profile.id) : [];
+  return reply(replyToken, withDraftGuide([
     // บอกตั้งแต่ตอนตรวจว่าจะเข้าบัญชีร้านไหน — เห็นผิดตรงนี้ยังกดยกเลิกทัน
     ...(branch ? [{ type: 'text', text: `งานนี้จะลงบัญชีร้าน "${branch.name}" นะคะ 🏪` }] : []),
     {
@@ -549,7 +565,7 @@ async function handleNewJob(replyToken, profile, text, knownCustomer = null, par
             : 'ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลยค่ะ 💜') + askWho,
     },
     jobPreviewMessage(draftToBubble(draft)),
-  ]);
+  ], draft, guideNames));
 }
 
 async function handlePaymentAmount(replyToken, profile, state, text) {
