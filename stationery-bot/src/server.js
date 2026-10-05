@@ -3,7 +3,7 @@ import express from 'express';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { verifySignature, replyMessage, pushMessage, getProfile, getProfileCached, getBotUserId, getMessageContent, chatLink, describeEvent } from './line.js';
-import { buildReply, welcomeMessage, withSender, iconUrlFor, thanksReply } from './replies.js';
+import { buildReply, welcomeMessage, withSender, iconUrlFor, thanksReply, quick } from './replies.js';
 import { contactCard } from './flex.js';
 import { isThanksSticker, isThanks } from './matcher.js';
 import { applyHoliday, createNoticeTracker } from './holiday.js';
@@ -35,7 +35,7 @@ loadShop(); // fail fast on a broken file
 const app = express();
 app.use('/assets', express.static(fileURLToPath(new URL('../public', import.meta.url)), { maxAge: '1d' }));
 
-const send = (messages) => withSender(messages, baseUrl);
+const send = (messages) => withSender(messages, baseUrl, quick(shop));
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
 app.post('/webhook', express.raw({ type: '*/*' }), (req, res) => {

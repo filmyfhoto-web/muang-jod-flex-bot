@@ -229,3 +229,14 @@ test('questions the bot cannot answer get the admin card; known answers still wi
   assert.equal(hours.needsPhotos, undefined); // the opening-hours answer wins
   assert.ok(hours.messages.length > 0);
 });
+
+test('the topic buttons ride on the last message of every reply, contact card included', async () => {
+  const { withSender, quick } = await import('../src/replies.js');
+  const qr = quick(shop);
+  assert.ok(qr.items.length > 0);
+  const out = withSender([{ type: 'text', text: 'a' }, { type: 'text', text: 'b' }], 'https://x.example', qr);
+  assert.equal(out[0].quickReply, undefined);
+  assert.equal(out[1].quickReply, qr);
+  const own = { items: [] };
+  assert.equal(withSender([{ type: 'text', text: 'a', quickReply: own }], null, qr)[0].quickReply, own);
+});

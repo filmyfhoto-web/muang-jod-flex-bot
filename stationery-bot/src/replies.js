@@ -6,7 +6,7 @@ import { menuCard, faqCard, productCards, schoolLinkCard, noteCard, contactCard 
 export const topics = (shop) =>
   (shop.quickReplies ?? []).map((t) => (typeof t === 'string' ? { label: t, text: t } : t));
 
-function quick(shop) {
+export function quick(shop) {
   const items = topics(shop)
     .slice(0, 13)
     .map((t) => ({ type: 'action', action: { type: 'message', label: t.label.slice(0, 20), text: t.text } }));
@@ -80,8 +80,13 @@ export function iconUrlFor(baseUrl) {
   return /^https:\/\//.test(base) ? `${base}/assets/icon.png` : null;
 }
 
-export function withSender(messages, baseUrl) {
+// Every reply wears the sender icon, and the last one carries the topic buttons (LINE shows
+// quick replies only under the newest message, so they go on whatever the bot sent last).
+export function withSender(messages, baseUrl, quickReply) {
   const iconUrl = iconUrlFor(baseUrl);
-  return iconUrl ? messages.map((m) => ({ ...m, sender: { iconUrl } })) : messages;
+  const out = iconUrl ? messages.map((m) => ({ ...m, sender: { iconUrl } })) : messages.map((m) => ({ ...m }));
+  const last = out[out.length - 1];
+  if (last && quickReply && !last.quickReply) last.quickReply = quickReply;
+  return out;
 }
 
