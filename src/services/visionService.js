@@ -192,6 +192,17 @@ async function defaultVisionExtract(buffer, mimeType) {
 // Images only — the vision API does not read PDFs as images.
 export const READABLE_TYPES = ['image/jpeg', 'image/png'];
 
+/* เปิดตัวอ่านรูปไว้หรือยัง
+ *
+ * ร้านส่งใบสั่งงานเป็นรูปเข้ามาแล้วบอกว่า "ก็ยังไม่อ่านนะ" — เพราะเครื่องที่ยัง
+ * ไม่ได้ใส่กุญแจ รูปถูกเอาไปแนบงานล่าสุดเงียบ ๆ ดูเหมือนบอทไม่สนใจ ความจริง
+ * ที่ไม่ได้ถูกพูดคือ "ม่วงยังอ่านรูปเองไม่ได้" ตัวเช็คนี้มีไว้ให้คนตอบพูดความ
+ * จริงข้อนั้นออกมา
+ */
+export function visionEnabled(env = process.env) {
+  return Boolean(String(env.ANTHROPIC_API_KEY ?? '').trim());
+}
+
 // Returns a normalized slip or job-sheet draft, or null when reading is
 // unavailable or the picture is neither. Never throws: the caller falls back
 // to attaching the file as-is.

@@ -3,7 +3,7 @@ import { getState, setState, clearState, STATES } from '../services/stateService
 import { getLatestJob, getJobById, createJob } from '../services/jobService.js';
 import { saveAttachment } from '../services/attachmentService.js';
 import { addShopQr, listShopQrs } from '../services/shopService.js';
-import { readImage } from '../services/visionService.js';
+import { readImage, visionEnabled } from '../services/visionService.js';
 import { slipReceiptFlex } from '../flex/slipFlex.js';
 import { jobPreviewMessage } from '../flex/jobCard.js';
 import { makeDraft, draftToBubble } from '../utils/jobDraft.js';
@@ -223,11 +223,20 @@ export async function handleImageMessage(event, profile) {
     }
   }
 
+  /* ม่วงอ่านรูปเองไม่ได้ (ยังไม่ได้ตั้ง ANTHROPIC_API_KEY) — ต้องพูดออกมา
+   *
+   * ของเดิมรูปใบสั่งงานถูกเอาไปแนบงานล่าสุดเงียบ ๆ ร้านเห็นเป็น "บอทไม่อ่าน"
+   * โดยไม่มีอะไรบอกว่าทำไม และไม่มีอะไรบอกว่าพิมพ์งานแทนได้
+   */
+  const cantReadHint = !attaching && !visionEnabled()
+    ? '\n\n(ม่วงยังอ่านรูปเป็นงานใหม่เองไม่ได้นะคะ ถ้ารูปนี้คือใบสั่งงาน พิมพ์งานมาได้เลยค่ะ เช่น "โฟมบอร์ด 120x70 ตรมละ 350")'
+    : '';
+
   if (nowhereToAttach) {
     if (attaching) await clearState(profile.id);
     return reply(replyToken, {
       type: 'text',
-      text: 'ยังไม่มีงานให้แนบหลักฐานเลยค่ะ ลองบันทึกงานก่อนนะคะ 💜',
+      text: 'ยังไม่มีงานให้แนบหลักฐานเลยค่ะ ลองบันทึกงานก่อนนะคะ 💜' + cantReadHint,
     });
   }
 
@@ -245,6 +254,6 @@ export async function handleImageMessage(event, profile) {
 
   return reply(replyToken, {
     type: 'text',
-    text: `แนบหลักฐานเข้ากับงาน "${job.job_name}" แล้วค่ะ 💜`,
+    text: `แนบหลักฐานเข้ากับงาน "${job.job_name}" แล้วค่ะ 💜` + cantReadHint,
   });
 }
