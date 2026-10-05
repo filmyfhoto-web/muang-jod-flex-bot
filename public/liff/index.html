@@ -556,6 +556,10 @@
         <div class="with-unit"><input id="e-paid" type="number" inputmode="decimal" min="0" step="1" /><span class="unit">฿</span></div>
         <label for="e-due">วันรับงาน (นัดรับ / ส่งก่อน)</label>
         <input id="e-due" type="date" />
+        <!-- สองร้านของเจ้าของ — "ห้ามนำงานมาปนกัน" งานเก่าที่จดก่อนมีสองร้าน
+             ขึ้นเป็น "ยังไม่ระบุร้าน" แล้วเลือกเข้าร้านจากตรงนี้ได้เลย -->
+        <label for="e-branch">ร้าน</label>
+        <select id="e-branch"><option value="">ยังไม่ระบุร้าน</option></select>
       </div>
 
       <!-- งานที่พิมพ์มาหลายรายการ แก้ได้แค่ยอดรวมก้อนเดียวในหน้านี้ — บรรทัด
@@ -1603,10 +1607,30 @@ $('e-mine').onclick = (e) => {
   paintMine();
 };
 
+/* รายชื่อร้าน โหลดครั้งเดียวต่อการเปิดแอป
+ *
+ * เซิร์ฟเวอร์ที่ยังไม่มีตารางร้านตอบรายการว่าง — ช่องเลือกร้านก็เหลือแค่
+ * "ยังไม่ระบุร้าน" และการบันทึกไม่แตะเรื่องร้านเลย หน้าแก้ไขเดิมต้องใช้ได้
+ */
+let branches = null;
+async function loadBranches() {
+  if (branches) return branches;
+  try {
+    branches = (await api('/branches')).branches || [];
+  } catch {
+    branches = [];
+  }
+  const sel = $('e-branch');
+  for (const b of branches) sel.add(new Option(b.name, b.id));
+  return branches;
+}
+
 async function openEdit(id) {
   try {
     const { job } = await api('/jobs/' + id);
     current = job;
+    await loadBranches();
+    $('e-branch').value = branches.some((b) => b.id === job.branch_id) ? job.branch_id : '';
     $('e-number').textContent = job.job_number || '';
     $('e-name').value = job.job_name || '';
     $('e-customer').value = job.customer_name || '';
@@ -1688,6 +1712,16 @@ $('e-save').onclick = async () => {
         note: $('e-note').value.trim() || null,
       }),
     });
+    /* ร้านเดินแยกจากข้อมูลงาน — เซิร์ฟเวอร์ตรวจความเป็นเจ้าของร้านปลายทาง
+     * ให้เอง ส่งเฉพาะตอนที่เปลี่ยนจริง จะได้ไม่พังการบันทึกอื่นบนเครื่อง
+     * ที่ยังไม่ได้รันไมเกรชันร้าน
+     */
+    if ($('e-branch').value !== (current.branch_id || '')) {
+      await api('/jobs/' + current.id + '/branch', {
+        method: 'POST',
+        body: JSON.stringify({ branch: $('e-branch').value || null }),
+      });
+    }
     toast('บันทึกเรียบร้อยแล้วค่ะ 💜');
     await show(tab === 'edit' ? 'today' : tab);
   } catch (err) {

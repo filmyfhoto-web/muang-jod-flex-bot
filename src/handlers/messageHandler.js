@@ -21,6 +21,9 @@ import { startCollecting } from '../utils/slots.js';
 import { startCollectFlow, handleCollectTurn } from '../services/collectFlow.js';
 import { splitDump, looksLikeDump } from '../utils/dumpSplit.js';
 import { renameShopQr } from '../services/shopService.js';
+import { DEFAULT_BRANCHES, matchBranchStrict, stripBranch, parseBranchView, parseMoveCommand, TODAY_QUESTION } from '../utils/branch.js';
+import { branchView } from '../actions/branchView.js';
+import { moveJob } from '../actions/moveJob.js';
 import { logger } from '../services/logger.js';
 import { dumpPreviewFlex } from '../flex/dumpFlex.js';
 import { handlePostback } from './postbackHandler.js';
@@ -159,6 +162,28 @@ export async function handleTextMessage(event, profile) {
   const leading = splitLeadingAddJob(text);
   if (leading) {
     return handleNewJob(replyToken, profile, leading.rest);
+  }
+
+  /* "ดูงานนัฐภรณ์ ปริ้นงาน" / "ดูงานเชียงกลาง" / "ดูงานทั้งสองร้าน"
+   *
+   * เจ้าของมีสองร้านและสั่งไว้ว่าถามถึงร้านไหนให้ตอบเฉพาะร้านนั้น — จับก่อน
+   * เข้าสเตต เพราะเป็นคำสั่งอ่านอย่างเดียว ควรตอบได้เสมอเหมือนปุ่มเมนู
+   */
+  const branchAsk = parseBranchView(text, DEFAULT_BRANCHES);
+  if (branchAsk) {
+    return branchView({ replyToken, profile }, branchAsk.all ? null : branchAsk);
+  }
+
+  // "วันนี้มีงานอะไรบ้าง" → สรุปแยกสองร้าน ตามที่เจ้าของสั่งไว้คำต่อคำ
+  // มีตัวเลข = กำลังจดงาน ("วันนี้มีงาน ป้ายไวนิล 150") ไม่ใช่คำถาม
+  if (TODAY_QUESTION.test(text) && !HAS_NUMBER.test(text)) {
+    return branchView({ replyToken, profile }, null);
+  }
+
+  // "ย้าย MJ-SGN-0001 ไปร้านเชียงกลาง" — งานเก่า/งานลงผิดร้าน ย้ายจากแชตได้เลย
+  const move = parseMoveCommand(text, DEFAULT_BRANCHES);
+  if (move) {
+    return moveJob({ replyToken, profile }, move);
   }
 
   const state = await getState(profile.id);
@@ -398,6 +423,17 @@ async function handleDump(replyToken, profile, text) {
 }
 
 async function handleNewJob(replyToken, profile, text, knownCustomer = null, parsedOverride = null) {
+  /* ร้านไหน — จับเฉพาะที่พูดถึงร้านแบบตั้งใจ ("นัฐภรณ์ ปริ้นงาน …", "ลงร้าน
+   * เชียงกลาง …") แล้วตัดชื่อร้านออกก่อนอ่านงาน ไม่งั้นชื่อร้านถูกอ่านเป็นชื่อ
+   * ลูกค้า ใบเสร็จออกในนามร้านตัวเอง
+   *
+   * ไม่ได้บอกร้านมา ไม่เป็นไร — ตอนกด ✅ บันทึก ม่วงจะถามว่า "งานนี้ลงร้านไหน
+   * ดีคะ" เอง การเดาจากคำหลวม ๆ ("ปริ้นงานเอกสาร 100 แผ่น" คืองานปริ้น ไม่ใช่
+   * ร้านปริ้นงาน) คือทางที่งานลงผิดร้านเงียบ ๆ
+   */
+  const branch = matchBranchStrict(text, DEFAULT_BRANCHES);
+  if (branch) text = stripBranch(text, branch, DEFAULT_BRANCHES);
+
   // Two different dates can be in one message and they mean opposite things.
   // The pickup date is the one wearing a label ("นัดรับ 15 ก.ย."), so it comes
   // off first; whatever bare date is left is when the job is being recorded.
@@ -433,7 +469,7 @@ async function handleNewJob(replyToken, profile, text, knownCustomer = null, par
     paidAmount: parsed.paidAmount,
   });
 
-  await setState(profile.id, STATES.CONFIRMING_JOB, { draft });
+  await setState(profile.id, STATES.CONFIRMING_JOB, { draft, ...(branch ? { branchSlug: branch.slug } : {}) });
 
   // Pricing by the square metre lands on satang — 4,887.97 — and no shop hands
   // a customer a bill like that. Say how to round it, but only on the jobs that
@@ -447,6 +483,8 @@ async function handleNewJob(replyToken, profile, text, knownCustomer = null, par
   const noPrice = !(draft.total > 0);
 
   return reply(replyToken, [
+    // บอกตั้งแต่ตอนตรวจว่าจะเข้าบัญชีร้านไหน — เห็นผิดตรงนี้ยังกดยกเลิกทัน
+    ...(branch ? [{ type: 'text', text: `งานนี้จะลงบัญชีร้าน "${branch.name}" นะคะ 🏪` }] : []),
     {
       type: 'text',
       text: noPrice

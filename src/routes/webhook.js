@@ -9,6 +9,7 @@ import { handleFollow } from '../handlers/followHandler.js';
 import { markEventProcessed } from '../services/webhookEventService.js';
 import { reply, rememberReplyTarget } from '../services/lineService.js';
 import { logger, maskUserId } from '../services/logger.js';
+import { gateEvent } from '../utils/access.js';
 
 const { middleware } = linebot;
 const router = express.Router();
@@ -89,6 +90,23 @@ async function processEvent(event) {
     // So a refused reply token can still reach this user as a push, instead of
     // the bot going quiet on them.
     rememberReplyTarget(event.replyToken, lineUserId);
+
+    /* หลังร้านเปิดให้เฉพาะเจ้าของ
+     *
+     * ด่านนี้อยู่ก่อน getOrCreateProfile ตั้งใจ: คนนอกที่ทักมาไม่ควรได้แม้แต่
+     * แถวใน profiles ของบอทหลังร้าน
+     *
+     * "รหัสของฉัน" ผ่านด่านได้เสมอ เจ้าของต้องรู้ id ของตัวเองก่อนถึงจะกรอก
+     * รายชื่อได้ และถ้ากรอกผิดสักตัว นี่คือทางเดียวที่จะกลับมาอ่าน id ที่ถูกต้อง
+     */
+    const gate = gateEvent(event);
+    if (gate.action !== 'pass') {
+      logger.info(`webhook.${gate.action}`, base);
+      if (gate.text && event.replyToken) {
+        await reply(event.replyToken, { type: 'text', text: gate.text });
+      }
+      return;
+    }
 
     const profile = await getOrCreateProfile(lineUserId);
     await dispatch(event, profile);
