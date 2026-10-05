@@ -218,3 +218,14 @@ test('a customer asking for a job or an order is pointed to the admins with the 
   assert.equal(buildReply('สั่งของ', shop, {}).needsPhotos, undefined); // the web-shop answer stays
   assert.equal(buildReply('ขอบคุณค่ะ', shop, {}).needsPhotos, undefined);
 });
+
+test('questions the bot cannot answer get the admin card; known answers still win', () => {
+  for (const t of ['ขอถามหน่อยค่ะ', 'รบกวนสอบถามค่ะ', 'มีสินค้าแบบนี้ไหมคะ', 'สั่งทำได้ไหมคะ']) {
+    const r = buildReply(t, shop, {});
+    assert.equal(r.needsPhotos, true, t);
+    assert.equal(r.alertAdmins, true, t);
+  }
+  const hours = buildReply('ขอถามเวลาเปิดร้านหน่อยค่ะ', shop, {});
+  assert.equal(hours.needsPhotos, undefined); // the opening-hours answer wins
+  assert.ok(hours.messages.length > 0);
+});

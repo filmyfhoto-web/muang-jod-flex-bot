@@ -17,7 +17,7 @@ test('shipped config answers only what it knows', () => {
 test('text the shop has no answer for gets no reply at all', () => {
   for (const t of ['xyz', 'มีเวลาว่างไหม', 'ช่วยหน่อยครับพี่', 'ราคาเท่าไหร่', '555', 'ok',
     // answers that exist but are switched off until the shop has real data for them
-    'ปากกา', 'ดินสอ', 'โอนยังไง', 'ค่าส่งเท่าไหร่', 'ส่วนลดมีไหม', 'ขอใบเสร็จ']) {
+    'ปากกา', 'ดินสอ', 'โอนยังไง', 'ค่าส่งเท่าไหร่', 'ขอใบเสร็จ']) {
     const r = buildReply(t, shop);
     assert.deepEqual(r.messages, [], t);
     assert.equal(r.silent, true);
