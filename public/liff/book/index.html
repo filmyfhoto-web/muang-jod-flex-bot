@@ -183,6 +183,17 @@
     header { padding-left: max(18px, calc((100% - 640px) / 2)); padding-right: max(18px, calc((100% - 640px) / 2)); }
     main { max-width: 640px; margin-inline: auto; }
   }
+
+/* ผูกลูกค้ากับหน่วยงาน */
+.orgbtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:1.5px dashed #B9C3D6;background:#fff;color:var(--navy);font:inherit;font-weight:700;border-radius:14px;padding:11px 13px;cursor:pointer}
+.orgform{background:#fff;border-radius:16px;padding:13px;box-shadow:0 1px 2px rgba(31,43,69,.05),0 4px 12px rgba(31,43,69,.05);display:flex;flex-direction:column;gap:10px}
+.orgform label{font-size:13px;font-weight:700;color:#35486E;display:flex;flex-direction:column;gap:5px}
+.orgform label small{font-weight:500;color:#6B7893}
+.orgform input{font:inherit;border:1.5px solid #D5DBE8;border-radius:11px;padding:11px 12px;width:100%;box-sizing:border-box}
+.orgform .acts{display:flex;gap:8px}
+.orgform .acts button{flex:1;font:inherit;font-weight:700;border-radius:11px;padding:11px;border:0;cursor:pointer}
+.orgform .save{background:var(--navy);color:#fff}
+.orgform .cancel{background:#EEF1F7;color:#35486E}
 </style>
 </head>
 <body>
@@ -221,6 +232,24 @@
   </div>
 
   <div class="headline" id="headline"><span></span><b></b></div>
+
+  <button type="button" class="orgbtn" id="org-open">➕ ใส่ชื่อหน่วยงานให้ลูกค้า</button>
+  <form class="orgform" id="org-form" hidden>
+    <label>① ลูกค้า / ผู้ติดต่อ
+      <small>เลือกจากรายชื่อที่เคยจดไว้ หรือพิมพ์เอง เช่น ครูแนน</small>
+      <input id="of-person" list="of-people" autocomplete="off" placeholder="ชื่อลูกค้า" />
+      <datalist id="of-people"></datalist>
+    </label>
+    <label>② ของหน่วยงานไหน
+      <small>พิมพ์ชื่อใหม่ หรือเลือกหน่วยงานที่มีอยู่แล้ว · เว้นว่างแล้วบันทึก = เลิกผูก</small>
+      <input id="of-org" list="of-orglist" autocomplete="off" placeholder="เช่น โรงเรียนพระธาตุพิทยาคม" />
+      <datalist id="of-orglist"></datalist>
+    </label>
+    <div class="acts">
+      <button type="button" class="cancel" id="of-cancel">ยกเลิก</button>
+      <button type="submit" class="save">③ บันทึก</button>
+    </div>
+  </form>
 
   <div id="list" style="display:flex;flex-direction:column;gap:9px"></div>
 
@@ -317,6 +346,7 @@ function renderBook() {
   $('picker').hidden = true;
   $('bar').hidden = true;
   $('to-ledger').hidden = false;
+  $('org-open').hidden = tab !== 'org';
   $('tabs').hidden = false;
   $('back').hidden = false;
   $('back').setAttribute('aria-label', 'กลับหน้างานวันนี้');
@@ -413,6 +443,8 @@ function renderAccount() {
   const list = $('list');
   list.innerHTML = '';
   $('tabs').hidden = true;
+  $('org-open').hidden = true;
+  $('org-form').hidden = true;
   $('to-ledger').hidden = true;
   $('back').hidden = false;
   $('back').setAttribute('aria-label', 'กลับสมุดลูกค้า');
@@ -553,6 +585,53 @@ $('mode').onclick = (e) => {
   if (!b) return;
   mode = b.dataset.mode;
   renderPicker();
+};
+
+// --- ผูกลูกค้ากับหน่วยงาน -------------------------------------------------
+
+function fillOrgLists() {
+  $('of-people').innerHTML = '';
+  for (const p of [...(book.people || []), ...book.orgs.flatMap((o) => (o.contacts || []).map((name) => ({ name })))]) {
+    const opt = document.createElement('option');
+    opt.value = p.name;
+    $('of-people').append(opt);
+  }
+  $('of-orglist').innerHTML = '';
+  for (const o of book.orgs) {
+    const opt = document.createElement('option');
+    opt.value = o.name;
+    $('of-orglist').append(opt);
+  }
+}
+
+$('org-open').onclick = () => {
+  fillOrgLists();
+  $('org-form').hidden = false;
+  $('org-open').hidden = true;
+  $('of-person').focus();
+};
+
+$('of-cancel').onclick = () => {
+  $('org-form').hidden = true;
+  $('org-open').hidden = false;
+};
+
+$('org-form').onsubmit = async (e) => {
+  e.preventDefault();
+  const customerName = $('of-person').value.trim();
+  const orgName = $('of-org').value.trim();
+  if (!customerName) return toast('ใส่ชื่อลูกค้าก่อนนะคะ', true);
+  try {
+    await api('/book/org', { method: 'POST', body: JSON.stringify({ customerName, orgName }) });
+    toast(orgName ? `ผูก ${customerName} กับ ${orgName} แล้วค่ะ` : `เลิกผูก ${customerName} แล้วค่ะ`);
+    $('of-person').value = '';
+    $('of-org').value = '';
+    $('org-form').hidden = true;
+    book = await api('/book');
+    renderBook();
+  } catch (err) {
+    toast(err.message, true);
+  }
 };
 
 $('go').onclick = issue;

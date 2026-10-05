@@ -16,6 +16,7 @@ import {
   buildReport,
 } from '../services/jobService.js';
 import { createJob } from '../services/jobService.js';
+import { listCustomerOrgs, setCustomerOrg } from '../services/customerOrgService.js';
 import { parseNaturalJob } from '../utils/nlParser.js';
 import { splitDump, looksLikeDump } from '../utils/dumpSplit.js';
 import { makeDraft } from '../utils/jobDraft.js';
@@ -142,6 +143,8 @@ export function createApiRouter(deps = {}) {
   const saveJob = deps.updateJob || updateJob;
   const queueJobs = deps.getQueueJobs || getQueueJobs;
   const bookJobs = deps.getBookJobs || getBookJobs;
+  const orgsOf = deps.listCustomerOrgs || listCustomerOrgs;
+  const saveOrg = deps.setCustomerOrg || setCustomerOrg;
   const takePayment = deps.recordPayment || recordPayment;
   const readCheckin = deps.getCheckinSettings || getCheckinSettings;
   const branchesOf = deps.listBranches || listBranches;
@@ -427,8 +430,8 @@ export function createApiRouter(deps = {}) {
    */
   router.get('/book', async (req, res, next) => {
     try {
-      const jobs = await bookJobs(req.profile.id);
-      res.json(buildBook(jobs));
+      const [jobs, orgs] = await Promise.all([bookJobs(req.profile.id), orgsOf(req.profile.id)]);
+      res.json(buildBook(jobs, orgs));
     } catch (err) {
       next(err);
     }
@@ -444,10 +447,34 @@ export function createApiRouter(deps = {}) {
       const key = String(req.query.key || '').trim();
       if (!key) return res.status(400).json({ error: 'invalid', message: 'ต้องบอกว่าเป็นบัญชีของใคร' });
 
-      const account = buildAccount(await bookJobs(req.profile.id), key);
+      const [jobs, orgs] = await Promise.all([bookJobs(req.profile.id), orgsOf(req.profile.id)]);
+      const account = buildAccount(jobs, key, orgs);
       if (!account) return res.status(404).json({ error: 'not_found' });
       res.json({ account });
     } catch (err) {
+      next(err);
+    }
+  });
+
+  /* ผูกลูกค้ากับหน่วยงาน — "ครูแนน" เป็นของ "โรงเรียนพระธาตุพิทยาคม"
+   *
+   * orgName ว่าง = เลิกผูก งานเก่าทุกใบของลูกค้าคนนี้ย้ายเข้าบัญชีหน่วยงานทันที
+   * เพราะผูกที่ชื่อ ไม่ได้แก้ทีละใบ
+   */
+  router.post('/book/org', async (req, res, next) => {
+    try {
+      const customerName = String(req.body?.customerName ?? '').trim();
+      const orgName = String(req.body?.orgName ?? '').trim();
+      if (!customerName || customerName.length > 200 || orgName.length > 200) {
+        return res.status(400).json({ error: 'invalid', message: 'ต้องใส่ชื่อลูกค้า และชื่อหน่วยงานไม่เกิน 200 ตัวอักษรค่ะ' });
+      }
+      const out = await saveOrg(req.profile.id, { customerName, orgName });
+      if (!out?.ok) return res.status(400).json({ error: 'invalid', message: out?.message || 'บันทึกไม่สำเร็จค่ะ' });
+      res.json(out);
+    } catch (err) {
+      if (/customer_orgs/.test(String(err?.message))) {
+        return res.status(503).json({ error: 'migration', message: 'ต้องรันไมเกรชัน 018_customer_orgs.sql ใน Supabase ก่อนค่ะ' });
+      }
       next(err);
     }
   });

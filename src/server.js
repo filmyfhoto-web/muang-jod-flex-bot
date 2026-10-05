@@ -160,7 +160,7 @@ app.get('/health/webhook', async (req, res) => {
 // Deep health: probes every table the bot writes to, so a half-applied
 // migration shows up as one failing table instead of a generic chat error.
 app.get('/health/db', async (req, res) => {
-  const TABLES = ['profiles', 'jobs', 'job_items', 'attachments', 'user_states', 'webhook_events', 'nudge_state', 'ai_usage'];
+  const TABLES = ['profiles', 'jobs', 'job_items', 'attachments', 'user_states', 'webhook_events', 'nudge_state', 'ai_usage', 'customer_orgs'];
   const tables = {};
   for (const table of TABLES) {
     try {
