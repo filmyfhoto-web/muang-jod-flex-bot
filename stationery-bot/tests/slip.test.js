@@ -25,3 +25,8 @@ test('readSlip: slip → {}, null for non-slips, wrong types, big files and erro
   assert.equal(await readSlip(png, 'image/png', { extract: async () => { throw new Error('boom'); } }), null);
   assert.equal(await readSlip(png, 'image/png', { env: {} }), null);
 });
+
+test('free mode wording: thanks for the picture, without calling it a slip', () => {
+  const t = JSON.stringify(slipReply(shop, { sure: false }));
+  assert.ok(t.includes('ได้รับรูปแล้ว') && !t.includes('สลิป'));
+});

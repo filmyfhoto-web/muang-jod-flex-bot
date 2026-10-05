@@ -33,8 +33,10 @@ export function parseSlip(raw) {
 }
 
 // The thank-you. It states nothing about the amount: the admins check the money themselves.
-export function slipReply(shop) {
-  const text = 'ขอบคุณค่ะ 🙏 ได้รับสลิปแล้ว\nแอดมินจะตรวจสอบยอดเงินเข้าอีกครั้งนะคะ';
+export function slipReply(shop, { sure = true } = {}) {
+  const text = sure
+    ? 'ขอบคุณค่ะ 🙏 ได้รับสลิปแล้ว\nแอดมินจะตรวจสอบยอดเงินเข้าอีกครั้งนะคะ'
+    : 'ขอบคุณค่ะ 🙏 ได้รับรูปแล้ว\nแอดมินจะตรวจสอบและตอบกลับนะคะ'; // free mode: the bot cannot tell a slip from another picture
   return noteCard(shop, 'staff', 'ขอบคุณค่ะ', text) ?? { type: 'text', text };
 }
 

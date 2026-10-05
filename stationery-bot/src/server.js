@@ -209,6 +209,11 @@ async function handleEvent(ev) {
   }
   // A payment slip is read and thanked; anything else the bot cannot read is passed to the
   // admins (and the customer gets nothing from the bot).
+  if (ev.message.type === 'image' && !process.env.ANTHROPIC_API_KEY) {
+    // Free mode (no AI key): any picture is thanked, and the admins are told to look at it.
+    if (hasContacts) escalate(userId, '(ส่งรูป/ไฟล์)', shop, cfg);
+    return deliver(ev, userId, holiday(shop, [slipReply(shop, { sure: false })]));
+  }
   if (ev.message.type === 'image') {
     const file = await getMessageContent(ev.message.id, token);
     const slip = file && (await readSlip(file.buffer, file.mimeType));
