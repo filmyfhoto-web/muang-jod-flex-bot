@@ -21,8 +21,9 @@ import { startCollecting } from '../utils/slots.js';
 import { startCollectFlow, handleCollectTurn } from '../services/collectFlow.js';
 import { splitDump, looksLikeDump } from '../utils/dumpSplit.js';
 import { renameShopQr } from '../services/shopService.js';
-import { DEFAULT_BRANCHES, matchBranchStrict, stripBranch, parseBranchView, TODAY_QUESTION } from '../utils/branch.js';
+import { DEFAULT_BRANCHES, matchBranchStrict, stripBranch, parseBranchView, parseMoveCommand, TODAY_QUESTION } from '../utils/branch.js';
 import { branchView } from '../actions/branchView.js';
+import { moveJob } from '../actions/moveJob.js';
 import { logger } from '../services/logger.js';
 import { dumpPreviewFlex } from '../flex/dumpFlex.js';
 import { handlePostback } from './postbackHandler.js';
@@ -177,6 +178,12 @@ export async function handleTextMessage(event, profile) {
   // มีตัวเลข = กำลังจดงาน ("วันนี้มีงาน ป้ายไวนิล 150") ไม่ใช่คำถาม
   if (TODAY_QUESTION.test(text) && !HAS_NUMBER.test(text)) {
     return branchView({ replyToken, profile }, null);
+  }
+
+  // "ย้าย MJ-SGN-0001 ไปร้านเชียงกลาง" — งานเก่า/งานลงผิดร้าน ย้ายจากแชตได้เลย
+  const move = parseMoveCommand(text, DEFAULT_BRANCHES);
+  if (move) {
+    return moveJob({ replyToken, profile }, move);
   }
 
   const state = await getState(profile.id);

@@ -360,6 +360,23 @@ export async function getLatestJob(userId, client = supabase) {
   return withItems;
 }
 
+// หางานจากเลขงาน — เลขงานคือชื่อที่ร้านใช้เรียกใบงาน ("ย้าย MJ-SGN-0001 …")
+export async function getJobByNumber(userId, jobNumber, client = supabase) {
+  const number = String(jobNumber ?? '').trim();
+  if (!number) return null;
+  const { data, error } = await client
+    .from('jobs')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('job_number', number)
+    .maybeSingle();
+  if (error) {
+    logger.error('job.by_number_failed', { message: error.message });
+    throw error;
+  }
+  return data || null;
+}
+
 // Fetch one job by id, verifying ownership via userId.
 export async function getJobById(userId, jobId, client = supabase) {
   const { data: job, error } = await client

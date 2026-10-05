@@ -202,3 +202,25 @@ test('"วันนี้มีงานอะไรบ้าง" ไปที�
   assert.match(handler, /TODAY_QUESTION\.test\(text\) && !HAS_NUMBER\.test\(text\)/);
   assert.match(handler, /return branchView\(\{ replyToken, profile \}, null\);/);
 });
+
+/* ย้ายงานเข้าร้านจากแชต — งานเก่าทุกใบเกิดก่อนมีสองร้าน เลยต้องมีทางย้าย */
+test('"ย้าย … ไปร้าน …" อ่านเป็นคำสั่งย้าย ไม่ใช่งานใหม่', async () => {
+  const { parseMoveCommand } = await import('../src/utils/branch.js');
+
+  assert.deepEqual(parseMoveCommand('ย้าย MJ-SGN-0001 ไปร้านเชียงกลาง', BRANCHES), {
+    ref: 'MJ-SGN-0001',
+    branch: KLANG,
+  });
+  // ไม่บอกเลข = งานล่าสุด
+  assert.deepEqual(parseMoveCommand('ย้ายไปร้านปริ้น', BRANCHES), { ref: 'latest', branch: PRINT });
+  assert.equal(parseMoveCommand('ย้าย mj-stp-0007 เข้าร้านปริ้นงาน', BRANCHES)?.ref, 'MJ-STP-0007');
+
+  // ไม่ใช่คำสั่งย้าย: ไม่มีร้าน, ไม่ขึ้นต้นด้วยย้าย, กำกวมสองร้าน
+  assert.equal(parseMoveCommand('ย้ายของไปบ้านป้า', BRANCHES), null);
+  assert.equal(parseMoveCommand('ป้ายไวนิล ไปร้านเชียงกลาง 150', BRANCHES), null);
+  assert.equal(parseMoveCommand('ย้ายไปร้านนัฐภรณ์', BRANCHES), null);
+
+  const handler = readFileSync(new URL('../src/handlers/messageHandler.js', import.meta.url), 'utf8');
+  assert.match(handler, /parseMoveCommand\(text, DEFAULT_BRANCHES\)/);
+  assert.match(handler, /return moveJob\(/);
+});

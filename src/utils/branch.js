@@ -180,6 +180,28 @@ export function parseBranchView(text, branches = []) {
   return null;
 }
 
+/* "ย้าย MJ-SGN-0001 ไปร้านเชียงกลาง" — ย้ายงานเข้าร้านจากแชต
+ *
+ * งานเก่าทุกใบถูกจดก่อนจะมีสองร้าน จึงขึ้นเป็น "ยังไม่ระบุร้าน" ทั้งหมด และ
+ * งานที่เผลอลงผิดร้านก็ต้องย้ายได้โดยไม่ต้องเปิดหน้าเว็บ
+ *
+ * ไม่บอกเลขงาน = งานล่าสุด ("ย้ายไปร้านเชียงกลาง" หลังเพิ่งจดเสร็จ) — คำตอบ
+ * จะทวนเลขงานกลับไปเสมอ จะได้เห็นทันทีถ้าม่วงหยิบใบผิด
+ */
+const JOB_NUMBER = /MJ-[A-Z]{2,4}-\d{1,6}/i;
+
+export function parseMoveCommand(text, branches = []) {
+  const raw = String(text ?? '').trim();
+  if (!/^ย้าย/.test(raw)) return null;
+  if (!/(ไป|เข้า|ลง)/.test(raw)) return null;
+
+  const branch = matchBranch(raw, branches);
+  if (!branch) return null;
+
+  const number = raw.match(JOB_NUMBER)?.[0]?.toUpperCase() || null;
+  return { ref: number || 'latest', branch };
+}
+
 /* แยกกองงานตามร้าน
  *
  * งานที่ยังไม่ได้ระบุร้านไม่ถูกยัดเข้าร้านใดร้านหนึ่ง มันไปอยู่ใน unassigned

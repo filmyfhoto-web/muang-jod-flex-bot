@@ -42,6 +42,7 @@ import { getShopProfile, saveShopProfile, SHOP_FIELDS } from '../services/shopSe
 import { getCheckinSettings, saveCheckinSettings } from '../services/checkinService.js';
 import { normalizeSettings, toMinutes, toHHMM, DEFAULT_TZ } from '../utils/checkinSchedule.js';
 import { isAllowed } from '../utils/access.js';
+import { listBranches, setJobBranch } from '../services/branchService.js';
 
 // JSON API behind the LIFF dashboard. Every request carries the LIFF access
 // token; LINE tells us which channel issued it and whose it is, and from that
@@ -143,6 +144,8 @@ export function createApiRouter(deps = {}) {
   const bookJobs = deps.getBookJobs || getBookJobs;
   const takePayment = deps.recordPayment || recordPayment;
   const readCheckin = deps.getCheckinSettings || getCheckinSettings;
+  const branchesOf = deps.listBranches || listBranches;
+  const moveToBranch = deps.setJobBranch || setJobBranch;
   const writeCheckin = deps.saveCheckinSettings || saveCheckinSettings;
   // Tell the chat about a job saved from the form. Never throws: the job is
   // already saved, and a chat that missed the news must not turn into a failed
@@ -788,6 +791,48 @@ export function createApiRouter(deps = {}) {
         stage: jobStage(job),
       });
       res.json({ job, stage: jobStage(job), stages: JOB_STAGES.map((s) => s.label) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // รายชื่อร้านของเจ้าของ — หน้าแก้ไขงานใช้ทำตัวเลือก "ลงร้านไหน"
+  router.get('/branches', async (req, res, next) => {
+    try {
+      res.json({ branches: await branchesOf(req.profile.id) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /* งานนี้สังกัดร้านไหน — "ห้ามนำงานมาปนกัน"
+   *
+   * body.branch เป็น slug หรือ id ของร้าน หรือ null เพื่อถอดออกเป็น "ยังไม่ระบุ"
+   * การตรวจว่าร้านปลายทางเป็นของบัญชีเดียวกันอยู่ใน setJobBranch แล้ว
+   */
+  router.post('/jobs/:id/branch', async (req, res, next) => {
+    try {
+      const current = await findJob(req.profile.id, req.params.id);
+      if (!current) return res.status(404).json({ error: 'not_found' });
+
+      const want = req.body?.branch ?? null;
+      let job;
+      try {
+        job = await moveToBranch(req.profile.id, req.params.id, want);
+      } catch (err) {
+        if (missingColumn(err, 'branch_id')) {
+          logger.warn('api.job_branch_no_column', { jobId: req.params.id });
+          return res.status(503).json({
+            error: 'not_ready',
+            message: 'ยังย้ายร้านไม่ได้ค่ะ — ต้องรัน migration 016_branches.sql ใน Supabase ก่อน',
+          });
+        }
+        throw err;
+      }
+      if (!job) return res.status(400).json({ error: 'invalid', message: 'ไม่พบร้านที่เลือกค่ะ' });
+
+      logger.info('api.job_branch', { user: maskUserId(req.profile.line_user_id), jobId: req.params.id });
+      res.json({ job });
     } catch (err) {
       next(err);
     }
