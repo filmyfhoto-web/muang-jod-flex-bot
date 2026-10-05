@@ -140,8 +140,9 @@ test('อ่านรูปไม่ได้ ต้องพูดออกม�
   assert.equal(visionEnabled({ ANTHROPIC_API_KEY: 'sk-ant-x' }), true);
 
   const image = readFileSync(new URL('../src/handlers/imageHandler.js', import.meta.url), 'utf8');
-  assert.match(image, /!attaching && !visionEnabled\(\)/);
-  assert.ok(image.includes('ม่วงยังอ่านรูปเป็นงานใหม่เองไม่ได้'), 'ไม่ยอมบอกความจริง');
+  // บอกเมื่ออ่านไม่ได้ทั้งสองกรณี: ไม่มีกุญแจ และมีกุญแจแต่รูปไม่ใช่เอกสารงาน
+  assert.ok(image.includes('ม่วงยังอ่านรูปเป็นงานใหม่เองไม่ได้'), 'ไม่บอกเมื่อไม่มีกุญแจ');
+  assert.ok(image.includes('ม่วงอ่านรูปนี้ไม่ออก'), 'ไม่บอกเมื่ออ่านไม่ออก (มีกุญแจแต่รูปไม่ใช่งาน)');
   // ตอนร้านตั้งใจแนบหลักฐานเอง ไม่ต้องขึ้นคำเตือนนี้
   const hint = image.slice(image.indexOf('const cantReadHint'));
   assert.ok(hint.indexOf('!attaching') >= 0);
