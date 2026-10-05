@@ -211,7 +211,12 @@ export function visionEnabled(env = process.env) {
 // unavailable or the picture is neither. Never throws: the caller falls back
 // to attaching the file as-is.
 export async function readImage(buffer, mimeType, deps = {}) {
-  if (!READABLE_TYPES.includes(mimeType)) return null;
+  // diag: ให้คนเรียกรู้ว่า null นี้เพราะอะไร (เรียก API ไม่สำเร็จ ≠ โมเดลบอกว่าไม่ใช่งาน)
+  const diag = deps.diag || {};
+  if (!READABLE_TYPES.includes(mimeType)) {
+    diag.reason = 'unsupported_type';
+    return null;
+  }
   const extract = deps.visionExtract || defaultVisionExtract;
   const prepare = deps.prepareForVision || prepareForVision;
   try {
@@ -223,11 +228,16 @@ export async function readImage(buffer, mimeType, deps = {}) {
     const ready = await prepare(buffer, mimeType);
     if (!ready) {
       logger.warn('vision.too_big_to_read', { size: buffer.length });
+      diag.reason = 'too_big';
       return null;
     }
 
     const raw = await extract(ready.buffer, ready.mimeType);
-    if (raw?.kind === 'other') return null; // a photo, not paperwork: just attach it
+    if (raw?.kind === 'other') {
+      diag.reason = 'other'; // a photo, not paperwork: just attach it
+      return null;
+    }
+    if (!raw) diag.reason = 'no_answer';
 
     // A slip is the safer reading of an ambiguous document: it records money
     // that already moved, where a job sheet only ever proposes a draft.
@@ -237,7 +247,11 @@ export async function readImage(buffer, mimeType, deps = {}) {
       return read;
     }
   } catch (err) {
-    logger.warn('vision.read_failed', { message: err?.message });
+    logger.warn('vision.read_failed', { message: err?.message, status: err?.status });
+    diag.reason = 'api_error';
+    diag.detail = [err?.status, err?.error?.error?.type || err?.name].filter(Boolean).join(' ');
+    diag.message = String(err?.error?.error?.message || err?.message || '').slice(0, 160);
   }
+  if (!diag.reason) diag.reason = 'no_items';
   return null;
 }

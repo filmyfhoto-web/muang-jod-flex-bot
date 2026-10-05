@@ -146,8 +146,9 @@ export async function handleImageMessage(event, profile) {
   // Unless the user explicitly asked to attach evidence to an existing job,
   // try to read the paper: a slip becomes a job of its own, a job sheet
   // becomes a draft to check first.
+  const diag = {};
   if (!attaching) {
-    const read = await readImage(buffer, fileType);
+    const read = await readImage(buffer, fileType, { diag });
 
     // A work order is a proposal, not a fact — the paper says what to make,
     // not that it was agreed or paid for. So it goes through the same preview
@@ -234,7 +235,10 @@ export async function handleImageMessage(event, profile) {
   const cantReadHint = !attaching
     ? (!visionEnabled()
       ? '\n\n(ม่วงยังอ่านรูปเป็นงานใหม่เองไม่ได้นะคะ ถ้ารูปนี้คือใบสั่งงาน พิมพ์งานมาได้เลยค่ะ เช่น "โฟมบอร์ด 120x70 ตรมละ 350")'
-      : '\n\n(ม่วงอ่านรูปนี้ไม่ออกค่ะ 😔 ถ้าเป็นใบสั่งงาน ลองพิมพ์มาได้เลยค่ะ เช่น "โฟมบอร์ด 120x70 ตรมละ 350")')
+      : diag.reason === 'api_error'
+        // เรียก Claude ไม่สำเร็จ ≠ รูปไม่ใช่งาน — บอกเหตุจริงให้ร้านส่งต่อให้คนดูแลได้ (ไม่มีกุญแจในข้อความ)
+        ? `\n\n(ม่วงเรียกตัวอ่านรูปไม่สำเร็จค่ะ 😔 สาเหตุ: ${diag.detail || 'ไม่ทราบ'}${diag.message ? ' — ' + diag.message : ''}\nระหว่างนี้พิมพ์งานมาได้เลยค่ะ เช่น "โฟมบอร์ด 120x70 ตรมละ 350")`
+        : `\n\n(ม่วงอ่านรูปนี้ไม่ออกค่ะ 😔 [${diag.reason || 'unknown'}] ถ้าเป็นใบสั่งงาน ลองพิมพ์มาได้เลยค่ะ เช่น "โฟมบอร์ด 120x70 ตรมละ 350")`)
     : '';
 
   if (nowhereToAttach) {
