@@ -32,6 +32,21 @@ export function accountKey(name) {
   return raw.replace(/[\s.·,\-–—]/g, '').toLowerCase();
 }
 
+/* ชื่อหน่วยงานที่ร้านผูกไว้ให้ลูกค้าคนนี้ ("ครูแนน" → "รร.พระธาตุพิทยาคม")
+ *
+ * orgs = Map(กุญแจชื่อลูกค้า → ชื่อหน่วยงาน) จาก customer_orgs ไม่มีการผูก = ใช้ชื่อลูกค้าเดิม
+ */
+function asOrgMap(orgs) {
+  if (orgs instanceof Map) return orgs;
+  if (Array.isArray(orgs)) return new Map(orgs.map((o) => [o.customer_key, o.org_name]));
+  return new Map();
+}
+
+function linkedOrg(job, links) {
+  const key = accountKey(job?.customer_name);
+  return (key && links.get(key)) || null;
+}
+
 // ยอดที่ยังไม่ได้เก็บของงานใบหนึ่ง — balance_due ถ้ามี ไม่งั้นคิดจากยอดลบที่จ่ายมา
 export function jobOwed(job) {
   if (job?.status === 'cancelled') return 0;
@@ -67,7 +82,9 @@ function pickName(entries) {
 }
 
 /* หน้าสมุด: บัญชีหน่วยงานรายเจ้า + งานหน้าร้านรายหมวด */
-export function buildBook(jobs = []) {
+export function buildBook(jobs = [], orgsInput = null) {
+  const links = asOrgMap(orgsInput);
+  const people = new Map();
   const accounts = new Map();
   const cats = new Map();
   let orgOwed = 0;
@@ -79,10 +96,13 @@ export function buildBook(jobs = []) {
     const owed = jobOwed(job);
     const at = jobMoment(job);
 
-    if (customerKind(job) === 'org') {
-      const key = accountKey(job.customer_name);
-      const entry = accounts.get(key) || { key, names: [], jobCount: 0, total: 0, owed: 0, lastAt: '', openCount: 0 };
-      entry.names.push({ name: String(job.customer_name || '').trim() || UNNAMED_ACCOUNT, at });
+    const linked = linkedOrg(job, links);
+    if (linked || customerKind(job) === 'org') {
+      const shown = linked || String(job.customer_name || '').trim();
+      const key = accountKey(shown);
+      const entry = accounts.get(key) || { key, names: [], contacts: new Set(), jobCount: 0, total: 0, owed: 0, lastAt: '', openCount: 0 };
+      entry.names.push({ name: shown || UNNAMED_ACCOUNT, at });
+      if (linked) entry.contacts.add(String(job.customer_name).trim());
       entry.jobCount += 1;
       entry.total = round2(entry.total + total);
       entry.owed = round2(entry.owed + owed);
@@ -91,6 +111,15 @@ export function buildBook(jobs = []) {
       accounts.set(key, entry);
       orgOwed = round2(orgOwed + owed);
       continue;
+    }
+
+    // ลูกค้าหน้าร้านที่มีชื่อ — เก็บไว้ให้ร้านเลือกผูกกับหน่วยงานได้
+    const person = String(job.customer_name || '').trim();
+    if (person) {
+      const pKey = accountKey(person);
+      const p = people.get(pKey) || { name: person, jobCount: 0 };
+      p.jobCount += 1;
+      people.set(pKey, p);
     }
 
     const group = groupOf(job);
@@ -113,7 +142,7 @@ export function buildBook(jobs = []) {
   }
 
   const orgs = [...accounts.values()]
-    .map(({ names, ...rest }) => ({ ...rest, name: pickName(names) }))
+    .map(({ names, contacts, ...rest }) => ({ ...rest, name: pickName(names), contacts: [...contacts].sort() }))
     // ค้างมากอยู่บน เพราะนั่นคือเจ้าที่ต้องตามก่อน เท่ากันให้เจ้าที่เพิ่งสั่งอยู่บน
     .sort((a, b) => b.owed - a.owed || (a.lastAt < b.lastAt ? 1 : -1));
 
@@ -122,6 +151,7 @@ export function buildBook(jobs = []) {
   return {
     orgs,
     walkins,
+    people: [...people.values()].sort((a, b) => b.jobCount - a.jobCount).slice(0, 80),
     totals: {
       orgCount: orgs.length,
       orgOwed,
@@ -136,9 +166,11 @@ export function buildBook(jobs = []) {
  * งานแต่ละใบอยู่ของมันเอง ไม่ถูกยุบรวมเป็นก้อน เพราะร้านจะติ๊กเลือกทีละใบว่า
  * รอบนี้จะออกบิลใบไหนบ้าง
  */
-export function buildAccount(jobs = [], key = '') {
+export function buildAccount(jobs = [], key = '', orgsInput = null) {
+  const links = asOrgMap(orgsInput);
   const want = String(key || '');
-  const mine = jobs.filter((j) => j && j.status !== 'cancelled' && accountKey(j.customer_name) === want);
+  const shownName = (j) => linkedOrg(j, links) || j.customer_name;
+  const mine = jobs.filter((j) => j && j.status !== 'cancelled' && accountKey(shownName(j)) === want);
   if (!mine.length) return null;
 
   const groups = new Map();
@@ -184,8 +216,8 @@ export function buildAccount(jobs = [], key = '') {
 
   return {
     key: want,
-    name: pickName(mine.map((j) => ({ name: String(j.customer_name || '').trim() || UNNAMED_ACCOUNT, at: jobMoment(j) }))),
-    kind: customerKind(mine[0]),
+    name: pickName(mine.map((j) => ({ name: String(shownName(j) || '').trim() || UNNAMED_ACCOUNT, at: jobMoment(j) }))),
+    kind: mine.some((j) => linkedOrg(j, links)) ? 'org' : customerKind(mine[0]),
     jobCount: mine.length,
     total,
     owed,
