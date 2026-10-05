@@ -146,7 +146,7 @@ async function handleEvent(ev) {
   const holiday = (shopNow, messages, extra = {}) =>
     applyHoliday(messages, { shop: shopNow, userId, tracker: noticed, ...extra });
   if (ev.type === 'follow') {
-    return replyMessage(ev.replyToken, send(holiday(shop, [welcomeMessage(shop)])), token);
+    return replyMessage(ev.replyToken, send(holiday(shop, await withAsk(shop, [welcomeMessage(shop)]))), token);
   }
   if (ev.type !== 'message') return;
 
@@ -188,11 +188,13 @@ async function handleEvent(ev) {
       if (r.awaitingSchool) awaitSchool.set(userId);
       else awaitSchool.clear(userId);
       let messages = r.messages;
+      if (r.thenContact) messages = await withAsk(shopNow, messages); // first hello: also ask who they want to talk to
       if (r.needsPhotos) messages = [contactCard(shopNow, r.askText ?? shopNow.contact.ask, await adminPhotos(shopNow))];
       if (r.alertAdmins && hasContacts) escalate(userId, said, shopNow, cfg); // an order: the admins are told too
       if (r.silent && !r.quiet && hasContacts) {
         escalate(userId, said, shopNow, cfg); // the admins are told
-        messages = receipt(shopNow); // the customer only gets a short note (with the topic buttons)
+        // Not understood: ask who they want to talk to (a reply is free; a push to the admins is not)
+        messages = shopNow.contact.askOnUnknown === false ? receipt(shopNow) : await withAsk(shopNow, []);
       }
       const out = holiday(shopNow, messages, { skip: isThanks(said, people(shopNow).map((p) => p.name)) });
       if (!out.length) return; // nothing to say
@@ -223,6 +225,10 @@ async function handleEvent(ev) {
   const out = holiday(shop, receipt(shop)); // a short note, and the Saturday notice if it is Saturday
   if (out.length) await deliver(ev, userId, out);
 }
+
+// Adds the "who do you want to talk to?" card (the admins with their photos) to a reply.
+const withAsk = async (shopNow, messages) =>
+  (shopNow.contact?.people ?? []).length ? [...messages, contactCard(shopNow, shopNow.contact.ask, await adminPhotos(shopNow))] : messages;
 
 // What the customer sees when the bot cannot answer: a short note, so the topic buttons show.
 const receipt = (shopNow) => (shopNow.contact?.receivedNote ? [{ type: 'text', text: shopNow.contact.receivedNote }] : []);

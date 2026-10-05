@@ -254,3 +254,10 @@ test('switched-off topics (payment, promotion, receipt, products) get nothing an
   }
   assert.equal(buildReply('xyz', shop, {}).quiet, undefined); // other unknowns still reach the admins
 });
+
+test('free setup: no push alerts; hello and unknown messages are answered by reply with the "who?" card', () => {
+  assert.equal(shop.contact.notify, false); // pushes count against the OA quota; admins use the OA app notifications
+  assert.equal(shop.contact.askOnUnknown, true);
+  assert.equal(buildReply('สวัสดีค่ะ', shop, {}).thenContact, true);
+  assert.equal(buildReply('xyz', shop, {}).silent, true); // the server turns this into the contact card
+});
