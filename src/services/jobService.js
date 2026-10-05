@@ -413,6 +413,11 @@ export async function updateJob(userId, jobId, patch, client = supabase) {
     'category_type',
     'note',
     'picked_up_at',
+    // ขั้นของงาน (ทำเสร็จ/ลงบัญชี) และวิธีรับเงิน — เดิมไม่อยู่ในรายการนี้ จึงถูกทิ้งเงียบ ๆ
+    // ปุ่ม "ลงบัญชี" ตอบสำเร็จแต่ไม่เคยบันทึกลงฐานข้อมูลจริง
+    'done_at',
+    'booked_at',
+    'pay_method',
   ];
   for (const f of fields) {
     if (patch[f] !== undefined) allowed[f] = patch[f];
@@ -517,6 +522,29 @@ export function queueOrder(jobs = []) {
     }
     return String(a.created_at || '').localeCompare(String(b.created_at || ''));
   });
+}
+
+/* งานที่ยังไม่ลงบัญชี เรียงจากเก่าสุด — ไว้ไล่ทบทวนงานเก่าทีละหน้า
+ *
+ * คืน null ถ้าอ่านไม่ได้ (ยังไม่ได้รันไมเกรชัน 015 ที่เพิ่มช่อง booked_at)
+ * ขอเกินหนึ่งใบเพื่อรู้ว่ามีหน้าถัดไปไหม ไม่ต้องนับทั้งตาราง
+ */
+export async function getUnbookedJobs(userId, { offset = 0, limit = 8 } = {}, client = supabase) {
+  const { data, error } = await client
+    .from('jobs')
+    .select('*')
+    .eq('user_id', userId)
+    .in('status', ACTIVE_STATUSES)
+    .is('booked_at', null)
+    .order('created_at', { ascending: true })
+    .range(offset, offset + limit);
+
+  if (error) {
+    logger.warn('job.unbooked_failed', { message: error.message });
+    return null;
+  }
+  const rows = data || [];
+  return { jobs: rows.slice(0, limit), hasMore: rows.length > limit };
 }
 
 export async function getQueueJobs(userId, limit = 60, client = supabase) {
