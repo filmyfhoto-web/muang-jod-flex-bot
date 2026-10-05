@@ -41,6 +41,7 @@ import { logger, maskUserId } from '../services/logger.js';
 import { getShopProfile, saveShopProfile, SHOP_FIELDS } from '../services/shopService.js';
 import { getCheckinSettings, saveCheckinSettings } from '../services/checkinService.js';
 import { normalizeSettings, toMinutes, toHHMM, DEFAULT_TZ } from '../utils/checkinSchedule.js';
+import { isAllowed } from '../utils/access.js';
 
 // JSON API behind the LIFF dashboard. Every request carries the LIFF access
 // token; LINE tells us which channel issued it and whose it is, and from that
@@ -193,6 +194,15 @@ export function createApiRouter(deps = {}) {
       if (!liffId()) return res.status(503).json({ error: 'liff_not_configured' });
       const user = await verify(bearer(req), { channelId: liffChannelId() });
       if (!user) return res.status(401).json({ error: 'unauthorized' });
+      /* หลังร้านเปิดให้เฉพาะเจ้าของ — ด่านเดียวกับที่แชตใช้
+       *
+       * ถ้าด่านนี้มีแต่ในแชต ใครก็ตามที่รู้ URL ของ LIFF และล็อกอิน LINE ได้
+       * ก็เปิดแดชบอร์ดได้ ซึ่งเป็นประตูหลังที่กว้างกว่าแชตด้วยซ้ำ
+       */
+      if (!isAllowed(user.userId)) {
+        logger.info('api.denied', { user: maskUserId(user.userId) });
+        return res.status(403).json({ error: 'forbidden' });
+      }
       req.profile = await resolveProfile(user.userId);
       next();
     } catch (err) {
