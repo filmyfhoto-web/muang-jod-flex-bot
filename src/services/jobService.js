@@ -547,6 +547,31 @@ export async function getUnbookedJobs(userId, { offset = 0, limit = 8 } = {}, cl
   return { jobs: rows.slice(0, limit), hasMore: rows.length > limit };
 }
 
+// ชื่อลูกค้าที่เพิ่งจดล่าสุด ไม่ซ้ำ — ไว้ทำปุ่มเลือกชื่อ (ล้มเหลว = ไม่มีปุ่ม ไม่ใช่ error)
+export async function getRecentCustomerNames(userId, limit = 8, client = supabase) {
+  const { data, error } = await client
+    .from('jobs')
+    .select('customer_name')
+    .eq('user_id', userId)
+    .in('status', ACTIVE_STATUSES)
+    .order('created_at', { ascending: false })
+    .limit(80);
+  if (error) {
+    logger.warn('job.recent_names_failed', { message: error.message });
+    return [];
+  }
+  const seen = new Set();
+  const out = [];
+  for (const row of data || []) {
+    const name = String(row.customer_name || '').trim();
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    out.push(name);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
 export async function getQueueJobs(userId, limit = 60, client = supabase) {
   const { data: jobs, error } = await client
     .from('jobs')
