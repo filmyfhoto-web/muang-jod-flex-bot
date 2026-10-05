@@ -190,7 +190,10 @@ async function handleEvent(ev) {
       let messages = r.messages;
       if (r.needsPhotos) messages = [contactCard(shopNow, r.askText ?? shopNow.contact.ask, await adminPhotos(shopNow))];
       if (r.alertAdmins && hasContacts) escalate(userId, said, shopNow, cfg); // an order: the admins are told too
-      if (r.silent && hasContacts) escalate(userId, said, shopNow, cfg); // the bot says nothing; the admins are told
+      if (r.silent && hasContacts) {
+        escalate(userId, said, shopNow, cfg); // the admins are told
+        messages = receipt(shopNow); // the customer only gets a short note (with the topic buttons)
+      }
       const out = holiday(shopNow, messages, { skip: isThanks(said, people(shopNow).map((p) => p.name)) });
       if (!out.length) return; // nothing to say
       await deliver(ev, userId, out);
@@ -212,9 +215,12 @@ async function handleEvent(ev) {
     if (slip) return deliver(ev, userId, holiday(shop, [slipReply(shop, slip)]));
   }
   if (hasContacts) escalate(userId, '(ส่งรูป/ไฟล์)', shop, cfg);
-  const out = holiday(shop, []); // only the Saturday notice, if it is Saturday
+  const out = holiday(shop, receipt(shop)); // a short note, and the Saturday notice if it is Saturday
   if (out.length) await deliver(ev, userId, out);
 }
+
+// What the customer sees when the bot cannot answer: a short note, so the topic buttons show.
+const receipt = (shopNow) => (shopNow.contact?.receivedNote ? [{ type: 'text', text: shopNow.contact.receivedNote }] : []);
 
 // The bot did not understand: tell all the admins, once per customer per window.
 function escalate(userId, said, shop, cfg) {

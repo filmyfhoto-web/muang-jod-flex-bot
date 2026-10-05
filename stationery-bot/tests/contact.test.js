@@ -240,3 +240,7 @@ test('the topic buttons ride on the last message of every reply, contact card in
   const own = { items: [] };
   assert.equal(withSender([{ type: 'text', text: 'a', quickReply: own }], null, qr)[0].quickReply, own);
 });
+
+test('the short note shown when the bot cannot answer is configured', () => {
+  assert.ok(shop.contact.receivedNote.includes('แอดมิน'));
+});
