@@ -147,3 +147,23 @@ test('อ่านรูปไม่ได้ ต้องพูดออกม�
   const hint = image.slice(image.indexOf('const cantReadHint'));
   assert.ok(hint.indexOf('!attaching') >= 0);
 });
+
+test('readImage บอกเหตุที่อ่านไม่ได้: API ล้ม ≠ โมเดลบอกว่าไม่ใช่งาน', async () => {
+  const { readImage } = await import('../src/services/visionService.js');
+  const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
+  const prepare = async (buffer, mimeType) => ({ buffer, mimeType });
+
+  const boom = Object.assign(new Error('401 invalid x-api-key'), { status: 401, error: { error: { type: 'authentication_error', message: 'invalid x-api-key' } } });
+  const d1 = {};
+  assert.equal(await readImage(jpeg, 'image/jpeg', { diag: d1, prepareForVision: prepare, visionExtract: async () => { throw boom; } }), null);
+  assert.equal(d1.reason, 'api_error');
+  assert.match(d1.detail, /401 authentication_error/);
+
+  const d2 = {};
+  assert.equal(await readImage(jpeg, 'image/jpeg', { diag: d2, prepareForVision: prepare, visionExtract: async () => ({ kind: 'other', items: [] }) }), null);
+  assert.equal(d2.reason, 'other');
+
+  const d3 = {};
+  const ok = await readImage(jpeg, 'image/jpeg', { diag: d3, prepareForVision: prepare, visionExtract: async () => ({ kind: 'job', jobName: 'x', items: [{ item_name: 'บอร์ด 1', size: '120x70 ซม.', quantity: 1, unit_price: 0 }] }) });
+  assert.equal(ok?.kind, 'job');
+});
