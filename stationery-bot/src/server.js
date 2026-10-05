@@ -8,7 +8,7 @@ import { contactCard } from './flex.js';
 import { isThanksSticker, isThanks } from './matcher.js';
 import { applyHoliday, createNoticeTracker } from './holiday.js';
 import { createContactState, findContact, notificationCard, contactPhotos, people } from './contact.js';
-import { readSlip, slipReply } from './slip.js';
+import { readSlip, slipReply, readerOn } from './slip.js';
 import { waitFor } from './delay.js';
 import { isPaused, createQuiet, parseAdminIds, parseAdminCommand, isWhoAmI } from './quiet.js';
 import { isWakeWord } from './wake.js';
@@ -209,7 +209,7 @@ async function handleEvent(ev) {
   }
   // A payment slip is read and thanked; anything else the bot cannot read is passed to the
   // admins (and the customer gets nothing from the bot).
-  if (ev.message.type === 'image' && !process.env.ANTHROPIC_API_KEY) {
+  if (ev.message.type === 'image' && !readerOn()) {
     // Free mode (no AI key): any picture is thanked, and the admins are told to look at it.
     if (hasContacts) escalate(userId, '(ส่งรูป/ไฟล์)', shop, cfg);
     return deliver(ev, userId, holiday(shop, [slipReply(shop, { sure: false })]));

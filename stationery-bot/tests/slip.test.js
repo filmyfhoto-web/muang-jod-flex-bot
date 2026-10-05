@@ -30,3 +30,17 @@ test('free mode wording: thanks for the picture, without calling it a slip', () 
   const t = JSON.stringify(slipReply(shop, { sure: false }));
   assert.ok(t.includes('ได้รับรูปแล้ว') && !t.includes('สลิป'));
 });
+
+test('the free Gemini reader is used when its key is set', async () => {
+  const { readerOn } = await import('../src/slip.js');
+  assert.equal(readerOn({}), false);
+  assert.equal(readerOn({ GEMINI_API_KEY: 'k' }), true);
+  let url = '';
+  const fetchImpl = async (u, o) => {
+    url = u;
+    assert.equal(o.headers['x-goog-api-key'], 'k');
+    return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: '{"kind":"slip"}' }] } }] }) };
+  };
+  assert.deepEqual(await readSlip(png, 'image/png', { env: { GEMINI_API_KEY: 'k' }, fetchImpl }), {});
+  assert.ok(url.includes('generativelanguage.googleapis.com'));
+});

@@ -40,6 +40,27 @@ export function slipReply(shop, { sure = true } = {}) {
   return noteCard(shop, 'staff', 'ขอบคุณค่ะ', text) ?? { type: 'text', text };
 }
 
+// Free option: Google's Gemini API has a free tier (a key from aistudio.google.com).
+async function askGemini(buffer, mimeType, { fetchImpl = fetch, env = process.env } = {}) {
+  const model = env.GEMINI_MODEL || 'gemini-2.0-flash';
+  const res = await fetchImpl(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+    method: 'POST',
+    headers: { 'x-goog-api-key': env.GEMINI_API_KEY, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: PROMPT }] },
+      contents: [{ parts: [{ inline_data: { mime_type: mimeType, data: buffer.toString('base64') } }, { text: 'ดูรูปนี้แล้วตอบเป็น JSON' }] }],
+      generationConfig: { maxOutputTokens: 50, temperature: 0 },
+    }),
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!res.ok) throw new Error(`vision ${res.status}`);
+  const body = await res.json();
+  return extractJson((body.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? '').join(''));
+}
+
+// Is any picture reader set up? (Gemini first — it can be free.)
+export const readerOn = (env = process.env) => Boolean(env.GEMINI_API_KEY || env.ANTHROPIC_API_KEY);
+
 async function askClaude(buffer, mimeType, { fetchImpl = fetch, env = process.env } = {}) {
   const key = env.ANTHROPIC_API_KEY;
   if (!key) return null;
@@ -71,7 +92,7 @@ async function askClaude(buffer, mimeType, { fetchImpl = fetch, env = process.en
 export async function readSlip(buffer, mimeType, deps = {}) {
   if (!buffer || !READABLE.includes(mimeType) || buffer.length > MAX_BYTES) return null;
   try {
-    return parseSlip(await (deps.extract ?? askClaude)(buffer, mimeType, deps));
+    return parseSlip(await (deps.extract ?? ((deps.env ?? process.env).GEMINI_API_KEY ? askGemini : askClaude))(buffer, mimeType, deps));
   } catch (e) {
     console.error('[slip]', e.message);
     return null;
