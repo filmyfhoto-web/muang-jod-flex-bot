@@ -29,6 +29,8 @@ import { reportMenu, report, exportCsv } from '../actions/report.js';
 import { help } from '../actions/help.js';
 import { nudgeOff, nudgeOn, nudgeTest } from '../actions/nudge.js';
 import { quickJob } from '../actions/quickJob.js';
+import { aiCost } from '../actions/aiCost.js';
+import { webLinks } from '../actions/webLinks.js';
 import {
   checkinHasWork,
   checkinToday,
@@ -173,6 +175,10 @@ export async function handlePostback(event, profile) {
       return exportCsv(ctx);
     case 'help':
       return help(ctx);
+    case 'ai_cost':
+      return aiCost(ctx);
+    case 'web_links':
+      return webLinks(ctx);
     default:
       console.warn(`[postback] unknown action: ${action}`);
       return reply(replyToken, {

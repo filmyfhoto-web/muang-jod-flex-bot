@@ -4,6 +4,7 @@ import { getLatestJob, getJobById, createJob } from '../services/jobService.js';
 import { saveAttachment } from '../services/attachmentService.js';
 import { addShopQr, listShopQrs } from '../services/shopService.js';
 import { readImage, visionEnabled } from '../services/visionService.js';
+import { recordAiUsage } from '../services/aiUsageService.js';
 import { slipReceiptFlex } from '../flex/slipFlex.js';
 import { jobPreviewMessage } from '../flex/jobCard.js';
 import { makeDraft, draftToBubble } from '../utils/jobDraft.js';
@@ -148,7 +149,10 @@ export async function handleImageMessage(event, profile) {
   // becomes a draft to check first.
   const diag = {};
   if (!attaching) {
-    const read = await readImage(buffer, fileType, { diag });
+    const read = await readImage(buffer, fileType, {
+      diag,
+      onUsage: (u) => recordAiUsage(profile.id, { kind: 'vision', ...u }),
+    });
 
     // A work order is a proposal, not a fact — the paper says what to make,
     // not that it was agreed or paid for. So it goes through the same preview
