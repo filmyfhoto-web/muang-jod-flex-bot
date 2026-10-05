@@ -1,6 +1,7 @@
 import { round2, numText } from './currency.js';
 import { derivePaymentFields } from './payment.js';
 import { todayISO } from './dates.js';
+import { matchSize, matchSqmRate, inferUnit, areaSqmExact, SQM_UNIT } from './area.js';
 
 // A draft is a job that has been read but not saved: the shape stashed in
 // user_states.context and shown as a preview card. Typed jobs and jobs read
@@ -92,6 +93,100 @@ export function parseBarePrice(text) {
   if (!/^฿?\s*[\d,]+(\.\d+)?\s*(บาท|฿)?$/.test(String(text ?? '').trim())) return null;
   const amount = round2(Number(String(text).replace(/[^0-9.]/g, '')));
   return amount > 0 ? amount : null;
+}
+
+/* "ตรมละ 350" ทั้งข้อความ — คำตอบของคำถามว่าคิดตารางเมตรละเท่าไหร่
+ *
+ * ใบสั่งงานที่ถ่ายมามักมีหลายบอร์ดหลายขนาดแต่ไม่มีราคา ร้านอยากตอบด้วยเรต
+ * เดียวแล้วให้ม่วง "ไล่บอร์ด 1-2-3-4 มาเลย ขนาดเท่านี้ ตรมละเท่านี้ กี่บาท"
+ *
+ * ต้องเป็นเรตล้วน ๆ เท่านั้น ถ้ามีขนาดติดมาด้วย ("ไวนิล 160x300 ตรมละ 165")
+ * นั่นคือบรรทัดงานใหม่ ไม่ใช่คำตอบของใบที่ค้างอยู่
+ */
+export function parseBareSqmRate(text) {
+  const raw = String(text ?? '').trim();
+  if (!raw || matchSize(raw)) return null;
+
+  const hit = matchSqmRate(raw);
+  if (!hit || hit.pieces) return null;
+
+  // นอกจากเรตแล้ว เหลือได้แค่คำประกอบ ("บาทค่ะ") — มีคำอื่นแปลว่าเป็นประโยคงาน
+  const leftover = raw
+    .replace(hit.match, '')
+    .replace(/บาท|ราคา|คิด|ค่ะ|คะ|ครับ|นะ|จ้า|เลย|ละกัน|แล้วกัน|[฿\s.,]/g, '');
+  if (leftover !== '') return null;
+
+  const rate = round2(hit.rate);
+  return rate > 0 ? rate : null;
+}
+
+// พื้นที่ของรายการหนึ่งบรรทัด อ่านจากช่องขนาดก่อน ไม่มีค่อยลองชื่อของ
+function itemArea(item) {
+  const size = matchSize(String(item?.size || '')) || matchSize(String(item?.item_name || ''));
+  if (!size) return null;
+  const unit = size.unit || inferUnit(size.width, size.height);
+  return areaSqmExact({ ...size, unit });
+}
+
+// ตัวเลขพื้นที่แบบที่ตรวจทานมือได้: สองตำแหน่งเมื่อคูณแล้วตรงเงิน ไม่งั้นสี่
+function sqmShown(exact, rate) {
+  const short = round2(exact);
+  return numText(round2(short * rate) === round2(exact * rate) ? short : Number(exact.toFixed(4)));
+}
+
+/* ใส่ราคาตามตารางเมตรให้ทั้งใบ — ไล่ทีละบอร์ด
+ *
+ * คิดให้เฉพาะเมื่อ "ทุก" รายการมีขนาด รายการเดียวที่ไม่มีขนาดก็พอให้ยอดรวม
+ * ทั้งใบผิดได้ และบอร์ดที่ขาดคือบอร์ดที่ร้านจะไม่มีวันรู้ว่าไม่ได้ถูกคิดเงิน
+ *
+ * คืน { draft, lines } — lines คือวิธีคิดทีละบรรทัดไว้พิมพ์ตอบในแชต
+ * ("บอร์ด 1: 0.84 ตร.ม. × 350 = 294")
+ */
+export function priceDraftBySqm(draft, rate) {
+  const r = round2(Number(rate) || 0);
+  if (!(r > 0) || !draft || draft.total > 0 || !draft.items.length) return null;
+
+  const lines = [];
+  const items = [];
+  for (const item of draft.items) {
+    const exact = itemArea(item);
+    if (!exact || !(exact > 0)) return null;
+
+    const quantity = Number(item.quantity) || 1;
+    const perPiece = round2(exact * r);
+    const line =
+      `${item.item_name || 'งาน'}: ${sqmShown(exact, r)} ${SQM_UNIT} × ${numText(r)} = ${numText(perPiece)}` +
+      (quantity > 1 ? ` × ${numText(quantity)} ชิ้น = ${numText(round2(perPiece * quantity))}` : '');
+    // `working` ถูก makeDraft ยกไปใส่โน้ตของงาน — เปิดดูทีหลังก็ยังเห็นวิธีคิด
+    items.push({ ...item, unit_price: perPiece, total: round2(perPiece * quantity), working: line });
+    lines.push(line);
+  }
+
+  const subtotal = round2(items.reduce((s, it) => s + it.total, 0));
+  return {
+    draft: makeDraft({ ...draft, items, subtotal, total: subtotal }),
+    lines,
+    rate: r,
+  };
+}
+
+/* คำตอบของ "งานนี้ของลูกค้าท่านไหนคะ" — ชื่อคน ไม่ใช่คำคุย ไม่ใช่งาน
+ *
+ * รับเฉพาะข้อความสั้นที่ไม่มีตัวเลข (ชื่อที่มีเลขจะถูกทางอื่นอ่านเป็นงานไปก่อน
+ * แล้ว) และไม่ใช่คำรับคำทั่วไป — "โอเค" ไม่ใช่ชื่อลูกค้า ต่อให้พิมพ์ตอนถูกถาม
+ */
+const NOT_A_NAME =
+  /^(?:โอเค|โอเช|ok(?:ay)?|ได้(?:เลย|ค่ะ|ครับ|จ้า)?|ครับ(?:ผม)?|ค่ะ|คะ|จ้า|จ้ะ|อืม+|เยี่ยม|ดีมาก|ขอบคุณ(?:ค่ะ|ครับ|นะ)?|ใช่|ถูกต้อง|ตามนั้น)[\s.!]*$/i;
+
+export function parseCustomerName(text) {
+  const raw = String(text ?? '').trim();
+  if (!raw || /[\d๐-๙]/.test(raw)) return null;
+  if (NOT_A_NAME.test(raw)) return null;
+
+  // "ของโรงเรียนบ้านดอน" / "ลูกค้าชื่อ ครูแนน" → เอาเฉพาะชื่อ
+  const name = raw.replace(/^(?:ของ|ลูกค้า(?:ชื่อ)?|ชื่อ(?:ลูกค้า)?|คือ)\s*/u, '').trim();
+  if (name.length < 2 || name.length > 40) return null;
+  return name;
 }
 
 // Put a price on a draft that has none — the case a photographed job sheet

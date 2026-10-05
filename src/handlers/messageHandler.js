@@ -15,7 +15,7 @@ import { resolveMenuCommand, splitLeadingAddJob, suggestMenuCommand, labelForAct
 import { parseChatIntent } from '../utils/chatIntent.js';
 import { parseNaturalJob } from '../utils/nlParser.js';
 import { deriveJobName, classifyJob } from '../utils/category.js';
-import { makeDraft, draftToBubble, priceDraft, parseBarePrice } from '../utils/jobDraft.js';
+import { makeDraft, draftToBubble, priceDraft, parseBarePrice, parseBareSqmRate, priceDraftBySqm, parseCustomerName } from '../utils/jobDraft.js';
 import { extractDate, extractDueDate } from '../utils/thaiDate.js';
 import { startCollecting } from '../utils/slots.js';
 import { startCollectFlow, handleCollectTurn } from '../services/collectFlow.js';
@@ -214,6 +214,21 @@ export async function handleTextMessage(event, profile) {
     }
     // มีร่างอยู่บนจอ กับกำลังรอให้พิมพ์งาน เป็นคนละเรื่อง บอกให้ตรงกับที่เห็น
     const hasDraft = current === STATES.CONFIRMING_JOB && Boolean(state?.context?.draft);
+
+    /* ร่างที่ยังไม่มีชื่อลูกค้า — ม่วงเพิ่งถามว่า "ของใคร" ข้อความสั้น ๆ
+     * ที่ไม่มีตัวเลขตรงนี้คือคำตอบ ไม่ใช่การคุยเล่น ใส่ชื่อแล้วขึ้นการ์ดใหม่
+     */
+    if (hasDraft && !state.context.draft.customerName) {
+      const name = parseCustomerName(text);
+      if (name) {
+        const draft = { ...state.context.draft, customerName: name };
+        await setState(profile.id, STATES.CONFIRMING_JOB, { ...state.context, draft });
+        return reply(replyToken, [
+          { type: 'text', text: `ลงชื่อลูกค้า "${name}" ให้แล้วค่ะ 💜 ครบแล้วกด "✅ บันทึกงาน" ได้เลยนะคะ` },
+          jobPreviewMessage(draftToBubble(draft)),
+        ]);
+      }
+    }
     return reply(replyToken, { type: 'text', text: hasDraft ? DRAFT_WAITING_REPLY : WAITING_JOB_REPLY });
   }
 
@@ -362,9 +377,34 @@ async function handleChatIntent(replyToken, profile, intent) {
 //
 // Returns null when the message is anything else, so the normal re-parse runs.
 async function handleDraftPrice(replyToken, profile, state, text) {
-  const amount = parseBarePrice(text);
   const draft = state?.context?.draft;
-  const priced = amount && draft ? priceDraft(draft, amount) : null;
+  if (!draft) return null;
+
+  /* "ตรมละ 350" — ใบที่มีหลายบอร์ดหลายขนาด ตอบเรตเดียวแล้วม่วงไล่คิดให้
+   * ทีละบอร์ดตามขนาดของมัน ร้านขอไว้ตรง ๆ: "ไล่บอร์ด 1-2-3-4 มาเลย
+   * ขนาดเท่านี้ ตรมละเท่านี้ กี่บาท"
+   *
+   * ต้องมาก่อนทางราคาเหมา เพราะ "ตรมละ 350" ก็มีตัวเลขเหมือนกัน
+   */
+  const rate = parseBareSqmRate(text);
+  const bySqm = rate ? priceDraftBySqm(draft, rate) : null;
+  if (bySqm) {
+    await setState(profile.id, STATES.CONFIRMING_JOB, { ...state.context, draft: bySqm.draft });
+    return reply(replyToken, [
+      {
+        type: 'text',
+        text:
+          `คิดตารางเมตรละ ${numText(bySqm.rate)} ให้แล้วค่ะ 💜\n` +
+          bySqm.lines.join('\n') +
+          `\nรวมทั้งใบ ${numText(bySqm.draft.total)} บาท\n` +
+          'ถูกต้องกด "✅ บันทึกงาน" ได้เลยนะคะ',
+      },
+      jobPreviewMessage(draftToBubble(bySqm.draft)),
+    ]);
+  }
+
+  const amount = parseBarePrice(text);
+  const priced = amount ? priceDraft(draft, amount) : null;
   if (!priced) return null;
 
   await setState(profile.id, STATES.CONFIRMING_JOB, { ...state.context, draft: priced });
@@ -480,21 +520,33 @@ async function handleNewJob(replyToken, profile, text, knownCustomer = null, par
 
   // งานที่ยังไม่มีราคา บอกทางไปต่อด้วย ไม่งั้นการ์ด ฿0 ขึ้นมาเฉย ๆ แล้วร้าน
   // ไม่รู้ว่าพิมพ์ราคาต่อได้เลย
+  //
+  // หลายรายการราคาเหมาใส่ไม่ได้ (ไม่รู้ว่าก้อนเดียวเป็นของบรรทัดไหน) แต่บอก
+  // เรตตารางเมตรได้ — ม่วงจะไล่คิดทีละบอร์ดตามขนาดให้เอง
   const noPrice = !(draft.total > 0);
+  const priceHint =
+    draft.items.length > 1
+      ? 'บอกเรตมาได้เลยค่ะ เช่น "ตรมละ 350" เดี๋ยวม่วงไล่คิดทีละแผ่นตามขนาดให้'
+      : 'พิมพ์ราคามาได้เลยค่ะ เช่น 350 หรือ "ตรมละ 350" ก็ได้';
+
+  // ไม่รู้ว่าของใคร ถามเลยตอนที่การ์ดยังอยู่บนจอ — ใบที่ไม่มีชื่อลูกค้าคือใบ
+  // ที่ค้นย้อนหลังไม่เจอ
+  const askWho = !draft.customerName ? '\nงานนี้ของลูกค้าท่านไหนคะ? พิมพ์ชื่อมาได้เลยค่ะ' : '';
 
   return reply(replyToken, [
     // บอกตั้งแต่ตอนตรวจว่าจะเข้าบัญชีร้านไหน — เห็นผิดตรงนี้ยังกดยกเลิกทัน
     ...(branch ? [{ type: 'text', text: `งานนี้จะลงบัญชีร้าน "${branch.name}" นะคะ 🏪` }] : []),
     {
       type: 'text',
-      text: noPrice
-        ? 'จดไว้ให้แล้วค่ะ 📝 ยังไม่ได้ใส่ราคานะคะ\n' +
-          'พิมพ์ราคามาได้เลยค่ะ เช่น 350\n' +
-          'หรือกด "✅ บันทึกงาน" ไว้ก่อน แล้วค่อยมาใส่ราคาทีหลังก็ได้ 💜'
-        : hasSatang
-          ? `ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลยค่ะ 💜\n` +
-            `อยากปัดเศษเอง พิมพ์ "รวม ${numText(roundTo)}" มาได้เลยค่ะ`
-          : 'ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลยค่ะ 💜',
+      text:
+        (noPrice
+          ? 'จดไว้ให้แล้วค่ะ 📝 ยังไม่ได้ใส่ราคานะคะ\n' +
+            priceHint +
+            '\nหรือกด "✅ บันทึกงาน" ไว้ก่อน แล้วค่อยมาใส่ราคาทีหลังก็ได้ 💜'
+          : hasSatang
+            ? `ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลยค่ะ 💜\n` +
+              `อยากปัดเศษเอง พิมพ์ "รวม ${numText(roundTo)}" มาได้เลยค่ะ`
+            : 'ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลยค่ะ 💜') + askWho,
     },
     jobPreviewMessage(draftToBubble(draft)),
   ]);
