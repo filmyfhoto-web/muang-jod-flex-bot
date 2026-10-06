@@ -136,7 +136,7 @@ export function matchIntent(text, shop) {
   // A question the bot has no answer for ("ขอถาม…", "มีสินค้าแบบนี้ไหม"): known answers above win,
   // anything left over goes to the admins.
   const askWords = (shop.contact?.askWords ?? []).map(normalize).filter(Boolean);
-  if (askWords.some((w) => q.includes(w))) return { type: 'order' };
+  if (askWords.some((w) => q.includes(w))) return { type: 'ask' };
   if (GREETING.test(q)) return { type: 'greeting' };
   return { type: 'fallback' };
 }

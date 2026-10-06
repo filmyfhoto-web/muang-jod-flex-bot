@@ -193,9 +193,9 @@ async function handleEvent(ev) {
       if (r.needsPhotos) messages = [contactCard(shopNow, r.askText ?? shopNow.contact.ask, await adminPhotos(shopNow))];
       if (r.alertAdmins && hasContacts) escalate(userId, said, shopNow, cfg); // an order: the admins are told too
       if (r.silent && !r.quiet && hasContacts) {
-        escalate(userId, said, shopNow, cfg); // the admins are told
-        // Not understood: ask who they want to talk to (a reply is free; a push to the admins is not)
-        messages = shopNow.contact.askOnUnknown === false ? receipt(shopNow) : await withAsk(shopNow, []);
+        // Not understood: nobody is alerted (there are too many such questions a day). The
+        // customer gets nothing, or the "who?" card / a short note if the shop switched that on.
+        messages = shopNow.contact.askOnUnknown ? await withAsk(shopNow, []) : receipt(shopNow);
       }
       const out = holiday(shopNow, messages, { skip: isThanks(said, people(shopNow).map((p) => p.name)) });
       if (!out.length) return; // nothing to say
@@ -220,9 +220,12 @@ async function handleEvent(ev) {
   if (ev.message.type === 'image') {
     const file = await getMessageContent(ev.message.id, token);
     const slip = file && (await readSlip(file.buffer, file.mimeType));
-    if (slip) return deliver(ev, userId, holiday(shop, [slipReply(shop, slip)]));
+    if (slip) {
+      if (hasContacts) escalate(userId, '(ส่งสลิป)', shop, cfg); // a payment: the admins confirm the order
+      return deliver(ev, userId, holiday(shop, [slipReply(shop, slip)]));
+    }
   }
-  if (hasContacts) escalate(userId, '(ส่งรูป/ไฟล์)', shop, cfg);
+  if (hasContacts && ev.message.type === 'image') escalate(userId, '(ส่งรูป)', shop, cfg); // pictures may be an order
   const out = holiday(shop, receipt(shop)); // a short note, and the Saturday notice if it is Saturday
   if (out.length) await deliver(ev, userId, out);
 }

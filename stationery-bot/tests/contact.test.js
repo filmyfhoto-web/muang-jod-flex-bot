@@ -220,11 +220,12 @@ test('a customer asking for a job or an order is pointed to the admins with the 
 });
 
 test('questions the bot cannot answer get the admin card; known answers still win', () => {
-  for (const t of ['ขอถามหน่อยค่ะ', 'รบกวนสอบถามค่ะ', 'มีสินค้าแบบนี้ไหมคะ', 'สั่งทำได้ไหมคะ']) {
+  for (const t of ['ขอถามหน่อยค่ะ', 'รบกวนสอบถามค่ะ', 'มีสินค้าแบบนี้ไหมคะ']) {
     const r = buildReply(t, shop, {});
     assert.equal(r.needsPhotos, true, t);
-    assert.equal(r.alertAdmins, true, t);
+    assert.equal(r.alertAdmins, undefined, t); // the contact card only: no push to the admins
   }
+  assert.equal(buildReply('สั่งทำได้ไหมคะ', shop, {}).alertAdmins, true); // "สั่งทำ" is an order word
   const hours = buildReply('ขอถามเวลาเปิดร้านหน่อยค่ะ', shop, {});
   assert.equal(hours.needsPhotos, undefined); // the opening-hours answer wins
   assert.ok(hours.messages.length > 0);
@@ -241,8 +242,9 @@ test('the topic buttons ride on the last message of every reply, contact card in
   assert.equal(withSender([{ type: 'text', text: 'a', quickReply: own }], null, qr)[0].quickReply, own);
 });
 
-test('the short note shown when the bot cannot answer is configured', () => {
-  assert.ok(shop.contact.receivedNote.includes('แอดมิน'));
+test('unknown messages: nothing is sent and nobody is alerted', () => {
+  assert.equal(shop.contact.receivedNote, '');
+  assert.equal(shop.contact.askOnUnknown, false);
 });
 
 test('switched-off topics (payment, promotion, receipt, products) get nothing and alert nobody', () => {
@@ -255,9 +257,11 @@ test('switched-off topics (payment, promotion, receipt, products) get nothing an
   assert.equal(buildReply('xyz', shop, {}).quiet, undefined); // other unknowns still reach the admins
 });
 
-test('free setup: no push alerts; hello and unknown messages are answered by reply with the "who?" card', () => {
-  assert.equal(shop.contact.notify, false); // pushes count against the OA quota; admins use the OA app notifications
-  assert.equal(shop.contact.askOnUnknown, true);
+test('only orders alert the admins; hello still shows the "who?" card', () => {
+  assert.equal(shop.contact.notify, true);
   assert.equal(buildReply('สวัสดีค่ะ', shop, {}).thenContact, true);
-  assert.equal(buildReply('xyz', shop, {}).silent, true); // the server turns this into the contact card
+  assert.equal(buildReply('โฟมบอร์ด', shop, {}).alertAdmins, true); // an order → alert
+  const q = buildReply('xyz', shop, {});
+  assert.equal(q.silent, true);
+  assert.equal(q.alertAdmins, undefined); // not understood → no alert
 });
