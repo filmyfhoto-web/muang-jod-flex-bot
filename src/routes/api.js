@@ -29,7 +29,7 @@ import { receiptUrl } from '../flex/billFlex.js';
 import { withShopKey } from '../utils/receiptLink.js';
 import { createBill, getBillById } from '../services/billService.js';
 import { derivePaymentFields } from '../utils/payment.js';
-import { pickupPatch, jobState, stagePatch, jobStage, JOB_STAGES } from '../utils/jobState.js';
+import { pickupPatch, jobState, stagePatch, jobStage, JOB_STAGES, statusPatch, jobStatus } from '../utils/jobState.js';
 import { round2 } from '../utils/currency.js';
 import { buildBook, buildAccount } from '../utils/customerBook.js';
 import { buildLedger } from '../utils/ledger.js';
@@ -778,6 +778,47 @@ export function createApiRouter(deps = {}) {
    * ฐานข้อมูลอาจไม่ตรงกันถ้าเปิดสองเครื่อง — บอกปลายทางมา แล้วผลลัพธ์จะ
    * เหมือนกันไม่ว่ากดจากที่ไหน กี่ครั้ง
    */
+  /* สถานะแบบเลือกอิสระ: ทำเสร็จ · ลูกค้ารับ · เงิน (จ่ายสด/โอน/ยังไม่ได้รับ/ลงบัญชี)
+   *
+   * body: { done?: boolean, picked?: boolean, money?: 'cash'|'transfer'|'unpaid'|'account' }
+   * แต่ละข้อขยับเฉพาะเรื่องของมัน ไม่ลากข้ออื่นตาม (ต่างจาก /stage ที่เดินเป็นขั้น)
+   */
+  router.post('/jobs/:id/status', async (req, res, next) => {
+    try {
+      const current = await findJob(req.profile.id, req.params.id);
+      if (!current) return res.status(404).json({ error: 'not_found' });
+
+      const { done, picked, money } = req.body || {};
+      const patch = statusPatch(current, { done, picked, money });
+      if (!patch) {
+        return res.status(400).json({ error: 'invalid', message: 'ค่าที่ส่งมาไม่ถูกต้องค่ะ' });
+      }
+
+      try {
+        await saveJob(req.profile.id, req.params.id, patch);
+      } catch (err) {
+        if (missingColumn(err, ...STAGE_COLUMNS)) {
+          logger.warn('api.job_status_no_column', { jobId: req.params.id });
+          return res.status(503).json({
+            error: 'not_ready',
+            message: 'ยังเปิดใช้ปุ่มนี้ไม่ได้ค่ะ — ต้องรัน migration 015_job_stages.sql ใน Supabase ก่อน',
+          });
+        }
+        throw err;
+      }
+
+      const job = await findJob(req.profile.id, req.params.id);
+      logger.info('api.job_status', {
+        user: maskUserId(req.profile.line_user_id),
+        jobId: req.params.id,
+        money: jobStatus(job).money,
+      });
+      res.json({ job, status: jobStatus(job) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   router.post('/jobs/:id/stage', async (req, res, next) => {
     try {
       const current = await findJob(req.profile.id, req.params.id);

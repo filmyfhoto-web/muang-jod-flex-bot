@@ -378,9 +378,10 @@ function renderBook() {
   }
 
   for (const r of rows) {
-    const el = document.createElement(org ? 'button' : 'div');
+    // ทั้งสองแท็บกดเข้าไปได้: หน่วยงาน → บัญชีของเจ้านั้น · งานทั่วไป → งานในหมวดนั้น
+    const el = document.createElement('button');
     el.className = 'row';
-    if (org) el.type = 'button';
+    el.type = 'button';
 
     const chip = document.createElement('span');
     chip.className = 'chip';
@@ -413,11 +414,10 @@ function renderBook() {
     }
 
     el.append(chip, who, money);
-    if (org) {
-      el.insertAdjacentHTML('beforeend',
-        '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#A8B2C4" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>');
-      el.onclick = () => openAccount(r.key);
-    }
+    el.insertAdjacentHTML('beforeend',
+      '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#A8B2C4" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>');
+    // งานหน้าร้านไปหน้าหมวดงานของแดชบอร์ด ซึ่งมีปุ่มแก้ไข/ทำเสร็จ/รับเงินใต้งานทุกใบ
+    el.onclick = org ? () => openAccount(r.key) : () => (location.href = '/app/?tab=category&category=' + encodeURIComponent(r.id));
     list.append(el);
   }
 }

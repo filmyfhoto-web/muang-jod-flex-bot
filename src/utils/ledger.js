@@ -56,7 +56,12 @@ export function buildLedger(jobs = [], dateISO, tz = '+07:00') {
   for (const job of jobs) {
     if (!job || job.status === 'cancelled') continue;
 
-    if (bookedDate(job, tz) === dateISO) {
+    const owedNow = jobOwed(job);
+
+    /* ลงบัญชีแล้วแต่ยังไม่ได้รับเงิน (ขายเชื่อ) ไม่ใช่รายรับ — เงินยังไม่เข้า
+     * ไม่ว่าจะเป็นลิ้นชักหรือธนาคาร จึงไปอยู่ในยอดยกไปแทน
+     */
+    if (bookedDate(job, tz) === dateISO && owedNow <= 0) {
       const amount = round2(Number(job.total) || 0);
       const method = payMethod(job);
       const bucket = byMethod.get(method);
@@ -77,9 +82,8 @@ export function buildLedger(jobs = [], dateISO, tz = '+07:00') {
     }
 
     // ยังไม่ได้ลงบัญชีและยังค้างเงินอยู่ = ยอดยกไป ไม่ใช่รายรับของวันนี้
-    const owed = jobOwed(job);
-    if (!job.booked_at && owed > 0) {
-      carryOwed = round2(carryOwed + owed);
+    if (owedNow > 0) {
+      carryOwed = round2(carryOwed + owedNow);
       carryCount += 1;
     }
   }

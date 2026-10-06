@@ -142,3 +142,86 @@ export function pickupPatch(job = {}, state, now = new Date()) {
 
   return null;
 }
+
+/* สถานะแบบเลือกอิสระ — แทนปุ่มสี่ขั้นที่ติ๊กต่อกัน
+ *
+ * ร้านบอกว่า "เอาเลือกแบบนี้ดีกว่า": ทำเสร็จ · ลูกค้ารับแล้ว · เงิน (ได้รับ → จ่ายสด/โอน ·
+ * ยังไม่ได้รับ → ลงบัญชี) สามเรื่องนี้เป็นคนละเรื่องกัน กดข้อไหนก็ไม่ไปขยับข้ออื่น
+ *
+ *   done   ทำเสร็จแล้ว          (done_at)
+ *   picked ลูกค้ารับของแล้ว      (picked_up_at) — รับแล้วแปลว่าเสร็จแล้วด้วย
+ *   money  cash | transfer     ได้รับเงินครบ + ลงในใบลงบัญชีวันนี้ตามช่องทาง
+ *          paid                ได้รับเงินครบแต่ไม่รู้ช่องทาง (งานเก่า)
+ *          account             ยังไม่ได้รับเงิน แต่ลงบัญชีไว้แล้ว (ค้างจ่าย)
+ *          partial | unpaid    ได้บางส่วน / ยังไม่ได้เลย และยังไม่ได้ลงบัญชี
+ */
+export const MONEY_CHOICES = ['cash', 'transfer', 'unpaid', 'account'];
+
+export function jobStatus(job = {}) {
+  const total = round2(Number(job.total) || 0);
+  const paid = total > 0 && round2(Number(job.balance_due) || 0) <= 0.009;
+  let money;
+  if (paid) money = job.pay_method === 'cash' || job.pay_method === 'transfer' ? job.pay_method : 'paid';
+  else if (job.booked_at) money = 'account';
+  else money = round2(Number(job.paid_amount) || 0) > 0 ? 'partial' : 'unpaid';
+  return {
+    done: Boolean(job.done_at || job.picked_up_at),
+    picked: Boolean(job.picked_up_at),
+    money,
+  };
+}
+
+/* change = { done?: boolean, picked?: boolean, money?: 'cash'|'transfer'|'unpaid'|'account' }
+ * คืน patch ที่เขียนลงงานได้ หรือ null ถ้าคำขอไม่มีอะไรให้ทำ/ค่าไม่ถูก
+ */
+export function statusPatch(job = {}, change = {}, now = new Date()) {
+  const stamp = now.toISOString();
+  const patch = {};
+  let touched = false;
+
+  if (change.done !== undefined) {
+    if (typeof change.done !== 'boolean') return null;
+    touched = true;
+    patch.done_at = change.done ? job.done_at || stamp : null;
+    // ยังไม่เสร็จ = ยังไม่มีทางถูกรับไปแล้ว
+    if (!change.done) patch.picked_up_at = null;
+  }
+
+  if (change.picked !== undefined) {
+    if (typeof change.picked !== 'boolean') return null;
+    touched = true;
+    patch.picked_up_at = change.picked ? job.picked_up_at || stamp : null;
+    // รับของไปแล้วแปลว่างานเสร็จแน่ ถึงไม่เคยกดทำเสร็จ
+    if (change.picked) patch.done_at = patch.done_at ?? job.done_at ?? stamp;
+  }
+
+  if (change.money !== undefined) {
+    if (!MONEY_CHOICES.includes(change.money)) return null;
+    touched = true;
+    const total = round2(Number(job.total) || 0);
+    const paid = round2(Number(job.paid_amount) || 0);
+
+    if (change.money === 'cash' || change.money === 'transfer') {
+      Object.assign(patch, {
+        paid_amount: total,
+        balance_due: 0,
+        payment_status: 'paid',
+        pay_method: change.money,
+        booked_at: job.booked_at || stamp,
+      });
+    } else {
+      // ยังไม่ได้รับเงิน: มัดจำที่รับไว้แล้วไม่หาย ส่วนที่เคยบอกว่า "ได้ครบ" กลับเป็นศูนย์
+      const fullyPaid = total > 0 && round2(total - paid) <= 0.009;
+      const keep = fullyPaid ? 0 : paid;
+      Object.assign(patch, {
+        paid_amount: keep,
+        balance_due: round2(total - keep),
+        payment_status: keep > 0 ? 'partial' : 'pending',
+        pay_method: null,
+        booked_at: change.money === 'account' ? job.booked_at || stamp : null,
+      });
+    }
+  }
+
+  return touched ? patch : null;
+}

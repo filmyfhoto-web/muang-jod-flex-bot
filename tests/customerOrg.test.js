@@ -125,3 +125,10 @@ test('หน้าสมุดมีฟอร์มผูกหน่วยง�
   }
   assert.ok(page.includes("'/book/org'"));
 });
+
+test('หมวดในแท็บงานทั่วไปกดเข้าไปดูงานข้างในได้', () => {
+  const page = readFileSync(new URL('../public/liff/book/index.html', import.meta.url), 'utf8');
+  assert.ok(page.includes("'/app/?tab=category&category=' + encodeURIComponent(r.id)"));
+  // ทั้งแถวหน่วยงานและแถวหมวดเป็นปุ่มเหมือนกัน
+  assert.ok(page.includes("const el = document.createElement('button');"));
+});

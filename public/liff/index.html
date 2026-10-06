@@ -196,27 +196,24 @@
   .q-cat .owe { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: var(--red-bg); color: var(--red); flex: none; }
   .q-body[hidden] { display: none; }
 
-  /* ปุ่มสามปุ่มใต้งานในคิว: ✅ รับแล้ว · 📛 ค้างจ่าย · ❎ ยังไม่มารับ
-     เตี้ยและชิดกัน เพราะมันคือของต่อท้ายแถว ไม่ใช่ของหลักในหน้า */
-  /* สี่ขั้นของงานใบหนึ่ง: ทำเสร็จ -> ลูกค้ารับ -> ได้เงิน -> ลงบัญชี
-     ช่องที่ลงแล้วเป็นเขียว ช่องที่รออยู่เป็นขอบประ ที่เหลือจาง */
-  .stages { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: -2px 0 10px 46px; }
-  .stages.saving { opacity: .55; pointer-events: none; }
-  .stages .sg { border: 0; background: none; padding: 0; text-align: center; }
-  .stages .sg .box {
-    width: 100%; height: 34px; border-radius: 10px; display: flex;
-    align-items: center; justify-content: center; font-size: 11px;
+  /* แผงสถานะใต้งาน — เลือกอิสระ ไม่ใช่ขั้นที่ติ๊กต่อกัน
+     แถว 1: แก้ไข · ทำเสร็จ · ลูกค้ารับแล้ว
+     แถว 2: ได้รับเงิน · ยังไม่ได้รับเงิน
+     แถว 3: (ได้รับเงิน) จ่ายสด · โอน   (ยังไม่ได้รับเงิน) ลงบัญชี */
+  .sp { display: flex; flex-direction: column; gap: 6px; margin: -2px 0 12px 46px; }
+  .sp.saving { opacity: .55; pointer-events: none; }
+  .sp-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .sp-row.sub { padding-left: 2px; }
+  .sp-b {
+    flex: 1 1 0; min-width: 0; min-height: 38px; padding: 6px 8px; border-radius: 10px;
+    font: inherit; font-size: 12.5px; line-height: 1.25; cursor: pointer;
     background: var(--white); border: 1.5px solid var(--line); color: var(--sub);
   }
-  .stages .sg.on .box { background: var(--green); border-color: var(--green); color: var(--white); font-weight: 700; }
-  .stages .sg.next .box { border-style: dashed; border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
-  .stages .sg .lab { font-size: 10px; color: var(--sub); margin-top: 3px; line-height: 1.3; }
-  .stages .sg.on .lab { color: var(--green); }
-  .stages .sg.next .lab { color: var(--accent-text); font-weight: 600; }
-  @media (max-width: 360px) {
-    .stages { margin-left: 0; gap: 4px; }
-    .stages .sg .box { font-size: 10.5px; }
-  }
+  .sp-b.edit { flex: 0 0 auto; color: var(--accent-text); border-color: var(--accent); }
+  .sp-b.on { background: var(--green); border-color: var(--green); color: var(--white); font-weight: 700; }
+  .sp-b.open { border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+  .sp-b.warn.on { background: var(--red); border-color: var(--red); }
+  @media (max-width: 360px) { .sp { margin-left: 0; } .sp-b { font-size: 12px; } }
   .q-day.today { background: var(--accent-soft, #dce7fb); color: var(--accent-text); }
   .job .late { color: var(--red); font-weight: 700; }
 
@@ -629,19 +626,15 @@ const BADGE = { paid: ['b-paid', 'รับเงินแล้ว'], partial: 
  * "ของออกจากร้านไปหรือยัง" กับ "ได้เงินหรือยัง" เป็นคนละเรื่อง งานที่ทำเสร็จ
  * วางรออยู่หน้าร้าน กับงานที่ลูกค้าหอบไปแล้วแต่ยังไม่จ่าย ต้องตามคนละแบบ
  */
-/* สี่ขั้นที่ร้านเขียนมาเอง — ต้องตรงกับ src/utils/jobState.js
- *
- * นับแบบ "เดินมาถึงไหน" ไม่ใช่ติ๊กอิสระสี่ช่อง งานจริงเดินทางเดียว และร้าน
- * อ่านคิวด้วยการกวาดตาหาว่าแถวไหนหยุดอยู่ตรงไหน
- */
-const JOB_STAGES = ['ทำเสร็จ', 'ลูกค้ารับ', 'ได้เงิน', 'ลงบัญชี'];
-function jobStageOf(job) {
-  const paid = (Number(job.total) || 0) > 0 && (Number(job.balance_due) || 0) <= 0.009;
-  // ลูกค้ารับของไปแล้ว แปลว่างานเสร็จแน่ ถึงจะไม่เคยกดปุ่มทำเสร็จ
-  const steps = [Boolean(job.done_at || job.picked_up_at), Boolean(job.picked_up_at), paid, Boolean(job.booked_at)];
-  let at = 0;
-  for (const ok of steps) { if (!ok) break; at += 1; }
-  return at;
+/* สถานะแบบเลือกอิสระ — ต้องตรงกับ jobStatus() ใน src/utils/jobState.js */
+function jobStatusOf(job) {
+  const total = Number(job.total) || 0;
+  const paid = total > 0 && (Number(job.balance_due) || 0) <= 0.009;
+  let money;
+  if (paid) money = job.pay_method === 'cash' || job.pay_method === 'transfer' ? job.pay_method : 'paid';
+  else if (job.booked_at) money = 'account';
+  else money = (Number(job.paid_amount) || 0) > 0 ? 'partial' : 'unpaid';
+  return { done: Boolean(job.done_at || job.picked_up_at), picked: Boolean(job.picked_up_at), money };
 }
 // สีวงโดนัท — ชุดเดิมเป็นพาสเทลสำหรับพื้นเข้ม พอมาอยู่บนขาวแล้วจาง
 // แยกสีกันไม่ออก ชุดนี้เข้มพอที่จะอ่านบนขาวและยังต่างกันชัด
@@ -883,7 +876,10 @@ function renderJobs(el, jobs, emptyMsg, opts) {
     el.innerHTML = '<div class="empty">' + emptyMsg + '</div>';
     return;
   }
-  jobs.forEach((j, i) => el.appendChild(jobRow(j, { ...opts, n: i + 1 })));
+  jobs.forEach((j, i) => {
+    el.appendChild(jobRow(j, { ...opts, n: i + 1 }));
+    if (opts && opts.panel) el.appendChild(statusPanel(j));
+  });
 }
 
 // --- views ----------------------------------------------------------------
@@ -1019,67 +1015,97 @@ function dayLabel(iso, today, done) {
 // คิวงานสองกอง: ค้างรับก่อน เพราะนั่นคืองานที่ยังต้องตามเก็บเงิน แล้วในแต่ละกอง
 // คั่นเป็นวัน ๆ ตามวันนัดรับ — ร้านขอ "แยกงานรับแล้วกับค้างงาน" และ "คิวงานตาม
 // ลำดับวัน" ซึ่งเป็นการแบ่งคนละชั้นกัน ไม่ใช่สองวิธีเรียงที่ต้องเลือกอย่างเดียว
-/* สี่ขั้นใต้งานในคิว — ร้านเขียนมาเอง
+/* แผงสถานะใต้งาน — ร้านบอกว่า "เอาเลือกแบบนี้ดีกว่า"
  *
- *   เสร็จแล้ว *รับแล้ว *จ่ายแล้ว *ลงบัญชี
+ *   แก้ไข · ทำเสร็จ · ลูกค้ารับแล้ว
+ *   ได้รับเงิน  → จ่ายสด · โอน
+ *   ยังไม่ได้รับเงิน → ลงบัญชี
  *
- * ของเดิมเป็นสามปุ่มที่เลือกอย่างใดอย่างหนึ่ง (รับแล้ว / ค้างจ่าย / ยังไม่มารับ)
- * ซึ่งตอบได้แค่สองขั้นกลาง ตอบไม่ได้ว่างานทำเสร็จหรือยัง และลงบัญชีไปหรือยัง
- *
- * โชว์ทั้งสี่ช่องตลอด ไม่ซ่อนไว้ใต้การกด เพราะสิ่งที่ร้านทำคือกวาดตาดูทั้งคิว
- * แล้วกดอัปเดตทีละงาน การต้องเปิดเมนูก่อนทุกครั้งคือหนึ่งจังหวะที่เสียไปยี่สิบรอบ
- *
- * กดแล้วบันทึกเลย ถ้าเซิร์ฟเวอร์ปฏิเสธค่อยถอยค่ากลับและบอกว่าทำไม
+ * แต่ละข้อเป็นคนละเรื่อง กดข้อไหนก็ไม่ลากข้ออื่นตาม และกดแล้วบันทึกเลย
+ * ถ้าเซิร์ฟเวอร์ปฏิเสธค่อยถอยค่ากลับและบอกว่าทำไม
  */
-function stageBar(job) {
-  const bar = document.createElement('div');
-  bar.className = 'stages';
-  const at = jobStageOf(job);
+const MONEY_SAID = {
+  cash: 'จ่ายสดแล้วค่ะ', transfer: 'รับเงินโอนแล้วค่ะ',
+  account: 'ลงบัญชีไว้แล้วค่ะ (ยังไม่ได้รับเงิน)', unpaid: 'ยังไม่ได้รับเงินค่ะ',
+};
 
-  JOB_STAGES.forEach((label, i) => {
-    const n = i + 1;
-    const done = n <= at;
-    const next = n === at + 1;
+function statusPanel(job) {
+  const box = document.createElement('div');
+  box.className = 'sp';
+  const st = jobStatusOf(job);
+  const received = ['cash', 'transfer', 'paid'].includes(st.money);
+  // เปิดแถวย่อยของฝั่งไหน — ตามสถานะจริง จนกว่าจะกดอีกฝั่งเพื่อเลือกต่อ
+  let side = received ? 'recv' : 'unrecv';
 
+  const mk = (cls, text, on, handler, label) => {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'sg' + (done ? ' on' : next ? ' next' : '');
-    b.setAttribute('aria-pressed', String(done));
-    b.setAttribute('aria-label', label + ' — ' + (job.job_name || 'งาน'));
-    b.innerHTML = '<span class="box">' + (done ? '✓' : next ? 'แตะลง' : '—') + '</span>' +
-                  '<span class="lab">' + label + '</span>';
+    b.className = 'sp-b ' + cls + (on ? ' on' : '');
+    b.textContent = text;
+    b.setAttribute('aria-pressed', String(Boolean(on)));
+    b.setAttribute('aria-label', (label || text) + ' — ' + (job.job_name || 'งาน'));
+    b.onclick = (e) => { e.stopPropagation(); handler(); };
+    return b;
+  };
+  const row = (cls, ...btns) => {
+    const r = document.createElement('div');
+    r.className = 'sp-row ' + cls;
+    btns.forEach((b) => r.appendChild(b));
+    return r;
+  };
 
-    b.onclick = async (e) => {
-      e.stopPropagation();
-      // แตะช่องที่งานอยู่ = ถอยกลับหนึ่งขั้น · แตะช่องอื่น = เดินไปถึงขั้นนั้น
-      const now = jobStageOf(job);
-      const want = now === n ? i : n;
-      const before = {
-        done_at: job.done_at, picked_up_at: job.picked_up_at, booked_at: job.booked_at,
-        balance_due: job.balance_due, paid_amount: job.paid_amount, payment_status: job.payment_status,
-      };
-      bar.classList.add('saving');
-      try {
-        const { job: saved } = await api('/jobs/' + job.id + '/stage', {
-          method: 'POST',
-          body: JSON.stringify({ stage: want }),
-        });
-        Object.assign(job, saved);
-        toast(want === 0 ? 'ถอยกลับไปยังไม่เริ่มแล้วค่ะ' : JOB_STAGES[want - 1] + ' แล้วค่ะ');
-        // ยอดบนหัวข้อกองและตัวเลขบนปุ่มกรองเปลี่ยนตามขั้นที่เพิ่งกด
-        await loadQueue();
-      } catch (err) {
-        Object.assign(job, before);
-        toast(err.message || 'บันทึกไม่สำเร็จ', true);
-        paintQueue();
-      } finally {
-        bar.classList.remove('saving');
-      }
+  async function save(change, said) {
+    const before = {
+      done_at: job.done_at, picked_up_at: job.picked_up_at, booked_at: job.booked_at, pay_method: job.pay_method,
+      balance_due: job.balance_due, paid_amount: job.paid_amount, payment_status: job.payment_status,
     };
-    bar.appendChild(b);
-  });
+    box.classList.add('saving');
+    try {
+      const { job: saved } = await api('/jobs/' + job.id + '/status', { method: 'POST', body: JSON.stringify(change) });
+      Object.assign(job, saved);
+      toast(said);
+      // ยอดบนหัวข้อกองและตัวเลขบนปุ่มกรองเปลี่ยนตามที่เพิ่งกด
+      if (tab === 'category') await loadCategory(); else await loadQueue();
+    } catch (err) {
+      Object.assign(job, before);
+      toast(err.message || 'บันทึกไม่สำเร็จ', true);
+      paint();
+    } finally {
+      box.classList.remove('saving');
+    }
+  }
 
-  return bar;
+  function paint() {
+    box.textContent = '';
+    const s = jobStatusOf(job);
+    const got = ['cash', 'transfer', 'paid'].includes(s.money);
+
+    box.appendChild(row('',
+      mk('edit', '✏️ แก้ไข', false, () => openEdit(job.id)),
+      mk('', '✓ ทำเสร็จ', s.done, () => save({ done: !s.done }, s.done ? 'ยังไม่เสร็จค่ะ' : 'ทำเสร็จแล้วค่ะ')),
+      mk('', '📦 ลูกค้ารับแล้ว', s.picked, () => save({ picked: !s.picked }, s.picked ? 'ยังไม่ได้รับของค่ะ' : 'ลูกค้ารับของแล้วค่ะ'))
+    ));
+
+    box.appendChild(row('',
+      mk('' + (side === 'recv' && !got ? ' open' : ''), '💰 ได้รับเงิน', got && side === 'recv', () => { side = 'recv'; paint(); }),
+      mk('warn' + (side === 'unrecv' && got ? ' open' : ''), '⏳ ยังไม่ได้รับเงิน', !got && side === 'unrecv', () => { side = 'unrecv'; paint(); })
+    ));
+
+    if (side === 'recv') {
+      box.appendChild(row('sub',
+        mk('', '💵 จ่ายสด', s.money === 'cash', () => save({ money: 'cash' }, MONEY_SAID.cash)),
+        mk('', '🏦 โอน', s.money === 'transfer', () => save({ money: 'transfer' }, MONEY_SAID.transfer))
+      ));
+    } else {
+      box.appendChild(row('sub',
+        mk('', '📒 ลงบัญชี', s.money === 'account', () => save({ money: 'account' }, MONEY_SAID.account)),
+        mk('', 'ยังไม่ลงบัญชี', s.money === 'unpaid' || s.money === 'partial', () => save({ money: 'unpaid' }, MONEY_SAID.unpaid))
+      ));
+    }
+  }
+
+  paint();
+  return box;
 }
 
 function renderQueue(el, owed, paid, filter = 'all') {
@@ -1122,7 +1148,7 @@ function renderQueue(el, owed, paid, filter = 'all') {
   // หนึ่งงาน = แถว + ปุ่มสถานะ ใช้ร่วมกันทั้งสองแบบการแบ่งกอง
   const appendJob = (parent, j, n, done, lateNote) => {
     parent.appendChild(jobRow(j, { queue: true, n, done, today, lateNote }));
-    parent.appendChild(stageBar(j));
+    parent.appendChild(statusPanel(j));
   };
 
   // แบ่งตามวันนัดรับ — ของเดิม
@@ -1446,7 +1472,7 @@ async function loadCategory() {
   $('c-sum').textContent = jobs.length
     ? jobs.length + ' งาน · ' + thb(total) + (due > 0 ? ' · ค้าง ' + thb(due) : '')
     : '';
-  renderJobs($('c-list'), jobs, 'ยังไม่มีงานในหมวดนี้ค่ะ', { showDate: true });
+  renderJobs($('c-list'), jobs, 'ยังไม่มีงานในหมวดนี้ค่ะ', { showDate: true, panel: true });
 }
 
 const LOADERS = { today: loadToday, report: loadReport, pending: loadPending, settings: loadSettings, category: loadCategory };
