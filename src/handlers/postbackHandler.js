@@ -31,7 +31,7 @@ import { nudgeOff, nudgeOn, nudgeTest } from '../actions/nudge.js';
 import { quickJob } from '../actions/quickJob.js';
 import { aiCost } from '../actions/aiCost.js';
 import { webLinks } from '../actions/webLinks.js';
-import { reviewJobs, jobMark } from '../actions/reviewJobs.js';
+import { reviewJobs, reviewAnswer } from '../actions/reviewJobs.js';
 import {
   checkinHasWork,
   checkinToday,
@@ -178,8 +178,8 @@ export async function handlePostback(event, profile) {
       return help(ctx);
     case 'review_jobs':
       return reviewJobs(ctx);
-    case 'job_mark':
-      return jobMark(ctx);
+    case 'rv':
+      return reviewAnswer(ctx);
     case 'ai_cost':
       return aiCost(ctx);
     case 'web_links':

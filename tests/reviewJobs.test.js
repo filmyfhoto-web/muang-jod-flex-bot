@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { reviewJobsFlex, statusLine } from '../src/flex/reviewJobsFlex.js';
+import { firstQuestion, applyAnswer, questionMessage } from '../src/actions/reviewJobs.js';
 import { updateJob, getUnbookedJobs } from '../src/services/jobService.js';
-import { stagePatch, pickupPatch, jobStage } from '../src/utils/jobState.js';
+import { jobStatus } from '../src/utils/jobState.js';
 import { resolveMenuCommand } from '../src/utils/menuCommands.js';
 import { missingColumn } from '../src/utils/dbErrors.js';
 
@@ -12,39 +12,75 @@ import { missingColumn } from '../src/utils/dbErrors.js';
 
 const OLD = { id: 'j1', job_name: 'ป้ายไวนิล', customer_name: 'รร.สบกอน', job_date: '2026-09-01', total: 1000, paid_amount: 0, balance_due: 1000, payment_status: 'pending' };
 
-test('สถานะบนการ์ด: ยังไม่จ่าย / จ่ายแล้ว / ลงบัญชีแล้ว', () => {
-  assert.match(statusLine(OLD).text, /ยังไม่จ่าย ฿1,000/);
-  const paid = { ...OLD, ...stagePatch(OLD, 3) };
-  assert.match(statusLine(paid).text, /จ่ายแล้ว/);
-  const booked = { ...OLD, ...stagePatch(OLD, 4) };
-  assert.match(statusLine(booked).text, /ลงบัญชีแล้ว/);
+const NOW = new Date('2026-10-06T03:00:00Z');
+const run = (job, answers) => {
+  // เดินคำถามตามคำตอบจนจบ เหมือนที่แชตทำทีละปุ่ม
+  let cur = { ...job };
+  let q = firstQuestion(cur);
+  const asked = [];
+  for (const a of answers) {
+    asked.push(q);
+    const step = applyAnswer(cur, q, a, NOW);
+    assert.ok(step, `คำตอบ ${a} ของข้อ ${q} ใช้ไม่ได้`);
+    if (step.patch) cur = { ...cur, ...step.patch };
+    q = step.next;
+    if (!q) break;
+  }
+  return { job: cur, asked, left: q };
+};
+
+test('คำถามแรกคือข้อที่ยังไม่รู้คำตอบ ไล่จากต้นทางของงาน', () => {
+  assert.equal(firstQuestion(OLD), 'done');
+  assert.equal(firstQuestion({ ...OLD, done_at: 'x' }), 'picked');
+  assert.equal(firstQuestion({ ...OLD, done_at: 'x', picked_up_at: 'y' }), 'money');
+  // จ่ายแล้วแต่ยังไม่ลงบัญชี = ถามช่องทาง เพื่อลงใบลงบัญชีให้ถูกกอง
+  assert.equal(firstQuestion({ ...OLD, done_at: 'x', picked_up_at: 'y', paid_amount: 1000, balance_due: 0 }), 'method');
 });
 
-test('การ์ดทบทวน: ใบละสามปุ่ม และปุ่มดูต่อเมื่อมีหน้าถัดไป', () => {
-  const flex = reviewJobsFlex({ jobs: [OLD], hasMore: true, offset: 8 });
-  const [card, more] = flex.contents.contents;
-  const buttons = card.footer.contents.map((b) => b.action.data);
-  assert.deepEqual(buttons.map((d) => new URLSearchParams(d).get('to')), ['paid', 'owed', 'booked']);
-  assert.ok(buttons.every((d) => d.includes('action=job_mark') && d.includes('jobId=j1') && d.includes('o=8')));
-  assert.equal(more.body.contents[1].action.data, 'action=review_jobs&offset=9');
-
-  const last = reviewJobsFlex({ jobs: [OLD], hasMore: false });
-  assert.equal(last.contents.contents.length, 1);
-  for (const b of card.footer.contents) assert.ok(b.action.data.length < 300);
+test('คุยจบแบบ: เสร็จ → รับแล้ว → ได้รับเงิน → จ่ายสด', () => {
+  const { job, asked, left } = run(OLD, ['y', 'y', 'y', 'cash']);
+  assert.deepEqual(asked, ['done', 'picked', 'money', 'method']);
+  assert.equal(left, null);
+  const s = jobStatus(job);
+  assert.deepEqual([s.done, s.picked, s.money], [true, true, 'cash']);
+  assert.ok(job.booked_at, 'จ่ายสดต้องลงใบลงบัญชีวันนี้');
 });
 
-test('ปุ่มแต่ละปุ่มเขียนช่องที่ถูก: จ่ายแล้ว=ได้เงิน, ยังไม่จ่าย=รับของแล้วค้าง, ลงบัญชี=ครบสี่ขั้น', () => {
-  const paid = { ...OLD, ...stagePatch(OLD, 3) };
-  assert.equal(jobStage(paid), 3);
-  assert.equal(paid.balance_due, 0);
+test('คุยจบแบบ: รับของแล้วแต่ยังไม่ได้รับเงิน → ลงบัญชีไว้ก่อน', () => {
+  const { job, asked } = run(OLD, ['y', 'y', 'n', 'y']);
+  assert.deepEqual(asked, ['done', 'picked', 'money', 'account']);
+  assert.equal(jobStatus(job).money, 'account');
+  assert.equal(job.balance_due, 1000, 'ลงบัญชีแต่ยังไม่ได้รับเงิน ยอดค้างต้องอยู่');
+  assert.ok(job.booked_at);
+});
 
-  const owed = { ...OLD, ...pickupPatch(OLD, 'owed') };
-  assert.ok(owed.picked_up_at);
-  assert.equal(owed.balance_due, 1000);
+test('ยังไม่เสร็จ ข้ามเรื่องรับของ ไปถามเรื่องเงินเลย (มัดจำได้)', () => {
+  const { asked, job } = run(OLD, ['n', 'n', 'n']);
+  assert.deepEqual(asked, ['done', 'money', 'account']);
+  assert.equal(jobStatus(job).money, 'unpaid');
+  assert.equal(job.booked_at, null);
+});
 
-  const booked = { ...OLD, ...stagePatch(OLD, 4) };
-  assert.equal(jobStage(booked), 4);
-  assert.ok(booked.booked_at);
+test('ตอบจ่ายสด/โอนเท่านั้นในข้อช่องทาง ค่าอื่นไม่รับ', () => {
+  assert.equal(applyAnswer(OLD, 'method', 'y'), null);
+  assert.equal(applyAnswer(OLD, 'nope', 'y'), null);
+  assert.equal(applyAnswer(OLD, 'method', 'transfer', NOW).patch.pay_method, 'transfer');
+});
+
+test('ข้อความคำถาม: บอกงาน ถามสั้น ๆ มีปุ่มตอบกับข้ามใบนี้ และ postback พกครบ', () => {
+  const m = questionMessage(OLD, 'done', 3);
+  assert.match(m.text, /ป้ายไวนิล · รร\.สบกอน · ฿1,000/);
+  assert.match(m.text, /ทำเสร็จแล้วใช่ไหมคะ/);
+  const items = m.quickReply.items;
+  assert.deepEqual(items.map((i) => i.action.label), ['✓ เสร็จแล้ว', 'ยังไม่เสร็จ', 'ข้ามใบนี้']);
+  const first = new URLSearchParams(items[0].action.data);
+  assert.deepEqual([first.get('action'), first.get('jobId'), first.get('q'), first.get('a'), first.get('o')], ['rv', 'j1', 'done', 'y', '3']);
+  // ตอบแล้วขึ้นในแชตเป็นคำพูดของร้าน ไม่ใช่ป้ายปุ่มที่มีอิโมจิ
+  assert.equal(items[0].action.displayText, 'เสร็จแล้ว');
+  assert.ok(items.every((i) => i.action.label.length <= 20 && i.action.data.length < 300));
+
+  const method = questionMessage(OLD, 'method', 0);
+  assert.deepEqual(method.quickReply.items.map((i) => i.action.label), ['💵 จ่ายสด', '🏦 โอน', 'ข้ามใบนี้']);
 });
 
 test('updateJob เขียน booked_at / done_at / pay_method จริง (เดิมถูกทิ้งเงียบ ๆ)', async () => {
