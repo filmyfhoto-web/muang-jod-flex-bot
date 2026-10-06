@@ -35,7 +35,15 @@ loadShop(); // fail fast on a broken file
 const app = express();
 app.use('/assets', express.static(fileURLToPath(new URL('../public', import.meta.url)), { maxAge: '1d' }));
 
-const send = (messages) => withSender(messages, baseUrl, quick(shop));
+const send = (messages) => {
+  let qr;
+  try {
+    qr = quick(loadShop()); // the topic buttons come from the current shop file
+  } catch (e) {
+    console.error('[send] no quick replies:', e.message);
+  }
+  return withSender(messages, baseUrl, qr);
+};
 app.get('/', (_req, res) => res.type('text/plain; charset=utf-8').send('บอทร้านนัฐภรณ์ เชียงกลาง ทำงานอยู่ ✅'));
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
@@ -114,7 +122,7 @@ function later(secs, fn) {
 const adminPhotos = (shop) => contactPhotos(shop, (id) => getProfileCached(id, token));
 
 // Pops up on the admins' LINE as a card from the OA. `to` = the people to tell.
-async function notifyAdmins(to, shop, { customerId, contact, said }) {
+async function notifyAdmins(to, shop, { customerId, contact, said, reason }) {
   if (shop.contact?.notify === false) return; // the shop relies on the OA app's own alerts
   const template = shop.contact?.chatLinkTemplate;
   const [customer, link] = await Promise.all([
@@ -122,7 +130,7 @@ async function notifyAdmins(to, shop, { customerId, contact, said }) {
     template?.includes('{bot}') ? getBotUserId(token).then((b) => chatLink(b, customerId, template)) : chatLink(null, customerId, template),
   ]);
   const contactProfile = contact?.userId ? await getProfileCached(contact.userId, token) : null;
-  const card = notificationCard(shop, { customer, contact: contact && { ...contact, picture: contactProfile?.picture }, said, link });
+  const card = notificationCard(shop, { customer, contact: contact && { ...contact, picture: contactProfile?.picture }, said, link, reason });
   for (const p of to) {
     if (!p.userId) continue; // no LINE id set yet for this person
     try {
@@ -191,7 +199,7 @@ async function handleEvent(ev) {
       let messages = r.messages;
       if (r.thenContact) messages = await withAsk(shopNow, messages); // first hello: also ask who they want to talk to
       if (r.needsPhotos) messages = [contactCard(shopNow, r.askText ?? shopNow.contact.ask, await adminPhotos(shopNow))];
-      if (r.alertAdmins && hasContacts) escalate(userId, said, shopNow, cfg); // an order: the admins are told too
+      if (r.alertAdmins && hasContacts) escalate(userId, said, shopNow, cfg, 'ลูกค้าสั่งงาน/สั่งของ'); // an order: the admins are told too
       if (r.silent && !r.quiet && hasContacts) {
         // Not understood: nobody is alerted (there are too many such questions a day). The
         // customer gets nothing, or the "who?" card / a short note if the shop switched that on.
@@ -214,18 +222,18 @@ async function handleEvent(ev) {
   // admins (and the customer gets nothing from the bot).
   if (ev.message.type === 'image' && !readerOn()) {
     // Free mode (no AI key): any picture is thanked, and the admins are told to look at it.
-    if (hasContacts) escalate(userId, '(ส่งรูป/ไฟล์)', shop, cfg);
+    if (hasContacts) escalate(userId, '(ส่งรูป)', shop, cfg, 'ลูกค้าส่งรูป');
     return deliver(ev, userId, holiday(shop, [slipReply(shop, { sure: false })]));
   }
   if (ev.message.type === 'image') {
     const file = await getMessageContent(ev.message.id, token);
     const slip = file && (await readSlip(file.buffer, file.mimeType));
     if (slip) {
-      if (hasContacts) escalate(userId, '(ส่งสลิป)', shop, cfg); // a payment: the admins confirm the order
+      if (hasContacts) escalate(userId, '(ส่งสลิป)', shop, cfg, 'ลูกค้าส่งสลิป'); // a payment: the admins confirm the order
       return deliver(ev, userId, holiday(shop, [slipReply(shop, slip)]));
     }
   }
-  if (hasContacts && ev.message.type === 'image') escalate(userId, '(ส่งรูป)', shop, cfg); // pictures may be an order
+  if (hasContacts && ev.message.type === 'image') escalate(userId, '(ส่งรูป)', shop, cfg, 'ลูกค้าส่งรูป'); // pictures may be an order
   const out = holiday(shop, receipt(shop)); // a short note, and the Saturday notice if it is Saturday
   if (out.length) await deliver(ev, userId, out);
 }
@@ -238,9 +246,9 @@ const withAsk = async (shopNow, messages) =>
 const receipt = (shopNow) => (shopNow.contact?.receivedNote ? [{ type: 'text', text: shopNow.contact.receivedNote }] : []);
 
 // The bot did not understand: tell all the admins, once per customer per window.
-function escalate(userId, said, shop, cfg) {
+function escalate(userId, said, shop, cfg, reason) {
   if (userId === 'anon' || !contacts.alertDue(userId, cfg.alertEveryMs)) return;
-  void notifyAdmins(people(shop), shop, { customerId: userId, contact: null, said });
+  void notifyAdmins(people(shop), shop, { customerId: userId, contact: null, said, reason });
 }
 
 const port = Number(process.env.PORT) || 3000;

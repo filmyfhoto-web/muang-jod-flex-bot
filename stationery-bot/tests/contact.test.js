@@ -265,3 +265,9 @@ test('only orders alert the admins; hello still shows the "who?" card', () => {
   assert.equal(q.silent, true);
   assert.equal(q.alertAdmins, undefined); // not understood → no alert
 });
+
+test('an order alert says what it is about, not that the bot could not answer', () => {
+  const card = notificationCard(shop, { customer: { name: 'ก' }, contact: null, said: 'โฟมบอร์ด', link: null, reason: 'ลูกค้าสั่งงาน/สั่งของ' });
+  const json = JSON.stringify(card);
+  assert.ok(json.includes('ลูกค้าสั่งงาน/สั่งของ') && !json.includes('บอทตอบเรื่องนี้ไม่ได้'));
+});

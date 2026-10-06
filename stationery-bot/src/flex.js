@@ -299,7 +299,7 @@ export function contactCard(shop, text, photos = {}) {
 const text_ = (t) => text(t, { size: 'sm' });
 
 // What pops up on the admin's LINE. `customer` / `contactPhoto` are optional photos.
-export function notifyCard(shop, { title, customerName, customerPhoto, contactName, contactPhoto, said, link, altText }) {
+export function notifyCard(shop, { reason, title, customerName, customerPhoto, contactName, contactPhoto, said, link, altText }) {
   const who = [
     ...(customerPhoto ? [avatar(customerPhoto, 48)] : []),
     {
@@ -325,7 +325,7 @@ export function notifyCard(shop, { title, customerName, customerPhoto, contactNa
           text(contactName, { weight: 'bold', size: 'md', flex: 1 }),
         ],
       }
-    : text('บอทตอบเรื่องนี้ไม่ได้ รบกวนดูแชทด้วยค่ะ', { size: 'sm', weight: 'bold', color: pal(shop).accent });
+    : text(`${reason || 'บอทตอบเรื่องนี้ไม่ได้'} รบกวนดูแชทด้วยค่ะ`, { size: 'sm', weight: 'bold', color: pal(shop).accent });
   return flex(
     altText,
     bubble(shop, {

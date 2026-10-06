@@ -20,8 +20,8 @@ export function findContact(text, shop) {
 }
 
 // The line that pops up on the admin's LINE.
-export function notificationText({ customer, contact, said, link }) {
-  const head = contact ? `🔔 มีลูกค้าทักมา — ต้องการติดต่อ ${contact.name}` : '🔔 มีลูกค้าทักมา — บอทตอบเรื่องนี้ไม่ได้ รบกวนดูแชทด้วยค่ะ';
+export function notificationText({ customer, contact, said, link, reason }) {
+  const head = contact ? `🔔 มีลูกค้าทักมา — ต้องการติดต่อ ${contact.name}` : `🔔 ${reason || 'มีลูกค้าทักมา — บอทตอบเรื่องนี้ไม่ได้'} รบกวนดูแชทด้วยค่ะ`;
   const lines = [head, `ลูกค้า: ${customer || 'ไม่ทราบชื่อ'}`];
   const preview = String(said ?? '').replace(/\s+/g, ' ').trim();
   if (preview) lines.push(`ข้อความ: ${preview.slice(0, 80)}`);
@@ -63,10 +63,11 @@ export function createContactState(now = () => Date.now()) {
 
 // The notification as a Flex card (its alt text — what shows in the phone's banner — is
 // the plain text version).
-export function notificationCard(shop, { customer, contact, said, link }) {
-  const altText = notificationText({ customer: customer?.name, contact, said, link });
+export function notificationCard(shop, { customer, contact, said, link, reason }) {
+  const altText = notificationText({ customer: customer?.name, contact, said, link, reason });
   return notifyCard(shop, {
-    title: contact ? '🔔 มีลูกค้าทักมา' : '🔔 มีลูกค้าทักมา — บอทตอบไม่ได้',
+    title: contact ? '🔔 มีลูกค้าทักมา' : `🔔 ${reason || 'มีลูกค้าทักมา — บอทตอบไม่ได้'}`,
+    reason,
     customerName: customer?.name,
     customerPhoto: customer?.picture,
     contactName: contact?.name,
