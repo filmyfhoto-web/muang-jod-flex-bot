@@ -257,9 +257,9 @@ test('switched-off topics (payment, promotion, receipt, products) get nothing an
   assert.equal(buildReply('xyz', shop, {}).quiet, undefined); // other unknowns still reach the admins
 });
 
-test('only orders alert the admins; hello still shows the "who?" card', () => {
+test('only orders alert the admins; hello shows only the menu (the "who?" card comes with the next step)', () => {
   assert.equal(shop.contact.notify, true);
-  assert.equal(buildReply('สวัสดีค่ะ', shop, {}).thenContact, true);
+  assert.equal(buildReply('สวัสดีค่ะ', shop, {}).thenContact, undefined); // one card at a time: the menu first
   assert.equal(buildReply("โฟมบอร์ด", shop, {}).needsPhotos, true); // an order → card first, the alert follows the choice
   const q = buildReply('xyz', shop, {});
   assert.equal(q.silent, true);

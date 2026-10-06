@@ -155,7 +155,7 @@ async function handleEvent(ev) {
   const holiday = (shopNow, messages, extra = {}) =>
     applyHoliday(messages, { shop: shopNow, userId, tracker: noticed, ...extra });
   if (ev.type === 'follow') {
-    return replyMessage(ev.replyToken, send(holiday(shop, await withAsk(shop, [welcomeMessage(shop)]))), token);
+    return replyMessage(ev.replyToken, send(holiday(shop, [welcomeMessage(shop)])), token);
   }
   if (ev.type !== 'message') return;
 
@@ -197,7 +197,6 @@ async function handleEvent(ev) {
       if (r.awaitingSchool) awaitSchool.set(userId);
       else awaitSchool.clear(userId);
       let messages = r.messages;
-      if (r.thenContact) messages = await withAsk(shopNow, messages); // first hello: also ask who they want to talk to
       if (r.needsPhotos) messages = [contactCard(shopNow, r.askText ?? shopNow.contact.ask, await adminPhotos(shopNow))];
       if (r.alertAdmins && hasContacts) escalate(userId, said, shopNow, cfg, 'ลูกค้าสั่งงาน/สั่งของ'); // an order: the admins are told too
       if (r.silent && !r.quiet && hasContacts) {
