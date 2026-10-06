@@ -36,6 +36,7 @@ const app = express();
 app.use('/assets', express.static(fileURLToPath(new URL('../public', import.meta.url)), { maxAge: '1d' }));
 
 const send = (messages) => withSender(messages, baseUrl, quick(shop));
+app.get('/', (_req, res) => res.type('text/plain; charset=utf-8').send('บอทร้านนัฐภรณ์ เชียงกลาง ทำงานอยู่ ✅'));
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
 app.post('/webhook', express.raw({ type: '*/*' }), (req, res) => {
