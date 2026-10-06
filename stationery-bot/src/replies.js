@@ -48,7 +48,7 @@ export function buildReply(text, shop, session = {}) {
   const qr = quick(shop);
   if (intent.type === 'off') return { messages: [], awaitingSchool: false, silent: true, quiet: true };
   if (intent.type === 'ask') return { messages: [], awaitingSchool: false, needsPhotos: true }; // the contact card, no alert
-  if (intent.type === 'order') return { messages: [], awaitingSchool: false, needsPhotos: true, askText: shop.contact.orderAsk ?? shop.contact.ask, alertAdmins: true };
+  if (intent.type === 'order') return { messages: [], awaitingSchool: false, needsPhotos: true, askText: shop.contact.orderAsk ?? shop.contact.ask };
   if (intent.type === 'contact') return { messages: [contactCard(shop, shop.contact.ask)], awaitingSchool: false, needsPhotos: true };
   const out = (m) => ({ messages: [m], awaitingSchool: false });
   switch (intent.type) {
