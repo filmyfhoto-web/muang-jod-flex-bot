@@ -173,7 +173,7 @@ async function handleEvent(ev) {
     const chosen = hasContacts ? findContact(said, shop) : null;
     if (chosen) {
       contacts.choose(userId);
-      void notifyAdmins([chosen], shop, { customerId: userId, contact: chosen, said });
+      void notifyAdmins([chosen], shop, { customerId: userId, contact: chosen, said: '' }); // only "the customer wants to talk to you" — no message text
       return; // no reply at all
     }
     if (quietNow) {
