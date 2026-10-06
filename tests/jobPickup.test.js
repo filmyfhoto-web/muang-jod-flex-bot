@@ -116,24 +116,23 @@ test('กดปุ่มแล้วบันทึกจริงผ่าน A
   }
 });
 
-test('หน้าเว็บมีสี่ขั้นครบ และใช้กติกาเดียวกับฝั่งเซิร์ฟเวอร์', () => {
+test('หน้าเว็บมีแผงสถานะเลือกอิสระ และใช้กติกาเดียวกับฝั่งเซิร์ฟเวอร์', () => {
   const page = readFileSync(new URL('../public/liff/index.html', import.meta.url), 'utf8');
 
-  /* ของเดิมเป็นสามปุ่มที่เลือกอย่างใดอย่างหนึ่ง (รับแล้ว / ค้างจ่าย / ยังไม่มารับ)
-   * ซึ่งตอบได้แค่สองขั้นกลาง ร้านเขียนมาสี่ขั้น: เสร็จแล้ว *รับแล้ว *จ่ายแล้ว
-   * *ลงบัญชี — "ทำเสร็จหรือยัง" กับ "ลงบัญชีหรือยัง" ตอบไม่ได้ด้วยสามปุ่มเดิม
+  /* ร้านขอ "เอาเลือกแบบนี้ดีกว่า": แก้ไข · ทำเสร็จ · ลูกค้ารับแล้ว ·
+   * ได้รับเงิน (จ่ายสด) · ยังไม่ได้รับเงิน (ลงบัญชี) — เลือกอิสระ ไม่ใช่สี่ขั้นต่อกัน
    */
-  for (const label of ['ทำเสร็จ', 'ลูกค้ารับ', 'ได้เงิน', 'ลงบัญชี']) {
-    assert.ok(page.includes(label), 'ไม่มีขั้น ' + label);
+  for (const label of ['แก้ไข', 'ทำเสร็จ', 'ลูกค้ารับแล้ว', 'ได้รับเงิน', 'จ่ายสด', 'ยังไม่ได้รับเงิน', 'ลงบัญชี']) {
+    assert.ok(page.includes(label), 'ไม่มีปุ่ม ' + label);
   }
-  assert.match(page, /function stageBar\(job\)/);
-  assert.match(page, /'\/jobs\/' \+ job\.id \+ '\/stage'/, 'ปุ่มไม่ได้ยิงไปที่ปลายทางจริง');
+  assert.match(page, /function statusPanel\(job\)/);
+  assert.match(page, /'\/jobs\/' \+ job\.id \+ '\/status'/, 'ปุ่มไม่ได้ยิงไปที่ปลายทางจริง');
 
-  // กติกานับขั้นต้องตรงกับ src/utils/jobState.js ไม่งั้นหน้าจอกับฐานข้อมูลจะ
+  // กติกาอ่านสถานะต้องตรงกับ src/utils/jobState.js ไม่งั้นหน้าจอกับฐานข้อมูลจะ
   // บอกคนละอย่างบนงานเดียวกัน แล้วปุ่มจะเด้งกลับที่เดิมทุกครั้งที่กด
-  const fn = page.slice(page.indexOf('function jobStageOf'), page.indexOf('function jobStageOf') + 460);
-  for (const field of ['done_at', 'picked_up_at', 'balance_due', 'booked_at']) {
-    assert.ok(fn.includes(field), 'การนับขั้นไม่ได้ดู ' + field);
+  const fn = page.slice(page.indexOf('function jobStatusOf'), page.indexOf('function jobStatusOf') + 700);
+  for (const field of ['done_at', 'picked_up_at', 'balance_due', 'booked_at', 'pay_method']) {
+    assert.ok(fn.includes(field), 'การอ่านสถานะไม่ได้ดู ' + field);
   }
 
   // ป้ายสถานะการจ่ายออกจากแถวในคิวแล้ว สองป้ายที่พูดคนละคำบนแถวเดียวทำให้ต้อง
@@ -142,11 +141,13 @@ test('หน้าเว็บมีสี่ขั้นครบ และใ�
   assert.match(row, /el\.querySelector\('\.badge'\)\.remove\(\);/);
 
   // ยิงพลาดต้องถอยค่ากลับ ไม่ใช่ทิ้งหน้าจอไว้คนละเรื่องกับฐานข้อมูล
-  const bar = page.slice(page.indexOf('function stageBar'), page.indexOf('function renderQueue'));
+  const bar = page.slice(page.indexOf('function statusPanel'), page.indexOf('function renderQueue'));
   assert.match(bar, /const before = \{/);
   assert.match(bar, /Object\.assign\(job, before\)/, 'ยิงพลาดแล้วไม่ถอยค่ากลับ');
 
-  // สามปุ่มเดิมไม่มีใครเรียกแล้ว ต้องไม่เหลือโค้ดตายไว้ให้เข้าใจผิด
+  // ปุ่มสี่ขั้นเดิมและสามปุ่มเก่าไม่มีใครเรียกแล้ว ต้องไม่เหลือโค้ดตายไว้ให้เข้าใจผิด
+  assert.ok(!page.includes('function stageBar'));
   assert.ok(!page.includes('function stateBar'));
   assert.ok(!page.includes('jobStateOf'));
+  assert.ok(!page.includes('jobStageOf'));
 });
