@@ -35,6 +35,7 @@ export function parseAdminCommand(text) {
   const p = PAUSE.exec(t);
   if (p) return { type: 'pause', hours: p[1] ? Number(p[1]) : null };
   if (RESUME.test(t)) return { type: 'resume' };
+  if (/^(?:โควตา|quota)$/i.test(t)) return { type: 'quota' };
   return null;
 }
 

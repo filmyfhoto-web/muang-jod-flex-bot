@@ -105,3 +105,27 @@ export async function getMessageContent(messageId, token) {
     return null;
   }
 }
+
+// This month's push quota: { type: 'none' | 'limited', limit, used } — null when LINE cannot be asked.
+export async function getQuota(token) {
+  try {
+    const h = { Authorization: `Bearer ${token}` };
+    const [q, c] = await Promise.all([
+      fetch('https://api.line.me/v2/bot/message/quota', { headers: h, signal: AbortSignal.timeout(8000) }),
+      fetch('https://api.line.me/v2/bot/message/quota/consumption', { headers: h, signal: AbortSignal.timeout(8000) }),
+    ]);
+    if (!q.ok || !c.ok) return null;
+    const quota = await q.json();
+    const used = (await c.json()).totalUsage;
+    return { type: quota.type, limit: quota.value ?? null, used };
+  } catch {
+    return null;
+  }
+}
+
+export function quotaText(info) {
+  if (!info) return 'ดูโควตาไม่ได้ในตอนนี้ค่ะ ลองดูใน LINE Official Account Manager แทนนะคะ';
+  if (info.type !== 'limited' || info.limit == null) return `เดือนนี้ส่งข้อความ (push) ไปแล้ว ${info.used} ข้อความ แผนนี้ไม่จำกัดจำนวนค่ะ`;
+  const left = Math.max(info.limit - info.used, 0);
+  return `โควตาข้อความเดือนนี้\nใช้ไปแล้ว ${info.used} จาก ${info.limit}\nเหลือ ${left} ข้อความ${left === 0 ? '\n⚠️ เต็มแล้ว ข้อความ push (เช่น แจ้งเตือนออเดอร์) จะไม่ถูกส่งจนกว่าจะขึ้นเดือนใหม่' : ''}`;
+}

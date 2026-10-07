@@ -2,7 +2,7 @@ import 'node:process';
 import express from 'express';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { verifySignature, replyMessage, pushMessage, getProfile, getProfileCached, getBotUserId, getMessageContent, chatLink, describeEvent } from './line.js';
+import { verifySignature, replyMessage, pushMessage, getProfile, getProfileCached, getBotUserId, getMessageContent, getQuota, quotaText, chatLink, describeEvent } from './line.js';
 import { buildReply, welcomeMessage, withSender, iconUrlFor, thanksReply, quick } from './replies.js';
 import { contactCard } from './flex.js';
 import { isThanksSticker, isThanks } from './matcher.js';
@@ -173,6 +173,7 @@ async function handleEvent(ev) {
       return replyMessage(ev.replyToken, [{ type: 'text', text: `ไอดี LINE ของคุณคือ\n${userId}` }], token);
     }
     const cmd = adminIds.has(userId) || people(shop).some((p) => p.userId && p.userId === userId) ? parseAdminCommand(said) : null;
+    if (cmd?.type === 'quota') return replyMessage(ev.replyToken, [{ type: 'text', text: quotaText(await getQuota(token)) }], token);
     if (cmd) return replyMessage(ev.replyToken, [{ type: 'text', text: adminReply(cmd, shop) }], token);
     // An admin silenced the bot for everyone: say nothing.
     if (quiet.allPaused()) return;

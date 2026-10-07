@@ -46,3 +46,12 @@ test('"เมนู" brings back the welcome card, not "sorry"', () => {
     assert.equal(card.contents.header.contents[0].text, shop.name, w);
   }
 });
+
+test('"โควตา" is an admin command and the quota text states used / limit / left', async () => {
+  const { parseAdminCommand } = await import('../src/quiet.js');
+  const { quotaText } = await import('../src/line.js');
+  assert.deepEqual(parseAdminCommand('โควตา'), { type: 'quota' });
+  assert.match(quotaText({ type: 'limited', limit: 300, used: 120 }), /ใช้ไปแล้ว 120 จาก 300[\s\S]*เหลือ 180/);
+  assert.match(quotaText({ type: 'limited', limit: 300, used: 300 }), /เต็มแล้ว/);
+  assert.match(quotaText(null), /ดูโควตาไม่ได้/);
+});
