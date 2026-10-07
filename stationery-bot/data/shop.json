@@ -356,6 +356,7 @@
     ],
     "notify": true,
     "askOnUnknown": false,
+    "burstSeconds": 6,
     "chatLinkTemplate": "https://chat.line.biz/Ua2a7bf2be3ad317480e20a51f532a766?openExternalBrowser=1",
     "chatLinkLabel": "เปิดแอปตอบลูกค้า",
     "notifyAllMinutes": 10

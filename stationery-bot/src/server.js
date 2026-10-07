@@ -35,6 +35,7 @@ loadShop(); // fail fast on a broken file
 const app = express();
 app.use('/assets', express.static(fileURLToPath(new URL('../public', import.meta.url)), { maxAge: '1d' }));
 
+const lastReply = new Map(); // userId → when the bot last answered a text (for the burst limit)
 const send = (messages) => {
   let qr;
   try {
@@ -190,6 +191,11 @@ async function handleEvent(ev) {
       contacts.wake(userId);
     }
 
+    // A customer who fires off several messages at once gets one answer: anything within a few
+    // seconds of the bot's last reply is ignored (answering the school name is always allowed).
+    const burstMs = (shop.contact?.burstSeconds ?? 6) * 1000;
+    if (userId !== 'anon' && !awaitSchool.has(userId) && Date.now() - (lastReply.get(userId) ?? 0) < burstMs) return;
+
     const secs = waitFor(shop, said, { awaitingSchool: awaitSchool.has(userId), env: process.env });
     return later(secs, async () => {
       const shopNow = secs > 0 ? loadShop() : shop; // the shop file may have changed while waiting
@@ -207,6 +213,8 @@ async function handleEvent(ev) {
       }
       const out = holiday(shopNow, messages, { skip: isThanks(said, people(shopNow).map((p) => p.name)) });
       if (!out.length) return; // nothing to say
+      lastReply.set(userId, Date.now());
+      if (lastReply.size > 5000) for (const [k, t] of lastReply) if (Date.now() - t > 60_000) lastReply.delete(k);
       await deliver(ev, userId, out);
     });
   }
