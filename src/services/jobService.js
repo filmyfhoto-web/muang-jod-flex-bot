@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase.js';
+import { accountKey } from '../utils/customerBook.js';
 import { round2 } from '../utils/currency.js';
 import { todayISO, rangeForPeriod } from '../utils/dates.js';
 import { derivePaymentFields } from '../utils/payment.js';
@@ -575,6 +576,47 @@ export async function getRecentCustomerNames(userId, limit = 8, client = supabas
     if (out.length >= limit) break;
   }
   return out;
+}
+
+/* สมุดรายชื่อลูกค้าแบบย่อ — ไว้เติมชื่อให้อัตโนมัติตอนพิมพ์
+ *
+ * ร้านขอ "พิมพ์ลูกค้าคนไหนที่เคยจดไว้ แสดงให้อัตโนมัติ จะได้ไม่ต้องพิมพ์" —
+ * ฟอร์มจดงานและแชตใช้รายชื่อนี้เสนอชื่อเต็มแบบที่เคยจด สะกดเดียวกันทุกใบ
+ * สมุดลูกค้าจึงรวมเจ้าถูก (สะกดต่างกันคือคนละบัญชี)
+ *
+ * ชื่อเดียวกันหลายสะกด ("รร.สบกอน" / "รร สบกอน") นับเป็นเจ้าเดียว ใช้สะกด
+ * ที่จดบ่อยที่สุด เรียงเจ้าที่จดล่าสุดไว้บนสุด
+ */
+export async function getCustomerDirectory(userId, limit = 30, client = supabase) {
+  const { data, error } = await client
+    .from('jobs')
+    .select('customer_name, created_at')
+    .eq('user_id', userId)
+    .in('status', ACTIVE_STATUSES)
+    .order('created_at', { ascending: false })
+    .limit(400);
+  if (error) {
+    logger.warn('job.customers_failed', { message: error.message });
+    return [];
+  }
+
+  const byKey = new Map(); // key -> { spellings: Map(ชื่อ -> ครั้ง), jobCount, lastAt }
+  for (const row of data || []) {
+    const name = String(row.customer_name || '').trim();
+    const key = accountKey(name);
+    if (!key) continue;
+    const entry = byKey.get(key) || { spellings: new Map(), jobCount: 0, lastAt: '' };
+    entry.spellings.set(name, (entry.spellings.get(name) || 0) + 1);
+    entry.jobCount += 1;
+    if (!entry.lastAt) entry.lastAt = row.created_at || ''; // เรียงใหม่→เก่า ตัวแรกคือล่าสุด
+    byKey.set(key, entry);
+  }
+
+  return [...byKey.values()].slice(0, limit).map((e) => ({
+    name: [...e.spellings.entries()].sort((a, b) => b[1] - a[1])[0][0],
+    jobCount: e.jobCount,
+    lastAt: e.lastAt,
+  }));
 }
 
 export async function getQueueJobs(userId, limit = 60, client = supabase) {

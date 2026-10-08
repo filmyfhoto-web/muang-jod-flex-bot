@@ -13,6 +13,7 @@ import { searchResultsFlex } from '../flex/searchResultsFlex.js';
 import { billReceiptFlex } from '../flex/billFlex.js';
 import { recordBillPayment } from '../services/billService.js';
 import { resolveMenuCommand, splitLeadingAddJob, suggestMenuCommand, labelForAction } from '../utils/menuCommands.js';
+import { matchCustomer } from '../utils/customerMatch.js';
 import { parseChatIntent } from '../utils/chatIntent.js';
 import { parseNaturalJob } from '../utils/nlParser.js';
 import { deriveJobName, classifyJob } from '../utils/category.js';
@@ -226,20 +227,48 @@ export async function handleTextMessage(event, profile) {
      * ที่ไม่มีตัวเลขตรงนี้คือคำตอบ ไม่ใช่การคุยเล่น ใส่ชื่อแล้วขึ้นการ์ดใหม่
      */
     if (hasDraft && !state.context.draft.customerName) {
-      const name = parseCustomerName(text);
-      if (name) {
+      const typed = parseCustomerName(text);
+      if (typed) {
+        /* ชื่อที่พิมพ์ไปพ้องกับชื่อที่เคยจดไว้ไหม — ร้านขอ "พิมพ์ลูกค้าคนไหนที่เคย
+         * จดไว้ แสดงให้อัตโนมัติ จะได้ไม่ต้องพิมพ์"
+         *
+         *   สะกดต่างแต่เจ้าเดียวกัน ("รร สบกอน" = "รร.สบกอน") → ใช้สะกดที่เคยจด
+         *     สมุดลูกค้ารวมเจ้าด้วยชื่อ สะกดใหม่ทุกใบคือบัญชีใหม่ทุกใบ
+         *   พิมพ์มาแค่บางส่วน ("สบกอน")                       → ใช้ตามที่พิมพ์ แต่มีปุ่ม
+         *     ชื่อเต็มให้กดเปลี่ยน ไม่เดาแทน เพราะ "สบกอน" อาจเป็นลูกค้าใหม่จริง ๆ
+         */
+        const known = await getRecentCustomerNames(profile.id, 30).catch(() => []);
+        const hit = matchCustomer(typed, known);
+        const name = hit?.kind === 'exact' ? hit.name : typed;
+        const matchNote = hit?.kind === 'exact' && hit.name !== typed ? ' (ชื่อที่เคยจดไว้ค่ะ)' : '';
+
         const draft = { ...state.context.draft, customerName: name };
         await setState(profile.id, STATES.CONFIRMING_JOB, { ...state.context, draft });
-        return reply(
-          replyToken,
-          withDraftGuide(
-            [
-              { type: 'text', text: `ลงชื่อลูกค้า "${name}" ให้แล้วค่ะ 💜 ครบแล้วกด "✅ บันทึกงาน" ได้เลยนะคะ` },
-              jobPreviewMessage(draftToBubble(draft)),
-            ],
-            draft
-          )
+        const msgs = withDraftGuide(
+          [
+            { type: 'text', text: `ลงชื่อลูกค้า "${name}"${matchNote} ให้แล้วค่ะ 💜 ครบแล้วกด "✅ บันทึกงาน" ได้เลยนะคะ` },
+            jobPreviewMessage(draftToBubble(draft)),
+          ],
+          draft
         );
+        // ปุ่มชื่อเต็มที่เคยจดไว้ — กดแล้วเปลี่ยนสะกดให้ ไม่ต้องพิมพ์ใหม่
+        if (hit?.kind === 'partial') {
+          const last = msgs[msgs.length - 1];
+          if (!last.quickReply) {
+            last.quickReply = {
+              items: hit.names.slice(0, 3).map((n) => ({
+                type: 'action',
+                action: {
+                  type: 'postback',
+                  label: `ใช้ "${n}"`.slice(0, 20),
+                  data: `action=draft_customer&name=${encodeURIComponent(n)}`,
+                  displayText: `ลูกค้า "${n}"`,
+                },
+              })),
+            };
+          }
+        }
+        return reply(replyToken, msgs);
       }
     }
     return reply(replyToken, { type: 'text', text: hasDraft ? DRAFT_WAITING_REPLY : WAITING_JOB_REPLY });

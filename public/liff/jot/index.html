@@ -158,9 +158,13 @@
     <label class="field">
       <span>ลูกค้า</span>
       <span class="input-wrap"><i class="ic">👤</i>
-        <input id="f-customer" type="text" placeholder="เช่น รพสต.บ้านชี" autocomplete="off" />
+        <input id="f-customer" type="text" placeholder="เช่น รพสต.บ้านชี" autocomplete="off" list="customer-list" />
       </span>
     </label>
+    <!-- ชื่อลูกค้าที่เคยจดไว้ — พิมพ์บางส่วนแล้วชื่อเต็มเด้งให้กด ไม่ต้องพิมพ์ทั้งชื่อ
+         และได้สะกดเดียวกับที่เคยจด สมุดลูกค้าจึงรวมเจ้าถูก -->
+    <div class="cust-suggest" id="cust-suggest" hidden></div>
+    <datalist id="customer-list"></datalist>
 
     <!-- วันนัดรับอยู่นอกกล่อง "ใส่เพิ่มได้" เพราะเป็นเส้นตายของงาน ไม่ใช่ของเสริม -->
     <label class="field">

@@ -11,6 +11,7 @@ import { cancelLatest, confirmCancel, cancelCancel } from '../actions/cancelLate
 import { editJob, deleteJob } from '../actions/jobActions.js';
 import { pickCategory } from '../actions/pickCategory.js';
 import { manageCategories } from '../actions/manageCategories.js';
+import { setDraftCustomer } from '../actions/draftCustomer.js';
 import {
   createBillAction,
   billAllForCustomer,
@@ -190,6 +191,8 @@ export async function handlePostback(event, profile) {
       return webLinks(ctx);
     case 'manage_categories':
       return manageCategories(ctx);
+    case 'draft_customer':
+      return setDraftCustomer(ctx);
     default:
       console.warn(`[postback] unknown action: ${action}`);
       return reply(replyToken, {
