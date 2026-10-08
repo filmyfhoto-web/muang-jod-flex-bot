@@ -53,6 +53,19 @@ export function buildLedger(jobs = [], dateISO, tz = '+07:00') {
   let carryOwed = 0;
   let carryCount = 0;
 
+  /* ยอดยกไปแยกสองกอง — ร้านขอ "แยกเงินสดกับลงบัญชีไว้เช็คงานอีกที"
+   *
+   *   account  ลงบัญชีไว้แล้วแต่ยังไม่ได้รับเงิน (ขายเชื่อ รอวางบิล)
+   *   unpaid   ยังไม่ได้รับเงินและยังไม่ได้ลงบัญชี
+   *
+   * สองกองนี้ต้องตามคนละแบบ กองแรกเก็บตามบิล กองหลังยังไม่รู้ว่าจะเป็นเงินสดหรือ
+   * ลงบัญชี จึงต้องกลับมาเช็คและตัดสินใจ
+   */
+  const carryBy = {
+    account: { owed: 0, jobCount: 0, rows: [] },
+    unpaid: { owed: 0, jobCount: 0, rows: [] },
+  };
+
   for (const job of jobs) {
     if (!job || job.status === 'cancelled') continue;
 
@@ -81,12 +94,27 @@ export function buildLedger(jobs = [], dateISO, tz = '+07:00') {
       continue;
     }
 
-    // ยังไม่ได้ลงบัญชีและยังค้างเงินอยู่ = ยอดยกไป ไม่ใช่รายรับของวันนี้
+    // ยังค้างเงินอยู่ = ยอดยกไป ไม่ใช่รายรับของวันนี้ (ลงบัญชีไว้แล้วหรือยังก็ตาม)
     if (owedNow > 0) {
       carryOwed = round2(carryOwed + owedNow);
       carryCount += 1;
+      const bucket = job.booked_at ? carryBy.account : carryBy.unpaid;
+      bucket.owed = round2(bucket.owed + owedNow);
+      bucket.jobCount += 1;
+      bucket.rows.push({
+        id: job.id,
+        jobNumber: job.job_number || null,
+        jobName: job.job_name || null,
+        customerName: job.customer_name || null,
+        kind: customerKind(job),
+        total: round2(Number(job.total) || 0),
+        owed: owedNow,
+      });
     }
   }
+
+  // ค้างมากอยู่บน — เจ้าที่ต้องตามก่อน
+  for (const b of Object.values(carryBy)) b.rows.sort((a, c) => c.owed - a.owed);
 
   // เรียงตามวิธีจ่ายแล้วค่อยตามยอด — คนทำบัญชีอ่านทีละกอง ไม่ใช่ทีละใบ
   const order = { cash: 0, transfer: 1, unknown: 2 };
@@ -98,6 +126,6 @@ export function buildLedger(jobs = [], dateISO, tz = '+07:00') {
     methods: [...byMethod.values()].filter((m) => m.jobCount > 0),
     total,
     jobCount: rows.length,
-    carry: { owed: carryOwed, jobCount: carryCount },
+    carry: { owed: carryOwed, jobCount: carryCount, account: carryBy.account, unpaid: carryBy.unpaid },
   };
 }

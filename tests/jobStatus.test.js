@@ -130,3 +130,22 @@ test('API: POST /jobs/:id/status เขียนจริงและตอบ�
     server.close();
   }
 });
+
+test('ใบลงบัญชี: ยอดยกไปแยกสองกอง ลงบัญชีไว้แล้ว กับยังไม่ได้รับเงิน (เรียงค้างมากก่อน)', () => {
+  const mk = (id, total, change) => ({ ...job({ id, total, balance_due: total, customer_name: `ลูกค้า ${id}`, job_name: `งาน ${id}` }), ...(change ? statusPatch(job({ total, balance_due: total }), change, NOW) : {}) });
+  const jobs = [
+    mk('a', 300, { money: 'account' }),
+    mk('b', 900, { money: 'account' }),
+    mk('c', 450), // ยังไม่ได้ทำอะไรกับเงินเลย
+    mk('d', 1000, { money: 'cash' }), // รับเงินสดแล้ว ไม่อยู่ในยอดยกไป
+  ];
+  const { carry } = buildLedger(jobs, '2026-10-06');
+  assert.equal(carry.owed, 1650);
+  assert.equal(carry.jobCount, 3);
+  assert.equal(carry.account.jobCount, 2);
+  assert.equal(carry.account.owed, 1200);
+  assert.deepEqual(carry.account.rows.map((r) => r.id), ['b', 'a'], 'ค้างมากอยู่บน');
+  assert.equal(carry.unpaid.jobCount, 1);
+  assert.equal(carry.unpaid.rows[0].customerName, 'ลูกค้า c');
+  assert.equal(carry.account.owed + carry.unpaid.owed, carry.owed, 'สองกองรวมกันต้องเท่ายอดรวม');
+});
