@@ -18,6 +18,8 @@ import {
 import { createJob } from '../services/jobService.js';
 import { missingColumn } from '../utils/dbErrors.js';
 import { listCustomerOrgs, setCustomerOrg } from '../services/customerOrgService.js';
+import { ensureTaxonomy, loadCategoryConfig, updateCategories } from '../services/categoryService.js';
+import { editorModel } from '../utils/taxonomy.js';
 import { parseNaturalJob } from '../utils/nlParser.js';
 import { splitDump, looksLikeDump } from '../utils/dumpSplit.js';
 import { makeDraft } from '../utils/jobDraft.js';
@@ -133,6 +135,8 @@ export function createApiRouter(deps = {}) {
   const saveJob = deps.updateJob || updateJob;
   const queueJobs = deps.getQueueJobs || getQueueJobs;
   const bookJobs = deps.getBookJobs || getBookJobs;
+  const warmCategories = deps.ensureTaxonomy || ensureTaxonomy;
+  const readCategories = deps.loadCategoryConfig || loadCategoryConfig;
   const orgsOf = deps.listCustomerOrgs || listCustomerOrgs;
   const saveOrg = deps.setCustomerOrg || setCustomerOrg;
   const takePayment = deps.recordPayment || recordPayment;
@@ -163,7 +167,9 @@ export function createApiRouter(deps = {}) {
   router.use((req, res, next) =>
     (req.method === 'POST' && req.path === '/jobs'
       ? express.json({ limit: '8mb' })
-      : express.json({ limit: '64kb' }))(req, res, next)
+      : req.method === 'PUT' && req.path === '/categories'
+        ? express.json({ limit: '256kb' })
+        : express.json({ limit: '64kb' }))(req, res, next)
   );
 
   router.get('/config', (req, res) => {
@@ -200,6 +206,8 @@ export function createApiRouter(deps = {}) {
         return res.status(403).json({ error: 'forbidden' });
       }
       req.profile = await resolveProfile(user.userId);
+      // หมวดงานที่ร้านตั้งเองต้องพร้อมก่อนทุกเส้นทางที่โชว์ชื่อหมวด (ไม่เคย throw)
+      await warmCategories(req.profile.id);
       next();
     } catch (err) {
       next(err);
@@ -412,6 +420,37 @@ export function createApiRouter(deps = {}) {
     }
   });
 
+  /* หมวดงานของร้าน — อ่านทั้งชุด (รวมที่ซ่อน) และบันทึกทั้งชุดจากหน้าแก้ไข
+   *
+   * ร้านขอ "แก้ไขหมวดงานเองได้ เพราะมันจะมีเพิ่มเติม" หน้าเว็บทุกหน้าที่โชว์หมวดอ่านจากที่นี่
+   * หลังล็อกอิน (ส่วน /config เป็นชุดตั้งต้นสำหรับก่อนล็อกอิน)
+   *
+   * ready=false = ตารางยังไม่ได้สร้าง (ไมเกรชัน 019) หน้าแก้ไขบอกร้านให้รัน
+   */
+  router.get('/categories', async (req, res, next) => {
+    try {
+      const got = await readCategories(req.profile.id);
+      res.json({ ...editorModel(got?.config), ready: Boolean(got) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.put('/categories', async (req, res, next) => {
+    try {
+      const out = await updateCategories(req.profile.id, req.body, deps);
+      if (!out.ok) {
+        return res.status(out.status).json({
+          error: out.status === 503 ? 'not_ready' : out.status === 409 ? 'in_use' : 'invalid',
+          message: out.message,
+        });
+      }
+      res.json({ ...editorModel(out.config), ready: true });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   /* สมุดลูกค้า — งานย้อนหลัง แยกเก็บทีละเจ้า
    *
    * หน่วยงานเป็นบัญชีรายเจ้า (รร.สบกอนสั่งอะไรไปบ้าง ค้างเท่าไหร่) ส่วนงาน
@@ -551,7 +590,7 @@ export function createApiRouter(deps = {}) {
       // rather than "there is no such thing".
       const wanted = String(req.query.category || '').trim();
       if (wanted) {
-        const group = findGroup(wanted);
+        const group = findGroup(wanted, req.profile.id);
         if (!group) return res.status(400).json({ error: 'unknown_category' });
         const jobs = await getJobsByCategory(req.profile.id, group.id, 60);
         return res.json({ jobs, category: { id: group.id, label: group.label, icon: group.icon } });
@@ -610,7 +649,7 @@ export function createApiRouter(deps = {}) {
       const discount = round2(subtotal - total);
 
       const job = await create(req.profile.id, {
-        jobName: draft.jobName?.trim() || deriveJobName(items),
+        jobName: draft.jobName?.trim() || deriveJobName(items, req.profile.id),
         customerName: draft.customerName || null,
         jobDate: draft.jobDate || todayISO(),
         dueDate: draft.dueDate || null,

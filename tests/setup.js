@@ -6,3 +6,8 @@ process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'test-key';
 process.env.LINE_CHANNEL_ACCESS_TOKEN ||= 'test-token';
 process.env.LINE_CHANNEL_SECRET ||= 'test-secret';
 process.env.LOG_LEVEL ||= 'error'; // keep test output quiet
+
+// การโหลดหมวดงานของร้านจากฐานข้อมูลปลอมใช้เวลาหลายวินาทีกว่าจะล้ม — ปิดไว้ในทุกเทสต์
+// เทสต์ที่อยากลองของจริงส่ง client ปลอมของตัวเองเข้าไป
+const { setTaxonomyLoading } = await import('../src/services/categoryService.js');
+setTaxonomyLoading(false);

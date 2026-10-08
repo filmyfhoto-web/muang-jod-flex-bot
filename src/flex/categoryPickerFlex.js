@@ -1,4 +1,4 @@
-import { CATEGORY_GROUPS, OTHER_GROUP, findGroup } from '../utils/category.js';
+import { BASE_TAXONOMY } from '../utils/category.js';
 import { COLORS } from './theme.js';
 
 // Two-step category picker, as in the "เลือกหมวดงานให้ตรงประเภท" mockup:
@@ -73,14 +73,21 @@ function bubble({ title, subtitle, rows, footer }) {
   };
 }
 
-// Step 1 — pick the kind of work.
-export function categoryGroupsFlex(jobId) {
+// คำอธิบายใต้ชื่อหมวด: รายชื่อประเภทย่อย — หมวดที่ไม่มีประเภทย่อยบอกตามชนิดของมัน
+function hintOf(group, tax) {
+  const types = group.types.map((t) => t.label).join(' / ');
+  if (types) return types;
+  return group.id === tax.other.id ? 'งานอื่น ๆ ที่ไม่เข้าหมวด' : 'ไม่ต้องระบุหมวดย่อย';
+}
+
+// Step 1 — pick the kind of work. `tax` คือชุดหมวดของร้าน (ที่ร้านเพิ่ม/ซ่อน/เปลี่ยนชื่อไว้)
+export function categoryGroupsFlex(jobId, tax = BASE_TAXONOMY) {
   const q = jobId ? `&jobId=${encodeURIComponent(jobId)}` : '';
-  const rows = [...CATEGORY_GROUPS, OTHER_GROUP].map((g) =>
+  const rows = [...tax.groups, tax.other].map((g) =>
     row({
       icon: g.icon,
       label: g.label,
-      hint: g.types.map((t) => t.label).join(' / ') || 'งานอื่น ๆ ที่ไม่เข้าหมวด',
+      hint: hintOf(g, tax),
       data: `action=pick_category&group=${g.id}${q}`,
     })
   );
@@ -103,15 +110,15 @@ export function categoryGroupsFlex(jobId) {
 // "what have I done in this line of work". They look the same on purpose —
 // the same list of kinds of work — but a row here is a link, not a postback,
 // so it goes straight to the page instead of asking the bot to fetch it.
-export function categoryBrowseFlex(urlFor) {
-  const rows = [...CATEGORY_GROUPS, OTHER_GROUP]
+export function categoryBrowseFlex(urlFor, tax = BASE_TAXONOMY) {
+  const rows = [...tax.groups, tax.other]
     .map((g) => ({ g, uri: urlFor(g.id) }))
     .filter(({ uri }) => uri)
     .map(({ g, uri }) =>
       row({
         icon: g.icon,
         label: g.label,
-        hint: g.types.map((t) => t.label).join(' / ') || 'งานอื่น ๆ ที่ไม่เข้าหมวด',
+        hint: hintOf(g, tax),
         uri,
       })
     );
@@ -130,8 +137,8 @@ export function categoryBrowseFlex(urlFor) {
 }
 
 // Step 2 — pick the specific type inside that group.
-export function categoryTypesFlex(groupId, jobId) {
-  const group = findGroup(groupId) || OTHER_GROUP;
+export function categoryTypesFlex(groupId, jobId, tax = BASE_TAXONOMY) {
+  const group = tax.findGroup(groupId) || tax.other;
   const q = jobId ? `&jobId=${encodeURIComponent(jobId)}` : '';
 
   const rows = group.types.map((t) =>

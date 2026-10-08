@@ -2,6 +2,7 @@ import express from 'express';
 import linebot from '@line/bot-sdk';
 import { lineConfig } from '../config/line.js';
 import { getOrCreateProfile } from '../services/userService.js';
+import { ensureTaxonomy } from '../services/categoryService.js';
 import { handleTextMessage } from '../handlers/messageHandler.js';
 import { handleImageMessage } from '../handlers/imageHandler.js';
 import { handlePostback } from '../handlers/postbackHandler.js';
@@ -109,6 +110,8 @@ async function processEvent(event) {
     }
 
     const profile = await getOrCreateProfile(lineUserId);
+    // หมวดงานที่ร้านตั้งเองต้องพร้อมก่อนทุกการ์ดที่จะโชว์ชื่อหมวด (ไม่เคย throw)
+    await ensureTaxonomy(profile.id);
     await dispatch(event, profile);
     logger.info('webhook.ok', { ...base, ms: Date.now() - started, result: 'success' });
   } catch (err) {

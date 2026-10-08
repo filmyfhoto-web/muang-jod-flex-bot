@@ -1,4 +1,4 @@
-import { CATEGORY_GROUPS, OTHER_GROUP, jobCategory } from './category.js';
+import { CATEGORY_GROUPS, OTHER_GROUP, jobCategory, customCodeOf, customGroupIdOfCode } from './category.js';
 
 /* เลขงานรันแยกตามหมวด
  *
@@ -29,8 +29,12 @@ export const CATEGORY_CODES = {
 export const DEFAULT_CODE = CATEGORY_CODES.other;
 
 // รหัสของหมวดหนึ่ง — หมวดที่ไม่รู้จักตกมาที่ GEN เสมอ ไม่ใช่ undefined
+//
+// หมวดที่ร้านเพิ่มเองมีรหัสของตัวเอง (XAA, XAB, …) ตั้งตอนสร้างหมวดและไม่เปลี่ยนอีก —
+// ถ้าไปใช้ GEN ร่วมกับ "งานทั่วไป" เลขงานของสองหมวดจะชนกัน
 export function categoryCode(categoryId) {
-  return CATEGORY_CODES[String(categoryId || '')] || DEFAULT_CODE;
+  const id = String(categoryId || '');
+  return CATEGORY_CODES[id] || customCodeOf(id) || DEFAULT_CODE;
 }
 
 // รหัสของงานหนึ่งใบ อ่านจากหมวดที่บันทึกไว้ ถ้าไม่มีก็เดาจากรายการเหมือนที่อื่น
@@ -48,7 +52,7 @@ export function parseJobNumber(jobNumber) {
   const m = /^MJ-([A-Z]{3})-(\d{4,})$/.exec(String(jobNumber || '').trim());
   if (!m) return null;
   const entry = Object.entries(CATEGORY_CODES).find(([, code]) => code === m[1]);
-  return { code: m[1], category: entry?.[0] || null, seq: Number(m[2]) };
+  return { code: m[1], category: entry?.[0] || customGroupIdOfCode(m[1]) || null, seq: Number(m[2]) };
 }
 
 // ทุกหมวดต้องมีรหัส และรหัสต้องไม่ซ้ำกัน — ถ้าวันหนึ่งมีคนเพิ่มหมวดใหม่แล้วลืม

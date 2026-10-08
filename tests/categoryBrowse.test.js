@@ -92,9 +92,11 @@ test('the category page opens on the categories themselves, two to a row', () =>
   assert.match(load, /if \(!id\) return renderCategoryGrid\(\)/, 'ไม่ได้เลือกหมวดแล้วไม่มีอะไรให้กด');
   assert.match(load, /\$\('c-grid'\)\.hidden = true/, 'the grid stays up over the jobs');
 
-  // ไทล์มาจาก /api/config เหมือนช่องเลือกหมวดในฟอร์ม ไม่ใช่รายชื่อที่พิมพ์ซ้ำไว้
+  // ไทล์มาจากรายชื่อหมวดชุดเดียวกับช่องเลือกหมวดในฟอร์ม (หมวดของร้านจาก /api/categories
+  // ตกมาที่ /api/config) ไม่ใช่รายชื่อที่พิมพ์ซ้ำไว้ — และหมวดที่ซ่อนไม่ขึ้นเป็นไทล์
   const grid = dashboard.slice(dashboard.indexOf('function renderCategoryGrid'), dashboard.indexOf('function openCategory'));
-  assert.match(grid, /for \(const g of groups\)/, 'the tiles are a second, hand-written list');
+  assert.match(grid, /for \(const g of groups(\.filter\(.*\))?\)/, 'the tiles are a second, hand-written list');
+  assert.match(grid, /!x\.hidden/, 'หมวดที่ซ่อนยังขึ้นเป็นไทล์');
   assert.match(grid, /openCategory\(g\.id\)/, 'a tile does not open its category');
   assert.match(grid, /ยังโหลดหมวดงานไม่สำเร็จ/, 'โหลดหมวดไม่ขึ้นแล้วหน้าว่างเปล่าเฉย ๆ');
 });
