@@ -114,6 +114,21 @@
   .carry span { font-size: 10.5px; color: var(--muted); line-height: 1.45; }
   .carry .amt { font-size: 17px; font-weight: 700; color: var(--red); white-space: nowrap; }
 
+
+  /* ยอดยกไปแยกสองกอง: ลงบัญชีไว้ / ยังไม่ได้รับเงิน — กางดูรายการแล้วไปตรวจต่อได้ */
+  details.cgroup { background: #fff; border-radius: 16px; padding: 0 13px;
+                   box-shadow: 0 1px 2px rgba(31,43,69,.05), 0 4px 12px rgba(31,43,69,.05); }
+  details.cgroup > summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 11px 0; cursor: pointer; }
+  details.cgroup > summary::-webkit-details-marker { display: none; }
+  details.cgroup > summary::after { content: '›'; color: var(--faint); font-size: 18px; transition: transform .15s; }
+  details.cgroup[open] > summary::after { transform: rotate(90deg); }
+  details.cgroup .ch { flex: 1; min-width: 0; }
+  details.cgroup .ch b { display: block; font-size: 12.5px; font-weight: 600; line-height: 1.4; }
+  details.cgroup .ch span { font-size: 10.5px; color: var(--muted); line-height: 1.45; }
+  details.cgroup .amt { font-size: 15px; font-weight: 700; color: var(--red); white-space: nowrap; }
+  details.cgroup .body { padding-bottom: 6px; }
+  details.cgroup .check { display: block; text-align: center; font-size: 12.5px; font-weight: 600; color: var(--navy);
+                          text-decoration: none; padding: 9px 0 11px; border-top: 1px solid var(--hair); }
   .foot { display: flex; align-items: center; gap: 11px; border-top: 1px solid var(--line); padding-top: 11px; }
   .foot img { width: 86px; height: 86px; object-fit: contain; flex-shrink: 0; }
   .foot b { display: block; font-size: 14px; font-weight: 700; color: #4A3475; line-height: 1.4; }
@@ -183,6 +198,24 @@
     <span class="amt" id="c-amt"></span>
   </div>
 
+  <details class="cgroup" id="g-account" hidden>
+    <summary>
+      <div class="ch"><b id="ga-head"></b><span>ลงบัญชีไว้แล้ว รอวางบิล / รอเก็บเงิน</span></div>
+      <span class="amt" id="ga-amt"></span>
+    </summary>
+    <div class="body" id="ga-list"></div>
+    <a class="check" href="/app/?tab=today&money=account">ไปตรวจ / แก้สถานะในหน้างานวันนี้ ›</a>
+  </details>
+
+  <details class="cgroup" id="g-unpaid" hidden>
+    <summary>
+      <div class="ch"><b id="gu-head"></b><span>ยังไม่ได้รับเงิน และยังไม่ได้ลงบัญชี — ควรกลับมาเช็คว่าเป็นเงินสดหรือลงบัญชี</span></div>
+      <span class="amt" id="gu-amt"></span>
+    </summary>
+    <div class="body" id="gu-list"></div>
+    <a class="check" href="/app/?tab=today&money=unpaid">ไปตรวจ / แก้สถานะในหน้างานวันนี้ ›</a>
+  </details>
+
   <button type="button" id="save" class="save" hidden>
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="M8 11l4 4 4-4"/><path d="M5 19h14"/></svg>
     <span>บันทึกเป็นไฟล์ ส่งให้คนทำบัญชี</span>
@@ -224,6 +257,26 @@ async function api(path) {
     throw new Error(body.message || body.error || 'เกิดข้อผิดพลาด');
   }
   return res.json();
+}
+
+function renderCarryGroup(prefix, group, title) {
+  const box = $('g-' + prefix);
+  box.hidden = !group || !group.jobCount;
+  if (box.hidden) return;
+  $((prefix === 'account' ? 'ga' : 'gu') + '-head').textContent = `${title} · ${group.jobCount} งาน`;
+  $((prefix === 'account' ? 'ga' : 'gu') + '-amt').textContent = baht(group.owed);
+  const list = $((prefix === 'account' ? 'ga' : 'gu') + '-list');
+  list.innerHTML = '';
+  group.rows.forEach((r, i) => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = '<span class="no"></span><div class="what"><b></b><span></span></div><span class="amt"></span>';
+    row.querySelector('.no').textContent = String(i + 1);
+    row.querySelector('.what b').textContent = r.customerName || 'ไม่ได้ใส่ชื่อ';
+    row.querySelector('.what span').textContent = [r.jobName, r.jobNumber].filter(Boolean).join(' · ');
+    row.querySelector('.amt').textContent = baht(r.owed);
+    list.append(row);
+  });
 }
 
 function render(led) {
@@ -278,6 +331,8 @@ function render(led) {
   $('carry').hidden = !led.carry.jobCount;
   $('c-head').textContent = `ค้างรับยกไป · ${led.carry.jobCount} งาน`;
   $('c-amt').textContent = baht(led.carry.owed);
+  renderCarryGroup('account', led.carry.account, '📒 ลงบัญชีไว้ (ค้างจ่าย)');
+  renderCarryGroup('unpaid', led.carry.unpaid, '⏳ ยังไม่ได้รับเงิน');
 
   const unknown = led.methods.find((m) => m.id === 'unknown');
   $('f-head').textContent = led.jobCount ? `วันนี้เก็บได้ ${baht(led.total)} ค่ะ` : 'ม่วงรออยู่ค่ะ';
@@ -316,6 +371,13 @@ function toCsv(led) {
   for (const m of led.methods) out.push(line([m.label, '', '', '', '', m.jobCount + ' รายการ', m.total]));
   out.push(line(['รวมรับเป็นเงินทั้งสิ้น', '', '', '', '', led.jobCount + ' รายการ', led.total]));
   out.push(line(['ค้างรับยกไป (ยังไม่ได้เก็บเงิน)', '', '', '', '', led.carry.jobCount + ' งาน', led.carry.owed]));
+  const carryLines = (title, g) => {
+    if (!g || !g.jobCount) return;
+    out.push('', line([title, '', '', '', '', g.jobCount + ' งาน', g.owed]));
+    g.rows.forEach((r, i) => out.push(line([i + 1, r.jobNumber || '', r.customerName || 'ไม่ได้ใส่ชื่อ', r.jobName || '', r.kind === 'org' ? 'หน่วยงาน' : 'หน้าร้าน', 'ค้าง', r.owed])));
+  };
+  carryLines('ลงบัญชีไว้ (ค้างจ่าย)', led.carry.account);
+  carryLines('ยังไม่ได้รับเงิน (ยังไม่ลงบัญชี)', led.carry.unpaid);
   return '\ufeff' + out.join('\r\n') + '\r\n';
 }
 

@@ -104,7 +104,17 @@ const COMMANDS = new Map([
   ['ทบทวนงาน', 'review_jobs'],
   ['แก้สถานะ', 'review_jobs'],
   ['แก้สถานะงาน', 'review_jobs'],
-  ['ลงบัญชี', 'review_jobs'],
+  // แยกงานตามเงิน: เงินสด / โอน / ลงบัญชี / ยังไม่ได้รับ — เช็คงานซ้ำ
+  ['งานเงินสด', 'money_list&k=cash'],
+  ['เงินสด', 'money_list&k=cash'],
+  ['งานโอน', 'money_list&k=transfer'],
+  ['เงินโอน', 'money_list&k=transfer'],
+  ['งานลงบัญชี', 'money_list&k=account'],
+  ['ลงบัญชี', 'money_list&k=account'],
+  ['ค้างลงบัญชี', 'money_list&k=account'],
+  ['งานยังไม่จ่าย', 'money_list&k=unpaid'],
+  ['ยังไม่จ่าย', 'money_list&k=unpaid'],
+  ['ยังไม่ได้รับเงิน', 'money_list&k=unpaid'],
   // ค่า AI เป็นบาท / ลิงก์เปิดบนคอม
   ['ค่า ai', 'ai_cost'],
   ['ค่าai', 'ai_cost'],

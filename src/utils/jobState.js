@@ -225,3 +225,14 @@ export function statusPatch(job = {}, change = {}, now = new Date()) {
 
   return touched ? patch : null;
 }
+
+/* งานใบนี้อยู่กองเงินไหน — เงินสด · โอน · ลงบัญชี · ยังไม่ได้รับ · รับแล้วไม่ระบุช่องทาง
+ *
+ * ได้รับบางส่วนนับเป็น "ยังไม่ได้รับ" เพราะยังมียอดค้างอยู่
+ */
+export const MONEY_KINDS = ['cash', 'transfer', 'account', 'unpaid', 'paid'];
+
+export function moneyKind(job = {}) {
+  const m = jobStatus(job).money;
+  return m === 'partial' ? 'unpaid' : m;
+}

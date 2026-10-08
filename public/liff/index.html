@@ -274,6 +274,10 @@
   .seg button { flex: 1; border: 1.5px solid var(--line); background: var(--tint); border-radius: 12px; padding: 13px 4px; font: inherit; font-size: 13.5px; font-weight: 600; color: var(--sub); }
   .seg button[aria-pressed="true"] { border-color: var(--accent-text); background: var(--accent-dim); color: var(--white); font-weight: 700; }
   /* แถวที่สอง "จะแบ่งกองด้วยอะไร" เป็นของรอง ไม่ใช่ตัวกรองหลัก จึงเตี้ยและจางกว่า */
+  .seg.wrap { flex-wrap: wrap; }
+  .seg.wrap button { flex: 1 1 30%; }
+  .money-sum { margin: -3px 2px 11px; font-size: 12px; color: var(--sub); line-height: 1.5; }
+  .money-sum b { color: var(--accent-text); }
   .seg.sub { margin-bottom: 11px; }
   .seg.sub button { padding: 8px 4px; font-size: 12.5px; border-radius: 10px; }
   .seg.sub button[aria-pressed="true"] { background: var(--accent-soft, #dce7fb); border-color: transparent; color: var(--accent-text); }
@@ -380,6 +384,11 @@
         <button type="button" data-g="cat" aria-pressed="false">🗂️ หมวดงาน</button>
         <button type="button" data-g="kind" aria-pressed="false">🏫 ลูกค้า</button>
       </div>
+      <!-- ร้านขอ "แยกเงินสดกับลงบัญชีไว้เช็คงานอีกที" — กรองตามวิธีรับเงิน: เงินสด · โอน ·
+           ลงบัญชี (ค้างจ่าย) · ยังไม่ได้รับ · รับแล้วแต่ยังไม่บอกช่องทาง กดเลือกแล้วแก้สถานะ
+           ใต้งานแต่ละใบได้เลย งานจะย้ายออกจากกองนี้ไปอยู่กองที่ถูกต้อง -->
+      <div class="seg sub wrap" id="t-queue-money" hidden aria-label="แยกตามเงิน"></div>
+      <p class="money-sum" id="t-money-sum" hidden></p>
       <div id="t-recent"></div>
       <img class="peek front" src="/brand/ui/rest.png" alt="" style="right:10px;bottom:-14px;width:88px" />
     </div>
@@ -951,6 +960,38 @@ try {
   if (saved === 'day' || saved === 'cat' || saved === 'kind') queueGroup = saved;
 } catch (e) { /* เหมือนกัน */ }
 
+/* แยกตามเงิน — เงินสด / โอน / ลงบัญชี / ยังไม่ได้รับ / รับแล้วไม่ระบุช่องทาง
+ *
+ * ข้อมูลชุดเดิม มองคนละมุม เหมือนตัวกรองอื่น ไม่ยิง API ใหม่ จำค่าไว้ในเครื่อง
+ */
+const MONEY_KINDS = [
+  { id: 'all', label: 'ทุกแบบ' },
+  { id: 'cash', label: '💵 เงินสด' },
+  { id: 'transfer', label: '🏦 โอน' },
+  { id: 'account', label: '📒 ลงบัญชี' },
+  { id: 'unpaid', label: '⏳ ยังไม่ได้รับ' },
+  { id: 'paid', label: '❓ ไม่ระบุช่องทาง' },
+];
+const MONEY_HINT = {
+  cash: 'รับเป็นเงินสดแล้ว',
+  transfer: 'รับเป็นเงินโอนแล้ว',
+  account: 'ลงบัญชีไว้แล้ว ยังไม่ได้รับเงิน (รอวางบิล / เก็บเงิน)',
+  unpaid: 'ยังไม่ได้รับเงิน และยังไม่ได้ลงบัญชี — กดใต้งานเพื่อเลือกว่าเงินสดหรือลงบัญชี',
+  paid: 'รับเงินแล้วแต่ยังไม่ได้บอกว่าสดหรือโอน — กด 💰 ได้รับเงิน ใต้งานเพื่อเลือก',
+};
+const QUEUE_MONEY_KEY = 'mj.queue.money';
+let queueMoney = 'all';
+try {
+  const saved = localStorage.getItem(QUEUE_MONEY_KEY);
+  if (MONEY_KINDS.some((k) => k.id === saved)) queueMoney = saved;
+} catch (e) { /* เหมือนกัน */ }
+
+// หนึ่งงานอยู่กองไหน: ได้รับบางส่วนนับเป็นยังไม่ได้รับ (ยังมียอดค้าง)
+function moneyKindOf(job) {
+  const m = jobStatusOf(job).money;
+  return m === 'partial' ? 'unpaid' : m;
+}
+
 // หมวดที่ร้านกางไว้ อยู่แค่ในหน้าที่เปิดอยู่ — วาดใหม่แล้วยังกางเหมือนเดิม
 const queueOpenCats = new Set();
 
@@ -965,7 +1006,48 @@ async function loadQueue() {
 }
 
 function paintQueue() {
-  const jobs = queueJobs || [];
+  const everyJob = queueJobs || [];
+
+  // แถวแยกตามเงิน: โชว์เฉพาะกองที่มีงาน (กับกองที่เลือกอยู่) ตัวเลขบนปุ่ม
+  const moneyCount = (k) => (k === 'all' ? everyJob.length : everyJob.filter((j) => moneyKindOf(j) === k).length);
+  const mseg = $('t-queue-money');
+  mseg.hidden = !everyJob.length;
+  mseg.textContent = '';
+  MONEY_KINDS.forEach((k) => {
+    const n = moneyCount(k.id);
+    if (k.id !== 'all' && !n && k.id !== queueMoney) return;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.m = k.id;
+    b.textContent = k.label + (k.id !== 'all' && n ? ' ' + n : '');
+    b.setAttribute('aria-pressed', String(k.id === queueMoney));
+    mseg.appendChild(b);
+  });
+
+  const jobs = queueMoney === 'all' ? everyJob : everyJob.filter((j) => moneyKindOf(j) === queueMoney);
+  const sumEl = $('t-money-sum');
+  if (queueMoney === 'all' || !everyJob.length) {
+    sumEl.hidden = true;
+  } else {
+    const total = jobs.reduce((t, j) => t + (Number(j.total) || 0), 0);
+    const owedSum = jobs.reduce((t, j) => t + (Number(j.balance_due) || 0), 0);
+    const kind = MONEY_KINDS.find((k) => k.id === queueMoney);
+    sumEl.innerHTML = '<b></b> · <span></span><br><small></small>';
+    sumEl.querySelector('b').textContent = kind.label;
+    sumEl.querySelector('span').textContent = jobs.length + ' งาน · ' + thb(total) +
+      (owedSum > 0.009 ? ' · ค้าง ' + thb(owedSum) : '');
+    sumEl.querySelector('small').textContent = MONEY_HINT[queueMoney] || '';
+    sumEl.hidden = false;
+  }
+  if (queueMoney !== 'all' && everyJob.length && !jobs.length) {
+    // ไม่มีงานในกองนี้ — บอกตรง ๆ ไม่ใช่โชว์ช่องว่าง ๆ ให้เดา
+    const kind = MONEY_KINDS.find((k) => k.id === queueMoney);
+    $('t-queue-filter').hidden = true;
+    $('t-queue-group').hidden = true;
+    $('t-recent').innerHTML = '<div class="empty">ไม่มีงานในกอง "' + kind.label + '" ค่ะ 💜</div>';
+    return;
+  }
+
   const owed = jobs.filter((j) => j.payment_status !== 'paid');
   const paid = jobs.filter((j) => j.payment_status === 'paid');
 
@@ -1788,6 +1870,15 @@ $('t-queue-filter').onclick = (e) => {
   paintQueue();
 };
 
+// แยกตามเงิน — ข้อมูลชุดเดิม ไม่ต้องโหลดใหม่
+$('t-queue-money').onclick = (e) => {
+  const b = e.target.closest('button[data-m]');
+  if (!b || b.dataset.m === queueMoney) return;
+  queueMoney = b.dataset.m;
+  try { localStorage.setItem(QUEUE_MONEY_KEY, queueMoney); } catch (err) { /* ไม่เป็นไร */ }
+  paintQueue();
+};
+
 // แบ่งกองตามวันนัด หรือตามหมวดงาน — ข้อมูลชุดเดิมเหมือนกัน ไม่ต้องโหลดใหม่
 $('t-queue-group').onclick = (e) => {
   const b = e.target.closest('button[data-g]');
@@ -1813,6 +1904,13 @@ $('r-period').onclick = async (e) => {
     await liff.init({ liffId: cfg.liffId });
     if (!liff.isLoggedIn()) return liff.login({ redirectUri: location.href });
     token = liff.getAccessToken();
+
+    // ?money=account — ลิงก์จากแชต/ใบลงบัญชี เปิดมาที่กองนั้นเลย
+    const wantMoney = new URLSearchParams(location.search).get('money');
+    if (MONEY_KINDS.some((k) => k.id === wantMoney)) {
+      queueMoney = wantMoney;
+      try { localStorage.setItem(QUEUE_MONEY_KEY, queueMoney); } catch (err) { /* ไม่เป็นไร */ }
+    }
 
     const editId = new URLSearchParams(location.search).get('edit');
     if (editId) {

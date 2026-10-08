@@ -30,6 +30,7 @@ import { help } from '../actions/help.js';
 import { nudgeOff, nudgeOn, nudgeTest } from '../actions/nudge.js';
 import { quickJob } from '../actions/quickJob.js';
 import { aiCost } from '../actions/aiCost.js';
+import { moneyList } from '../actions/moneyList.js';
 import { webLinks } from '../actions/webLinks.js';
 import { reviewJobs, reviewAnswer } from '../actions/reviewJobs.js';
 import {
@@ -180,6 +181,8 @@ export async function handlePostback(event, profile) {
       return reviewJobs(ctx);
     case 'rv':
       return reviewAnswer(ctx);
+    case 'money_list':
+      return moneyList(ctx);
     case 'ai_cost':
       return aiCost(ctx);
     case 'web_links':
