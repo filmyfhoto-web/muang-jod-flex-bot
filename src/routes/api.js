@@ -15,7 +15,7 @@ import {
   replaceJobItems,
   buildReport,
 } from '../services/jobService.js';
-import { createJob } from '../services/jobService.js';
+import { createJob, getCustomerDirectory } from '../services/jobService.js';
 import { missingColumn } from '../utils/dbErrors.js';
 import { listCustomerOrgs, setCustomerOrg } from '../services/customerOrgService.js';
 import { ensureTaxonomy, loadCategoryConfig, updateCategories } from '../services/categoryService.js';
@@ -138,6 +138,7 @@ export function createApiRouter(deps = {}) {
   const warmCategories = deps.ensureTaxonomy || ensureTaxonomy;
   const readCategories = deps.loadCategoryConfig || loadCategoryConfig;
   const orgsOf = deps.listCustomerOrgs || listCustomerOrgs;
+  const customersOf = deps.getCustomerDirectory || getCustomerDirectory;
   const saveOrg = deps.setCustomerOrg || setCustomerOrg;
   const takePayment = deps.recordPayment || recordPayment;
   const readCheckin = deps.getCheckinSettings || getCheckinSettings;
@@ -427,6 +428,17 @@ export function createApiRouter(deps = {}) {
    *
    * ready=false = ตารางยังไม่ได้สร้าง (ไมเกรชัน 019) หน้าแก้ไขบอกร้านให้รัน
    */
+  /* รายชื่อลูกค้าที่เคยจด — ให้ฟอร์มเสนอชื่อเต็มตอนพิมพ์ จะได้ไม่ต้องพิมพ์ทั้งชื่อ
+   * และสะกดเหมือนทุกใบ สมุดลูกค้าจึงรวมเจ้าถูก
+   */
+  router.get('/customers', async (req, res, next) => {
+    try {
+      res.json({ customers: await customersOf(req.profile.id) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   router.get('/categories', async (req, res, next) => {
     try {
       const got = await readCategories(req.profile.id);

@@ -822,7 +822,73 @@ function syncHeaderFields() {
 
 /* ------------------------------------------------------------------- เริ่ม */
 
-$('#f-customer').oninput = (e) => { state.customer = e.target.value; renderSummary(); saveDraft(); };
+$('#f-customer').oninput = (e) => { state.customer = e.target.value; renderSummary(); saveDraft(); renderCustomerChips(); };
+$('#f-customer').onfocus = () => renderCustomerChips();
+
+/* ชื่อลูกค้าที่เคยจดไว้ เด้งให้กดตอนพิมพ์ — ร้านขอ "พิมพ์ลูกค้าคนไหนที่เคยจดไว้
+ * แสดงให้อัตโนมัติ จะได้ไม่ต้องพิมพ์"
+ *
+ * เทียบแบบเดียวกับสมุดลูกค้า (ตัดจุด เว้นวรรค ขีด ตัวพิมพ์) "รร สบ" จึงเจอ
+ * "รร.สบกอน" กดชิปแล้วได้สะกดเดิมเป๊ะ บัญชีเดิม ไม่แตกเป็นเจ้าใหม่
+ */
+let customers = []; // [{ name, jobCount }] จาก /api/customers — ว่างเมื่อเปิดนอก LINE
+const custKey = (t) => String(t || '').trim().replace(/[\s.·,\-\u2013\u2014]/g, '').toLowerCase();
+
+function renderCustomerChips() {
+  const box = $('#cust-suggest');
+  if (!box) return;
+  const typed = custKey(state.customer);
+  const list = customers
+    .filter((c) => {
+      const k = custKey(c.name);
+      if (!typed) return true; // ยังไม่พิมพ์ = โชว์เจ้าล่าสุดไว้กดเลย
+      if (k === typed) return false; // พิมพ์ครบแล้ว ไม่ต้องเสนอซ้ำ
+      return k.includes(typed);
+    })
+    .slice(0, typed ? 4 : 6);
+
+  box.textContent = '';
+  box.hidden = !list.length;
+  for (const c of list) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    const name = document.createElement('b');
+    name.textContent = c.name;
+    btn.appendChild(name);
+    if (c.jobCount > 1) {
+      const n = document.createElement('small');
+      n.textContent = c.jobCount + ' งาน';
+      btn.appendChild(n);
+    }
+    btn.onclick = () => {
+      state.customer = c.name;
+      $('#f-customer').value = c.name;
+      renderSummary();
+      saveDraft();
+      renderCustomerChips();
+    };
+    box.appendChild(btn);
+  }
+}
+
+async function loadCustomers() {
+  if (!token) return; // โหมดทดลองนอก LINE ไม่มีบัญชีให้ดึง
+  try {
+    const res = await fetch('/api/customers', { headers: { Authorization: 'Bearer ' + token } });
+    const body = await res.json();
+    customers = Array.isArray(body?.customers) ? body.customers : [];
+  } catch { customers = []; }
+  const dl = $('#customer-list');
+  if (dl) {
+    dl.textContent = '';
+    for (const c of customers) {
+      const opt = document.createElement('option');
+      opt.value = c.name;
+      dl.appendChild(opt);
+    }
+  }
+  renderCustomerChips();
+}
 $('#f-date').onchange = (e) => { state.date = e.target.value || todayISO(); renderSummary(); saveDraft(); };
 $('#f-due').onchange = (e) => { state.due = e.target.value || ''; renderSummary(); saveDraft(); };
 $('#f-paid').oninput = (e) => { state.paid = num(e.target.value); renderSummary(); saveDraft(); };
@@ -1126,6 +1192,7 @@ function whenText(ts) {
     if (!liff.isLoggedIn()) return liff.login({ redirectUri: location.href });
     token = liff.getAccessToken();
     $('#bar-sub').textContent = 'บันทึกเข้าบัญชีของคุณ';
+    loadCustomers(); // ชื่อลูกค้าเดิมไว้เติมอัตโนมัติ — ไม่ต้องรอ ฟอร์มใช้ได้เลย
 
     // ?draft=1 — มาจากปุ่ม ✏️ แก้ไข บนการ์ดในแชต ของที่จดไว้ต้องมาอยู่ในฟอร์ม
     // ให้ครบ ไม่ใช่ให้พิมพ์ใหม่ ร่างที่ค้างในเครื่องแพ้เสมอ เพราะอันนี้คือ

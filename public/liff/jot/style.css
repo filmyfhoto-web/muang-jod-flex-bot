@@ -689,3 +689,14 @@ body.quick .link-full { display: block; }
 .paste-note { font-size: 11.5px; color: var(--grey); flex: 1; min-width: 0; }
 .paste-note.bad { color: var(--red); }
 .paste-note.good { color: var(--green); }
+
+/* ชิปชื่อลูกค้าที่เคยจดไว้ ใต้ช่องลูกค้า — กดแล้วเติมชื่อเต็มให้ */
+.cust-suggest { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 10px; }
+.cust-suggest button {
+  border: 1px solid var(--line); background: var(--tint);
+  color: inherit; font: inherit; font-size: 12.5px; line-height: 1;
+  padding: 8px 12px; border-radius: 999px; cursor: pointer; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cust-suggest button b { font-weight: 600; }
+.cust-suggest button small { opacity: .6; font-size: 11px; margin-left: 4px; }
