@@ -1,0 +1,336 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { matchIntent, isThanks, isThanksSticker } from '../src/matcher.js';
+import { buildReply, withSender, thanksReply } from '../src/replies.js';
+import { verifySignature } from '../src/line.js';
+import crypto from 'node:crypto';
+
+const real = JSON.parse(readFileSync(new URL('../data/shop.json', import.meta.url), 'utf8'));
+// These tests exercise every answer the bot can give, including the ones switched off
+// in the shipped file (sample products, payment, …), so they switch them back on.
+const shop = { ...real, productsEnabled: true, faq: real.faq.map((f) => ({ ...f, enabled: true })) };
+// the "sorry, I don't understand" card is only built when replyOnlyKnown is switched off
+const chatty = { ...shop, replyOnlyKnown: false };
+
+test('product by alias', () => {
+  const r = matchIntent('ปากกาลูกลื่นราคาเท่าไหร่คะ', shop);
+  assert.equal(r.type, 'products');
+  assert.match(r.products[0].name, /ปากกาลูกลื่น/);
+});
+
+test('longest alias wins', () => {
+  const r = matchIntent('กระดาษ a4 มีไหม', shop);
+  assert.equal(r.products.length, 1);
+  assert.match(r.products[0].name, /A4/);
+});
+
+test('faq', () => {
+  assert.equal(matchIntent('ร้านเปิดกี่โมงคะ', shop).faq.label, 'เวลาเปิดร้าน');
+  assert.equal(matchIntent('โอนยังไง', shop).faq.label, 'การชำระเงิน');
+});
+
+test('greeting, fallback; the word "แอดมิน" is not something the bot answers', () => {
+  assert.equal(matchIntent('ขอคุยกับแอดมิน', shop).type, 'fallback');
+  assert.deepEqual(buildReply('แอดมิน', shop).messages, []);
+  assert.equal(matchIntent('สวัสดีค่ะ', shop).type, 'greeting');
+  assert.equal(matchIntent('xyz', shop).type, 'fallback');
+});
+
+test('greeting replies with a flex card with menu buttons', () => {
+  const { messages } = buildReply('สวัสดีค่ะ', shop);
+  assert.equal(messages[0].type, 'flex');
+  const buttons = messages[0].contents.footer.contents;
+  assert.ok(buttons.length > 1);
+  assert.ok(buttons.every((b) => b.action.label.length <= 20));
+});
+
+test('single product → bubble, several → carousel; out-of-stock flagged', () => {
+  const one = buildReply('ไฮไลท์', shop).messages[0];
+  assert.equal(one.contents.type, 'bubble');
+  assert.match(JSON.stringify(one), /สินค้าหมดชั่วคราว/);
+  const many = buildReply('ปากกา', shop).messages[0];
+  assert.ok(['bubble', 'carousel'].includes(many.contents.type));
+});
+
+test('faq and fallback are flex cards', () => {
+  assert.equal(buildReply('ร้านเปิดกี่โมง', shop).messages[0].type, 'flex');
+  assert.equal(buildReply('xyz', chatty).messages[0].type, 'flex');
+});
+
+test('supplies button only asks which school — no school list, no link', () => {
+  const r = buildReply('อุปกรณ์การเรียน 2-69', shop);
+  assert.equal(r.awaitingSchool, true);
+  assert.equal(r.messages.length, 1);
+  assert.equal(r.messages[0].type, 'text');
+  assert.match(r.messages[0].text, /โรงเรียนไหน/);
+  assert.equal(r.messages[0].quickReply, undefined);
+  const out = JSON.stringify(r);
+  assert.ok(!shop.schoolSupplies.schools.some((s) => out.includes(s.link) || out.includes(s.name)));
+});
+
+test('every school resolves to its own link however the customer writes it', () => {
+  for (const sc of shop.schoolSupplies.schools) {
+    const short = sc.name.replace(/^โรงเรียน/, '');
+    const bare = short.replace(/^บ้าน/, '');
+    const variants = [sc.name, short, bare, `ร.ร.${short}`, `ร.ร. ${short}`, `รร${short}`, `รร ${short}`, `รร.${short}`,
+      `${short} ค่ะ`, `อยู่โรงเรียน${short}ค่ะ`, `ร.ร.${bare}`];
+    for (const typed of variants) {
+      const r = buildReply(typed, shop, { awaitingSchool: true });
+      assert.equal(r.awaitingSchool, false, typed);
+      assert.ok(JSON.stringify(r.messages[0]).includes(sc.link), typed);
+    }
+  }
+});
+
+test('a distinctive part of a name is enough; an ambiguous one is not guessed', () => {
+  const link = (t) => {
+    const r = buildReply(t, shop, { awaitingSchool: true });
+    return r.awaitingSchool ? null : JSON.stringify(r.messages[0]);
+  };
+  assert.match(link('ไตรมิตร'), /bc2m4/);
+  assert.match(link('เปียงซ้อ'), /bc9u9/);
+  assert.match(link('ไทยรัฐ 98'), /c99h3/);
+  assert.match(link('เจดีย์เชียงโคม'), /x7mep/);
+  assert.match(link('กอกจูน'), /bdtwk/);
+  assert.match(link('บ้านกอก'), /qeujy/);
+  assert.equal(link('บ้าน'), null);
+  assert.equal(link('น้ำ'), null);
+  assert.equal(link('ร.ร.'), null);
+});
+
+test('all school links are https and unique', () => {
+  const links = shop.schoolSupplies.schools.map((s) => s.link);
+  assert.ok(links.every((l) => /^https:\/\/\S+$/.test(l)));
+  assert.equal(new Set(links).size, links.length);
+});
+
+test('school named together with supplies → link straight away', () => {
+  const r = buildReply('ขอรายการอุปกรณ์ บ้านปางกอม', shop);
+  assert.match(JSON.stringify(r.messages[0]), /dcbt7/);
+});
+
+test('school name alone, not asked → link is not sent', () => {
+  assert.doesNotMatch(JSON.stringify(buildReply('โรงเรียนบ้านกอก', shop).messages), /qeujy/);
+});
+
+test('unknown school while asked → ask again; other topics still work', () => {
+  const again = buildReply('โรงเรียนอะไรไม่รู้', shop, { awaitingSchool: true });
+  assert.equal(again.awaitingSchool, true);
+  assert.match(again.messages[0].text, /ยังไม่พบ/);
+  const faq = buildReply('ร้านเปิดกี่โมง', shop, { awaitingSchool: true });
+  assert.equal(faq.awaitingSchool, false);
+  assert.equal(faq.messages[0].type, 'flex');
+});
+
+test('สั่งของ has an answer', () => {
+  assert.equal(matchIntent('สั่งของ', shop).faq.label, 'สั่งของ');
+});
+
+test('greeting asks what the customer is contacting about', () => {
+  const card = JSON.stringify(buildReply('สวัสดีค่ะ', shop).messages[0]);
+  assert.match(card, /ติดต่อสอบถามเรื่องอะไร/);
+});
+
+test('withSender adds the shop icon only with a public https base url', () => {
+  const msgs = [{ type: 'text', text: 'x' }];
+  assert.equal(withSender(msgs, '')[0].sender, undefined);
+  assert.equal(withSender(msgs, 'http://localhost:3000')[0].sender, undefined);
+  assert.equal(withSender(msgs, 'https://bot.onrender.com/')[0].sender.iconUrl, 'https://bot.onrender.com/assets/icon.png');
+  assert.equal(msgs[0].sender, undefined); // input not mutated
+});
+
+test('shop name and opening hours are the real ones', () => {
+  assert.equal(shop.name, 'ร้านนัฐภรณ์ เชียงกลาง');
+  const hours = matchIntent('เวลาเปิดร้าน', shop).faq.answer;
+  assert.match(hours, /จันทร์ - ศุกร์\s+07\.30 - 18\.00/);
+  assert.match(hours, /เสาร์\s+หยุด/);
+  assert.match(hours, /อาทิตย์\s+07\.30 - 17\.00/);
+});
+
+test('every button label fits LINE (<=20) and sends a message the bot understands', () => {
+  const card = buildReply('สวัสดี', shop).messages[0];
+  const buttons = card.contents.footer.contents.map((b) => b.action);
+  for (const a of buttons) assert.ok(a.label.length <= 20, a.label);
+  const supplies = buttons.find((a) => a.label.startsWith('อุปกรณ์'));
+  assert.equal(buildReply(supplies.text, shop).awaitingSchool, true);
+  const chips = buildReply('ปากกา', shop).messages[0].quickReply.items;
+  for (const c of chips) assert.ok(c.action.label.length <= 20, c.action.label);
+});
+
+test('สั่งของ: chat-order instructions plus a button to the web shop', () => {
+  const card = buildReply('สั่งของ', shop).messages[0];
+  const json = JSON.stringify(card);
+  assert.match(json, /พิมพ์ชื่อสินค้าและจำนวน/);
+  const btn = card.contents.footer.contents[0].action;
+  assert.equal(btn.type, 'uri');
+  assert.equal(btn.uri, 'https://www.nattagroup.com/');
+  assert.ok(btn.label.length <= 20);
+  assert.ok(!json.includes('shop.json'));
+});
+
+const withPics = { ...shop, assetBase: 'https://bot.example', iconUrl: 'https://bot.example/assets/icon.png' };
+// the picture sits in the top-right corner of the header band
+const headerImg = (card) => card.header?.contents[1]?.contents?.find((c) => c.type === 'image');
+const heroUrl = (m) => headerImg(m.contents)?.url;
+
+test('with a public address: a picture in the corner of every card header', () => {
+  const greet = buildReply('สวัสดี', withPics).messages[0];
+  assert.equal(heroUrl(greet), 'https://bot.example/assets/staff.png');
+  const head = greet.contents.header;
+  assert.equal(head.contents[0].type, 'text'); // title on the left …
+  assert.equal(head.contents[0].text, shop.name);
+  const art = head.contents[1]; // … picture block in the corner: pastel shape + the picture
+  assert.equal(art.type, 'box');
+  assert.equal(art.contents[0].position, 'absolute'); // the shape sits behind
+  assert.ok(art.contents[0].backgroundColor);
+  assert.equal(art.contents[1].type, 'image'); // the picture on top (after the shape)
+  assert.equal(art.contents[1].position, 'absolute');
+  // big and flush with the corner: no padding on its side or underneath
+  assert.equal(head.paddingEnd, 'sm');
+  assert.equal(head.paddingBottom, 'none');
+  assert.ok(parseInt(art.contents[1].size) >= 100);
+  assert.equal(greet.contents.hero, undefined);
+  assert.equal(heroUrl(buildReply('ร้านเปิดกี่โมง', withPics).messages[0]), 'https://bot.example/assets/staff.png');
+  assert.equal(heroUrl(buildReply('ที่ตั้งร้าน', withPics).messages[0]), 'https://bot.example/assets/admin.png');
+  assert.equal(heroUrl(buildReply('xyz', { ...withPics, replyOnlyKnown: false }).messages[0]), 'https://bot.example/assets/admin.png'); // fallback card
+
+  assert.equal(heroUrl(buildReply('สั่งของ', withPics).messages[0]), 'https://bot.example/assets/order.png');
+  assert.equal(heroUrl(buildReply('อุปกรณ์การเรียน 2-69', withPics).messages[0]), 'https://bot.example/assets/ask.png');
+  const link = buildReply('บ้านกอก', withPics, { awaitingSchool: true }).messages[0];
+  assert.equal(heroUrl(link), 'https://bot.example/assets/school.png');
+  assert.match(JSON.stringify(link), /qeujy/);
+});
+
+test('without a public address nothing breaks: no pictures, plain header and text', () => {
+  const greet = buildReply('สวัสดี', shop).messages[0];
+  assert.equal(heroUrl(greet), undefined);
+  assert.ok(greet.contents.header);
+  assert.equal(buildReply('อุปกรณ์การเรียน 2-69', shop).messages[0].type, 'text');
+});
+
+test('every picture the cards point at exists in public/ and is a PNG with transparency', () => {
+  for (const n of ['order', 'school', 'ask', 'admin', 'staff', 'icon']) {
+    const f = readFileSync(new URL(`../public/${n}.png`, import.meta.url));
+    assert.equal(f.subarray(1, 4).toString(), 'PNG', n);
+    assert.ok(f.length < 1_000_000, `${n} must stay under LINE's 1MB image limit`);
+  }
+  for (const n of ['order', 'school', 'ask', 'admin', 'staff']) {
+    const f = readFileSync(new URL(`../public/${n}.png`, import.meta.url));
+    assert.ok([4, 6].includes(f[25]), `${n} should have an alpha channel`); // PNG colour type 6 = RGBA
+  }
+});
+
+test('thanks in its usual spellings gets the fixed reply', () => {
+  for (const t of ['ขอบคุณเจ้าพี่', 'ขอบคุณเจ้า', 'ขอบคุณเน้อ', 'ขอบคุณเด้อ', 'ขอบคุณพี่', 'ขอบคุณน้องนะ', 'ขอบคุณค่า', 'ขอบคุณครับผม', 'ขอบคุณเจ้าค่ะ', 'ขอบคุณมากๆเจ้าพี่', 'ขอบคุณ', 'ขอบคุณค่ะ', 'ขอบคุณมากครับ', 'ขอบคุณนะคะ 🙏', 'ขอบคุณที่ช่วยนะคะ', 'ขอบคุณมากๆ ค่ะ', 'ขอบใจจ้า', 'thanks', 'Thank you!', 'ขอบพระคุณค่ะ']) {
+    assert.ok(isThanks(t), t);
+    assert.equal(buildReply(t, shop).messages[0].text, 'ยินดีค่ะ หากต้องการสอบถามรายละเอียดเพิ่มเติม แจ้งได้เลยนะคะ', t);
+  }
+});
+
+test('thanks plus a real question is still a question', () => {
+  assert.ok(!isThanks('ขอบคุณค่ะ ปากการาคาเท่าไหร่'));
+  assert.equal(buildReply('ขอบคุณค่ะ ร้านเปิดกี่โมง', shop).messages[0].type, 'flex');
+  assert.ok(!isThanks('สวัสดีค่ะ'));
+  assert.ok(!isThanks(''));
+});
+
+test('thanks while a school is being asked ends the question and sends no link', () => {
+  const r = buildReply('ขอบคุณค่ะ', shop, { awaitingSchool: true });
+  assert.equal(r.awaitingSchool, false);
+  assert.ok(!JSON.stringify(r).includes('nattagroup'));
+});
+
+test('thank-you stickers are recognised by their keywords; others are not', () => {
+  assert.ok(isThanksSticker(['thanks', 'thank you', 'grateful']));
+  assert.ok(isThanksSticker(['Thank']));
+  assert.ok(!isThanksSticker(['hello', 'hi']));
+  assert.ok(!isThanksSticker(undefined));
+  assert.equal(thanksReply(shop).messages[0].text, 'ยินดีค่ะ หากต้องการสอบถามรายละเอียดเพิ่มเติม แจ้งได้เลยนะคะ');
+});
+
+test('pastel theme: cream paper (no coloured header band), pastel topic buttons, black primary button', () => {
+  const t = shop.theme;
+  const colors = (x) => JSON.stringify(x).match(/#[0-9A-Fa-f]{6}/g) ?? [];
+  const bubbles = [
+    buildReply('สวัสดี', shop).messages[0].contents,
+    buildReply('ร้านเปิดกี่โมง', shop).messages[0].contents,
+    buildReply('ไฮไลท์', shop).messages[0].contents,
+    buildReply('บ้านกอก', shop, { awaitingSchool: true }).messages[0].contents,
+  ];
+  for (const b of bubbles) {
+    for (const k of ['header', 'hero', 'body', 'footer']) assert.equal(b.styles[k].backgroundColor, t.cream, k);
+  }
+  const menu = buildReply('xyz', chatty).messages[0].contents;
+  assert.equal(menu.header.backgroundColor, t.cream); // picture on the plain paper, no band
+  const btns = menu.footer.contents;
+  assert.deepEqual(btns.slice(0, 3).map((b) => b.color), [t.apricot, t.yellow, t.blue]);
+  assert.ok(btns.slice(0, -1).every((b) => b.style === 'secondary')); // topic buttons are all pastel
+  assert.equal(btns.at(-1).style, 'primary'); // … and the contact button is the black one
+  assert.equal(btns.at(-1).color, t.ink);
+  assert.equal(btns.at(-1).action.label, 'ติดต่อแอดมิน');
+  // the one black button left is the "order" button on a product card
+  const buy = buildReply('ปากกา', shop).messages[0].contents.footer.contents[0];
+  assert.equal(buy.style, 'primary');
+  assert.equal(buy.color, t.ink);
+  // nothing from the old green theme is left anywhere
+  const all = JSON.stringify([bubbles, menu]);
+  assert.ok(!/#2E7D6B|#1B8A3B|#C62828/i.test(all));
+  assert.ok(colors(all).every((c) => /^#[0-9A-F]{6}$/i.test(c)));
+});
+
+test('thank-you reply wears the staff picture when pictures are available, plain text otherwise', () => {
+  const card = buildReply('ขอบคุณค่ะ', withPics).messages[0];
+  assert.equal(heroUrl(card), 'https://bot.example/assets/staff.png');
+  assert.match(card.altText, /ยินดีค่ะ/);
+  assert.ok(card.quickReply);
+  assert.equal(buildReply('ขอบคุณค่ะ', shop).messages[0].type, 'text');
+});
+
+test('product cards: name beside a picture in the header, price / stock below', () => {
+  const card = buildReply('ปากกา', withPics).messages[0].contents;
+  assert.equal(card.header.contents[0].text, 'ปากกาลูกลื่น 0.5 สีน้ำเงิน');
+  assert.equal(headerImg(card).type, 'image');
+  assert.match(headerImg(card).url, /^https:\/\/bot\.example\/assets\/\w+\.png$/);
+  const body = JSON.stringify(card.body);
+  assert.match(body, /10 บาท/);
+  assert.ok(!body.includes('ปากกาลูกลื่น')); // the name is not repeated in the body
+  // several products take turns with the pictures
+  const many = buildReply('xyz', { ...withPics, products: [], replyOnlyKnown: false });
+  const twoShop = { ...withPics, products: [
+    { name: 'ก', aliases: ['ก'], price: 1, unit: 'ชิ้น' },
+    { name: 'ข', aliases: ['ก'], price: 2, unit: 'ชิ้น' },
+  ] };
+  const urls = buildReply('ก', twoShop).messages[0].contents.contents.map((b) => headerImg(b).url);
+  assert.equal(new Set(urls).size, 2);
+  assert.ok(many);
+  const heights = buildReply('ก', twoShop).messages[0].contents.contents.map((b) => b.header.height);
+  assert.deepEqual(heights, ['116px', '116px']); // carousel headers line up
+  // an explicit image on the product wins
+  const own = buildReply('ก', { ...twoShop, products: [{ ...twoShop.products[0], image: 'order' }] }).messages[0].contents;
+  assert.match(headerImg(own).url, /order\.png$/);
+  // without pictures the header still carries the name
+  assert.equal(buildReply('ปากกา', shop).messages[0].contents.header.contents[0].text, 'ปากกาลูกลื่น 0.5 สีน้ำเงิน');
+});
+
+test('signature check', () => {
+  const body = Buffer.from('{"events":[]}');
+  const sig = crypto.createHmac('sha256', 's').update(body).digest('base64');
+  assert.ok(verifySignature(body, sig, 's'));
+  assert.ok(!verifySignature(body, sig, 'other'));
+  assert.ok(!verifySignature(body, null, 's'));
+});
+
+test('every picture a card can ask for has a spec and a file; ratios match the files', () => {
+  const names = new Set(shop.faq.map((f) => f.image).filter(Boolean));
+  for (const n of ['staff', 'admin', 'order', 'ask', 'school']) names.add(n);
+  for (const n of names) {
+    const card = buildReply('ร้านเปิดกี่โมง', { ...shop, assetBase: 'https://b.example', faq: [{ ...shop.faq[0], image: n }] }).messages[0];
+    const pic = headerImg(card.contents);
+    assert.ok(pic, `${n} has a picture spec`);
+    const f = readFileSync(new URL(`../public/${n}.png`, import.meta.url));
+    const [w, h] = [f.readUInt32BE(16), f.readUInt32BE(20)];
+    assert.equal(pic.aspectRatio, `${w}:${h}`, `${n} ratio`);
+    assert.ok(h <= 3 * w); // LINE limit
+  }
+});

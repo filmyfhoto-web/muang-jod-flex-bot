@@ -1,0 +1,365 @@
+{
+  "paused": false,
+  "replyDelaySeconds": 0,
+  "replyOnlyKnown": true,
+  "productsEnabled": false,
+  "name": "ร้านนัฐภรณ์ เชียงกลาง",
+  "theme": {
+    "cream": "#FBF7EF",
+    "apricot": "#FFB493",
+    "yellow": "#FFE68A",
+    "blue": "#BFDBFF",
+    "ink": "#2B2B2B",
+    "accent": "#E8643A"
+  },
+  "greeting": "สวัสดีค่ะ 😊 ติดต่อสอบถามเรื่องอะไรคะ\nพิมพ์สิ่งที่อยากสอบถามไว้ได้เลยค่ะ เดี๋ยวแอดมินมาตอบนะคะ หรือกดเลือกหัวข้อด้านล่างได้เลย",
+  "fallback": "ขออภัยค่ะ ยังไม่เข้าใจคำถามนี้ 🙏\nลองพิมพ์ชื่อสินค้า หรือเลือกหัวข้อด้านล่าง แอดมินจะตอบให้เร็วที่สุดนะคะ",
+  "quickReplies": [
+    "เวลาเปิดร้าน",
+    "สั่งของ",
+    "อุปกรณ์การเรียน 2-69",
+    "ที่ตั้งร้าน"
+  ],
+  "faq": [
+    {
+      "keywords": [
+        "เปิด",
+        "ปิด",
+        "กี่โมง",
+        "เวลาทำการ",
+        "เวลาเปิด"
+      ],
+      "label": "เวลาเปิดร้าน",
+      "answer": "เวลาเปิด-ปิดร้าน\nจันทร์ - ศุกร์  07.30 - 18.00 น.\nวันเสาร์  หยุด\nวันอาทิตย์  07.30 - 17.00 น.",
+      "image": "staff"
+    },
+    {
+      "keywords": [
+        "สั่งของ",
+        "สั่งซื้อ",
+        "วิธีสั่ง",
+        "อยากสั่ง",
+        "สั่งยังไง"
+      ],
+      "label": "สั่งของ",
+      "answer": "สั่งของได้ค่ะ 😊\nพิมพ์ชื่อสินค้าและจำนวนในแชทนี้ได้เลย แอดมินจะยืนยันยอดให้ค่ะ\n\nหรือกดสั่งผ่านเว็บได้ที่ปุ่มด้านล่างเลยค่ะ",
+      "link": {
+        "label": "สั่งผ่านเว็บ",
+        "url": "https://www.nattagroup.com/"
+      },
+      "image": "order"
+    },
+    {
+      "keywords": [
+        "ที่อยู่",
+        "ที่ตั้ง",
+        "แผนที่",
+        "อยู่ที่ไหน",
+        "ไปยังไง",
+        "พิกัด"
+      ],
+      "label": "ที่ตั้งร้าน",
+      "answer": "ร้านนัฐภรณ์ เชียงกลาง 📍\nกดปุ่มด้านล่างเพื่อเปิดแผนที่นำทางได้เลยค่ะ",
+      "image": "admin",
+      "link": {
+        "label": "เปิดแผนที่",
+        "url": "https://www.google.com/maps/place/%E0%B8%A3%E0%B9%89%E0%B8%B2%E0%B8%99%E0%B8%99%E0%B8%B1%E0%B8%90%E0%B8%A0%E0%B8%A3%E0%B8%93%E0%B9%8C+%E0%B8%84%E0%B8%B1%E0%B8%A5%E0%B9%80%E0%B8%A5%E0%B8%AD%E0%B8%A3%E0%B9%8C%E0%B9%81%E0%B8%A5%E0%B9%87%E0%B8%9B/@19.2906561,100.8612987,882m/data=!3m2!1e3!4b1!4m6!3m5!1s0x312803937953edbd:0xe574eedd2fcc2f7f!8m2!3d19.2906561!4d100.8612987!16s%2Fg%2F11ny0j_0ss?hl=th"
+      }
+    },
+    {
+      "keywords": [
+        "โอน",
+        "จ่าย",
+        "ชำระ",
+        "บัญชี",
+        "พร้อมเพย์",
+        "promptpay",
+        "เลขบัญชี"
+      ],
+      "label": "การชำระเงิน",
+      "answer": "รับโอนเงิน/พร้อมเพย์ และเงินสดหน้าร้านค่ะ\nพร้อมเพย์: 0xx-xxx-xxxx (แก้ใน data/shop.json)\nโอนแล้วส่งสลิปในแชทนี้ได้เลยค่ะ",
+      "image": "staff",
+      "enabled": false
+    },
+    {
+      "keywords": [
+        "ส่วนลด",
+        "โปร",
+        "โปรโมชั่น",
+        "ราคาส่ง",
+        "ยกโหล",
+        "ยกลัง"
+      ],
+      "label": "โปรโมชั่น/ราคาส่ง",
+      "answer": "ซื้อยกโหลหรือยกกล่องมีราคาพิเศษค่ะ บอกชื่อสินค้าและจำนวนที่ต้องการ แอดมินจะแจ้งราคาให้นะคะ",
+      "image": "school",
+      "enabled": false
+    },
+    {
+      "keywords": [
+        "ใบเสร็จ",
+        "ใบกำกับภาษี",
+        "ออกบิล",
+        "บริษัท",
+        "หน่วยงาน"
+      ],
+      "label": "ใบเสร็จ/หน่วยงาน",
+      "answer": "ออกใบเสร็จ/ใบกำกับภาษีได้ค่ะ ส่งชื่อ ที่อยู่ และเลขผู้เสียภาษีมาในแชทนี้ได้เลย รับใบสั่งซื้อจากหน่วยงานด้วยค่ะ",
+      "image": "admin",
+      "enabled": false
+    }
+  ],
+  "products": [
+    {
+      "name": "ปากกาลูกลื่น 0.5 สีน้ำเงิน",
+      "aliases": [
+        "ปากกา",
+        "ปากกาลูกลื่น",
+        "ปากกาน้ำเงิน"
+      ],
+      "price": 10,
+      "unit": "ด้าม",
+      "bulk": "ยกโหล 100 บาท",
+      "inStock": true
+    },
+    {
+      "name": "ดินสอ 2B",
+      "aliases": [
+        "ดินสอ",
+        "ดินสอ2b",
+        "ดินสอดำ"
+      ],
+      "price": 7,
+      "unit": "แท่ง",
+      "bulk": "ยกกล่อง (12 แท่ง) 75 บาท",
+      "inStock": true
+    },
+    {
+      "name": "สมุดปกอ่อน 80 แผ่น",
+      "aliases": [
+        "สมุด",
+        "สมุดปกอ่อน",
+        "สมุดเล่ม"
+      ],
+      "price": 25,
+      "unit": "เล่ม",
+      "inStock": true
+    },
+    {
+      "name": "กระดาษ A4 80 แกรม (500 แผ่น)",
+      "aliases": [
+        "กระดาษ",
+        "กระดาษa4",
+        "a4",
+        "รีม"
+      ],
+      "price": 125,
+      "unit": "รีม",
+      "bulk": "ยกลัง (5 รีม) 600 บาท",
+      "inStock": true
+    },
+    {
+      "name": "ปากกาเน้นข้อความ",
+      "aliases": [
+        "ไฮไลท์",
+        "ปากกาเน้นข้อความ",
+        "ไฮไลต์"
+      ],
+      "price": 20,
+      "unit": "ด้าม",
+      "inStock": false
+    }
+  ],
+  "schoolSupplies": {
+    "label": "อุปกรณ์การเรียน 2-69",
+    "keywords": [
+      "อุปกรณ์การเรียน",
+      "อุปกรณ์"
+    ],
+    "ask": "รบกวนแจ้งหน่อยค่ะ ว่าลูกค้าอยู่ \"โรงเรียนไหน\" 🏫\nพิมพ์ชื่อโรงเรียนมาได้เลยนะคะ แล้วจะส่งลิงก์รายการอุปกรณ์ของโรงเรียนนั้นให้ค่ะ",
+    "found": "ส่งรายการอุปกรณ์การเรียนของ {school} ให้แล้วค่ะ 📚",
+    "notFound": "ยังไม่พบโรงเรียนนี้ในรายการค่ะ 🙏\nรบกวนพิมพ์ชื่อโรงเรียนอีกครั้ง หรือรอแอดมินมาช่วยดูให้นะคะ",
+    "schools": [
+      {
+        "name": "โรงเรียนชุมชนเจดีย์เชียงโคม",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/x7mep"
+      },
+      {
+        "name": "โรงเรียนไตรมิตรวิทยา",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/bc2m4"
+      },
+      {
+        "name": "โรงเรียนไทยรัฐวิทยา 98",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/c99h3"
+      },
+      {
+        "name": "โรงเรียนบรรณโศภิษฐ์",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/ey25m"
+      },
+      {
+        "name": "โรงเรียนบ้านกอก",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/qeujy"
+      },
+      {
+        "name": "โรงเรียนบ้านกอกจูน",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/bdtwk"
+      },
+      {
+        "name": "โรงเรียนบ้านกิ่วจันทร์",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/vkewq"
+      },
+      {
+        "name": "โรงเรียนบ้านดอนแก้ว",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/7mcc7"
+      },
+      {
+        "name": "โรงเรียนบ้านด่าน",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/x38jb"
+      },
+      {
+        "name": "โรงเรียนบ้านนางบง",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/29pne"
+      },
+      {
+        "name": "โรงเรียนบ้านน้ำช้างพัฒนา",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/n3tyr"
+      },
+      {
+        "name": "โรงเรียนบ้านน้ำรีพัฒนา",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/dya6k"
+      },
+      {
+        "name": "โรงเรียนบ้านน้ำลาด",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/deuqk"
+      },
+      {
+        "name": "โรงเรียนบ้านน้ำเลียง",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/3khsn"
+      },
+      {
+        "name": "โรงเรียนบ้านบ่อหยวก",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/e9pds"
+      },
+      {
+        "name": "โรงเรียนบ้านปอน",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/8c6dq"
+      },
+      {
+        "name": "โรงเรียนบ้านปางกอม",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/dcbt7"
+      },
+      {
+        "name": "โรงเรียนบ้านปางหก",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/nxhnn"
+      },
+      {
+        "name": "โรงเรียนบ้านเปียงซ้อ",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/bc9u9"
+      },
+      {
+        "name": "โรงเรียนบ้านผาหลัก",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/xyqhs"
+      },
+      {
+        "name": "โรงเรียนบ้านเพียงหลวง7",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/hgtzx"
+      },
+      {
+        "name": "โรงเรียนบ้านแพะกลาง",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/x5pkf"
+      },
+      {
+        "name": "โรงเรียนบ้านมณีพฤกษ์",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/qym2r"
+      },
+      {
+        "name": "โรงเรียนบ้านสบกอน",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/29m9m"
+      },
+      {
+        "name": "โรงเรียนบ้านสะเกิน",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/9eqk5"
+      },
+      {
+        "name": "โรงเรียนบ้านห้วยฟอง",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/rxdku"
+      },
+      {
+        "name": "โรงเรียนมัธยมพระราชทานเฉลิมพระเกียรติ",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/775kt"
+      },
+      {
+        "name": "โรงเรียนสกาดพัฒนา",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/kwpzu"
+      },
+      {
+        "name": "โรงเรียนอนุบาลภูกามยาว",
+        "aliases": [],
+        "link": "https://www.nattagroup.com/fzhee"
+      }
+    ]
+  },
+  "thanks": "ยินดีค่ะ หากต้องการสอบถามรายละเอียดเพิ่มเติม แจ้งได้เลยนะคะ",
+  "holiday": {
+    "weekday": 6,
+    "message": "วันนี้เป็นวันหยุดค่ะ ร้านหยุดทุกวันเสาร์\nขออภัยในความไม่สะดวก แอดมินจะตอบกลับให้เร็วที่สุดค่ะ"
+  },
+  "contact": {
+    "button": "ติดต่อแอดมิน",
+    "orderAsk": "รับเรื่องสั่งของ/สั่งงานค่ะ 😊 รบกวนเลือกติดต่อแอดมินด้านล่างได้เลยนะคะ แอดมินจะตอบกลับในแชทนี้ค่ะ",
+    "orderWords": ["โฟมบอร์ด", "สั่งงาน", "สั่งทำ", "รับทำ", "ทำป้าย", "ไวนิล", "ปริ้นงาน", "พิมพ์งาน"],
+    "receivedNote": "",
+    "askWords": ["ขอถาม", "รบกวนสอบถาม", "สอบถาม", "มีสินค้า", "สินค้าแบบนี้", "แบบนี้ไหม", "สั่งทำได้ไหม", "ทำได้ไหม", "มีขายไหม", "มีไหม"],
+    "ask": "ต้องการติดต่อใครคะ 😊 กดเลือกชื่อด้านล่างได้เลย แอดมินจะตอบกลับในแชทนี้ค่ะ",
+    "quietMinutes": 20,
+    "people": [
+      {
+        "name": "หญิง",
+        "userId": "U65366e8b1204951f225a4e6db9780670"
+      },
+      {
+        "name": "ฟิล์ม",
+        "userId": "U4f9825c8c6430b03ed959b81ebb9f07e"
+      },
+      {
+        "name": "พี่ปิ่น",
+        "userId": "U1c08cef7ba4ff33a93d3d37b7ab8f4f8"
+      }
+    ],
+    "notify": true,
+    "askOnUnknown": false,
+    "burstSeconds": 6,
+    "chatLinkTemplate": "https://chat.line.biz/Ua2a7bf2be3ad317480e20a51f532a766?openExternalBrowser=1",
+    "chatLinkLabel": "เปิดแอปตอบลูกค้า",
+    "notifyAllMinutes": 10
+  },
+  "adminPauseHours": 4
+}
