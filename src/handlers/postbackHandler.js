@@ -10,6 +10,7 @@ import { editLatest } from '../actions/editLatest.js';
 import { cancelLatest, confirmCancel, cancelCancel } from '../actions/cancelLatest.js';
 import { editJob, deleteJob } from '../actions/jobActions.js';
 import { pickCategory } from '../actions/pickCategory.js';
+import { manageCategories } from '../actions/manageCategories.js';
 import {
   createBillAction,
   billAllForCustomer,
@@ -187,6 +188,8 @@ export async function handlePostback(event, profile) {
       return aiCost(ctx);
     case 'web_links':
       return webLinks(ctx);
+    case 'manage_categories':
+      return manageCategories(ctx);
     default:
       console.warn(`[postback] unknown action: ${action}`);
       return reply(replyToken, {

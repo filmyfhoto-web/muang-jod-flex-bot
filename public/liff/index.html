@@ -441,6 +441,15 @@
       <div class="job"><div class="ic">💜</div><div class="txt"><b>ม่วงจดให้</b><small id="s-ver">ผู้ช่วยบันทึกงานใน LINE</small></div></div>
       <button class="btn btn-ghost" id="s-close">ปิดหน้าต่าง</button>
     </div>
+    <!-- ร้านขอ "แก้ไขหมวดงานเองได้ เพราะมันจะมีเพิ่มเติม" -->
+    <div class="card">
+      <h2>หมวดงาน <span class="date">เพิ่ม · แก้ไขได้เอง</span></h2>
+      <p style="font-size:13px;color:var(--sub);margin:0 0 12px">
+        เปลี่ยนชื่อ ไอคอน สี ซ่อนหมวดที่ไม่ใช้ หรือเพิ่มหมวดใหม่ เช่น แก้วสกรีน เสื้อ ฯลฯ
+        ใส่คำค้นไว้แล้วม่วงจะจัดงานเข้าหมวดให้เองค่ะ
+      </p>
+      <button class="btn btn-primary" id="s-cats">✏️ เพิ่ม / แก้ไขหมวดงาน</button>
+    </div>
     <div class="card">
       <h2>ข้อมูลร้าน <span class="date">ขึ้นหัวใบเสร็จ</span></h2>
       <label for="sh-name">ชื่อร้าน</label>
@@ -1511,7 +1520,7 @@ function renderCategoryGrid() {
   const grid = $('c-grid');
   grid.hidden = false;
   grid.textContent = '';
-  for (const g of groups) {
+  for (const g of groups.filter((x) => !x.hidden)) {
     const b = document.createElement('button');
     b.type = 'button';
     b.innerHTML = '<span class="ic"></span><span class="nm"></span>';
@@ -1589,14 +1598,15 @@ const TAB_NAMES = { today: 'งานวันนี้', report: 'สรุป�
 function fillGroups(groupId) {
   const sel = $('e-group');
   sel.textContent = '';
-  groups.forEach((g) => sel.add(new Option(g.icon + ' ' + g.label, g.id)));
+  // หมวดที่ซ่อนไม่เสนอให้เลือก ยกเว้นหมวดที่งานนี้อยู่เดิม — ไม่งั้นกดบันทึกแล้วย้ายหมวดเงียบ ๆ
+  groups.filter((g) => !g.hidden || g.id === groupId).forEach((g) => sel.add(new Option(g.icon + ' ' + g.label, g.id)));
   sel.value = groups.some((g) => g.id === groupId) ? groupId : 'other';
 }
 
 function fillTypes(groupId, typeId) {
   const sel = $('e-type');
   sel.textContent = '';
-  const types = groups.find((g) => g.id === groupId)?.types || [];
+  const types = (groups.find((g) => g.id === groupId)?.types || []).filter((t) => !t.hidden || t.id === typeId);
   sel.add(new Option('— ไม่ระบุ —', ''));
   types.forEach((t) => sel.add(new Option(t.icon + ' ' + t.label, t.id)));
   sel.value = types.some((t) => t.id === typeId) ? typeId : '';
@@ -1852,6 +1862,8 @@ $('e-delete').onclick = async () => {
 
 $('e-back').onclick = () => show(tab === 'edit' ? 'today' : tab);
 $('s-close').onclick = () => (liff.isInClient() ? liff.closeWindow() : show('today'));
+// หน้าแก้หมวดงานเป็นหน้าของมันเอง โดเมนเดียวกัน
+$('s-cats').onclick = () => (location.href = '/app/categories/');
 
 document.querySelectorAll('nav button').forEach((b) => (b.onclick = () => {
   // ปุ่มที่พาไปอีกหน้าในแอปเดียวกัน (สมุดลูกค้า) — โดเมนเดียวกัน จึงไม่ต้อง
@@ -1904,6 +1916,12 @@ $('r-period').onclick = async (e) => {
     await liff.init({ liffId: cfg.liffId });
     if (!liff.isLoggedIn()) return liff.login({ redirectUri: location.href });
     token = liff.getAccessToken();
+
+    // หมวดงานของร้านเอง (เปลี่ยนชื่อ/ซ่อน/เพิ่มได้) — ไม่ได้ก็ใช้ชุดตั้งต้นจาก /config ที่โหลดไว้แล้ว
+    try {
+      const cats = await api('/categories');
+      if (Array.isArray(cats.groups) && cats.groups.length) groups = cats.groups;
+    } catch (e) { /* ใช้ชุดตั้งต้น */ }
 
     // ?money=account — ลิงก์จากแชต/ใบลงบัญชี เปิดมาที่กองนั้นเลย
     const wantMoney = new URLSearchParams(location.search).get('money');

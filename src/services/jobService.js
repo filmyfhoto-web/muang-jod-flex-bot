@@ -3,6 +3,7 @@ import { round2 } from '../utils/currency.js';
 import { todayISO, rangeForPeriod } from '../utils/dates.js';
 import { derivePaymentFields } from '../utils/payment.js';
 import { categoryFields } from '../utils/category.js';
+import { ensureTaxonomy } from './categoryService.js';
 import { formatJobNumber } from '../utils/jobNumber.js';
 import { logger } from './logger.js';
 
@@ -78,9 +79,13 @@ export async function createJob(userId, payload, client = supabase) {
   const jobDate = payload.jobDate || todayISO();
   const name = jobName || `งานวันที่ ${jobDate}`;
   const pay = derivePaymentFields(total, paidAmount);
+  // หมวดของร้าน (ที่ร้านเพิ่ม/แก้เอง) ต้องอยู่ในหน่วยความจำก่อน — ทั้งตอนจัดหมวดจากคำค้น
+  // และตอนทำเลขงาน (หมวดที่ร้านเพิ่มเองมีรหัสของตัวเอง ถ้าไม่รู้จักจะตกไปชนเลข GEN)
+  await ensureTaxonomy(userId, { client });
+  const auto = categoryFields(items, userId);
   const cat = {
-    category: payload.category ?? categoryFields(items).category,
-    category_type: payload.categoryType ?? categoryFields(items).category_type,
+    category: payload.category ?? auto.category,
+    category_type: payload.categoryType ?? auto.category_type,
   };
 
   // The pickup date is stamped on AFTER the row exists rather than inserted

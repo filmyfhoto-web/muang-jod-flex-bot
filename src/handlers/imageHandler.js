@@ -161,7 +161,7 @@ export async function handleImageMessage(event, profile) {
     // held aside to attach once the draft is confirmed.
     if (read?.kind === 'job') {
       const draft = makeDraft({
-        jobName: read.jobName || deriveJobName(read.items),
+        jobName: read.jobName || deriveJobName(read.items, profile.id),
         customerName: read.customerName,
         jobDate: read.date || undefined,
         items: read.items,

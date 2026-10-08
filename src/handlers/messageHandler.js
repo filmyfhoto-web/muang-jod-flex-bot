@@ -28,6 +28,8 @@ import { moveJob } from '../actions/moveJob.js';
 import { logger } from '../services/logger.js';
 import { dumpPreviewFlex } from '../flex/dumpFlex.js';
 import { handlePostback } from './postbackHandler.js';
+import { parseAddCategory } from '../utils/categoryCommands.js';
+import { addCategoryFromChat } from '../actions/manageCategories.js';
 
 const DEFAULT_REPLY =
   'สวัสดีค่ะ 💜 ม่วงจดพร้อมช่วยจดงานให้แล้วค่ะ\n' +
@@ -158,6 +160,10 @@ export async function handleTextMessage(event, profile) {
   if (menuAction) {
     return handlePostback({ ...event, postback: { data: `action=${menuAction}` } }, profile);
   }
+
+  // "เพิ่มหมวด 🥤 แก้วสกรีน" — เพิ่มหมวดงานใหม่ของร้านจากแชตได้เลย
+  const newCategory = parseAddCategory(text);
+  if (newCategory) return addCategoryFromChat({ replyToken, profile }, newCategory);
 
   // "งานวันนี้ ป้ายไวนิล 150 บาท" — command + details in one message.
   const leading = splitLeadingAddJob(text);
@@ -513,7 +519,7 @@ async function handleNewJob(replyToken, profile, text, knownCustomer = null, par
   // show a preview with confirm / edit / cancel buttons.
   const draft = makeDraft({
     // A heading the shop wrote themselves beats one worked out from the items.
-    jobName: parsed.jobName || deriveJobName(parsed.items),
+    jobName: parsed.jobName || deriveJobName(parsed.items, profile.id),
     customerName: parsed.customerName || knownCustomer,
     jobDate: when.date || todayISO(),
     dueDate: due.date,

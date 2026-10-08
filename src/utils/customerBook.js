@@ -1,5 +1,5 @@
 import { customerKind } from './customerKind.js';
-import { findGroup, OTHER_GROUP } from './category.js';
+import { findGroup, taxonomyOf } from './category.js';
 import { round2 } from './currency.js';
 
 /* สมุดลูกค้า — งานย้อนหลัง เก็บแยกทีละเจ้า ไม่กองรวมกัน
@@ -62,7 +62,8 @@ function jobMoment(job) {
 }
 
 function groupOf(job) {
-  return findGroup(job?.category) || OTHER_GROUP;
+  // หมวดของร้านนั้น ๆ (ร้านเปลี่ยนชื่อ/เพิ่มหมวดเองได้) — งานพก user_id มาให้หาชุดของเจ้าของเอง
+  return findGroup(job?.category, job?.user_id) || taxonomyOf(job?.user_id).other;
 }
 
 /* ชื่อที่จะโชว์ของบัญชีหนึ่งเจ้า — สะกดแบบที่ร้านใช้บ่อยที่สุด

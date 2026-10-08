@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>ม่วงจดให้ — หมวดงาน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    color-scheme: light;
+    --navy: #35486E;
+    --navy-deep: #2C3C5E;
+    --navy-soft: #43578A;
+    --gold: #DDA83D;
+    --ink: #1F2B45;
+    --muted: #5E6E8C;
+    --faint: #7E8CA3;
+    --line: #E2E6EE;
+    --hair: #EEF1F6;
+    --bg: #EFF1F5;
+    --card: #ffffff;
+    --green: #2E7D5B;
+    --red: #B3402F;
+    --red-tint: #F8E4E1;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Thonburi", Thonburi,
+                 "Noto Sans Thai", "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-text-size-adjust: 100%;
+    padding-bottom: 88px;
+  }
+  button, input, textarea { font: inherit; }
+  button { cursor: pointer; }
+
+  header { background: var(--navy); border-radius: 0 0 26px 26px; padding: 14px 18px 16px; }
+  .htop { display: flex; align-items: center; gap: 11px; }
+  .htop img { width: 44px; height: 44px; object-fit: contain; flex-shrink: 0; }
+  .htitle { flex: 1; min-width: 0; }
+  .htitle b { display: block; font-size: 16px; font-weight: 600; color: #fff; line-height: 1.3; }
+  .htitle span { font-size: 11.5px; color: #C6CFE0; line-height: 1.4; }
+  .back { width: 38px; height: 38px; margin-left: -8px; border: 0; background: none; border-radius: 999px;
+          display: flex; align-items: center; justify-content: center; }
+
+  main { padding: 12px 18px 22px; display: flex; flex-direction: column; gap: 10px; }
+
+  .hint { display: flex; align-items: flex-start; gap: 10px; background: #F1ECF8; border-radius: 14px; padding: 10px 12px; }
+  .hint img { width: 34px; height: 34px; object-fit: contain; flex-shrink: 0; }
+  .hint span { font-size: 12px; color: #4A3475; line-height: 1.55; }
+  .warn { background: var(--red-tint); color: var(--red); border-radius: 14px; padding: 11px 13px; font-size: 12.5px; line-height: 1.55; }
+
+  .grp { background: var(--card); border-radius: 16px; overflow: hidden;
+         box-shadow: 0 1px 2px rgba(31,43,69,.05), 0 4px 12px rgba(31,43,69,.05); }
+  .grp.off .head { opacity: .55; }
+  .head { display: flex; align-items: center; gap: 10px; padding: 11px 12px; cursor: pointer; }
+  .chip { width: 36px; height: 36px; border-radius: 11px; flex-shrink: 0; display: flex; align-items: center;
+          justify-content: center; font-size: 18px; line-height: 1; background: color-mix(in srgb, var(--c) 22%, #fff);
+          border: 2px solid var(--c); }
+  .head .who { flex: 1; min-width: 0; }
+  .head .who b { display: block; font-size: 14.5px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+  .head .who span { display: block; font-size: 11px; color: var(--muted); line-height: 1.4; }
+  .head .who b .tag { display: inline-block; font-size: 10px; font-weight: 600; line-height: 1.5; padding: 1px 8px; border-radius: 999px;
+                      background: #EEF1F6; color: var(--muted); margin-left: 6px; vertical-align: 2px; }
+  .head .who b .tag.new { background: #E4F0EA; color: var(--green); }
+  .mv { display: flex; flex-direction: column; gap: 2px; }
+  .mv button { width: 30px; height: 20px; border: 0; background: #EEF1F7; border-radius: 6px; font-size: 11px; color: var(--navy); padding: 0; }
+  .mv button[disabled] { opacity: .3; cursor: default; }
+  .chev { color: var(--faint); font-size: 18px; transition: transform .15s; flex-shrink: 0; }
+  .grp.open .chev { transform: rotate(90deg); }
+
+  .body { padding: 2px 13px 14px; display: none; flex-direction: column; gap: 11px; border-top: 1px solid var(--hair); }
+  .grp.open .body { display: flex; }
+  .f { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; font-weight: 700; color: var(--navy); margin-top: 6px; }
+  .f small { font-weight: 500; color: var(--muted); line-height: 1.45; }
+  .in { width: 100%; border: 1.5px solid #D5DBE8; border-radius: 11px; padding: 10px 12px; background: #fff; color: var(--ink); }
+  textarea.in { resize: vertical; min-height: 44px; }
+  .row2 { display: flex; gap: 8px; align-items: center; }
+  .row2 .in.icon { width: 76px; text-align: center; font-size: 18px; flex-shrink: 0; }
+  .reset { border: 0; background: none; color: var(--navy); font-size: 11.5px; font-weight: 600; text-decoration: underline; padding: 2px 0; align-self: flex-start; }
+
+  .emojis, .swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+  .emojis button { width: 36px; height: 36px; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; font-size: 18px; padding: 0; }
+  .swatches button { width: 30px; height: 30px; border-radius: 50%; border: 3px solid #fff; background: var(--c);
+                     box-shadow: 0 0 0 1.5px var(--line); padding: 0; }
+  .swatches button[aria-pressed="true"] { box-shadow: 0 0 0 2.5px var(--navy); }
+
+  .types { display: flex; flex-direction: column; gap: 8px; }
+  .types h4 { margin: 4px 0 0; font-size: 12.5px; font-weight: 700; color: var(--navy); }
+  .typ { background: #F7F9FD; border: 1px solid var(--hair); border-radius: 12px; padding: 8px 9px; display: flex; flex-direction: column; gap: 6px; }
+  .typ.off { opacity: .55; }
+  .typ .top { display: flex; gap: 6px; align-items: center; }
+  .typ .top .in.icon { width: 54px; text-align: center; padding: 8px 4px; flex-shrink: 0; }
+  .typ .top .in.name { flex: 1; min-width: 0; padding: 8px 10px; }
+  .mini { border: 0; background: #EEF1F7; color: var(--navy); border-radius: 9px; height: 34px; padding: 0 10px; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+  .mini.del { background: var(--red-tint); color: var(--red); }
+  .typ .in.keys { padding: 7px 10px; font-size: 12px; }
+  .typ .bk { font-size: 10.5px; color: var(--faint); line-height: 1.4; }
+
+  .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn { flex: 1; min-width: 120px; min-height: 42px; border-radius: 12px; border: 1.5px solid var(--line); background: #fff;
+         color: var(--navy); font-size: 13px; font-weight: 600; padding: 0 12px; }
+  .btn.danger { color: var(--red); border-color: #E9C3BD; }
+  .add { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 48px;
+         border: 1.5px dashed #B9C3D6; background: #fff; color: var(--navy); font-weight: 700; border-radius: 14px; }
+
+  .savebar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--navy); padding: 10px 18px calc(10px + env(safe-area-inset-bottom));
+             display: flex; align-items: center; gap: 12px; box-shadow: 0 -6px 20px rgba(31,43,69,.18); }
+  .savebar span { flex: 1; font-size: 12px; color: #C6CFE0; line-height: 1.45; }
+  .savebar .go { min-height: 44px; padding: 0 22px; border: 0; border-radius: 12px; background: var(--gold); color: var(--navy-deep); font-weight: 700; }
+  .savebar .go[disabled] { background: var(--navy-soft); color: #C6CFE0; font-weight: 500; }
+
+  #toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); background: var(--ink); color: #fff; font-size: 12.5px;
+           padding: 10px 16px; border-radius: 16px; max-width: 88vw; text-align: center; line-height: 1.5; box-shadow: 0 8px 24px rgba(31,43,69,.28); z-index: 5; }
+  #toast.bad { background: var(--red); }
+  .empty { text-align: center; color: var(--muted); font-size: 13px; padding: 26px 10px; line-height: 1.6; }
+
+  @media (min-width: 720px) {
+    header { padding-left: max(18px, calc((100% - 640px) / 2)); padding-right: max(18px, calc((100% - 640px) / 2)); }
+    main { max-width: 640px; margin-inline: auto; }
+    .savebar { padding-left: max(18px, calc((100% - 640px) / 2)); padding-right: max(18px, calc((100% - 640px) / 2)); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="htop">
+    <button class="back" id="back" type="button" aria-label="กลับไปตั้งค่า">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>
+    </button>
+    <img src="/brand/ui/pen.png" alt="ม่วงจด" />
+    <div class="htitle">
+      <b>หมวดงาน</b>
+      <span>เพิ่ม · เปลี่ยนชื่อ · ซ่อน ได้เองเลยค่ะ</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="hint">
+    <img src="/brand/ui/happy.png" alt="" />
+    <span>แตะหมวดเพื่อแก้ไข · ใส่ "คำค้น" แล้วม่วงจะจัดงานที่มีคำนั้นเข้าหมวดให้เอง เช่น พิมพ์ว่า <b>แก้วสกรีน 20 ใบ 500</b> ก็เข้าหมวดที่ตั้งคำค้นว่า "แก้ว" ทันที<br />
+    หมวดที่ซ่อนจะไม่ขึ้นให้เลือก แต่งานเก่ายังโชว์ชื่อหมวดเดิมค่ะ</span>
+  </div>
+  <div class="warn" id="not-ready" hidden></div>
+  <div id="list" style="display:flex;flex-direction:column;gap:10px"></div>
+  <button type="button" class="add" id="add-group">➕ เพิ่มหมวดงานใหม่</button>
+</main>
+
+<div class="savebar">
+  <span id="save-note">ยังไม่มีอะไรเปลี่ยน</span>
+  <button type="button" class="go" id="save" disabled>บันทึก</button>
+</div>
+<div id="toast" hidden></div>
+
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+let token = '';
+let draft = null;      // { groups: [...] } ที่กำลังแก้ (ยังไม่บันทึก)
+let limits = {};
+let palette = [];
+let ready = true;
+let dirty = false;
+let newCount = 0;
+const open = new Set();
+// สิ่งที่ร้านลบไว้ในหน้านี้แต่ยังไม่ได้บันทึก — ถ้าเซิร์ฟเวอร์ไม่ยอมให้ลบ (ยังมีงานใช้อยู่)
+// เอากลับมาวางที่เดิม โดยไม่ทิ้งสิ่งอื่นที่แก้ค้างไว้
+let removed = [];
+function restoreRemoved() {
+  const undo = removed.reverse();
+  removed = [];
+  undo.forEach((fn) => fn());
+}
+
+const NO_NAME = '(ยังไม่มีชื่อ)';
+const EMOJIS = ['📦', '🥤', '👕', '🎁', '📸', '🧾', '🖨️', '🪧', '🏷️', '🔖', '✂️', '🎨', '📚', '🧵', '🏆', '🔧', '🛍️', '🏫'];
+
+let toastTimer = 0;
+function toast(msg, bad = false) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.toggle('bad', bad);
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => (el.hidden = true), bad ? 6000 : 2600);
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch('/api' + path, {
+    ...opts,
+    headers: { Authorization: 'Bearer ' + token, ...(opts.body ? { 'Content-Type': 'application/json' } : {}) },
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(body.message || body.error || 'เกิดข้อผิดพลาด');
+    err.code = body.error;
+    throw err;
+  }
+  return body;
+}
+
+// สร้าง element แบบสั้น ๆ ใส่ข้อความด้วย textContent เสมอ (ชื่อหมวดเป็นของที่ร้านพิมพ์เอง)
+function h(tag, props = {}, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (v === false || v === null || v === undefined) continue;
+    if (k === 'class') el.className = v;
+    else if (k === 'style') el.style.cssText = v;
+    else if (k.startsWith('on')) el[k] = v;
+    else if (k === 'value') el.value = v;
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  for (const kid of kids.flat()) {
+    if (kid === null || kid === undefined || kid === false) continue;
+    el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  }
+  return el;
+}
+
+const keysText = (arr) => (arr || []).join(', ');
+const splitKeys = (text) => String(text || '').split(/[,\n]/).map((s) => s.trim()).filter(Boolean);
+
+function touch() {
+  dirty = true;
+  $('save').disabled = !ready;
+  $('save-note').textContent = ready ? 'มีการแก้ไขที่ยังไม่ได้บันทึก' : 'ยังบันทึกไม่ได้ — ต้องรัน migration 019 ก่อน';
+}
+
+function nextColor() {
+  const used = new Set(draft.groups.map((g) => String(g.color).toUpperCase()));
+  return palette.find((c) => !used.has(c)) || palette[draft.groups.length % palette.length];
+}
+
+function move(index, step) {
+  const other = draft.groups.findIndex((g) => g.locked);
+  const to = index + step;
+  if (to < 0 || to >= (other === -1 ? draft.groups.length : other)) return;
+  [draft.groups[index], draft.groups[to]] = [draft.groups[to], draft.groups[index]];
+  touch();
+  render();
+}
+
+function typeBox(g, t, ti) {
+  const keysIn = h('input', { class: 'in keys', placeholder: 'คำค้นเพิ่ม เช่น ชื่อเรียกอื่น ๆ (คั่นด้วยจุลภาค)', value: keysText(t.keys), 'aria-label': 'คำค้นของประเภท ' + t.label });
+  keysIn.oninput = () => { t.keys = splitKeys(keysIn.value); touch(); };
+  const name = h('input', { class: 'in name', value: t.label, maxlength: limits.label || 40, 'aria-label': 'ชื่อประเภท' });
+  name.oninput = () => { t.label = name.value; touch(); };
+  const icon = h('input', { class: 'in icon', value: t.icon, 'aria-label': 'ไอคอนประเภท' });
+  icon.oninput = () => { t.icon = icon.value; touch(); };
+  const toggle = h('button', { type: 'button', class: 'mini', onclick: () => { t.hidden = !t.hidden; touch(); render(); } }, t.hidden ? 'แสดง' : 'ซ่อน');
+  const del = t.custom ? h('button', { type: 'button', class: 'mini del', 'aria-label': 'ลบประเภท', onclick: () => {
+    g.types.splice(ti, 1);
+    if (!String(t.id).startsWith('new-')) removed.push(() => g.types.splice(Math.min(ti, g.types.length), 0, t));
+    touch();
+    render();
+  } }, '🗑') : null;
+  return h('div', { class: 'typ' + (t.hidden ? ' off' : '') },
+    h('div', { class: 'top' }, icon, name, toggle, del),
+    keysIn,
+    !t.custom && t.builtinKeys && t.builtinKeys.length ? h('div', { class: 'bk' }, 'คำที่ม่วงรู้อยู่แล้ว: ' + t.builtinKeys.join(', ')) : null
+  );
+}
+
+function groupCard(g, i) {
+  const isOpen = open.has(g.id);
+  const card = h('div', { class: 'grp' + (isOpen ? ' open' : '') + (g.hidden ? ' off' : ''), style: '--c:' + g.color });
+
+  const lastMovable = draft.groups.findIndex((x) => x.locked);
+  const mv = g.locked ? null : h('div', { class: 'mv' },
+    h('button', { type: 'button', 'aria-label': 'เลื่อนขึ้น', disabled: i === 0, onclick: (e) => { e.stopPropagation(); move(i, -1); } }, '▲'),
+    h('button', { type: 'button', 'aria-label': 'เลื่อนลง', disabled: i >= (lastMovable === -1 ? draft.groups.length : lastMovable) - 1, onclick: (e) => { e.stopPropagation(); move(i, 1); } }, '▼')
+  );
+  const subtitle = g.locked
+    ? 'หมวดสำรอง · งานที่ไม่เข้าหมวดไหนมาอยู่ที่นี่'
+    : (g.types.filter((t) => !t.hidden).map((t) => t.label).join(' / ') || (g.keys && g.keys.length ? 'คำค้น: ' + g.keys.slice(0, 4).join(', ') : 'ยังไม่มีคำค้น'));
+  const toggleOpen = () => { isOpen ? open.delete(g.id) : open.add(g.id); render(); };
+  const chip = h('span', { class: 'chip' }, g.icon);
+  const title = h('b', {}, g.label || NO_NAME, g.hidden ? h('span', { class: 'tag' }, 'ซ่อนอยู่') : null, g.new ? h('span', { class: 'tag new' }, 'ใหม่') : null);
+  const head = h('div', { class: 'head', role: 'button', tabindex: '0', 'aria-expanded': String(isOpen), onclick: toggleOpen,
+      onkeydown: (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggleOpen(); } } },
+    chip,
+    h('div', { class: 'who' },
+      title,
+      h('span', {}, subtitle)
+    ),
+    mv,
+    h('span', { class: 'chev' }, '›')
+  );
+  card.append(head);
+
+  // ---- ส่วนที่กางออก
+  const body = h('div', { class: 'body' });
+
+  const nameIn = h('input', { class: 'in', value: g.label, maxlength: limits.label || 40, placeholder: 'ชื่อหมวด เช่น แก้วสกรีน', id: 'name-' + g.id });
+  // พิมพ์แล้วหัวการ์ดเปลี่ยนตามทันที โดยไม่สร้างหน้าใหม่ (ไม่งั้นช่องพิมพ์เสียโฟกัสทุกตัวอักษร)
+  nameIn.oninput = () => { g.label = nameIn.value; title.firstChild.nodeValue = g.label || NO_NAME; touch(); };
+  const nameField = h('label', { class: 'f' }, 'ชื่อหมวด', nameIn);
+  if (g.base && g.base.label) {
+    // ปุ่มคืนชื่อเดิมโผล่ทันทีที่พิมพ์ต่างจากเดิม (ไม่ต้องรอสร้างหน้าใหม่) และหายเมื่อพิมพ์กลับมาเหมือนเดิม
+    const reset = h('button', { type: 'button', class: 'reset', hidden: g.label === g.base.label, onclick: () => { g.label = g.base.label; touch(); render(); } }, '↺ ใช้ชื่อเดิม: ' + g.base.label);
+    nameIn.addEventListener('input', () => { reset.hidden = g.label === g.base.label; });
+    nameField.append(reset);
+  }
+  body.append(nameField);
+
+  const iconIn = h('input', { class: 'in icon', value: g.icon, 'aria-label': 'ไอคอน' });
+  iconIn.oninput = () => { g.icon = iconIn.value; chip.textContent = g.icon; touch(); };
+  const emojis = h('div', { class: 'emojis' }, EMOJIS.map((e) => h('button', { type: 'button', 'aria-label': 'ใช้ ' + e, onclick: () => { g.icon = e; touch(); render(); } }, e)));
+  body.append(h('div', { class: 'f' }, h('label', { class: 'f', style: 'margin:0' }, 'ไอคอน', h('div', { class: 'row2' }, iconIn, h('small', { style: 'font-weight:500;color:var(--muted)' }, 'พิมพ์อีโมจิเองหรือเลือกข้างล่าง'))), emojis));
+
+  const sw = h('div', { class: 'swatches' }, palette.concat(g.color && !palette.includes(String(g.color).toUpperCase()) ? [g.color] : []).map((c) =>
+    h('button', { type: 'button', style: '--c:' + c, 'aria-label': 'สี ' + c, 'aria-pressed': String(String(g.color).toUpperCase() === String(c).toUpperCase()), onclick: () => { g.color = c; touch(); render(); } })));
+  body.append(h('div', { class: 'f' }, 'สี', sw));
+
+  if (!g.locked) {
+    const keyIn = h('textarea', { class: 'in', rows: 2, placeholder: 'เช่น แก้ว, สกรีน, ถ้วย (คั่นด้วยจุลภาค)' });
+    keyIn.value = keysText(g.keys);
+    keyIn.oninput = () => { g.keys = splitKeys(keyIn.value); touch(); };
+    body.append(h('label', { class: 'f' }, 'คำค้น — ให้ม่วงจัดงานเข้าหมวดนี้เอง', h('small', {}, 'งานที่ชื่อมีคำเหล่านี้จะเข้าหมวดนี้อัตโนมัติ (อย่างน้อย 2 ตัวอักษร) คำที่ร้านตั้งเองมาก่อนคำของระบบ'), keyIn));
+
+    const types = h('div', { class: 'types' }, h('h4', {}, 'ประเภทย่อย (ไม่ใส่ก็ได้)'), g.types.map((t, ti) => typeBox(g, t, ti)));
+    types.append(h('button', { type: 'button', class: 'btn', onclick: () => {
+      if (g.types.length >= (limits.typesPerGroup || 30)) return toast('ประเภทเต็มแล้วค่ะ', true);
+      newCount += 1;
+      g.types.push({ id: 'new-t' + newCount, label: '', icon: '🔹', hidden: false, custom: true, keys: [] });
+      touch();
+      render();
+    } }, '➕ เพิ่มประเภทย่อย'));
+    body.append(types);
+
+    const acts = h('div', { class: 'acts' },
+      h('button', { type: 'button', class: 'btn', onclick: () => { g.hidden = !g.hidden; touch(); render(); } }, g.hidden ? '👁 แสดงหมวดนี้' : '🙈 ซ่อนหมวดนี้'),
+      g.custom ? h('button', { type: 'button', class: 'btn danger', onclick: () => {
+        if (!confirm('ลบหมวด "' + (g.label || 'ใหม่') + '" ใช่ไหมคะ?\n(ถ้ามีงานใช้หมวดนี้อยู่ ระบบจะไม่ให้ลบ ซ่อนแทนได้)')) return;
+        draft.groups.splice(i, 1);
+        if (!String(g.id).startsWith('new-')) removed.push(() => draft.groups.splice(Math.min(i, draft.groups.length), 0, g));
+        open.delete(g.id);
+        touch();
+        render();
+      } }, '🗑 ลบหมวดนี้') : null
+    );
+    body.append(acts);
+  }
+
+  card.append(body);
+  return card;
+}
+
+function render() {
+  const list = $('list');
+  list.textContent = '';
+  if (!draft || !draft.groups.length) {
+    list.append(h('p', { class: 'empty' }, 'ยังโหลดหมวดงานไม่สำเร็จค่ะ'));
+    return;
+  }
+  draft.groups.forEach((g, i) => list.append(groupCard(g, i)));
+}
+
+function adopt(model, { keepOpen = false } = {}) {
+  draft = { groups: JSON.parse(JSON.stringify(model.groups)) };
+  removed = [];
+  limits = model.limits || limits;
+  palette = model.palette || palette;
+  ready = model.ready !== false;
+  dirty = false;
+  if (!keepOpen) open.clear();
+  $('not-ready').hidden = ready;
+  if (!ready) $('not-ready').textContent = 'ยังบันทึกหมวดงานไม่ได้ค่ะ — ต้องรัน migration 019_category_settings.sql ใน Supabase ก่อน (ทำครั้งเดียว) ดูรายการหมวดตั้งต้นได้ตามปกติ';
+  $('save').disabled = true;
+  $('save-note').textContent = 'ยังไม่มีอะไรเปลี่ยน';
+  render();
+}
+
+$('add-group').onclick = () => {
+  if (!draft) return;
+  if (draft.groups.length > (limits.groups || 40)) return toast('หมวดเต็มแล้วค่ะ', true);
+  newCount += 1;
+  const g = { id: 'new-g' + newCount, label: '', icon: '📦', color: nextColor(), hidden: false, custom: true, new: true, keys: [], types: [] };
+  const otherAt = draft.groups.findIndex((x) => x.locked);
+  draft.groups.splice(otherAt === -1 ? draft.groups.length : otherAt, 0, g);
+  open.add(g.id);
+  touch();
+  render();
+  const input = document.getElementById('name-' + g.id);
+  if (input) { input.focus(); input.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+};
+
+$('save').onclick = async () => {
+  $('save').disabled = true;
+  $('save').textContent = 'กำลังบันทึก…';
+  try {
+    // id ชั่วคราว (new-...) ไม่ส่งไป ให้เซิร์ฟเวอร์ออก id จริงให้
+    const groups = draft.groups.map((g) => ({
+      ...g,
+      id: String(g.id).startsWith('new-') ? '' : g.id,
+      types: g.types.map((t) => ({ ...t, id: String(t.id).startsWith('new-') ? '' : t.id })),
+    }));
+    const model = await api('/categories', { method: 'PUT', body: JSON.stringify({ groups }) });
+    adopt(model, { keepOpen: true });
+    toast('บันทึกหมวดงานแล้วค่ะ 💜');
+  } catch (err) {
+    if (err.code === 'in_use') restoreRemoved();
+    toast(err.message, true);
+    render();
+    $('save').disabled = false;
+  } finally {
+    $('save').textContent = 'บันทึก';
+  }
+};
+
+$('back').onclick = () => {
+  if (dirty && !confirm('ยังไม่ได้บันทึกที่แก้ไว้ ออกเลยไหมคะ?')) return;
+  location.href = '/app/?tab=settings';
+};
+
+(async function start() {
+  try {
+    const cfg = await (await fetch('/api/config')).json();
+    if (!cfg.liffId) {
+      document.body.innerHTML = '<p class="empty">ยังไม่ได้ตั้งค่า LIFF_ID ค่ะ — ดูขั้นตอนใน DEPLOYMENT.md</p>';
+      return;
+    }
+    await liff.init({ liffId: cfg.liffId });
+    if (!liff.isLoggedIn()) return liff.login({ redirectUri: location.href });
+    token = liff.getAccessToken();
+    adopt(await api('/categories'));
+  } catch (err) {
+    document.body.innerHTML = '<p class="empty">เปิดหน้านี้ไม่สำเร็จค่ะ<br>' + String(err.message || '').replace(/[<>&]/g, '') + '</p>';
+  }
+})();
+</script>
+</body>
+</html>

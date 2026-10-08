@@ -133,6 +133,18 @@ const COMMANDS = new Map([
   ['เลือกหมวด', 'pick_category'],
   ['หมวดงาน', 'pick_category'],
   ['เปลี่ยนหมวด', 'pick_category'],
+  // หมวดงานของร้านเอง: ดู เพิ่ม แก้ไข — "เพิ่มหมวด <ชื่อ>" เพิ่มทันทีอยู่ที่ categoryCommands
+  // (ไม่ใส่ "แก้หมวด" เฉย ๆ เพราะกำกวมกับ "เปลี่ยนหมวด" ของงานล่าสุด)
+  ['เพิ่มหมวด', 'manage_categories'],
+  ['เพิ่มหมวดงาน', 'manage_categories'],
+  ['แก้ไขหมวด', 'manage_categories'],
+  ['แก้ไขหมวดงาน', 'manage_categories'],
+  ['จัดการหมวด', 'manage_categories'],
+  ['จัดการหมวดงาน', 'manage_categories'],
+  ['ตั้งค่าหมวด', 'manage_categories'],
+  ['ตั้งค่าหมวดงาน', 'manage_categories'],
+  ['หมวดของร้าน', 'manage_categories'],
+  ['หมวดงานของร้าน', 'manage_categories'],
 ]);
 
 function normalise(text) {
