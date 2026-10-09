@@ -1,0 +1,123 @@
+/* แผง UXP ของ Photoshop — CSS ของ UXP ทำได้จำกัด (ไม่มี grid / gap) ใช้ flex + margin */
+body {
+  margin: 0;
+  padding: 8px;
+  color: var(--uxp-host-text-color, #ddd);
+  font-size: 12px;
+  background: var(--uxp-host-background-color, #323232);
+}
+.brand {
+  text-align: center;
+  margin-bottom: 6px;
+}
+.brand img {
+  width: 260px;
+  max-width: 100%;
+}
+.card {
+  border: 1px solid var(--uxp-host-border-color, #4a4a4a);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 8px;
+}
+.title {
+  font-weight: bold;
+  font-size: 13px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+}
+.num {
+  width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  background-color: #c0582b;
+  color: #fff;
+  text-align: center;
+  font-size: 11px;
+  line-height: 18px;
+  margin-right: 6px;
+}
+.hint {
+  color: var(--uxp-host-text-color-secondary, #a0a0a0);
+  font-size: 11px;
+  margin: 4px 0 6px;
+}
+.right {
+  text-align: right;
+}
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+}
+.grid label {
+  width: 48%;
+  margin-right: 2%;
+  margin-bottom: 6px;
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+}
+input {
+  margin-top: 2px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.path {
+  flex: 1;
+  font-size: 11px;
+  overflow: hidden;
+  margin-right: 6px;
+}
+button {
+  border-radius: 6px;
+  padding: 5px 10px;
+  border: 1px solid #c0582b;
+  background-color: #c0582b;
+  color: #fff;
+  font-size: 12px;
+}
+button.ghost {
+  background-color: transparent;
+  color: var(--uxp-host-text-color, #ddd);
+  border-color: var(--uxp-host-border-color, #555);
+}
+button.go {
+  width: 100%;
+  padding: 9px;
+  font-size: 14px;
+  font-weight: bold;
+}
+button:disabled {
+  opacity: 0.5;
+}
+.list {
+  margin-top: 6px;
+}
+.layer {
+  display: flex;
+  align-items: center;
+  padding: 4px 0;
+  border-top: 1px solid var(--uxp-host-border-color, #4a4a4a);
+}
+.layer .name {
+  flex: 1;
+  overflow: hidden;
+  margin-right: 6px;
+}
+.layer input {
+  width: 60px;
+}
+.status {
+  margin-top: 8px;
+  font-size: 11.5px;
+}
+.status.ok {
+  color: #3ecf8e;
+}
+.status.err {
+  color: #ff6b6b;
+}
