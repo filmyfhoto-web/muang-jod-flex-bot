@@ -31,6 +31,20 @@ test('ตรายาง is its own kind of work, and "ปั๊ม" alone is no
   assert.equal(classifyItem('ค่าน้ำมัน ปั๊มบางจาก'), null);
 });
 
+test('"ปริ้น X" จัดตามตัว X ไม่ใช่ตามคำว่าปริ้น — ใบจริงของร้านเคยโดนมาแล้ว', () => {
+  /* ร้านจดว่า "ปริ้นโฟมบอร์ด 1 (โรงเรียนพระธาตุพิทยาคม)" แล้วงานทั้งใบถูกจัดเป็น
+   * งานพิมพ์ เลขงานออกเป็น MJ-PRN ทั้งที่มันคืองานป้าย — "ปริ้น" เป็นกริยาที่ร้าน
+   * ใช้กับทุกงาน คำบอกวัสดุต้องชนะ และกริยาเหลือเป็นตาข่ายของงานเอกสารจริง ๆ
+   */
+  assert.equal(classifyItem('ปริ้นโฟมบอร์ด 1 (โรงเรียนพระธาตุพิทยาคม)').type.id, 'foamboard');
+  assert.equal(classifyItem('พิมพ์ป้ายไวนิล 60x100').type.id, 'vinyl');
+  assert.equal(classifyItem('ปริ้นสติ๊กเกอร์ 20 ดวง').type.id, 'sticker');
+  // ของเดิมต้องไม่ขยับ: ปริ้นรูปเป็นงานรูป งานเอกสารยังเป็นงานพิมพ์
+  assert.equal(classifyItem('ปริ้นรูป 4x6').type.id, 'photo');
+  assert.equal(classifyItem('ปริ้นงานเอกสาร A4 50 แผ่น').type.id, 'print');
+  assert.equal(classifyItem('ใบปลิว 1000 ใบ').type.id, 'print');
+});
+
 test('สติ๊กเกอร์ฟิวเจอร์บอร์ด wins over both halves it is made of', () => {
   // งานนี้เคยตกไปลงโฟมบอร์ดหรือสติ๊กเกอร์ แล้วแต่ว่าเจอคำไหนก่อน
   assert.equal(classifyItem('สติ๊กเกอร์ฟิวเจอร์บอร์ด 60x90').type.id, 'sticker_board');
