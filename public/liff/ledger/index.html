@@ -10,21 +10,21 @@
 <style>
   :root {
     color-scheme: light;
-    --navy: #35486E;
-    --navy-deep: #2C3C5E;
-    --navy-soft: #43578A;
+    --navy: #6C5CA8;
+    --navy-deep: #53458C;
+    --navy-soft: #8A7DC0;
     --gold: #DDA83D;
-    --ink: #1F2B45;
-    --muted: #5E6E8C;
-    --faint: #7E8CA3;
-    --line: #E2E6EE;
-    --hair: #EEF1F6;
-    --bg: #EFF1F5;
+    --ink: #2E2655;
+    --muted: #6E6694;
+    --faint: #9088AE;
+    --line: #E6E1F2;
+    --hair: #F2EFF9;
+    --bg: #F8F5EF;
     --green: #2E7D5B;
     --green-tint: #E4F0EA;
     --red: #B3402F;
     --blue: #3E6FA8;
-    --blue-tint: #E8ECF5;
+    --blue-tint: #EFEAF9;
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
@@ -90,7 +90,7 @@
   .headline b { font-size: 12.5px; }
 
   .card { background: #fff; border-radius: 16px; padding: 3px 13px 8px;
-          box-shadow: 0 1px 2px rgba(31,43,69,.05), 0 4px 12px rgba(31,43,69,.05); }
+          box-shadow: 0 1px 2px rgba(46, 38, 85,.05), 0 4px 12px rgba(46, 38, 85,.05); }
   .row { display: flex; align-items: center; gap: 9px; padding: 8px 0; border-bottom: 1px solid var(--hair); }
   .row:last-child { border-bottom: 0; }
   .row .no { font-size: 10.5px; color: var(--faint); width: 16px; flex-shrink: 0; }
@@ -108,7 +108,7 @@
   .total b { font-size: 21px; font-weight: 700; color: var(--gold); }
 
   .carry { background: #fff; border-radius: 16px; padding: 11px 13px; display: flex; align-items: center; gap: 10px;
-           box-shadow: 0 1px 2px rgba(31,43,69,.05), 0 4px 12px rgba(31,43,69,.05); }
+           box-shadow: 0 1px 2px rgba(46, 38, 85,.05), 0 4px 12px rgba(46, 38, 85,.05); }
   .carry div { flex: 1; min-width: 0; }
   .carry b { display: block; font-size: 12.5px; font-weight: 600; line-height: 1.4; }
   .carry span { font-size: 10.5px; color: var(--muted); line-height: 1.45; }
@@ -117,7 +117,7 @@
 
   /* ยอดยกไปแยกสองกอง: ลงบัญชีไว้ / ยังไม่ได้รับเงิน — กางดูรายการแล้วไปตรวจต่อได้ */
   details.cgroup { background: #fff; border-radius: 16px; padding: 0 13px;
-                   box-shadow: 0 1px 2px rgba(31,43,69,.05), 0 4px 12px rgba(31,43,69,.05); }
+                   box-shadow: 0 1px 2px rgba(46, 38, 85,.05), 0 4px 12px rgba(46, 38, 85,.05); }
   details.cgroup > summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 11px 0; cursor: pointer; }
   details.cgroup > summary::-webkit-details-marker { display: none; }
   details.cgroup > summary::after { content: '›'; color: var(--faint); font-size: 18px; transition: transform .15s; }
