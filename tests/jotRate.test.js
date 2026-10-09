@@ -234,3 +234,16 @@ test('บรรทัดย่อยบนใบเสร็จ มีทั้�
   // รายละเอียดยาวเกินไปถูกตัด ไม่ใช่ปล่อยยาวลงฐานข้อมูล
   assert.equal(MJRate.subLine(null, 'ก'.repeat(200), 'x').length, 100);
 });
+
+test('words(): คำนับตามชนิดงานเปลี่ยนป้ายคำ แต่ไม่เปลี่ยนวิธีคิดเงิน', () => {
+  // กรอบนับเป็นบาน — ช่องเงินคือ "บานละ"
+  assert.deepEqual(MJRate.words({ rateMode: 'piece', unitWord: 'บาน' }), { label: 'บานละ', piece: 'บาน' });
+  assert.deepEqual(MJRate.words({ rateMode: 'unit', unitWord: ' อัน ' }), { label: 'อันละ', piece: 'อัน' });
+  // ป้ายนับเป็นผืน แต่เงินคิดตาม ตร.ม. — ป้ายช่องเงินคงของโหมด เปลี่ยนแค่คำนับ
+  assert.deepEqual(MJRate.words({ rateMode: 'sqm', unitWord: 'ผืน' }), { label: 'ตร.ม. ละ', piece: 'ผืน' });
+  assert.equal(MJRate.words({ rateMode: 'tier', unitWord: 'ใบ' }).label, 'ตามช่วง ตร.ม.');
+  // ไม่มีคำนับ = ของเดิมทุกประการ
+  assert.deepEqual(MJRate.words({ rateMode: 'sheet' }), { label: 'แผ่นละ', piece: 'แผ่น' });
+  assert.deepEqual(MJRate.words({}), { label: 'ตร.ม. ละ', piece: 'ชิ้น' });
+  assert.deepEqual(MJRate.words(null), { label: 'ตร.ม. ละ', piece: 'ชิ้น' });
+});

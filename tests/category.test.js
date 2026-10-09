@@ -153,3 +153,31 @@ test('job headings and item icons', () => {
   assert.equal(itemIcon('สติ๊กเกอร์'), '🏷️');
   assert.equal(itemIcon('อะไรก็ไม่รู้'), '📦');
 });
+
+/* pricingEntries — ตัวจับคำ "หน่วยราคา" ที่ส่งให้ฟอร์มจดบนเบราว์เซอร์
+ * ต้องครบทุกประเภท เรียงลำดับเดียวกับ classifyItem และไม่มีวันมี tier
+ */
+test('pricingEntries: ทุกประเภทมีหน่วยราคา และเป็นชุดที่ฟอร์มใช้ได้จริง', async () => {
+  const { BASE_TAXONOMY } = await import('../src/utils/category.js');
+  const entries = BASE_TAXONOMY.pricingEntries;
+  const typeCount = CATEGORY_GROUPS.reduce((s, g) => s + g.types.length, 0);
+  assert.equal(entries.length, typeCount, 'บางประเภทไม่มีหน่วยราคา (หรือมีรายการเกิน)');
+
+  for (const e of entries) {
+    assert.ok(Array.isArray(e.keys) && e.keys.length, `entry "${e.label}" ไม่มีคำค้น`);
+    assert.ok(['sqm', 'sheet', 'piece'].includes(e.price.mode), `${e.label}: mode ${e.price.mode}`);
+    assert.ok(e.price.unit && typeof e.price.unit === 'string', `${e.label}: ไม่มีคำนับ`);
+    assert.notEqual(e.price.mode, 'tier', 'ตารางช่วงราคาห้ามตั้งอัตโนมัติ');
+  }
+
+  // ตัวหลักของร้าน — ตารางเดียวกับที่ตกลงกันไว้
+  const of = (key) => entries.find((e) => e.keys.includes(key)).price;
+  assert.deepEqual(of('กรอบรูป'), { mode: 'piece', unit: 'บาน' });
+  assert.deepEqual(of('ตรายาง'), { mode: 'piece', unit: 'อัน' });
+  assert.deepEqual(of('อัดรูป'), { mode: 'piece', unit: 'ใบ' });
+  assert.deepEqual(of('ไวนิล'), { mode: 'sqm', unit: 'ผืน' });
+  assert.deepEqual(of('โฟมบอร์ด'), { mode: 'sqm', unit: 'แผ่น' });
+  assert.deepEqual(of('สติ๊กเกอร์ฟิวเจอร์'), { mode: 'sheet', unit: 'แผ่น' });
+  assert.deepEqual(of('ถ่ายเอกสาร'), { mode: 'sheet', unit: 'แผ่น' });
+  assert.deepEqual(of('เข้าเล่ม'), { mode: 'piece', unit: 'เล่ม' });
+});

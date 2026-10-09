@@ -15,6 +15,9 @@ import { subLine } from './itemLine.js';
 const UNIT_WORDS = [
   'ป้าย', 'ชิ้น', 'อัน', 'ใบ', 'แผ่น', 'ตัว', 'ม้วน', 'กล่อง', 'ชุด', 'เมตร', 'ผืน', 'โหล', 'คู่',
   'ดวง', 'เล่ม', 'ห่อ', 'ถุง', 'แพ็ค', 'แพ็ก', 'กิโล', 'โล',
+  // งานกรอบรูปนับเป็นบาน — "กรอบรูป 2 บาน" เคยอ่านจำนวนไม่ออก (ได้ 1)
+  // ต่อท้ายลิสต์เสมอ คำเดิมต้องชนะก่อนเหมือนเดิมทุกตัว
+  'บาน', 'กรอบ',
 ];
 // Note: short honorifics like "ป้า"/"อา" are intentionally excluded — they
 // collide with common words ("ป้าย" = sign), causing false customer matches.

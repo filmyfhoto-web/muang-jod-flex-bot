@@ -30,7 +30,15 @@ export const LIMITS = {
   keys: 20,
   keyLength: 40,
   keyMin: 2, // คำค้นหนึ่งตัวอักษรจะไปชนทุกงาน
+  priceUnit: 10, // คำนับของหน่วยราคา เช่น บาน/ใบ/ผืน — คำเดียวสั้น ๆ
 };
+
+// วิธีคิดเงินที่ร้านเลือกเองได้ในหน้าแก้หมวด — tier (ตารางราคาสติ๊กเกอร์) ไม่อยู่ในนี้
+// เพราะเป็นตารางเงินที่ต้องเลือกมือในฟอร์มเท่านั้น ห้ามหมวดไหนตั้งอัตโนมัติ
+export const PRICE_MODES = ['sqm', 'sheet', 'piece'];
+
+// ค่าตั้งต้นของหมวด/ประเภทที่ร้านเพิ่มเอง — ระบบไม่รู้จักงานนั้น จึงคิดต่อชิ้นไว้ก่อน
+const DEFAULT_PRICE = Object.freeze({ mode: 'piece', unit: 'ชิ้น' });
 
 // สีให้เลือกในหน้าแก้หมวด — เข้มพอที่ตัวหนังสือขาว/เทาบนพื้นสีอ่านออก
 export const PALETTE = [
@@ -65,6 +73,22 @@ function cleanIcon(v) {
 function cleanColor(v) {
   const c = asText(v);
   return COLOR_RE.test(c) ? c.toUpperCase() : '';
+}
+
+// คำนับของหน่วยราคา เช่น "บาน" — คำสั้น ๆ คำเดียว ไม่เอาจุลภาค/ขึ้นบรรทัดใหม่
+export function cleanPriceUnit(v) {
+  const t = asText(v).replace(/[,\n\r]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return Array.from(t).slice(0, LIMITS.priceUnit).join('').trim();
+}
+
+// หน่วยราคาที่เก็บไว้ในฐานข้อมูล → เอาเฉพาะส่วนที่ใช้ได้ ({ mode?, unit? } หรือ null)
+function cleanPrice(v) {
+  if (!v || typeof v !== 'object') return null;
+  const out = {};
+  if (PRICE_MODES.includes(v.mode)) out.mode = v.mode;
+  const unit = cleanPriceUnit(v.unit);
+  if (unit) out.unit = unit;
+  return Object.keys(out).length ? out : null;
 }
 
 // รับทั้งอาร์เรย์และข้อความคั่นด้วยจุลภาค/ขึ้นบรรทัดใหม่ คืนเฉพาะคำที่ใช้ได้ ไม่ซ้ำ
@@ -127,6 +151,7 @@ const pick = (v, fallback) => {
 };
 
 function mergeBaseType(bt, ct = {}) {
+  const priceStored = cleanPrice(ct.price); // หน่วยราคาที่ร้านตั้งทับ (เก็บเฉพาะส่วนที่ต่าง)
   return {
     ...bt,
     label: pick(ct.label, bt.label),
@@ -134,11 +159,17 @@ function mergeBaseType(bt, ct = {}) {
     hidden: ct.hidden === true,
     custom: false,
     extraKeys: cleanKeys(ct.keys),
+    price: bt.price || priceStored ? { ...(bt.price || DEFAULT_PRICE), ...(priceStored || {}) } : null,
+    priceStored,
+    priceBase: bt.price || null,
     base: { label: bt.label, icon: bt.icon },
   };
 }
 
-function customType(ct) {
+// groupPrice: หน่วยราคาของหมวดที่ร้านเพิ่มเอง — ประเภทข้างในที่ไม่ได้ตั้งเองตามหมวดไป
+function customType(ct, groupPrice) {
+  const priceStored = cleanPrice(ct.price);
+  const priceBase = groupPrice || DEFAULT_PRICE;
   return {
     id: ct.id,
     label: pick(ct.label, 'ประเภทใหม่'),
@@ -149,6 +180,9 @@ function customType(ct) {
     hidden: ct.hidden === true,
     custom: true,
     priority: 100, // คำที่ร้านตั้งเองชนะคำตั้งต้นของระบบเมื่อซ้อนกัน
+    price: { ...priceBase, ...(priceStored || {}) },
+    priceStored,
+    priceBase,
   };
 }
 
@@ -156,7 +190,7 @@ function mergeBaseGroup(base, cg = {}) {
   const stored = new Map((cg.types || []).map((t) => [t.id, t]));
   const baseTypes = base.types.map((bt) => mergeBaseType(bt, stored.get(bt.id)));
   const baseIds = new Set(base.types.map((t) => t.id));
-  const customs = (cg.types || []).filter((t) => !baseIds.has(t.id) && CUSTOM_TYPE_ID.test(t.id)).map(customType);
+  const customs = (cg.types || []).filter((t) => !baseIds.has(t.id) && CUSTOM_TYPE_ID.test(t.id)).map((t) => customType(t));
   return {
     id: base.id,
     label: pick(cg.label, base.label),
@@ -171,6 +205,8 @@ function mergeBaseGroup(base, cg = {}) {
 }
 
 function customGroup(cg) {
+  const priceStored = cleanPrice(cg.price);
+  const price = { ...DEFAULT_PRICE, ...(priceStored || {}) };
   return {
     id: cg.id,
     label: pick(cg.label, 'หมวดใหม่'),
@@ -180,7 +216,10 @@ function customGroup(cg) {
     custom: true,
     code: typeof cg.code === 'string' ? cg.code : null,
     keys: cleanKeys(cg.keys),
-    types: (cg.types || []).filter((t) => CUSTOM_TYPE_ID.test(t.id)).map(customType),
+    price,
+    priceStored,
+    priceBase: DEFAULT_PRICE,
+    types: (cg.types || []).filter((t) => CUSTOM_TYPE_ID.test(t.id)).map((t) => customType(t, price)),
   };
 }
 
@@ -232,6 +271,21 @@ export function editorModel(config) {
     builtinKeys: t.custom ? [] : (t.keys || []).slice(0, 8),
     base: t.base || null,
   });
+  /* หน่วยราคาแยกเป็นแผนที่ของตัวเอง ไม่ปนใน groups — unit/mode คือค่าที่ร้านตั้งทับ
+   * ('' = ตามค่าตั้งต้น builtinUnit/builtinMode) หมวดกับประเภทแยกกันเพราะ id ซ้ำกันได้
+   * (เช่น print เป็นทั้งหมวดและประเภท) หมวดตั้งต้นไม่มีหน่วยราคาระดับหมวดจึงไม่อยู่ในนี้
+   */
+  const priceOut = (x) => ({
+    unit: x.priceStored?.unit || '',
+    builtinUnit: x.priceBase?.unit || '',
+    mode: x.priceStored?.mode || '',
+    builtinMode: x.priceBase?.mode || '',
+  });
+  const priceUnits = { groups: {}, types: {} };
+  for (const g of groups) {
+    if (g.custom) priceUnits.groups[g.id] = priceOut(g);
+    for (const t of g.types) priceUnits.types[t.id] = priceOut(t);
+  }
   return {
     groups: [
       ...groups.map((g) => ({
@@ -248,6 +302,7 @@ export function editorModel(config) {
       })),
       { id: other.id, label: other.label, icon: other.icon, color: other.color, hidden: false, custom: false, locked: true, code: CATEGORY_CODES.other, keys: [], base: other.base, types: [] },
     ],
+    priceUnits,
     limits: LIMITS,
     palette: PALETTE,
   };
@@ -256,6 +311,23 @@ export function editorModel(config) {
 // --- ตรวจและทำความสะอาดก่อนบันทึก -----------------------------------------------
 
 const fail = (message) => ({ ok: false, message });
+
+/* หน่วยราคาที่ส่งมากับหน้าแก้ไข (ฟิลด์ unit / priceMode ข้าง ๆ label)
+ *
+ * เก็บเฉพาะส่วนที่ต่างจากค่าตั้งต้นของรายการนั้น — ว่างหรือเท่าค่าตั้งต้น = ตามระบบ
+ * ส่วนทางที่ไม่ได้ส่งฟิลด์มาเลย (เช่น "เพิ่มหมวด" จากแชตที่วนผ่าน editorModel)
+ * แปลว่าไม่ได้แตะ ให้คงของเดิมที่เก็บไว้ ไม่ใช่ล้างทิ้ง
+ */
+function priceOverride(raw, fallback, prevStored) {
+  if (raw.unit === undefined && raw.priceMode === undefined) return cleanPrice(prevStored);
+  const fb = fallback || DEFAULT_PRICE;
+  const out = {};
+  const mode = asText(raw.priceMode);
+  if (PRICE_MODES.includes(mode) && mode !== fb.mode) out.mode = mode;
+  const unit = cleanPriceUnit(raw.unit);
+  if (unit && unit !== fb.unit) out.unit = unit;
+  return Object.keys(out).length ? out : null;
+}
 
 /* รับโมเดลจากหน้าแก้ไข (ทั้งรายการ) → config ที่เก็บเฉพาะสิ่งที่ร้านแก้
  *
@@ -330,8 +402,12 @@ export function normalizeConfig(input, prev = emptyConfig()) {
         icon: cleanIcon(raw.icon) || DEFAULT_ICON,
         color: cleanColor(raw.color) || nextColor([...usedColors, ...groups.map((g) => g.color).filter(Boolean)]),
       };
+      const gPrice = priceOverride(raw, DEFAULT_PRICE, existingCustom?.price);
+      if (gPrice) out.price = gPrice;
     }
     seenGroupIds.add(out.id);
+    // ประเภทในหมวดที่ร้านเพิ่มเอง ตั้งต้นตามหมวด (หมวดตั้งต้นมีหน่วยราคาที่ประเภทอยู่แล้ว)
+    const groupPrice = base ? null : { ...DEFAULT_PRICE, ...(out.price || {}) };
 
     if (raw.hidden === true) out.hidden = true;
     const keys = cleanKeys(raw.keys);
@@ -370,6 +446,8 @@ export function normalizeConfig(input, prev = emptyConfig()) {
       if (rt.hidden === true) tOut.hidden = true;
       const tkeys = cleanKeys(rt.keys);
       if (tkeys.length) tOut.keys = tkeys;
+      const tPrice = priceOverride(rt, baseType ? baseType.price : groupPrice, prevTypes.get(tOut.id)?.price);
+      if (tPrice) tOut.price = tPrice;
 
       const shown = (tOut.label || baseType?.label || '').toLowerCase();
       if (typeLabels.has(shown)) return fail(`หมวด "${out.label || base.label}" มีประเภท "${tOut.label || baseType.label}" ซ้ำกันค่ะ`);
