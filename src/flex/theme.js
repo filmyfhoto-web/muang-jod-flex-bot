@@ -12,17 +12,17 @@
 // ฟอร์มจดงาน และหน้าเว็บจึงย้ายพร้อมกันได้ ไม่มีหน้าไหนหลงเหลือเป็นคนละแอป
 
 export const COLORS = {
-  accent: '#6C5CA8', // filled things — buttons, badges, the numbered circle
-  accentText: '#6B5AA7', // navy as TEXT on the white card: totals, links
-  title: '#2E2655', // headings
+  accent: '#35486E', // filled things — buttons, badges, the numbered circle
+  accentText: '#2F5A8A', // navy as TEXT on the white card: totals, links
+  title: '#1F2B45', // headings
   gold: '#DDA83D', // the money figure on a navy panel, and the "เลขที่" chip
-  tint: '#EFEAF9', // a panel inside a card: stat tiles, badges, icon chips
+  tint: '#E8ECF5', // a panel inside a card: stat tiles, badges, icon chips
   surface: '#FFFFFF', // the card itself
-  line: '#E6E1F2', // separators and card borders
+  line: '#E2E6EE', // separators and card borders
 
-  ink: '#2E2655', // primary text
-  sub: '#6E6694', // secondary text
-  grey: '#9088AE', // muted text
+  ink: '#1F2B45', // primary text
+  sub: '#5E6E8C', // secondary text
+  grey: '#7E8CA3', // muted text
 
   white: '#FFFFFF', // literal white — text sitting on the accent colour
 
