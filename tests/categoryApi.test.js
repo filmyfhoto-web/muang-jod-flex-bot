@@ -203,3 +203,48 @@ test('PUT: รายการใหญ่กว่า 64kb ผ่านได้
     await s.close();
   }
 });
+
+/* หน่วยราคาตามชนิดงาน — ฟอร์มจดถาม "ชื่อนี้คิดเงินแบบไหน" ผ่านฟิลด์ pricing
+ * /config ให้ชุดตั้งต้น (ก่อนล็อกอิน/โหมดทดลอง) ส่วน /categories ให้ชุดของร้าน
+ * ทั้ง GET และ PUT — บันทึกหมวดเสร็จ ฟอร์มที่เปิดอยู่ต้องตรงทันที ไม่ต้องรีเฟรช
+ */
+test('pricing: /config มีชุดตั้งต้น และ GET/PUT /categories สะท้อนหน่วยที่ร้านตั้ง', async () => {
+  const s = await serve();
+  try {
+    const model = (await s.call('GET')).body;
+    assert.ok(Array.isArray(model.pricing), 'GET /categories ไม่มี pricing');
+    const frame = model.pricing.find((e) => e.keys.includes('กรอบรูป'));
+    assert.deepEqual(frame.price, { mode: 'piece', unit: 'บาน' });
+    assert.ok(model.priceUnits?.types?.frame, 'ไม่มีข้อมูลหน่วยราคาให้หน้าแก้ไข');
+
+    // ร้านตั้งกรอบรูปเป็น "ใบ" → PUT ตอบ pricing ที่อัปเดตแล้วกลับมาเลย
+    const photo = model.groups.find((g) => g.id === 'photo');
+    photo.types = photo.types.map((t) => (t.id === 'frame' ? { ...t, unit: 'ใบ', priceMode: '' } : t));
+    const put = await s.call('PUT', { groups: model.groups });
+    assert.equal(put.status, 200);
+    assert.deepEqual(put.body.pricing.find((e) => e.keys.includes('กรอบรูป')).price, { mode: 'piece', unit: 'ใบ' });
+    assert.deepEqual(put.body.priceUnits.types.frame, { unit: 'ใบ', builtinUnit: 'บาน', mode: '', builtinMode: 'piece' });
+    assert.deepEqual((await s.call('GET')).body.pricing.find((e) => e.keys.includes('กรอบรูป')).price, { mode: 'piece', unit: 'ใบ' });
+  } finally {
+    await s.close();
+  }
+});
+
+test('pricing: /api/config เปิดให้ก่อนล็อกอิน — โหมดทดลองนอก LINE ก็จับ "กรอบ → บาน" ได้', async () => {
+  const app = express();
+  app.use('/api', createApiRouter({ verify: async () => null, resolveProfile: async () => null }));
+  const server = app.listen(0);
+  await new Promise((r) => server.once('listening', r));
+  try {
+    const res = await fetch(`http://127.0.0.1:${server.address().port}/api/config`);
+    const body = await res.json();
+    assert.equal(res.status, 200);
+    assert.ok(Array.isArray(body.pricing) && body.pricing.length >= 10, 'ไม่มีตัวจับคำชุดตั้งต้น');
+    assert.deepEqual(body.pricing.find((e) => e.keys.includes('กรอบรูป')).price, { mode: 'piece', unit: 'บาน' });
+    assert.ok(body.pricing.every((e) => ['sqm', 'sheet', 'piece'].includes(e.price.mode)));
+    // ของเดิมบนเส้นนี้ยังครบ — หน้าแก้ไขงานใช้ categories ก่อนล็อกอิน
+    assert.ok(Array.isArray(body.categories) && body.categories.length);
+  } finally {
+    await new Promise((r) => server.close(r));
+  }
+});

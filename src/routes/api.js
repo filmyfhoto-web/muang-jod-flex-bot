@@ -20,7 +20,7 @@ import { missingColumn } from '../utils/dbErrors.js';
 import { listCustomerOrgs, setCustomerOrg } from '../services/customerOrgService.js';
 import { ensureTaxonomy, loadCategoryConfig, updateCategories } from '../services/categoryService.js';
 import { listExpenses } from '../services/expenseService.js';
-import { editorModel } from '../utils/taxonomy.js';
+import { editorModel, buildTaxonomy } from '../utils/taxonomy.js';
 import { parseNaturalJob } from '../utils/nlParser.js';
 import { splitDump, looksLikeDump } from '../utils/dumpSplit.js';
 import { makeDraft } from '../utils/jobDraft.js';
@@ -41,7 +41,7 @@ import { getState as readState, clearState as dropState, STATES } from '../servi
 import { todayISO } from '../utils/dates.js';
 import { safe, jobPatchSchema, jobCreateSchema, paymentAmountSchema } from '../utils/validation.js';
 import { liffId, liffChannelId } from '../utils/liff.js';
-import { CATEGORY_GROUPS, OTHER_GROUP, findGroup } from '../utils/category.js';
+import { CATEGORY_GROUPS, OTHER_GROUP, BASE_TAXONOMY, findGroup } from '../utils/category.js';
 import { logger, maskUserId } from '../services/logger.js';
 import { getShopProfile, saveShopProfile, SHOP_FIELDS } from '../services/shopService.js';
 import { getCheckinSettings, saveCheckinSettings } from '../services/checkinService.js';
@@ -190,6 +190,8 @@ export function createApiRouter(deps = {}) {
       })).concat([
         { id: OTHER_GROUP.id, label: OTHER_GROUP.label, icon: OTHER_GROUP.icon, color: OTHER_GROUP.color, types: [] },
       ]),
+      // หน่วยราคาตามชนิดงาน (ชุดตั้งต้น) — ฟอร์มจดใช้เลือกช่องเงินให้ถูกก่อนล็อกอิน
+      pricing: BASE_TAXONOMY.pricingEntries,
     });
   });
 
@@ -444,7 +446,8 @@ export function createApiRouter(deps = {}) {
   router.get('/categories', async (req, res, next) => {
     try {
       const got = await readCategories(req.profile.id);
-      res.json({ ...editorModel(got?.config), ready: Boolean(got) });
+      // pricing = ตัวจับคำหน่วยราคา (รวมหมวด/คำที่ร้านตั้งเอง) ให้ฟอร์มจดใช้หลังล็อกอิน
+      res.json({ ...editorModel(got?.config), pricing: buildTaxonomy(got?.config).pricingEntries, ready: Boolean(got) });
     } catch (err) {
       next(err);
     }
@@ -459,7 +462,8 @@ export function createApiRouter(deps = {}) {
           message: out.message,
         });
       }
-      res.json({ ...editorModel(out.config), ready: true });
+      // ส่ง pricing กลับด้วย — ฟอร์มจดที่เปิดอยู่จะได้ปรับช่องเงินตามที่เพิ่งบันทึกทันที
+      res.json({ ...editorModel(out.config), pricing: buildTaxonomy(out.config).pricingEntries, ready: true });
     } catch (err) {
       next(err);
     }

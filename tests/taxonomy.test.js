@@ -432,3 +432,76 @@ test('addCustomGroup: เพิ่มจากแชตต่อท้าย ก
   assert.equal(addCustomGroup(r2.config, { label: 'เสื้อ' }).ok, false, 'ชื่อซ้ำ');
   assert.equal(addCustomGroup(r2.config, { label: 'งานป้าย' }).ok, false, 'ชนหมวดตั้งต้น');
 });
+
+/* หน่วยราคา — "งานกรอบก็ต้องเป็นบานละ ... บางทีมันไม่ได้เป็น ตรม ทั้งหมด"
+ * ร้านตั้ง "นับเป็น/วิธีคิดเงิน" ทับค่าตั้งต้นได้ต่อประเภท และต่อหมวดที่เพิ่มเอง
+ */
+
+test('หน่วยราคา: ตั้ง "นับเป็น" ทับได้ เก็บเฉพาะส่วนที่ต่าง และหน้าแก้ไขเห็นทั้งคู่', () => {
+  const config = must(
+    edit(null, (gs) => {
+      const frame = group(gs, 'photo').types.find((t) => t.id === 'frame');
+      frame.unit = 'ใบ';
+      frame.priceMode = '';
+    })
+  );
+  assert.deepEqual(group(config.groups, 'photo').types, [{ id: 'frame', price: { unit: 'ใบ' } }]);
+  const tax = buildTaxonomy(config);
+  assert.deepEqual(tax.pricingEntries.find((e) => e.keys.includes('กรอบรูป')).price, { mode: 'piece', unit: 'ใบ' });
+  assert.deepEqual(editorModel(config).priceUnits.types.frame, { unit: 'ใบ', builtinUnit: 'บาน', mode: '', builtinMode: 'piece' });
+  // เปลี่ยนวิธีคิดอย่างเดียว คำนับตามเดิม
+  const sq = must(
+    edit(null, (gs) => {
+      const frame = group(gs, 'photo').types.find((t) => t.id === 'frame');
+      frame.unit = '';
+      frame.priceMode = 'sqm';
+    })
+  );
+  assert.deepEqual(group(sq.groups, 'photo').types, [{ id: 'frame', price: { mode: 'sqm' } }]);
+  assert.deepEqual(buildTaxonomy(sq).pricingEntries.find((e) => e.keys.includes('กรอบรูป')).price, { mode: 'sqm', unit: 'บาน' });
+});
+
+test('หน่วยราคา: ค่าเท่าตั้งต้นไม่เก็บ และ mode นอกรายการ (tier) ไม่รับ', () => {
+  const config = must(
+    edit(null, (gs) => {
+      const frame = group(gs, 'photo').types.find((t) => t.id === 'frame');
+      frame.unit = 'บาน'; // เท่าค่าตั้งต้นเป๊ะ — ไม่ควรถูกแช่แข็งไว้ในฐานข้อมูล
+      frame.priceMode = 'piece';
+      const vinyl = group(gs, 'sign').types.find((t) => t.id === 'vinyl');
+      vinyl.unit = '';
+      vinyl.priceMode = 'tier'; // ตารางช่วงราคาเลือกมือในฟอร์มเท่านั้น ห้ามตั้งจากหมวด
+    })
+  );
+  for (const g of config.groups) {
+    assert.deepEqual(Object.keys(g), ['id'], `${g.id} ไม่ควรมีอะไรนอกจาก id`);
+  }
+});
+
+test('หน่วยราคา: หมวดที่เพิ่มเองตั้งระดับหมวด ประเภทข้างในตามหมวด และแชต "เพิ่มหมวด" ไม่ล้างของเดิม', () => {
+  const config = must(
+    edit(null, (gs) => {
+      gs.splice(gs.length - 1, 0, {
+        ...NEW_GROUP({ keys: ['แก้วสกรีน'] }),
+        unit: 'ใบ',
+        priceMode: '',
+        types: [{ id: '', label: 'แก้วเก็บเย็น', icon: '🥤', keys: ['แก้วเก็บเย็น'] }],
+      });
+    })
+  );
+  const mine = config.groups.find((g) => g.custom);
+  assert.deepEqual(mine.price, { unit: 'ใบ' });
+  assert.ok(!mine.types[0].price, 'ประเภทที่ไม่ได้ตั้งเองไม่เก็บหน่วยราคา (ตามหมวดไปเรื่อย ๆ)');
+
+  const tax = buildTaxonomy(config);
+  assert.deepEqual(tax.pricingEntries.find((e) => e.keys.includes('แก้วสกรีน')).price, { mode: 'piece', unit: 'ใบ' });
+  assert.deepEqual(tax.pricingEntries.find((e) => e.keys.includes('แก้วเก็บเย็น')).price, { mode: 'piece', unit: 'ใบ' });
+
+  const m = editorModel(config);
+  assert.deepEqual(m.priceUnits.groups[mine.id], { unit: 'ใบ', builtinUnit: 'ชิ้น', mode: '', builtinMode: 'piece' });
+  assert.deepEqual(m.priceUnits.types[mine.types[0].id], { unit: '', builtinUnit: 'ใบ', mode: '', builtinMode: 'piece' });
+
+  // เพิ่มหมวดจากแชต (ไม่มีช่องหน่วยราคาให้ส่ง) — ของที่ตั้งไว้ต้องอยู่ครบ ไม่ถูกล้าง
+  const after = addCustomGroup(config, { label: 'งานบุญ' });
+  assert.ok(after.ok);
+  assert.deepEqual(after.config.groups.find((g) => g.id === mine.id).price, { unit: 'ใบ' });
+});

@@ -99,12 +99,46 @@ function blankItem() {
     // 'sqm' = คิดตามพื้นที่ (งานป้าย) | 'sheet'/'piece'/'unit'/'set' = ราคาต่อชิ้น
     // ตั้งต้นเป็น sqm เหมือนเดิมทุกประการ ร้านที่ทำป้ายเป็นหลักจะไม่รู้สึกว่าอะไรเปลี่ยน
     rateMode: 'sqm',
+    // คำนับของงานนี้ (บาน/ใบ/ผืน จากหมวดงาน) — เปลี่ยนป้ายคำ ไม่เปลี่ยนวิธีคิดเงิน
+    unitWord: '',
+    // คำนับมากับงานเอง (เช่น "5 ดวง" ที่แชตอ่านมา) — ตัวจับชนิดงานห้ามทับคำนี้
+    // จนกว่าร้านจะพิมพ์แก้ชื่อ ซึ่งคือการบอกใหม่ว่างานนี้คืออะไร
+    unitWordOwn: false,
+    // ร้านเลือกวิธีคิดเองแล้ว = ตัวจับชนิดงานห้ามแตะโหมดของบรรทัดนี้อีก
+    rateModeManual: false,
     price: 0,
     priceManual: false,
     total: 0,
     totalManual: false,
     image: null,
   };
+}
+
+/* ----------------------------------------------- ชนิดงาน → หน่วยราคา */
+
+/* ร้านบอกว่า "งานกรอบก็ต้องเป็นบานละ ... บางทีมันไม่ได้เป็น ตรม ทั้งหมด" —
+ * ของเดิมทุกบรรทัดตั้งต้นเป็น ตร.ม. ตายตัว ทั้งที่ระบบหมวดงานรู้จัก "กรอบ"
+ * อยู่แล้ว ตัวจับคำชุดเดียวกันนั้น (pricing จาก /api/config แล้วอัปเกรดเป็น
+ * ของร้านจาก /api/categories หลังล็อกอิน) จึงมาเลือกช่องเงินให้ถูกตั้งแต่พิมพ์ชื่อ
+ */
+let pricingEntries = [];
+
+function applyKind(item) {
+  if (item.rateModeManual) return; // ร้านเลือกมือแล้ว คำตัดสินของร้านชนะเสมอ
+  const name = String(item.name || '').trim();
+  if (!name) return;
+  const hit = typeof MJKind !== 'undefined' ? MJKind.match(name, pricingEntries) : null;
+  // จับไม่เจอ = งานที่ระบบไม่รู้จัก → ต่อชิ้น แต่เฉพาะตอนยังไม่ใส่เรต — มีเรตอยู่
+  // แล้วห้ามพลิกโหมด ไม่งั้นเรต ตร.ม. 165 กลายเป็นราคาต่อชิ้นเงียบ ๆ ตอนแก้ชื่อ
+  const next = hit && hit.price ? hit.price : !(item.rate > 0) ? { mode: 'piece', unit: 'ชิ้น' } : null;
+  if (!next) return;
+  const mode = next.mode === 'sqm' || next.mode === 'sheet' || next.mode === 'piece' ? next.mode : 'piece';
+  if (mode !== item.rateMode) {
+    // เปลี่ยนวิธีคิดแล้วราคาที่ระบบเติมให้ต้องคิดใหม่ — กติกาเดียวกับเลือกโหมดเอง
+    if (!item.priceManual) item.price = 0;
+    item.rateMode = mode;
+  }
+  if (!item.unitWordOwn) item.unitWord = next.unit || '';
 }
 
 // ยอดของรายการหนึ่ง
@@ -205,7 +239,13 @@ function peekDraft() {
 function loadDraft(saved) {
   if (!saved) return false;
   Object.assign(state, saved);
-  state.items = saved.items.map((it) => ({ ...blankItem(), ...it }));
+  state.items = saved.items.map((it) => {
+    const item = { ...blankItem(), ...it };
+    // ร่างเก่าก่อนมีตัวจับชนิดงาน: โหมดที่ไม่ใช่ sqm คือร้านตั้งใจเลือกไว้เอง
+    // (เช่นตารางช่วงราคาสติ๊กเกอร์) — ปักไว้ ไม่งั้นตัวจับคำจะรีเซ็ตทิ้ง
+    if (it.rateMode && it.rateMode !== 'sqm' && it.rateModeManual === undefined) item.rateModeManual = true;
+    return item;
+  });
   return true;
 }
 
@@ -245,6 +285,32 @@ function renderItems() {
   state.items.forEach((item, i) => itemsBox.appendChild(itemCard(item, i)));
   renderSummary();
   saveDraft();
+}
+
+/* จัดหน่วยราคาใหม่ทุกบรรทัด — เรียกตอนตัวจับคำเพิ่งมาถึง/เพิ่งอัปเกรด
+ * (ชื่อจาก ?name= ถูกใส่ก่อน fetch เสร็จ และร่าง/งานเก่าโหลดมาก่อนของร้านจะมา)
+ */
+function reclassifyAll() {
+  let changed = false;
+  for (const it of state.items) {
+    const before = it.rateMode + '|' + it.unitWord;
+    applyKind(it);
+    if (before !== it.rateMode + '|' + it.unitWord) changed = true;
+  }
+  if (!changed) return;
+  // สร้างการ์ดใหม่ทั้งแถบ — ถ้ากำลังพิมพ์อยู่พอดี ต้องคืนโฟกัสให้ช่องเดิม
+  const focused = document.activeElement;
+  const at = focused && itemsBox.contains(focused)
+    ? { i: [...itemsBox.children].findIndex((c) => c.contains(focused)), cls: focused.className }
+    : null;
+  renderItems();
+  if (at && at.i >= 0) {
+    const el = itemsBox.children[at.i]?.getElementsByClassName(at.cls)[0];
+    if (el) {
+      el.focus();
+      try { el.setSelectionRange(el.value.length, el.value.length); } catch { /* select/file ไม่มี caret */ }
+    }
+  }
 }
 
 /* รายการเรียงลงมาเป็นบรรทัด ไม่ใช่การ์ดที่ต้องปัดหา
@@ -373,6 +439,10 @@ function itemCard(item, index) {
     total.classList.toggle('auto', !item.totalManual);
 
     const mode = MJRate.mode(item.rateMode);
+    // คำบนป้ายตามชนิดงาน — "บานละ" ของกรอบ "จำนวน (ผืน)" ของป้าย (คณิตไม่เปลี่ยน)
+    const wordz = MJRate.words(item);
+    // ตัวจับชนิดงานเปลี่ยนโหมดได้โดยไม่ผ่าน select — ให้ select ตามโหมดจริงเสมอ
+    if (rateMode.value !== mode.id) rateMode.value = mode.id;
 
     /* ผลลัพธ์เป็นบรรทัดอ่าน ไม่ใช่ช่องกรอก จนกว่าร้านจะขอตั้งราคาเอง
      *
@@ -385,7 +455,7 @@ function itemCard(item, index) {
     calcBox.hidden = !own;
     resultBox.hidden = own || !(t > 0);
     if (!resultBox.hidden) {
-      const each = `${baht(p)} ต่อ${mode.piece}`;
+      const each = `${baht(p)} ต่อ${wordz.piece}`;
       resLine.textContent = n > 1 ? `${each} × ${numText(n)} = ${baht(t)}` : `${each}`;
     }
     const tiered = mode.id === 'tier';
@@ -401,14 +471,14 @@ function itemCard(item, index) {
       rateLabel.textContent = `เรตตามช่วง (บาท/ตร.ม.)`;
       rate.value = q.tier.rate;
     } else {
-      rateLabel.textContent = `${mode.label} (บาท)`;
+      rateLabel.textContent = `${wordz.label} (บาท)`;
       rate.placeholder = mode.id === 'sqm' ? 'เช่น 165' : 'เช่น 50';
       if (rate.value !== String(item.rate || '')) rate.value = item.rate || '';
     }
 
     // ป้ายช่องจำนวนบอกหน่วยที่กำลังนับอยู่ — "จำนวน" เฉย ๆ ตอนคิดเป็นแผ่น
-    // ทำให้ไม่รู้ว่าใส่แผ่นหรือใส่ตารางเมตร
-    qtyLabel.textContent = tiered || mode.id !== 'sqm' ? `จำนวน (${mode.piece})` : 'จำนวน';
+    // ทำให้ไม่รู้ว่าใส่แผ่นหรือใส่ตารางเมตร (งานป้ายนับเป็นผืนแม้คิดเงินตาม ตร.ม.)
+    qtyLabel.textContent = tiered || mode.id !== 'sqm' || item.unitWord ? `จำนวน (${wordz.piece})` : 'จำนวน';
 
     /* บรรทัดนี้เป็นของร้านล้วน ๆ ไม่มีอะไรจากตรงนี้ไปโผล่บนใบเสร็จ
      *
@@ -424,10 +494,13 @@ function itemCard(item, index) {
         ` · ช่วง ${q.tier.label} = ${numText(q.tier.rate)} บาท/ตร.ม.` +
         ` · เฉลี่ยแผ่นละ ${baht(suggested)}`;
     } else if (mode.id !== 'sqm') {
-      const per = `${baht(suggested)} ต่อ${mode.piece}`;
+      const per = `${baht(suggested)} ต่อ${wordz.piece}`;
       hint.hidden = !(suggested > 0 || size);
+      // ตร.ม. ของหนึ่งแผ่นมีความหมายกับงานที่ตัดจากม้วน (sheet) — งานนับชิ้น
+      // อย่างกรอบ/ตรายาง พื้นที่ไม่เกี่ยวกับราคา เหลือไว้แค่ขนาดที่จดเป็นสเปก
+      const sizePart = size ? (mode.id === 'sheet' ? `${size.label} · ${size.sqm} ตร.ม. ต่อ${wordz.piece}` : size.label) : '';
       hint.textContent = size
-        ? `${size.label} · ${size.sqm} ตร.ม. ต่อ${mode.piece}` + (suggested > 0 ? ` · ${per}` : '')
+        ? sizePart + (suggested > 0 ? ` · ${per}` : '')
         : `🔒 ร้านเห็นคนเดียว · ${per}`;
     } else if (size && suggested > 0) {
       hint.hidden = false;
@@ -469,9 +542,11 @@ function itemCard(item, index) {
       return;
     }
 
-    const y = MJRate.yieldPerSqm(item);
+    // "1 ตร.ม. ได้กี่แผ่น" มีความหมายกับงานที่ตัดจากวัสดุเป็นตารางเมตรเท่านั้น —
+    // งานกรอบ/ตรายางที่นับเป็นชิ้น ขึ้นบรรทัดนี้แล้วชวนงงเปล่า ๆ (ร้านเจอมาแล้ว)
+    const y = mode.id === 'sqm' || mode.id === 'sheet' ? MJRate.yieldPerSqm(item) : null;
     if (y && y.sheets >= 1) {
-      const piece = mode.id === 'sqm' ? 'แผ่น' : mode.piece;
+      const piece = mode.id === 'sqm' ? 'แผ่น' : wordz.piece;
       yieldHint.hidden = false;
       yieldHint.textContent =
         `🔒 1 ตร.ม. ได้ราว ${y.sheets} ${piece} (${y.sqmPerSheet} ตร.ม./${piece} · ไม่รวมเศษตัด)` +
@@ -484,7 +559,8 @@ function itemCard(item, index) {
     saveDraft();
   }
 
-  name.oninput = () => { item.name = name.value; paint(); };
+  // พิมพ์แก้ชื่อ = บอกใหม่ว่างานนี้คืออะไร — คำนับที่ติดมากับงานเดิมหมดสิทธิ์ค้ำ
+  name.oninput = () => { item.name = name.value; item.unitWordOwn = false; applyKind(item); paint(); };
   detail.oninput = () => { item.detail = detail.value; paint(); };
   w.oninput = () => { item.w = num(w.value); paint(); };
   h.oninput = () => { item.h = num(h.value); paint(); };
@@ -493,6 +569,10 @@ function itemCard(item, index) {
   rate.oninput = () => { item.rate = num(rate.value); paint(); };
   rateMode.onchange = () => {
     item.rateMode = MJRate.mode(rateMode.value).id;
+    // เลือกมือแล้วตัวจับชนิดงานหยุดยุ่งกับบรรทัดนี้ และคำของโหมดที่เลือกชนะคำนับเดิม
+    item.rateModeManual = true;
+    item.unitWord = '';
+    item.unitWordOwn = false;
     // เปลี่ยนวิธีคิดแล้วเรตเดิมไม่มีความหมาย (165/ตร.ม. ไม่ใช่ 165/แผ่น) —
     // ราคาที่ร้านพิมพ์เองไว้ยังอยู่ ของที่ระบบเติมให้ต้องคิดใหม่
     if (!item.priceManual) item.price = 0;
@@ -589,7 +669,7 @@ function renderSummary() {
     t.textContent = label || 'รายการ';
     const sub = document.createElement('small');
     // สรุปพูดภาษาเดียวกับใบเสร็จ: ขนาดกับจำนวน ไม่มีเรตต่อตารางเมตร
-    const pieceWord = MJRate.mode(item.rateMode).piece;
+    const pieceWord = MJRate.words(item).piece;
     sub.textContent = [size ? size.label : '', qty > 1 ? `${qty} ${pieceWord} × ${baht(price)}` : '']
       .filter(Boolean)
       .join(' · ') || (item.detail && item.name ? item.detail : '');
@@ -683,8 +763,9 @@ function toPayload() {
       size: sub,
       quantity: qty,
       // โหมดต่อแผ่น/ชิ้น/อัน บอกหน่วยได้ตรง ๆ และหน่วยนี้ขึ้นใบเสร็จ
-      // โหมดพื้นที่ไม่บอก เพราะ "ชิ้น" ของงานป้ายคือผืน ซึ่งขนาดข้างหลังบอกแล้ว
-      unit: MJRate.mode(item.rateMode).id === 'sqm' ? null : MJRate.mode(item.rateMode).piece,
+      // งานคิดตามพื้นที่บอกเฉพาะเมื่อรู้คำนับจริง (ป้ายนับเป็น "ผืน") — ไม่รู้ก็
+      // ไม่บอก เพราะ "ชิ้น" ของงานป้ายคือผืน ซึ่งขนาดข้างหลังบอกแล้ว
+      unit: MJRate.mode(item.rateMode).id === 'sqm' ? item.unitWord || null : MJRate.words(item).piece,
       unit_price: round2(price),
       total,
     });
@@ -893,6 +974,21 @@ async function loadCustomers() {
   }
   renderCustomerChips();
 }
+/* หมวด/คำค้นที่ร้านตั้งเองก็ต้องจับได้ — "แก้วสกรีน นับเป็น ใบ" ที่ตั้งไว้ในหน้า
+ * แก้หมวด ฟอร์มต้องขึ้น "ใบละ" ให้เหมือนกัน ชุดตั้งต้นใช้ไปพลางระหว่างรอ
+ */
+async function loadPricing() {
+  if (!token) return; // โหมดทดลองนอก LINE ใช้ชุดตั้งต้นจาก /api/config
+  try {
+    const res = await fetch('/api/categories', { headers: { Authorization: 'Bearer ' + token } });
+    const body = await res.json();
+    if (res.ok && Array.isArray(body?.pricing)) {
+      pricingEntries = body.pricing;
+      reclassifyAll();
+    }
+  } catch { /* ใช้ชุดตั้งต้นต่อไป ฟอร์มยังทำงานครบ */ }
+}
+
 $('#f-date').onchange = (e) => { state.date = e.target.value || todayISO(); renderSummary(); saveDraft(); };
 $('#f-due').onchange = (e) => { state.due = e.target.value || ''; renderSummary(); saveDraft(); };
 $('#f-paid').oninput = (e) => { state.paid = num(e.target.value); renderSummary(); saveDraft(); };
@@ -952,7 +1048,7 @@ let editingJobId = null;
 function fromDraft(draft) {
   const items = (draft.items || []).map((it) => {
     const size = parseSizeLabel(it.size);
-    return {
+    const item = {
       ...blankItem(),
       name: it.item_name || '',
       ...(size ? { w: size.w, h: size.h, unit: size.unit } : {}),
@@ -968,6 +1064,14 @@ function fromDraft(draft) {
       // ของมันเอง จึงเก็บไว้ตามเดิม
       totalManual: Math.abs(num(it.unit_price) * (num(it.quantity) || 1) - num(it.total)) > 0.01,
     };
+    // หน่วยราคาตามชนิดงาน (ราคาไม่ขยับ — priceManual กันไว้แล้ว) ส่วนคำนับที่
+    // แชตอ่านมา ("5 ดวง" → ดวง) เป็นของงานนั้นเอง ชนะเฉพาะคำ ไม่บังคับวิธีคิดเงิน
+    applyKind(item);
+    if (it.unit) {
+      item.unitWord = String(it.unit);
+      item.unitWordOwn = true;
+    }
+    return item;
   });
 
   state.customer = draft.customerName || '';
@@ -1182,6 +1286,9 @@ function whenText(ts) {
   const preset = (params.get('name') || '').trim();
   if (preset && state.items.length === 1 && !state.items[0].name && !state.items[0].total) {
     state.items[0].name = preset.slice(0, 200);
+    // ชื่อมาทางลิงก์ ไม่ผ่าน oninput — จัดหน่วยราคาตรงนี้ (ตัวจับคำของจริงมาถึง
+    // ทีหลังตอน fetch /api/config เสร็จ แล้ว reclassifyAll จัดซ้ำให้ถูก)
+    applyKind(state.items[0]);
     saveDraft();
   }
 
@@ -1191,12 +1298,19 @@ function whenText(ts) {
   // LIFF: ถ้าเปิดใน LINE จะได้โทเคนไว้ยิง API ถ้าไม่ใช่ก็ยังกรอกได้ตามปกติ
   try {
     const cfg = await (await fetch('/api/config')).json();
+    // ตัวจับคำหน่วยราคา (ชุดตั้งต้น) — ต้องมาก่อนเช็ก LIFF เพราะโหมดทดลองนอก
+    // LINE โยนออกตรงบรรทัดถัดไป แต่ยังต้องจับ "กรอบ → บานละ" ได้เหมือนกัน
+    if (Array.isArray(cfg.pricing)) {
+      pricingEntries = cfg.pricing;
+      reclassifyAll();
+    }
     if (!cfg.liffId) throw new Error('ยังไม่ได้ตั้งค่า LIFF_ID');
     await liff.init({ liffId: cfg.liffId });
     if (!liff.isLoggedIn()) return liff.login({ redirectUri: location.href });
     token = liff.getAccessToken();
     $('#bar-sub').textContent = 'บันทึกเข้าบัญชีของคุณ';
     loadCustomers(); // ชื่อลูกค้าเดิมไว้เติมอัตโนมัติ — ไม่ต้องรอ ฟอร์มใช้ได้เลย
+    loadPricing(); // หน่วยราคาของหมวด/คำที่ร้านตั้งเอง — ระหว่างรอใช้ชุดตั้งต้น
 
     // ?draft=1 — มาจากปุ่ม ✏️ แก้ไข บนการ์ดในแชต ของที่จดไว้ต้องมาอยู่ในฟอร์ม
     // ให้ครบ ไม่ใช่ให้พิมพ์ใหม่ ร่างที่ค้างในเครื่องแพ้เสมอ เพราะอันนี้คือ

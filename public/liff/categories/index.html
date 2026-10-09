@@ -101,6 +101,10 @@
   .mini.del { background: var(--red-tint); color: var(--red); }
   .typ .in.keys { padding: 7px 10px; font-size: 12px; }
   .typ .bk { font-size: 10.5px; color: var(--faint); line-height: 1.4; }
+  .unitrow { display: flex; gap: 6px; align-items: center; }
+  .unitrow .ulab { font-size: 11px; font-weight: 600; color: var(--muted); flex-shrink: 0; }
+  .unitrow .in.unit { width: 72px; padding: 7px 8px; font-size: 12px; text-align: center; }
+  .unitrow select.in { flex: 1; min-width: 0; padding: 7px 8px; font-size: 12px; background: #fff; }
 
   .acts { display: flex; gap: 8px; flex-wrap: wrap; }
   .btn { flex: 1; min-width: 120px; min-height: 42px; border-radius: 12px; border: 1.5px solid var(--line); background: #fff;
@@ -247,6 +251,21 @@ function move(index, step) {
   render();
 }
 
+/* หน่วยราคา: "นับเป็น" (คำนับ เช่น บาน/ใบ) + วิธีคิดเงิน — ฟอร์มจดใช้เลือกช่องเงินให้ถูก
+ * ค่าว่าง = ตามค่าตั้งต้นของระบบ (placeholder บอกไว้ว่าค่านั้นคืออะไร)
+ */
+function unitRow(x, fallbackUnit, who) {
+  const unitIn = h('input', { class: 'in unit', value: x.unit || '', maxlength: limits.priceUnit || 10, placeholder: fallbackUnit || 'ชิ้น', 'aria-label': 'คำนับของ' + who });
+  unitIn.oninput = () => { x.unit = unitIn.value; touch(); };
+  const sel = h('select', { class: 'in mode', 'aria-label': 'วิธีคิดเงินของ' + who },
+    h('option', { value: '' }, 'คิดเงินตามเดิม'),
+    h('option', { value: 'sqm' }, 'คิดตาม ตร.ม.'),
+    h('option', { value: 'piece' }, 'คิดต่อหน่วยที่นับ'));
+  sel.value = x.priceMode || '';
+  sel.onchange = () => { x.priceMode = sel.value; touch(); };
+  return h('div', { class: 'unitrow' }, h('span', { class: 'ulab' }, 'นับเป็น'), unitIn, sel);
+}
+
 function typeBox(g, t, ti) {
   const keysIn = h('input', { class: 'in keys', placeholder: 'คำค้นเพิ่ม เช่น ชื่อเรียกอื่น ๆ (คั่นด้วยจุลภาค)', value: keysText(t.keys), 'aria-label': 'คำค้นของประเภท ' + t.label });
   keysIn.oninput = () => { t.keys = splitKeys(keysIn.value); touch(); };
@@ -264,6 +283,7 @@ function typeBox(g, t, ti) {
   return h('div', { class: 'typ' + (t.hidden ? ' off' : '') },
     h('div', { class: 'top' }, icon, name, toggle, del),
     keysIn,
+    unitRow(t, t.builtinUnit || g.unit || g.builtinUnit, 'ประเภท ' + t.label),
     !t.custom && t.builtinKeys && t.builtinKeys.length ? h('div', { class: 'bk' }, 'คำที่ม่วงรู้อยู่แล้ว: ' + t.builtinKeys.join(', ')) : null
   );
 }
@@ -325,11 +345,18 @@ function groupCard(g, i) {
     keyIn.oninput = () => { g.keys = splitKeys(keyIn.value); touch(); };
     body.append(h('label', { class: 'f' }, 'คำค้น — ให้ม่วงจัดงานเข้าหมวดนี้เอง', h('small', {}, 'งานที่ชื่อมีคำเหล่านี้จะเข้าหมวดนี้อัตโนมัติ (อย่างน้อย 2 ตัวอักษร) คำที่ร้านตั้งเองมาก่อนคำของระบบ'), keyIn));
 
+    // หน่วยราคาระดับหมวด มีเฉพาะหมวดที่ร้านเพิ่มเอง — หมวดตั้งต้นตั้งที่ประเภทย่อยข้างล่าง
+    if (g.custom) {
+      body.append(h('div', { class: 'f' }, 'หน่วยราคาในฟอร์มจด',
+        h('small', {}, 'เช่น นับเป็น "ใบ" ฟอร์มจะขึ้น "ใบละ (บาท)" — ประเภทย่อยที่ไม่ได้ตั้งเองใช้ตามหมวดนี้'),
+        unitRow(g, g.builtinUnit, 'หมวด ' + (g.label || NO_NAME))));
+    }
+
     const types = h('div', { class: 'types' }, h('h4', {}, 'ประเภทย่อย (ไม่ใส่ก็ได้)'), g.types.map((t, ti) => typeBox(g, t, ti)));
     types.append(h('button', { type: 'button', class: 'btn', onclick: () => {
       if (g.types.length >= (limits.typesPerGroup || 30)) return toast('ประเภทเต็มแล้วค่ะ', true);
       newCount += 1;
-      g.types.push({ id: 'new-t' + newCount, label: '', icon: '🔹', hidden: false, custom: true, keys: [] });
+      g.types.push({ id: 'new-t' + newCount, label: '', icon: '🔹', hidden: false, custom: true, keys: [], unit: '', priceMode: '' });
       touch();
       render();
     } }, '➕ เพิ่มประเภทย่อย'));
@@ -365,6 +392,16 @@ function render() {
 
 function adopt(model, { keepOpen = false } = {}) {
   draft = { groups: JSON.parse(JSON.stringify(model.groups)) };
+  // หน่วยราคามาเป็นแผนที่แยก (priceUnits) — ย้ายเข้า draft ให้แก้และส่งกลับในก้อนเดียว
+  const pu = model.priceUnits || { groups: {}, types: {} };
+  for (const g of draft.groups) {
+    const gp = pu.groups[g.id];
+    if (gp) Object.assign(g, { unit: gp.unit, priceMode: gp.mode, builtinUnit: gp.builtinUnit, builtinPriceMode: gp.builtinMode });
+    for (const t of g.types || []) {
+      const tp = pu.types[t.id];
+      if (tp) Object.assign(t, { unit: tp.unit, priceMode: tp.mode, builtinUnit: tp.builtinUnit, builtinPriceMode: tp.builtinMode });
+    }
+  }
   removed = [];
   limits = model.limits || limits;
   palette = model.palette || palette;
@@ -382,7 +419,7 @@ $('add-group').onclick = () => {
   if (!draft) return;
   if (draft.groups.length > (limits.groups || 40)) return toast('หมวดเต็มแล้วค่ะ', true);
   newCount += 1;
-  const g = { id: 'new-g' + newCount, label: '', icon: '📦', color: nextColor(), hidden: false, custom: true, new: true, keys: [], types: [] };
+  const g = { id: 'new-g' + newCount, label: '', icon: '📦', color: nextColor(), hidden: false, custom: true, new: true, keys: [], types: [], unit: '', priceMode: '' };
   const otherAt = draft.groups.findIndex((x) => x.locked);
   draft.groups.splice(otherAt === -1 ? draft.groups.length : otherAt, 0, g);
   open.add(g.id);

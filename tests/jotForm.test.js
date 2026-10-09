@@ -304,3 +304,39 @@ test('ช่องกรอกเตี้ยลงได้ แต่ตัว�
   const label = /\.field > span:first-child \{[^}]*\}/.exec(css)?.[0] || '';
   assert.match(label, /font-size: 11px;/);
 });
+
+/* ร้านพิมพ์ "กรอบ 12 18" แล้วเจอ "ตร.ม. ละ (บาท)" — "งานกรอบก็ต้องเป็นบานละ ...
+ * แต่ละงานบางอันหน่วยไม่ใช่ตรม" ฟอร์มจึงจับชนิดงานจากชื่อแล้วเลือกช่องเงินให้เอง
+ */
+test('ฟอร์มจัดหน่วยราคาตามชนิดงาน — สายไฟครบทุกเส้น', () => {
+  // kind.js ต้องถูกโหลด และมาก่อน script.js ที่เรียกใช้
+  assert.ok(html.includes('src="./kind.js"'), 'หน้าไม่ได้โหลด kind.js');
+  assert.ok(html.indexOf('./kind.js') < html.indexOf('./script.js'), 'kind.js ต้องมาก่อน script.js');
+
+  // พิมพ์ชื่อแล้วจัดทันที ไม่ใช่รอกดอะไร
+  assert.ok(js.includes('name.oninput = () => { item.name = name.value; item.unitWordOwn = false; applyKind(item); paint(); };'));
+
+  // เลือกโหมดมือแล้ว ตัวจับคำห้ามทับ และคำของโหมดชนะคำนับเดิม
+  assert.match(js, /item\.rateModeManual = true;/);
+  assert.match(js, /if \(item\.rateModeManual\) return;/);
+
+  // จับไม่เจอ + ใส่เรตไว้แล้ว ห้ามพลิกโหมด — เรต ตร.ม. 165 ต้องไม่กลายเป็นราคาต่อชิ้นเงียบ ๆ
+  assert.match(js, /hit && hit\.price \? hit\.price : !\(item\.rate > 0\)/);
+
+  // ตัวจับคำ: ชุดตั้งต้นจาก /api/config (ใช้ได้ทั้งโหมดทดลอง) แล้วอัปเกรดเป็นของร้าน
+  assert.match(js, /cfg\.pricing/);
+  assert.match(js, /fetch\('\/api\/categories'/, 'ไม่ได้ดึงหมวด/คำที่ร้านตั้งเองมาจับ');
+  assert.match(js, /function reclassifyAll\(\)/);
+
+  // ร่างเก่าที่เลือกโหมดไว้ก่อนมีระบบนี้ (เช่นตารางสติ๊กเกอร์) ต้องไม่ถูกรีเซ็ต
+  assert.match(js, /it\.rateMode !== 'sqm' && it\.rateModeManual === undefined/);
+
+  // คำนับจากแชต ("2 บาน") ติดมาเป็นคำของงานนั้นเอง ไม่บังคับวิธีคิดเงิน
+  assert.match(js, /item\.unitWord = String\(it\.unit\);/);
+  assert.match(js, /item\.unitWordOwn = true;/);
+
+  // kind.js เองต้องสะอาด: เทียบตัวพิมพ์เล็ก และไม่แตะ DOM เลย
+  const kind = read('jot/kind.js');
+  assert.match(kind, /toLowerCase\(\)/);
+  assert.ok(!/innerHTML|document\./.test(kind), 'kind.js ควรเป็นตรรกะล้วน');
+});

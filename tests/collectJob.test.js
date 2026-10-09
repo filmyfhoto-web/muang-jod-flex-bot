@@ -309,3 +309,10 @@ test('ช่องที่ม่วงเพิ่งถาม ได้อ่�
   assert.equal(both.state.fields.customer, 'พี่ต่าย');
   assert.ok(both.state.fields.due);
 });
+
+test('ตอบจำนวนเป็น "2 บาน" ก็อ่านออก — งานกรอบนับเป็นบาน', () => {
+  let state = startCollecting('มีงานกรอบรูป');
+  state = readTurn({ ...state, asking: 'size' }, '12×18 นิ้ว').state;
+  const turn = readTurn({ ...state, asking: 'qty' }, '2 บาน');
+  assert.equal(turn.state.fields.qty.count, 2, '"บาน" ไม่ถูกนับเป็นหน่วยจำนวน');
+});
