@@ -47,11 +47,7 @@
   <div class="chat">
     <div class="msg">
       <img class="pic" src="/brand/ui/happy.png" alt="ม่วงจด" />
-      <div class="bubble" id="hello">สวัสดีค่ะ 💜<br />นี่คือรายการงานของคุณ</div>
-    </div>
-    <div class="msg">
-      <span class="pic ghost" aria-hidden="true"></span>
-      <div class="bubble">พิมพ์ทีเดียวให้ม่วงกรอกให้ก็ได้ หรือกรอกเองทีละบรรทัดก็ได้ค่ะ 💜</div>
+      <div class="bubble" id="hello">สวัสดีค่ะ 💜 พิมพ์ทีเดียวให้ม่วงกรอกให้ หรือกรอกเองทีละบรรทัดก็ได้ค่ะ</div>
     </div>
   </div>
 
@@ -174,7 +170,7 @@
       </span>
     </label>
 
-    <details class="more" id="more" open>
+    <details class="more" id="more">
       <summary>ใส่เพิ่มได้ · วันที่จด · รับเงินมาแล้ว · หมายเหตุ</summary>
       <div class="grid-2">
         <label class="field">
@@ -236,13 +232,6 @@
       </span>
     </label>
 
-    <label class="field">
-      <span>รายละเอียด <em class="tag-bill">โชว์ในใบเสร็จ</em></span>
-      <span class="input-wrap"><i class="ic">📄</i>
-        <input class="i-detail" type="text" placeholder="เช่น ตอกตาไก่ 4 มุม" autocomplete="off" />
-      </span>
-    </label>
-
     <div class="grid-3">
       <label class="field">
         <span>กว้าง</span>
@@ -260,29 +249,6 @@
         <span class="qty-label">จำนวน</span>
         <span class="input-wrap"><i class="ic">📦</i>
           <input class="i-qty" type="number" inputmode="decimal" min="0" step="1" placeholder="1" />
-        </span>
-      </label>
-    </div>
-
-    <div class="grid-2">
-      <label class="field">
-        <span>หน่วย</span>
-        <span class="input-wrap"><i class="ic">📐</i>
-          <select class="i-unit">
-            <option value="cm">เซนติเมตร</option>
-            <option value="m">เมตร</option>
-            <option value="inch">นิ้ว</option>
-            <option value="ft">ฟุต</option>
-          </select>
-        </span>
-      </label>
-      <!-- ป้ายคิดตามพื้นที่ (ไวนิล 160×300 ตรมละ 165) สติ๊กเกอร์ขายเป็นแผ่น
-           (13×19 แผ่นละ 50) — สองวิธีนี้ต้องเลือกได้ ไม่ใช่มีแค่แบบเดียวแล้ว
-           ให้ร้านคิดเลขในหัวเอง -->
-      <label class="field">
-        <span>คิดราคาแบบ</span>
-        <span class="input-wrap"><i class="ic">🧮</i>
-          <select class="i-ratemode"></select>
         </span>
       </label>
     </div>
@@ -326,6 +292,41 @@
     <p class="hint area-hint" hidden></p>
     <p class="hint yield-hint" hidden></p>
 
+    <!-- ร้านบอก "มันดูกรอกเยอะไป" — ช่องที่ม่วงเดาให้ถูกอยู่แล้วเกือบทุกใบ
+         (รายละเอียด หน่วย วิธีคิดราคา รูป) พับไว้ตรงนี้ เปิดเฉพาะใบที่ต้องใช้
+         ใบที่มีรายละเอียด/รูปอยู่แล้วจะกางมาให้เอง ไม่มีข้อมูลซ่อนหาย -->
+    <details class="extra">
+      <summary>➕ เพิ่มเติม — รายละเอียด · หน่วย · วิธีคิดราคา · แนบรูป</summary>
+    <label class="field">
+      <span>รายละเอียด <em class="tag-bill">โชว์ในใบเสร็จ</em></span>
+      <span class="input-wrap"><i class="ic">📄</i>
+        <input class="i-detail" type="text" placeholder="เช่น ตอกตาไก่ 4 มุม" autocomplete="off" />
+      </span>
+    </label>
+
+    <div class="grid-2">
+      <label class="field">
+        <span>หน่วย</span>
+        <span class="input-wrap"><i class="ic">📐</i>
+          <select class="i-unit">
+            <option value="cm">เซนติเมตร</option>
+            <option value="m">เมตร</option>
+            <option value="inch">นิ้ว</option>
+            <option value="ft">ฟุต</option>
+          </select>
+        </span>
+      </label>
+      <!-- ป้ายคิดตามพื้นที่ (ไวนิล 160×300 ตรมละ 165) สติ๊กเกอร์ขายเป็นแผ่น
+           (13×19 แผ่นละ 50) — สองวิธีนี้ต้องเลือกได้ ไม่ใช่มีแค่แบบเดียวแล้ว
+           ให้ร้านคิดเลขในหัวเอง -->
+      <label class="field">
+        <span>คิดราคาแบบ</span>
+        <span class="input-wrap"><i class="ic">🧮</i>
+          <select class="i-ratemode"></select>
+        </span>
+      </label>
+    </div>
+
     <div class="field">
       <span>แนบรูป</span>
       <label class="drop">
@@ -334,6 +335,8 @@
         <span class="drop-text">แตะเพื่อแนบ<small>ไม่บังคับ</small></span>
       </label>
     </div>
+
+    </details>
 
     <div class="preview" hidden>
       <img alt="รูปที่แนบ" />

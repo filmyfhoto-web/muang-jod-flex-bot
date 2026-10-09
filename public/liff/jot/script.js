@@ -305,6 +305,10 @@ function itemCard(item, index) {
   const file = $('.i-file', el);
   const preview = $('.preview', el);
 
+  // ใบที่กรอกของในพับไว้แล้ว (รายละเอียด/รูป) ต้องเห็นของตัวเองตอนกลับมาแก้
+  const extra = $('.extra', el);
+  if (extra) extra.open = Boolean(item.detail || item.image);
+
   const count = state.items.length;
   const rowNo = $('.row-no', el);
   const rowTitle = $('.item-title', el);
