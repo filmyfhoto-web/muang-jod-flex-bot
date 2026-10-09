@@ -41,11 +41,10 @@ test('เปลี่ยนแท็บแล้วข้อความผิ�
   assert.match(show, /clearFatal\(\);/);
 });
 
-test('ธีมเป็นม่วงอ่อน-ครีม-ทอง (V2) และใช้ฟอนต์ระบบของเครื่อง เหมือนหน้าอื่นในแอป', () => {
-  // ร้านขอ V2 "สีม่วงอ่อน สีครีม และสีขาว" — สีหลักต้องตรงกับ theme.js (ที่เดียว)
-  assert.match(dash, /--accent: #6C5CA8/);
+test('ธีมเป็นกรม-ทอง และใช้ฟอนต์ระบบของเครื่อง เหมือนหน้าอื่นในแอป', () => {
+  assert.match(dash, /--accent: #35486E/);
   assert.match(dash, /--gold: #DDA83D/);
-  assert.match(dash, /--bg: #F8F5EF/, 'พื้นหลังเป็นครีม');
+  assert.match(dash, /--bg: #EFF1F5/);
 
   const stack = dash.match(/font-family: ([^;]+);/)?.[1] || '';
   let at = -1;
