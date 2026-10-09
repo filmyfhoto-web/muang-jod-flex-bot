@@ -700,3 +700,10 @@ body.quick .link-full { display: block; }
 }
 .cust-suggest button b { font-weight: 600; }
 .cust-suggest button small { opacity: .6; font-size: 11px; margin-left: 4px; }
+
+/* พับ "เพิ่มเติม" ในบรรทัดงาน — ช่องที่นาน ๆ ใช้ที ไม่ต้องเห็นทุกครั้งที่จด */
+details.extra > summary { list-style: none; cursor: pointer; user-select: none;
+  font-size: 12.5px; font-weight: 600; color: var(--accent-text);
+  background: var(--tint); border-radius: 10px; padding: 9px 12px; margin: 2px 0 4px; }
+details.extra > summary::-webkit-details-marker { display: none; }
+details.extra[open] > summary { margin-bottom: 8px; }

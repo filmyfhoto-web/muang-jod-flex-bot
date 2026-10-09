@@ -201,6 +201,19 @@
      แถว 2: ได้รับเงิน · ยังไม่ได้รับเงิน
      แถว 3: (ได้รับเงิน) จ่ายสด · โอน   (ยังไม่ได้รับเงิน) ลงบัญชี */
   .sp { display: flex; flex-direction: column; gap: 6px; margin: -2px 0 12px 46px; }
+  .sp[hidden] { display: none; }
+  /* แถวงานที่มีแผงสถานะ: แตะเพื่อกาง มีลูกศรบอก และหมุนตอนกางอยู่ */
+  .job.has-sp { cursor: pointer; }
+  .job.has-sp::after { content: '⌄'; color: var(--grey); font-size: 15px; line-height: 1; transition: transform .15s; }
+  .job.has-sp.sp-on::after { transform: rotate(180deg); }
+  /* ตัวเลือกรองพับไว้ — หัวพับโชว์ค่าที่เลือกอยู่ */
+  details.fil { margin-bottom: 10px; }
+  details.fil > summary { list-style: none; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--accent-text);
+    background: var(--tint, #e8ecf5); border-radius: 10px; padding: 9px 12px; user-select: none; }
+  details.fil > summary::-webkit-details-marker { display: none; }
+  details.fil > summary::after { content: ' ⌄'; color: var(--grey); }
+  details.fil[open] > summary { margin-bottom: 9px; }
+  details.fil[open] > summary::after { content: ' ⌃'; }
   .sp.saving { opacity: .55; pointer-events: none; }
   .sp-row { display: flex; gap: 6px; flex-wrap: wrap; }
   .sp-row.sub { padding-left: 2px; }
@@ -358,10 +371,6 @@
       <h2>สรุปงานวันนี้ <span class="date" id="t-date"></span></h2>
       <div class="grid" id="t-tiles"></div>
     </div>
-    <div class="card" id="t-share-card">
-      <h2>สัดส่วนงานวันนี้</h2>
-      <div class="donut"><div id="t-donut"></div><div class="legend" id="t-legend"></div></div>
-    </div>
     <div class="card mascot-foot">
       <h2>คิวงาน</h2>
       <!-- ร้านขอ "แบ่งช่องว่าอันไหนรับแล้ว อันไหนยังไม่ได้รับ เพื่อจะได้ส่ง
@@ -379,6 +388,10 @@
       <!-- ร้านขอ "แยกช่องหมวดงานให้หน่อย" — คิวเรียงตามวันนัดรับอย่างเดียว
            ตรายาง กรอบรูป ป้าย สติ๊กเกอร์ จึงปนกันทั้งกอง เลือกได้ว่าจะแบ่ง
            กองด้วยอะไร ไม่ใช่ซ้อนสองแบบเข้าด้วยกันจนอ่านไม่ออก -->
+      <!-- ร้านบอก "มันดูกรอกเยอะไป" — ตัวเลือกรอง (แบ่งกอง/แยกตามเงิน) พับไว้
+           เปิดเฉพาะตอนจะใช้ ค่าที่เลือกไว้โชว์บนหัวพับ ไม่ต้องกางก็รู้ว่ากรองอะไรอยู่ -->
+      <details class="fil" id="t-filter-more">
+        <summary id="t-filter-note">⚙️ แบ่งกอง · แยกตามเงิน</summary>
       <div class="seg sub" id="t-queue-group">
         <button type="button" data-g="day" aria-pressed="true">📅 วันนัด</button>
         <button type="button" data-g="cat" aria-pressed="false">🗂️ หมวดงาน</button>
@@ -388,9 +401,15 @@
            ลงบัญชี (ค้างจ่าย) · ยังไม่ได้รับ · รับแล้วแต่ยังไม่บอกช่องทาง กดเลือกแล้วแก้สถานะ
            ใต้งานแต่ละใบได้เลย งานจะย้ายออกจากกองนี้ไปอยู่กองที่ถูกต้อง -->
       <div class="seg sub wrap" id="t-queue-money" hidden aria-label="แยกตามเงิน"></div>
+      </details>
       <p class="money-sum" id="t-money-sum" hidden></p>
       <div id="t-recent"></div>
       <img class="peek front" src="/brand/ui/rest.png" alt="" style="right:10px;bottom:-14px;width:88px" />
+    </div>
+    <!-- สัดส่วนเป็นของไว้ดู ไม่ใช่ของไว้ทำ — คิวงานที่ต้องกดจึงมาก่อน -->
+    <div class="card" id="t-share-card">
+      <h2>สัดส่วนงานวันนี้</h2>
+      <div class="donut"><div id="t-donut"></div><div class="legend" id="t-legend"></div></div>
     </div>
   </section>
 
@@ -452,6 +471,8 @@
     </div>
     <div class="card">
       <h2>ข้อมูลร้าน <span class="date">ขึ้นหัวใบเสร็จ</span></h2>
+      <details class="fil" id="sh-fold">
+      <summary>✏️ แก้ไขข้อมูลร้าน — ชื่อ · เบอร์ · ที่อยู่ · ท้ายใบเสร็จ</summary>
       <label for="sh-name">ชื่อร้าน</label>
       <input id="sh-name" maxlength="200" placeholder="เช่น ร้านม่วงป้ายโฆษณา" />
       <label for="sh-phone">เบอร์โทร</label>
@@ -466,6 +487,7 @@
       <p style="font-size:12.5px;color:var(--grey);margin:10px 0 0">
         เว้นว่างได้ทุกช่อง ช่องที่ว่างจะไม่ขึ้นในใบเสร็จค่ะ
       </p>
+      </details>
     </div>
     <!-- ม่วงแวะมาถามว่ามีงานให้จดไหม ตามเวลาที่ร้านตั้งเอง
          ปิดไว้ก่อนเสมอ: การส่งข้อความหาคนที่ไม่ได้ขอ ผิดครั้งเดียวก็กลายเป็น
@@ -895,8 +917,9 @@ function renderJobs(el, jobs, emptyMsg, opts) {
     return;
   }
   jobs.forEach((j, i) => {
-    el.appendChild(jobRow(j, { ...opts, n: i + 1 }));
-    if (opts && opts.panel) el.appendChild(statusPanel(j));
+    const row = jobRow(j, { ...opts, n: i + 1 });
+    if (opts && opts.panel) attachPanel(el, row, j);
+    else el.appendChild(row);
   });
 }
 
@@ -1004,6 +1027,32 @@ function moneyKindOf(job) {
 // หมวดที่ร้านกางไว้ อยู่แค่ในหน้าที่เปิดอยู่ — วาดใหม่แล้วยังกางเหมือนเดิม
 const queueOpenCats = new Set();
 
+/* แผงสถานะใต้แถวงาน พับไว้ทุกใบ แตะแถวถึงกาง (ทีละใบ)
+ *
+ * ร้านบอก "มันดูกรอกเยอะไป" — ของเดิมแผงเจ็ดปุ่มกางพร้อมกันทุกงาน ยี่สิบงาน
+ * คือปุ่มร้อยสี่สิบปุ่มในหน้าเดียว ตอนนี้คิวเป็นรายการบรรทัดเดียวอ่านรวดเดียวจบ
+ * ปุ่มทั้งเจ็ดยังอยู่ครบ แค่รอหลังการแตะหนึ่งครั้งบนงานที่จะแก้
+ */
+let queueOpenJob = null;
+function attachPanel(parent, row, job) {
+  const panel = statusPanel(job);
+  const open = queueOpenJob === job.id;
+  panel.hidden = !open;
+  row.classList.add('has-sp');
+  row.classList.toggle('sp-on', open);
+  row.onclick = () => {
+    const show = panel.hidden;
+    // กางได้ทีละใบ — ใบอื่นหุบ เพื่อให้รายการยังอ่านเป็นรายการ
+    document.querySelectorAll('.sp').forEach((x) => { x.hidden = true; });
+    document.querySelectorAll('.job.sp-on').forEach((x) => x.classList.remove('sp-on'));
+    panel.hidden = !show;
+    row.classList.toggle('sp-on', show);
+    queueOpenJob = show ? job.id : null;
+  };
+  parent.appendChild(row);
+  parent.appendChild(panel);
+}
+
 // งานที่ยังอยู่ในมือ เรียงตามวันนัดรับ พร้อมเลขคิว
 async function loadQueue() {
   try {
@@ -1014,8 +1063,23 @@ async function loadQueue() {
   paintQueue();
 }
 
+let filterFoldSet = false; // เปิดพับให้ครั้งแรกครั้งเดียว ถ้าร้านตั้งตัวกรองไว้
 function paintQueue() {
   const everyJob = queueJobs || [];
+
+  // หัวพับบอกค่าที่เลือกอยู่ — ไม่ต้องกางก็รู้ว่ากรองอะไร
+  const fil = $('t-filter-more');
+  fil.hidden = !everyJob.length;
+  const groupNames = { day: '📅 วันนัด', cat: '🗂️ หมวดงาน', kind: '🏫 ลูกค้า' };
+  const activeMoney = MONEY_KINDS.find((k) => k.id === queueMoney);
+  $('t-filter-note').textContent =
+    queueGroup === 'day' && queueMoney === 'all'
+      ? '⚙️ แบ่งกอง · แยกตามเงิน'
+      : '⚙️ ' + groupNames[queueGroup] + (queueMoney !== 'all' ? ' · ' + activeMoney.label : '');
+  if (!filterFoldSet) {
+    filterFoldSet = true;
+    if (queueGroup !== 'day' || queueMoney !== 'all') fil.open = true;
+  }
 
   // แถวแยกตามเงิน: โชว์เฉพาะกองที่มีงาน (กับกองที่เลือกอยู่) ตัวเลขบนปุ่ม
   const moneyCount = (k) => (k === 'all' ? everyJob.length : everyJob.filter((j) => moneyKindOf(j) === k).length);
@@ -1053,6 +1117,8 @@ function paintQueue() {
     const kind = MONEY_KINDS.find((k) => k.id === queueMoney);
     $('t-queue-filter').hidden = true;
     $('t-queue-group').hidden = true;
+    // ปุ่มสลับกองเงินอยู่ในพับ — ต้องกางไว้ ไม่งั้นติดอยู่ในกองว่างแล้วออกไม่ได้
+    $('t-filter-more').open = true;
     $('t-recent').innerHTML = '<div class="empty">ไม่มีงานในกอง "' + kind.label + '" ค่ะ 💜</div>';
     return;
   }
@@ -1238,8 +1304,7 @@ function renderQueue(el, owed, paid, filter = 'all') {
 
   // หนึ่งงาน = แถว + ปุ่มสถานะ ใช้ร่วมกันทั้งสองแบบการแบ่งกอง
   const appendJob = (parent, j, n, done, lateNote) => {
-    parent.appendChild(jobRow(j, { queue: true, n, done, today, lateNote }));
-    parent.appendChild(statusPanel(j));
+    attachPanel(parent, jobRow(j, { queue: true, n, done, today, lateNote }), j);
   };
 
   // แบ่งตามวันนัดรับ — ของเดิม

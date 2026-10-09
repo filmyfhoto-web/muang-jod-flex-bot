@@ -97,8 +97,10 @@ test('หน้าแก้ไขแยกสองแบบ และพับ�
     assert.ok(org.includes(id), `${id} ควรอยู่เฉพาะฝั่งหน่วยงาน`);
   }
 
-  // ของที่ม่วงเดาให้ถูกอยู่แล้ว พับไว้
-  const more = page.slice(page.indexOf('<details id="e-more">'), page.indexOf('</details>'));
+  // ของที่ม่วงเดาให้ถูกอยู่แล้ว พับไว้ — หา </details> ตัวที่ปิดพับนี้จริง ๆ
+  // (หน้ามีพับอื่นอยู่ก่อนหน้า เช่น ตัวกรองคิวงาน จึงนับจากจุดเริ่มของ e-more)
+  const moreAt = page.indexOf('<details id="e-more">');
+  const more = page.slice(moreAt, page.indexOf('</details>', moreAt));
   for (const id of ['e-group', 'e-type', 'e-date', 'e-mine', 'e-note']) {
     assert.ok(more.includes(id), `${id} ควรถูกพับไว้ใน "ตัวเลือกเพิ่มเติม"`);
   }
