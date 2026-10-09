@@ -99,13 +99,34 @@ function toNumber(s) {
   return Number.isFinite(v) ? v : 0;
 }
 
+/* ช่องทางเงินที่พูดติดท้ายประโยค — "อัดรูป 150 เงินสด" / "ป้าย 600 โอน" / "ตรายาง 300 ลงบัญชี"
+ *
+ * ร้านพูดแบบนี้จริง (V2: "พิมพ์น้อย จดไว") คำพวกนี้ไม่ใช่ชื่อของ และบอกความหมายเงินชัด:
+ *   เงินสด/สด/จ่ายสด   → รับเป็นเงินสดแล้ว (ไม่บอกยอด = รับครบ)
+ *   โอน/เงินโอน/พร้อมเพย์ → รับเป็นเงินโอนแล้ว
+ *   ลงบัญชี             → ยังไม่ได้เงิน แต่ลงใบลงบัญชีวันนี้ไว้ (รอวางบิล)
+ * เอาคำออกจากข้อความก่อนอ่านรายการ ไม่งั้นใบเสร็จขึ้นของชื่อ "อัดรูป เงินสด"
+ */
+const METHOD_TOKEN = /(?:^|[\s,·])(เงินสด|จ่ายสด|รับสด|สด|เงินโอน|พร้อมเพย์|สแกนจ่าย|โอนจ่าย|โอน|ลงบัญชี(?:ไว้)?)(?:แล้ว)?(?=[\s,·]|$)/u;
+export function extractPayMethod(text) {
+  const t = String(text ?? '');
+  const m = METHOD_TOKEN.exec(t);
+  if (!m) return { method: null, rest: t };
+  const word = m[1];
+  const method = /สด/.test(word) ? 'cash' : /ลงบัญชี/.test(word) ? 'account' : 'transfer';
+  // "โอนแล้ว 300" เป็นของ extractPaid (ยอดมัดจำ+ช่องทาง) ไม่แตะตรงนี้
+  if (/^โอน/.test(word) && /^\s*\d/.test(t.slice(m.index + m[0].length))) return { method: null, rest: t };
+  return { method, rest: (t.slice(0, m.index) + ' ' + t.slice(m.index + m[0].length)).trim() };
+}
+
 // Pull out "received/deposit" amount, e.g. "รับมาแล้ว 300", "มัดจำ 500".
 function extractPaid(text) {
   const re =
     /(?:รับ(?:มา)?(?:แล้ว|เงิน)?|มัดจำ|วางมัดจำ|จ่ายแล้ว|ชำระแล้ว|โอนแล้ว|โอนมา)\s*(?:มา)?\s*(\d[\d,]*(?:\.\d+)?)\s*(?:บาท|฿)?/;
   const m = text.match(re);
-  if (!m) return { paidAmount: 0, rest: text };
-  return { paidAmount: toNumber(m[1]), rest: text.replace(m[0], ' ') };
+  if (!m) return { paidAmount: 0, method: null, rest: text };
+  // "โอนแล้ว 300" บอกทั้งยอดและช่องทางในคำเดียว
+  return { paidAmount: toNumber(m[1]), method: /โอน/.test(m[0]) ? 'transfer' : null, rest: text.replace(m[0], ' ') };
 }
 
 /* "จ่ายเงินแล้ว" เฉย ๆ ไม่มีตัวเลข = จ่ายครบ
@@ -554,9 +575,12 @@ export function parseNaturalJob(rawText, opts = {}) {
    * ไม่งั้นมันจะไปติดอยู่ในชื่อของ ("กรอบรูป จ่ายแล้ว")
    */
   const paidInFull = saysPaidInFull(text);
+  const paidByTransferInFull = paidInFull && /โอน(?:เงิน)?\s*(?:ครบ|เต็ม)?\s*แล้ว/.test(text);
   const cleanedText = paidInFull ? text.replace(PAID_IN_FULL_RE, ' ') : text;
   const paid = extractPaid(cleanedText);
-  const grand = extractGrandTotal(paid.rest);
+  const pm = extractPayMethod(paid.rest);
+  const payMethod = pm.method || paid.method || (paidByTransferInFull ? 'transfer' : null);
+  const grand = extractGrandTotal(pm.rest);
 
   const { heading, body } = splitHeading(
     grand.rest.split('\n').map((l) => l.trim()).filter(Boolean)
@@ -631,6 +655,11 @@ export function parseNaturalJob(rawText, opts = {}) {
     statedTotal: grand.total,
     // บอกว่าจ่ายแล้วโดยไม่บอกจำนวน = จ่ายเต็มยอด ซึ่งคือคำตอบของ "วันนี้ได้เงิน
     // เท่าไหร่" — แต่ถ้าบอกจำนวนมาด้วย เชื่อจำนวนนั้น (มัดจำคือจ่ายบางส่วน)
-    paidAmount: round2(paid.paidAmount || (paidInFull ? total : 0)),
+    // บอกช่องทางมาเฉย ๆ ("อัดรูป 150 เงินสด") = รับครบแล้วทางนั้น — ภาษาหน้าร้านจริง
+    // ยกเว้น "ลงบัญชี" ที่แปลว่ายังไม่ได้เงิน แค่ลงใบลงบัญชีไว้
+    paidAmount: round2(
+      paid.paidAmount || (paidInFull || (payMethod && payMethod !== 'account') ? total : 0)
+    ),
+    payMethod,
   };
 }

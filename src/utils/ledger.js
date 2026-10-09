@@ -45,7 +45,7 @@ export function bookedDate(job, tz = '+07:00') {
  *
  * jobs = งานทั้งหมดที่ยังไม่ถูกยกเลิก · dateISO = วันที่ต้องการ (YYYY-MM-DD)
  */
-export function buildLedger(jobs = [], dateISO, tz = '+07:00') {
+export function buildLedger(jobs = [], dateISO, tz = '+07:00', { expenses = [] } = {}) {
   const rows = [];
   const byMethod = new Map(PAY_METHODS.map((m) => [m.id, { ...m, jobCount: 0, total: 0 }]));
   let total = 0;
@@ -120,6 +120,21 @@ export function buildLedger(jobs = [], dateISO, tz = '+07:00') {
   const order = { cash: 0, transfer: 1, unknown: 2 };
   rows.sort((a, b) => order[a.method] - order[b.method] || b.amount - a.amount);
 
+  /* รายจ่ายของวัน (V2 "จดรายรับ–รายจ่าย") — เงินออก คู่กับเงินเข้าข้างบน
+   *
+   * net = รับจริงวันนี้ ลบ จ่ายวันนี้ — ตัวเลขที่ร้านถามตอนปิดวันว่า "เหลือเท่าไหร่"
+   * รายจ่ายไม่แตะกองรับและยอดยกไป มันเป็นคนละสายน้ำกัน แค่สรุปอยู่ท้ายใบเดียวกัน
+   */
+  const expenseRows = (expenses || [])
+    .filter((e) => e && e.status !== 'cancelled')
+    .map((e) => ({
+      id: e.id,
+      item: e.item,
+      amount: round2(Number(e.amount) || 0),
+      method: e.pay_method === 'cash' || e.pay_method === 'transfer' ? e.pay_method : 'unknown',
+    }));
+  const expenseTotal = round2(expenseRows.reduce((t, e) => t + e.amount, 0));
+
   return {
     date: dateISO,
     rows,
@@ -127,5 +142,7 @@ export function buildLedger(jobs = [], dateISO, tz = '+07:00') {
     total,
     jobCount: rows.length,
     carry: { owed: carryOwed, jobCount: carryCount, account: carryBy.account, unpaid: carryBy.unpaid },
+    expense: { rows: expenseRows, total: expenseTotal, count: expenseRows.length },
+    net: round2(total - expenseTotal),
   };
 }

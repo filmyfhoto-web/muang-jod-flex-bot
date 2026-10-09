@@ -16,15 +16,25 @@ test('the home card greets by name when there is one, and by the brand when ther
   }
 });
 
-test('it shows the day in three numbers and the buttons someone came for', () => {
+test('it shows the day in three numbers and the four main menus (V2)', () => {
   const json = JSON.stringify(homeFlex(SUMMARY, { mascotImageUrl: null, liffUrl: null }));
   assert.ok(json.includes('฿2,450'), 'the day total');
   assert.ok(json.includes('"6"'), 'the job count');
   assert.ok(json.includes('฿550'), 'what is still owed');
 
-  for (const action of ['action=add_job', 'action=today_summary', 'action=pending_payment']) {
+  // หน้าแรกมี 4 เมนูหลัก: จดงานใหม่ · จดรายรับ–รายจ่าย · งานวันนี้ · สรุปยอดร้าน
+  const MENUS = [
+    ['จดงานใหม่', 'action=add_job'],
+    ['จดรายรับ–รายจ่าย', 'action=money_note'],
+    ['งานวันนี้', 'action=branch_view'],
+    ['สรุปยอดร้าน', 'action=today_summary'],
+  ];
+  for (const [label, action] of MENUS) {
+    assert.ok(json.includes(label), `${label} is missing`);
     assert.ok(json.includes(action), `${action} is missing`);
   }
+  // ค้างรับยังเห็นเป็นตัวเลขบนการ์ด (และมีปุ่มบนริชเมนู) ไม่ต้องเป็นเมนูที่ห้า
+  assert.ok(!json.includes('action=pending_payment'), 'หน้าแรกเกิน 4 เมนู');
 });
 
 test('the dashboard link and the mascot appear only when they resolve', () => {

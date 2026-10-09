@@ -99,6 +99,20 @@ export async function createJob(userId, payload, client = supabase) {
   // ช่องนี้ และฐานข้อมูลที่ยังไม่รันไมเกรชัน 016 ก็ต้องจดงานได้เหมือนเดิม
   const branchId = payload.branchId || null;
 
+  /* ช่องทางเงินที่พูดมาในประโยค ("อัดรูป 150 เงินสด") — แสตมป์ทีหลังเหมือนกัน
+   *
+   *   เงินสด/โอน + จ่ายครบ → pay_method + booked_at วันนี้: เป็น "รายรับวันนี้"
+   *                           ของใบลงบัญชีทันที ไม่ต้องไปกดลงบัญชีซ้ำอีกรอบ
+   *   เงินสด/โอน + มัดจำ   → จดแค่ช่องทาง ยอดยังค้าง ยังไม่ใช่รายรับเต็มวันนี้
+   *   ลงบัญชี              → booked_at อย่างเดียว (ยังไม่ได้เงิน รอวางบิล)
+   */
+  const method = ['cash', 'transfer'].includes(payload.payMethod) ? payload.payMethod : null;
+  const bookNow = payload.payMethod === 'account' || (method && pay.payment_status === 'paid');
+  const moneyStamp = {
+    ...(method ? { pay_method: method } : {}),
+    ...(bookNow ? { booked_at: new Date().toISOString() } : {}),
+  };
+
   const itemRows = items.map((it) => ({
     item_name: it.item_name,
     size: it.size ?? null,
@@ -146,6 +160,7 @@ export async function createJob(userId, payload, client = supabase) {
       ...(job && !job.category ? cat : {}),
       ...(dueDate ? { due_date: dueDate } : {}),
       ...(branchId ? { branch_id: branchId } : {}),
+      ...moneyStamp,
     };
     if (job && Object.keys(stamp).length) {
       const { data: restamped, error: stampErr } = await client
@@ -206,7 +221,7 @@ export async function createJob(userId, payload, client = supabase) {
     throw error;
   }
 
-  const extras = { ...(dueDate ? { due_date: dueDate } : {}), ...(branchId ? { branch_id: branchId } : {}) };
+  const extras = { ...(dueDate ? { due_date: dueDate } : {}), ...(branchId ? { branch_id: branchId } : {}), ...moneyStamp };
   if (Object.keys(extras).length) {
     const { data: dated, error: dueErr } = await client
       .from('jobs')

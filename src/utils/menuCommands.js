@@ -150,6 +150,19 @@ const COMMANDS = new Map([
   ['ตั้งค่าหมวดงาน', 'manage_categories'],
   ['หมวดของร้าน', 'manage_categories'],
   ['หมวดงานของร้าน', 'manage_categories'],
+  // รายรับ–รายจ่าย (V2): "ซื้อ... / จ่ายค่า..." จดทันทีอยู่ที่ expense.js
+  ['จดรายรับรายจ่าย', 'money_note'],
+  ['จดรายรับ-รายจ่าย', 'money_note'],
+  ['จดรายรับ–รายจ่าย', 'money_note'],
+  ['รายรับรายจ่าย', 'money_note'],
+  ['จดรายรับ', 'money_note'],
+  ['จดรายจ่าย', 'money_note'],
+  ['รายจ่าย', 'expense_list'],
+  ['รายจ่ายวันนี้', 'expense_list'],
+  ['ดูรายจ่าย', 'expense_list'],
+  ['สรุปยอดร้าน', 'today_summary'],
+  ['สรุปยอด', 'today_summary'],
+  ['จดงานใหม่', 'add_job'],
 ]);
 
 function normalise(text) {

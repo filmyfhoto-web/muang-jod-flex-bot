@@ -84,17 +84,23 @@ export function homeFlex(summary = {}, opts = {}) {
     },
   ];
 
+  /* หน้าแรกมี 4 เมนูหลัก (V2): จดงานใหม่ · จดรายรับ–รายจ่าย · งานวันนี้ · สรุปยอดร้าน
+   *
+   * สี่อย่างนี้คือสิ่งที่ร้านเปิดบอทมาทำจริง อย่างอื่น (ค้างรับ ตั้งค่า ฯลฯ)
+   * อยู่บนริชเมนูและในการ์ดสรุปอยู่แล้ว — หน้าแรกไม่ใช่สารบัญของทุกฟีเจอร์
+   */
   const footer = [
-    button('📝 บันทึกงานวันนี้', 'action=add_job', { primary: true }),
+    button('📝 จดงานใหม่', 'action=add_job', { primary: true, displayText: 'จดงานใหม่' }),
     {
       type: 'box',
       layout: 'horizontal',
       spacing: 'sm',
       contents: [
-        button('📊 สรุปวันนี้', 'action=today_summary'),
-        button('💰 ค้างรับ', 'action=pending_payment'),
+        button('💸 จดรายรับ–รายจ่าย', 'action=money_note', { displayText: 'จดรายรับ–รายจ่าย' }),
+        button('📋 งานวันนี้', 'action=branch_view', { displayText: 'งานวันนี้' }),
       ],
     },
+    button('📊 สรุปยอดร้าน', 'action=today_summary', { displayText: 'สรุปยอดร้าน' }),
   ];
 
   // แดชบอร์ดเป็นลิงก์ตัวหนังสือ ไม่ใช่ปุ่ม — ประหยัดไปทั้งแถว และคนที่มาหน้านี้

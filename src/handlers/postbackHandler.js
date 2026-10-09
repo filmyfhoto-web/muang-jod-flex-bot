@@ -12,6 +12,9 @@ import { editJob, deleteJob } from '../actions/jobActions.js';
 import { pickCategory } from '../actions/pickCategory.js';
 import { manageCategories } from '../actions/manageCategories.js';
 import { setDraftCustomer } from '../actions/draftCustomer.js';
+import { saveExpense, cancelExpenseDraft, expenseList, deleteExpenseAsk, deleteExpense, moneyNote } from '../actions/expense.js';
+import { statusByNamePick } from '../actions/statusSpeak.js';
+import { quickEditApply, quickEditCancel } from '../actions/quickEdit.js';
 import {
   createBillAction,
   billAllForCustomer,
@@ -193,6 +196,24 @@ export async function handlePostback(event, profile) {
       return manageCategories(ctx);
     case 'draft_customer':
       return setDraftCustomer(ctx);
+    case 'exp_save':
+      return saveExpense(ctx);
+    case 'exp_cancel':
+      return cancelExpenseDraft(ctx);
+    case 'expense_list':
+      return expenseList(ctx);
+    case 'exp_del':
+      return deleteExpenseAsk(ctx);
+    case 'exp_del_yes':
+      return deleteExpense(ctx);
+    case 'money_note':
+      return moneyNote(ctx);
+    case 'sbn':
+      return statusByNamePick(ctx);
+    case 'qe':
+      return quickEditApply(ctx);
+    case 'qe_cancel':
+      return quickEditCancel(ctx);
     default:
       console.warn(`[postback] unknown action: ${action}`);
       return reply(replyToken, {

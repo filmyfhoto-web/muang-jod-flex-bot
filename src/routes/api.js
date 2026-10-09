@@ -19,6 +19,7 @@ import { createJob, getCustomerDirectory } from '../services/jobService.js';
 import { missingColumn } from '../utils/dbErrors.js';
 import { listCustomerOrgs, setCustomerOrg } from '../services/customerOrgService.js';
 import { ensureTaxonomy, loadCategoryConfig, updateCategories } from '../services/categoryService.js';
+import { listExpenses } from '../services/expenseService.js';
 import { editorModel } from '../utils/taxonomy.js';
 import { parseNaturalJob } from '../utils/nlParser.js';
 import { splitDump, looksLikeDump } from '../utils/dumpSplit.js';
@@ -139,6 +140,7 @@ export function createApiRouter(deps = {}) {
   const readCategories = deps.loadCategoryConfig || loadCategoryConfig;
   const orgsOf = deps.listCustomerOrgs || listCustomerOrgs;
   const customersOf = deps.getCustomerDirectory || getCustomerDirectory;
+  const expensesOf = deps.listExpenses || listExpenses;
   const saveOrg = deps.setCustomerOrg || setCustomerOrg;
   const takePayment = deps.recordPayment || recordPayment;
   const readCheckin = deps.getCheckinSettings || getCheckinSettings;
@@ -586,7 +588,9 @@ export function createApiRouter(deps = {}) {
     try {
       const wanted = String(req.query.date || '').trim();
       const date = /^\d{4}-\d{2}-\d{2}$/.test(wanted) ? wanted : todayISO();
-      res.json(buildLedger(await bookJobs(req.profile.id), date));
+      // รายจ่ายของวันเดียวกัน — อ่านพังได้ลิสต์ว่าง ใบลงบัญชียังออกได้
+      const expenses = await expensesOf(req.profile.id, { date });
+      res.json(buildLedger(await bookJobs(req.profile.id), date, '+07:00', { expenses }));
     } catch (err) {
       next(err);
     }

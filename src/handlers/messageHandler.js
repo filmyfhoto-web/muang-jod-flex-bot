@@ -30,6 +30,12 @@ import { logger } from '../services/logger.js';
 import { dumpPreviewFlex } from '../flex/dumpFlex.js';
 import { handlePostback } from './postbackHandler.js';
 import { parseAddCategory } from '../utils/categoryCommands.js';
+import { parseExpense } from '../utils/expense.js';
+import { confirmExpense } from '../actions/expense.js';
+import { parseStatusSpeak } from '../utils/statusSpeak.js';
+import { statusBySpeech } from '../actions/statusSpeak.js';
+import { parseQuickEdit } from '../utils/quickEdit.js';
+import { quickEditAsk } from '../actions/quickEdit.js';
 import { addCategoryFromChat } from '../actions/manageCategories.js';
 
 const DEFAULT_REPLY =
@@ -165,6 +171,19 @@ export async function handleTextMessage(event, profile) {
   // "เพิ่มหมวด 🥤 แก้วสกรีน" — เพิ่มหมวดงานใหม่ของร้านจากแชตได้เลย
   const newCategory = parseAddCategory(text);
   if (newCategory) return addCategoryFromChat({ replyToken, profile }, newCategory);
+
+  // "ซื้อกระดาษ A4 350" — รายจ่ายของร้าน การ์ดสั้น ๆ ให้ยืนยันก่อนบันทึก
+  // (มาก่อนการอ่านเป็นงาน: "ซื้อ..." ไม่ใช่งานของลูกค้า)
+  const expense = parseExpense(text);
+  if (expense) return confirmExpense({ replyToken, profile }, expense);
+
+  // "งานครูแอนเสร็จแล้ว" — เปลี่ยนสถานะงานด้วยชื่อ หลายใบให้เลือกก่อน
+  const spoken = parseStatusSpeak(text);
+  if (spoken) return statusBySpeech({ replyToken, profile }, spoken);
+
+  // "แก้ราคาเป็น 650" — แก้ใบล่าสุด มีการ์ดยืนยันก่อนเสมอ (เรื่องเงินไม่เดา)
+  const quick = parseQuickEdit(text);
+  if (quick) return quickEditAsk({ replyToken, profile }, quick);
 
   // "งานวันนี้ ป้ายไวนิล 150 บาท" — command + details in one message.
   const leading = splitLeadingAddJob(text);
@@ -557,6 +576,7 @@ async function handleNewJob(replyToken, profile, text, knownCustomer = null, par
     discount: parsed.discount || 0,
     total: parsed.total,
     paidAmount: parsed.paidAmount,
+    payMethod: parsed.payMethod || null,
   });
 
   await setState(profile.id, STATES.CONFIRMING_JOB, { draft, ...(branch ? { branchSlug: branch.slug } : {}) });
@@ -584,6 +604,13 @@ async function handleNewJob(replyToken, profile, text, knownCustomer = null, par
   const askWho = !draft.customerName ? '\nงานนี้ของลูกค้าท่านไหนคะ? พิมพ์ชื่อมาได้เลยค่ะ' : '';
 
   const guideNames = !draft.customerName ? await getRecentCustomerNames(profile.id) : [];
+  // บอกสิ่งที่ม่วงเข้าใจจากคำท้ายประโยค — เข้าใจผิดต้องเห็นตรงนี้ ตอนยังแก้ทัน
+  const MONEY_UNDERSTOOD = {
+    cash: '💵 รับเป็นเงินสดแล้ว — จะลงใบลงบัญชีวันนี้ให้เลยค่ะ',
+    transfer: '🏦 รับเป็นเงินโอนแล้ว — จะลงใบลงบัญชีวันนี้ให้เลยค่ะ',
+    account: '📒 ลงบัญชีไว้ (ยังไม่ได้รับเงิน) — รอวางบิล/เก็บเงินค่ะ',
+  };
+  const moneyLine = MONEY_UNDERSTOOD[draft.payMethod] || '';
   return reply(replyToken, withDraftGuide([
     // บอกตั้งแต่ตอนตรวจว่าจะเข้าบัญชีร้านไหน — เห็นผิดตรงนี้ยังกดยกเลิกทัน
     ...(branch ? [{ type: 'text', text: `งานนี้จะลงบัญชีร้าน "${branch.name}" นะคะ 🏪` }] : []),
@@ -597,7 +624,9 @@ async function handleNewJob(replyToken, profile, text, knownCustomer = null, par
           : hasSatang
             ? `ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลยค่ะ 💜\n` +
               `อยากปัดเศษเอง พิมพ์ "รวม ${numText(roundTo)}" มาได้เลยค่ะ`
-            : 'ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลยค่ะ 💜') + askWho,
+            : 'ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลยค่ะ 💜') +
+        (moneyLine ? '\n' + moneyLine : '') +
+        askWho,
     },
     jobPreviewMessage(draftToBubble(draft)),
   ], draft, guideNames));
