@@ -34,6 +34,7 @@ export function makeDraft({
   total,
   paidAmount = 0,
   note = null,
+  payMethod = null, // 'cash' | 'transfer' | 'account' — ช่องทางเงินที่พูดมาในประโยค
 }) {
   const { items, workings } = liftWorkings(rawItems);
   const sum = round2(items.reduce((s, it) => s + (Number(it.total) || 0), 0));
@@ -64,6 +65,7 @@ export function makeDraft({
     paidAmount: pay.paid_amount,
     balanceDue: pay.balance_due,
     paymentStatus: pay.payment_status,
+    ...(payMethod ? { payMethod } : {}),
     ...(fullNote ? { note: fullNote } : {}),
   };
 }

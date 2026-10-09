@@ -189,6 +189,20 @@ export function dashboardFlex(dash, opts = {}) {
             { type: 'text', text: `ค้าง ${formatBaht(summary.pending)}`, size: 'xxs', color: COLORS.red, align: 'end', flex: 2 },
           ],
         },
+        // รายจ่ายวันนี้ (V2 "จดรายรับ–รายจ่าย") — มีเมื่อร้านจดรายจ่ายไว้เท่านั้น
+        ...(opts.expense && opts.expense.total > 0
+          ? [
+              {
+                type: 'box',
+                layout: 'horizontal',
+                paddingTop: 'sm',
+                contents: [
+                  { type: 'text', text: `💸 จ่ายวันนี้ ${opts.expense.count} รายการ`, size: 'xxs', color: COLORS.sub, flex: 3 },
+                  { type: 'text', text: `-${formatBaht(opts.expense.total)}`, size: 'xxs', weight: 'bold', color: COLORS.red, align: 'end', flex: 2 },
+                ],
+              },
+            ]
+          : []),
       ],
     },
   ];

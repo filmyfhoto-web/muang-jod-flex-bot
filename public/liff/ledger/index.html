@@ -198,6 +198,19 @@
     <span class="amt" id="c-amt"></span>
   </div>
 
+  <!-- รายจ่ายของวัน (V2 "จดรายรับ–รายจ่าย") — เงินออก คู่กับเงินเข้าข้างบน -->
+  <details class="cgroup" id="g-expense" hidden>
+    <summary>
+      <div class="ch"><b id="ge-head"></b><span>จดจากแชตได้เลย เช่น "ซื้อกระดาษ A4 350"</span></div>
+      <span class="amt" id="ge-amt"></span>
+    </summary>
+    <div class="body" id="ge-list"></div>
+  </details>
+  <div class="total" id="net" hidden>
+    <small>รับวันนี้ − จ่ายวันนี้ · คงเหลือ</small>
+    <b id="n-amt">฿0</b>
+  </div>
+
   <details class="cgroup" id="g-account" hidden>
     <summary>
       <div class="ch"><b id="ga-head"></b><span>ลงบัญชีไว้แล้ว รอวางบิล / รอเก็บเงิน</span></div>
@@ -328,6 +341,28 @@ function render(led) {
     list.append(card);
   }
 
+  // รายจ่ายวันนี้ + คงเหลือ — โชว์เมื่อมีรายจ่ายเท่านั้น ไม่มีก็ไม่กินที่
+  const exp = led.expense || { rows: [], total: 0, count: 0 };
+  $('g-expense').hidden = !exp.count;
+  $('net').hidden = !exp.count;
+  if (exp.count) {
+    $('ge-head').textContent = `💸 รายจ่ายวันนี้ · ${exp.count} รายการ`;
+    $('ge-amt').textContent = '-' + baht(exp.total);
+    const box = $('ge-list');
+    box.innerHTML = '';
+    exp.rows.forEach((r, i) => {
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.innerHTML = `<span class="no"></span><div class="what"><b></b><span></span></div><span class="amt"></span>`;
+      row.querySelector('.no').textContent = String(i + 1);
+      row.querySelector('.what b').textContent = r.item;
+      row.querySelector('.what span').textContent = r.method === 'cash' ? 'เงินสด' : r.method === 'transfer' ? 'โอน' : '';
+      row.querySelector('.amt').textContent = '-' + baht(r.amount);
+      box.append(row);
+    });
+    $('n-amt').textContent = baht(led.net ?? led.total);
+  }
+
   $('carry').hidden = !led.carry.jobCount;
   $('c-head').textContent = `ค้างรับยกไป · ${led.carry.jobCount} งาน`;
   $('c-amt').textContent = baht(led.carry.owed);
@@ -370,6 +405,13 @@ function toCsv(led) {
   out.push('');
   for (const m of led.methods) out.push(line([m.label, '', '', '', '', m.jobCount + ' รายการ', m.total]));
   out.push(line(['รวมรับเป็นเงินทั้งสิ้น', '', '', '', '', led.jobCount + ' รายการ', led.total]));
+  if (led.expense && led.expense.count) {
+    out.push('');
+    out.push(line(['รายจ่ายวันนี้']));
+    led.expense.rows.forEach((r, i) => out.push(line([i + 1, '', '', r.item, '', r.method === 'cash' ? 'เงินสด' : r.method === 'transfer' ? 'โอน' : '', -r.amount])));
+    out.push(line(['รวมรายจ่าย', '', '', '', '', led.expense.count + ' รายการ', -led.expense.total]));
+    out.push(line(['คงเหลือ (รับ − จ่าย)', '', '', '', '', '', led.net]));
+  }
   out.push(line(['ค้างรับยกไป (ยังไม่ได้เก็บเงิน)', '', '', '', '', led.carry.jobCount + ' งาน', led.carry.owed]));
   const carryLines = (title, g) => {
     if (!g || !g.jobCount) return;
