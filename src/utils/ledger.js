@@ -32,13 +32,27 @@ export function payMethod(job) {
  * ถ้าตัดด้วย UTC ยอดของค่ำวันนี้จะไปโผล่ในใบของพรุ่งนี้
  */
 export function bookedDate(job, tz = '+07:00') {
-  const at = job?.booked_at;
+  return dayOf(job?.booked_at, tz);
+}
+
+function dayOf(at, tz = '+07:00') {
   if (!at) return null;
   const ms = Date.parse(at);
   if (Number.isNaN(ms)) return null;
   const offsetMin = Number(tz.slice(1, 3)) * 60 + Number(tz.slice(4, 6));
   const shifted = new Date(ms + (tz.startsWith('-') ? -offsetMin : offsetMin) * 60_000);
   return shifted.toISOString().slice(0, 10);
+}
+
+/* เงินก้อนนี้ "เข้ามือ" วันไหน — วันของใบลงบัญชีที่รายรับควรไปขึ้น
+ *
+ * งานลงบัญชีที่เพิ่งตามเก็บได้ ต้องขึ้นใบของวันที่เก็บ (paid_at) ไม่ใช่ย้อนไป
+ * วันที่ลงบัญชีไว้ — ไม่งั้นเปิด "เงินวันนี้" แล้วไม่เห็นเงินที่เพิ่งรับมาหมาด ๆ
+ *
+ * งานเก่าก่อนมีช่อง paid_at ใช้วันลงบัญชีแบบเดิมเป๊ะ ๆ ไม่เดาวันให้ (V2 §4)
+ */
+export function receivedDate(job, tz = '+07:00') {
+  return job?.paid_at ? dayOf(job.paid_at, tz) : bookedDate(job, tz);
 }
 
 /* ใบลงบัญชีของวันหนึ่ง
@@ -49,6 +63,10 @@ export function buildLedger(jobs = [], dateISO, tz = '+07:00', { expenses = [] }
   const rows = [];
   const byMethod = new Map(PAY_METHODS.map((m) => [m.id, { ...m, jobCount: 0, total: 0 }]));
   let total = 0;
+
+  // เงินเก่าที่ตามเก็บได้วันนี้ (ลงบัญชีไว้วันก่อน เพิ่งจ่ายครบวันนี้) — รวมอยู่ใน
+  // ยอดรับข้างบนแล้ว แต่สรุปแยกไว้ให้ร้านเห็นว่าวันนี้ทวงบัญชีเก่ามาได้เท่าไหร่
+  const collected = { jobCount: 0, total: 0 };
 
   let carryOwed = 0;
   let carryCount = 0;
@@ -74,13 +92,21 @@ export function buildLedger(jobs = [], dateISO, tz = '+07:00', { expenses = [] }
     /* ลงบัญชีแล้วแต่ยังไม่ได้รับเงิน (ขายเชื่อ) ไม่ใช่รายรับ — เงินยังไม่เข้า
      * ไม่ว่าจะเป็นลิ้นชักหรือธนาคาร จึงไปอยู่ในยอดยกไปแทน
      */
-    if (bookedDate(job, tz) === dateISO && owedNow <= 0) {
+    if (receivedDate(job, tz) === dateISO && owedNow <= 0) {
       const amount = round2(Number(job.total) || 0);
       const method = payMethod(job);
       const bucket = byMethod.get(method);
       bucket.jobCount += 1;
       bucket.total = round2(bucket.total + amount);
       total = round2(total + amount);
+      // เคยลงบัญชีไว้วันก่อนหน้า แล้วเพิ่งตามเก็บได้วันนี้ — ติดป้ายให้รู้ว่า
+      // ก้อนนี้คือเงินเก่าที่เก็บมาได้ ไม่ใช่งานใหม่ของวันนี้
+      const booked = bookedDate(job, tz);
+      const fromAccount = Boolean(job.paid_at) && Boolean(booked) && booked < dateISO;
+      if (fromAccount) {
+        collected.jobCount += 1;
+        collected.total = round2(collected.total + amount);
+      }
       rows.push({
         id: job.id,
         jobNumber: job.job_number || null,
@@ -90,6 +116,7 @@ export function buildLedger(jobs = [], dateISO, tz = '+07:00', { expenses = [] }
         method,
         methodLabel: bucket.label,
         amount,
+        fromAccount,
       });
       continue;
     }
@@ -141,8 +168,40 @@ export function buildLedger(jobs = [], dateISO, tz = '+07:00', { expenses = [] }
     methods: [...byMethod.values()].filter((m) => m.jobCount > 0),
     total,
     jobCount: rows.length,
+    collected,
     carry: { owed: carryOwed, jobCount: carryCount, account: carryBy.account, unpaid: carryBy.unpaid },
     expense: { rows: expenseRows, total: expenseTotal, count: expenseRows.length },
     net: round2(total - expenseTotal),
+  };
+}
+
+/* เงินของวันหนึ่งแบบย่อ — ไว้แปะบนการ์ด "สรุปวันนี้" ในแชต
+ *
+ * สามก้อนที่ร้านขอให้แยก: เก็บแล้ว (สด/โอน) · เก็บจากบัญชีเก่าได้วันนี้ ·
+ * ลงบัญชีรอเก็บ (ของวันนี้ และค้างสะสมทั้งหมด) — เลขทุกตัวมาจาก buildLedger
+ * ตัวเดียวกับหน้าใบลงบัญชี ไม่มีสูตรที่สอง
+ */
+export function moneyToday(jobs = [], dateISO, tz = '+07:00') {
+  const led = buildLedger(jobs, dateISO, tz);
+  const method = (id) => led.methods.find((m) => m.id === id)?.total || 0;
+
+  const bookedToday = { jobCount: 0, total: 0 };
+  for (const job of jobs) {
+    if (!job || job.status === 'cancelled') continue;
+    const owed = jobOwed(job);
+    if (owed > 0 && bookedDate(job, tz) === dateISO) {
+      bookedToday.jobCount += 1;
+      bookedToday.total = round2(bookedToday.total + owed);
+    }
+  }
+
+  return {
+    received: led.total,
+    cash: method('cash'),
+    transfer: method('transfer'),
+    unknown: method('unknown'),
+    collected: led.collected,
+    bookedToday,
+    accountCarry: { jobCount: led.carry.account.jobCount, owed: led.carry.account.owed },
   };
 }

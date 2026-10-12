@@ -1,4 +1,5 @@
 import { round2 } from './currency.js';
+import { paidAtPatch } from './payment.js';
 
 /* งานหนึ่งงานอยู่ในสถานะไหน — ของออกไปหรือยัง และได้เงินหรือยัง
  *
@@ -221,6 +222,11 @@ export function statusPatch(job = {}, change = {}, now = new Date()) {
         booked_at: change.money === 'account' ? job.booked_at || stamp : null,
       });
     }
+
+    // วันเก็บเงินจริง (paid_at) เดินตามสถานะเงินเสมอ — เพิ่งครบประทับ หลุดก็ล้าง
+    // งานลงบัญชีที่เพิ่งตามเก็บได้ จะไปขึ้นใบลงบัญชีของ "วันนี้" ไม่ใช่ย้อนไป
+    // วันที่ลงบัญชีไว้ (booked_at ไม่ขยับ — ประวัติว่าลงบัญชีเมื่อไหร่ยังอยู่ครบ)
+    Object.assign(patch, paidAtPatch(job, patch, now));
   }
 
   return touched ? patch : null;

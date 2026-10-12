@@ -2,7 +2,7 @@ import { supabase } from '../config/supabase.js';
 import { accountKey } from '../utils/customerBook.js';
 import { round2 } from '../utils/currency.js';
 import { todayISO, rangeForPeriod } from '../utils/dates.js';
-import { derivePaymentFields } from '../utils/payment.js';
+import { derivePaymentFields, paidAtPatch } from '../utils/payment.js';
 import { categoryFields } from '../utils/category.js';
 import { ensureTaxonomy } from './categoryService.js';
 import { formatJobNumber } from '../utils/jobNumber.js';
@@ -111,6 +111,8 @@ export async function createJob(userId, payload, client = supabase) {
   const moneyStamp = {
     ...(method ? { pay_method: method } : {}),
     ...(bookNow ? { booked_at: new Date().toISOString() } : {}),
+    // จดมาแบบจ่ายครบตั้งแต่แรก = เก็บเงินได้วันนี้เลย (วันเก็บจริงของใบลงบัญชี)
+    ...paidAtPatch({}, pay),
   };
 
   const itemRows = items.map((it) => ({
@@ -439,11 +441,33 @@ export async function updateJob(userId, jobId, patch, client = supabase) {
     'done_at',
     'booked_at',
     'pay_method',
+    'paid_at',
   ];
   for (const f of fields) {
     if (patch[f] !== undefined) allowed[f] = patch[f];
   }
   allowed.updated_at = new Date().toISOString();
+
+  /* ตาข่ายของวันเก็บเงินจริง — ทุกทางที่เปลี่ยนสถานะเงินต้องพา paid_at ไปด้วย
+   *
+   * ทางหลัก (ปุ่มสถานะ รับเงิน จ่ายบิล หน้าแก้ไข) คิด paid_at มาเองเพราะมีงาน
+   * ในมืออยู่แล้ว ทางที่เหลือ (แก้ผ่านแชต ฯลฯ) ส่งมาแต่ payment_status — อ่าน
+   * ของเดิมหนึ่งรอบแล้วเติมให้ตามกติกาเดียวกัน อ่านไม่ได้ก็บันทึกต่อ (เงินที่จด
+   * ห้ามหายเพราะช่องประกอบ) แค่เสียวันเก็บไปหนึ่งใบ
+   */
+  if (allowed.payment_status !== undefined && allowed.paid_at === undefined) {
+    try {
+      const { data: current } = await client
+        .from('jobs')
+        .select('paid_at')
+        .eq('id', jobId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (current) Object.assign(allowed, paidAtPatch(current, allowed));
+    } catch (err) {
+      logger.warn('job.paid_at_net_failed', { message: err?.message });
+    }
+  }
 
   const { data, error } = await client
     .from('jobs')
@@ -483,7 +507,7 @@ export async function recordPayment(userId, jobId, amount, client = supabase) {
   if (!job) return null;
   const newPaid = round2((Number(job.paid_amount) || 0) + (Number(amount) || 0));
   const fields = derivePaymentFields(job.total, newPaid);
-  const updated = await updateJob(userId, jobId, fields, client);
+  const updated = await updateJob(userId, jobId, { ...fields, ...paidAtPatch(job, fields) }, client);
   if (!updated) return null;
   return { ...updated, items: job.items || [] };
 }
