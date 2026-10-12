@@ -76,6 +76,9 @@ const state = {
   customer: '',
   date: todayISO(),
   due: '', // วันนัดรับงาน — ว่างได้ แปลว่าไม่ได้นัดวันไว้
+  // วิธีจ่ายที่บอกมาแล้วตั้งแต่ในแชต ('cash'|'transfer'|'account'|'') — ฟอร์มนี้
+  // ไม่มีช่องให้กรอก แค่พกกลับไปตอนบันทึก ไม่งั้น "ลงบัญชี" ที่พูดไว้หายกลางทาง
+  payMethod: '',
   // ราคาที่คิดได้ก่อนปัด null = ไม่ได้แก้ ให้เท่ากับผลบวกของรายการ
   listed: null,
   // ราคาที่จะเก็บลูกค้าจริง null = ไม่ได้แก้ ให้เท่ากับราคายังไม่ปัด
@@ -790,6 +793,7 @@ function toPayload() {
     listedTotal: state.listed === null || state.listed === undefined ? null : round2(state.listed),
     customerTotal: state.charge === null || state.charge === undefined ? null : round2(state.charge),
     paidAmount: Math.min(state.paid, chargeAmount()),
+    payMethod: state.payMethod || null,
     note: note || null,
     images: state.items.map((i) => i.image).filter(Boolean).slice(0, 4),
   };
@@ -885,6 +889,7 @@ function clearForm() {
   state.customer = '';
   state.date = todayISO();
   state.due = '';
+  state.payMethod = '';
   state.paid = 0;
   state.note = '';
   state.listed = null;
@@ -1077,6 +1082,7 @@ function fromDraft(draft) {
   state.customer = draft.customerName || '';
   state.date = draft.jobDate || todayISO();
   state.due = draft.dueDate || '';
+  state.payMethod = draft.payMethod || '';
   state.paid = num(draft.paidAmount);
   state.note = draft.note || '';
   // ราคายังไม่ปัดที่ร้านเคยพิมพ์ทับไว้ ติดมาเฉพาะตอนที่มันไม่เท่ากับผลบวกของ

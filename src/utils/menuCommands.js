@@ -117,6 +117,13 @@ const COMMANDS = new Map([
   ['งานลงบัญชี', 'money_list&k=account'],
   ['ลงบัญชี', 'money_list&k=account'],
   ['ค้างลงบัญชี', 'money_list&k=account'],
+  // คำที่ร้านพูดจริงตอนจะตามเงิน — "เก็บเงินแล้ว" เฉย ๆ (ไม่บอกชื่อ) คือขอดู
+  // รายชื่อที่รอเก็บเพื่อไปกดทีละงาน ส่วน "‹ชื่อ›เก็บเงินแล้ว" ยังเป็นประโยค
+  // เปลี่ยนสถานะเหมือนเดิม เพราะตารางนี้เทียบทั้งประโยคแบบตรงตัวเท่านั้น
+  ['เก็บเงินแล้ว', 'money_list&k=account'],
+  ['รอเก็บ', 'money_list&k=account'],
+  ['งานรอเก็บ', 'money_list&k=account'],
+  ['ตามเก็บ', 'money_list&k=account'],
   ['งานยังไม่จ่าย', 'money_list&k=unpaid'],
   ['ยังไม่จ่าย', 'money_list&k=unpaid'],
   ['ยังไม่ได้รับเงิน', 'money_list&k=unpaid'],
@@ -162,6 +169,11 @@ const COMMANDS = new Map([
   ['ดูรายจ่าย', 'expense_list'],
   ['สรุปยอดร้าน', 'today_summary'],
   ['สรุปยอด', 'today_summary'],
+  // "เงินวันนี้" / "วันนี้" คำเดียว = ขอดูสรุปเงินของวัน (เทียบตรงตัวเท่านั้น —
+  // "วันนี้มีงานอะไรบ้าง" ยังเป็นคำถามไปทางเดิม ไม่โดนตารางนี้ดัก)
+  ['เงินวันนี้', 'today_summary'],
+  ['ยอดวันนี้', 'today_summary'],
+  ['วันนี้', 'today_summary'],
   ['จดงานใหม่', 'add_job'],
 ]);
 
@@ -222,12 +234,16 @@ export function resolveMenuCommand(text) {
  * ยาวก่อนสั้น — ประโยคหนึ่งมีได้หลายคำสั่งซ้อนกัน ("บิล" อยู่ข้างใน "แยกบิล")
  * คำที่ยาวกว่าคือคำที่ตรงกับที่ร้านพิมพ์มามากกว่า
  */
+// คำที่โผล่กลางประโยคทั่วไปโดยไม่ได้แปลว่าอยากสั่งอะไร — เป็นคำสั่งได้เฉพาะ
+// ตอนพิมพ์มาตรงตัว ("วันนี้" คำเดียว) ไม่ใช่เค้าให้เดา ("วันนี้อากาศดี")
+const SUGGEST_SKIP = new Set(['วันนี้']);
+
 export function suggestMenuCommand(text) {
   const cleaned = normalise(text);
   if (!cleaned) return null;
   let best = null;
   for (const [label, action] of COMMANDS) {
-    if (!cleaned.includes(label)) continue;
+    if (SUGGEST_SKIP.has(label) || !cleaned.includes(label)) continue;
     if (!best || label.length > best.label.length) best = { label, action };
   }
   return best?.action ?? null;

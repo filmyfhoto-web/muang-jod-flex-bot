@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { supabase } from '../config/supabase.js';
 import { round2 } from '../utils/currency.js';
 import { todayISO } from '../utils/dates.js';
-import { derivePaymentFields } from '../utils/payment.js';
+import { derivePaymentFields, paidAtPatch } from '../utils/payment.js';
 import { splitPlan, canSplitBill } from '../utils/billSplit.js';
 import { attachItems } from './jobService.js';
 import { logger } from './logger.js';
@@ -355,9 +355,12 @@ export async function recordBillPayment(userId, billId, amount, client = supabas
     const jobTotal = round2(Number(job.total) || 0);
     const applied = round2(Math.min(remaining, jobTotal));
     remaining = round2(Math.max(remaining - applied, 0));
+    const fields = derivePaymentFields(jobTotal, applied);
     await client
       .from('jobs')
-      .update(derivePaymentFields(jobTotal, applied))
+      // วันเก็บเงินจริงของแต่ละงานในบิล — งานลงบัญชีที่เพิ่งเก็บครบผ่านบิล
+      // ต้องขึ้นใบลงบัญชีของวันนี้ ไม่ใช่ย้อนไปวันที่ลงบัญชีไว้
+      .update({ ...fields, ...paidAtPatch(job, fields, new Date(nowIso)) })
       .eq('id', job.id)
       .eq('user_id', userId);
   }

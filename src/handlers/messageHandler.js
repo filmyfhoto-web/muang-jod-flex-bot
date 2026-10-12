@@ -5,7 +5,7 @@ import { getJobById, updateJob, recordPayment, searchJobs, getRecentCustomerName
 import { withDraftGuide } from '../flex/draftGuide.js';
 import { extractJobDraft } from '../services/nlpService.js';
 import { round2, numText, parsePrice } from '../utils/currency.js';
-import { derivePaymentFields } from '../utils/payment.js';
+import { derivePaymentFields, paidAtPatch } from '../utils/payment.js';
 import { todayISO } from '../utils/dates.js';
 import { safe, paymentAmountSchema, searchQuerySchema } from '../utils/validation.js';
 import { jobCardMessage, jobPreviewMessage } from '../flex/jobCard.js';
@@ -802,6 +802,8 @@ async function handleEdit(replyToken, profile, state, text) {
       patch.paid_amount = round2(current.total);
       patch.balance_due = 0;
     }
+    // "สถานะ: จ่ายแล้ว" = เก็บเงินได้วันนี้ — วันเก็บจริงไปขึ้นใบลงบัญชีของวันนี้
+    Object.assign(patch, paidAtPatch(current, patch));
   }
 
   const updated = await updateJob(profile.id, jobId, patch);

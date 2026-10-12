@@ -31,7 +31,7 @@ import { receiptFlex } from '../flex/receiptFlex.js';
 import { receiptUrl } from '../flex/billFlex.js';
 import { withShopKey } from '../utils/receiptLink.js';
 import { createBill, getBillById } from '../services/billService.js';
-import { derivePaymentFields } from '../utils/payment.js';
+import { derivePaymentFields, paidAtPatch } from '../utils/payment.js';
 import { pickupPatch, jobState, stagePatch, jobStage, JOB_STAGES, statusPatch, jobStatus } from '../utils/jobState.js';
 import { round2 } from '../utils/currency.js';
 import { buildBook, buildAccount } from '../utils/customerBook.js';
@@ -678,6 +678,10 @@ export function createApiRouter(deps = {}) {
         discount,
         total,
         paidAmount: round2(Math.min(draft.paidAmount, total)),
+        // วิธีจ่ายที่พูดมาในแชต ("ถ่ายเอกสาร 120 สด" / ท้ายประโยค "ลงบัญชี")
+        // เดินทางผ่านฟอร์มมาถึงที่นี่ด้วย — ของเดิมหายกลางทาง งานที่กดบันทึก
+        // จากฟอร์มเลยแยกสด/ลงบัญชีไม่ได้ทั้งที่ร้านบอกไว้แล้ว
+        payMethod: draft.payMethod || null,
         note: draft.note || null,
       });
 
@@ -765,6 +769,10 @@ export function createApiRouter(deps = {}) {
         patch.subtotal = listed;
         patch.discount = round2(listed - total);
       }
+
+      // วันเก็บเงินจริงเดินตามสถานะ — ติ๊ก "เก็บเงินแล้ว" บนหน้าเว็บคือเก็บได้วันนี้
+      // แก้กลับเป็นค้างก็ล้างทิ้ง (กติกาเดียวกับปุ่มสถานะและทางแชต)
+      Object.assign(patch, paidAtPatch(current, patch));
 
       await saveJob(req.profile.id, req.params.id, patch);
       const job = await findJob(req.profile.id, req.params.id);

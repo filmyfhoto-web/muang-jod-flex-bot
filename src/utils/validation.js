@@ -96,6 +96,10 @@ export const jobCreateSchema = z.object({
   // ร้านปัดขึ้นเป็นเลขกลม ๆ ได้ ส่วนราคาที่คิดได้ยังเก็บไว้ให้ร้านเห็นเอง
   customerTotal: z.coerce.number().min(0).finite().nullable().optional(),
   paidAmount: z.coerce.number().min(0).default(0),
+  // วิธีจ่ายที่ร้านบอกไว้ตั้งแต่ในแชต ("สด" / "โอน" / ท้ายประโยค "ลงบัญชี") —
+  // เดินทางผ่านฟอร์มกลับมาเฉย ๆ ร้านไม่ได้กรอกใหม่ เซิร์ฟเวอร์เป็นคนแสตมป์
+  // pay_method / booked_at / paid_at จากค่านี้แบบเดียวกับทางแชตเป๊ะ
+  payMethod: z.enum(['cash', 'transfer', 'account']).nullable().optional(),
   note: z.string().trim().max(500).nullable().optional(),
 });
 

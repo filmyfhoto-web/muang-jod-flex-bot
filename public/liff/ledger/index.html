@@ -309,6 +309,16 @@ function render(led) {
   all.querySelector('b').textContent = baht(led.total);
   $('sums').append(all);
 
+  // เงินบัญชีเก่าที่เพิ่งตามเก็บได้วันนี้ — รวมอยู่ในยอดข้างบนแล้ว แยกให้เห็น
+  // ว่าวันนี้ทวงมาได้เท่าไหร่ (งานลงบัญชี กับ เก็บเงินแล้ว ต้องแยกกันชัด)
+  if (led.collected && led.collected.jobCount) {
+    const col = document.createElement('div');
+    col.innerHTML = '<small></small><b></b>';
+    col.querySelector('small').textContent = `📥 เก็บจากบัญชีเก่า · ${led.collected.jobCount}`;
+    col.querySelector('b').textContent = baht(led.collected.total);
+    $('sums').append(col);
+  }
+
   $('h-count').textContent = led.jobCount ? `${led.jobCount} รายการ` : 'ยังไม่มีรายการ';
   $('h-note').textContent = led.methods.length > 1 ? 'แยกตามวิธีรับเงิน' : '';
 
@@ -331,7 +341,9 @@ function render(led) {
         <span class="tag"></span><span class="amt"></span>`;
       row.querySelector('.no').textContent = String(i + 1);
       row.querySelector('.what b').textContent = r.customerName || 'ไม่ได้ใส่ชื่อ';
-      row.querySelector('.what span').textContent = [r.jobName, r.jobNumber].filter(Boolean).join(' · ');
+      row.querySelector('.what span').textContent = [r.jobName, r.jobNumber, r.fromAccount ? '📒 เก็บจากบัญชี' : '']
+        .filter(Boolean)
+        .join(' · ');
       const tag = row.querySelector('.tag');
       tag.classList.add(r.method);
       tag.textContent = r.method === 'cash' ? 'สด' : r.method === 'transfer' ? 'โอน' : '—';
@@ -397,13 +409,16 @@ function toCsv(led) {
       r.customerName || 'ไม่ได้ใส่ชื่อ',
       r.jobName || '',
       r.kind === 'org' ? 'หน่วยงาน' : 'หน้าร้าน',
-      r.methodLabel,
+      r.fromAccount ? `${r.methodLabel} (เก็บจากบัญชี)` : r.methodLabel,
       r.amount,
     ]));
   });
 
   out.push('');
   for (const m of led.methods) out.push(line([m.label, '', '', '', '', m.jobCount + ' รายการ', m.total]));
+  if (led.collected && led.collected.jobCount) {
+    out.push(line(['ในนั้นเป็นเงินบัญชีเก่าที่ตามเก็บได้วันนี้', '', '', '', '', led.collected.jobCount + ' รายการ', led.collected.total]));
+  }
   out.push(line(['รวมรับเป็นเงินทั้งสิ้น', '', '', '', '', led.jobCount + ' รายการ', led.total]));
   if (led.expense && led.expense.count) {
     out.push('');

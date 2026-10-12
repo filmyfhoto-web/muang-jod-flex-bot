@@ -1,6 +1,6 @@
 import { reply } from '../services/lineService.js';
 import { getLatestJob, getJobById, updateJob } from '../services/jobService.js';
-import { derivePaymentFields } from '../utils/payment.js';
+import { derivePaymentFields, paidAtPatch } from '../utils/payment.js';
 import { formatBaht, round2, numText } from '../utils/currency.js';
 import { jobCardMessage } from '../flex/jobCard.js';
 
@@ -55,10 +55,13 @@ export async function quickEditApply({ replyToken, profile, params }, deps = {})
     const amount = round2(Number(params.v));
     if (!(amount > 0)) return reply(replyToken, { type: 'text', text: 'ราคาไม่ถูกต้องค่ะ' });
     Object.assign(patch, { total: amount }, derivePaymentFields(amount, job.paid_amount || 0));
+    Object.assign(patch, paidAtPatch(job, patch));
   } else if (f === 'paid') {
     const amount = round2(Number(params.v));
     if (!(amount >= 0)) return reply(replyToken, { type: 'text', text: 'ยอดไม่ถูกต้องค่ะ' });
     Object.assign(patch, derivePaymentFields(job.total, amount));
+    // มัดจำเพิ่มจนครบ = เก็บเงินได้วันนี้ · แก้ยอดจนไม่ครบ = ยังไม่ได้เก็บ
+    Object.assign(patch, paidAtPatch(job, patch));
   } else if (f === 'customer') {
     patch.customer_name = String(params.v || '').trim();
   } else if (f === 'jobName') {
