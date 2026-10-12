@@ -21,6 +21,36 @@ export const STATES = {
   WAITING_FOR_QR_LABEL: 'waiting_for_qr_label',
 };
 
+/* อายุของสถานะสนทนา
+ *
+ * เคสจริง: ชุดคำถามจดงานกรอบรูปค้างคำถาม "ขนาดเท่าไหร่คะ?" ข้ามคืน เช้ามา
+ * ทุกประโยคที่ร้านพิมพ์ถูกอ่านเป็นคำตอบของคำถามเมื่อวาน — "งานพิมพ์การ์ด"
+ * เลยได้ "ยังไม่เข้าใจ" ซ้ำ ๆ จนร้านสรุปว่าบอทพัง สถานะที่เก่ากว่านี้
+ * ไม่ใช่บทสนทนาเดียวกันแล้ว ให้เริ่มใหม่
+ */
+export const STATE_TTL_MS = 6 * 60 * 60 * 1000;
+
+export function isStaleState(row, now = Date.now()) {
+  if (!row || !row.state || row.state === STATES.IDLE) return false;
+  const t = Date.parse(row.updated_at);
+  // เวลาอ่านไม่ออกถือว่ายังไม่หมดอายุ — ห้ามล้างสถานะเพราะข้อมูลเพี้ยน
+  return Number.isFinite(t) && now - t > STATE_TTL_MS;
+}
+
+// จุดอ่านสถานะของทางข้อความ/รูป: ของค้างเกินอายุ → ล้างทิ้งแล้วคืน idle
+// (ปุ่มบนการ์ดเก่ายังใช้ getState ตรง ๆ — ปุ่มพกค่าของมันเองและมีคำตอบ
+// "ไม่พบ…แล้วค่ะ" รองรับอยู่แล้ว การกดปุ่มคือเจตนาชัด ไม่ใช่ข้อความหลงบริบท)
+export async function getFreshState(userId, client = supabase) {
+  const row = await getState(userId, client);
+  if (!isStaleState(row)) return row;
+  logger.info('state.expired', { state: row.state });
+  try {
+    return await clearState(userId, client);
+  } catch {
+    return null; // ล้างไม่สำเร็จก็ยังต้องไม่ติดกับดัก — คืน idle ให้รอบนี้ไปก่อน
+  }
+}
+
 // Get the current state row for a user (by profile id). Returns null if none.
 //
 // Reads the newest row rather than requiring exactly one: a database whose

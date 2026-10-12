@@ -430,6 +430,33 @@ export function acknowledge(state, changed = []) {
   return `แก้${said.join(' และ')}แล้วค่ะ`;
 }
 
+// คู่กันกับข้างบน แต่สำหรับช่องที่ "เพิ่งกรอกครั้งแรก" — ใช้ตอนร้านตอบข้ามช่อง
+// (บอกชื่อลูกค้าตอนถูกถามขนาด) จะได้เห็นว่าม่วงจดไว้แล้ว ไม่ใช่ "ยังไม่เข้าใจ"
+export function acknowledgeFilled(state, filled = []) {
+  const said = filled
+    .filter((id) => SLOTS[id]?.say && LABELS[id])
+    .map((id) => {
+      const value = SLOTS[id].say(state.fields[id]);
+      return value ? `${LABELS[id]}เป็น ${value}` : null;
+    })
+    .filter(Boolean);
+  if (!said.length) return null;
+  return `จด${said.join(' และ')}ไว้ให้แล้วค่ะ`;
+}
+
+/* รอบนี้ "อ่านออก" ไหม — ใช้ตัดสินก่อนจะหนีจากวงถามไปจดงานใหม่
+ *
+ * คำตอบชนะเสมอ: คำสั่ง (ยกเลิก/ย้อนกลับ/แก้…), คำข้าม, หรือข้อความที่เติม/แก้
+ * ช่องไหนก็ได้ ล้วนเป็นส่วนของบทสนทนาเดิม ห้ามถูกตีเป็นงานใหม่ ("12x18",
+ * "600", "คุณแอน" ต้องไม่พางานกรอบรูปที่ถามค้างอยู่หายไปกลางคัน)
+ */
+export function turnUnderstands(state, text) {
+  if (parseCollectCommand(text)) return true;
+  if (SKIP_WORDS.test(stripPolite(text))) return true;
+  const turn = readTurn(state, text);
+  return turn.filled.length > 0 || turn.changed.length > 0;
+}
+
 /* ----------------------------------------------------------- สรุปงาน */
 
 export function lineTotal(fields = {}) {

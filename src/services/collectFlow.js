@@ -8,6 +8,7 @@ import {
   readTurn,
   nextQuestion,
   acknowledge,
+  acknowledgeFilled,
   toDraftInput,
   parseCollectCommand,
   previousSlot,
@@ -44,8 +45,22 @@ function askMessage(question, lead = null) {
 const COLLECT_HELP =
   'พิมพ์ "ข้าม" ถ้ายังไม่รู้ · "ย้อนกลับ" เพื่อแก้ข้อที่แล้ว · "ยกเลิก" เพื่อเลิกจดค่ะ';
 
+// ไม่เข้าใจสองรอบติด — ปล่อยร้านออกจากวงถาม อย่าตอบประโยคเดิมเป็นรอบที่สาม
+const RELEASE_REPLY =
+  'ม่วงพับชุดคำถามไว้ก่อนนะคะ 💜 พิมพ์คุยหรือจดงานใหม่ได้เลยค่ะ\n' +
+  'เช่น "การ์ดแต่งงาน 100 ใบ 1,500 บาท"';
+
+// ปุ่มทางออกตอนไม่เข้าใจ — ทุกคำโยงกับตัวอ่านที่มีอยู่แล้ว (ข้าม = คำข้าม,
+// ย้อนกลับ/ยกเลิก = คำสั่ง) กดแล้วไม่มีทางกลายเป็นพลาดซ้ำ คำช่วยที่จมอยู่ใน
+// ข้อความยาวร้านไม่เห็น ต้องเป็นปุ่มให้กดได้เลย
+function missButtons(collect, question) {
+  const labels = [...(question.options || []), 'ข้าม', ...(previousSlot(collect) ? ['ย้อนกลับ'] : []), 'ยกเลิก'];
+  return labels.map((label) => ({ type: 'action', action: { type: 'message', label, text: label } }));
+}
+
 // เริ่มเก็บข้อมูล: ตอบรับสั้น ๆ ว่ารู้แล้วว่าเป็นงานอะไร แล้วถามข้อแรก
-export async function startCollectFlow(replyToken, profile, collecting) {
+// lead ใช้ตอนสลับจากชุดคำถามเดิมมางานใหม่ — ต้องบอกว่าของเดิมถูกพับไว้
+export async function startCollectFlow(replyToken, profile, collecting, lead = null) {
   const question = nextQuestion(collecting);
 
   // บอกมาครบตั้งแต่ประโยคแรก ไม่มีอะไรให้ถาม — ข้ามไปสรุปเลย
@@ -54,7 +69,7 @@ export async function startCollectFlow(replyToken, profile, collecting) {
   await setState(profile.id, STATES.COLLECTING_JOB, {
     collect: { ...collecting, asking: question.id },
   });
-  return reply(replyToken, askMessage(question, `ได้เลยค่ะ 💜 ${collecting.itemName}`));
+  return reply(replyToken, askMessage(question, lead || `ได้เลยค่ะ 💜 ${collecting.itemName}`));
 }
 
 // เก็บข้อมูลครบแล้ว — ขึ้นการ์ดสรุปให้ตรวจ ยังไม่บันทึกจนกว่าจะกดยืนยัน
@@ -99,6 +114,10 @@ export async function handleCollectTurn(replyToken, profile, state, text) {
 
   // "ย้อนกลับ" / "แก้ขนาด" — ลืมค่าเดิมของช่องนั้นแล้วถามใหม่
   const target = command?.kind === 'back' ? previousSlot(collect) : command?.kind === 'ask' ? command.field : null;
+  // "ย้อนกลับ" ทั้งที่ยังอยู่ข้อแรก — ไม่ใช่เรื่องไม่เข้าใจ บอกตรง ๆ แล้วถามต่อ
+  if (command?.kind === 'back' && !target) {
+    return reply(replyToken, askMessage(nextQuestion(collect), 'ยังเป็นข้อแรกอยู่ค่ะ ตอบข้อนี้ต่อได้เลยนะคะ 💜'));
+  }
   if (target) {
     const reopened = forget(collect, target);
     const question = nextQuestion(reopened);
@@ -112,17 +131,35 @@ export async function handleCollectTurn(replyToken, profile, state, text) {
 
   // คำตอบธรรมดา — อ่านทุกอย่างที่อยู่ในข้อความนี้
   const applied = command?.kind === 'answer'
-    ? { state: { ...collect, fields: { ...collect.fields, [command.field]: command.value } }, changed: [] }
+    ? { state: { ...collect, fields: { ...collect.fields, [command.field]: command.value } }, filled: [command.field], changed: [] }
     : readTurn(collect, text);
   const next = applied.state;
   const question = nextQuestion(next);
 
   if (!question) return finishCollect(replyToken, profile, next);
 
-  await setState(profile.id, STATES.COLLECTING_JOB, { collect: { ...next, asking: question.id } });
+  // เติม/แก้ช่องไหนก็ได้นับว่าเข้าใจ — ตอบข้ามช่อง (บอกชื่อลูกค้าตอนถูกถามขนาด)
+  // ม่วงจดไว้จริง จะไปบอกว่า "ยังไม่เข้าใจ" ไม่ได้
+  const understood = Boolean(applied.filled?.length || applied.changed?.length || question.id !== collect.asking);
+  const misses = understood ? 0 : (collect.misses || 0) + 1;
 
-  // ไม่เข้าใจคำตอบเลยและยังอยู่ที่คำถามเดิม — ถามย้ำเฉพาะจุด ไม่เริ่มใหม่ทั้งหมด
-  const understood = applied.changed?.length || question.id !== collect.asking;
-  const lead = understood ? acknowledge(next, applied.changed) : `ยังไม่เข้าใจตรงนี้ค่ะ 🤔 ${COLLECT_HELP}`;
+  // ไม่เข้าใจสองรอบติด — พับชุดคำถาม อย่าขังร้านไว้กับคำถามเดิม (เคสจริง:
+  // ร้านพิมพ์งานใหม่ใส่คำถามที่ค้างไว้ แล้วเจอข้อความเดิมซ้ำจนคิดว่าบอทพัง)
+  if (!understood && misses >= 2) {
+    await clearState(profile.id);
+    return reply(replyToken, { type: 'text', text: RELEASE_REPLY });
+  }
+
+  await setState(profile.id, STATES.COLLECTING_JOB, { collect: { ...next, asking: question.id, misses } });
+
+  // ไม่เข้าใจครั้งแรก — ถามย้ำเฉพาะจุดพร้อมปุ่มทางออก ไม่เริ่มใหม่ทั้งหมด
+  if (!understood) {
+    const message = askMessage(question, `ยังไม่เข้าใจตรงนี้ค่ะ 🤔 ${COLLECT_HELP}`);
+    return reply(replyToken, { ...message, quickReply: { items: missButtons(collect, question) } });
+  }
+
+  const lead =
+    acknowledge(next, applied.changed) ||
+    (question.id === collect.asking ? acknowledgeFilled(next, applied.filled || []) : null);
   return reply(replyToken, askMessage(question, lead));
 }

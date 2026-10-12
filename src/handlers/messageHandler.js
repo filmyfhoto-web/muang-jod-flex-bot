@@ -1,5 +1,6 @@
 import { reply } from '../services/lineService.js';
-import { getState, setState, clearState, STATES } from '../services/stateService.js';
+// อ่านสถานะผ่านตัวตรวจอายุ — สถานะค้างเกิน 6 ชม. ถูกล้างเป็น idle ตั้งแต่ตรงนี้
+import { getFreshState as getState, setState, clearState, STATES } from '../services/stateService.js';
 import { getJobById, updateJob, recordPayment, searchJobs, getRecentCustomerNames } from '../services/jobService.js';
 import { withDraftGuide } from '../flex/draftGuide.js';
 import { extractJobDraft } from '../services/nlpService.js';
@@ -19,7 +20,7 @@ import { parseNaturalJob } from '../utils/nlParser.js';
 import { deriveJobName, classifyJob } from '../utils/category.js';
 import { makeDraft, draftToBubble, priceDraft, parseBarePrice, parseBareSqmRate, priceDraftBySqm, parseCustomerName } from '../utils/jobDraft.js';
 import { extractDate, extractDueDate } from '../utils/thaiDate.js';
-import { startCollecting } from '../utils/slots.js';
+import { startCollecting, turnUnderstands } from '../utils/slots.js';
 import { startCollectFlow, handleCollectTurn } from '../services/collectFlow.js';
 import { splitDump, looksLikeDump } from '../utils/dumpSplit.js';
 import { renameShopQr } from '../services/shopService.js';
@@ -290,6 +291,28 @@ export async function handleTextMessage(event, profile) {
         return reply(replyToken, msgs);
       }
     }
+    /* "การ์ดแต่งงาน" ตอนม่วงรอให้พิมพ์งาน — รู้ชนิดงานแล้วแม้ยังไม่มีตัวเลข
+     * เริ่มถามเก็บทีละข้อเหมือนตอนว่าง (ม่วงแนะนำเองว่า พิมพ์ เช่น "มีงานกรอบรูป"
+     * แล้วม่วงจะถามต่อให้ — ก็ต้องทำตามคำแนะนำของตัวเองได้จริง ของเดิมตอบ
+     * "ยังไม่เห็นตัวเลข" ซ้ำสามรอบจนร้านถอดใจ)
+     */
+    if (!hasDraft) {
+      const collecting = startCollecting(text);
+      if (collecting) return startCollectFlow(replyToken, profile, collecting);
+    }
+
+    // ไม่เข้าใจติดกันสองครั้งตอนรอจดงาน — เลิกรอ อย่าตอบประโยคเดิมเป็นรอบที่สาม
+    if (!hasDraft && current === STATES.WAITING_FOR_JOB) {
+      const misses = (state?.context?.misses || 0) + 1;
+      if (misses >= 2) {
+        await clearState(profile.id);
+        return reply(replyToken, {
+          type: 'text',
+          text: 'ม่วงขอพักโหมดจดไว้ก่อนนะคะ 💜 พิมพ์งานมาใหม่เมื่อไหร่ก็ได้ค่ะ\nเช่น "การ์ดแต่งงาน 100 ใบ 1,500 บาท"',
+        });
+      }
+      await setState(profile.id, STATES.WAITING_FOR_JOB, { ...(state?.context || {}), misses });
+    }
     return reply(replyToken, { type: 'text', text: hasDraft ? DRAFT_WAITING_REPLY : WAITING_JOB_REPLY });
   }
 
@@ -297,6 +320,23 @@ export async function handleTextMessage(event, profile) {
   if (current === STATES.COLLECTING_JOB) {
     // พิมพ์งานใหม่ทั้งใบเข้ามากลางคัน = จดงานใหม่ ไม่ใช่ตอบคำถามงานเก่า
     if (isWholeNewJob(text)) return handleNewJob(replyToken, profile, text);
+    /* ข้อความที่ไม่ใช่คำตอบแน่ ๆ แต่เป็นงานแน่ ๆ ("งานพิมพ์การ์ด" ใส่คำถามขนาด
+     * ที่ค้างข้ามคืน) — ห้ามตอบ "ยังไม่เข้าใจ" ให้พับชุดคำถามเดิมแล้วไปจดงานใหม่
+     */
+    const escape = collectEscape(state?.context?.collect, text);
+    if (escape?.kind === 'switch') {
+      return startCollectFlow(
+        replyToken,
+        profile,
+        escape.collecting,
+        `ได้เลยค่ะ 💜 เปลี่ยนมาจด${escape.collecting.itemName}แทนนะคะ (พับคำถาม${state.context.collect.itemName}ชุดเดิมไว้ก่อนค่ะ)`
+      );
+    }
+    if (escape?.kind === 'job') {
+      await clearState(profile.id);
+      const note = `พับคำถาม${state.context.collect.itemName}ชุดเดิมไว้ก่อนนะคะ จดงานใหม่ให้เลยค่ะ 💜`;
+      return handleNewJob(replyToken, profile, text, null, null, note);
+    }
     return handleCollectTurn(replyToken, profile, state, text);
   }
 
@@ -487,6 +527,31 @@ async function handleDraftPrice(replyToken, profile, state, text) {
 // `knownCustomer` is set after "➕ เพิ่มงานอีก": the shop typed the name once
 // and should not have to type it again for every job in the same visit. What
 // the message itself says still wins — they may have moved on to someone else.
+/* หนีออกจากวงถามเมื่อข้อความ "ไม่ใช่คำตอบแน่ ๆ แต่เป็นงานใหม่แน่ ๆ"
+ *
+ * คำตอบชนะเสมอ: ถ้าตัวอ่านคำตอบ/คำสั่ง/คำข้ามอ่านข้อความนี้ออก จะไม่หนี —
+ * "12x18", "600", "คุณแอน" ยังเป็นคำตอบของงานที่ถามค้างอยู่เหมือนเดิมทุกประการ
+ * ลำดับการเดางานเหมือนตอน idle: หลายบรรทัด → งานเดี่ยว → ชื่อชนิดงาน
+ */
+export function collectEscape(collect, text) {
+  if (!collect) return null;
+  if (turnUnderstands(collect, text)) return null;
+  // (จดรวดเดียวหลายลูกค้าไม่มีทางมาถึงนี่ — ใบเต็มถูก isWholeNewJob ดักก่อน
+  // ส่วนใบที่ขึ้นต้นด้วยชื่อคน ช่องลูกค้าอ่านชื่อนั้นออก = เป็นคำตอบไปแล้ว)
+  // "งานแน่ ๆ" ต้องมีของที่จัดหมวดได้จริง — เลขลอย ๆ ("600") ผ่าน looksLikeJob
+  // ได้แต่เป็นคำตอบที่อ่านไม่ออกมากกว่าจะเป็นงานใหม่ ให้วงถามถามย้ำพร้อมปุ่มแทน
+  if (looksLikeJob(text) || looksLikePricelessJob(text)) {
+    try {
+      const d = parseNaturalJob(text);
+      if (d.items.length && classifyJob(d.items)) return { kind: 'job' };
+    } catch {
+      /* อ่านไม่ออกก็ไม่ใช่งาน */
+    }
+  }
+  const collecting = startCollecting(text);
+  return collecting ? { kind: 'switch', collecting } : null;
+}
+
 /* จดรวดเดียวทั้งวัน → แยกเป็นงาน ๆ แล้วขึ้นการ์ดให้ตรวจ
  *
  * ยังไม่บันทึกอะไรทั้งนั้น เพราะสิ่งที่ผิดได้คือการจับคู่ "ใครสั่งอะไร" ซึ่ง
@@ -531,7 +596,8 @@ async function handleDump(replyToken, profile, text) {
   ]);
 }
 
-async function handleNewJob(replyToken, profile, text, knownCustomer = null, parsedOverride = null) {
+// lead — บรรทัดนำตอนพับชุดคำถามเดิมมาจดงานนี้แทน ต้องติดไปทั้งสาขาที่อ่านออกและไม่ออก
+async function handleNewJob(replyToken, profile, text, knownCustomer = null, parsedOverride = null, lead = null) {
   /* ร้านไหน — จับเฉพาะที่พูดถึงร้านแบบตั้งใจ ("นัฐภรณ์ ปริ้นงาน …", "ลงร้าน
    * เชียงกลาง …") แล้วตัดชื่อร้านออกก่อนอ่านงาน ไม่งั้นชื่อร้านถูกอ่านเป็นชื่อ
    * ลูกค้า ใบเสร็จออกในนามร้านตัวเอง
@@ -557,6 +623,7 @@ async function handleNewJob(replyToken, profile, text, knownCustomer = null, par
     return reply(replyToken, {
       type: 'text',
       text:
+        (lead ? lead + '\n' : '') +
         'ขออภัยค่ะ อ่านรายการไม่ออกเลย ลองพิมพ์แบบนี้นะคะ\n' +
         'ป้ายไวนิล 60x100 150 บาท\n' +
         'หรือ ไวนิล 160x300 ตรมละ 165 💜',
@@ -612,6 +679,7 @@ async function handleNewJob(replyToken, profile, text, knownCustomer = null, par
   };
   const moneyLine = MONEY_UNDERSTOOD[draft.payMethod] || '';
   return reply(replyToken, withDraftGuide([
+    ...(lead ? [{ type: 'text', text: lead }] : []),
     // บอกตั้งแต่ตอนตรวจว่าจะเข้าบัญชีร้านไหน — เห็นผิดตรงนี้ยังกดยกเลิกทัน
     ...(branch ? [{ type: 'text', text: `งานนี้จะลงบัญชีร้าน "${branch.name}" นะคะ 🏪` }] : []),
     {
