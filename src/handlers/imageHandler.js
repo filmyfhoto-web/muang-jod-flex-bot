@@ -1,5 +1,6 @@
 import { reply, getMessageContentBuffer } from '../services/lineService.js';
-import { getState, setState, clearState, STATES } from '../services/stateService.js';
+// อ่านสถานะผ่านตัวตรวจอายุ — รูปที่ส่งมาหลังสถานะค้างเกิน 6 ชม. เข้าเส้นอ่านรูปปกติ
+import { getFreshState as getState, setState, clearState, STATES } from '../services/stateService.js';
 import { getLatestJob, getJobById, createJob, getRecentCustomerNames } from '../services/jobService.js';
 import { saveAttachment } from '../services/attachmentService.js';
 import { addShopQr, listShopQrs } from '../services/shopService.js';
