@@ -5,6 +5,7 @@ import {
   shopQrUrl,
   setDefaultShopQr,
   deleteShopQr,
+  renameShopQr,
 } from '../services/shopService.js';
 import { qrPickerFlex } from '../flex/qrFlex.js';
 import { logger } from '../services/logger.js';
@@ -66,6 +67,30 @@ export async function shopQr({ replyToken, profile }) {
       text: 'เลือกใบที่จะใช้ได้เลยค่ะ 💜\nแตะรูปหรือกด "ส่งรูปนี้" เพื่อส่งให้ลูกค้า · พิมพ์ "เพิ่ม QR" เพื่อเก็บใบใหม่',
     },
   ]);
+}
+
+/* action=qr_label&id=…&v=… — ปุ่มตั้งชื่อธนาคารหลังฝากรูป (ไม่มี v = ข้าม)
+ *
+ * เป็น postback ที่พกรหัส QR ไปเอง ไม่พึ่งสถานะ — ปุ่มแบบข้อความเดิมพัง
+ * เพราะ "พร้อมเพย์" เป็นคำสั่งเมนู (ถูกเทียบก่อนสถานะ) กดแล้วชื่อหาย ·
+ * เส้นพิมพ์ชื่อเองยังอยู่ที่ messageHandler ตามเดิม
+ */
+export async function qrLabelPick({ replyToken, profile, params = {} }) {
+  const label = String(params.v || '').trim();
+  await clearState(profile.id);
+  if (label) {
+    try {
+      await renameShopQr(profile.id, params.id, label);
+    } catch (err) {
+      logger.warn('shop.qr_rename_failed', { message: err?.message });
+    }
+  }
+  return reply(replyToken, {
+    type: 'text',
+    text:
+      (label ? `ตั้งชื่อว่า "${label}" แล้วค่ะ` : 'ได้ค่ะ ไม่ตั้งชื่อก็ได้') +
+      ' 💜\nพิมพ์ "QR" เพื่อดูและเลือกใบที่จะใช้ · "เพิ่ม QR" เพื่อเก็บใบใหม่',
+  });
 }
 
 // เพิ่มใบใหม่ — ร้านมีหลายบัญชี ไม่ใช่เก็บได้ใบเดียวตลอดชาติ
