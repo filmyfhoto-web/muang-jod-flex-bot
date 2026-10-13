@@ -10,6 +10,7 @@ import { editLatest } from '../actions/editLatest.js';
 import { cancelLatest, confirmCancel, cancelCancel } from '../actions/cancelLatest.js';
 import { editJob, deleteJob } from '../actions/jobActions.js';
 import { pickCategory } from '../actions/pickCategory.js';
+import { moveCategoryStart, categoryJobs } from '../actions/moveCategory.js';
 import { manageCategories } from '../actions/manageCategories.js';
 import { setDraftCustomer } from '../actions/draftCustomer.js';
 import { saveExpense, cancelExpenseDraft, expenseList, deleteExpenseAsk, deleteExpense, moneyNote } from '../actions/expense.js';
@@ -115,6 +116,11 @@ export async function handlePostback(event, profile) {
       return deleteJob(ctx);
     case 'pick_category':
       return pickCategory(ctx);
+    // ย้ายงานข้ามหมวด: เลือกหมวดที่งานอยู่ → เลือกงาน → เข้าตัวเลือกหมวดเดิม
+    case 'move_category':
+      return moveCategoryStart(ctx);
+    case 'cat_jobs':
+      return categoryJobs(ctx);
     case 'bill_job':
       return billOneJob(ctx);
     case 'create_bill':

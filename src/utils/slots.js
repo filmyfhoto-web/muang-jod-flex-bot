@@ -1,6 +1,6 @@
 import { classifyItem } from './category.js';
 import { matchSize, sizeLabel, inferUnit } from './area.js';
-import { extractCustomer } from './nlParser.js';
+import { extractCustomer, looksLikeWorkDetail } from './nlParser.js';
 import { extractDueDate } from './thaiDate.js';
 import { round2, numText } from './currency.js';
 
@@ -140,8 +140,14 @@ const SLOTS = {
     },
     // ตอบชื่อมาตรง ๆ ("แอน") ไม่มีคำนำหน้าให้จับ ก็คือชื่อนั่นแหละ
     take: (text) => {
-      const name = stripPolite(text).replace(/^(?:ชื่อ|ลูกค้า(?:ชื่อ)?)\s*/i, '').trim();
-      return name.length >= 2 && name.length <= 80 ? { value: name } : null;
+      const bare = stripPolite(text).trim();
+      const saidCustomer = /^(?:ชื่อ|ลูกค้า)/iu.test(bare);
+      const name = bare.replace(/^(?:ชื่อ|ลูกค้า(?:ชื่อ)?)\s*/i, '').trim();
+      if (name.length < 2 || name.length > 80) return null;
+      // ศัพท์ช่าง ("หน้างานสีดำ") ตอนถูกถามชื่อ = รายละเอียดงาน ไม่ใช่คน —
+      // นำหน้าด้วย "ลูกค้า …" เมื่อไหร่ค่อยเป็นชื่อแน่ ๆ
+      if (!saidCustomer && looksLikeWorkDetail(name)) return { detail: name };
+      return { value: name };
     },
     say: (v) => v,
   },
@@ -355,7 +361,13 @@ export function readTurn(state, text) {
         if (!skipped.includes(asking)) skipped.push(asking);
       } else {
         const direct = SLOTS[asking].take?.(rest || text);
-        if (direct) put(asking, direct.value);
+        // คำตอบที่จริง ๆ เป็นรายละเอียดงาน — จดลงช่องรายละเอียดแทน แล้วคำถาม
+        // เดิมยังรอต่อ (นับเป็น "เข้าใจ" เพราะได้จดของจริงไว้ให้แล้ว)
+        if (direct?.detail !== undefined) {
+          put('detail', [fields.detail, direct.detail].filter(Boolean).join(' · '));
+        } else if (direct) {
+          put(asking, direct.value);
+        }
       }
     }
   }
