@@ -12,6 +12,7 @@ import { readSlip, slipReply, readerOn } from './slip.js';
 import { waitFor } from './delay.js';
 import { isPaused, createQuiet, parseAdminIds, parseAdminCommand, isWhoAmI } from './quiet.js';
 import { isWakeWord } from './wake.js';
+import { createVisitTracker, HOUR } from './visit.js';
 
 const token = (process.env.LINE_CHANNEL_ACCESS_TOKEN ?? '').trim();
 const secret = (process.env.LINE_CHANNEL_SECRET ?? '').trim();
@@ -96,10 +97,13 @@ function adminReply(cmd, shop) {
 }
 
 const contacts = createContactState();
+const visits = createVisitTracker();
 const MIN = 60 * 1000;
 const contactCfg = (shop) => ({
   windowMs: (shop.contact?.quietMinutes ?? 20) * MIN,
   alertEveryMs: (shop.contact?.notifyAllMinutes ?? 10) * MIN, // one "bot did not understand" alert per customer per this long
+  visitGapMs: (shop.contact?.sessionGapHours ?? 4) * HOUR, // a new visit starts after this long without a message (or on a new day)
+  sessionAsk: shop.contact?.sessionAsk !== false,
 });
 
 // A reply token is only good for a short while; when it is gone the message goes out as
@@ -162,6 +166,7 @@ async function handleEvent(ev) {
 
   const cfg = contactCfg(shop);
   const hasContacts = people(shop).length > 0;
+  if (userId !== 'anon') visits.touch(userId, cfg.visitGapMs);
 
   // The customer is writing to a person, not the bot: say nothing, but a customer can
   // type "เมนู" to bring the bot back. (Media and stickers are left alone too.)
@@ -183,6 +188,7 @@ async function handleEvent(ev) {
     const chosen = hasContacts ? findContact(said, shop) : null;
     if (chosen) {
       contacts.choose(userId);
+      visits.done(userId); // they picked someone: nothing more to ask this visit
       void notifyAdmins([chosen], shop, { customerId: userId, contact: chosen, said: '' }); // only "the customer wants to talk to you" — no message text
       return; // no reply at all
     }
@@ -204,12 +210,26 @@ async function handleEvent(ev) {
       if (r.awaitingSchool) awaitSchool.set(userId);
       else awaitSchool.clear(userId);
       let messages = r.messages;
-      if (r.needsPhotos) messages = [contactCard(shopNow, r.askText ?? shopNow.contact.ask, await adminPhotos(shopNow))];
+      // The "who do you want to talk to?" card goes out once per visit: with the first hello
+      // (instead of the menu card) or the first message the bot cannot answer.
+      const askNow = cfg.sessionAsk && hasContacts && userId !== 'anon' && visits.owed(userId);
+      if (r.needsPhotos) {
+        messages = [contactCard(shopNow, r.askText ?? shopNow.contact.ask, await adminPhotos(shopNow))];
+        visits.done(userId);
+      } else if (askNow && r.greeting && !r.menuRequest) {
+        messages = await withAsk(shopNow, []);
+        visits.done(userId);
+      }
       if (r.alertAdmins && hasContacts) escalate(userId, said, shopNow, cfg, 'ลูกค้าสั่งงาน/สั่งของ'); // an order: the admins are told too
       if (r.silent && !r.quiet && hasContacts) {
         // Not understood: nobody is alerted (there are too many such questions a day). The
         // customer gets nothing, or the "who?" card / a short note if the shop switched that on.
-        messages = shopNow.contact.askOnUnknown ? await withAsk(shopNow, []) : receipt(shopNow);
+        if (shopNow.contact.askOnUnknown || askNow) {
+          messages = await withAsk(shopNow, []);
+          visits.done(userId);
+        } else {
+          messages = receipt(shopNow);
+        }
       }
       const out = holiday(shopNow, messages, { skip: isThanks(said, people(shopNow).map((p) => p.name)) });
       if (!out.length) return; // nothing to say

@@ -1,4 +1,5 @@
 import { matchIntent, findSchool, mentionsSupplies, isThanks } from './matcher.js';
+import { isWakeWord } from './wake.js';
 import { menuCard, faqCard, productCards, schoolLinkCard, noteCard, contactCard } from './flex.js';
 
 // quickReplies entries are "text" or { label, text } — LINE button labels stop at
@@ -57,7 +58,7 @@ export function buildReply(text, shop, session = {}) {
     case 'faq':
       return out(faqCard(shop, intent.faq, qr));
     case 'greeting':
-      return { ...out(menuCard(shop, shop.name, shop.greeting, { image: 'staff' })) };
+      return { ...out(menuCard(shop, shop.name, shop.greeting, { image: 'staff' })), greeting: true, menuRequest: isWakeWord(text) };
     default:
       // Only answer what the shop has set up. Anything else is left for the admin to
       // see and answer — set "replyOnlyKnown": false in shop.json to get the old
