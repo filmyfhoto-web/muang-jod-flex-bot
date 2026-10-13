@@ -17,11 +17,15 @@ export function draftsFrom(jobs = [], jobDate = todayISO()) {
       jobName: j.jobName,
       customerName: j.customerName,
       jobDate,
+      // งานที่ถูกแยกจากประโยคเดียวพกวันนัดกับวิธีจ่ายของตัวเองมาด้วย —
+      // "ลงบัญชี" ท้ายประโยคต้องถึงฐานข้อมูลทุกใบ ไม่หายกลางทาง
+      dueDate: j.dueDate || null,
       items: j.items,
       subtotal: j.subtotal,
       discount: j.discount || 0,
       total: j.total,
       paidAmount: j.paidAmount || 0,
+      payMethod: j.payMethod || null,
     })
   );
 }

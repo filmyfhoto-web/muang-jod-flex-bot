@@ -23,7 +23,7 @@ import { makeDraft, draftToBubble, priceDraft, parseBarePrice, parseBareSqmRate,
 import { extractDate, extractDueDate } from '../utils/thaiDate.js';
 import { startCollecting, turnUnderstands } from '../utils/slots.js';
 import { startCollectFlow, handleCollectTurn } from '../services/collectFlow.js';
-import { splitDump, looksLikeDump } from '../utils/dumpSplit.js';
+import { splitDump, looksLikeDump, splitSelfPriced } from '../utils/dumpSplit.js';
 import { renameShopQr } from '../services/shopService.js';
 import { DEFAULT_BRANCHES, matchBranchStrict, stripBranch, parseBranchView, parseMoveCommand, TODAY_QUESTION } from '../utils/branch.js';
 import { branchView } from '../actions/branchView.js';
@@ -603,12 +603,14 @@ export function collectEscape(collect, text) {
 async function handleDump(replyToken, profile, text) {
   const { jobs, total } = splitDump(text);
 
-  /* ลูกค้าคนเดียวที่จดมาหลายบรรทัด ไม่ใช่ "หลายงาน" — ร้านบอกว่า "งานนี้ชื่อ
-   * เดียวกัน ... แต่รับพร้อมกัน" ใบเสร็จจึงควรเป็นใบเดียว ไปทางการ์ดสรุปเดิม
-   * ซึ่งมีปุ่มแก้ไขครบ
+  /* งานเดียวจริง ๆ (ราคาก้อนเดียว — หลายบรรทัดที่เหลือคือขนาด/รายละเอียดของมัน)
+   * ไปทางการ์ดสรุปเดิมซึ่งมีปุ่มแก้ไขครบ · ส่วนลูกค้าคนเดียวที่สั่งหลายอย่าง
+   * แต่ละอย่างมีราคาของตัวเอง ตอนนี้ splitDump แยกเป็นงานละใบแล้ว (ร้านขอ:
+   * "ถ้าลูกค้า 1 คน สั่ง 3 งาน แยกเฉพาะงานให้หน่อย จะได้รู้ว่างานไหนได้เงิน
+   * เท่าไหร่") จึงไหลลงพรีวิวหลายใบข้างล่างเหมือนหลายลูกค้า
    *
-   * แต่ต้องใช้ผลที่อ่านทีละบรรทัดมาแทน เพราะตัวอ่านหลายบรรทัดกลืนจำนวนไปอยู่ใน
-   * ชื่อของ: "สติ๊กเกอร์ 50 ดวง ดวงละ 5" คิดได้ ฿5 แทนที่จะเป็น ฿250
+   * ใช้ผลที่อ่านทีละบรรทัด เพราะตัวอ่านหลายบรรทัดกลืนจำนวนไปอยู่ในชื่อของ:
+   * "สติ๊กเกอร์ 50 ดวง ดวงละ 5" คิดได้ ฿5 แทนที่จะเป็น ฿250
    */
   if (jobs.length === 1) {
     const only = jobs[0];
@@ -620,20 +622,25 @@ async function handleDump(replyToken, profile, text) {
       discount: only.discount || 0,
       total: only.total,
       paidAmount: only.paidAmount || 0,
+      payMethod: only.payMethod || null,
       statedTotal: only.discount ? only.total : null,
     });
   }
 
-  const jobDate = todayISO();
+  return previewDump(replyToken, profile, jobs, total);
+}
 
-  await setState(profile.id, STATES.CONFIRMING_DUMP, { dump: jobs, jobDate });
-
+// พรีวิวชุดงานหลายใบ รอให้ร้านกด "บันทึกทั้งหมด" — ใช้ทั้งทางจดหลายบรรทัด
+// และทางบรรทัดเดียวที่ถูกแยกเป็นงานละใบ
+async function previewDump(replyToken, profile, jobs, total, note) {
+  await setState(profile.id, STATES.CONFIRMING_DUMP, { dump: jobs, jobDate: todayISO() });
   return reply(replyToken, [
     {
       type: 'text',
       text:
-        `อ่านให้แล้วค่ะ แยกได้ ${jobs.length} งาน 💜\n` +
-        'ดูการ์ดข้างล่างว่าแยกถูกคนไหมคะ ถ้าถูกกด "บันทึกทั้งหมด" ได้เลย',
+        `อ่านให้แล้วค่ะ แยกได้ ${jobs.length} งาน 💜` +
+        (note ? `\n${note}` : '') +
+        '\nดูการ์ดข้างล่างว่าแยกถูกไหมคะ ถ้าถูกกด "บันทึกทั้งหมด" ได้เลย',
     },
     dumpPreviewFlex(jobs, total),
   ]);
@@ -661,6 +668,22 @@ async function handleNewJob(replyToken, profile, text, knownCustomer = null, par
   // Natural-language understanding: customer, items, quantity, price, and any
   // amount already received — via the AI layer when configured, else rules.
   const parsed = parsedOverride || (await extractJobDraft(when.rest));
+
+  /* บรรทัดเดียวแต่หลายชิ้นที่ต่างมีราคาของตัวเอง = คนละงาน — แยกใบเหมือนทาง
+   * หลายบรรทัด (ร้านขอ "ลูกค้า 1 คน สั่ง 3 งาน แยกเฉพาะงานให้หน่อย") ·
+   * แยกไม่ได้โดยไม่เดาเงิน (มัดจำรวม/ยอดเหมา) ก็เป็นใบเดียวตามเดิม
+   * ชุดคำถาม/ใบที่ถูกแก้ส่งกลับมา (parsedOverride) ไม่เข้าทางนี้ — ตัดสินใจ
+   * ไปแล้วรอบหนึ่งว่าเป็นใบเดียว
+   */
+  if (!parsedOverride) {
+    const many = splitSelfPriced(parsed);
+    if (many) {
+      // วันนัดรับที่พิมพ์มาในประโยคเดียวกัน ติดไปทุกใบ — รับพร้อมกันนัดวันเดียวกัน
+      const jobs = many.map((j) => ({ ...j, customerName: j.customerName || knownCustomer || null, dueDate: due.date || null }));
+      const total = jobs.reduce((s, j) => s + (Number(j.total) || 0), 0);
+      return previewDump(replyToken, profile, jobs, total, lead);
+    }
+  }
 
   if (!parsed.items.length) {
     return reply(replyToken, {
