@@ -122,9 +122,9 @@ test('บรรทัดที่มีราคาของตัวเอง �
   assert.equal(worked.total, 4900, 'เงินหายไปจากการยุบบรรทัด');
   assert.equal(worked.jobs[0].items.length, 2);
 
-  // ของคนละอย่างที่ต่างมีราคา ยังแยกกันเหมือนเดิม
+  // ของคนละชนิดที่ต่างมีราคา ตอนนี้แยกเป็นงานละใบ (ร้านขอรู้เงินรายงาน) — เงินยังครบ
   const two = splitDump('พี่ต่าย\nสติ๊กเกอร์ 50 ดวง ดวงละ 5\nตรายาง 1 อัน 250');
-  assert.equal(two.jobs[0].items.length, 2);
+  assert.equal(two.jobs.length, 2);
   assert.equal(two.total, 500);
 
   // ใบสั่งเจ็ดบรรทัดของโรงเรียน ยังได้ยอดเดิม
