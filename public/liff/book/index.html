@@ -123,8 +123,9 @@
   .catband span { font-size: 10.5px; color: var(--muted); }
   .catband .sum { font-size: 12px; font-weight: 600; color: var(--ink); }
 
-  .jobrow { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--hair); }
+  .jobrow { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--hair); cursor: pointer; }
   .jobrow:last-child { border-bottom: 0; }
+  .jobrow .go { flex: 0 0 auto; color: var(--muted); font-size: 17px; line-height: 1; padding-left: 2px; }
   .tick {
     width: 26px; height: 26px; flex-shrink: 0; border-radius: 8px; padding: 0;
     display: flex; align-items: center; justify-content: center;
@@ -521,7 +522,22 @@ function renderAccount() {
       amt.className = 'amt';
       amt.textContent = baht(j.total);
 
-      row.append(tick, what, tag, amt);
+      /* กดตัวแถว (นอกปุ่มติ๊ก) = เปิดงานใบนั้นในหน้าจัดการงาน — ร้านขอ
+       * "กดเข้างานเพื่อไปดูหน้านั้นได้" จะไปแก้/เก็บเงิน/ดูค้างรับของใบนั้นต่อ
+       * ปุ่มติ๊กยังเป็นของการเลือกออกใบเหมือนเดิม ไม่ทับกัน
+       */
+      const go = document.createElement('span');
+      go.className = 'go';
+      go.setAttribute('aria-hidden', 'true');
+      go.textContent = '›';
+      row.setAttribute('role', 'link');
+      row.tabIndex = 0;
+      row.setAttribute('aria-label', `เปิดงาน ${j.jobName || 'งาน'} ในหน้าจัดการงาน`);
+      const open = () => (location.href = '/app/?edit=' + encodeURIComponent(j.id));
+      row.onclick = (ev) => { if (!tick.contains(ev.target)) open(); };
+      row.onkeydown = (ev) => { if (ev.key === 'Enter' && ev.target === row) open(); };
+
+      row.append(tick, what, tag, amt, go);
       card.append(row);
     }
   }

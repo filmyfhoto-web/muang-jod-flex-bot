@@ -111,6 +111,19 @@ test('ปุ่มออกใบบอกจำนวนใบที่จะ�
   assert.match(book, /jobIds: ids, mode, customerName: account\.name/);
 });
 
+/* ร้านส่งภาพบัญชีลูกค้ามา: "กดเข้างานเพื่อไป(ค้าง)รับไม่ได้ ต้องการกดไปดู
+ * หน้านั้นได้" — แถวงานกดได้แค่ติ๊กเลือกออกใบ ไปหน้างานจริงไม่ได้เลย
+ */
+test('แถวงานในบัญชีลูกค้า กดแล้วเปิดงานใบนั้นในหน้าจัดการงาน', () => {
+  assert.match(book, /'\/app\/\?edit=' \+ encodeURIComponent\(j\.id\)/);
+  // ปุ่มติ๊กยังเป็นของการเลือกออกใบ ไม่ใช่ทางเปิดงาน — สองหน้าที่ต้องไม่ทับกัน
+  assert.match(book, /if \(!tick\.contains\(ev\.target\)\) open\(\)/);
+
+  // ปลายทางรองรับ ?edit= จริง: หน้าจัดการงานเปิดใบนั้นให้ตั้งแต่โหลด
+  assert.match(dash, /const editId = new URLSearchParams\(location\.search\)\.get\('edit'\)/);
+  assert.match(dash, /await openEdit\(editId\)/);
+});
+
 test('งานที่ออกบิลไปแล้ว ติ๊กเลือกซ้ำไม่ได้', () => {
   assert.match(book, /const locked = j\.billed;/);
   assert.match(book, /tick\.disabled = locked;/);
