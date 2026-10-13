@@ -46,7 +46,36 @@ export const RECEIPT_IMAGE_JS = String.raw`
   var textRight = MJSheet.textRight, textCenter = MJSheet.textCenter, roundRect = MJSheet.roundRect;
 
   var NAME_W = CW - 34 - 180;
-  var LINE_H = 29, ITEM_H = 25, SHOP_H = 66;
+  var LINE_H = 29, ITEM_H = 25, SHOP_H = 66, QR_BLOCK = 196;
+
+  /* QR รับเงิน ต้องอยู่บนรูปด้วย ไม่ใช่แค่บนหน้าเว็บ — รูปคือสิ่งที่ลูกค้า
+   * ได้รับในแชต ถ้าสแกนจากรูปไม่ได้ก็เหมือนไม่มี
+   *
+   * โหลดล่วงหน้าแบบไม่ถ่วงใคร: โหลดไม่ทัน/โดน CORS กั้น → ข้ามเงียบ ใบเสร็จ
+   * ออกเหมือนเดิม (ห้ามให้ QR ทำสลิปพังเด็ดขาด) — เช็ก taint ตั้งแต่ตอนโหลด
+   * เพราะรูปที่ taint จะไปล้ม toDataURL ตอนท้ายทั้งใบ
+   */
+  var qrImg = null;
+  var qrWait = null;
+  if (data.qr && typeof Image !== 'undefined') {
+    qrWait = new Promise(function (res) {
+      var im = new Image();
+      im.crossOrigin = 'anonymous';
+      im.onload = function () {
+        try {
+          var t = document.createElement('canvas');
+          t.width = t.height = 2;
+          t.getContext('2d').drawImage(im, 0, 0, 2, 2);
+          t.toDataURL();
+          qrImg = im;
+        } catch (e) { /* โดนกั้น ก็ไม่วาด */ }
+        res();
+      };
+      im.onerror = function () { res(); };
+      setTimeout(res, 1500);
+      im.src = data.qr;
+    });
+  }
 
   // Measure first: the sheet is as tall as its rows, and a canvas has to be
   // sized before anything is drawn on it.
@@ -67,9 +96,10 @@ export const RECEIPT_IMAGE_JS = String.raw`
     var headExtra = data.shop.lines.length ? data.shop.lines.length * 22 + 6 : 0;
     var footExtra = data.shop.footer ? 26 : 0;
     var shopExtra = withShopOnly ? SHOP_H + 16 : 0;
+    var qrExtra = qrImg && data.qr ? QR_BLOCK : 0;
     // 80 หัวใบ + 28 เส้นคั่น + (92+26) แถบข้อมูล + รายการ + 22 + (92+20) ยอดรวม
-    // + (38+20) ชำระ/คงเหลือ + 10 ใต้บรรทัดท้าย
-    var h = P + 80 + headExtra + 28 + 92 + 26 + rowsH + 22 + 92 + 20 + shopExtra + 38 + 20 + 10 + footExtra + P;
+    // + (38+20) ชำระ/คงเหลือ + QR (ถ้ามี) + 10 ใต้บรรทัดท้าย
+    var h = P + 80 + headExtra + 28 + 92 + 26 + rowsH + 22 + 92 + 20 + shopExtra + 38 + 20 + qrExtra + 10 + footExtra + P;
     return { rows: rows, rowsH: rowsH, sheetH: h, shopOnly: withShopOnly };
   }
 
@@ -233,6 +263,17 @@ export const RECEIPT_IMAGE_JS = String.raw`
     textRight(ctx, 'คงเหลือ ' + data.balance, INNER + CW, y + 21);
     y += 38 + 20;
 
+    // QR รับเงินบนรูป — เฉพาะใบที่ยังค้างจ่ายและโหลดรูปสำเร็จ (กติกาเดียวกับหน้า)
+    if (qrImg && data.qr) {
+      roundRect(ctx, INNER, y, CW, QR_BLOCK - 16, 12, C.soft);
+      font(ctx, '700', 17);
+      ctx.fillStyle = C.dark;
+      textCenter(ctx, 'สแกนจ่ายยอดคงเหลือ ' + data.balance, W / 2, y + 28);
+      var qs = 124;
+      try { ctx.drawImage(qrImg, (W - qs) / 2, y + 42, qs, qs); } catch (e) { /* วาดไม่ได้ก็เว้นช่อง ใบต้องออก */ }
+      y += QR_BLOCK;
+    }
+
     font(ctx, '400', 17);
     ctx.fillStyle = C.grey;
     textCenter(ctx, 'ขอบคุณที่ใช้บริการค่ะ 💜', W / 2, y);
@@ -354,6 +395,8 @@ export const RECEIPT_IMAGE_JS = String.raw`
     try {
       // วาดหลังฟอนต์ไทยมาแล้ว ไม่งั้นตัวหนังสือจะกลายเป็นฟอนต์สำรอง
       if (document.fonts && document.fonts.ready) await document.fonts.ready;
+      // และหลังรูป QR มาแล้ว (หรือยอมแพ้ใน 1.5 วิ) — ความสูงใบขึ้นกับว่ามี QR ไหม
+      if (qrWait) { try { await qrWait; } catch (e) { /* ไม่มี QR ก็วาดต่อ */ } }
       var url = draw(withShopOnly);
       img.src = url;
       dl.href = url;
@@ -371,7 +414,54 @@ export const RECEIPT_IMAGE_JS = String.raw`
     source.disabled = false;
   }
 
-  btn.onclick = function () { return make(btn, false); };
+  /* ขนาดใบ: สลิป = รูป PNG เส้นเดิม · A5/A4 = สั่งพิมพ์หน้านี้ลงกระดาษ
+   *
+   * @page กำหนดขนาดกระดาษจาก CSS ที่ฉีดตอนกดพิมพ์ (เลือกตาม class ตรง ๆ
+   * ไม่ได้ เพราะ @page ไม่รับ selector) — จำขนาดที่เลือกไว้ให้เหมือนสวิตช์
+   * ราคาต่อรายการ ทุกอย่างครอบกันพังไว้: เปิดในสภาพแวดล้อมที่ไม่มี window
+   * (เช่นตัวเทสต์) แถบนี้แค่ไม่ทำงาน ปุ่มทำรูปยังทำงานเหมือนเดิมทุกประการ
+   */
+  var sizeNow = 'slip';
+  var makeLabel = btn.textContent;
+
+  function printPaper(size) {
+    if (typeof window === 'undefined' || !window.print) return;
+    try {
+      var st = document.getElementById('page-size-style');
+      if (!st) {
+        st = document.createElement('style');
+        st.id = 'page-size-style';
+        (document.head || document.body).appendChild(st);
+      }
+      st.textContent = '@page{size:' + (size === 'a5' ? 'A5' : 'A4') + ';margin:12mm}';
+    } catch (e) { /* ตั้งขนาดหน้าไม่ได้ ก็พิมพ์ตามค่าเครื่อง */ }
+    window.print();
+  }
+
+  try {
+    var SIZE_KEY = 'muangjod.receipt.size';
+    var sizeBtns = { slip: document.getElementById('size-slip'), a5: document.getElementById('size-a5'), a4: document.getElementById('size-a4') };
+    var canSize = Boolean(sizeBtns.slip && sizeBtns.a5 && sizeBtns.a4 && sizeBtns.slip.classList);
+
+    var applySize = function (size) {
+      if (!sizeBtns[size]) size = 'slip';
+      sizeNow = size;
+      Object.keys(sizeBtns).forEach(function (k) { sizeBtns[k].classList.toggle('on', k === size); });
+      btn.textContent = size === 'slip' ? makeLabel : '🖨 พิมพ์ใบเสร็จขนาด ' + size.toUpperCase();
+      try { localStorage.setItem(SIZE_KEY, size); } catch (e) { /* ไม่เป็นไร */ }
+    };
+
+    if (canSize) {
+      Object.keys(sizeBtns).forEach(function (k) {
+        sizeBtns[k].onclick = function () { applySize(k); };
+      });
+      var keep = null;
+      try { keep = localStorage.getItem(SIZE_KEY); } catch (e) { /* ค่าตั้งต้นคือสลิป */ }
+      if (keep === 'a5' || keep === 'a4') applySize(keep);
+    }
+  } catch (e) { /* แถบขนาดพังก็เหลือสลิปตามเดิม */ }
+
+  btn.onclick = function () { return sizeNow === 'slip' ? make(btn, false) : printPaper(sizeNow); };
   if (btnShop) btnShop.onclick = function () { return make(btnShop, true); };
 
   document.getElementById('shot-close').onclick = function () { shot.hidden = true; };
@@ -467,10 +557,12 @@ export function shopOnlyPrice(bill = {}) {
 
 // What the canvas needs to draw the receipt, so the picture and the page are
 // built from one set of numbers rather than two.
-export function receiptData(bill, shop = {}, shopView = false) {
+export function receiptData(bill, shop = {}, shopView = false, qrUrl = null) {
   const paid = bill.payment_status === 'paid';
   return {
     paid,
+    // QR รับเงิน ติดไปกับรูปใบเสร็จด้วย — กติกาเดียวกับบนหน้า: ค้างจ่ายเท่านั้น
+    qr: Number(bill.balance_due) > 0 ? qrUrl : null,
     // มีเฉพาะตอนเปิดด้วยกุญแจร้าน ลิงก์ที่ลูกค้าถือไม่มีฟิลด์นี้ติดไปเลย —
     // ไม่ใช่ซ่อนด้วย CSS ที่กดดูซอร์สก็เห็น
     shopOnly: shopView ? shopOnlyPrice(bill) : null,
@@ -571,7 +663,15 @@ export function renderReceiptHtml(bill, shop = {}, opts = {}) {
   .qr-due{font-size:14px;font-weight:700;color:var(--ink)}
   .print{display:block;width:100%;margin-top:18px;padding:12px;border:0;border-radius:12px;background:var(--purple);color:#fff;font:inherit;font-weight:700}
   .print:disabled{opacity:.6}
-  @media print{body{background:#fff;padding:0}.sheet{box-shadow:none;border-radius:0;max-width:none}.print,.shot{display:none}}
+  /* เลือกขนาดใบ — สลิป (รูป) หรือกระดาษ A5/A4 (พิมพ์) จำขนาดที่เลือกไว้ให้ */
+  .size{display:flex;gap:8px;margin-top:16px}
+  .size button{flex:1;padding:10px 0;border:0;border-radius:10px;font:inherit;font-weight:700;
+        background:var(--purple-soft);color:var(--purple-dark)}
+  .size button.on{background:var(--purple);color:#fff}
+  .size-hint{margin:6px 0 0;font-size:12.5px;color:var(--ink);opacity:.72;text-align:center}
+  /* ตอนพิมพ์ลงกระดาษ: ของที่เป็นปุ่ม/สวิตช์/ราคาภายในร้านไม่ต้องติดไป แต่ QR
+     คงไว้ — ลูกค้าสแกนจากกระดาษได้ (ขนาดหน้ากระดาษ A5/A4 ตั้งจาก JS ตอนกดพิมพ์) */
+  @media print{body{background:#fff;padding:0}.sheet{box-shadow:none;border-radius:0;max-width:none}.print,.shot,.size,.size-hint,.pick,.warn,.mine{display:none}}
 
   /* รูปใบเสร็จที่วาดเสร็จแล้ว — เปิดทับหน้าจอ กดค้างที่รูปเพื่อเซฟลงเครื่อง
      ได้เลย ซึ่งเป็นวิธีที่ใช้ได้จริงในเบราว์เซอร์ของ LINE
@@ -702,6 +802,15 @@ export function renderReceiptHtml(bill, shop = {}, opts = {}) {
         : ''
     }
 
+    <!-- ขนาดใบ: สลิป = รูปส่งในแชต (เส้นเดิม) · A5/A4 = สั่งพิมพ์จากหน้านี้
+         ร้านขอไว้ตรง ๆ ว่า "ใบเสร็จขอมีให้เลือก A5 A4 และสลิปเหมือนเดิม" -->
+    <div class="size" id="size">
+      <button type="button" id="size-slip" class="on">🧾 สลิป</button>
+      <button type="button" id="size-a5">📄 A5</button>
+      <button type="button" id="size-a4">📄 A4</button>
+    </div>
+    <p class="size-hint">สลิป = รูปส่งในแชต · A5 / A4 = พิมพ์ลงกระดาษจากหน้านี้</p>
+
     <button class="print" id="make">📸 ใบของลูกค้า · บันทึกเป็นรูป</button>
     ${shopOnly ? '<button class="print ghost" id="make-shop">🔒 ใบของร้าน · มีราคายังไม่ปัด</button>' : ''}
     <footer>ขอบคุณที่ใช้บริการค่ะ 💜${
@@ -726,7 +835,7 @@ export function renderReceiptHtml(bill, shop = {}, opts = {}) {
     </div>
   </div>
 
-<script id="bill-data" type="application/json">${jsonScript(receiptData(bill, shop, shopView))}</script>
+<script id="bill-data" type="application/json">${jsonScript(receiptData(bill, shop, shopView, qrUrl))}</script>
 <script>${SHEET_CANVAS_JS}</script>
 <script>${RECEIPT_IMAGE_JS}</script>
 </body>

@@ -125,9 +125,17 @@ export async function handleImageMessage(event, profile) {
         (first ? '\nใบนี้จะขึ้นท้ายใบเสร็จที่ยังค้างจ่ายให้อัตโนมัติ' : '') +
         '\n\nใบนี้ของธนาคารอะไรคะ? กดเลือกหรือพิมพ์มาได้เลย',
       quickReply: {
+        /* ปุ่มชื่อเป็น postback พกรหัส QR ไปเอง — แบบ message เดิมมีกับดัก:
+         * "พร้อมเพย์" เป็นคำสั่งเมนู (เปิดลิสต์ QR) ซึ่งถูกเทียบก่อนสถานะ
+         * กดแล้วชื่อไม่ถูกเซฟแถมสถานะโดนล้าง · พิมพ์ชื่อเองยังได้เหมือนเดิม */
         items: ['กสิกร', 'ออมสิน', 'ไทยพาณิชย์', 'กรุงไทย', 'กรุงเทพ', 'พร้อมเพย์', 'ข้าม'].map((label) => ({
           type: 'action',
-          action: { type: 'message', label, text: label },
+          action: {
+            type: 'postback',
+            label,
+            data: `action=qr_label&id=${saved.id}${label === 'ข้าม' ? '' : `&v=${encodeURIComponent(label)}`}`,
+            displayText: label,
+          },
         })),
       },
     });

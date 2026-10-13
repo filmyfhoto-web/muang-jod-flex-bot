@@ -1,7 +1,7 @@
 import { reply } from '../services/lineService.js';
 import { addJob, addMoreForCustomer, confirmAddJob, pickBranchAndSave, editNewJob, cancelNewJob } from '../actions/addJob.js';
 import { confirmSaveDump, cancelSaveDump } from '../actions/saveDump.js';
-import { shopQr, addShopQrPrompt, sendShopQr, useShopQr, removeShopQr } from '../actions/shopQr.js';
+import { shopQr, addShopQrPrompt, sendShopQr, useShopQr, removeShopQr, qrLabelPick } from '../actions/shopQr.js';
 import { attachEvidence } from '../actions/attachEvidence.js';
 import { recentJobs } from '../actions/recentJobs.js';
 import { todaySummary } from '../actions/todaySummary.js';
@@ -100,6 +100,8 @@ export async function handlePostback(event, profile) {
       return useShopQr(ctx);
     case 'qr_delete':
       return removeShopQr(ctx);
+    case 'qr_label':
+      return qrLabelPick(ctx);
     case 'attach_evidence':
       return attachEvidence(ctx);
     case 'recent_jobs':

@@ -135,6 +135,11 @@
   .jobrow .what { flex: 1; min-width: 0; }
   .jobrow .what b { display: block; font-size: 13.5px; font-weight: 500; line-height: 1.35; }
   .jobrow .what span { font-size: 11px; color: var(--muted); line-height: 1.45; }
+  /* ชิปหมวดท้ายแถว — บัญชีลูกค้ารวมทุกหมวดเป็นลิสต์เดียว หมวดเลยย้ายมาติดที่
+     ตัวงานแทนการซอยเป็นกอง ๆ ("แยกหมวดตามงาน แต่ชื่อลูกค้าคือรวมหมวด") */
+  .jobrow .what .cat { display: inline-block; margin-top: 2px; font-size: 10px; line-height: 1.5;
+    color: var(--ink); background: var(--band); border-left: 3px solid var(--c, var(--navy));
+    border-radius: 7px; padding: 0 7px 0 5px; }
   .tag { font-size: 10px; font-weight: 600; padding: 1px 8px; border-radius: 999px; flex-shrink: 0; }
   .tag.owe { background: var(--red-tint); color: var(--red); }
   .tag.paid { background: var(--green-tint); color: var(--green); }
@@ -453,12 +458,12 @@ function renderAccount() {
   $('h-pill').textContent = account.kind === 'org' ? 'หน่วยงาน' : 'หน้าร้าน';
   $('mascot').src = '/brand/ui/happy.png';
   $('h-title').textContent = 'บัญชีลูกค้า';
-  $('h-sub').textContent = 'งานแต่ละใบ แยกตามหมวด';
+  $('h-sub').textContent = 'งานทุกใบของเจ้านี้ รวมทุกหมวด';
   $('q').placeholder = 'ค้นชื่องานในบัญชีนี้';
 
   $('h-owed').hidden = false;
   $('o-name').textContent = account.name;
-  $('o-meta').textContent = `${account.jobCount} งาน · ${account.groups.length} หมวด`;
+  $('o-meta').textContent = `${account.jobCount} งาน`;
   $('o-amt').textContent = baht(account.owed);
 
   $('headline').firstElementChild.textContent = 'ติ๊กเลือกงานที่จะออกใบ';
@@ -469,21 +474,18 @@ function renderAccount() {
   card.className = 'card';
   let shown = 0;
 
-  for (const g of account.groups) {
-    const jobs = g.jobs.filter((j) => matches(j.jobName) || matches(g.label));
-    if (!jobs.length) continue;
-    shown += jobs.length;
+  /* ลูกค้าหนึ่งเจ้า = ลิสต์เดียว เรียงงานใหม่สุดก่อน ไม่ซอยเป็นกองตามหมวด
+   * ("แยกหมวดตามงาน แต่ชื่อลูกค้าคือรวมหมวด") — หมวดยังเห็นอยู่ที่ชิปท้ายแถว
+   * และแถบสีซ้ายของแถว ซึ่งเป็นสีประจำหมวดเหมือนเดิม
+   */
+  const rows = account.groups
+    .flatMap((g) => g.jobs.map((j) => ({ j, g })))
+    .filter(({ j, g }) => matches(j.jobName) || matches(g.label))
+    .sort((a, b) => String(b.j.jobDate || '').localeCompare(String(a.j.jobDate || '')) || String(b.j.jobNumber || '').localeCompare(String(a.j.jobNumber || '')));
+  shown = rows.length;
 
-    const band = document.createElement('div');
-    band.className = 'catband';
-    paint(band, g.color);
-    band.innerHTML = `<b></b><span></span><span class="sum"></span>`;
-    band.querySelector('b').textContent = `${g.icon || ''} ${g.label}`.trim();
-    band.querySelectorAll('span')[0].textContent = `${g.jobs.length} งาน`;
-    band.querySelector('.sum').textContent = baht(g.total);
-    card.append(band);
-
-    for (const j of jobs) {
+  {
+    for (const { j, g } of rows) {
       const row = document.createElement('div');
       row.className = 'jobrow';
       paint(row, g.color);
@@ -506,9 +508,10 @@ function renderAccount() {
 
       const what = document.createElement('div');
       what.className = 'what';
-      what.innerHTML = '<b></b><span></span>';
+      what.innerHTML = '<b></b><span></span><span class="cat"></span>';
       what.querySelector('b').textContent = j.jobName || 'งาน';
       what.querySelector('span').textContent = [j.jobDate, j.jobNumber].filter(Boolean).join(' · ');
+      what.querySelector('.cat').textContent = `${g.icon || ''} ${g.label}`.trim();
 
       const tag = document.createElement('span');
       tag.className = 'tag ' + (j.billed ? 'billed' : j.paid ? 'paid' : 'owe');
