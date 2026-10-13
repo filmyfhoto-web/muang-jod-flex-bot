@@ -192,3 +192,67 @@ export function categoryTypesFlex(groupId, jobId, tax = BASE_TAXONOMY) {
     }),
   };
 }
+
+/* ย้ายงานข้ามหมวด — "เลือกหางานในหมวดแล้วย้ายได้" (คำขอร้านตรง ๆ)
+ *
+ * สองการ์ดนี้คือสองก้าวแรกของการย้าย: เลือกหมวดที่งานอยู่ → เลือกงาน แล้วก้าว
+ * สุดท้ายคือตัวเลือกหมวดเดิม (pick_category&jobId=…) ซึ่งจบด้วย updateJob ตัวเดิม
+ * — เลขงานไม่เปลี่ยนตอนย้าย (กติกาเลขงานตั้งครั้งเดียว)
+ */
+export function moveCategoryGroupsFlex(tax = BASE_TAXONOMY) {
+  const rows = [...tax.groups, tax.other].map((g) =>
+    row({
+      icon: g.icon,
+      label: g.label,
+      hint: hintOf(g, tax),
+      data: `action=cat_jobs&group=${g.id}`,
+    })
+  );
+  return {
+    type: 'flex',
+    altText: 'ย้ายงานข้ามหมวด',
+    contents: bubble({
+      title: 'ย้ายงานข้ามหมวด',
+      subtitle: 'แตะหมวดที่งานอยู่ตอนนี้ → เลือกงาน → เลือกหมวดใหม่ค่ะ',
+      rows,
+    }),
+  };
+}
+
+const MOVE_ROWS = 10;
+
+export function categoryJobsFlex(group, jobs = [], { formatDate, formatMoney } = {}) {
+  const shown = jobs.slice(0, MOVE_ROWS);
+  const rows = shown.map((j) =>
+    row({
+      icon: group.icon || '📦',
+      label: j.job_name || 'งาน',
+      // เลขงาน+วันที่ทำให้งาน "ชื่อเดียวกัน" สองใบแยกกันออก — กดถูกใบแน่
+      hint: [j.job_number, formatDate ? formatDate(j.job_date) : j.job_date, formatMoney ? formatMoney(j.total) : null]
+        .filter(Boolean)
+        .join(' · '),
+      data: `action=pick_category&jobId=${encodeURIComponent(j.id)}`,
+    })
+  );
+  if (jobs.length > shown.length) {
+    rows.push({
+      type: 'text',
+      text: `… และอีก ${jobs.length - shown.length} งาน (งานใหม่สุดขึ้นก่อน)`,
+      size: 'xs',
+      color: COLORS.grey,
+      align: 'center',
+      wrap: true,
+    });
+  }
+  return {
+    type: 'flex',
+    altText: `ย้ายงานในหมวด ${group.label}`,
+    contents: bubble({
+      title: `งานในหมวด ${group.label}`,
+      subtitle: jobs.length
+        ? 'แตะงานที่จะย้าย แล้วเลือกหมวดใหม่ให้มันได้เลยค่ะ'
+        : 'หมวดนี้ยังไม่มีงานค่ะ',
+      rows,
+    }),
+  };
+}

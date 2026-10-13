@@ -170,6 +170,27 @@ export function trimNameTail(name) {
   return cut.length >= 2 ? cut : clean;
 }
 
+/* คำตอบที่เป็น "งาน" ไม่ใช่ "คน" — ไว้กันตอนม่วงถามชื่อลูกค้า
+ *
+ * เคสจริง: ถาม "ของลูกค้าท่านไหนคะ?" ร้านตอบ "หน้างานสีดำ" (รายละเอียดกรอบรูป)
+ * แล้วการ์ดขึ้น ลูกค้า: หน้างานสีดำ — ศัพท์ช่างต้องไปอยู่รายละเอียดงาน ไม่ใช่ช่องคน
+ *
+ * จับสามแบบ: ขึ้นต้นด้วยคำบอกส่วนของชิ้นงาน · มีชื่อสี · หรือพิมพ์ชื่อหมวด/ประเภท
+ * (รวมที่ร้านตั้งเอง) มาทั้งดุ้น — ชื่อจริงที่มีคำช่างปนอยู่ เช่น "ร้านป้ายเจริญ"
+ * ไม่โดน เพราะไม่เท่ากับชื่อประเภทเป๊ะ ๆ · อยากบังคับเป็นชื่อคนจริง พิมพ์นำว่า
+ * "ลูกค้า …" (ทางเรียกทุกทางเช็กคำนำก่อนถึงตัวนี้)
+ */
+const DETAIL_LEAD_RE = /^(?:หน้า|ขอบ|พื้น|ด้าน|แบบ|ลาย|เคลือบ|ขนาด|เนื้อ)/u;
+const DETAIL_COLOR_RE = /สี(?:ดำ|ขาว|แดง|เขียว|น้ำเงิน|ฟ้า|เหลือง|ส้ม|ม่วง|ชมพู|ทอง|เงิน|น้ำตาล|เทา|ครีม|ใส)/u;
+
+export function looksLikeWorkDetail(text, who) {
+  const t = String(text || '').trim();
+  if (!t) return false;
+  if (DETAIL_LEAD_RE.test(t) || DETAIL_COLOR_RE.test(t)) return true;
+  const hit = classifyItem(t, who);
+  return Boolean(hit && (hit.type?.label === t || hit.group?.label === t));
+}
+
 // Pull out a customer name: an honorific + name (พี่นก), an organisation
 // (รพสตบ้านชี, โรงเรียนบ้านหนอง), else "ร้าน<name>".
 export function extractCustomer(text) {
@@ -248,7 +269,9 @@ function stripLeadVerb(word) {
 
 function cleanItemName(working) {
   const stripped = working
-    .replace(/วันนี้|เมื่อวาน|พรุ่งนี้|ทำ|ทํา|งาน|ให้|ค่ะ|คะ|ครับ|นะ|บาท|฿/g, ' ')
+    // "งาน" หายทุกที่ ยกเว้นใน "หน้างาน" — "หน้างานสีดำ" คือศัพท์ช่างทั้งคำ
+    // ตัดกลางคำแล้วได้ "หน้า สีดำ" ซึ่งไม่ใช่ภาษาที่ร้านพูด
+    .replace(/วันนี้|เมื่อวาน|พรุ่งนี้|ทำ|ทํา|(?<!หน้า)งาน|ให้|ค่ะ|คะ|ครับ|นะ|บาท|฿/g, ' ')
     .replace(/ร้าน/g, ' ')
     .replace(/\d[\d,]*(?:\.\d+)?/g, ' ')
     // "ไวนิล = 0.80X1.80 165" left the "=" sitting in the name once the numbers

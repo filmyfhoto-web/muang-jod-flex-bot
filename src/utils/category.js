@@ -150,14 +150,23 @@ export function createTaxonomy({ groups = CATEGORY_GROUPS, other = OTHER_GROUP }
   // ก็ต้องชนะของที่อยู่คนละหมวดกัน (สติ๊กเกอร์ฟิวเจอร์บอร์ด ต้องมาก่อนทั้งโฟมบอร์ด
   // ในหมวดป้าย และสติ๊กเกอร์ในหมวดของมันเอง) — priority สูงกว่าได้ตรวจก่อน ที่เท่ากัน
   // เรียงตามลิสต์เหมือนเดิม และคำค้นระดับหมวดมาหลังคำค้นของประเภททุกอัน
+  /* ชื่อที่ร้านตั้งเองเป็นคำค้นด้วยเสมอ — ร้านสร้างประเภท "กรอบรูปงานสีดำ" แล้วพิมพ์
+   * ชื่อนั้นตรง ๆ ต้องเข้าประเภทนั้น ไม่ใช่ตกไปกรอบรูปธรรมดาเพราะคำว่า "กรอบ"
+   * ของระบบดักก่อน (ของที่ร้านตั้งอยู่ priority 100/99 จึงได้ตรวจก่อนเสมอ)
+   * ชื่อที่ร้านเปลี่ยนให้ประเภทเดิมก็เช่นกัน — คิดตอนประกอบ ไม่เก็บลง config
+   */
+  const ownLabelKey = (t) => (t?.label && (t.custom || (t.base && t.label !== t.base.label)) ? [t.label] : []);
+
   const entries = [];
   for (const g of visibleGroups) {
     for (const t of g.types) {
-      entries.push({ group: g, type: typeIndex.get(t.id), priority: t.priority || 0, keys: [...(t.keys || []), ...(t.extraKeys || [])], all: t.all });
+      const type = typeIndex.get(t.id);
+      entries.push({ group: g, type, priority: t.priority || 0, keys: [...(t.keys || []), ...(t.extraKeys || []), ...ownLabelKey(type)], all: t.all });
     }
   }
   for (const g of visibleGroups) {
-    if (g.keys?.length) entries.push({ group: g, type: null, priority: g.custom ? 99 : 0, keys: g.keys, all: null });
+    const keys = [...(g.keys || []), ...(g.custom && g.label ? [g.label] : [])];
+    if (keys.length) entries.push({ group: g, type: null, priority: g.custom ? 99 : 0, keys, all: null });
   }
   entries.sort((a, b) => b.priority - a.priority);
 
@@ -318,6 +327,12 @@ function resolve(who) {
   if (owners.size === 1) return owners.values().next().value;
   return sharedTaxonomy;
 }
+
+/* ชุดหมวดที่ "ใช้อยู่ตอนนี้" โดยไม่รู้ว่าใครถาม — ร้านเดียว (เคสจริงของบอทนี้)
+ * ได้ชุดของร้านนั้น หลายร้านได้ชุดรวม ตรรกะเดียวกับ classifyItem ที่ไม่ส่ง who
+ * ใช้โดยของที่ประกอบตอนส่งข้อความซึ่งไม่มีโปรไฟล์ในมือ เช่น แถบปุ่มงานด่วน
+ */
+export const activeTaxonomy = () => resolve(undefined);
 
 export const findGroup = (groupId, who) => resolve(who).findGroup(groupId);
 export const findType = (typeId, who) => resolve(who).findType(typeId);

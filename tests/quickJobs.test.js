@@ -1,13 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { quickReplyBlock, defaultItems, QUICK_JOBS, QUICK_LINKS } from '../src/flex/quickReply.js';
-import { classifyJob, findType } from '../src/utils/category.js';
+import { quickReplyBlock, defaultItems, quickJobItems } from '../src/flex/quickReply.js';
+import { classifyJob, classifyItem, findType } from '../src/utils/category.js';
+import { buildTaxonomy } from '../src/utils/taxonomy.js';
 
 const jot = readFileSync(new URL('../public/liff/jot/script.js', import.meta.url), 'utf8');
 
-// The shop asked for the bar above the keyboard to be the three jobs they do
-// all day, and said "เราไม่เอาออกบิลละ เรากรอกเสร็จออกใบเสร็จเลย".
+/* แถบปุ่มงานมาจากหมวดของร้านเอง — ร้านขอ "อัพเดตและแก้ไขปุ่มงานด่วนให้เข้ากับ
+ * หมวดงาน": ร้านแก้หมวดเองได้อยู่แล้ว แถบนี้ต้องไล่ตาม ไม่ใช่ลิสต์ตายตัวในไฟล์
+ */
 
 // ปุ่มงานไม่ต้องใช้ LIFF แล้ว (กดแล้วม่วงถามต่อในแชต) เหลือแค่ "หมวดงาน" ที่ต้อง
 // ใช้ — tests/setup.js ตั้งใจไม่ตั้ง LIFF ไว้ ซึ่งเป็นเคสที่เทสต์ท้าย ๆ คุมอยู่
@@ -22,63 +24,69 @@ function withLiff(fn) {
   }
 }
 
-test('the bar is the jobs this shop does and nothing else', () => {
-  // "เอาตัวเลือกด้านหลังออกทั้งหมดให้มีแค่ กรอบรูป งานป้าย งานโฟมบอร์ด งานสติ๊กเกอร์"
-  // — the rest have their own buttons on the rich menu, and a second copy here
-  // made the bar long enough to need swiping, which pushed the jobs off it.
-  // Two more were added later ("อยู่ในคีลัดเลยค่ะ ข้างๆสติ๊กเกอร์").
+test('แถบตั้งต้น: งานที่ร้านกดบ่อยอยู่ครบ ทุกหมวดได้โผล่ และท้ายแถบคือหมวดงาน', () => {
   const items = withLiff(() => quickReplyBlock().items);
 
-  assert.deepEqual(items.map((i) => i.action.label), [
-    '🖼 งานกรอบรูป',
-    '🪧 งานป้าย',
-    '🧊 งานโฟมบอร์ด',
-    '🏷 งานสติ๊กเกอร์',
-    '📋 สติ๊กเกอร์บอร์ด',
-    '🔖 ตรายาง',
-    // ร้านขอไว้ว่า "ตรงเมนูด่วนด้านหลังตรายาง เพิ่มหมวดงานให้หน่อย" — ท้ายสุด
-    // เพราะปุ่มอื่นคือ "จดงานชนิดนี้" ส่วนปุ่มนี้คือ "ขอดูงานที่จดไปแล้ว"
-    '📂 หมวดงาน',
-  ]);
-  assert.equal(items.length, QUICK_JOBS.length + QUICK_LINKS.length, 'something else crept back onto the bar');
   assert.ok(items.length <= 13, 'LINE รับได้ 13 ปุ่ม');
-  // LINE counts UTF-16 units, so an emoji costs two of the twenty.
   for (const i of items) assert.ok(i.action.label.length <= 20, `label too long (${i.action.label.length}): ${i.action.label}`);
 
-  /* ร้านบอกว่า "ตรงปุ่มกดให้เป็นบอทตอบเหมือนเดิม แล้วค่อยกดเข้าไปแก้ไขทีหลัง"
-   * ปุ่มงานเคยเป็นลิงก์เปิดฟอร์มจดด่วน แปลว่าจะจดงานทีต้องเด้งออกจากแชตไปหน้าเว็บ
-   * ก่อนทุกครั้ง ตอนนี้ม่วงถามทีละข้อในแชตได้แล้ว ปุ่มจึงพาเข้าบทสนทนา ส่วนฟอร์ม
-   * เหลือไว้ตอนอยากแก้หลายช่องทีเดียว */
-  for (const i of items.slice(0, QUICK_JOBS.length)) {
+  // หกงานเดิมที่ร้านกดจริงต้องยังอยู่บนแถบ (ลำดับใหม่หยิบวนทีละหมวด)
+  const names = items
+    .filter((i) => i.action.type === 'postback')
+    .map((i) => new URLSearchParams(i.action.data).get('name'));
+  for (const want of ['กรอบรูป', 'ป้ายไวนิล', 'โฟมบอร์ด', 'สติ๊กเกอร์', 'สติ๊กเกอร์ฟิวเจอร์บอร์ด', 'ตรายาง']) {
+    assert.ok(names.includes(want), `"${want}" หายไปจากแถบ`);
+  }
+
+  // ชื่อที่ปุ่มส่งคือชื่อประเภทเต็ม ๆ — ทุกปุ่มต้องจัดหมวดเข้า "ประเภทของตัวเอง"
+  // ไม่งั้นกดปุ่มแล้วงานไปกองรวมที่งานทั่วไป และม่วงถามชุดคำถามผิดชนิด
+  for (const name of names) {
+    const hit = classifyJob([{ item_name: name }]);
+    assert.equal(hit?.type?.label, name, `"${name}" ไปลง ${hit?.type?.label || hit?.group?.label || 'งานทั่วไป'}`);
+  }
+
+  /* ร้านบอกว่า "ตรงปุ่มกดให้เป็นบอทตอบเหมือนเดิม แล้วค่อยกดเข้าไปแก้ไขทีหลัง" */
+  for (const i of items.slice(0, -1)) {
     assert.equal(i.action.type, 'postback', `${i.action.label} ยังเด้งออกไปหน้าเว็บ`);
     assert.match(i.action.data, /^action=quick_job&name=/);
   }
-  // ชื่องานที่ส่งไปต้องอ่านกลับมาได้ตรงตัว ไม่ใช่โดน encode แล้วเพี้ยน
-  const names = items.slice(0, QUICK_JOBS.length).map((i) => new URLSearchParams(i.action.data).get('name'));
-  assert.deepEqual(names, QUICK_JOBS.map((j) => j.name));
 
   // "หมวดงาน" ยังเป็นลิงก์ เพราะมันคือหน้าเว็บจริง ๆ ไม่ใช่บทสนทนา
   assert.equal(items.at(-1).action.type, 'uri');
   assert.match(items.at(-1).action.uri, /\?tab=category$/, 'หมวดงานไม่ได้เปิดหน้าหมวด');
 });
 
-test('every button on the bar files the job in the right place', () => {
-  // ป้ายปุ่มสั้นกว่าชื่องานได้ แต่ชื่อที่ส่งไปให้ม่วงอ่านต้องเป็นชื่อที่ระบบแยก
-  // หมวดออก ไม่งั้นกดปุ่มแล้วงานไปกองรวมที่ "งานทั่วไป" และม่วงจะถามชุดคำถาม
-  // พื้นฐานแทนชุดของงานชนิดนั้น
-  const expected = {
-    กรอบรูป: 'frame',
-    ป้ายไวนิล: 'vinyl',
-    โฟมบอร์ด: 'foamboard',
-    'สติ๊กเกอร์': 'sticker',
-    'สติ๊กเกอร์ฟิวเจอร์บอร์ด': 'sticker_board',
-    ตรายาง: 'stamp',
-  };
-  for (const job of QUICK_JOBS) {
-    const hit = classifyJob([{ item_name: job.name }]);
-    assert.equal(hit?.type.id, expected[job.name], `"${job.name}" ไปลง ${hit?.type.label || 'งานทั่วไป'}`);
-  }
-  assert.deepEqual(QUICK_JOBS.map((j) => j.name).sort(), Object.keys(expected).sort(), 'a button has no expectation');
+test('แถบตามหมวดของร้านจริง: ประเภทที่ร้านตั้งเองนำหน้า และกดแล้วเข้าประเภทตัวเอง', () => {
+  // config จริงของร้าน ณ วันที่เขียน (ย่อ): custom สองตัว + เปลี่ยนชื่อ sticker
+  const tax = buildTaxonomy({
+    v: 1,
+    groups: [
+      { id: 'print' },
+      { id: 'sign', types: [{ id: 't_68f18a', icon: '🔹', label: 'ฟิวเจอร์บอร์ดสติ๊กเกอร์', custom: true }] },
+      { id: 'stamp' },
+      { id: 'sticker', types: [{ id: 'sticker', label: 'สติ๊กเกอร์งานสีดำ' }] },
+      { id: 'photo', icon: '🧵', types: [{ id: 't_f1c063', icon: '📦', label: 'กรอบรูปงานสีดำ', custom: true }] },
+      { id: 'design' },
+      { id: 'shipping', hidden: true },
+    ],
+  });
+
+  const items = quickJobItems(tax);
+  assert.ok(items.length <= 12);
+  for (const i of items) assert.ok(i.label.length <= 20, i.label);
+
+  // ของที่ร้านเพิ่มเองขึ้นก่อนเสมอ — คือเหตุผลที่ร้านขอให้แถบ "เข้ากับหมวดงาน"
+  assert.equal(items[0].name, 'ฟิวเจอร์บอร์ดสติ๊กเกอร์');
+  assert.equal(items[1].name, 'กรอบรูปงานสีดำ');
+  assert.match(items[1].label, /^📦 /, 'ไอคอนที่ร้านตั้งไม่ขึ้น');
+
+  // ชื่อที่ร้านเปลี่ยนให้ประเภทเดิมก็ขึ้นแถบตามนั้น และหมวดที่ซ่อนไม่โผล่
+  assert.ok(items.some((i) => i.name === 'สติ๊กเกอร์งานสีดำ'));
+  assert.ok(!items.some((i) => i.name === 'ค่าจัดส่ง'), 'หมวดที่ซ่อนยังโผล่บนแถบ');
+
+  // กดแล้วเข้า "ประเภทของตัวเอง" จริง ผ่านตัวจัดหมวดของร้านชุดเดียวกัน
+  assert.equal(tax.classifyItem('ฟิวเจอร์บอร์ดสติ๊กเกอร์')?.type?.id, 't_68f18a');
+  assert.equal(tax.classifyItem('กรอบรูปงานสีดำ')?.type?.id, 't_f1c063');
 });
 
 test('tapping a job button starts the conversation, not a form', () => {
@@ -92,10 +100,11 @@ test('tapping a job button starts the conversation, not a form', () => {
   assert.match(router, /case 'quick_job':/);
   assert.match(allowed, /'quick_job'/, 'quick_job ไม่อยู่ในรายการที่อนุญาต');
 
-  // ชื่องานที่ยัดมาใน postback ต้องเป็นชื่อที่อยู่ในปุ่มจริง ๆ — data ปลอมได้
+  // ชื่อจากปุ่มตรวจด้วยตัวจัดหมวดจริง ไม่ใช่ลิสต์ตายตัว — data ปลอมมาได้ก็แค่
+  // เท่ากับพิมพ์คำนั้นเอง ซึ่งไปได้ไกลสุดแค่เริ่มชุดคำถาม
   const action = readFileSync(new URL('../src/actions/quickJob.js', import.meta.url), 'utf8');
-  assert.match(action, /const KNOWN = new Set\(QUICK_JOBS\.map/);
-  assert.match(action, /KNOWN\.has\(name\) \? startCollecting\(name\) : null/);
+  assert.match(action, /const collecting = name \? startCollecting\(name\) : null/);
+  assert.doesNotMatch(action, /QUICK_JOBS/, 'ยังพึ่งลิสต์ตายตัวอยู่');
 });
 
 test('a framed job lands in its own category, not in "everything else"', () => {
@@ -129,8 +138,8 @@ test('with no LIFF app the bar is never empty, or the old one is stuck forever',
   assert.ok(items.length > 0, 'an empty bar strands whatever was last shown');
   assert.ok(items.every((i) => !i.uri), 'a link to nowhere is on the bar');
   assert.ok(items.every((i) => i.action), 'a button with nothing behind it');
-  // ปุ่มงานไม่ต้องพึ่ง LIFF อีกแล้ว ยังอยู่ครบแม้ไม่ได้ตั้ง — หายไปแค่ "หมวดงาน"
-  assert.equal(items.length, QUICK_JOBS.length, 'ปุ่มงานหายไปตอนไม่มี LIFF');
+  // ปุ่มงานไม่ต้องพึ่ง LIFF — หายไปแค่ "หมวดงาน" และทุกปุ่มที่เหลือคืองานจริง
+  assert.ok(items.every((i) => i.action === 'quick_job' && classifyItem(i.name)), 'มีปุ่มที่ไม่ใช่งานปนอยู่');
 });
 
 test('the receipt is reachable from the screen the shop finishes a job on', () => {

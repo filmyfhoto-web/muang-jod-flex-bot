@@ -16,7 +16,8 @@ import { recordBillPayment } from '../services/billService.js';
 import { resolveMenuCommand, splitLeadingAddJob, suggestMenuCommand, labelForAction } from '../utils/menuCommands.js';
 import { matchCustomer } from '../utils/customerMatch.js';
 import { parseChatIntent } from '../utils/chatIntent.js';
-import { parseNaturalJob } from '../utils/nlParser.js';
+import { parseNaturalJob, looksLikeWorkDetail } from '../utils/nlParser.js';
+import { customerCardForText } from '../actions/customerCard.js';
 import { deriveJobName, classifyJob } from '../utils/category.js';
 import { makeDraft, draftToBubble, priceDraft, parseBarePrice, parseBareSqmRate, priceDraftBySqm, parseCustomerName } from '../utils/jobDraft.js';
 import { extractDate, extractDueDate } from '../utils/thaiDate.js';
@@ -248,6 +249,35 @@ export async function handleTextMessage(event, profile) {
      */
     if (hasDraft && !state.context.draft.customerName) {
       const typed = parseCustomerName(text);
+
+      /* ศัพท์ช่างตอนถูกถามชื่อ ("หน้างานสีดำ") = รายละเอียดงาน ไม่ใช่คน
+       * (เคสจริง: การ์ดขึ้น ลูกค้า: หน้างานสีดำ) — ต่อท้ายรายการแรกให้ แล้วถาม
+       * ชื่อต่อ · ตั้งใจให้เป็นชื่อจริงพิมพ์นำว่า "ลูกค้า …" ได้ (ทางเดิมรองรับอยู่)
+       */
+      if (typed && !/^(?:ของ|ลูกค้า|ชื่อ)/u.test(text.trim()) && looksLikeWorkDetail(typed, profile.id)) {
+        const items = state.context.draft.items || [];
+        const first = items[0]
+          ? { ...items[0], size: [items[0].size, typed].filter(Boolean).join(' · ') }
+          : null;
+        const draft = first ? { ...state.context.draft, items: [first, ...items.slice(1)] } : state.context.draft;
+        await setState(profile.id, STATES.CONFIRMING_JOB, { ...state.context, draft });
+        return reply(
+          replyToken,
+          withDraftGuide(
+            [
+              {
+                type: 'text',
+                text:
+                  `"${typed}" ดูเป็นรายละเอียดงาน ม่วงใส่ไว้ในรายการให้แล้วค่ะ 📝\n` +
+                  `งานนี้ของลูกค้าท่านไหนคะ? (ถ้าเป็นชื่อลูกค้าจริง พิมพ์ "ลูกค้า ${typed}" ได้ค่ะ)`,
+              },
+              jobPreviewMessage(draftToBubble(draft)),
+            ],
+            draft
+          )
+        );
+      }
+
       if (typed) {
         /* ชื่อที่พิมพ์ไปพ้องกับชื่อที่เคยจดไว้ไหม — ร้านขอ "พิมพ์ลูกค้าคนไหนที่เคย
          * จดไว้ แสดงให้อัตโนมัติ จะได้ไม่ต้องพิมพ์"
@@ -404,6 +434,19 @@ export async function handleTextMessage(event, profile) {
   if (looksLikeJob(text) || looksLikePricelessJob(text)) {
     return handleNewJob(replyToken, profile, text);
   }
+
+  /* Idle: พิมพ์ชื่อลูกค้าที่เคยจดมาเฉย ๆ = ขอดูงานทั้งหมดของเขา
+   *
+   * ร้านขอ "ลูกค้าคนไหนที่มีงานหลายชิ้น ช่วยแสดงทั้งหมด … ขอแยกจ่าย" — การ์ด
+   * โชว์ทุกใบ (งานชื่อซ้ำแยกด้วยเลขงาน+วันที่) ใบค้างกดเก็บเงินรายใบได้เลย
+   * เทียบชื่อแบบเดียวกับสมุดลูกค้า สะกดต่างเจ้าเดียวกันก็เจอ — ไม่ใช่ชื่อที่เคยจด
+   * ก็ไหลไปทางเดิมเหมือนไม่มีเกตนี้อยู่
+   *
+   * อยู่ "ก่อน" ตัวเริ่มชุดคำถาม: ลูกค้าที่ชื่อมีคำช่างปน ("ร้านป้ายเจริญ") ต้อง
+   * เปิดการ์ดของเขา ไม่ใช่โดนคำว่า "ป้าย" ดักไปเริ่มจดงานใหม่ — ส่วนคำที่ไม่ใช่
+   * ชื่อที่เคยจด เกตนี้ปล่อยผ่านเสมอ ชุดคำถามจึงได้ของมันครบเหมือนเดิม
+   */
+  if (await customerCardForText({ replyToken, profile }, text)) return;
 
   // Idle: "มีงานกรอบรูป" — รู้ว่าเป็นงานอะไรแต่ยังไม่มีรายละเอียดสักอย่าง
   // ถามเก็บทีละข้อ แทนที่จะตอบกลับไปว่าพิมพ์ใหม่ให้ครบ
