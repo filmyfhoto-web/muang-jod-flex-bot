@@ -144,7 +144,7 @@ async function notifyAdmins(to, shop, { customerId, contact, said, reason }) {
   for (const p of to) {
     if (!p.userId) continue; // no LINE id set yet for this person
     try {
-      await pushMessage(p.userId, [card], token);
+      await pushMessage(p.userId, withSender([card], null, quick(shop)), token); // the topic buttons ride on the alert too, so they show in the admin's own thread
     } catch (e) {
       console.error('[notify]', p.name, e.message);
     }
