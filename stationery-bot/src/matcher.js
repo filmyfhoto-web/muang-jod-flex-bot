@@ -10,6 +10,18 @@ export function normalize(text) {
     .replace(POLITE, '');
 }
 
+// A message that is only a hello ("สวัสดีค่ะ", "hello", "หวัดดีครับพี่") — as opposed to a hello with
+// something else after it, or a reply such as "ดีค่ะ".
+const HELLO = /^(?:สวัสดี|หวัดดี|hello|hi|hey)(?:ตอน)?(?:เช้า|บ่าย|เย็น)?(?:พี่|น้อง|แอดมิน|ร้าน|ทุกคน|ทุกท่าน|เจ้า|เน้อ|หนา)*$/;
+const HELLO_FILLER = /ค่ะ|คะ|ครับ|คับ|จ้า|จ้ะ|จ๊ะ|จ๋า|ค่า|ฮะ|นะ|น๊า/g;
+export function isHello(text) {
+  const q = String(text ?? '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{M}]/gu, '');
+  if (/^ดีจ้า(?:ค่ะ|คะ|ครับ|นะ)*$/.test(q)) return true; // "ดีจ้า" keeps its own "จ้า"
+  return HELLO.test(q.replace(HELLO_FILLER, ''));
+}
+
 const GREETING = /^(?:สวัสดี|หวัดดี|hello|hi|ดีจ้า|ดีค่ะ|ดีครับ|เมนู|menu|บอท|เริ่มใหม่)/;
 
 // Longest alias contained in the message wins, so "กระดาษa4" picks the A4

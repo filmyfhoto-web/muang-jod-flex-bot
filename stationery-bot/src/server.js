@@ -13,6 +13,7 @@ import { waitFor } from './delay.js';
 import { isPaused, createQuiet, parseAdminIds, parseAdminCommand, isWhoAmI } from './quiet.js';
 import { isWakeWord } from './wake.js';
 import { createVisitTracker, HOUR } from './visit.js';
+import { createSerial } from './serial.js';
 
 const token = (process.env.LINE_CHANNEL_ACCESS_TOKEN ?? '').trim();
 const secret = (process.env.LINE_CHANNEL_SECRET ?? '').trim();
@@ -60,7 +61,9 @@ app.post('/webhook', express.raw({ type: '*/*' }), (req, res) => {
   }
   for (const ev of events) {
     console.log(describeEvent(ev)); // even while paused
-    handleEvent(ev).catch((e) => console.error('[event]', e.message));
+    const who = ev.source?.userId;
+    const job = () => handleEvent(ev);
+    (who ? serial.run(who, job) : job()).catch((e) => console.error('[event]', e.message));
   }
 });
 
@@ -98,6 +101,7 @@ function adminReply(cmd, shop) {
 
 const contacts = createContactState();
 const visits = createVisitTracker();
+const serial = createSerial(); // one customer's messages are handled one at a time, in order
 const MIN = 60 * 1000;
 const contactCfg = (shop) => ({
   windowMs: (shop.contact?.quietMinutes ?? 20) * MIN,
@@ -210,13 +214,14 @@ async function handleEvent(ev) {
       if (r.awaitingSchool) awaitSchool.set(userId);
       else awaitSchool.clear(userId);
       let messages = r.messages;
-      // The "who do you want to talk to?" card goes out once per visit: with the first hello
-      // (instead of the menu card) or the first message the bot cannot answer.
+      // The "who do you want to talk to?" card goes out once per visit, with the first plain
+      // hello (instead of the menu card). A message the bot does not understand stays unanswered
+      // — it is often a reply to an admin who is already talking with the customer.
       const askNow = cfg.sessionAsk && hasContacts && userId !== 'anon' && visits.owed(userId);
       if (r.needsPhotos) {
         messages = [contactCard(shopNow, r.askText ?? shopNow.contact.ask, await adminPhotos(shopNow))];
         visits.done(userId);
-      } else if (askNow && r.greeting && !r.menuRequest) {
+      } else if (askNow && r.pureHello && !r.menuRequest) {
         messages = await withAsk(shopNow, []);
         visits.done(userId);
       }
@@ -224,12 +229,7 @@ async function handleEvent(ev) {
       if (r.silent && !r.quiet && hasContacts) {
         // Not understood: nobody is alerted (there are too many such questions a day). The
         // customer gets nothing, or the "who?" card / a short note if the shop switched that on.
-        if (shopNow.contact.askOnUnknown || askNow) {
-          messages = await withAsk(shopNow, []);
-          visits.done(userId);
-        } else {
-          messages = receipt(shopNow);
-        }
+        messages = shopNow.contact.askOnUnknown ? await withAsk(shopNow, []) : receipt(shopNow);
       }
       const out = holiday(shopNow, messages, { skip: isThanks(said, people(shopNow).map((p) => p.name)) });
       if (!out.length) return; // nothing to say

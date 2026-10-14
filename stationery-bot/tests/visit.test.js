@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createVisitTracker, HOUR } from '../src/visit.js';
 import { buildReply } from '../src/replies.js';
+import { isHello } from '../src/matcher.js';
 
 const shop = JSON.parse(readFileSync(new URL('../data/shop.json', import.meta.url), 'utf8'));
 
@@ -82,10 +83,32 @@ test('shop settings for the visit card are in place', () => {
   assert.equal(shop.contact.sessionGapHours, 4);
 });
 
-test('a hello is marked so the server can swap the menu for the "who?" card; "เมนู" stays a menu request', () => {
+test('only a plain hello gets the visit card; a hello with more after it, a reply or a menu word does not', () => {
   const hi = buildReply('สวัสดีค่ะ', shop, {});
   assert.equal(hi.greeting, true);
+  assert.equal(hi.pureHello, true);
   assert.equal(hi.menuRequest, false);
+  for (const t of ['สวัสดีค่ะ อ.2 = 3 คน', 'ดีค่ะ']) assert.notEqual(buildReply(t, shop, {}).pureHello, true, t);
   assert.equal(buildReply('เมนู', shop, {}).menuRequest, true);
   assert.equal(buildReply('ร้านเปิดกี่โมง', shop, {}).greeting, undefined);
+});
+
+test('isHello: plain hellos in the ways customers write them', () => {
+  for (const t of ['สวัสดีค่ะ', 'สวัสดีครับพี่', 'หวัดดีจ้า', 'Hello', 'hi', 'สวัสดีค่ะ 😊', 'สวัสดีตอนเช้าค่ะ', 'สวัสดีค่ะแอดมิน', 'ดีจ้า', 'สวัสดีนะคะ']) {
+    assert.equal(isHello(t), true, t);
+  }
+  for (const t of ['สวัสดีค่ะ อ.2 = 3 คน', 'ดีค่ะ', 'ขอบคุณค่ะ', 'xyz', 'สวัสดีค่ะ ขอถามหน่อย', 'เมนู', 'hello there', 'อ. 2. = 3 คน', '']) {
+    assert.equal(isHello(t), false, t);
+  }
+});
+
+test('a message the bot does not understand is never answered with the card (even the first of the day)', () => {
+  // the customer's lines in a chat where an admin had just asked "how many students?"
+  for (const t of ['อ. 2. = 3 คน', 'อ.3. = 8 คน', 'ป.1. = 8 คน']) {
+    const r = buildReply(t, shop, {});
+    assert.equal(r.silent, true, t);
+    assert.deepEqual(r.messages, [], t);
+    assert.equal(r.needsPhotos, undefined, t);
+  }
+  assert.equal(shop.contact.askOnUnknown, false);
 });
