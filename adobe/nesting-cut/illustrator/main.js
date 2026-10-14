@@ -33,7 +33,7 @@
     TOO_COMPLEX: 'ชิ้นงานเวกเตอร์ซับซ้อนเกินไป — เปลี่ยนเป็น “สร้างตามขอบงาน” แทน',
     NOTHING_PLACED: 'ยังไม่มีชิ้นที่จัดวางได้',
     CANVAS_FULL: 'แผ่นงานยาว/เยอะเกินพื้นที่ของ Illustrator — ลดความยาวหรือแบ่งงานเป็นหลายรอบ',
-    NO_LAYOUT: 'ไฟล์ชีตไดคัทถูกปิดไปแล้ว — กด “สร้างชีตไดคัท” ใหม่',
+    NO_LAYOUT: 'ไฟล์ชีตไดคัทถูกปิดไปแล้ว — กด “สร้างชีต” ใหม่',
     FOLDER: 'สร้างโฟลเดอร์ไม่ได้: ',
     IMAGE_MISSING: 'หาไฟล์รูปในแพ็กไม่เจอ: ',
     FS: 'อ่าน/เขียนไฟล์ไม่สำเร็จ ',
@@ -763,6 +763,7 @@
         $('previewSub').textContent = '';
         drawPreview();
         renderStats();
+        revealPreview();
         var unplaced = res.unplaced.reduce(function (s, u) {
           return s + u.count;
         }, 0);
@@ -927,6 +928,7 @@
     $('previewSub').textContent = '';
     drawPreview();
     renderStats();
+    revealPreview();
     var msg =
       'ได้ ' + n + ' ดวง · ยกใบมีด ' + lay.lifts + ' ครั้ง · เส้นตัดยาว ' + (lay.cutLength / 1000).toFixed(2) + ' ม. · ดวง ' +
       lay.w.toFixed(1) + ' × ' + lay.h.toFixed(1) + ' มม.';
@@ -1037,7 +1039,7 @@
   }
 
   // แผงกว้างพอ (≥ 620 px) ย้ายพรีวิวไปช่องซ้าย แคบก็กลับมาอยู่ใต้ปุ่มลุย
-  var LAYOUT_LABEL = { auto: 'พรีวิว: อัตโนมัติ', side: 'พรีวิว: ข้าง ๆ', stack: 'พรีวิว: ด้านล่าง' };
+  var LAYOUT_LABEL = { auto: 'พรีวิว อัตโนมัติ', side: 'พรีวิว ข้าง ๆ', stack: 'พรีวิว ด้านล่าง' };
 
   // พรีวิวข้างเมนู: อัตโนมัติ (แผงกว้าง ≥ 560 px) · บังคับข้าง ๆ · บังคับด้านล่าง
   function placePreview() {
@@ -1054,6 +1056,11 @@
     if (S.result) drawPreview();
     if (S.dc) drawDc();
     if (S.vec) drawVec();
+  }
+
+  // แผงแคบ พรีวิวอยู่ในส่วนเลื่อน: คำนวณเสร็จเลื่อนให้เห็นผลครั้งเดียว (แผงกว้างพรีวิวอยู่ข้าง ๆ เห็นอยู่แล้ว)
+  function revealPreview() {
+    if (!document.body.classList.contains('wide')) scrollToSee($('previewCard'));
   }
 
   // วาดทุกแผ่นลงแคนวาสกว้าง cssW (ใช้ทั้งพรีวิวบนแผงและรูปส่งลูกค้า)
@@ -2558,7 +2565,7 @@
     d: 'เลือกขนาดกระดาษ ระยะขอบ และระยะห่างระหว่างดวง — ถ้าใช้ค่าเดิมได้ กด “ทำแล้ว ถัดไป” ได้เลย',
   };
   var G_NEST = { id: 'btnNest', t: 'กด “คำนวณ”', d: 'ดูพรีวิวว่าได้กี่ดวงต่อแผ่น ขั้นนี้ยังไม่แตะไฟล์งาน', done: hasResult };
-  var G_BUILD = { id: 'btnBuild', t: 'กด “สร้างชีตไดคัท”', d: 'พรีวิวโอเคแล้ว กดสร้างชีตบนอาร์ตบอร์ดใหม่ (งานเดิมไม่ถูกย้าย)', done: isBuilt };
+  var G_BUILD = { id: 'btnBuild', t: 'กด “สร้างชีต”', d: 'พรีวิวโอเคแล้ว กดสร้างชีตบนอาร์ตบอร์ดใหม่ (งานเดิมไม่ถูกย้าย)', done: isBuilt };
   var G_EXPORT = {
     id: 'btnExport',
     sub: 'out',
@@ -2663,6 +2670,7 @@
     guideSet(i);
   }
 
+  // เลื่อนขั้นเอง (หลังกดปุ่มสำเร็จ) แค่ไฮไลต์ใหม่ — ไม่สลับแถบ ไม่เลื่อนจอ
   function guideSet(i) {
     var prev = guideIdx();
     GD.idx[S.settings.tool] = i;
@@ -2685,7 +2693,8 @@
     var box = $('coach');
     if (!box) return;
     var steps = guideSteps();
-    var on = !!S.settings.guideOn && steps.length > 0;
+    // ระหว่างเลือกงานในการ์ด “เริ่มตรงนี้” ซ่อนแถบผู้ช่วยไว้ก่อน
+    var on = !!S.settings.guideOn && steps.length > 0 && $('guideStart').hidden;
     box.hidden = !on;
     document.body.classList.toggle('coaching', on);
     $('btnGuide').classList.toggle('on', on);
@@ -2704,7 +2713,7 @@
     $('coachCount').textContent = fin ? 'เสร็จ ' + steps.length + '/' + steps.length : 'ขั้น ' + (i + 1) + '/' + steps.length;
     $('coachTitle').textContent = fin ? '🎉 เสร็จครบทุกขั้นแล้ว!' : CIRCLED[i] + ' ' + st.t;
     $('coachText').textContent = fin
-      ? 'งานต่อไป: เลือกชิ้นงานใหม่แล้วกด “เริ่มรอบใหม่” หรือกด ❓ สอนทีละขั้น เพื่อเปลี่ยนงาน'
+      ? 'งานต่อไป: เลือกชิ้นงานใหม่แล้วกด “เริ่มรอบใหม่” หรือกด ❓ สอน เพื่อเปลี่ยนงาน'
       : st.d;
     $('btnCoachBack').disabled = i === 0;
     $('btnCoachShow').hidden = fin;
@@ -2726,34 +2735,39 @@
   }
 
   // พาไปที่ปุ่มของขั้นปัจจุบัน: สลับแถบย่อย เปิดการ์ด แล้วเลื่อนจอไปให้เห็น
-  function guideShow(force) {
+  // explicit = ผู้ใช้กดเอง (ถัดไป / ย้อน / พาไปที่ปุ่ม / เลือกงาน): สลับแถบย่อยและเลื่อนเท่าที่จำเป็น
+  // ไม่ explicit = เลื่อนขั้นเองหลังทำงานเสร็จ: กะพริบอย่างเดียว จอไม่ขยับ
+  function guideShow(explicit) {
     var st = guideSteps()[guideIdx()];
     if (!st || !S.settings.guideOn || !$('guideStart').hidden) return;
-    if (st.sub && S.settings.subTab !== st.sub) {
+    if (explicit && st.sub && S.settings.subTab !== st.sub) {
       S.settings.subTab = st.sub;
       saveSettings();
       applyVisibility();
+      $('scroller').scrollTop = 0;
     }
     var e = guideEl(st);
-    if (!e) return;
-    var card = e.closest ? e.closest('details') : null;
-    if (card) card.open = true;
-    if (e.tagName === 'DETAILS') e.open = true;
-    if (force || !isInView(e)) {
-      try {
-        e.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      } catch (err) {
-        e.scrollIntoView();
-      }
+    if (!e || e.offsetParent === null) return;
+    if (explicit) {
+      var card = e.closest ? e.closest('details') : null;
+      if (card) card.open = true;
+      if (e.tagName === 'DETAILS') e.open = true;
+      scrollToSee(e);
     }
     e.classList.remove('coach-flash');
     void e.offsetWidth;
     e.classList.add('coach-flash');
   }
 
-  function isInView(e) {
+  // เลื่อนเฉพาะส่วนกลาง และเลื่อนเท่าที่ต้องให้เห็น (ไม่กระโดดไปกลางจอ ไม่เลื่อนแบบไหล)
+  function scrollToSee(e) {
+    var box = $('scroller');
+    if (!box.contains(e)) return;
     var r = e.getBoundingClientRect();
-    return r.top >= 0 && r.bottom <= (window.innerHeight || document.documentElement.clientHeight);
+    var b = box.getBoundingClientRect();
+    var pad = 8;
+    if (r.top < b.top + pad) box.scrollTop += r.top - b.top - pad;
+    else if (r.bottom > b.bottom - pad) box.scrollTop += Math.min(r.bottom - b.bottom + pad, r.top - b.top - pad);
   }
 
   function guideNext() {
@@ -2811,7 +2825,8 @@
       b.classList.toggle('on', b.getAttribute('data-job') === S.settings.tool);
     });
     $('guideStart').hidden = false;
-    $('controls').scrollTop = 0;
+    $('scroller').scrollTop = 0;
+    guideRender();
   }
 
   function guideStart(tool) {
@@ -2836,7 +2851,10 @@
   function bindGuide() {
     $('btnGuide').onclick = function () {
       if ($('guideStart').hidden) guideOpenStart();
-      else $('guideStart').hidden = true;
+      else {
+        $('guideStart').hidden = true;
+        guideRender();
+      }
     };
     $('btnGuideOff').onclick = guideClose;
     $('btnCoachClose').onclick = guideClose;
@@ -2881,9 +2899,7 @@
       var s2 = e.getAttribute('data-sub');
       e.hidden = e.getAttribute('data-for').split(' ').indexOf(tool) < 0 || (!!s2 && s2 !== sub);
     });
-    Array.prototype.forEach.call(document.querySelectorAll('#toolTabs button'), function (b) {
-      b.classList.toggle('on', b.getAttribute('data-tool') === tool);
-    });
+    if ($('toolSelect').value !== tool) $('toolSelect').value = tool;
     Array.prototype.forEach.call(document.querySelectorAll('#subTabs button'), function (b) {
       b.classList.toggle('on', b.getAttribute('data-sub') === sub);
     });
@@ -3130,17 +3146,16 @@
         });
       });
     };
-    Array.prototype.forEach.call(document.querySelectorAll('#toolTabs button'), function (b) {
-      b.onclick = function () {
-        if (!S.busy) setTool(b.getAttribute('data-tool'));
-      };
-    });
+    $('toolSelect').onchange = function () {
+      if (S.busy) $('toolSelect').value = S.settings.tool;
+      else setTool($('toolSelect').value);
+    };
     Array.prototype.forEach.call(document.querySelectorAll('#subTabs button'), function (b) {
       b.onclick = function () {
         S.settings.subTab = b.getAttribute('data-sub');
         saveSettings();
         applyVisibility();
-        $('controls').scrollTop = 0;
+        $('scroller').scrollTop = 0;
       };
     });
     markFields();

@@ -11,15 +11,51 @@
     <!-- จอกว้าง: พรีวิวย้ายมาอยู่ช่องซ้าย คู่กับแผงคำสั่ง (main.js ย้ายให้) -->
     <aside id="previewSide"></aside>
     <div id="controls">
-    <header class="brand">
-      <img src="assets/logo-panel.png" alt="นัดพอน Nesting Cut — ปลั๊กอิน เจ๊หญิงสั่งลุย" />
-      <div class="brand-tools">
-        <button type="button" id="btnGuide" class="ghost guide-btn" title="เปิดตัวช่วยสอนใช้ทีละขั้น — บอกว่าต้องกดอะไรก่อนหลัง">❓ สอนทีละขั้น</button>
-        <button type="button" id="btnLayout" class="ghost" title="สลับตำแหน่งพรีวิว: อัตโนมัติ → ข้าง ๆ → ด้านล่าง">พรีวิว: อัตโนมัติ</button>
-        <button type="button" id="btnClear" class="ghost" title="ล้างรายการชิ้นงาน ผลคำนวณ และพรีวิว (เลือกลบชีตเก่าในไฟล์ได้)">ล้างงานเก่า</button>
-      </div>
+    <!-- ส่วนบนอยู่กับที่: โลโก้ + เลือกเครื่องมือ + ปุ่มสอน -->
+    <header class="topbar">
+      <img class="logo" src="assets/logo-panel.png" alt="นัดพอน Nesting Cut — ปลั๊กอิน เจ๊หญิงสั่งลุย" />
+      <select id="toolSelect" class="toolpick" title="เลือกเครื่องมือ">
+        <option value="nest" data-tool="nest">จัดวางดวง — Nesting</option>
+        <option value="run" data-tool="run">ไดคัทต่อเนื่อง — Sticker · Label</option>
+        <option value="shape" data-tool="shape">ไดคัทตามรูป — Contour</option>
+        <option value="corner" data-tool="corner">ทำมุมโค้ง — CNC Fit</option>
+        <option value="led" data-tool="led">หาเส้นกลาง — LED Path</option>
+        <option value="dim" data-tool="dim">บอกขนาด — Dimension</option>
+        <option value="number" data-tool="number">รันนัมเบอร์ — Variable Data</option>
+        <option value="stamp" data-tool="stamp">ตรายางเลเซอร์ — Stamp Laser</option>
+        <option value="hotkey" data-tool="hotkey">ปุ่มลัด — One-key</option>
+      </select>
+      <button type="button" id="btnGuide" class="guide-btn" title="เปิดตัวช่วยสอนใช้ทีละขั้น — บอกว่าต้องกดอะไรก่อนหลัง">❓ สอน</button>
     </header>
+    <nav class="bar2">
+      <div class="subtabs" id="subTabs" data-for="nest run">
+        <button type="button" data-sub="main">หลัก</button>
+        <button type="button" data-sub="adv">ขั้นสูง</button>
+        <button type="button" data-sub="out">ส่งออก</button>
+      </div>
+      <span class="grow"></span>
+      <button type="button" id="btnLayout" class="ghost mini" title="สลับตำแหน่งพรีวิว: อัตโนมัติ → ข้าง ๆ → ด้านล่าง">พรีวิว อัตโนมัติ</button>
+      <button type="button" id="btnClear" class="ghost mini" title="ล้างรายการชิ้นงาน ผลคำนวณ และพรีวิว (เลือกลบชีตเก่าในไฟล์ได้)">ล้างงาน</button>
+    </nav>
 
+    <!-- ตัวช่วยสอน: อยู่กับที่ใต้แถบเครื่องมือ ไม่บังการ์ด -->
+    <div class="coach" id="coach" hidden>
+      <ol class="coach-dots" id="coachDots"></ol>
+      <div class="coach-head">
+        <span class="coach-count" id="coachCount">ขั้น 1/5</span>
+        <b id="coachTitle"></b>
+        <button type="button" id="btnCoachClose" class="coach-x" title="ปิดตัวช่วยสอน (เปิดใหม่ได้ที่ ❓ สอน)">✕</button>
+      </div>
+      <p id="coachText"></p>
+      <div class="coach-nav">
+        <button type="button" id="btnCoachBack" class="ghost">‹ ย้อน</button>
+        <button type="button" id="btnCoachShow" class="ghost">👉 พาไปที่ปุ่ม</button>
+        <button type="button" id="btnCoachNext">ทำแล้ว ถัดไป ›</button>
+      </div>
+    </div>
+
+    <!-- ส่วนกลางเลื่อนได้ส่วนเดียว -->
+    <div id="scroller">
     <!-- ล้างงานเก่า: ยืนยันในแผง (ไม่ใช้กล่อง confirm) -->
     <section class="card clearbox" id="clearBox" hidden>
       <h2>ล้างงานเก่า</h2>
@@ -42,40 +78,6 @@
         <button type="button" id="btnGuideOff" class="ghost">ไม่ต้องสอน ฉันใช้เป็นแล้ว</button>
       </div>
     </section>
-
-    <!-- เครื่องมือ: อ่านค่าจาก Selection ใน Illustrator แล้วสร้างผลลงเอกสารเดิม -->
-    <nav class="tools" id="toolTabs">
-      <button type="button" data-tool="nest">จัดวางดวง<small>Nesting</small></button>
-      <button type="button" data-tool="run">ไดคัทต่อเนื่อง<small>Sticker · Label</small></button>
-      <button type="button" data-tool="shape">ไดคัทตามรูป<small>Contour</small></button>
-      <button type="button" data-tool="corner">ทำมุมโค้ง<small>CNC Fit</small></button>
-      <button type="button" data-tool="led">หาเส้นกลาง<small>LED Path</small></button>
-      <button type="button" data-tool="dim">บอกขนาด<small>Dimension</small></button>
-      <button type="button" data-tool="number">รันนัมเบอร์<small>Variable Data</small></button>
-      <button type="button" data-tool="stamp">ตรายางเลเซอร์<small>Stamp Laser</small></button>
-      <button type="button" data-tool="hotkey">ปุ่มลัด<small>One-key</small></button>
-    </nav>
-    <nav class="subtabs" id="subTabs" data-for="nest run">
-      <button type="button" data-sub="main">หลัก</button>
-      <button type="button" data-sub="adv">ปรับแต่งขั้นสูง</button>
-      <button type="button" data-sub="out">ส่งออก</button>
-    </nav>
-
-    <!-- ตัวช่วยสอน: บอกขั้นปัจจุบัน + ปุ่มย้อน/ถัดไป (ติดขอบบน) -->
-    <div class="coach" id="coach" hidden>
-      <div class="coach-head">
-        <span class="coach-count" id="coachCount">ขั้น 1/5</span>
-        <b id="coachTitle"></b>
-        <button type="button" id="btnCoachClose" class="coach-x" title="ปิดตัวช่วยสอน (เปิดใหม่ได้ที่ ❓ สอนทีละขั้น)">✕</button>
-      </div>
-      <p id="coachText"></p>
-      <div class="coach-nav">
-        <button type="button" id="btnCoachBack" class="ghost">‹ ย้อน</button>
-        <button type="button" id="btnCoachShow" class="ghost">👉 พาไปที่ปุ่ม</button>
-        <button type="button" id="btnCoachNext">ทำแล้ว ถัดไป ›</button>
-      </div>
-      <ol class="coach-dots" id="coachDots"></ol>
-    </div>
 
     <div id="demoBanner" class="banner" hidden>
       <b>โหมดทดลอง</b> — หน้านี้ไม่ได้เปิดอยู่ใน Illustrator จึงใช้ชิ้นงานตัวอย่างแทน ลองกด “เจ๊หญิงสั่งลุย!” ได้เลย
@@ -499,7 +501,7 @@
       <ol class="steplist">
         <li><b>เลือกต้นแบบหนึ่งดวง</b><span>เลือกภาพกับเส้นตัดหรือวัตถุที่ต้องการทำซ้ำให้ครบ แล้วกด “ดึงชิ้นงานที่เลือก”</span></li>
         <li><b>ตั้งวัสดุและหน้ากระดาษ</b><span>ชื่อวัสดุ แกรม ขนาดหน้า ระยะขอบ (หัวข้อ 2) รูปทรง ขนาด ระยะห่าง และแบบเรียงตรงหรือสลับแถว</span></li>
-        <li><b>ตรวจตัวอย่างแล้วสร้าง</b><span>ดูจำนวนดวงและจำนวนครั้งยกใบมีด จากนั้นกด “สร้างชีตไดคัท”</span></li>
+        <li><b>ตรวจตัวอย่างแล้วสร้าง</b><span>ดูจำนวนดวงและจำนวนครั้งยกใบมีด จากนั้นกด “สร้างชีต”</span></li>
       </ol>
       </details>
       <div class="grid2">
@@ -737,16 +739,18 @@
       <p class="hint">PLT ลองตัดชิ้นเล็กก่อนครั้งแรก ถ้างานออกมาหมุน/กลับด้าน ให้สลับ “แกน PLT”</p>
     </details>
 
+    </div>
+
     <!-- ปุ่มหลัก -->
     <section class="card actions sticky-actions" data-for="nest run">
       <button id="btnNext" class="go">ดึงชิ้นงานที่เลือก</button>
       <div class="row small">
         <button id="btnNest" class="ghost" title="จัดวางแล้วดูพรีวิวก่อน ยังไม่แตะไฟล์">คำนวณ</button>
-        <button id="btnBuild" class="ghost" title="สร้างไฟล์เลย์เอาต์ใหม่ใน Illustrator จากผลจัดวาง">สร้างชีตไดคัท</button>
+        <button id="btnBuild" class="ghost" title="สร้างชีตไดคัทบนอาร์ตบอร์ดใหม่ใน Illustrator จากผลจัดวาง">สร้างชีต</button>
         <button id="btnExport" class="ghost" title="บันทึก PDF / AI / PLT / DXF / SVG">ส่งออก</button>
         <button id="btnSelectCut" class="ghost" title="เลือกเส้นตัดทั้งหมด เพื่อส่งผ่านปลั๊กอินของเครื่องตัด">เลือกเส้นตัด</button>
       </div>
-      <button id="btnGo" class="linkish" data-for="nest" title="ดึงชิ้นงาน → คำนวณ → สร้างชีต → ส่งออก ในปุ่มเดียว">⚡ เจ๊หญิงสั่งลุย! — ทำครบทุกขั้นรวดเดียว</button>
+      <button id="btnGo" class="linkish" data-for="nest" title="ดึงชิ้นงาน → คำนวณ → สร้างชีต → ส่งออก ในปุ่มเดียว">⚡ เจ๊หญิงสั่งลุย! — ทำครบทุกขั้นในปุ่มเดียว</button>
       <div class="progress"><div id="progressBar"></div></div>
       <div id="status" class="status">พร้อมลุย</div>
     </section>

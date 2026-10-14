@@ -3,7 +3,9 @@ body {
   margin: 0;
   padding: 8px;
   color: var(--uxp-host-text-color, #ddd);
-  font-size: 12px;
+  /* ตัวอักษรแบบ Mac / iPhone (UXP ใช้ได้เฉพาะฟอนต์ที่ติดเครื่อง) */
+  font-family: -apple-system, 'SF Pro Text', 'Helvetica Neue', Thonburi, 'Segoe UI', 'Leelawadee UI', Tahoma, sans-serif;
+  font-size: 13px;
   background: var(--uxp-host-background-color, #323232);
 }
 .brand {
@@ -16,13 +18,13 @@ body {
 }
 .card {
   border: 1px solid var(--uxp-host-border-color, #4a4a4a);
-  border-radius: 8px;
+  border-radius: 0;
   padding: 10px;
   margin-bottom: 8px;
 }
 .title {
   font-weight: bold;
-  font-size: 13px;
+  font-size: 14px;
   margin-bottom: 6px;
   display: flex;
   align-items: center;
@@ -30,17 +32,17 @@ body {
 .num {
   width: 18px;
   height: 18px;
-  border-radius: 9px;
+  border-radius: 0;
   background-color: #c0582b;
   color: #fff;
   text-align: center;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 18px;
   margin-right: 6px;
 }
 .hint {
   color: var(--uxp-host-text-color-secondary, #a0a0a0);
-  font-size: 11px;
+  font-size: 12px;
   margin: 4px 0 6px;
 }
 .right {
@@ -54,7 +56,7 @@ body {
   width: 48%;
   margin-right: 2%;
   margin-bottom: 6px;
-  font-size: 11px;
+  font-size: 12px;
   display: flex;
   flex-direction: column;
 }
@@ -68,17 +70,17 @@ input {
 }
 .path {
   flex: 1;
-  font-size: 11px;
+  font-size: 12px;
   overflow: hidden;
   margin-right: 6px;
 }
 button {
-  border-radius: 6px;
+  border-radius: 0;
   padding: 5px 10px;
   border: 1px solid #c0582b;
   background-color: #c0582b;
   color: #fff;
-  font-size: 12px;
+  font-size: 13px;
 }
 button.ghost {
   background-color: transparent;
@@ -88,7 +90,7 @@ button.ghost {
 button.go {
   width: 100%;
   padding: 9px;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: bold;
 }
 button:disabled {
@@ -113,7 +115,7 @@ button:disabled {
 }
 .status {
   margin-top: 8px;
-  font-size: 11.5px;
+  font-size: 12px;
 }
 .status.ok {
   color: #3ecf8e;
