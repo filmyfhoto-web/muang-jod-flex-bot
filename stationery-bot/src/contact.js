@@ -31,7 +31,7 @@ export function notificationText({ customer, contact, said, link, reason }) {
 
 export function createContactState(now = () => Date.now()) {
   const chosen = new Map(); // userId → last message time (the quiet window slides)
-  const told = new Map(); // userId → when the admins were last told "the bot cannot answer this"
+  const told = new Map(); // key → { at: when it last fired, ms: its own cooldown }
   return {
     choose(id) {
       chosen.set(id, now());
@@ -50,12 +50,15 @@ export function createContactState(now = () => Date.now()) {
     wake(id) {
       chosen.delete(id);
     },
-    // true when the admins should be told about this customer now (not more than once per cooldown)
+    // true when the admins should be told now (not more than once per cooldown for this key).
+    // Every key keeps its own window, so a short-window check (e.g. "another thank-you for a
+    // picture?") never wipes out a long-window one (e.g. "the admins were told 2 h ago").
     alertDue(id, cooldownMs) {
       const t = now();
-      for (const [k, at] of told) if (t - at > cooldownMs) told.delete(k);
-      if (told.has(id)) return false;
-      told.set(id, t);
+      for (const [k, v] of told) if (t - v.at >= v.ms) told.delete(k);
+      const e = told.get(id);
+      if (e && t - e.at < cooldownMs) return false;
+      told.set(id, { at: t, ms: cooldownMs });
       return true;
     },
   };

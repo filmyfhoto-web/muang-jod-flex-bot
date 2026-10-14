@@ -203,7 +203,8 @@ test('unknown messages and media get no reply from the bot: they go to the admin
   assert.equal(shop.replyOnlyKnown, true);
   assert.deepEqual(buildReply('ขอดูรูปตัวอย่างหน่อยค่ะ', shop).messages, []);
   assert.equal(buildReply('ขอดูรูปตัวอย่างหน่อยค่ะ', shop).silent, true); // the server turns this into an alert
-  assert.equal(shop.contact.notifyAllMinutes, 10);
+  assert.equal(shop.contact.alertEveryHours, 5); // one alert per customer per 5 hours
+  assert.equal(shop.contact.pictureReplyMinutes, 10);
   assert.equal(shop.contact.unknown, undefined); // no "reminder" card any more
   assert.equal(shop.contact.remind, undefined);
 });
@@ -270,4 +271,29 @@ test('an order alert says what it is about, not that the bot could not answer', 
   const card = notificationCard(shop, { customer: { name: 'ก' }, contact: null, said: 'โฟมบอร์ด', link: null, reason: 'ลูกค้าสั่งงาน/สั่งของ' });
   const json = JSON.stringify(card);
   assert.ok(json.includes('ลูกค้าสั่งงาน/สั่งของ') && !json.includes('บอทตอบเรื่องนี้ไม่ได้'));
+});
+
+test('alerts: one per customer per 5 hours, even when a short-window check runs in between', () => {
+  let t = 1_000_000;
+  const st = createContactState(() => t);
+  const H = 60 * 60_000;
+  assert.equal(st.alertDue('u1', 5 * H), true); // 11:54 — the admins are told
+  t += 15 * 60_000;
+  assert.equal(st.alertDue('img:u1', 10 * MIN), true); // 12:09 — a picture-thank-you check (short window)
+  assert.equal(st.alertDue('u1', 5 * H), false); // …must not make the admins be told again
+  t += 4 * H;
+  assert.equal(st.alertDue('u1', 5 * H), false); // 4 h 15 min later: still inside the 5 hours
+  t += 1 * H;
+  assert.equal(st.alertDue('u1', 5 * H), true); // past 5 hours: told again
+});
+
+test('an admin the customer taps is told once per window, a different admin is told separately', () => {
+  let t = 5_000_000;
+  const st = createContactState(() => t);
+  const H = 60 * 60_000;
+  assert.equal(st.alertDue('pick:u1:ฟิล์ม', 5 * H), true);
+  t += 30 * 60_000;
+  assert.equal(st.alertDue('pick:u1:ฟิล์ม', 5 * H), false); // same admin tapped again
+  assert.equal(st.alertDue('pick:u1:พี่ปิ่น', 5 * H), true); // another admin
+  assert.equal(st.alertDue('pick:u2:ฟิล์ม', 5 * H), true); // another customer
 });

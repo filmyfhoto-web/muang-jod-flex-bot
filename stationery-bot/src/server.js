@@ -105,7 +105,8 @@ const serial = createSerial(); // one customer's messages are handled one at a t
 const MIN = 60 * 1000;
 const contactCfg = (shop) => ({
   windowMs: (shop.contact?.quietMinutes ?? 20) * MIN,
-  alertEveryMs: (shop.contact?.notifyAllMinutes ?? 10) * MIN, // one "bot did not understand" alert per customer per this long
+  alertEveryMs: (shop.contact?.alertEveryHours ?? 5) * HOUR, // the admins are told about one customer at most once per this long
+  pictureReplyMs: (shop.contact?.pictureReplyMinutes ?? 10) * MIN, // pictures in a row get one thank-you per this long
   visitGapMs: (shop.contact?.sessionGapHours ?? 4) * HOUR, // a new visit starts after this long without a message (or on a new day)
   sessionAsk: shop.contact?.sessionAsk !== false,
 });
@@ -193,7 +194,9 @@ async function handleEvent(ev) {
     if (chosen) {
       contacts.choose(userId);
       visits.done(userId); // they picked someone: nothing more to ask this visit
-      void notifyAdmins([chosen], shop, { customerId: userId, contact: chosen, said: '' }); // only "the customer wants to talk to you" — no message text
+      // Only "the customer wants to talk to you" — no message text — and only once per customer per admin
+      // per window, however many times they tap the name.
+      if (contacts.alertDue(`pick:${userId}:${chosen.name}`, cfg.alertEveryMs)) void notifyAdmins([chosen], shop, { customerId: userId, contact: chosen, said: '' });
       return; // no reply at all
     }
     if (quietNow) {
@@ -249,7 +252,7 @@ async function handleEvent(ev) {
   // A payment slip is read and thanked; anything else the bot cannot read is passed to the
   // admins (and the customer gets nothing from the bot).
   // Several pictures in a row get one thank-you and one alert (the first), not one each.
-  if (ev.message.type === 'image' && userId !== 'anon' && !contacts.alertDue(`img:${userId}`, cfg.alertEveryMs)) return;
+  if (ev.message.type === 'image' && userId !== 'anon' && !contacts.alertDue(`img:${userId}`, cfg.pictureReplyMs)) return;
   if (ev.message.type === 'image' && !readerOn()) {
     // Free mode (no AI key): any picture is thanked, and the admins are told to look at it.
     if (hasContacts) escalate(userId, '(ส่งรูป)', shop, cfg, 'ลูกค้าส่งรูป');
