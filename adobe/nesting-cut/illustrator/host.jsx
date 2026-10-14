@@ -321,8 +321,9 @@ function np_cutHolder(it) {
   return g;
 }
 
+// fonts with proper OpenType Thai first (system font on Mac / Windows), Tahoma after them
 function np_thaiFont(preferred) {
-  var names = ['Tahoma', 'LeelawadeeUI', 'Leelawadee', 'Thonburi', 'SukhumvitSet-Text', 'Sarabun-Regular',
+  var names = ['Thonburi', 'LeelawadeeUI', 'Leelawadee', 'Tahoma', 'SukhumvitSet-Text', 'Sarabun-Regular',
     'THSarabunNew', 'Kanit-Regular', 'Prompt-Regular', 'ArialUnicodeMS'];
   if (preferred) names.unshift(preferred);
   for (var i = 0; i < names.length; i++) {
@@ -502,6 +503,22 @@ function np_drawMarks(layer, marks, ox, oy, color) {
   }
 }
 
+// Thai vowel and tone marks need Illustrator's World-Ready ("Optyca") composer - the default
+// Latin composer stacks them in the wrong place. The enum value name differs between versions,
+// so look it up by name; false when this Illustrator has none.
+function np_worldReady(tf) {
+  try {
+    var props = ComposerEngineType.reflect.properties;
+    for (var i = 0; i < props.length; i++) {
+      if (/optyca/i.test(props[i].name)) {
+        tf.textRange.paragraphAttributes.composerEngine = ComposerEngineType[props[i].name];
+        return true;
+      }
+    }
+  } catch (e) {}
+  return false;
+}
+
 function np_drawHeader(layer, hd, ox, oy, color) {
   if (hd.logo && hd.logo.file) {
     var f = new File(hd.logo.file);
@@ -524,9 +541,17 @@ function np_drawHeader(layer, hd, ox, oy, color) {
     ca.fillColor = color;
     var font = np_thaiFont(hd.text.font);
     if (font) ca.textFont = font;
+    var shaped = np_worldReady(tf);
     var sc = Math.min(1, hd.text.w / Math.max(1, tf.width), hd.text.h / Math.max(1, tf.height));
     if (sc < 1) ca.size = Math.max(4, (hd.text.size || 12) * sc);
     tf.position = [ox + hd.text.x, oy - hd.text.y];
+    // shaped correctly -> outlines, so the RIP or another computer without the font shows the same thing
+    // (otherwise stay live text: Paragraph panel > World-Ready composer still fixes it by hand)
+    if (shaped) {
+      try {
+        tf.createOutline();
+      } catch (e2) {}
+    }
   }
 }
 

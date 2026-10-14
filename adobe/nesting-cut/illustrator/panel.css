@@ -97,52 +97,131 @@ body {
   padding: 8px 8px 4px;
 }
 
-/* หัวแผง: โลโก้ · เลือกเครื่องมือ · ปุ่มสอน */
+/* หัวแผง: โลโก้ · เลือกเครื่องมือ · วิธีใช้ · ล้างงาน */
 .topbar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   padding: 6px 8px;
   background: var(--card);
   border-bottom: 1px solid var(--line);
 }
 .topbar .logo {
-  height: 40px;
+  height: 34px;
   width: auto;
   flex: none;
 }
 .topbar .toolpick {
   flex: 1 1 auto;
   width: auto;
-  font-weight: 600;
-  font-size: 15px;
-  padding: 7px 8px;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 6px 8px;
   border-color: var(--accent);
 }
-.topbar .guide-btn {
+.topbar button.icon {
   flex: none;
-  padding: 7px 10px;
+  padding: 6px 8px;
+  font-weight: 600;
+}
+.topbar #btnGuide {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.topbar #btnGuide.on {
+  background: var(--accent-soft);
+}
+
+/* แถบขั้น 1–4 (จัดวางดวง / ไดคัทต่อเนื่อง) — อยู่กับที่ใต้หัวแผง */
+.steps {
+  flex: none;
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  padding: 8px 8px 6px;
+}
+.steps ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+}
+.steps li {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+  position: relative;
+}
+/* เส้นเชื่อมระหว่างขั้น */
+.steps li + li::before {
+  content: '';
+  position: absolute;
+  top: 11px;
+  left: -50%;
+  right: 50%;
+  height: 2px;
+  background: var(--line);
+}
+.steps li i {
+  font-style: normal;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  color: var(--fg);
+  font-weight: 700;
+  font-size: 13px;
+  position: relative;
+  z-index: 1;
+}
+.steps li span {
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.steps li.done i {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: #10231a;
+}
+.steps li.done + li::before {
+  background: var(--ok);
+}
+.steps li.current {
+  color: var(--fg);
   font-weight: 700;
 }
-.bar2 {
-  display: flex;
-  align-items: stretch;
-  gap: 4px;
-  padding: 0 8px;
-  border-bottom: 1px solid var(--line);
-  min-height: 32px;
+.steps li.current i {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }
-.bar2 .grow {
-  flex: 1;
+/* คำบอกสั้น ๆ ว่าหน้านี้ต้องทำอะไร — สูงคงที่ 2 บรรทัด แถบไม่ยืดหด */
+.step-hint {
+  margin: 6px 0 0;
+  height: 2.8em;
+  overflow: hidden;
+  font-size: 12.5px;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--fg);
 }
-.bar2 button.mini {
-  align-self: center;
-  font-size: 12px;
-  padding: 3px 6px;
-  white-space: nowrap;
+.off-page {
+  display: none !important;
 }
-.bar2 .subtabs button {
-  padding: 6px 8px;
+/* ระหว่างเลือกงาน (“วันนี้จะทำอะไร?”) โชว์การ์ดนี้อย่างเดียว */
+body.choosing .steps,
+body.choosing .sticky-actions,
+body.choosing #scroller > :not(#guideStart) {
+  display: none !important;
 }
 [hidden] {
   display: none !important;
@@ -319,14 +398,6 @@ button.go {
   padding: 10px;
   letter-spacing: 0.3px;
   box-shadow: 0 4px 14px rgba(168, 74, 36, 0.35);
-}
-.actions .row.small {
-  flex-wrap: wrap;
-  margin: 8px 0 0;
-}
-.actions .row.small button {
-  flex: 1 1 calc(50% - 6px);
-  padding: 5px 6px;
 }
 
 /* รายการชิ้นงาน */
@@ -718,26 +789,6 @@ label.field > input[type='color'] {
   grid-template-columns: auto minmax(56px, 1fr);
 }
 
-/* แถบย่อย: หลัก / ปรับแต่งขั้นสูง / ส่งออก */
-.subtabs {
-  display: flex;
-  gap: 2px;
-}
-.subtabs button {
-  background: transparent;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  color: var(--muted);
-  padding: 6px 10px;
-  font-weight: 600;
-  margin-bottom: -1px;
-}
-.subtabs button.on {
-  color: var(--fg);
-  border-bottom-color: var(--accent);
-}
-
 /* ปุ่มหลักอยู่ล่างสุดของแผงเสมอ ไม่ลอยทับการ์ด */
 .sticky-actions {
   flex: none;
@@ -761,16 +812,18 @@ label.field > input[type='color'] {
 .tool-actions .row button {
   flex: 1;
 }
-.sticky-actions .row.small {
-  flex-wrap: nowrap;
-  gap: 4px;
-  margin-top: 6px;
+.sticky-actions .row.nav {
+  margin: 0;
+  gap: 6px;
+  align-items: stretch;
 }
-.sticky-actions .row.small button {
-  flex: 1 1 0;
+.sticky-actions .row.nav .back {
+  flex: none;
+  padding: 0 10px;
+}
+.sticky-actions .row.nav .go {
+  flex: 1 1 auto;
   min-width: 0;
-  padding: 6px 2px;
-  font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -793,90 +846,6 @@ label.field > input[type='color'] {
   margin-top: 6px;
 }
 
-/* ลำดับงาน 1–5 */
-.stepper-card {
-  padding: 8px 10px;
-}
-.stepper {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  gap: 2px;
-}
-.stepper li {
-  flex: 1 1 0;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  cursor: pointer;
-  color: var(--muted);
-  font-size: 11.5px;
-  text-align: center;
-  position: relative;
-}
-.stepper li::before {
-  content: '';
-  position: absolute;
-  top: 11px;
-  left: -50%;
-  right: 50%;
-  height: 2px;
-  background: var(--line);
-  z-index: 0;
-}
-.stepper li:first-child::before {
-  display: none;
-}
-.stepper li i {
-  font-style: normal;
-  width: 22px;
-  height: 22px;
-  border-radius: 0;
-  display: grid;
-  place-items: center;
-  background: var(--card-2);
-  border: 1px solid var(--line);
-  font-weight: 700;
-  position: relative;
-  z-index: 1;
-}
-.stepper li span {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-.stepper li.done {
-  color: var(--fg);
-}
-.stepper li.done i {
-  background: var(--ok);
-  border-color: var(--ok);
-  color: #10231a;
-}
-.stepper li.done::before,
-.stepper li.current::before {
-  background: var(--ok);
-}
-.stepper li.current {
-  color: var(--fg);
-  font-weight: 700;
-}
-.stepper li.current i {
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  border-color: var(--accent);
-  color: #fff;
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-.stepper-hint {
-  margin: 6px 0 0;
-  font-size: 12px;
-  color: var(--muted);
-  text-align: center;
-}
 #btnNext.done {
   background: var(--card-2);
   border-color: var(--ok);
@@ -903,23 +872,14 @@ details.howto > summary {
   margin-bottom: 4px;
 }
 
-/* ---------------------------------------------------------------- ตัวช่วยสอนทีละขั้น */
-
-.topbar .guide-btn {
-  background: transparent;
-  border-color: var(--accent);
-  color: var(--accent);
-}
-.topbar .guide-btn.on {
-  background: var(--accent-soft);
-}
+/* ---------------------------------------------------------------- การ์ด “วันนี้จะทำอะไร?” */
 
 .guide-start {
   border: 2px solid var(--accent);
 }
 .guide-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 4px;
   margin: 6px 0;
 }
@@ -931,7 +891,7 @@ details.howto > summary {
   background: var(--card-2);
   color: var(--fg);
   border: 1px solid var(--line);
-  padding: 6px 8px;
+  padding: 7px 8px;
   white-space: normal;
 }
 .guide-job:hover,
@@ -953,149 +913,59 @@ details.howto > summary {
   font-weight: 400;
 }
 
-/* อยู่กับที่ใต้แถบเครื่องมือ (ไม่ลอยทับการ์ด) */
-.coach {
-  flex: none;
-  background: var(--navy);
-  color: #fff;
-  border-bottom: 2px solid var(--accent);
-  padding: 0 8px 7px;
-}
-.coach-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.coach-head b {
-  flex: 1;
-  font-size: 14px;
-}
-.coach-count {
-  flex: none;
-  background: var(--accent);
-  color: #fff;
-  border-radius: 0;
-  padding: 1px 8px;
-  font-size: 12px;
-  font-weight: 700;
-}
-.coach .coach-x {
-  flex: none;
-  background: transparent;
-  border: 0;
-  color: #fff;
-  padding: 2px 6px;
-  opacity: 0.8;
-}
-.coach p {
-  margin: 2px 0 6px;
-  color: #e3e6ef;
-  font-size: 13px;
-  line-height: 1.4;
-}
-.coach-nav {
-  display: flex;
-  gap: 6px;
-}
-.coach-nav button {
-  flex: 1;
-  padding: 5px 4px;
-  font-size: 13px;
-}
-.coach-nav .ghost {
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.35);
-}
-.coach-dots {
-  display: flex;
-  gap: 2px;
-  list-style: none;
-  margin: 0 -8px 6px;
-  padding: 0;
-}
-.coach-dots li {
-  flex: 1;
-  height: 5px;
-  font-size: 0;
-  background: rgba(255, 255, 255, 0.16);
-  cursor: pointer;
-}
-.coach-dots li.done {
-  background: var(--ok);
-  color: #10321f;
-}
-.coach-dots li.current {
-  background: var(--accent);
-}
+/* ---------------------------------------------------------------- หน้า 1–4 */
 
-/* ป้ายเลขลำดับบนปุ่ม/การ์ดของแต่ละขั้น */
-[data-coach-n] {
-  position: relative;
+/* ยังไม่มีชิ้นงาน: บอกวิธีเป็นข้อ ๆ */
+ol.how {
+  margin: 0 0 8px;
+  padding-left: 20px;
+  font-size: 13px;
 }
-[data-coach-n]::before {
-  content: attr(data-coach-n);
-  position: absolute;
-  top: -6px;
-  left: -4px;
-  z-index: 3;
-  min-width: 18px;
-  height: 18px;
-  line-height: 18px;
-  padding: 0 3px;
-  box-sizing: border-box;
-  border-radius: 0;
-  background: var(--navy);
-  border: 1px solid var(--accent);
-  color: #fff;
+ol.how li {
+  margin-bottom: 4px;
+}
+ol.how li.hint {
+  list-style: none;
+  margin-left: -20px;
+}
+.row.more {
+  flex-wrap: wrap;
+  margin: 6px 0 0;
+}
+.label-line {
+  color: var(--muted);
   font-size: 12px;
-  font-weight: 700;
-  text-align: center;
-  pointer-events: none;
+  margin: 2px 0 4px;
 }
-[data-coach-n].coach-done::before {
-  background: var(--ok);
-  border-color: var(--ok);
-  color: #10321f;
+h3.sec {
+  margin: 12px 0 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font-size: 12.5px;
+  color: var(--accent);
 }
-.coach-now {
-  outline: 3px solid var(--accent);
-  outline-offset: 2px;
-  animation: coach-pulse 1.4s ease-in-out infinite;
+details.card > summary + h3.sec {
+  margin-top: 0;
 }
-[data-coach-n].coach-now::before {
-  background: var(--accent);
-  border-color: #fff;
-  top: -10px;
-  height: 16px;
-  line-height: 14px;
-  font-size: 11px;
-  padding: 0 4px;
-  content: '👉 ' attr(data-coach-n);
+.card h2 .grow {
+  flex: 1;
 }
-/* ตอนเปิดตัวช่วย แถบตัวเลขในหัวผู้ช่วยแทนแถบลำดับงานเดิม (ตัวเลขชุดเดียวกัน) */
-body.coaching #secFlow {
-  display: none;
+.card h2 button.mini {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
 }
-.coach-flash {
-  animation: coach-pulse 0.5s ease-in-out 3;
-}
-.coach-now.coach-flash {
-  animation: coach-pulse 0.5s ease-in-out 3, coach-pulse 1.4s ease-in-out 1.5s infinite;
-}
-@keyframes coach-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgba(200, 100, 59, 0.7);
-  }
-  50% {
-    box-shadow: 0 0 0 6px rgba(200, 100, 59, 0);
-  }
+#headerFields {
+  margin-top: 6px;
 }
 
 /* ---------------------------------------------------------------- แผงเล็ก: ย่อส่วนที่อยู่กับที่ ให้ส่วนกลางยังพอใช้ */
 @media (max-width: 330px) {
-  /* แผงแคบพรีวิวอยู่ด้านล่างอยู่แล้ว ปุ่มสลับตำแหน่งไม่จำเป็น */
+  /* แผงแคบพรีวิวอยู่ในหน้าขั้นที่ 3 อยู่แล้ว ปุ่มสลับตำแหน่งไม่จำเป็น */
   #btnLayout {
+    display: none;
+  }
+  .topbar .lbl {
     display: none;
   }
 }
@@ -1107,18 +977,30 @@ body.coaching #secFlow {
     height: 28px;
   }
   .topbar .toolpick,
-  .topbar .guide-btn {
+  .topbar button.icon {
     padding: 4px 6px;
   }
-  .coach p {
-    display: -webkit-box;
-    -webkit-line-clamp: 1;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    margin-bottom: 4px;
+  .steps {
+    padding: 5px 8px 4px;
   }
-  .coach-nav button {
-    padding: 3px 4px;
+  .steps li {
+    flex-direction: row;
+    justify-content: center;
+    gap: 4px;
+  }
+  .steps li i {
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+  }
+  .steps li + li::before {
+    display: none;
+  }
+  .step-hint {
+    height: 1.4em;
+    margin-top: 4px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
   .sticky-actions {
     padding: 6px 8px;
@@ -1127,12 +1009,8 @@ body.coaching #secFlow {
     padding: 5px;
     font-size: 14px;
   }
-  .sticky-actions .row.small,
   .sticky-actions button.linkish {
     margin-top: 4px;
-  }
-  .sticky-actions .row.small button {
-    padding: 4px 2px;
   }
   .sticky-actions .status {
     height: 1.45em;

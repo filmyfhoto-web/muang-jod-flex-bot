@@ -52,14 +52,15 @@
   // ---------------------------------------------------------------- ค่าตั้ง
 
   var STORE_KEY = 'nongploy.nestingcut.settings.v2';
+  // ค่าที่บันทึกจากรุ่นก่อน UI_VERSION: หัวงานเคยเปิดเป็นค่าเริ่มต้น → ปิดให้ครั้งเดียว
+  var UI_VERSION = 3;
   // ชื่ออาร์ตบอร์ดของชีตที่ปลั๊กอินสร้าง — ปุ่ม “ล้างงานเก่า” ใช้หาชีตเก่า
   var SHEET_MARK = 'นัดพอน · ';
   var DEFAULTS = {
+    uiVersion: UI_VERSION,
     tool: 'nest',
-    guideOn: true, // ตัวช่วยสอนทีละขั้น (ป้ายเลข + กรอบกะพริบ)
-    guideSeen: false, // เคยเห็นการ์ด “เริ่มตรงนี้” แล้ว
+    guideSeen: false, // เคยเห็นการ์ด “วันนี้จะทำอะไร?” แล้ว
     layoutMode: 'auto', // auto | side | stack — ตำแหน่งพรีวิว
-    subTab: 'main', // หลัก | ปรับแต่งขั้นสูง | ส่งออก (แถบจัดวางดวง / ไดคัทต่อเนื่อง)
     cutter: 'circle4',
     media: 'a3',
     sizeUnit: 'mm',
@@ -91,7 +92,7 @@
     markThick: 0.5,
     markClearance: 4,
     markEvery: 0,
-    headerOn: true,
+    headerOn: false, // หัวงาน (โลโก้ + ชื่องาน) ด้านบนแผ่น — ปิดไว้ ร้านเปิดเองในขั้น “กระดาษ”
     headerHeight: 18,
     jobName: '',
     customer: '',
@@ -197,6 +198,10 @@
     try {
       var saved = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
       for (var j in saved) if (j in DEFAULTS) s[j] = saved[j];
+      if (!(saved.uiVersion >= UI_VERSION)) {
+        s.headerOn = false;
+        s.uiVersion = UI_VERSION;
+      }
     } catch (e) {
       /* ใช้ค่าเริ่มต้น */
     }
@@ -221,6 +226,7 @@
     dc: null,
     busy: false,
     logoImg: null,
+    page: 1, // หน้าของจัดวางดวง / ไดคัทต่อเนื่อง: 1 ชิ้นงาน · 2 กระดาษ · 3 สร้างชีต · 4 ส่งออก
   };
 
   function num(key) {
@@ -284,10 +290,10 @@
           b.disabled = false;
         });
         updateFlow();
-        guideAfterRun(ok);
         setTimeout(function () {
           if (!S.busy) progress(0);
         }, 600);
+        return ok;
       });
   }
 
@@ -295,8 +301,8 @@
     if (S.result) S.stale = true;
     S.built = false;
     S.exported = false;
-    if (typeof updateFlow === 'function' && $('btnNext')) updateFlow();
-    $('previewSub').textContent = S.stale ? '(ค่าเปลี่ยน — กดจัดวางใหม่)' : '';
+    updateFlow();
+    $('previewSub').textContent = S.stale ? '(ค่าเปลี่ยน — กดคำนวณใหม่)' : '';
   }
 
   // ---------------------------------------------------------------- ชิ้นงาน
@@ -363,6 +369,8 @@
     var ul = $('partsList');
     ul.innerHTML = '';
     $('partsEmpty').hidden = S.parts.length > 0;
+    // ยังไม่มีชิ้นงาน: ปุ่มส้มด้านล่างคือปุ่มดึง — มีแล้วค่อยโชว์ปุ่มดึงใหม่ในการ์ด
+    $('btnScan').hidden = !S.parts.length;
     var total = 0;
     S.parts.forEach(function (p) {
       total += p.qty;
@@ -450,6 +458,7 @@
       S.result = null;
       S.stale = false;
       S.built = false;
+      S.exported = false;
       if (host.thumbFor) {
         S.parts.forEach(function (p) {
           p.thumb = host.thumbFor(p.idx);
@@ -763,7 +772,6 @@
         $('previewSub').textContent = '';
         drawPreview();
         renderStats();
-        revealPreview();
         var unplaced = res.unplaced.reduce(function (s, u) {
           return s + u.count;
         }, 0);
@@ -928,7 +936,6 @@
     $('previewSub').textContent = '';
     drawPreview();
     renderStats();
-    revealPreview();
     var msg =
       'ได้ ' + n + ' ดวง · ยกใบมีด ' + lay.lifts + ' ครั้ง · เส้นตัดยาว ' + (lay.cutLength / 1000).toFixed(2) + ' ม. · ดวง ' +
       lay.w.toFixed(1) + ' × ' + lay.h.toFixed(1) + ' มม.';
@@ -1038,29 +1045,27 @@
       r.res.placedCount + (r.fill ? ' ดวง' : ' ชิ้น') + ' · ' + (r.sheets.length > 1 ? r.sheets.length + ' แผ่น · ' : 'หน้า ') + sizes[0];
   }
 
-  // แผงกว้างพอ (≥ 620 px) ย้ายพรีวิวไปช่องซ้าย แคบก็กลับมาอยู่ใต้ปุ่มลุย
-  var LAYOUT_LABEL = { auto: 'พรีวิว อัตโนมัติ', side: 'พรีวิว ข้าง ๆ', stack: 'พรีวิว ด้านล่าง' };
+  var LAYOUT_LABEL = {
+    auto: 'พรีวิว: อัตโนมัติ (แผงกว้างอยู่ข้าง ๆ) — กดเพื่อสลับ',
+    side: 'พรีวิว: ข้าง ๆ เสมอ — กดเพื่อสลับ',
+    stack: 'พรีวิว: ในขั้น “สร้างชีต” — กดเพื่อสลับ',
+  };
 
-  // พรีวิวข้างเมนู: อัตโนมัติ (แผงกว้าง ≥ 560 px) · บังคับข้าง ๆ · บังคับด้านล่าง
+  // พรีวิวข้างเมนู: อัตโนมัติ (แผงกว้าง ≥ 560 px) · บังคับข้าง ๆ · บังคับอยู่ในหน้าขั้นที่ 3
   function placePreview() {
     var mode = S.settings.layoutMode;
     var wide = mode === 'side' ? true : mode === 'stack' ? false : window.innerWidth >= 560;
-    var btn = $('btnLayout');
-    if (btn) btn.textContent = LAYOUT_LABEL[mode] || LAYOUT_LABEL.auto;
+    $('btnLayout').title = LAYOUT_LABEL[mode] || LAYOUT_LABEL.auto;
     document.body.classList.toggle('wide', wide);
     var target = wide ? $('previewSide') : $('previewSlot');
     ['previewCard', 'dcPreviewCard', 'vecPreviewCard'].forEach(function (id) {
       var card = $(id);
       if (card.parentNode !== target) target.appendChild(card);
     });
+    applyVisibility();
     if (S.result) drawPreview();
     if (S.dc) drawDc();
     if (S.vec) drawVec();
-  }
-
-  // แผงแคบ พรีวิวอยู่ในส่วนเลื่อน: คำนวณเสร็จเลื่อนให้เห็นผลครั้งเดียว (แผงกว้างพรีวิวอยู่ข้าง ๆ เห็นอยู่แล้ว)
-  function revealPreview() {
-    if (!document.body.classList.contains('wide')) scrollToSee($('previewCard'));
   }
 
   // วาดทุกแผ่นลงแคนวาสกว้าง cssW (ใช้ทั้งพรีวิวบนแผงและรูปส่งลูกค้า)
@@ -1449,12 +1454,13 @@
         return buildLayout().then(exportAll);
       })
       .then(function () {
+        setPage(host.demo ? 3 : 4);
         var r = S.result;
         var used = r.sheets.reduce(function (a, sh) {
           return a + sh.length;
         }, 0);
         var msg = host.demo
-          ? 'จัดวางเสร็จ! (โหมดทดลอง) กด “ส่งออก” เพื่อดาวน์โหลด PLT / DXF / SVG'
+          ? 'จัดวางเสร็จ! (โหมดทดลอง) ไปขั้น 4 ส่งออก เพื่อดาวน์โหลด PLT / DXF / SVG'
           : 'เสร็จแล้วจ้า! ' + r.res.placedCount + ' ชิ้น ยาว ' + Math.round(used) + ' มม. — ส่งไฟล์เข้าเครื่องตัดได้เลย';
         status(msg, 'ok');
       });
@@ -1991,6 +1997,7 @@
     drawVec();
     $('numList').innerHTML = '';
     $('hkGuide').hidden = true;
+    setPage(1);
   }
 
   function clearOld() {
@@ -2449,8 +2456,10 @@
       .then(prepareForTool)
       .then(nestNow)
       .then(function () {
-        if (host.demo) return;
-        return buildLayout();
+        if (host.demo) return setPage(3);
+        return buildLayout().then(function () {
+          setPage(4);
+        });
       });
   }
 
@@ -2467,161 +2476,111 @@
     show('[data-num="text"]', s.numMode !== 'page');
     show('[data-num="page"]', s.numMode === 'page');
     show('[data-num-style]', s.numStyle === 'custom');
-  }
-
-  // ---------------------------------------------------------------- ลำดับงาน (ขั้น 1–5 + ปุ่มขั้นถัดไป)
-
-  // ตอนนี้อยู่ขั้นไหน: 1 เลือกชิ้นงาน · 3 คำนวณ · 4 สร้างชีต · 5 ส่งออก · 6 เสร็จ
-  // (ขั้น 2 ตั้งค่ากระดาษมีค่าเริ่มต้นให้แล้ว นับว่าผ่านเมื่อมีชิ้นงาน)
-  function flowStep() {
-    if (!S.parts.length) return 1;
-    if (!S.result || S.stale) return 3;
-    if (!S.built) return 4;
-    if (!S.exported) return 5;
-    return 6;
-  }
-
-  var NEXT = {
-    1: ['① ดึงชิ้นงานที่เลือก', 'เลือกภาพ + เส้นไดคัทสีแดงใน Illustrator แล้วกดปุ่มด้านล่าง'],
-    3: ['③ คำนวณ — ดูจำนวนดวง', 'ตรวจขนาดกระดาษ/ระยะขอบ (ขั้น 2) แล้วกดคำนวณ ยังไม่แตะไฟล์งาน'],
-    4: ['④ สร้างชีตไดคัท', 'ดูพรีวิวแล้วโอเค กดสร้างชีตบนอาร์ตบอร์ดใหม่ (ของเดิมไม่ถูกย้าย)'],
-    5: ['⑤ ส่งออกไฟล์', 'บันทึก PDF / PLT / DXF / SVG ตามที่ติ๊กไว้ในแถบ “ส่งออก”'],
-    6: ['✓ เสร็จแล้ว — ส่งออกอีกครั้ง', 'เสร็จครบทุกขั้น เปลี่ยนค่าแล้วกดคำนวณใหม่ได้เลย'],
-  };
-
-  function updateFlow() {
-    var step = flowStep();
-    var next = NEXT[step];
-    var btn = $('btnNext');
-    if (btn) {
-      btn.textContent = next[0];
-      btn.classList.toggle('done', step === 6);
-    }
-    $('stepHint').textContent = next[1];
-    Array.prototype.forEach.call(document.querySelectorAll('#stepper li'), function (li) {
-      var n = parseInt(li.getAttribute('data-step'), 10);
-      li.classList.toggle('done', n < step);
-      li.classList.toggle('current', n === step);
+    show('[data-run-custom]', s.runSize === 'custom');
+    show('#headerFields', !!s.headerOn);
+    var unit = s.sizeUnit === 'in' ? ' (นิ้ว)' : ' (มม.)';
+    Array.prototype.forEach.call(document.querySelectorAll('[data-unit]'), function (e) {
+      e.textContent = e.getAttribute('data-unit') + unit;
     });
-    if (S.settings.guideOn && $('coach') && !S.busy) guideSync();
   }
 
-  function doNext() {
-    var step = flowStep();
-    if (step === 1) return scan();
-    if (step === 3) return prepareForTool().then(nestNow);
-    if (step === 4) return buildLayout();
-    return exportAll();
-  }
+  // ---------------------------------------------------------------- ทีละขั้น (จัดวางดวง / ไดคัทต่อเนื่อง)
+  //
+  // แผงแสดงทีละหน้า: 1 ชิ้นงาน · 2 กระดาษ · 3 สร้างชีต (พรีวิว) · 4 ส่งออก
+  // ปุ่มส้มด้านล่างทำงานของหน้านั้น — กดเลขขั้นด้านบนเพื่อไปหน้าไหนก็ได้
 
-  function gotoCard(sub, id) {
-    S.settings.subTab = sub;
-    saveSettings();
-    applyVisibility();
-    var el2 = id && $(id);
-    if (el2) {
-      if (el2.tagName === 'DETAILS') el2.open = true;
-      el2.scrollIntoView({ block: 'start', behavior: 'smooth' });
-    }
-  }
+  var WIZARD = ['nest', 'run'];
 
-  function onStepClick(n) {
-    if (n === 1) return gotoCard('main', 'secParts');
-    if (n === 2) return gotoCard('main', 'secMedia');
-    if (n === 3) return run(function () {
-      return (S.parts.length ? Promise.resolve() : scan()).then(prepareForTool).then(nestNow);
-    });
-    if (n === 4) return run(buildLayout);
-    if (n === 5) return gotoCard('out', 'secOut');
-  }
-
-  // ---------------------------------------------------------------- ตัวช่วยสอนทีละขั้น
-
-  // แต่ละเครื่องมือ = รายการขั้น { id ของปุ่ม/การ์ด, sub แถบย่อย, t หัวข้อ, d คำอธิบาย, done เช็กว่าผ่านแล้ว }
-  // ขั้นที่ไม่มี done: ผ่านเมื่อกดปุ่มนั้นสำเร็จ หรือกด “ทำแล้ว ถัดไป”
-  function hasParts() {
-    return S.parts.length > 0;
-  }
   function hasResult() {
     return !!S.result && !S.stale;
   }
-  function isBuilt() {
-    return !!S.built;
-  }
-  function isExported() {
+
+  // ขั้นที่เสร็จแล้ว (ติ๊กเขียวที่แถบขั้น)
+  function stepDone(n) {
+    if (n === 1) return S.parts.length > 0;
+    if (n === 2) return hasResult();
+    if (n === 3) return !!S.built;
     return !!S.exported;
   }
-  var G_SCAN = {
-    id: 'btnScan',
-    sub: 'main',
-    t: 'เลือกชิ้นงาน แล้วกด “ดึงชิ้นงานที่เลือก”',
-    d: 'ใน Illustrator ลากคลุมภาพ + เส้นไดคัทสีแดงให้ครบทุกดวง แล้วกลับมากดปุ่มที่มีป้ายเลข 1',
-    done: hasParts,
-  };
-  var G_MEDIA = {
-    id: 'secMedia',
-    sub: 'main',
-    t: 'ตั้งขนาดกระดาษ',
-    d: 'เลือกขนาดกระดาษ ระยะขอบ และระยะห่างระหว่างดวง — ถ้าใช้ค่าเดิมได้ กด “ทำแล้ว ถัดไป” ได้เลย',
-  };
-  var G_NEST = { id: 'btnNest', t: 'กด “คำนวณ”', d: 'ดูพรีวิวว่าได้กี่ดวงต่อแผ่น ขั้นนี้ยังไม่แตะไฟล์งาน', done: hasResult };
-  var G_BUILD = { id: 'btnBuild', t: 'กด “สร้างชีต”', d: 'พรีวิวโอเคแล้ว กดสร้างชีตบนอาร์ตบอร์ดใหม่ (งานเดิมไม่ถูกย้าย)', done: isBuilt };
-  var G_EXPORT = {
-    id: 'btnExport',
-    sub: 'out',
-    t: 'ติ๊กชนิดไฟล์ แล้วกด “ส่งออก”',
-    d: 'ในแถบ “ส่งออก” ติ๊ก PDF / PLT / DXF / SVG ที่ต้องการ แล้วกดส่งออก — ได้ไฟล์ไปเข้าเครื่องตัดเลย',
-    done: isExported,
-  };
 
-  function readMake(readId, makeId, what, setId, setText) {
-    return [
-      { id: readId, t: 'เลือก' + what + ' แล้วกด “วิเคราะห์ / ดูตัวอย่าง”', d: 'ใน Illustrator คลิกเลือก' + what + 'ก่อน แล้วกลับมากดปุ่มที่มีป้ายเลข 1 — ดูผลในพรีวิว' },
-      { id: setId, t: 'ปรับค่าให้พอดี', d: setText },
-      { id: makeId, t: 'กดสร้างลงไฟล์', d: 'พรีวิวโอเคแล้ว กดปุ่มนี้ ผลจะอยู่ในเลเยอร์ใหม่ งานเดิมไม่ถูกแตะ' },
-    ];
+  function calcNow() {
+    return (S.parts.length ? Promise.resolve() : scan()).then(prepareForTool).then(nestNow);
   }
 
-  var GUIDE = {
-    // 5 ขั้นเท่ากับแถบลำดับงานและปุ่มใหญ่ ①–⑤
-    nest: [G_SCAN, G_MEDIA, G_NEST, G_BUILD, G_EXPORT],
-    run: [
-      { id: 'btnScan', sub: 'main', t: 'เลือกต้นแบบ 1 ดวง แล้วกด “ดึงชิ้นงานที่เลือก”', d: 'ใน Illustrator เลือกภาพ + เส้นตัดของสติ๊กเกอร์ดวงเดียว แล้วกลับมากดปุ่มที่มีป้ายเลข 1', done: hasParts },
-      {
-        id: 'secRun',
-        sub: 'main',
-        t: 'ตั้งขนาดสติ๊กเกอร์และกระดาษ',
-        d: 'เลือกรูปทรง ขนาด ระยะห่าง แล้วเลื่อนลงดูขนาดกระดาษ/ระยะขอบ — เสร็จแล้วกด “ทำแล้ว ถัดไป”',
-      },
-      G_NEST,
-      G_BUILD,
-      G_EXPORT,
-    ],
-    shape: [
-      { id: 'btnDcRead', t: 'เลือกชิ้นงาน แล้วกด “อ่านรูป / ดูตัวอย่าง”', d: 'บันทึกไฟล์ก่อน แล้วใน Illustrator เลือกเวกเตอร์ / รูป PNG / Clipping Mask ให้ครบทุกส่วน แล้วกดปุ่มที่มีป้ายเลข 1' },
-      { id: 'secShape', t: 'ปรับ Offset และมุม', d: 'ถ้าเส้นแดงในพรีวิวยังห่าง/ชิดไป ปรับ Offset แล้วกดอ่านรูปอีกครั้ง — พอใจแล้วกด “ทำแล้ว ถัดไป”' },
-      { id: 'btnDcMake', t: 'กด “สร้างเส้นไดคัท”', d: 'วาดเส้นไดคัทสีแดงลงไฟล์ (เลเยอร์ใหม่) งานเดิมไม่ถูกแตะ' },
-    ],
-    corner: readMake('btnCnRead', 'btnCnMake', 'ตัวอักษรหรือ Path', 'cnBit', 'เลือกขนาดดอกกัดที่ใช้จริง ปลั๊กอินจะคำนวณรัศมีมุมให้ — แล้วกด “ทำแล้ว ถัดไป”'),
-    led: readMake('btnLedRead', 'btnLedMake', 'ตัวอักษรปิด (Path ปิด)', 'secLed', 'ตั้งความกว้างโมดูล LED และระยะจากขอบ แล้วกด “ทำแล้ว ถัดไป”'),
-    stamp: readMake('btnStRead', 'btnStMake', 'แบบตรายาง', 'stShape', 'เลือกรูปทรงเส้นตัด ระยะขอบ และติ๊กกลับด้าน/กลับสีตามต้องการ แล้วกด “ทำแล้ว ถัดไป”'),
-    dim: [
-      { id: 'secDim', t: 'เลือกงานใน Illustrator แล้วตั้งค่า', d: 'คลิกเลือกชิ้นงานที่จะบอกขนาด เลือกแกน หน่วย และมาตราส่วน แล้วกด “ทำแล้ว ถัดไป”' },
-      { id: 'btnDimMake', t: 'กด “ใส่เส้นบอกขนาด”', d: 'เส้นบอกขนาดจะอยู่ในเลเยอร์แยก ลบทิ้งได้ง่าย' },
-    ],
-    number: [
-      { id: 'secNumber', t: 'เลือก Text Frame แล้วตั้งเลข', d: 'ใน Illustrator เลือกกล่องข้อความที่จะใส่เลข แล้วตั้งเลขเริ่ม ช่วงก้าว และ Prefix — เสร็จแล้วกด “ทำแล้ว ถัดไป”' },
-      { id: 'btnNumPreview', t: 'กด “ดูตัวอย่าง”', d: 'ตรวจว่าเลขเรียงถูกก่อนใส่จริง' },
-      { id: 'btnNumMake', t: 'กด “ใส่เลข”', d: 'เติมเลขลงไฟล์จริง — กด Undo (Ctrl/Cmd+Z) ย้อนได้' },
-    ],
-    hotkey: [
-      { id: 'hkKey', t: 'เลือกปุ่มลัดที่อยากใช้', d: 'เลือกปุ่ม เช่น F5 แล้วกด “ทำแล้ว ถัดไป”' },
-      { id: 'btnHkSetup', t: 'กด “วิธีตั้งค่า”', d: 'ทำตามที่แผงบอก เพื่อผูกปุ่มลัดใน Illustrator' },
-      { id: 'btnHkTest', t: 'เลือกชิ้นงานแล้วกด “ทดสอบ”', d: 'ลองกับชิ้นงานจริงหนึ่งชิ้น ถ้าได้ผล ต่อไปกดปุ่มลัดบนคีย์บอร์ดได้เลย' },
-    ],
-  };
+  function buildNow() {
+    return buildLayout().then(function () {
+      setPage(4);
+    });
+  }
 
-  // งานที่ให้เลือกในการ์ด “เริ่มตรงนี้” — ภาษาคนทำร้าน ไม่ใช่ชื่อฟีเจอร์
+  function goPage(n) {
+    return function () {
+      setPage(n);
+    };
+  }
+
+  // ปุ่มส้มของหน้าปัจจุบัน: [ข้อความ, งาน, แค่เปลี่ยนหน้า]
+  function nextAction() {
+    if (S.page === 1) {
+      if (!S.parts.length) return [host.demo ? 'โหลดชิ้นงานตัวอย่าง' : 'ดึงชิ้นงานที่เลือก', scan];
+      return ['ถัดไป › ตั้งกระดาษ', goPage(2), true];
+    }
+    if (S.page === 2) return ['ถัดไป › คำนวณ ดูพรีวิว', goPage(3), true];
+    if (S.page === 3) {
+      if (!S.parts.length) return ['‹ ไปดึงชิ้นงานก่อน', goPage(1), true];
+      if (!hasResult()) return ['คำนวณ — ดูจำนวนดวง', calcNow];
+      if (S.built) return ['ถัดไป › ส่งออก', goPage(4), true];
+      return ['สร้างชีตใน Illustrator', buildNow];
+    }
+    return [S.exported ? '✓ ส่งออกแล้ว — ส่งอีกครั้ง' : 'ส่งออกไฟล์', exportAll];
+  }
+
+  function stepHint() {
+    var isRun = S.settings.tool === 'run';
+    if (S.page === 1) {
+      if (!S.parts.length) return isRun ? 'เลือกสติ๊กเกอร์ต้นแบบ 1 ดวงใน Illustrator แล้วกดปุ่มส้ม' : 'เลือกชิ้นงานใน Illustrator แล้วกดปุ่มส้มด้านล่าง';
+      return isRun ? 'ได้ต้นแบบแล้ว กด “ถัดไป”' : 'ตรวจจำนวนแต่ละแบบ (ช่องตัวเลขขวามือ) แล้วกด “ถัดไป”';
+    }
+    if (S.page === 2) return isRun ? 'ตั้งขนาดดวงและกระดาษ แล้วกด “ถัดไป”' : 'ใช้ค่าเดิมได้เลยถ้าไม่เปลี่ยนกระดาษ — กด “ถัดไป”';
+    if (S.page === 3) {
+      if (S.built) return 'สร้างชีตแล้ว ✓ อยู่ในไฟล์ Illustrator — ไปขั้นส่งออกต่อ';
+      if (hasResult()) return 'ดูพรีวิวว่าได้กี่ดวง โอเคแล้วกด “สร้างชีต” (งานเดิมไม่ถูกย้าย)';
+      return 'กดคำนวณเพื่อดูว่าได้กี่ดวงต่อแผ่น (ยังไม่แตะไฟล์งาน)';
+    }
+    return S.exported ? 'ส่งออกครบแล้ว 🎉 งานต่อไป: กลับไปขั้น 1 ดึงชิ้นงานใหม่' : 'ติ๊กชนิดไฟล์ที่ต้องการ แล้วกด “ส่งออกไฟล์”';
+  }
+
+  function updateFlow() {
+    var act = nextAction();
+    var btn = $('btnNext');
+    btn.textContent = act[0];
+    btn.classList.toggle('done', S.page === 4 && !!S.exported);
+    // ซ่อนแบบยังกินที่ ปุ่มส้มจะได้อยู่ตำแหน่งเดิมทุกหน้า
+    $('btnBack').style.visibility = S.page > 1 ? 'visible' : 'hidden';
+    $('stepHint').textContent = stepHint();
+    Array.prototype.forEach.call(document.querySelectorAll('#stepper li'), function (li) {
+      var n = parseInt(li.getAttribute('data-step'), 10);
+      var done = stepDone(n);
+      li.classList.toggle('done', done);
+      li.classList.toggle('current', n === S.page);
+      li.querySelector('i').textContent = done && n !== S.page ? '✓' : n;
+    });
+  }
+
+  function setPage(n) {
+    S.page = Math.max(1, Math.min(4, n));
+    applyVisibility();
+    $('scroller').scrollTop = 0;
+    updateFlow();
+    if (S.page !== 3) return;
+    // เข้าหน้าสร้างชีตแล้วยังไม่มีผล (หรือค่าเปลี่ยน) → คำนวณให้เลย
+    if (S.parts.length && !hasResult() && !S.busy) run(calcNow);
+    else if (S.result) drawPreview();
+  }
+
+  // ---------------------------------------------------------------- การ์ด “วันนี้จะทำอะไร?”
+
+  // ภาษาคนทำร้าน ไม่ใช่ชื่อฟีเจอร์
   var GUIDE_JOBS = [
     ['nest', '🧩', 'วางสติ๊กเกอร์หลายแบบลงแผ่นให้ประหยัด', 'แล้วส่งไฟล์เข้าเครื่องตัด (จัดวางดวง)'],
     ['run', '🏷️', 'สติ๊กเกอร์แบบเดียว ซ้ำเต็มแผ่น', 'ฉลากจำนวนมาก ตัดต่อเนื่อง (ไดคัทต่อเนื่อง)'],
@@ -2633,175 +2592,6 @@
     ['stamp', '🔴', 'ทำตรายางสำหรับเลเซอร์', 'กลับด้าน + เส้นตัดรอบ (ตรายางเลเซอร์)'],
     ['hotkey', '⌨️', 'ตั้งปุ่มลัดกดทีเดียว', 'สั่งงานที่ใช้บ่อยจากคีย์บอร์ด (ปุ่มลัด)'],
   ];
-  var CIRCLED = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨'];
-
-  var GD = { idx: {}, ok: {}, click: null };
-
-  function guideSteps() {
-    return GUIDE[S.settings.tool] || [];
-  }
-  function guideKey(step) {
-    return S.settings.tool + ':' + step.id;
-  }
-  function guideDone(step) {
-    return step.done ? step.done() : !!GD.ok[guideKey(step)];
-  }
-  function guideIdx() {
-    var n = guideSteps().length;
-    return Math.max(0, Math.min(n - 1, GD.idx[S.settings.tool] || 0));
-  }
-  function guideFinished() {
-    var steps = guideSteps();
-    var i = guideIdx();
-    return !!steps.length && i === steps.length - 1 && guideDone(steps[i]);
-  }
-
-  // ถอยกลับถ้าขั้นก่อนหน้าไม่ผ่านแล้ว (เช่นแก้ค่าจนผลคำนวณเก่า) แล้วเดินหน้าข้ามขั้นที่ทำแล้ว
-  function guideSync() {
-    var steps = guideSteps();
-    var i = guideIdx();
-    for (var j = 0; j < i; j++) {
-      if (steps[j].done && !steps[j].done()) {
-        i = j;
-        break;
-      }
-    }
-    while (i < steps.length - 1 && guideDone(steps[i])) i++;
-    guideSet(i);
-  }
-
-  // เลื่อนขั้นเอง (หลังกดปุ่มสำเร็จ) แค่ไฮไลต์ใหม่ — ไม่สลับแถบ ไม่เลื่อนจอ
-  function guideSet(i) {
-    var prev = guideIdx();
-    GD.idx[S.settings.tool] = i;
-    guideRender();
-    if (i !== prev) guideShow(false);
-  }
-
-  // ช่องเลือก (select) วาดป้าย ::before ไม่ได้ — ติดป้ายที่ label ที่ครอบอยู่แทน
-  function guideEl(st) {
-    var e = $(st.id);
-    if (e && (e.tagName === 'SELECT' || e.tagName === 'INPUT')) return e.closest('label') || e.parentNode;
-    return e;
-  }
-
-  function guideRender() {
-    Array.prototype.forEach.call(document.querySelectorAll('[data-coach-n]'), function (e) {
-      e.removeAttribute('data-coach-n');
-      e.classList.remove('coach-now', 'coach-done');
-    });
-    var box = $('coach');
-    if (!box) return;
-    var steps = guideSteps();
-    // ระหว่างเลือกงานในการ์ด “เริ่มตรงนี้” ซ่อนแถบผู้ช่วยไว้ก่อน
-    var on = !!S.settings.guideOn && steps.length > 0 && $('guideStart').hidden;
-    box.hidden = !on;
-    document.body.classList.toggle('coaching', on);
-    $('btnGuide').classList.toggle('on', on);
-    if (!on) return;
-    var i = guideIdx();
-    var fin = guideFinished();
-    steps.forEach(function (st, k) {
-      var e = guideEl(st);
-      if (!e) return;
-      var done = guideDone(st) && (k !== i || fin);
-      e.setAttribute('data-coach-n', done ? '✓' : String(k + 1));
-      if (done) e.classList.add('coach-done');
-      if (k === i && !fin) e.classList.add('coach-now');
-    });
-    var st = steps[i];
-    $('coachCount').textContent = fin ? 'เสร็จ ' + steps.length + '/' + steps.length : 'ขั้น ' + (i + 1) + '/' + steps.length;
-    $('coachTitle').textContent = fin ? '🎉 เสร็จครบทุกขั้นแล้ว!' : CIRCLED[i] + ' ' + st.t;
-    $('coachText').textContent = fin
-      ? 'งานต่อไป: เลือกชิ้นงานใหม่แล้วกด “เริ่มรอบใหม่” หรือกด ❓ สอน เพื่อเปลี่ยนงาน'
-      : st.d;
-    $('btnCoachBack').disabled = i === 0;
-    $('btnCoachShow').hidden = fin;
-    $('btnCoachNext').textContent = fin ? '↺ เริ่มรอบใหม่' : i === steps.length - 1 ? 'ทำแล้ว ✓' : 'ทำแล้ว ถัดไป ›';
-    var dots = $('coachDots');
-    dots.innerHTML = '';
-    steps.forEach(function (s2, k) {
-      var li = document.createElement('li');
-      li.textContent = k + 1;
-      li.title = s2.t;
-      if (guideDone(s2)) li.className = 'done';
-      if (k === i) li.className += ' current';
-      li.onclick = function () {
-        guideSet(k);
-        guideShow(true);
-      };
-      dots.appendChild(li);
-    });
-  }
-
-  // พาไปที่ปุ่มของขั้นปัจจุบัน: สลับแถบย่อย เปิดการ์ด แล้วเลื่อนจอไปให้เห็น
-  // explicit = ผู้ใช้กดเอง (ถัดไป / ย้อน / พาไปที่ปุ่ม / เลือกงาน): สลับแถบย่อยและเลื่อนเท่าที่จำเป็น
-  // ไม่ explicit = เลื่อนขั้นเองหลังทำงานเสร็จ: กะพริบอย่างเดียว จอไม่ขยับ
-  function guideShow(explicit) {
-    var st = guideSteps()[guideIdx()];
-    if (!st || !S.settings.guideOn || !$('guideStart').hidden) return;
-    if (explicit && st.sub && S.settings.subTab !== st.sub) {
-      S.settings.subTab = st.sub;
-      saveSettings();
-      applyVisibility();
-      $('scroller').scrollTop = 0;
-    }
-    var e = guideEl(st);
-    if (!e || e.offsetParent === null) return;
-    if (explicit) {
-      var card = e.closest ? e.closest('details') : null;
-      if (card) card.open = true;
-      if (e.tagName === 'DETAILS') e.open = true;
-      scrollToSee(e);
-    }
-    e.classList.remove('coach-flash');
-    void e.offsetWidth;
-    e.classList.add('coach-flash');
-  }
-
-  // เลื่อนเฉพาะส่วนกลาง และเลื่อนเท่าที่ต้องให้เห็น (ไม่กระโดดไปกลางจอ ไม่เลื่อนแบบไหล)
-  function scrollToSee(e) {
-    var box = $('scroller');
-    if (!box.contains(e)) return;
-    var r = e.getBoundingClientRect();
-    var b = box.getBoundingClientRect();
-    var pad = 8;
-    if (r.top < b.top + pad) box.scrollTop += r.top - b.top - pad;
-    else if (r.bottom > b.bottom - pad) box.scrollTop += Math.min(r.bottom - b.bottom + pad, r.top - b.top - pad);
-  }
-
-  function guideNext() {
-    var steps = guideSteps();
-    if (guideFinished()) {
-      steps.forEach(function (st) {
-        delete GD.ok[guideKey(st)];
-      });
-      guideSet(0);
-      guideShow(true);
-      return;
-    }
-    var i = guideIdx();
-    GD.ok[guideKey(steps[i])] = true;
-    guideSet(Math.min(i + 1, steps.length - 1));
-    guideShow(true);
-  }
-
-  function guideBack() {
-    guideSet(Math.max(0, guideIdx() - 1));
-    guideShow(true);
-  }
-
-  // เรียกตอนงานใน run() จบ: ปุ่มของขั้นปัจจุบันทำสำเร็จ = ผ่านขั้นนั้น
-  function guideAfterRun(ok) {
-    var id = GD.click;
-    GD.click = null;
-    if (ok && id) {
-      guideSteps().forEach(function (st) {
-        if (st.id === id) GD.ok[guideKey(st)] = true;
-      });
-    }
-    if (S.settings.guideOn) guideSync();
-  }
 
   function guideOpenStart() {
     var list = $('guideList');
@@ -2825,55 +2615,34 @@
       b.classList.toggle('on', b.getAttribute('data-job') === S.settings.tool);
     });
     $('guideStart').hidden = false;
+    // ระหว่างเลือกงาน โชว์การ์ดนี้อย่างเดียว
+    document.body.classList.add('choosing');
+    $('btnGuide').classList.add('on');
     $('scroller').scrollTop = 0;
-    guideRender();
+  }
+
+  function guideClose() {
+    S.settings.guideSeen = true;
+    saveSettings();
+    $('guideStart').hidden = true;
+    document.body.classList.remove('choosing');
+    $('btnGuide').classList.remove('on');
   }
 
   function guideStart(tool) {
     if (S.busy) return;
-    S.settings.guideOn = true;
-    S.settings.guideSeen = true;
-    saveSettings();
-    $('guideStart').hidden = true;
+    guideClose();
     setTool(tool);
-    guideSync();
-    guideShow(true);
-  }
-
-  function guideClose() {
-    S.settings.guideOn = false;
-    S.settings.guideSeen = true;
-    saveSettings();
-    $('guideStart').hidden = true;
-    guideRender();
+    setPage(1);
   }
 
   function bindGuide() {
     $('btnGuide').onclick = function () {
       if ($('guideStart').hidden) guideOpenStart();
-      else {
-        $('guideStart').hidden = true;
-        guideRender();
-      }
+      else guideClose();
     };
     $('btnGuideOff').onclick = guideClose;
-    $('btnCoachClose').onclick = guideClose;
-    $('btnCoachNext').onclick = guideNext;
-    $('btnCoachBack').onclick = guideBack;
-    $('btnCoachShow').onclick = function () {
-      guideShow(true);
-    };
-    // จำว่ากดปุ่มไหน ก่อนที่ run() จะเริ่ม — ใช้ตัดสินว่าผ่านขั้นหรือยัง
-    document.addEventListener(
-      'click',
-      function (ev) {
-        var b = ev.target && ev.target.closest ? ev.target.closest('button[id]') : null;
-        if (b && !S.busy) GD.click = b.id;
-      },
-      true
-    );
     if (!S.settings.guideSeen) guideOpenStart();
-    guideSync();
   }
 
   // ---------------------------------------------------------------- สลับเครื่องมือ
@@ -2891,18 +2660,19 @@
   };
   var NO_PREVIEW = ['dim', 'number', 'hotkey'];
 
-  // ส่วนที่แสดง = ตรงกับเครื่องมือ และ (ถ้ามี data-sub) ตรงกับแถบย่อยที่เลือก
+  // ส่วนที่แสดง = ตรงกับเครื่องมือ · จัดวางดวง / ไดคัทต่อเนื่องโชว์เฉพาะการ์ดของหน้าปัจจุบัน
+  // (พรีวิวที่ย้ายไปช่องซ้ายของจอกว้างเห็นตลอด)
   function applyVisibility() {
     var tool = S.settings.tool;
-    var sub = S.settings.subTab || 'main';
+    var wizard = WIZARD.indexOf(tool) >= 0;
     Array.prototype.forEach.call(document.querySelectorAll('[data-for]'), function (e) {
-      var s2 = e.getAttribute('data-sub');
-      e.hidden = e.getAttribute('data-for').split(' ').indexOf(tool) < 0 || (!!s2 && s2 !== sub);
+      e.hidden = e.getAttribute('data-for').split(' ').indexOf(tool) < 0;
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-page]'), function (e) {
+      var side = !!e.closest('#previewSide');
+      e.classList.toggle('off-page', wizard && !side && parseInt(e.getAttribute('data-page'), 10) !== S.page);
     });
     if ($('toolSelect').value !== tool) $('toolSelect').value = tool;
-    Array.prototype.forEach.call(document.querySelectorAll('#subTabs button'), function (b) {
-      b.classList.toggle('on', b.getAttribute('data-sub') === sub);
-    });
   }
 
   // ช่องกรอกแบบ “ชื่ออยู่ซ้าย ช่องอยู่ขวา” อ่านง่ายเหมือนแผงของ Illustrator
@@ -2930,8 +2700,7 @@
       renderStats();
     } else clearPreview();
     if (prev !== tool) status(TOOL_STATUS[tool]);
-    if ($('btnNext')) updateFlow();
-    if ($('coach')) guideRender();
+    updateFlow();
   }
 
   // ---------------------------------------------------------------- ฟอร์มค่าตั้ง
@@ -2971,7 +2740,8 @@
       setSetting('markClearance', c.marks.clearance);
       setSetting('markEvery', c.marks.every || 0);
     }
-    setSetting('headerOn', c.header !== false);
+    // เปลี่ยนเครื่องตัดไม่เปิดหัวงานเอง — เครื่องที่ไม่พิมพ์ (ตัดสติ๊กเกอร์อย่างเดียว) ปิดให้
+    if (c.header === false) setSetting('headerOn', false);
     $('cutterNote').textContent = c.note || '';
   }
 
@@ -3083,7 +2853,7 @@
     var light = (c.r * 299 + c.g * 587 + c.b * 114) / 1000 > 140;
     document.documentElement.classList.toggle('light', light);
     // โลโก้ตัวอักษรขาวสำหรับพื้นเข้ม / สีกรมสำหรับพื้นสว่าง
-    var brand = document.querySelector('.brand img');
+    var brand = document.querySelector('.topbar .logo');
     if (brand) brand.src = light ? 'assets/logo.png' : 'assets/logo-panel.png';
     document.documentElement.style.setProperty('--bg', 'rgb(' + Math.round(c.r) + ',' + Math.round(c.g) + ',' + Math.round(c.b) + ')');
   }
@@ -3100,7 +2870,7 @@
       $('demoBanner').hidden = false;
       $('btnImport').hidden = true;
       $('btnAddPng').hidden = false;
-      $('btnScan').textContent = 'โหลดชิ้นงานตัวอย่าง';
+      $('btnScan').textContent = '↻ โหลดตัวอย่างใหม่';
     }
 
     $('btnScan').onclick = function () {
@@ -3125,15 +2895,7 @@
       run(go);
     };
     $('btnNest').onclick = function () {
-      run(function () {
-        return (S.parts.length ? Promise.resolve() : scan()).then(prepareForTool).then(nestNow);
-      });
-    };
-    $('btnBuild').onclick = function () {
-      run(buildLayout);
-    };
-    $('btnExport').onclick = function () {
-      run(exportAll);
+      run(calcNow);
     };
     $('btnSelectCut').onclick = function () {
       run(selectCutLines);
@@ -3150,21 +2912,20 @@
       if (S.busy) $('toolSelect').value = S.settings.tool;
       else setTool($('toolSelect').value);
     };
-    Array.prototype.forEach.call(document.querySelectorAll('#subTabs button'), function (b) {
-      b.onclick = function () {
-        S.settings.subTab = b.getAttribute('data-sub');
-        saveSettings();
-        applyVisibility();
-        $('scroller').scrollTop = 0;
-      };
-    });
     markFields();
+    // ปุ่มส้ม: เปลี่ยนหน้าเฉย ๆ ทำทันที · งานที่แตะไฟล์ผ่าน run() (ล็อกปุ่ม + แจ้งผิดพลาด)
     $('btnNext').onclick = function () {
-      run(doNext);
+      if (S.busy) return;
+      var act = nextAction();
+      if (act[2]) act[1]();
+      else run(act[1]);
+    };
+    $('btnBack').onclick = function () {
+      if (!S.busy) setPage(S.page - 1);
     };
     Array.prototype.forEach.call(document.querySelectorAll('#stepper li'), function (li) {
       li.onclick = function () {
-        if (!S.busy) onStepClick(parseInt(li.getAttribute('data-step'), 10));
+        if (!S.busy) setPage(parseInt(li.getAttribute('data-step'), 10));
       };
     });
     $('btnStRead').onclick = function () {
@@ -3280,7 +3041,8 @@
     setTool: setTool,
     dcRead: dcRead,
     quickScript: quickScript,
-    guide: { start: guideStart, next: guideNext, back: guideBack, close: guideClose, steps: guideSteps, index: guideIdx },
+    setPage: setPage,
+    guide: { open: guideOpenStart, start: guideStart, close: guideClose },
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
