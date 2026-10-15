@@ -134,6 +134,9 @@ export function matchIntent(text, shop) {
   const q = normalize(text);
   if (isThanks(text)) return { type: 'thanks' };
   if (shop.contact?.button && q === normalize(shop.contact.button)) return { type: 'contact' };
+  // "ส่งเอกสารโครงการ" (a menu button): the customer is about to send files — point them at the admins.
+  const documentWords = (shop.contact?.documentWords ?? []).map(normalize).filter(Boolean);
+  if (documentWords.some((w) => q.includes(w))) return { type: 'order', ask: 'documentAsk' };
   // A job or an order the bot cannot take: point the customer at the admins.
   const orderWords = (shop.contact?.orderWords ?? []).map(normalize).filter(Boolean);
   if (orderWords.some((w) => q.includes(w))) return { type: 'order' };
@@ -151,4 +154,17 @@ export function matchIntent(text, shop) {
   if (askWords.some((w) => q.includes(w))) return { type: 'ask' };
   if (GREETING.test(q)) return { type: 'greeting' };
   return { type: 'fallback' };
+}
+
+// Is this exactly what a menu button or a topic chip sends ("สั่งของ", "ติดต่อแอดมิน", …)? Such a tap is
+// a request in its own right, not a customer typing line after line.
+export function isMenuTap(text, shop) {
+  const q = normalize(text);
+  if (!q) return false;
+  const texts = [
+    ...(shop.quickReplies ?? []).map((t) => (typeof t === 'string' ? t : t?.text)),
+    shop.contact?.button,
+    ...(shop.richMenu?.areas ?? []).map((a) => a?.text),
+  ];
+  return texts.some((t) => t && normalize(t) === q);
 }

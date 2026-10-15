@@ -362,7 +362,21 @@
     "chatLinkTemplate": "https://chat.line.biz/Ua2a7bf2be3ad317480e20a51f532a766?openExternalBrowser=1",
     "chatLinkLabel": "เปิดแอปตอบลูกค้า",
     "alertEveryHours": 5,
-    "pictureReplyMinutes": 10
+    "pictureReplyMinutes": 10,
+    "documentWords": ["ส่งเอกสารโครงการ", "เอกสารโครงการ"],
+    "documentAsk": "ส่งไฟล์เอกสารโครงการมาในแชทนี้ได้เลยค่ะ 😊 แล้วเลือกแอดมินที่ต้องการติดต่อด้านล่างนะคะ"
+  },
+  "richMenu": {
+    "name": "stationery-bot-menu",
+    "chatBarText": "เมนู",
+    "selected": true,
+    "image": "assets/richmenu.png",
+    "top": 150,
+    "areas": [
+      { "label": "สั่งซื้อสินค้า", "text": "สั่งของ" },
+      { "label": "ส่งเอกสารโครงการ", "text": "ส่งเอกสารโครงการ" },
+      { "label": "คุยกับแอดมิน", "text": "ติดต่อแอดมิน" }
+    ]
   },
   "adminPauseHours": 4
 }

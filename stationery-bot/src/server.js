@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { verifySignature, replyMessage, pushMessage, getProfile, getProfileCached, getBotUserId, getMessageContent, getQuota, quotaText, chatLink, describeEvent } from './line.js';
 import { buildReply, welcomeMessage, withSender, iconUrlFor, thanksReply, quick } from './replies.js';
 import { contactCard } from './flex.js';
-import { isThanksSticker, isThanks } from './matcher.js';
+import { isThanksSticker, isThanks, isMenuTap, normalize } from './matcher.js';
 import { applyHoliday, createNoticeTracker } from './holiday.js';
 import { createContactState, findContact, notificationCard, contactPhotos, people } from './contact.js';
 import { readSlip, slipReply, readerOn } from './slip.js';
@@ -14,6 +14,7 @@ import { isPaused, createQuiet, parseAdminIds, parseAdminCommand, isWhoAmI } fro
 import { isWakeWord } from './wake.js';
 import { createVisitTracker, HOUR } from './visit.js';
 import { createSerial } from './serial.js';
+import { installRichMenu, removeRichMenu } from './richmenu.js';
 
 const token = (process.env.LINE_CHANNEL_ACCESS_TOKEN ?? '').trim();
 const secret = (process.env.LINE_CHANNEL_SECRET ?? '').trim();
@@ -37,7 +38,7 @@ loadShop(); // fail fast on a broken file
 const app = express();
 app.use('/assets', express.static(fileURLToPath(new URL('../public', import.meta.url)), { maxAge: '1d' }));
 
-const lastReply = new Map(); // userId → when the bot last answered a text (for the burst limit)
+const lastReply = new Map(); // userId → { at: when the bot last answered a text, said: what it was } (for the burst limit)
 const send = (messages) => {
   let qr;
   try {
@@ -87,6 +88,29 @@ const noticed = createNoticeTracker();
 const quiet = createQuiet();
 const adminIds = parseAdminIds(process.env.ADMIN_USER_IDS);
 const hoursText = (h) => `${h} ชั่วโมง`;
+
+// The menu picture lives inside the project (shop.richMenu.image, e.g. "assets/richmenu.png").
+const menuImageFile = (shop) => {
+  const rel = String(shop.richMenu?.image || 'assets/richmenu.png');
+  if (rel.includes('..') || rel.startsWith('/')) throw new Error('richMenu.image ต้องเป็นไฟล์ในโปรเจกต์');
+  return fileURLToPath(new URL(`../${rel}`, import.meta.url));
+};
+
+// "ติดตั้งเมนู" / "ลบเมนู" from an admin: puts the permanent menu under every customer's chat, or takes it off.
+async function menuCommand(cmd, shop) {
+  try {
+    if (cmd.type === 'menuRemove') {
+      const n = await removeRichMenu({ token, shop });
+      return n ? 'เอาเมนูออกแล้วค่ะ ✅ ลูกค้าจะไม่เห็นเมนูใต้แชทอีก (บางเครื่องต้องปิด-เปิดแชทใหม่)' : 'ตอนนี้ไม่มีเมนูของบอทอยู่ค่ะ';
+    }
+    const r = await installRichMenu({ token, shop, imageFile: menuImageFile(shop) });
+    console.log('[menu] installed', r.richMenuId, r.replaced ? `(replaced ${r.replaced})` : '');
+    return 'ติดตั้งเมนูเรียบร้อยแล้วค่ะ ✅\nเมนู 3 ปุ่มจะขึ้นใต้แชทของลูกค้าทุกคน (บางเครื่องต้องปิด-เปิดแชทใหม่ก่อน)\nถ้าต้องการเอาออกพิมพ์ "ลบเมนู" ค่ะ';
+  } catch (e) {
+    console.error('[menu]', e.message);
+    return `ทำเมนูไม่สำเร็จค่ะ ❌\n${String(e.message).slice(0, 220)}`;
+  }
+}
 
 // Admin switches (only from LINE accounts listed in ADMIN_USER_IDS).
 function adminReply(cmd, shop) {
@@ -184,6 +208,7 @@ async function handleEvent(ev) {
       return replyMessage(ev.replyToken, [{ type: 'text', text: `ไอดี LINE ของคุณคือ\n${userId}` }], token);
     }
     const cmd = adminIds.has(userId) || people(shop).some((p) => p.userId && p.userId === userId) ? parseAdminCommand(said) : null;
+    if (cmd?.type === 'menuInstall' || cmd?.type === 'menuRemove') return replyMessage(ev.replyToken, [{ type: 'text', text: await menuCommand(cmd, shop) }], token);
     if (cmd?.type === 'quota') return replyMessage(ev.replyToken, [{ type: 'text', text: quotaText(await getQuota(token)) }], token);
     if (cmd) return replyMessage(ev.replyToken, [{ type: 'text', text: adminReply(cmd, shop) }], token);
     // An admin silenced the bot for everyone: say nothing.
@@ -200,14 +225,18 @@ async function handleEvent(ev) {
       return; // no reply at all
     }
     if (quietNow) {
-      if (!isWakeWord(said)) return;
+      if (!isWakeWord(said) && !isMenuTap(said, shop)) return; // a menu button is an explicit request too
       contacts.wake(userId);
     }
 
     // A customer who fires off several messages at once gets one answer: anything within a few
     // seconds of the bot's last reply is ignored (answering the school name is always allowed).
     const burstMs = (shop.contact?.burstSeconds ?? 6) * 1000;
-    if (userId !== 'anon' && !awaitSchool.has(userId) && Date.now() - (lastReply.get(userId) ?? 0) < burstMs) return;
+    const last = lastReply.get(userId);
+    if (userId !== 'anon' && !awaitSchool.has(userId) && last && Date.now() - last.at < burstMs) {
+      // …but a different menu button tapped a moment later is a new request; a repeat of the same line is not.
+      if (!isMenuTap(said, shop) || normalize(said) === last.said) return;
+    }
 
     const secs = waitFor(shop, said, { awaitingSchool: awaitSchool.has(userId), env: process.env });
     return later(secs, async () => {
@@ -236,8 +265,8 @@ async function handleEvent(ev) {
       }
       const out = holiday(shopNow, messages, { skip: isThanks(said, people(shopNow).map((p) => p.name)) });
       if (!out.length) return; // nothing to say
-      lastReply.set(userId, Date.now());
-      if (lastReply.size > 5000) for (const [k, t] of lastReply) if (Date.now() - t > 60_000) lastReply.delete(k);
+      lastReply.set(userId, { at: Date.now(), said: normalize(said) });
+      if (lastReply.size > 5000) for (const [k, v] of lastReply) if (Date.now() - v.at > 60_000) lastReply.delete(k);
       await deliver(ev, userId, out);
     });
   }
@@ -251,12 +280,14 @@ async function handleEvent(ev) {
   }
   // A payment slip is read and thanked; anything else the bot cannot read is passed to the
   // admins (and the customer gets nothing from the bot).
-  // Several pictures in a row get one thank-you and one alert (the first), not one each.
-  if (ev.message.type === 'image' && userId !== 'anon' && !contacts.alertDue(`img:${userId}`, cfg.pictureReplyMs)) return;
-  if (ev.message.type === 'image' && !readerOn()) {
-    // Free mode (no AI key): any picture is thanked, and the admins are told to look at it.
-    if (hasContacts) escalate(userId, '(ส่งรูป)', shop, cfg, 'ลูกค้าส่งรูป');
-    return deliver(ev, userId, holiday(shop, [slipReply(shop, { sure: false })]));
+  // Several pictures or files in a row get one thank-you and one alert (the first), not one each.
+  const isPicture = ev.message.type === 'image';
+  const isFile = ev.message.type === 'file'; // the "ส่งเอกสารโครงการ" button invites these
+  if ((isPicture || isFile) && userId !== 'anon' && !contacts.alertDue(`img:${userId}`, cfg.pictureReplyMs)) return;
+  if (isFile || (isPicture && !readerOn())) {
+    // A file is never read, and with no AI key neither is a picture: it is thanked, and the admins are told to look at it.
+    if (hasContacts) escalate(userId, isFile ? '(ส่งไฟล์)' : '(ส่งรูป)', shop, cfg, isFile ? 'ลูกค้าส่งไฟล์' : 'ลูกค้าส่งรูป');
+    return deliver(ev, userId, holiday(shop, [slipReply(shop, { sure: false, kind: isFile ? 'file' : 'picture' })]));
   }
   if (ev.message.type === 'image') {
     const file = await getMessageContent(ev.message.id, token);
