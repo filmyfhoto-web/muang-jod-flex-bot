@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- แผง CEP สำหรับ Illustrator CC 2019 (23.0) ขึ้นไป -->
+<ExtensionManifest Version="9.0" ExtensionBundleId="com.nongploy.nestingcut" ExtensionBundleVersion="1.0.0" ExtensionBundleName="NudPon Nesting Cut" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <ExtensionList>
+    <Extension Id="com.nongploy.nestingcut.panel" Version="1.0.0" />
+  </ExtensionList>
+  <ExecutionEnvironment>
+    <HostList>
+      <Host Name="ILST" Version="[23.0,99.9]" />
+    </HostList>
+    <LocaleList>
+      <Locale Code="All" />
+    </LocaleList>
+    <RequiredRuntimeList>
+      <RequiredRuntime Name="CSXS" Version="9.0" />
+    </RequiredRuntimeList>
+  </ExecutionEnvironment>
+  <DispatchInfoList>
+    <Extension Id="com.nongploy.nestingcut.panel">
+      <DispatchInfo>
+        <Resources>
+          <MainPath>./illustrator.html</MainPath>
+          <ScriptPath>./illustrator/host.jsx</ScriptPath>
+        </Resources>
+        <Lifecycle>
+          <AutoVisible>true</AutoVisible>
+        </Lifecycle>
+        <UI>
+          <Type>Panel</Type>
+          <Menu>นัดพอน Nesting Cut</Menu>
+          <Geometry>
+            <Size>
+              <Height>820</Height>
+              <Width>1000</Width>
+            </Size>
+            <MinSize>
+              <Height>400</Height>
+              <Width>280</Width>
+            </MinSize>
+            <MaxSize>
+              <Height>2400</Height>
+              <Width>2400</Width>
+            </MaxSize>
+          </Geometry>
+          <Icons>
+            <Icon Type="Normal">./assets/icons/cep-23.png</Icon>
+            <Icon Type="RollOver">./assets/icons/cep-23.png</Icon>
+            <Icon Type="DarkNormal">./assets/icons/cep-23.png</Icon>
+            <Icon Type="DarkRollOver">./assets/icons/cep-23.png</Icon>
+          </Icons>
+        </UI>
+      </DispatchInfo>
+    </Extension>
+  </DispatchInfoList>
+</ExtensionManifest>
