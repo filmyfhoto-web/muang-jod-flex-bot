@@ -1,4 +1,4 @@
-// ม่วงจด Flex design system — white cards, navy and gold.
+// ม่วงจด Flex design system — white cards, navy and orange.
 // Single source of truth for colours so cards stay consistent.
 //
 // The names are what each colour is FOR, not what it looks like. Two navies,
@@ -7,15 +7,15 @@
 // The fill is too heavy for a line of text and the text navy is too pale
 // behind white labels. The brand's purple lives in the wordmark and the mascot.
 //
-// ร้านเลือกชุดนี้เองตอนออกแบบ (กรม + ทอง) แล้วบอกว่า "ธีมที่ออกแบบก็ไม่เหมือน"
-// ตอนเห็นของจริงยังเป็นน้ำเงินชุดเดิม — สีอยู่ที่ไฟล์นี้ไฟล์เดียว การ์ดในแชต
-// ฟอร์มจดงาน และหน้าเว็บจึงย้ายพร้อมกันได้ ไม่มีหน้าไหนหลงเหลือเป็นคนละแอป
+// ร้านเลือกชุดกรม+ทองเองตอนออกแบบรอบแรก แล้วขยับเป็น "โทนสี ส้ม กรม ขาว"
+// ตอนทำฟอร์มจดแบบตาราง — สีอยู่ที่ไฟล์นี้ไฟล์เดียว การ์ดในแชต ฟอร์มจดงาน
+// และหน้าเว็บจึงย้ายพร้อมกันได้ ไม่มีหน้าไหนหลงเหลือเป็นคนละแอป
 
 export const COLORS = {
   accent: '#35486E', // filled things — buttons, badges, the numbered circle
   accentText: '#2F5A8A', // navy as TEXT on the white card: totals, links
   title: '#1F2B45', // headings
-  gold: '#DDA83D', // the money figure on a navy panel, and the "เลขที่" chip
+  gold: '#EE7B2F', // ส้ม — the money figure on a navy panel, and the "เลขที่" chip
   tint: '#E8ECF5', // a panel inside a card: stat tiles, badges, icon chips
   surface: '#FFFFFF', // the card itself
   line: '#E2E6EE', // separators and card borders

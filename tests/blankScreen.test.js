@@ -41,9 +41,11 @@ test('เปลี่ยนแท็บแล้วข้อความผิ�
   assert.match(show, /clearFatal\(\);/);
 });
 
-test('ธีมเป็นกรม-ทอง และใช้ฟอนต์ระบบของเครื่อง เหมือนหน้าอื่นในแอป', () => {
+test('ธีมเป็นกรม-ส้ม-ขาว และใช้ฟอนต์ระบบของเครื่อง เหมือนหน้าอื่นในแอป', () => {
   assert.match(dash, /--accent: #35486E/);
-  assert.match(dash, /--gold: #DDA83D/);
+  // ร้านขยับจากทองเป็น "โทนสี ส้ม กรม ขาว" ตอนทำฟอร์มจดแบบตาราง — ทุกหน้า
+  // ถือ --gold ตัวเดียวกัน จึงย้ายพร้อมกัน (ค่ากลางอยู่ src/flex/theme.js)
+  assert.match(dash, /--gold: #EE7B2F/);
   assert.match(dash, /--bg: #EFF1F5/);
 
   const stack = dash.match(/font-family: ([^;]+);/)?.[1] || '';
