@@ -117,32 +117,37 @@ test('the form page opens in the same colours as the card it came from', () => {
   }
 });
 
-/* ร้านบอกว่า "เพิ่มเป็นบรรทัดเหมือนใบเสร็จธรรมดาได้มั้ย ไม่ต้องข้ามหน้าอ้ะ"
+/* ร้านขอรอบสอง: "ปรับให้กรอกเป็นตารางก็ได้ค่ะ จะได้กรอกง่าย กดเป็นปุ่มมันยาก"
  *
- * ของเดิมหนึ่งรายการคือการ์ดเต็มจอที่ต้องปัดซ้าย-ขวาถึงจะเจอใบถัดไป (scroll-snap
- * + จุดบอกหน้า) งานที่มีสามรายการจึงไม่เคยเห็นพร้อมกันเลยสักครั้ง ทั้งที่ใบเสร็จ
- * จริงอ่านทีเดียวจบ
+ * รอบแรกรายการเป็นการ์ดยุบได้ ต้องแตะหัวบรรทัดเปิดทีละใบ — ร้านบอกตรง ๆ ว่า
+ * การกดคืออุปสรรค ตอนนี้ทุกแถวกางตลอด: ชื่อ/ขนาด/จำนวน/ราคา แก้ได้ตรงนั้นเลย
+ * ของนาน ๆ ใช้ (ตั้งราคาเอง รายละเอียด รูป) อยู่ใน .fold เปิดด้วยปุ่มเลขที่
  */
-test('รายการเรียงลงมาเป็นบรรทัด ไม่ใช่การ์ดที่ต้องปัดหา', () => {
+test('รายการเป็นตารางกางตลอด ไม่ใช่การ์ดที่ต้องแตะเปิดทีละใบ', () => {
   assert.ok(html.includes('class="track"'), 'ไม่มีกล่องรายการ');
-  // ไม่มีการปัดแนวนอนแล้ว ทั้ง snap และจุดบอกหน้าต้องหายไปด้วย
+  // ไม่มีการปัดแนวนอนและไม่มีจุดบอกหน้า — เหมือนเดิมตั้งแต่รอบที่แล้ว
   assert.ok(!/\.track\s*\{[^}]*scroll-snap-type/.test(css), 'ยังปัดทีละใบอยู่');
-  assert.ok(!/\.track\s*\{[^}]*overflow-x:\s*auto/.test(css), 'ยังเลื่อนแนวนอนได้');
   assert.ok(!html.includes('id="dots"'), 'ยังมีจุดบอกหน้าอยู่ ทั้งที่ไม่มีหน้าให้ข้าม');
-  assert.ok(!js.includes('function renderDots'), 'ยังสร้างจุดบอกหน้าอยู่');
 
-  // หนึ่งรายการ = หนึ่งบรรทัดที่ยุบได้ หัวบรรทัดบอก เลขที่ · ชื่อ · ยอด
-  assert.match(html, /<details class="card item">/, 'บรรทัดยุบไม่ได้');
-  assert.match(html, /<summary class="row-top">/, 'ไม่มีหัวบรรทัดให้แตะ');
-  for (const cls of ['row-no', 'row-title', 'row-amt']) {
-    assert.ok(html.includes(cls), `หัวบรรทัดไม่มี ${cls}`);
+  // แถวไม่ใช่ details แล้ว — ช่องหลักทุกช่องแตะแก้ได้โดยไม่ต้องเปิดอะไรก่อน
+  assert.ok(!html.includes('<details class="card item">'), 'แถวยังเป็นการ์ดยุบได้');
+  const tpl = html.slice(html.indexOf('<template id="tpl-item">'), html.indexOf('</template>'));
+  const rowTop = tpl.slice(tpl.indexOf('class="row-top"'), tpl.indexOf('class="row-grid"'));
+  assert.match(rowTop, /class="i-name"/, 'ชื่องานไม่อยู่บนแถว');
+  assert.match(rowTop, /class="row-amt"/, 'คอลัมน์ "รวม" ของแถวหาย');
+  const rowGrid = tpl.slice(tpl.indexOf('class="row-grid"'), tpl.indexOf('class="fold"'));
+  for (const cls of ['i-w', 'i-h', 'i-qty', 'i-rate']) {
+    assert.match(rowGrid, new RegExp(`class="${cls}"`), `${cls} ไม่อยู่บนแถว`);
   }
-  // หัวบรรทัดต้องอัปเดตตามที่พิมพ์ ไม่งั้นยุบแล้วอ่านไม่ออกว่าบรรทัดไหนคืออะไร
-  assert.match(js, /rowTitle\.textContent/, 'ชื่อบนหัวบรรทัดไม่ถูกอัปเดต');
-  assert.match(js, /rowAmt\.textContent/, 'ยอดบนหัวบรรทัดไม่ถูกอัปเดต');
 
-  // กางอันหนึ่งแล้วอันอื่นยุบ ไม่งั้นก็กลับไปเป็นกองยาวเหมือนเดิม
-  assert.match(js, /other\.open = false/, 'กางแล้วไม่ยุบอันอื่น');
+  // ยอดท้ายแถวอัปเดตตามที่พิมพ์ เหมือนคอลัมน์ "รวม" ของใบเสร็จ
+  assert.match(js, /rowAmt\.textContent = baht\(t\)/, 'ยอดของแถวไม่ถูกอัปเดต');
+
+  // ของนาน ๆ ใช้อยู่ใน fold เปิดด้วยปุ่มเลขที่ — แถวที่มีข้อมูลอยู่แล้วกางเอง
+  // ไม่มีข้อมูลซ่อนหาย (กติกาเดิมของ extra.open ขยายมาคลุมตั้งราคาเองด้วย)
+  assert.match(js, /fold\.hidden = !\(openId === item\.id \|\| autoOpen\)/);
+  assert.match(js, /openId = fold\.hidden \? item\.id : null/);
+  assert.match(js, /item\.detail \|\| item\.image \|\| item\.priceManual \|\| item\.totalManual/);
 });
 
 test('เพิ่มบรรทัดถัดไปได้โดยไม่ต้องเลื่อนผ่านช่องกรอกสิบช่อง', () => {

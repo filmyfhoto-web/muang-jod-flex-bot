@@ -380,30 +380,25 @@ function itemCard(item, index) {
 
   const count = state.items.length;
   const rowNo = $('.row-no', el);
-  const rowTitle = $('.item-title', el);
   const rowAmt = $('.row-amt', el);
+  const fold = $('.fold', el);
   rowNo.textContent = String(index + 1);
   // ลบบรรทัดสุดท้ายทิ้งไม่ได้ ฟอร์มต้องเหลืออย่างน้อยหนึ่งบรรทัดให้กรอก
   $('.del', el).hidden = count < 2;
 
-  // บรรทัดเดียวกางไว้เสมอ (ไม่มีอะไรให้ยุบหนี) หลายบรรทัดกางเฉพาะอันที่กำลังแก้
-  if (openId === null && count === 1) openId = item.id;
-  el.open = count === 1 || openId === item.id;
-  el.ontoggle = () => {
-    if (el.open) {
-      openId = item.id;
-      // กางอันใหม่แล้วยุบอันอื่น ไม่งั้นก็กลับไปเป็นกองยาวเหมือนเดิม
-      [...itemsBox.children].forEach((other) => {
-        if (other !== el) other.open = false;
-      });
-    } else if (openId === item.id) {
-      openId = null;
-    }
+  /* ตารางกางตลอด ("กดเป็นปุ่มมันยาก") — ช่องหลักของทุกแถวแก้ได้ตรงนั้นเลย
+   * ของที่นาน ๆ ใช้ (ตั้งราคาเอง รายละเอียด หน่วย รูป) อยู่ใน .fold ใต้แถว
+   * เปิดด้วยปุ่มเลขที่ · openId = แถวที่ร้านเปิดเอง (ทีละแถวพอ หน้าไม่ยาว)
+   * ส่วนแถวที่มีของพวกนั้นอยู่แล้ว กางมาให้เอง ไม่มีข้อมูลซ่อนหาย
+   */
+  const autoOpen = Boolean(item.detail || item.image || item.priceManual || item.totalManual);
+  fold.hidden = !(openId === item.id || autoOpen);
+  rowNo.classList.toggle('on', !fold.hidden);
+  rowNo.onclick = () => {
+    openId = fold.hidden ? item.id : null;
+    renderItems();
   };
-  // ปุ่มลบอยู่บนหัวบรรทัด ซึ่งเป็นตัวกางเอง — กดลบต้องไม่กางไปด้วย
-  $('.del', el).onclick = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  $('.del', el).onclick = () => {
     state.items = state.items.filter((x) => x.id !== item.id);
     if (!state.items.length) state.items.push(blankItem());
     if (openId === item.id) openId = null;
@@ -431,8 +426,7 @@ function itemCard(item, index) {
   function paint() {
     const { size, suggested, price: p, total: t, quote: q, qty: n } = computeItem(item);
 
-    // หัวบรรทัดอ่านได้เหมือนใบเสร็จ: ชื่อกับยอด โดยไม่ต้องกวาดตาหาในช่องกรอก
-    rowTitle.textContent = (item.name || item.detail || '').trim() || 'รายการที่ ' + (index + 1);
+    // ยอดของแถวอยู่ท้ายแถวเหมือนคอลัมน์ "รวม" ของใบเสร็จ อัปเดตตามที่พิมพ์
     rowAmt.textContent = baht(t);
 
     if (!item.priceManual) price.value = p || '';
@@ -694,9 +688,11 @@ function renderSummary() {
   }
 
   // ยอดรวม = ราคาที่คิดได้จากรายการ ส่วนยอดที่เก็บจริงคือ charge ถ้าร้านแก้ไว้
+  // ชิป "จ่ายสดครบ/โอนครบ" = รับเท่ายอดเก็บ (กติกาเดียวกับพิมพ์ "จ่ายสด" ในแชต)
   const listed = listedAmount();
   const total = chargeAmount();
-  const paid = Math.min(state.paid, total);
+  const payFull = state.payMethod === 'cash' || state.payMethod === 'transfer';
+  const paid = payFull ? total : Math.min(state.paid, total);
   $('#s-total').textContent = baht(total);
   $('#qb-total').textContent = baht(total);
   paintMine(listed, total);
@@ -716,9 +712,11 @@ function renderSummary() {
   $('#s-paid-amount').textContent = baht(paid);
 
   const chip = $('#s-status');
-  const status = total > 0 && paid >= total ? 'paid' : paid > 0 ? 'partial' : 'pending';
+  // "ลงบัญชีไว้" ไม่ใช่สถานะเงินเข้า — เป็นค้างรับที่ลงสมุดแล้ว จึงบอกให้ต่างกัน
+  const status =
+    total > 0 && paid >= total ? 'paid' : paid > 0 ? 'partial' : state.payMethod === 'account' ? 'account' : 'pending';
   chip.className = 'chip ' + status;
-  chip.textContent = { paid: 'รับเงินแล้ว', partial: 'รับบางส่วน', pending: 'ค้างรับ' }[status];
+  chip.textContent = { paid: 'รับเงินแล้ว', partial: 'รับบางส่วน', account: 'ลงบัญชีไว้', pending: 'ค้างรับ' }[status];
 }
 
 function thaiDate(iso) {
@@ -792,7 +790,12 @@ function toPayload() {
     // ส่งไปเฉพาะตอนร้านแก้เอง ไม่งั้นปล่อยให้เซิร์ฟเวอร์ใช้ยอดที่บวกจากรายการ
     listedTotal: state.listed === null || state.listed === undefined ? null : round2(state.listed),
     customerTotal: state.charge === null || state.charge === undefined ? null : round2(state.charge),
-    paidAmount: Math.min(state.paid, chargeAmount()),
+    // ชิป "จ่ายสดครบ/โอนครบ" = รับเท่ายอดเก็บ แม้แก้รายการทีหลังก็ยังครบตาม
+    // ยอดใหม่ — กติกาเดียวกับพิมพ์ "จ่ายสด" ในแชต (ไม่บอกจำนวน = จ่ายครบ)
+    paidAmount:
+      state.payMethod === 'cash' || state.payMethod === 'transfer'
+        ? chargeAmount()
+        : Math.min(state.paid, chargeAmount()),
     payMethod: state.payMethod || null,
     note: note || null,
     images: state.items.map((i) => i.image).filter(Boolean).slice(0, 4),
@@ -858,10 +861,18 @@ async function save() {
     // แก้งานเก่าไม่ได้ล้างฟอร์ม เพราะฟอร์มนี้ไม่ใช่ที่ร่างงานใหม่ตอนนี้ — ล้าง
     // แล้วจอจะว่างเปล่าหนึ่งวินาทีก่อนปิด ซึ่งอ่านเหมือนงานหายไป
     if (!editingJobId) clearForm();
-    // ปิดหน้าต่างให้เอง เพื่อให้กลับไปเห็นการ์ดในแชตต่อ
-    setTimeout(() => {
-      if (window.liff && liff.isInClient && liff.isInClient()) liff.closeWindow();
-    }, 1200);
+    /* หน้าเต็ม: บันทึกแล้วขึ้นการ์ด "ใบแจ้งยอด / ใบเสร็จ / จดใบต่อไป" ตรงหน้าเลย
+     * (ร้านขอ: "ใบแจ้งยอด แล้วก็ออกใบเสร็จได้") — โหมดด่วนกับโหมดแก้งานยังปิด
+     * หน้าต่างกลับไปแชตเหมือนเดิม เพราะการ์ดในแชต/หน้าจัดการงานมีปุ่มพวกนี้อยู่แล้ว
+     */
+    if (!editingJobId && !quick && body.job?.id) {
+      showDone(body.job);
+    } else {
+      // ปิดหน้าต่างให้เอง เพื่อให้กลับไปเห็นการ์ดในแชตต่อ
+      setTimeout(() => {
+        if (window.liff && liff.isInClient && liff.isInClient()) liff.closeWindow();
+      }, 1200);
+    }
   } catch (err) {
     toast(err.message || 'บันทึกไม่สำเร็จค่ะ', 'err');
   } finally {
@@ -908,11 +919,39 @@ function syncHeaderFields() {
   $('#f-note').value = state.note;
   $('#f-listed').value = state.listed === null || state.listed === undefined ? '' : state.listed;
   $('#f-charge').value = state.charge === null || state.charge === undefined ? '' : state.charge;
+  syncPayChips();
+  paintKind();
+}
+
+// ชิปเงินสะท้อน state.payMethod เสมอ — ร่างจากแชต ("ลงบัญชี" ท้ายประโยค) เปิดมา
+// ชิปต้องติดถูกอัน ไม่ใช่เริ่มที่ "ยังไม่จ่าย" ทั้งที่ร้านพูดไว้แล้ว
+function syncPayChips() {
+  document.querySelectorAll('#paychips .paychip').forEach((b) => {
+    b.setAttribute('aria-pressed', String((state.payMethod || '') === b.dataset.pay));
+  });
+  const dep = $('#dep-field');
+  // จ่ายครบแล้วไม่มีอะไรให้มัดจำ — ช่องหายไปเลย ไม่ใช่ช่องว่างที่ชวนให้กรอกซ้ำ
+  if (dep) dep.hidden = state.payMethod === 'cash' || state.payMethod === 'transfer';
+}
+
+/* ป้ายเดาชนิดลูกค้า — กติกาเดียวกับคิวงานและสมุด (เดาจากชื่อ ไม่มีช่องในฐานข้อมูล)
+ * เป็นป้ายบอก ไม่ใช่ปุ่ม: โรงเรียน/รพ./บริษัท เข้าหน่วยงานเองตั้งแต่พิมพ์ชื่อ */
+const ORG_RE = /^\s*(?:รพ\.?\s?สต\.?|โรงพยาบาลส่งเสริมสุขภาพตำบล|โรงพยาบาล|รพ\.|โรงเรียน|ร\.?ร\.|รร\.?|มหาวิทยาลัย|เทศบาล|อบต\.?|อบจ\.?|สำนักงาน|บริษัท|หจก\.?|ธ\.?ก\.?ส\.?|สหกรณ์|กศน\.?|วัด|ร้าน)/;
+
+function paintKind() {
+  const pill = $('#kind-pill');
+  if (!pill) return;
+  const name = state.customer.trim();
+  pill.hidden = !name;
+  if (!name) return;
+  const org = ORG_RE.test(name);
+  pill.textContent = org ? '🏛 หน่วยงาน' : '🏠 หน้าร้าน';
+  pill.classList.toggle('org', org);
 }
 
 /* ------------------------------------------------------------------- เริ่ม */
 
-$('#f-customer').oninput = (e) => { state.customer = e.target.value; renderSummary(); saveDraft(); renderCustomerChips(); };
+$('#f-customer').oninput = (e) => { state.customer = e.target.value; renderSummary(); saveDraft(); renderCustomerChips(); paintKind(); };
 $('#f-customer').onfocus = () => renderCustomerChips();
 
 /* ชื่อลูกค้าที่เคยจดไว้ เด้งให้กดตอนพิมพ์ — ร้านขอ "พิมพ์ลูกค้าคนไหนที่เคยจดไว้
@@ -1213,6 +1252,71 @@ $('#btn-close').onclick = () => {
 
 $('#qb-save').onclick = save;
 
+/* ชิปเงิน: แตะอันเดียวจบ — ลงท่อ state.payMethod เดิมที่ API รับอยู่แล้ว
+ * ('account' = ลงบัญชี ตัวสร้างงานประทับวันลงบัญชีให้เอง) */
+$('#paychips').onclick = (e) => {
+  const b = e.target.closest('.paychip');
+  if (!b) return;
+  state.payMethod = b.dataset.pay;
+  // จ่ายครบเป็นเรื่องของชิป ไม่ใช่ช่องมัดจำ — เลขมัดจำเก่าต้องไม่ค้างไปปนยอดครบ
+  if (state.payMethod === 'cash' || state.payMethod === 'transfer') {
+    state.paid = 0;
+    $('#f-paid').value = '';
+  }
+  syncPayChips();
+  renderSummary();
+  saveDraft();
+};
+
+/* หลังบันทึก: ใบแจ้งยอด / ใบเสร็จ / จดใบต่อไป — อยู่ตรงหน้า ไม่ต้องกลับไปหาในแชต */
+let doneJob = null;
+
+function showDone(job) {
+  doneJob = job;
+  $('#d-no').textContent = job.job_number || '';
+  $('#d-line').textContent = [job.customer_name, baht(num(job.total))].filter(Boolean).join(' · ');
+  // ใบแจ้งยอดคือสมุดของ "เจ้านี้" — ไม่มีชื่อลูกค้าก็ไม่มีเจ้าให้เปิด
+  $('#d-bill').hidden = !String(job.customer_name || '').trim();
+  $('#done').hidden = false;
+  $('#quickbar').hidden = true;
+  $('#done').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+$('#d-receipt').onclick = async () => {
+  if (!doneJob?.id || !token) return;
+  const btn = $('#d-receipt');
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/jobs/' + encodeURIComponent(doneJob.id) + '/receipt', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token },
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.message || 'ออกใบเสร็จไม่สำเร็จค่ะ');
+    const url = body.shopUrl || body.url;
+    // ในเบราว์เซอร์ของ LINE ต้องใช้ liff.openWindow — window.open โดนบล็อก
+    if (window.liff && liff.isInClient && liff.isInClient()) liff.openWindow({ url, external: false });
+    else location.href = url;
+  } catch (err) {
+    toast(err.message || 'ออกใบเสร็จไม่สำเร็จค่ะ', 'err');
+  }
+  btn.disabled = false;
+};
+
+$('#d-bill').onclick = () => {
+  if (!doneJob) return;
+  // กุญแจบัญชีลูกค้า = ชื่อที่ตัดช่องว่าง/จุด/ขีด (custKey เทียบเท่า accountKey ฝั่งเซิร์ฟเวอร์)
+  location.href = '/app/book/?key=' + encodeURIComponent(custKey(doneJob.customer_name || ''));
+};
+
+$('#d-again').onclick = () => {
+  doneJob = null;
+  $('#done').hidden = true;
+  $('#quickbar').hidden = false;
+  scrollTo({ top: 0, behavior: 'smooth' });
+  $('#f-customer').focus();
+};
+
 /* โหมดด่วน (?quick=1) — ตั้งใจให้เปิดผ่าน LIFF ขนาด Tall จะได้เด้งขึ้นมาเป็น
  * แผ่นการ์ดทับแชต ไม่ต้องออกไปหน้าเต็ม ตัดแชตกับการ์ดสรุปออก เหลือฟอร์มกับ
  * แถบยอดรวมด้านล่าง */
@@ -1220,10 +1324,12 @@ const params = new URLSearchParams(location.search);
 const quick = params.get('quick') === '1';
 if (quick) {
   document.body.classList.add('quick');
-  $('#quickbar').hidden = false;
   $('#more').open = false;
   document.title = 'จดด่วน — ม่วงจดให้';
 }
+// แถบยอดรวม + บันทึกลอยล่าง ใช้ทุกโหมด — ของเดิมมีเฉพาะโหมดด่วน ร้านขอปุ่มใหญ่
+// กดง่ายไม่ต้องเลื่อนหาการ์ดสรุป
+$('#quickbar').hidden = false;
 
 // ธีม: ขาว-น้ำเงินเป็นค่าเริ่มต้น ให้เข้าชุดกับการ์ดในแชตที่กดเข้ามา
 // ?theme=night ได้โทนกรมท่ากลางคืน
@@ -1350,6 +1456,9 @@ function whenText(ts) {
         const body = await res.json();
         if (res.ok && body?.job) {
           editingJobId = jobId;
+          // แก้งานเก่า: เงินแก้จากหน้าจัดการงาน (PATCH ทางนี้ไม่ส่งเงิน) —
+          // โชว์ชิปไว้ก็หลอกว่ากดแล้วมีผล
+          $('#paycard').hidden = true;
           fromDraft({
             items: body.job.items,
             customerName: body.job.customer_name,

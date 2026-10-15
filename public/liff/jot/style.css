@@ -1,23 +1,26 @@
 /* ม่วงจดให้ — หน้าบันทึกงาน
  *
  * สองธีมอยู่ในไฟล์เดียว สลับด้วยคลาสบน body อย่างเดียว:
- *   ค่าเริ่มต้น  — การ์ดขาว ปุ่มน้ำเงิน สีชุดเดียวกับการ์ดในแชต (src/flex/theme.js)
+ *   ค่าเริ่มต้น  — ขาว-กรม-ส้ม สีชุดเดียวกับการ์ดในแชต (src/flex/theme.js)
  *   body.night   — กรมท่ากลางคืน (?theme=night)
  * ทุกสีในไฟล์นี้อ้าง var() ทั้งหมด เปลี่ยนธีมจึงไม่ต้องแก้ที่อื่นเลย
  *
  * ค่าใน :root ต้องตรงกับ COLORS ใน theme.js — หน้านี้เปิดจากการ์ดในแชต
  * เปิดมาแล้วเจอคนละโทนคือสะดุด มีเทสต์คุมไว้ใน tests/jotForm.test.js
+ * ร้านขอ "โทนสี ส้ม กรม ขาว" — กรมเป็นโครง ส้มเป็นเงินกับปุ่มหลัก ขาวเป็นพื้น
  */
 
 :root {
-  /* ---- ธีมกรม-ทอง (ค่าเริ่มต้น) ชุดเดียวกับ src/flex/theme.js ---- */
-  --accent: #35486e;        /* พื้นของปุ่มหลัก ตัวหนังสือขาวทับได้ */
-  --accent-2: #2c3c5e;      /* ปลายไล่สีของปุ่ม/ชิปไอคอน */
+  /* ---- ธีมขาว-กรม-ส้ม (ค่าเริ่มต้น) ชุดเดียวกับ src/flex/theme.js ---- */
+  --accent: #35486e;        /* กรม: พื้นของปุ่มโครงสร้าง ตัวหนังสือขาวทับได้ */
+  --accent-2: #2c3c5e;      /* ปลายไล่สีของชิปไอคอน */
   --accent-text: #2f5a8a;   /* กรมที่ใช้เป็นตัวหนังสือบนพื้นขาว */
   --accent-soft: #e8ecf5;   /* ปุ่มรอง ชิป พื้นอ่อน ๆ */
-  --gold: #dda83d;          /* ตัวเลขเงินบนพื้นกรม */
+  --gold: #ee7b2f;          /* ส้ม: ตัวเลขเงิน ปุ่มหลัก ชิปเงินที่เลือก */
+  --gold-2: #d9640f;        /* ปลายไล่สีของปุ่มส้ม */
+  --gold-soft: #fdeee0;     /* พื้นส้มอ่อนหลังชิป/ป้าย */
 
-  --page: #eff1f5;          /* พื้นหลังทั้งหน้า */
+  --page: #f5f6f8;          /* พื้นหลังทั้งหน้า — ขาวนวลแบบหน้า Settings ไอโฟน */
   --surface: #ffffff;       /* การ์ด */
   --tint: #e8ecf5;          /* ช่องกรอก / กล่องย่อยในการ์ด */
   --line: #e2e6ee;          /* เส้นขอบ */
@@ -50,6 +53,9 @@ body.night {
   --accent-2: #1d63db;
   --accent-text: #60a5fa;
   --accent-soft: #1b2537;
+  --gold: #f59e4b;
+  --gold-2: #e07f1d;
+  --gold-soft: #33230f;
 
   --page: #0b1524;
   --surface: #121a2a;
@@ -84,7 +90,9 @@ html { -webkit-text-size-adjust: 100%; background: var(--page); }
 body {
   margin: 0;
   min-height: 100dvh;
-  font-family: 'Noto Sans Thai', 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  /* ร้านขอ "ตัวหนังสือเหมือน mac ไอโฟน" — ฟอนต์ระบบของเครื่องมาก่อน ไทยบน
+     iPhone/Mac ตกที่ Thonburi แอนดรอยด์/วินโดวส์ตกที่ Noto ที่โหลดไว้ */
+  font-family: -apple-system, 'SF Pro Text', 'Thonburi', BlinkMacSystemFont, 'Noto Sans Thai', 'Sarabun', 'Segoe UI', sans-serif;
   font-size: 14px;
   line-height: 1.5;
   color: var(--ink);
@@ -155,7 +163,8 @@ body.night .sky {
 .who strong { font-size: 16px; font-weight: 700; }
 .who span { font-size: 11.5px; color: var(--grey); }
 
-main { padding: 10px 0 calc(24px + var(--safe-bottom)); max-width: 560px; margin: 0 auto; }
+/* เผื่อที่ให้แถบบันทึกลอยล่างซึ่งตอนนี้อยู่ทุกโหมด ไม่ใช่แค่โหมดด่วน */
+main { padding: 10px 0 calc(104px + var(--safe-bottom)); max-width: 560px; margin: 0 auto; }
 main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
 
 /* ---- บับเบิลแชต -------------------------------------------------------- */
@@ -238,54 +247,65 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
   margin-bottom: 10px;
 }
 
-/* หัวบรรทัด: เลขที่ · ชื่อ · ยอด · ปุ่มลบ — อ่านได้โดยไม่ต้องกวาดตาหาในช่องกรอก */
+/* หนึ่งแถว = สองบรรทัดที่กางตลอด คอลัมน์ตรงกันทุกแถวเหมือนตาราง
+ * บรรทัดบน:  [เลขที่] [ชื่องาน________] [รวม ฿] [✕]
+ * บรรทัดล่าง: [กว้าง] [ยาว] [จำนวน] [ราคา(ตามชนิดงาน)]
+ * ("กดเป็นปุ่มมันยาก" — ไม่มีการ์ดพับให้ต้องแตะเปิดทีละใบอีกแล้ว) */
+.track > .item { padding: 9px 11px; }
 .row-top {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: -2px 0 10px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--line);
+  margin-bottom: 6px;
 }
+/* ปุ่มเลขที่ = ที่เปิดของเพิ่มเติมของแถว (ตั้งราคาเอง/รายละเอียด/รูป) */
 .row-no {
-  flex: 0 0 24px;
-  width: 24px;
-  height: 24px;
-  border-radius: 8px;
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  border: 1.5px solid var(--line);
+  border-radius: 9px;
   background: var(--accent-soft);
   color: var(--accent-text);
+  font-family: inherit;
   font-size: 12px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
+  padding: 0;
 }
-.row-title {
-  flex: 1;
-  min-width: 0;
-  font-size: 13.5px;
-  font-weight: 700;
-  color: var(--ink);
+.row-no.on { background: var(--accent); border-color: var(--accent); color: var(--white); }
+.row-name { flex: 1; min-width: 0; margin-bottom: 0; }
+/* ป้าย "ชื่องาน/รายการ" มีไว้ให้เครื่องอ่านหน้าจอ ตาเห็น placeholder พอแล้ว */
+.row-name > span:first-child {
+  position: absolute;
+  width: 1px;
+  height: 1px;
   overflow: hidden;
-  text-overflow: ellipsis;
+  clip-path: inset(50%);
   white-space: nowrap;
 }
-.row-amt { flex: 0 0 auto; font-size: 14px; font-weight: 700; color: var(--accent-text); }
-
-/* หัวบรรทัดเป็นตัวกาง/ยุบเอง — เอาสามเหลี่ยมของเบราว์เซอร์ออก ใช้ลูกศรของเราแทน */
-.item > summary { list-style: none; cursor: pointer; }
-.item > summary::-webkit-details-marker { display: none; }
-.item > summary::after {
-  content: '⌄';
+.row-top .i-name { padding-left: 10px; }
+.row-amt {
   flex: 0 0 auto;
-  color: var(--grey);
-  font-size: 15px;
-  line-height: 1;
-  transition: transform .15s;
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--gold);
+  text-align: right;
 }
-.item[open] > summary::after { transform: rotate(180deg); }
-/* ยุบอยู่ก็ไม่ต้องมีเส้นคั่นใต้หัว เพราะไม่มีอะไรอยู่ใต้มัน */
-.item:not([open]) > summary { margin-bottom: -2px; padding-bottom: 0; border-bottom: 0; }
+
+.row-grid { display: grid; grid-template-columns: 1fr 1fr 0.9fr 1.3fr; gap: 6px; }
+.row-grid .field { margin-bottom: 0; }
+.row-grid input { padding-left: 8px; padding-right: 8px; text-align: center; }
+.row-grid .rate-field input { color: var(--accent-text); font-weight: 700; }
+
+/* ของเพิ่มเติมของแถว — เปิดด้วยปุ่มเลขที่ แถวที่มีข้อมูลอยู่แล้วกางเอง */
+.fold { margin-top: 8px; border-top: 1px dashed var(--line); padding-top: 8px; }
 
 /* ปุ่มเพิ่มบรรทัด/ค่าส่ง มีที่เดียวที่ท้ายรายการ ไม่ใช่ติดอยู่บนทุกการ์ด */
 .list-actions {
@@ -309,6 +329,7 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
 .chip.pending { color: var(--red); background: var(--red-bg); }
 .chip.partial { color: var(--amber); background: var(--amber-bg); }
 .chip.paid { color: var(--green); background: var(--green-bg); }
+.chip.account { color: var(--accent-text); background: var(--accent-soft); }
 
 .rule { border: 0; border-top: 1px solid var(--line); margin: 9px 0; }
 
@@ -327,7 +348,7 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
 
 .sum-total { display: flex; justify-content: space-between; align-items: baseline; }
 .sum-total span { font-size: 14px; font-weight: 600; }
-.sum-total b { font-size: 22px; color: var(--accent-text); }
+.sum-total b { font-size: 22px; color: var(--gold); }
 .sum-paid { display: flex; justify-content: space-between; font-size: 13.5px; color: var(--green); margin-top: 4px; }
 
 /* ---- ปุ่ม -------------------------------------------------------------- */
@@ -352,10 +373,11 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
 }
 .btn:active { transform: translateY(1px); }
 .btn:disabled { opacity: .55; cursor: default; }
+/* ปุ่มหลักเป็นส้ม — จุดที่ต้องกดเด่นออกจากโครงกรมทันที (ร้านขอ "โทนส้ม") */
 .btn-primary {
-  background: linear-gradient(160deg, var(--accent), var(--accent-2));
+  background: linear-gradient(160deg, var(--gold), var(--gold-2));
   color: var(--white);
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 34%, transparent);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--gold) 38%, transparent);
 }
 .btn-soft { background: var(--accent-soft); color: var(--accent-text); }
 
@@ -553,7 +575,7 @@ body.quick .link-full { display: block; }
 }
 .qb-total { flex: 1; display: flex; flex-direction: column; line-height: 1.2; }
 .qb-total span { font-size: 12px; color: var(--grey); }
-.qb-total b { font-size: 19px; color: var(--accent-text); }
+.qb-total b { font-size: 19px; color: var(--gold); }
 .quickbar .btn { width: auto; flex: 0 0 auto; padding: 0 18px; }
 
 /* ---- toast ------------------------------------------------------------- */
@@ -700,6 +722,63 @@ body.quick .link-full { display: block; }
 }
 .cust-suggest button b { font-weight: 600; }
 .cust-suggest button small { opacity: .6; font-size: 11px; margin-left: 4px; }
+
+/* ป้ายเดาชนิดลูกค้า — หน้าร้าน/หน่วยงาน จากชื่อที่พิมพ์ (ป้ายบอก ไม่ใช่ปุ่ม) */
+.kind-pill {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--tint);
+  color: var(--sub);
+  white-space: nowrap;
+}
+.kind-pill.org { background: var(--accent-soft); color: var(--accent-text); }
+
+/* ชิปเงินของใบนี้ — แตะอันเดียวจบ อันที่เลือกเป็นส้ม */
+.paychips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.paychip {
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 10px 13px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.paychip[aria-pressed='true'] {
+  background: linear-gradient(160deg, var(--gold), var(--gold-2));
+  border-color: var(--gold-2);
+  color: var(--white);
+  box-shadow: 0 5px 14px color-mix(in srgb, var(--gold) 36%, transparent);
+}
+.paycard .dep { margin-bottom: 0; }
+
+/* การ์ดหลังบันทึก — ใบแจ้งยอด / ใบเสร็จ / จดใบต่อไป อยู่ตรงหน้าเลย */
+.done { border-color: color-mix(in srgb, var(--green) 45%, transparent); }
+.done-ok { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.done-mark {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--green-bg);
+  color: var(--green);
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.done-ok b { font-size: 15px; }
+.done-line { display: block; font-size: 12.5px; color: var(--grey); }
+.done-acts { display: flex; flex-direction: column; gap: 7px; }
+.done-why { margin: 10px 0 0; font-size: 11.5px; color: var(--grey); line-height: 1.5; }
 
 /* พับ "เพิ่มเติม" ในบรรทัดงาน — ช่องที่นาน ๆ ใช้ที ไม่ต้องเห็นทุกครั้งที่จด */
 details.extra > summary { list-style: none; cursor: pointer; user-select: none;
