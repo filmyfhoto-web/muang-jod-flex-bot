@@ -137,6 +137,13 @@ test('รายการเป็นตารางบรรทัดเดี�
   // จอแคบกว่าตาราง เลื่อนข้างในกรอบของมันเอง ไม่ใช่บีบช่องจนอ่านไม่ออก
   assert.match(css, /\.tblwrap \{ overflow-x: auto; \}/);
 
+  // ตารางเส้นสี่เหลี่ยม ("ฉันเอาตารางแบบสี่เหลี่ยมได้มั้ย"): เส้นตั้งคั่นทุกช่อง
+  // หัวคอลัมน์พื้นเข้ม มีกรอบรอบตาราง และช่องกรอกกลืนเป็นช่องตาราง
+  assert.match(css, /\.thead > span \+ span,\s*\n\.row > \* \+ \* \{ border-left: 1px solid var\(--line\); \}/);
+  assert.match(css, /\.thead \{ background: var\(--accent-soft\); \}/);
+  assert.match(css, /\.tmin \{[^}]*border: 1\.5px solid var\(--line\)/);
+  assert.match(css, /\.row input \{[^}]*border: 0;[^}]*border-radius: 0;/);
+
   // แถวไม่ใช่ details — ช่องหลักทุกช่อง (ชื่อ/กว้าง/ยาว/จำนวน/ราคา) อยู่บน
   // บรรทัดเดียว แตะแก้ได้โดยไม่ต้องเปิดอะไรก่อน และยอด ฿ อยู่ท้ายแถว
   assert.ok(!html.includes('<details class="card item">'), 'แถวยังเป็นการ์ดยุบได้');
