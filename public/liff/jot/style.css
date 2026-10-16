@@ -239,73 +239,89 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
 /* ร้านบอกว่า "เพิ่มเป็นบรรทัดเหมือนใบเสร็จธรรมดาได้มั้ย ไม่ต้องข้ามหน้าอ้ะ" —
    ของเดิมหนึ่งรายการคือการ์ดเต็มจอที่ต้องปัดซ้าย-ขวา งานสามรายการจึงไม่เคย
    เห็นพร้อมกันเลยสักครั้ง ทั้งที่ใบเสร็จจริงอ่านทีเดียวจบ */
+/* แถวอยู่ในชีทตารางแล้ว — ระยะขอบเป็นของชีท ไม่ใช่ของกล่องแถว ไม่งั้นแถว
+   เยื้องออกจากหัวคอลัมน์ */
 .track {
   display: block;
-  padding: 2px 14px 4px;
-}
-.track > .item {
-  margin-bottom: 10px;
-}
-
-/* หนึ่งแถว = สองบรรทัดที่กางตลอด คอลัมน์ตรงกันทุกแถวเหมือนตาราง
- * บรรทัดบน:  [เลขที่] [ชื่องาน________] [รวม ฿] [✕]
- * บรรทัดล่าง: [กว้าง] [ยาว] [จำนวน] [ราคา(ตามชนิดงาน)]
- * ("กดเป็นปุ่มมันยาก" — ไม่มีการ์ดพับให้ต้องแตะเปิดทีละใบอีกแล้ว) */
-.track > .item { padding: 9px 11px; }
-.row-top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-/* ปุ่มเลขที่ = ที่เปิดของเพิ่มเติมของแถว (ตั้งราคาเอง/รายละเอียด/รูป) */
-.row-no {
-  flex: 0 0 26px;
-  width: 26px;
-  height: 26px;
-  border: 1.5px solid var(--line);
-  border-radius: 9px;
-  background: var(--accent-soft);
-  color: var(--accent-text);
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
   padding: 0;
 }
-.row-no.on { background: var(--accent); border-color: var(--accent); color: var(--white); }
-.row-name { flex: 1; min-width: 0; margin-bottom: 0; }
-/* ป้าย "ชื่องาน/รายการ" มีไว้ให้เครื่องอ่านหน้าจอ ตาเห็น placeholder พอแล้ว */
-.row-name > span:first-child {
+/* ตารางบรรทัดเดียวเหมือนแบบร่างที่ร้านอนุมัติ ("ต้องการแบบตารางในโมบาย")
+ * หัวคอลัมน์แถวบน แถวงานไล่ลงมา คอลัมน์ตรงกันทุกแถว:
+ *   [รายการ______] [กว้าง×ยาว] [จำนวน] [ราคา(หน่วยตามชนิดงาน)] [รวม฿] [✕]
+ * จอแคบกว่าตารางเลื่อนข้างได้นิดหน่อย (แบบเดียวกับแบบร่าง) — ดีกว่าบีบช่อง
+ * จนตัวเลขอ่านไม่ออก เพราะตัวหนังสือในช่องต่ำกว่า 16px ไม่ได้ (iOS ซูมเอง) */
+.sheet { padding: 10px 12px 8px; }
+.tblwrap { overflow-x: auto; }
+.tmin { min-width: 420px; }
+.thead,
+.track > .item > .row {
+  display: grid;
+  grid-template-columns: minmax(96px, 1.3fr) 96px 42px 66px minmax(58px, auto) 22px;
+  gap: 4px;
+  align-items: start;
+}
+.thead span { font-size: 11px; font-weight: 600; color: var(--sub); padding: 0 2px 5px; }
+.thead .num { text-align: right; }
+.track > .item { border-top: 1px solid var(--line); padding: 5px 0; margin: 0; }
+.row .field { margin-bottom: 0; }
+/* ป้ายของช่องในแถวมีไว้ให้เครื่องอ่านหน้าจอ — ตาเห็นหัวคอลัมน์ข้างบนพอแล้ว */
+.track .row .row-name > span:first-child,
+.track .row .size-cell label > span,
+.track .row .qty-label {
   position: absolute;
   width: 1px;
   height: 1px;
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+  margin: 0;
 }
-.row-top .i-name { padding-left: 10px; }
-.row-amt {
-  flex: 0 0 auto;
-  max-width: 96px;
+.row-name { position: relative; min-width: 0; }
+.row input { padding-left: 7px; padding-right: 7px; }
+.row input[type='number'] { text-align: center; }
+.size-cell { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.size-cell label { flex: 1; min-width: 0; position: relative; }
+.size-cell .x { flex: 0 0 auto; color: var(--grey); font-size: 12px; }
+.qty-cell { position: relative; }
+/* ช่องเงินช่องเดียวที่ต้องกรอก — หน่วยตามชนิดงาน (ตร.ม.ละ/บานละ) ห้อยใต้ช่อง */
+.track .row .rate-field .rate-label {
+  display: block;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--sub);
+  margin: 2px 1px 0;
+  line-height: 1.2;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 14.5px;
+}
+.rate-field input { color: var(--accent-text); font-weight: 700; }
+/* ยอดท้ายแถวเป็นปุ่ม: แตะ = เปิดตั้งราคาเอง/รายละเอียด/รูป ของแถวนั้น
+   ขีดประใต้ยอดบอกว่ากดได้ (แบบเดียวกับลิงก์) */
+.row-amt {
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: 14px;
   font-weight: 700;
   color: var(--gold);
   text-align: right;
+  padding: 8px 2px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  border-radius: 9px;
+  text-decoration: underline dashed color-mix(in srgb, var(--gold) 55%, transparent);
+  text-underline-offset: 3px;
 }
+.row-amt.on { color: var(--white); background: var(--gold); text-decoration: none; }
+.row .del { padding: 8px 1px; font-size: 13px; }
+.hintline { margin: 7px 2px 0; font-size: 11px; color: var(--grey); line-height: 1.5; }
 
-.row-grid { display: grid; grid-template-columns: 1fr 1fr 0.9fr 1.3fr; gap: 6px; }
-.row-grid .field { margin-bottom: 0; }
-.row-grid input { padding-left: 8px; padding-right: 8px; text-align: center; }
-.row-grid .rate-field input { color: var(--accent-text); font-weight: 700; }
-
-/* ของเพิ่มเติมของแถว — เปิดด้วยปุ่มเลขที่ แถวที่มีข้อมูลอยู่แล้วกางเอง */
-.fold { margin-top: 8px; border-top: 1px dashed var(--line); padding-top: 8px; }
+/* ของเพิ่มเติมของแถว — แตะยอด ฿ เปิด แถวที่มีข้อมูลอยู่แล้วกางเอง */
+.fold { margin-top: 4px; margin-bottom: 7px; border-top: 1px dashed var(--line); padding-top: 8px; }
 
 /* ปุ่มเพิ่มบรรทัด/ค่าส่ง มีที่เดียวที่ท้ายรายการ ไม่ใช่ติดอยู่บนทุกการ์ด */
 .list-actions {
