@@ -379,22 +379,20 @@ function itemCard(item, index) {
   if (extra) extra.open = Boolean(item.detail || item.image);
 
   const count = state.items.length;
-  const rowNo = $('.row-no', el);
   const rowAmt = $('.row-amt', el);
   const fold = $('.fold', el);
-  rowNo.textContent = String(index + 1);
   // ลบบรรทัดสุดท้ายทิ้งไม่ได้ ฟอร์มต้องเหลืออย่างน้อยหนึ่งบรรทัดให้กรอก
   $('.del', el).hidden = count < 2;
 
-  /* ตารางกางตลอด ("กดเป็นปุ่มมันยาก") — ช่องหลักของทุกแถวแก้ได้ตรงนั้นเลย
-   * ของที่นาน ๆ ใช้ (ตั้งราคาเอง รายละเอียด หน่วย รูป) อยู่ใน .fold ใต้แถว
-   * เปิดด้วยปุ่มเลขที่ · openId = แถวที่ร้านเปิดเอง (ทีละแถวพอ หน้าไม่ยาว)
+  /* ตารางบรรทัดเดียว ("ต้องการแบบตารางในโมบาย") — ช่องหลักของทุกแถวแก้ได้
+   * ตรงนั้นเลย ของที่นาน ๆ ใช้ (ตั้งราคาเอง รายละเอียด หน่วย รูป) อยู่ใน .fold
+   * ใต้แถว แตะยอด ฿ ท้ายแถวเพื่อเปิด · openId = แถวที่ร้านเปิดเอง (ทีละแถวพอ)
    * ส่วนแถวที่มีของพวกนั้นอยู่แล้ว กางมาให้เอง ไม่มีข้อมูลซ่อนหาย
    */
   const autoOpen = Boolean(item.detail || item.image || item.priceManual || item.totalManual);
   fold.hidden = !(openId === item.id || autoOpen);
-  rowNo.classList.toggle('on', !fold.hidden);
-  rowNo.onclick = () => {
+  rowAmt.classList.toggle('on', !fold.hidden);
+  rowAmt.onclick = () => {
     openId = fold.hidden ? item.id : null;
     renderItems();
   };
@@ -1140,13 +1138,13 @@ function fromDraft(draft) {
   state.items = items.length ? items : [blankItem()];
 }
 
-// เพิ่มการ์ดใบใหม่แล้วเลื่อนไปหาเลย ไม่ต้องปัดเอง
+// เพิ่มแถวใหม่แล้วเลื่อนไปหาเลย ไม่ต้องปัดเอง — แถวกางตลอดอยู่แล้ว จึงพาไป
+// พิมพ์ชื่อของแถวใหม่แทนการเด้งของเพิ่มเติมขึ้นมาบังตาราง
 function addItem() {
-  const fresh = blankItem();
-  state.items.push(fresh);
-  openId = fresh.id;
+  state.items.push(blankItem());
   renderItems();
   scrollToCard(state.items.length - 1);
+  setTimeout(() => $('.i-name', itemsBox.children[state.items.length - 1])?.focus(), 250);
 }
 
 /* ค่าส่งเป็นบรรทัดหนึ่งบนใบเสร็จ ไม่ใช่งานหนึ่งชิ้น
@@ -1163,7 +1161,6 @@ function addShipping() {
   ship.rateMode = 'piece';
   ship.qty = 1;
   state.items.push(ship);
-  openId = ship.id;
   renderItems();
   const index = state.items.length - 1;
   scrollToCard(index);

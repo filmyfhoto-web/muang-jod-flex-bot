@@ -117,8 +117,20 @@
     </details>
   </section>
 
-  <!-- รายการงาน: ตารางที่กางตลอด หนึ่งงาน = หนึ่งแถว ช่องหลักแก้ได้ตรงนั้นเลย -->
-  <div class="track" id="items" tabindex="-1"></div>
+  <!-- รายการงาน: ตารางบรรทัดเดียวเหมือนแบบร่างที่ร้านอนุมัติ — หัวคอลัมน์บนสุด
+       แถวไล่ลงมา คอลัมน์ตรงกันทุกแถว จอแคบเลื่อนข้างได้นิดหน่อยแทนการบีบช่อง
+       จนตัวเลขอ่านไม่ออก (ตัวหนังสือในช่องต่ำกว่า 16px ไม่ได้ iOS จะซูมเอง) -->
+  <section class="card sheet">
+    <div class="tblwrap">
+      <div class="tmin">
+        <div class="thead" aria-hidden="true">
+          <span>รายการ</span><span>ขนาด</span><span class="num">จำนวน</span><span class="num">ราคา</span><span class="num">รวม</span><span></span>
+        </div>
+        <div class="track" id="items" tabindex="-1"></div>
+      </div>
+    </div>
+    <p class="hintline">แตะยอด ฿ ท้ายแถว = ตั้งราคาเอง · รายละเอียด · แนบรูป · พิมพ์ชื่องานแล้วช่องราคาเปลี่ยนหน่วยให้เอง</p>
+  </section>
 
   <!-- ร้านบอกว่า "เพิ่มเป็นบรรทัดเหมือนใบเสร็จธรรมดาได้มั้ย ไม่ต้องข้ามหน้า" —
        รายการเรียงลงมาเป็นแถว ปุ่มเพิ่มจึงมีที่เดียวที่ท้ายรายการ -->
@@ -243,42 +255,36 @@
 
 <div class="toast" id="toast" role="status"></div>
 
-<!-- แม่แบบของหนึ่งแถว โคลนด้วย JS — แถวกางตลอด สองบรรทัดต่อแถว คอลัมน์ตรงกันทุกแถว
-     ของที่นาน ๆ ใช้ (ตั้งราคาเอง · รายละเอียด · หน่วย · รูป) อยู่ใน .fold ใต้แถว
-     เปิดด้วยปุ่มเลขที่ -->
+<!-- แม่แบบของหนึ่งแถว โคลนด้วย JS — ตารางบรรทัดเดียว: ชื่อ · กว้าง×ยาว · จำนวน ·
+     ราคา(หน่วยตามชนิดงาน) · รวม฿ · ✕ ของที่นาน ๆ ใช้ (ตั้งราคาเอง · รายละเอียด ·
+     หน่วย · รูป) อยู่ใน .fold ใต้แถว เปิดด้วยการแตะยอด ฿ ท้ายแถว -->
 <template id="tpl-item">
-  <div class="card item">
-    <div class="row-top">
-      <button class="row-no" type="button" aria-label="เปิดตัวเลือกเพิ่มเติมของบรรทัดนี้">1</button>
+  <div class="item">
+    <div class="row">
       <label class="field row-name">
         <!-- "ชื่อ" เฉย ๆ กับไอคอนคน อ่านแล้วเหมือนถามชื่อลูกค้า — ชื่อลูกค้ามีช่อง
              ของตัวเองในการ์ดบนสุดแล้ว ช่องนี้คือชื่องาน/ของ -->
         <span>ชื่องาน/รายการ</span>
         <input class="i-name" type="text" placeholder="เช่น ป้ายหน้าร้าน (ไม่ใช่ชื่อลูกค้า)" autocomplete="off" />
       </label>
-      <b class="row-amt">฿0</b>
-      <button class="icon-btn del" type="button" aria-label="ลบบรรทัดนี้">✕</button>
-    </div>
-
-    <div class="row-grid">
-      <label class="field">
-        <span>กว้าง</span>
-        <input class="i-w" type="number" inputmode="decimal" min="0" step="0.01" placeholder="160" />
-      </label>
-      <label class="field">
-        <span>ยาว</span>
-        <input class="i-h" type="number" inputmode="decimal" min="0" step="0.01" placeholder="300" />
-      </label>
-      <label class="field">
+      <div class="size-cell">
+        <label><span>กว้าง</span><input class="i-w" type="number" inputmode="decimal" min="0" step="0.01" placeholder="160" /></label>
+        <span class="x">×</span>
+        <label><span>ยาว</span><input class="i-h" type="number" inputmode="decimal" min="0" step="0.01" placeholder="300" /></label>
+      </div>
+      <label class="field qty-cell">
         <span class="qty-label">จำนวน</span>
         <input class="i-qty" type="number" inputmode="decimal" min="0" step="1" placeholder="1" />
       </label>
-      <!-- ช่องเงินช่องเดียวที่ต้องกรอก — ป้ายเปลี่ยนตามชนิดงาน (ตร.ม.ละ/บานละ/อันละ)
-           อีกสองช่อง (ราคาต่อชิ้น/ยอดรวม) ม่วงคิดให้ อยู่ใน "ตั้งราคาเอง" ใต้แถว -->
+      <!-- ช่องเงินช่องเดียวที่ต้องกรอก — ป้ายใต้ช่องเปลี่ยนตามชนิดงาน (ตร.ม.ละ/
+           บานละ/อันละ) อีกสองช่อง (ราคาต่อชิ้น/ยอดรวม) ม่วงคิดให้ อยู่ใน
+           "ตั้งราคาเอง" ใต้แถว -->
       <label class="field rate-field">
-        <span class="rate-label">ตร.ม. ละ (บาท)</span>
         <input class="i-rate" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 165" />
+        <span class="rate-label">ตร.ม. ละ (บาท)</span>
       </label>
+      <button class="row-amt" type="button" aria-label="ตั้งราคาเอง และของเพิ่มเติมของบรรทัดนี้">฿0</button>
+      <button class="icon-btn del" type="button" aria-label="ลบบรรทัดนี้">✕</button>
     </div>
 
     <div class="fold" hidden>

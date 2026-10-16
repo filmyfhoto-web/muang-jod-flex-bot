@@ -123,29 +123,36 @@ test('the form page opens in the same colours as the card it came from', () => {
  * การกดคืออุปสรรค ตอนนี้ทุกแถวกางตลอด: ชื่อ/ขนาด/จำนวน/ราคา แก้ได้ตรงนั้นเลย
  * ของนาน ๆ ใช้ (ตั้งราคาเอง รายละเอียด รูป) อยู่ใน .fold เปิดด้วยปุ่มเลขที่
  */
-test('รายการเป็นตารางกางตลอด ไม่ใช่การ์ดที่ต้องแตะเปิดทีละใบ', () => {
+test('รายการเป็นตารางบรรทัดเดียว หัวคอลัมน์บนสุด ไม่ใช่การ์ดที่ต้องแตะเปิดทีละใบ', () => {
   assert.ok(html.includes('class="track"'), 'ไม่มีกล่องรายการ');
-  // ไม่มีการปัดแนวนอนและไม่มีจุดบอกหน้า — เหมือนเดิมตั้งแต่รอบที่แล้ว
   assert.ok(!/\.track\s*\{[^}]*scroll-snap-type/.test(css), 'ยังปัดทีละใบอยู่');
   assert.ok(!html.includes('id="dots"'), 'ยังมีจุดบอกหน้าอยู่ ทั้งที่ไม่มีหน้าให้ข้าม');
 
-  // แถวไม่ใช่ details แล้ว — ช่องหลักทุกช่องแตะแก้ได้โดยไม่ต้องเปิดอะไรก่อน
+  // หัวคอลัมน์หนึ่งแถวบนสุด ร่วมกริดเดียวกับแถวงาน — คอลัมน์จึงตรงกันทุกแถว
+  assert.ok(html.includes('class="thead"'), 'ไม่มีหัวคอลัมน์ของตาราง');
+  for (const col of ['รายการ', 'ขนาด', 'จำนวน', 'ราคา', 'รวม']) {
+    assert.ok(html.includes(`>${col}</span>`), `หัวคอลัมน์ไม่มี ${col}`);
+  }
+  assert.match(css, /\.thead,\s*\n\.track > \.item > \.row \{/, 'หัวคอลัมน์กับแถวใช้คนละกริด เสาจะเบี้ยว');
+  // จอแคบกว่าตาราง เลื่อนข้างในกรอบของมันเอง ไม่ใช่บีบช่องจนอ่านไม่ออก
+  assert.match(css, /\.tblwrap \{ overflow-x: auto; \}/);
+
+  // แถวไม่ใช่ details — ช่องหลักทุกช่อง (ชื่อ/กว้าง/ยาว/จำนวน/ราคา) อยู่บน
+  // บรรทัดเดียว แตะแก้ได้โดยไม่ต้องเปิดอะไรก่อน และยอด ฿ อยู่ท้ายแถว
   assert.ok(!html.includes('<details class="card item">'), 'แถวยังเป็นการ์ดยุบได้');
   const tpl = html.slice(html.indexOf('<template id="tpl-item">'), html.indexOf('</template>'));
-  const rowTop = tpl.slice(tpl.indexOf('class="row-top"'), tpl.indexOf('class="row-grid"'));
-  assert.match(rowTop, /class="i-name"/, 'ชื่องานไม่อยู่บนแถว');
-  assert.match(rowTop, /class="row-amt"/, 'คอลัมน์ "รวม" ของแถวหาย');
-  const rowGrid = tpl.slice(tpl.indexOf('class="row-grid"'), tpl.indexOf('class="fold"'));
-  for (const cls of ['i-w', 'i-h', 'i-qty', 'i-rate']) {
-    assert.match(rowGrid, new RegExp(`class="${cls}"`), `${cls} ไม่อยู่บนแถว`);
+  const row = tpl.slice(tpl.indexOf('class="row"'), tpl.indexOf('class="fold"'));
+  for (const cls of ['i-name', 'i-w', 'i-h', 'i-qty', 'i-rate', 'row-amt']) {
+    assert.match(row, new RegExp(`class="[^"]*${cls}`), `${cls} ไม่อยู่บนแถว`);
   }
 
   // ยอดท้ายแถวอัปเดตตามที่พิมพ์ เหมือนคอลัมน์ "รวม" ของใบเสร็จ
   assert.match(js, /rowAmt\.textContent = baht\(t\)/, 'ยอดของแถวไม่ถูกอัปเดต');
 
-  // ของนาน ๆ ใช้อยู่ใน fold เปิดด้วยปุ่มเลขที่ — แถวที่มีข้อมูลอยู่แล้วกางเอง
+  // ของนาน ๆ ใช้อยู่ใน fold แตะยอด ฿ เพื่อเปิด — แถวที่มีข้อมูลอยู่แล้วกางเอง
   // ไม่มีข้อมูลซ่อนหาย (กติกาเดิมของ extra.open ขยายมาคลุมตั้งราคาเองด้วย)
   assert.match(js, /fold\.hidden = !\(openId === item\.id \|\| autoOpen\)/);
+  assert.match(js, /rowAmt\.onclick/, 'ยอด ฿ ไม่ใช่ปุ่มเปิดของเพิ่มเติม');
   assert.match(js, /openId = fold\.hidden \? item\.id : null/);
   assert.match(js, /item\.detail \|\| item\.image \|\| item\.priceManual \|\| item\.totalManual/);
 });
@@ -169,9 +176,11 @@ test('เพิ่มบรรทัดถัดไปได้โดยไม�
   assert.ok(track > 0 && add > track, 'ปุ่มเพิ่มไม่ได้อยู่ท้ายรายการ');
   assert.ok(add < tpl, 'ปุ่มเพิ่มไปอยู่ในแม่แบบการ์ด กลายเป็นปุ่มละใบอีกแล้ว');
 
-  // บรรทัดที่เพิ่งเพิ่มต้องกางเอง ไม่ใช่เพิ่มแล้วต้องไปแตะเปิดอีกที
-  assert.match(js, /openId = fresh\.id/, 'เพิ่มบรรทัดแล้วไม่กางให้');
-  assert.match(js, /openId = ship\.id/, 'เพิ่มค่าส่งแล้วไม่กางให้');
+  // แถวกางตลอดอยู่แล้ว เพิ่มบรรทัดจึงไม่เด้งของเพิ่มเติมขึ้นมาบังตาราง —
+  // พาไปที่ช่องที่ต้องพิมพ์ต่อแทน (ชื่อของแถวใหม่ / ช่องราคาของค่าส่ง)
+  assert.ok(!/openId = fresh\.id/.test(js), 'เพิ่มบรรทัดแล้วของเพิ่มเติมเด้งมาบัง');
+  assert.match(js, /\$\('\.i-name', itemsBox\.children\[state\.items\.length - 1\]\)\?\.focus\(\)/);
+  assert.match(js, /\$\('\.i-rate', itemsBox\.children\[index\]\)\?\.focus\(\)/);
 });
 
 test('both themes are one stylesheet, switched by a class', () => {
