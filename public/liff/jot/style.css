@@ -245,25 +245,41 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
   display: block;
   padding: 0;
 }
-/* ตารางบรรทัดเดียวเหมือนแบบร่างที่ร้านอนุมัติ ("ต้องการแบบตารางในโมบาย")
- * หัวคอลัมน์แถวบน แถวงานไล่ลงมา คอลัมน์ตรงกันทุกแถว:
- *   [รายการ______] [กว้าง×ยาว] [จำนวน] [ราคา(หน่วยตามชนิดงาน)] [รวม฿] [✕]
+/* ตารางเส้นสี่เหลี่ยมแบบสมุดจริง ("ฉันเอาตารางแบบสี่เหลี่ยมได้มั้ย") —
+ * ทุกช่องเป็นช่องตารางมีเส้นคั่นครบทั้งตั้งและนอน หัวคอลัมน์พื้นเข้ม
+ * ช่องกรอกกลืนเป็นช่องตารางเลย ไม่ใช่กล่องลอยซ้อนในกล่องอีกชั้น:
+ *   [รายการ______|กว้าง×ยาว|จำนวน|ราคา(หน่วยตามชนิดงาน)|รวม฿|✕]
  * จอแคบกว่าตารางเลื่อนข้างได้นิดหน่อย (แบบเดียวกับแบบร่าง) — ดีกว่าบีบช่อง
  * จนตัวเลขอ่านไม่ออก เพราะตัวหนังสือในช่องต่ำกว่า 16px ไม่ได้ (iOS ซูมเอง) */
 .sheet { padding: 10px 12px 8px; }
 .tblwrap { overflow-x: auto; }
-.tmin { min-width: 420px; }
+.tmin { min-width: 420px; border: 1.5px solid var(--line); border-radius: 10px; overflow: hidden; }
 .thead,
 .track > .item > .row {
   display: grid;
-  grid-template-columns: minmax(96px, 1.3fr) 96px 42px 66px minmax(58px, auto) 22px;
-  gap: 4px;
-  align-items: start;
+  grid-template-columns: minmax(96px, 1.3fr) 96px 42px 66px minmax(58px, auto) 26px;
+  gap: 0;
+  align-items: stretch;
 }
-.thead span { font-size: 11px; font-weight: 600; color: var(--sub); padding: 0 2px 5px; }
+.thead { background: var(--accent-soft); }
+.thead span { font-size: 11.5px; font-weight: 700; color: var(--accent-text); padding: 8px 7px; }
 .thead .num { text-align: right; }
-.track > .item { border-top: 1px solid var(--line); padding: 5px 0; margin: 0; }
+/* เส้นตั้งของตาราง: ทุกช่อง (หัวและแถว) มีเส้นซ้าย ยกเว้นช่องแรก */
+.thead > span + span,
+.row > * + * { border-left: 1px solid var(--line); }
+.track > .item { border-top: 1px solid var(--line); padding: 0; margin: 0; }
+.row > * { min-width: 0; }
 .row .field { margin-bottom: 0; }
+/* ช่องกรอกในตาราง = ช่องตารางเอง ไม่มีกรอบ/พื้นของตัวเองอีกชั้น
+   (นำหน้าด้วย .track ให้ชนะกฎช่องกรอกกลางที่อยู่ท้ายไฟล์) */
+.track .row input {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  min-height: 44px;
+  padding: 6px 7px;
+}
+.track .row input:focus { background: var(--gold-soft); box-shadow: inset 0 0 0 1.5px var(--gold); }
 /* ป้ายของช่องในแถวมีไว้ให้เครื่องอ่านหน้าจอ — ตาเห็นหัวคอลัมน์ข้างบนพอแล้ว */
 .track .row .row-name > span:first-child,
 .track .row .size-cell label > span,
@@ -277,26 +293,28 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
   margin: 0;
 }
 .row-name { position: relative; min-width: 0; }
-.row input { padding-left: 7px; padding-right: 7px; }
-.row input[type='number'] { text-align: center; }
-.size-cell { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.track .row input[type='number'] { text-align: center; }
+.size-cell { display: flex; align-items: center; gap: 0; min-width: 0; }
 .size-cell label { flex: 1; min-width: 0; position: relative; }
+.track .size-cell input { padding-left: 2px; padding-right: 2px; }
 .size-cell .x { flex: 0 0 auto; color: var(--grey); font-size: 12px; }
 .qty-cell { position: relative; }
 /* ช่องเงินช่องเดียวที่ต้องกรอก — หน่วยตามชนิดงาน (ตร.ม.ละ/บานละ) ห้อยใต้ช่อง */
+.rate-field { display: flex; flex-direction: column; justify-content: center; }
 .track .row .rate-field .rate-label {
   display: block;
   font-size: 9.5px;
   font-weight: 600;
   color: var(--sub);
-  margin: 2px 1px 0;
+  margin: -4px 4px 4px;
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-align: center;
 }
 .rate-field input { color: var(--accent-text); font-weight: 700; }
-/* ยอดท้ายแถวเป็นปุ่ม: แตะ = เปิดตั้งราคาเอง/รายละเอียด/รูป ของแถวนั้น
+/* ยอดท้ายแถวเป็นปุ่มเต็มช่องตาราง: แตะ = เปิดตั้งราคาเอง/รายละเอียด/รูป
    ขีดประใต้ยอดบอกว่ากดได้ (แบบเดียวกับลิงก์) */
 .row-amt {
   border: 0;
@@ -306,22 +324,23 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
   font-weight: 700;
   color: var(--gold);
   text-align: right;
-  padding: 8px 2px;
+  padding: 8px 6px;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
-  border-radius: 9px;
+  border-radius: 0;
   text-decoration: underline dashed color-mix(in srgb, var(--gold) 55%, transparent);
   text-underline-offset: 3px;
 }
 .row-amt.on { color: var(--white); background: var(--gold); text-decoration: none; }
-.row .del { padding: 8px 1px; font-size: 13px; }
+.row .del { padding: 8px 2px; font-size: 13px; }
 .hintline { margin: 7px 2px 0; font-size: 11px; color: var(--grey); line-height: 1.5; }
 
-/* ของเพิ่มเติมของแถว — แตะยอด ฿ เปิด แถวที่มีข้อมูลอยู่แล้วกางเอง */
-.fold { margin-top: 4px; margin-bottom: 7px; border-top: 1px dashed var(--line); padding-top: 8px; }
+/* ของเพิ่มเติมของแถว — แตะยอด ฿ เปิด แถวที่มีข้อมูลอยู่แล้วกางเอง
+   (อยู่ใต้แถวในตาราง จึงมีระยะขอบของตัวเอง เพราะแถวตารางชิดเส้น) */
+.fold { margin: 0; border-top: 1px dashed var(--line); padding: 8px 10px; }
 
 /* ปุ่มเพิ่มบรรทัด/ค่าส่ง มีที่เดียวที่ท้ายรายการ ไม่ใช่ติดอยู่บนทุกการ์ด */
 .list-actions {
