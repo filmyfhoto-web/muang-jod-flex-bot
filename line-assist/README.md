@@ -61,7 +61,7 @@ Secrets ที่ใช้ (ในตาราง `app_secrets` ที่ line-b
    insert into app_secrets(key, value, updated_at) select 'faq_forward', value, now() from app_secrets where key = 'line_webhook_prev' on conflict (key) do nothing;
    insert into app_config(key, value, updated_at) values ('faq_bot', '{"mode":"admins", "admins":[…], "chatLinkTemplate":"…"}'::jsonb, now()) on conflict (key) do update set value = excluded.value, updated_at = now();
    ```
-4. **รูปการ์ด** (ครั้งเดียว): POST `{"action":"seed_assets","from":"https://raw.githubusercontent.com/filmyfhoto-web/muang-jod-flex-bot/<commit>/line-assist/assets"}` ไปที่ฟังก์ชัน (ใส่ `?k=`) → คัดลอกรูปเข้า Storage แบบสาธารณะ ได้ `assets_base` กลับมา ใส่ใน `faq_bot`
+4. **รูปการ์ด**: ตั้ง `assets_base` ใน `faq_bot` เป็นโฟลเดอร์รูปบน GitHub ที่ตรึงคอมมิตไว้ — `https://raw.githubusercontent.com/filmyfhoto-web/muang-jod-flex-bot/<commit เต็ม 40 ตัว>/line-assist/assets` (ใช้ได้ทันที ไม่ต้องทำอะไรเพิ่ม). ถ้าอยากไม่พึ่ง GitHub: POST `{"action":"seed_assets","from":"<ที่อยู่โฟลเดอร์ข้างบน>"}` ไปที่ฟังก์ชัน (ใส่ `?k=`) → คัดลอกรูปเข้า Storage แบบสาธารณะ ได้ `assets_base` ใหม่กลับมา
 5. **ต่อสาย**: ชี้ line-bot มาที่ฟังก์ชันนี้
    ```sql
    update app_secrets set value = 'https://<project>.supabase.co/functions/v1/line-assist?k=' || (select value from app_secrets where key = 'faq_hook_key'), updated_at = now() where key = 'line_webhook_prev';
