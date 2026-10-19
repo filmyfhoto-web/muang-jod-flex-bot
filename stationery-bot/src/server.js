@@ -14,7 +14,7 @@ import { isPaused, createQuiet, parseAdminIds, parseAdminCommand, isWhoAmI } fro
 import { isWakeWord } from './wake.js';
 import { createVisitTracker, HOUR } from './visit.js';
 import { createSerial } from './serial.js';
-import { installRichMenu, removeRichMenu } from './richmenu.js';
+import { menuCommandReply } from './richmenu.js';
 
 const token = (process.env.LINE_CHANNEL_ACCESS_TOKEN ?? '').trim();
 const secret = (process.env.LINE_CHANNEL_SECRET ?? '').trim();
@@ -96,21 +96,14 @@ const menuImageFile = (shop) => {
   return fileURLToPath(new URL(`../${rel}`, import.meta.url));
 };
 
-// "ติดตั้งเมนู" / "ลบเมนู" from an admin: puts the permanent menu under every customer's chat, or takes it off.
-async function menuCommand(cmd, shop) {
+// "ติดตั้งเมนู" / "ลบเมนู" from an admin (see richmenu.js).
+const menuCommand = async (cmd, shop) => {
   try {
-    if (cmd.type === 'menuRemove') {
-      const n = await removeRichMenu({ token, shop });
-      return n ? 'เอาเมนูออกแล้วค่ะ ✅ ลูกค้าจะไม่เห็นเมนูใต้แชทอีก (บางเครื่องต้องปิด-เปิดแชทใหม่)' : 'ตอนนี้ไม่มีเมนูของบอทอยู่ค่ะ';
-    }
-    const r = await installRichMenu({ token, shop, imageFile: menuImageFile(shop) });
-    console.log('[menu] installed', r.richMenuId, r.replaced ? `(replaced ${r.replaced})` : '');
-    return 'ติดตั้งเมนูเรียบร้อยแล้วค่ะ ✅\nเมนู 3 ปุ่มจะขึ้นใต้แชทของลูกค้าทุกคน (บางเครื่องต้องปิด-เปิดแชทใหม่ก่อน)\nถ้าต้องการเอาออกพิมพ์ "ลบเมนู" ค่ะ';
+    return await menuCommandReply({ cmd, shop, token, imageFile: menuImageFile(shop) });
   } catch (e) {
-    console.error('[menu]', e.message);
     return `ทำเมนูไม่สำเร็จค่ะ ❌\n${String(e.message).slice(0, 220)}`;
   }
-}
+};
 
 // Admin switches (only from LINE accounts listed in ADMIN_USER_IDS).
 function adminReply(cmd, shop) {
@@ -189,6 +182,7 @@ async function handleEvent(ev) {
   const holiday = (shopNow, messages, extra = {}) =>
     applyHoliday(messages, { shop: shopNow, userId, tracker: noticed, ...extra });
   if (ev.type === 'follow') {
+    if (shop.welcome === false) return; // the OA's own greeting message is used instead
     return replyMessage(ev.replyToken, send(holiday(shop, [welcomeMessage(shop)])), token);
   }
   if (ev.type !== 'message') return;

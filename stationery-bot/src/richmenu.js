@@ -76,14 +76,39 @@ async function call(fetchImpl, token, method, url, { json, body, type } = {}) {
   return text ? JSON.parse(text) : {};
 }
 
-const listOurs = async (fetchImpl, token, name) =>
-  ((await call(fetchImpl, token, 'GET', `${API}/richmenu/list`)).richmenus ?? []).filter((m) => m.name === name);
+const listAll = async (fetchImpl, token) => (await call(fetchImpl, token, 'GET', `${API}/richmenu/list`)).richmenus ?? [];
+const listOurs = async (fetchImpl, token, name) => (await listAll(fetchImpl, token)).filter((m) => m.name === name);
+
+// The menu everybody currently sees, if one was set through the API (404 = none).
+async function currentDefault(fetchImpl, token) {
+  try {
+    return (await call(fetchImpl, token, 'GET', `${API}/user/all/richmenu`)).richMenuId ?? null;
+  } catch (e) {
+    if (e.status === 404) return null;
+    throw e;
+  }
+}
+
+// Thrown instead of replacing a menu that some other system (e.g. the shop's own app) put there.
+export class ForeignMenuError extends Error {
+  constructor(name) {
+    super(`another menu is already in use: ${name}`);
+    this.menuName = name;
+  }
+}
 
 // Installs the menu and makes it the one everybody sees. The new menu is live before the old
 // copies (same name) are removed, and a half-made one is deleted again if the picture fails.
-export async function installRichMenu({ token, shop, imageFile, fetchImpl = fetch }) {
+export async function installRichMenu({ token, shop, imageFile, force = false, fetchImpl = fetch }) {
   const menu = buildRichMenu(shop);
   const image = loadMenuImage(imageFile);
+  if (!force) {
+    const inUse = await currentDefault(fetchImpl, token);
+    if (inUse) {
+      const found = (await listAll(fetchImpl, token)).find((m) => m.richMenuId === inUse);
+      if (!found || found.name !== menu.name) throw new ForeignMenuError(found?.name ?? inUse);
+    }
+  }
   const { richMenuId } = await call(fetchImpl, token, 'POST', `${API}/richmenu`, { json: menu });
   try {
     await call(fetchImpl, token, 'POST', `${DATA}/richmenu/${richMenuId}/content`, { body: image.bytes, type: image.mime });
@@ -111,4 +136,28 @@ export async function removeRichMenu({ token, shop, fetchImpl = fetch }) {
   }
   for (const m of ours) await call(fetchImpl, token, 'DELETE', `${API}/richmenu/${m.richMenuId}`);
   return ours.length;
+}
+
+// What an admin gets back for "ติดตั้งเมนู" / "ติดตั้งเมนู ทับ" / "ลบเมนู" — the work is done here, the text is the answer.
+// Installing is OFF until the owner sets richMenu.enabled in shop.json, so the bot never replaces a menu the shop's
+// other systems rely on by accident; taking OUR menu away is always allowed.
+export async function menuCommandReply({ cmd, shop, token, imageFile, fetchImpl = fetch, log = console }) {
+  try {
+    if (cmd.type === 'menuRemove') {
+      const n = await removeRichMenu({ token, shop, fetchImpl });
+      return n ? 'เอาเมนูออกแล้วค่ะ ✅ ลูกค้าจะไม่เห็นเมนูใต้แชทอีก (บางเครื่องต้องปิด-เปิดแชทใหม่)' : 'ตอนนี้ไม่มีเมนูของบอทอยู่ค่ะ';
+    }
+    if (shop.richMenu?.enabled !== true) {
+      return 'ยังไม่เปิดให้บอทติดตั้งเมนูค่ะ (กันไม่ให้ไปทับเมนูของระบบร้านที่ใช้อยู่)\nยังไม่ได้ทำอะไรกับเมนูเลย ถ้าต้องการใช้ แจ้งคนดูแลบอทให้เปิดก่อนนะคะ';
+    }
+    const r = await installRichMenu({ token, shop, imageFile, force: cmd.force === true, fetchImpl });
+    log.log('[menu] installed', r.richMenuId, r.replaced ? `(replaced ${r.replaced})` : '');
+    return 'ติดตั้งเมนูเรียบร้อยแล้วค่ะ ✅\nเมนูจะขึ้นใต้แชทของลูกค้าทุกคน (บางเครื่องต้องปิด-เปิดแชทใหม่ก่อน)\nถ้าต้องการเอาออกพิมพ์ "ลบเมนู" ค่ะ';
+  } catch (e) {
+    if (e instanceof ForeignMenuError) {
+      return `มีเมนูอื่นของ OA ใช้อยู่แล้ว (ชื่อ "${String(e.menuName).slice(0, 60)}") ถ้าติดตั้งจะไปทับเมนูนั้น\nยังไม่ได้ทำอะไรค่ะ ถ้าแน่ใจจริง ๆ พิมพ์ "ติดตั้งเมนู ทับ"`;
+    }
+    log.error('[menu]', e.message);
+    return `ทำเมนูไม่สำเร็จค่ะ ❌\n${String(e.message).slice(0, 220)}`;
+  }
 }

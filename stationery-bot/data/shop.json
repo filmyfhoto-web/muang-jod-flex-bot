@@ -3,6 +3,7 @@
   "replyDelaySeconds": 0,
   "replyOnlyKnown": true,
   "productsEnabled": false,
+  "welcome": true,
   "name": "ร้านนัฐภรณ์ เชียงกลาง",
   "theme": {
     "cream": "#FBF7EF",
@@ -367,6 +368,7 @@
     "documentAsk": "ส่งไฟล์เอกสารโครงการมาในแชทนี้ได้เลยค่ะ 😊 แล้วเลือกแอดมินที่ต้องการติดต่อด้านล่างนะคะ"
   },
   "richMenu": {
+    "enabled": false,
     "name": "stationery-bot-menu",
     "chatBarText": "เมนู",
     "selected": true,

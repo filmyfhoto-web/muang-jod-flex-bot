@@ -36,7 +36,8 @@ export function parseAdminCommand(text) {
   if (p) return { type: 'pause', hours: p[1] ? Number(p[1]) : null };
   if (RESUME.test(t)) return { type: 'resume' };
   if (/^(?:โควตา|quota)$/i.test(t)) return { type: 'quota' };
-  if (/^(?:ติดตั้งเมนู|ตั้งเมนู)$/.test(t)) return { type: 'menuInstall' };
+  const mi = /^(?:ติดตั้งเมนู|ตั้งเมนู)(\s*ทับ)?$/.exec(t);
+  if (mi) return { type: 'menuInstall', force: Boolean(mi[1]) };
   if (/^(?:ลบเมนู|เอาเมนูออก)$/.test(t)) return { type: 'menuRemove' };
   return null;
 }
