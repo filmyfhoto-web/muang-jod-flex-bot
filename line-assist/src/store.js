@@ -82,16 +82,17 @@ export function createRestStore({ url, key, fetch: doFetch = fetch, now = () => 
       return r?.[0] ? { at: Number(r[0].at), data: r[0].data } : null;
     },
     async set(k, data = {}) {
-      await req('POST', '/st_state?on_conflict=key', { body: { key: k, at: now(), data }, prefer: 'resolution=merge-duplicates,return=minimal' });
+      await req('POST', '/st_state?on_conflict=key', { body: { key: k, at: Math.round(now()), data }, prefer: 'resolution=merge-duplicates,return=minimal' });
     },
     async del(k) {
       await req('DELETE', `/st_state?key=eq.${enc(k)}`, { prefer: 'return=minimal' });
     },
     async claim(k, ms) {
-      return (await req('POST', '/rpc/st_claim', { body: { p_key: k, p_now: now(), p_ms: ms } })) === true;
+      // whole numbers only: the columns are bigint and a fraction would be refused
+      return (await req('POST', '/rpc/st_claim', { body: { p_key: k, p_now: Math.round(now()), p_ms: Math.round(ms) } })) === true;
     },
     async touchWithin(k, ms) {
-      return (await req('POST', '/rpc/st_touch_within', { body: { p_key: k, p_now: now(), p_ms: ms } })) === true;
+      return (await req('POST', '/rpc/st_touch_within', { body: { p_key: k, p_now: Math.round(now()), p_ms: Math.round(ms) } })) === true;
     },
     async prune(before) {
       await req('DELETE', `/st_state?at=lt.${Math.floor(before)}`, { prefer: 'return=minimal' });

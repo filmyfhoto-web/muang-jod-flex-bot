@@ -85,7 +85,7 @@ Secrets ที่ใช้ (ในตาราง `app_secrets` ที่ line-b
 
 ## ทดสอบ
 ```bash
-cd line-assist && node --test        # 99 ข้อ (Node ≥ 20; รันใน Deno 2 ก็ผ่าน: deno test --allow-all)
+cd line-assist && node --test        # 104 ข้อ (Node ≥ 20; รันใน Deno 2 ก็ผ่าน: deno test --allow-all)
 ```
 ไม่มี dependency และไม่ต่อเครือข่ายจริง (LINE/ฐานข้อมูลจำลองในเทสต์)
 
