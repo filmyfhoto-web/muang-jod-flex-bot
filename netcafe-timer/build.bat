@@ -9,7 +9,7 @@ if not exist "%CSC%" (
   pause
   exit /b 1
 )
-"%CSC%" /nologo /target:winexe /optimize+ /codepage:65001 /out:NetTimer.exe /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Xml.dll src\Core.cs src\App.cs
+"%CSC%" /nologo /target:winexe /optimize+ /codepage:65001 /out:NetTimer.exe /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Xml.dll src\*.cs
 if errorlevel 1 (
   echo [ERROR] Build failed
   pause

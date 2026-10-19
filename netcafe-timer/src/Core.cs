@@ -1,5 +1,5 @@
 // NetTimer — โปรแกรมจับเวลาใช้อินเทอร์เน็ต (ชำระเงินก่อนใช้งาน)
-// ส่วนแกน: ข้อมูล, การคิดเงิน, การบันทึกไฟล์แบบกันไฟดับ
+// ส่วนแกน: ข้อมูล, การคิดเงิน, การนับเวลา, การบันทึกไฟล์แบบกันไฟดับ
 // เขียนให้คอมไพล์ได้ด้วย csc.exe ที่ติดมากับ Windows (.NET Framework 4, C# 5)
 
 using System;
@@ -11,41 +11,42 @@ using System.Xml.Serialization;
 
 namespace NetTimer
 {
-    public class UsageType
-    {
-        public int Id;
-        public string Name;
-        public decimal RatePerHour;
-    }
-
     public class Member
     {
+        public const string TypeMember = "สมาชิก";
+        public const string TypeGeneral = "ทั่วไป";
+
         public int Id;
         public string Code;
         public string Name;
+        public string Type = TypeGeneral;
         public string Phone;
-        public decimal DiscountPercent;
         public string Note;
     }
 
-    // รายการที่กำลังจับเวลาอยู่ (ยังไม่ได้กดชำระเงิน)
+    // แพ็กเกจเวลา เช่น 1 ชั่วโมง 20 บาท
+    public class Package
+    {
+        public int Minutes;
+        public decimal Price;
+    }
+
+    // รายการใช้งาน: สร้างตอนเลือกเวลา (รอชำระเงิน) → ชำระเงินแล้วเริ่มนับ → หยุดการใช้งานแล้วย้ายไปประวัติ
     public class Session
     {
         public int Id;
-        public string Machine;
-        public int UsageTypeId;
-        public string UsageName;
-        public decimal RatePerHour;
         public int MemberId;
+        public string MemberCode;
         public string MemberName;
-        public decimal DiscountPercent;
+        public string MemberType;
+        public bool Pending;           // ยังไม่ได้กดชำระเงิน (ไม่นับเวลา)
         public DateTime StartTime;
-        public DateTime LastTick;      // เวลาล่าสุดที่โปรแกรมนับให้ ใช้คำนวณช่วงที่โปรแกรมปิด/ไฟดับ
+        public DateTime LastTick;      // เวลาล่าสุดที่นับให้ ใช้คำนวณช่วงที่โปรแกรมปิด/ไฟดับ
         public double UsedSeconds;
         public bool Paused;
-        public bool OpenTime;          // เปิดเวลา คิดเงินตอนเลิก (ไม่ได้จ่ายล่วงหน้า)
         public int PaidMinutes;
         public decimal PrepaidAmount;
+        public decimal RatePerHour;    // ใช้คิดค่าใช้เกินเวลา
         public string Note;
         public bool WarnedSoon;
         public bool WarnedEnd;
@@ -57,65 +58,80 @@ namespace NetTimer
 
         public bool IsTimeUp()
         {
-            return !OpenTime && RemainingSeconds() <= 0;
+            return !Pending && RemainingSeconds() <= 0;
+        }
+
+        // เวลาสิ้นสุดโดยประมาณ (เลื่อนออกไปเองถ้าหยุดชั่วคราว)
+        public DateTime EndTime(DateTime now)
+        {
+            if (Pending) return now.AddMinutes(PaidMinutes);
+            return now.AddSeconds(RemainingSeconds());
         }
     }
 
     public class Settings
     {
-        public string ShopName = "ร้านอินเทอร์เน็ต";
-        public string Machines = "PC-01,PC-02,PC-03,PC-04,PC-05,PC-06,PC-07,PC-08,PC-09,PC-10";
+        public string ShopName = "โปรแกรมจับเวลาใช้อินเทอร์เน็ต";
+        public decimal RatePerHour = 20m;  // ราคาต่อชั่วโมง สำหรับ "กำหนดเอง" และคิดค่าใช้เกินเวลา
         public int WarnMinutes = 5;
-        public int GraceMinutes = 2;   // เกินเวลาไม่เกินกี่นาทีไม่คิดเงินเพิ่ม
+        public int GraceMinutes = 2;       // ใช้เกินไม่เกินกี่นาทีไม่คิดเงินเพิ่ม
         public bool Sound = true;
-
-        public string[] MachineList()
-        {
-            List<string> list = new List<string>();
-            foreach (string part in (Machines ?? "").Split(new char[] { ',', '\n', '\r' }))
-            {
-                string m = part.Trim();
-                if (m.Length > 0 && !list.Contains(m)) list.Add(m);
-            }
-            return list.ToArray();
-        }
     }
 
     public class AppState
     {
         public Settings Settings = new Settings();
-        public List<UsageType> UsageTypes = new List<UsageType>();
+        public List<Package> Packages = new List<Package>();
         public List<Member> Members = new List<Member>();
         public List<Session> Active = new List<Session>();
         public int NextSessionId = 1;
         public int NextMemberId = 1;
-        public int NextTypeId = 1;
         public DateTime SavedAt;
 
         // ค่าเริ่มต้นตอนเปิดโปรแกรมครั้งแรก (ห้ามใส่ใน constructor เพราะ XmlSerializer จะต่อรายการซ้ำ)
         public static AppState CreateDefault()
         {
             AppState s = new AppState();
-            s.AddUsageType("อินเทอร์เน็ต", 20m);
-            s.AddUsageType("เล่นเกม", 25m);
-            s.AddUsageType("พิมพ์งาน/ทำรายงาน", 20m);
+            s.SeedPackages();
+            Member v = s.AddMember("Visitor", Member.TypeGeneral);
+            v.Note = "ลูกค้าทั่วไป";
             return s;
         }
 
-        public UsageType AddUsageType(string name, decimal rate)
+        public void SeedPackages()
         {
-            UsageType t = new UsageType();
-            t.Id = NextTypeId++;
-            t.Name = name;
-            t.RatePerHour = rate;
-            UsageTypes.Add(t);
-            return t;
+            int[] minutes = { 30, 60, 120, 180, 300 };
+            decimal[] prices = { 10m, 20m, 40m, 60m, 100m };
+            for (int i = 0; i < minutes.Length; i++)
+            {
+                Package p = new Package();
+                p.Minutes = minutes[i];
+                p.Price = prices[i];
+                Packages.Add(p);
+            }
         }
 
-        public UsageType FindType(int id)
+        public Member AddMember(string name, string type)
         {
-            foreach (UsageType t in UsageTypes) if (t.Id == id) return t;
-            return null;
+            Member m = new Member();
+            m.Id = NextMemberId++;
+            m.Code = NextMemberCode();
+            m.Name = name;
+            m.Type = type;
+            Members.Add(m);
+            return m;
+        }
+
+        // รหัสถัดไปแบบ 0001, 0002, ...
+        public string NextMemberCode()
+        {
+            int max = 0;
+            foreach (Member m in Members)
+            {
+                int n;
+                if (int.TryParse(m.Code, out n) && n > max) max = n;
+            }
+            return (max + 1).ToString("0000");
         }
 
         public Member FindMember(int id)
@@ -130,25 +146,56 @@ namespace NetTimer
             return null;
         }
 
-        public Session FindActiveOnMachine(string machine)
+        public Session FindActiveForMember(int memberId)
         {
-            foreach (Session s in Active)
-                if (string.Equals(s.Machine, machine, StringComparison.OrdinalIgnoreCase)) return s;
+            foreach (Session s in Active) if (s.MemberId == memberId) return s;
             return null;
         }
 
-        // นับเวลาให้ทุกรายการที่ไม่ได้หยุดไว้ รายการที่เพิ่งใกล้หมด/หมดเวลาจะถูกใส่ใน soon/ended
+        public Session NewSession(Member m, DateTime now)
+        {
+            Session s = new Session();
+            s.Id = NextSessionId++;
+            s.MemberId = m.Id;
+            s.MemberCode = m.Code;
+            s.MemberName = m.Name;
+            s.MemberType = m.Type;
+            s.Pending = true;
+            s.StartTime = s.LastTick = now;
+            s.RatePerHour = Settings.RatePerHour;
+            s.Note = "";
+            Active.Add(s);
+            return s;
+        }
+
+        // ชำระเงินแล้ว เริ่มนับเวลาตั้งแต่ตอนนี้
+        public void StartSession(Session s, DateTime now)
+        {
+            s.Pending = false;
+            s.StartTime = s.LastTick = now;
+            s.UsedSeconds = 0;
+            ResetWarnings(s);
+        }
+
+        public void ResetWarnings(Session s)
+        {
+            double remain = s.RemainingSeconds();
+            s.WarnedEnd = remain <= 0;
+            s.WarnedSoon = remain <= Settings.WarnMinutes * 60.0;
+        }
+
+        // นับเวลาให้ทุกรายการที่เริ่มแล้วและไม่ได้หยุดไว้ รายการที่เพิ่งใกล้หมด/หมดเวลาจะถูกใส่ใน soon/ended
         public void Tick(DateTime now, List<Session> soon, List<Session> ended)
         {
             foreach (Session s in Active)
             {
-                if (!s.Paused)
+                if (!s.Pending && !s.Paused)
                 {
                     double delta = (now - s.LastTick).TotalSeconds;
                     if (delta > 0) s.UsedSeconds += delta;
                 }
                 s.LastTick = now;
-                if (s.OpenTime) continue;
+                if (s.Pending) continue;
                 double remain = s.RemainingSeconds();
                 if (!s.WarnedSoon && remain > 0 && remain <= Settings.WarnMinutes * 60.0)
                 {
@@ -164,13 +211,13 @@ namespace NetTimer
             }
         }
 
-        // ช่วงเวลาที่โปรแกรมไม่ได้ทำงาน (ปิด/ค้าง/ไฟดับ) นับจาก LastTick ของรายการที่ยังเดินอยู่
+        // ช่วงเวลาที่โปรแกรมไม่ได้ทำงาน (ปิด/ค้าง/ไฟดับ) นับจาก LastTick ของรายการที่กำลังเดินอยู่
         public double OfflineSeconds(DateTime now)
         {
             double max = 0;
             foreach (Session s in Active)
             {
-                if (s.Paused) continue;
+                if (s.Pending || s.Paused) continue;
                 double gap = (now - s.LastTick).TotalSeconds;
                 if (gap > max) max = gap;
             }
@@ -182,7 +229,7 @@ namespace NetTimer
         {
             foreach (Session s in Active)
             {
-                if (countOffline && !s.Paused)
+                if (countOffline && !s.Pending && !s.Paused)
                 {
                     double gap = (now - s.LastTick).TotalSeconds;
                     if (gap > 0) s.UsedSeconds += gap;
@@ -190,32 +237,22 @@ namespace NetTimer
                 s.LastTick = now;
             }
         }
+
+        public int PendingCount()
+        {
+            int n = 0;
+            foreach (Session s in Active) if (s.Pending) n++;
+            return n;
+        }
     }
 
     public static class Pricing
     {
-        public static decimal EffectiveRate(decimal ratePerHour, decimal discountPercent)
-        {
-            if (discountPercent < 0) discountPercent = 0;
-            if (discountPercent > 100) discountPercent = 100;
-            return ratePerHour * (100m - discountPercent) / 100m;
-        }
-
-        // จ่ายเงินเท่านี้ ได้กี่นาที (ปัดลง)
-        public static int MinutesFor(decimal amount, decimal ratePerHour, decimal discountPercent)
-        {
-            decimal rate = EffectiveRate(ratePerHour, discountPercent);
-            if (amount <= 0) return 0;
-            if (rate <= 0) return 0;
-            return (int)Math.Floor(amount * 60m / rate);
-        }
-
         // ใช้กี่นาที ต้องจ่ายเท่าไหร่ (ปัดขึ้นเป็นบาท)
-        public static decimal AmountFor(int minutes, decimal ratePerHour, decimal discountPercent)
+        public static decimal AmountFor(int minutes, decimal ratePerHour)
         {
-            if (minutes <= 0) return 0;
-            decimal rate = EffectiveRate(ratePerHour, discountPercent);
-            return Math.Ceiling(minutes * rate / 60m);
+            if (minutes <= 0 || ratePerHour <= 0) return 0;
+            return Math.Ceiling(minutes * ratePerHour / 60m);
         }
 
         public static int UsedMinutes(Session s)
@@ -223,18 +260,13 @@ namespace NetTimer
             return (int)Math.Ceiling(s.UsedSeconds / 60.0 - 1e-9);
         }
 
-        // ยอดที่ต้องเก็บเพิ่มตอนปิดรายการ
+        // ค่าใช้เกินเวลา ตอนหยุดการใช้งาน
         public static decimal ExtraDue(Session s, int graceMinutes)
         {
-            if (s.OpenTime)
-            {
-                decimal full = AmountFor(UsedMinutes(s), s.RatePerHour, s.DiscountPercent);
-                return Math.Max(0, full - s.PrepaidAmount);
-            }
             double over = -s.RemainingSeconds();
-            if (over <= graceMinutes * 60.0) return 0;
+            if (s.Pending || over <= graceMinutes * 60.0) return 0;
             int overMin = (int)Math.Ceiling(over / 60.0 - 1e-9);
-            return AmountFor(overMin, s.RatePerHour, s.DiscountPercent);
+            return AmountFor(overMin, s.RatePerHour);
         }
     }
 
@@ -242,17 +274,17 @@ namespace NetTimer
     {
         public static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
-        public static string Duration(double seconds)
+        public static string Clock(double seconds)
         {
-            if (seconds < 0) seconds = 0;
-            long t = (long)Math.Floor(seconds);
-            return string.Format("{0}:{1:00}:{2:00}", t / 3600, (t / 60) % 60, t % 60);
+            string sign = seconds < 0 ? "-" : "";
+            long t = (long)Math.Floor(Math.Abs(seconds));
+            return string.Format("{0}{1:00}:{2:00}:{3:00}", sign, t / 3600, (t / 60) % 60, t % 60);
         }
 
         public static string Minutes(int minutes)
         {
             if (minutes < 60) return minutes + " นาที";
-            if (minutes % 60 == 0) return (minutes / 60) + " ชม.";
+            if (minutes % 60 == 0) return (minutes / 60) + " ชั่วโมง";
             return (minutes / 60) + " ชม. " + (minutes % 60) + " นาที";
         }
 
@@ -267,23 +299,33 @@ namespace NetTimer
             if (text.Length == 0) { v = 0; return true; }
             return decimal.TryParse(text, NumberStyles.Number, Inv, out v) && v >= 0;
         }
+
+        // อ่านระยะเวลา เช่น "30", "30 นาที", "1 ชั่วโมง", "1.5 ชม."
+        public static bool TryDuration(string text, out int minutes)
+        {
+            minutes = 0;
+            string t = (text ?? "").Trim();
+            bool hours = t.Contains("ชั่วโมง") || t.Contains("ชม");
+            t = t.Replace("ชั่วโมง", "").Replace("ชม.", "").Replace("ชม", "").Replace("นาที", "").Trim();
+            decimal v;
+            if (!decimal.TryParse(t, NumberStyles.Number, Inv, out v) || v <= 0) return false;
+            minutes = (int)Math.Round(hours ? v * 60m : v);
+            return minutes > 0;
+        }
     }
 
-    // รายการที่ชำระเงินแล้ว/ยกเลิก บันทึกต่อท้ายไฟล์รายเดือน (history-YYYY-MM.txt)
+    // รายการที่หยุดใช้งาน/ยกเลิก บันทึกต่อท้ายไฟล์รายเดือน (history-YYYY-MM.txt)
     public class HistoryRecord
     {
-        public const string Paid = "ชำระแล้ว";
+        public const string Done = "เสร็จสิ้น";
         public const string Cancelled = "ยกเลิก";
 
         public int Id;
-        public string Status;          // Paid / Cancelled
+        public string Status;
         public DateTime StartTime;
         public DateTime EndTime;
-        public string Machine;
-        public string UsageName;
+        public string MemberCode;
         public string MemberName;
-        public decimal RatePerHour;
-        public decimal DiscountPercent;
         public int UsedMinutes;
         public int PaidMinutes;
         public decimal Prepaid;
@@ -291,7 +333,7 @@ namespace NetTimer
         public decimal Total;
         public string Note;
 
-        public const string Header = "Id\tStatus\tStart\tEnd\tMachine\tUsage\tMember\tRatePerHour\tDiscount\tUsedMinutes\tPaidMinutes\tPrepaid\tExtra\tTotal\tNote";
+        public const string Header = "Id\tStatus\tStart\tEnd\tCode\tName\tUsedMinutes\tPaidMinutes\tPrepaid\tExtra\tTotal\tNote";
         const string DateFmt = "yyyy-MM-dd HH:mm:ss";
 
         static string Clean(string s)
@@ -304,8 +346,7 @@ namespace NetTimer
             return string.Join("\t", new string[] {
                 Id.ToString(Fmt.Inv), Clean(Status),
                 StartTime.ToString(DateFmt, Fmt.Inv), EndTime.ToString(DateFmt, Fmt.Inv),
-                Clean(Machine), Clean(UsageName), Clean(MemberName),
-                RatePerHour.ToString(Fmt.Inv), DiscountPercent.ToString(Fmt.Inv),
+                Clean(MemberCode), Clean(MemberName),
                 UsedMinutes.ToString(Fmt.Inv), PaidMinutes.ToString(Fmt.Inv),
                 Prepaid.ToString(Fmt.Inv), Extra.ToString(Fmt.Inv), Total.ToString(Fmt.Inv),
                 Clean(Note) });
@@ -314,7 +355,7 @@ namespace NetTimer
         public static HistoryRecord Parse(string line)
         {
             string[] f = line.Split('\t');
-            if (f.Length < 14) return null;
+            if (f.Length < 11) return null;
             try
             {
                 HistoryRecord r = new HistoryRecord();
@@ -322,17 +363,14 @@ namespace NetTimer
                 r.Status = f[1];
                 r.StartTime = DateTime.ParseExact(f[2], DateFmt, Fmt.Inv);
                 r.EndTime = DateTime.ParseExact(f[3], DateFmt, Fmt.Inv);
-                r.Machine = f[4];
-                r.UsageName = f[5];
-                r.MemberName = f[6];
-                r.RatePerHour = decimal.Parse(f[7], Fmt.Inv);
-                r.DiscountPercent = decimal.Parse(f[8], Fmt.Inv);
-                r.UsedMinutes = int.Parse(f[9], Fmt.Inv);
-                r.PaidMinutes = int.Parse(f[10], Fmt.Inv);
-                r.Prepaid = decimal.Parse(f[11], Fmt.Inv);
-                r.Extra = decimal.Parse(f[12], Fmt.Inv);
-                r.Total = decimal.Parse(f[13], Fmt.Inv);
-                r.Note = f.Length > 14 ? f[14] : "";
+                r.MemberCode = f[4];
+                r.MemberName = f[5];
+                r.UsedMinutes = int.Parse(f[6], Fmt.Inv);
+                r.PaidMinutes = int.Parse(f[7], Fmt.Inv);
+                r.Prepaid = decimal.Parse(f[8], Fmt.Inv);
+                r.Extra = decimal.Parse(f[9], Fmt.Inv);
+                r.Total = decimal.Parse(f[10], Fmt.Inv);
+                r.Note = f.Length > 11 ? f[11] : "";
                 return r;
             }
             catch (FormatException) { return null; }
@@ -346,11 +384,8 @@ namespace NetTimer
             r.Status = status;
             r.StartTime = s.StartTime;
             r.EndTime = end;
-            r.Machine = s.Machine;
-            r.UsageName = s.UsageName;
+            r.MemberCode = s.MemberCode;
             r.MemberName = s.MemberName;
-            r.RatePerHour = s.RatePerHour;
-            r.DiscountPercent = s.DiscountPercent;
             r.UsedMinutes = Pricing.UsedMinutes(s);
             r.PaidMinutes = s.PaidMinutes;
             r.Prepaid = s.PrepaidAmount;
@@ -435,7 +470,7 @@ namespace NetTimer
                 }
             }
             if (s.Settings == null) s.Settings = new Settings();
-            if (s.UsageTypes.Count == 0) s.AddUsageType("อินเทอร์เน็ต", 20m);
+            if (s.Packages.Count == 0) s.SeedPackages();
             return s;
         }
 
@@ -489,8 +524,8 @@ namespace NetTimer
             }
         }
 
-        // อ่านประวัติช่วงวันที่ (รวมทั้งวัน from ถึงสิ้นวัน to) ตามเวลาที่ปิดรายการ
-        // ถ้าเลขที่ซ้ำ (ไฟดับหลังบันทึกประวัติแต่ก่อนบันทึกสถานะ แล้วกดชำระซ้ำ) ใช้แถวล่าสุด
+        // อ่านประวัติช่วงวันที่ (รวมทั้งวัน from ถึงสิ้นวัน to) ตามเวลาที่จบรายการ
+        // ถ้าเลขที่ซ้ำ (ไฟดับหลังบันทึกประวัติแต่ก่อนบันทึกสถานะ แล้วกดหยุดซ้ำ) ใช้แถวล่าสุด
         public List<HistoryRecord> LoadHistory(DateTime from, DateTime to)
         {
             Dictionary<int, HistoryRecord> byId = new Dictionary<int, HistoryRecord>();
