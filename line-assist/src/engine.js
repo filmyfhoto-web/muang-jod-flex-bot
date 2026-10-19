@@ -9,7 +9,7 @@ import { buildReply, welcomeMessage, thanksReply, quick, withSender } from './re
 import { contactCard } from './flex.js';
 import { isThanksSticker, isThanks, isMenuTap, normalize } from './matcher.js';
 import { holidayNotice } from './holiday.js';
-import { people, findContact, notificationCard, contactPhotos } from './contact.js';
+import { people, findContact, findByName, notificationCard, contactPhotos } from './contact.js';
 import { readSlip, slipReply, readerOn } from './slip.js';
 import { parseAdminCommand, isWhoAmI, isPaused } from './commands.js';
 import { isWakeWord } from './wake.js';
@@ -26,7 +26,7 @@ export const contactCfg = (shop) => ({
 const SCHOOL_WAIT = 10 * MIN; // how long "which school?" stays open
 
 export function createEngine({ store, line, fetch: doFetch = fetch, now = () => Date.now(), env = () => undefined }) {
-  const send = (shop, messages) => withSender(messages, shop.assetBase, quick(shop));
+  const send = (shop, messages) => withSender(messages, shop.senderIcon ? shop.assetBase : '', quick(shop));
 
   // A reply is free; when its token has run out (400) the message goes out as a push instead,
   // which counts against the plan's monthly quota.
@@ -227,5 +227,17 @@ export function createEngine({ store, line, fetch: doFetch = fetch, now = () => 
     return out.length ? 'note' : 'silent:media';
   }
 
-  return { handle };
+  // A customer chose a person in the shop's own picker (line-bot handles that choice itself and goes quiet);
+  // this only tells the person, once per customer per window. → a short word for the log.
+  async function alertPick(shop, { customerId, adminName }) {
+    const cfg = contactCfg(shop);
+    if (isPaused(shop, env('FAQ_BOT_PAUSED')) || (await allPaused())) return 'pick:paused';
+    const person = findByName(adminName, shop);
+    if (!person) return 'pick:unknown';
+    if (!(await store.claim(`pick:${customerId}:${person.name}`, cfg.alertEveryMs))) return 'pick:again';
+    await notifyAdmins(shop, [person], { customerId, contact: person, said: '' });
+    return 'pick:alerted';
+  }
+
+  return { handle, alertPick };
 }

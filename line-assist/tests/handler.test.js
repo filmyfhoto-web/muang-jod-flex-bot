@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHandler } from '../src/handler.js';
 import { createMemoryStore } from '../src/store.js';
 import { hmacBase64 } from '../src/util.js';
-import { fakeLine, CUSTOMER, IDS, textsOf } from './_line.js';
+import { fakeLine, CUSTOMER, CUSTOMER2, IDS, textsOf } from './_line.js';
 
 const KEY = 'k-' + 'a'.repeat(30);
 const RENDER = 'https://old-bot.example/webhook';
@@ -226,4 +226,43 @@ test('seed_assets copies the six pictures into a public folder, only from this a
   assert.deepEqual(put2.sort(), ['admin.png', 'ask.png', 'icon.png', 'order.png', 'school.png', 'staff.png']);
   assert.equal(body.assets_base, 'https://x.supabase.co/storage/v1/object/public/line-assist');
   assert.ok(textsOf(body));
+});
+
+test('pick_alert: the database tells us a customer chose someone in the shop\'s own picker → only that person is told', async () => {
+  const r = rig({ config: { mode: 'admins' } });
+  const call = (body, opts) => r.post(body, opts);
+  assert.equal((await call({ action: 'pick_alert', user_id: CUSTOMER, admin_name: 'หญิง' }, { key: '' })).status, 401); // needs the key
+  assert.equal((await call({ action: 'pick_alert', user_id: 'nope', admin_name: 'หญิง' })).status, 400);
+  assert.equal((await call({ action: 'pick_alert', user_id: CUSTOMER, admin_name: '  ' })).status, 400);
+  const ok = await call({ action: 'pick_alert', user_id: CUSTOMER, admin_name: 'หญิง' });
+  assert.deepEqual(ok.body, { ok: true, r: 'pick:alerted' });
+  assert.deepEqual(r.log.pushes.map((p) => p.to), [IDS.หญิง]);
+  assert.equal(r.log.replies.length, 0); // nothing is said to the customer
+  assert.equal((await call({ action: 'pick_alert', user_id: CUSTOMER, admin_name: 'หญิง' })).body.r, 'pick:again');
+  assert.equal((await call({ action: 'pick_alert', user_id: CUSTOMER, admin_name: 'ไม่มีคนนี้' })).body.r, 'pick:unknown');
+  assert.equal(r.log.pushes.length, 1);
+});
+
+test('pick_alert does nothing while the assistant is switched off, has no token, or the database is out', async () => {
+  const off = rig({ config: { mode: 'off' } });
+  assert.deepEqual((await off.post({ action: 'pick_alert', user_id: CUSTOMER, admin_name: 'หญิง' })).body, { ok: true, skipped: 'off' });
+  const none = rig({ secrets: { line_channel_token: '' } });
+  assert.deepEqual((await none.post({ action: 'pick_alert', user_id: CUSTOMER, admin_name: 'หญิง' })).body, { ok: true, skipped: 'no_token' });
+  const down = rig();
+  down.store.getConfig = async () => {
+    throw new Error('db down');
+  };
+  assert.equal((await down.post({ action: 'pick_alert', user_id: CUSTOMER, admin_name: 'หญิง' })).status, 500);
+  assert.equal(off.log.pushes.length + none.log.pushes.length + down.log.pushes.length, 0);
+});
+
+test('the shop\'s own settings are read: its people, its buttons, its silence time', async () => {
+  const r = rig({ config: { mode: 'all' } });
+  r.store.config.line_bot = { admin_label: 'ถามแอดมิน', silence_hours: 12, old_chips: ['เวลาเปิดร้าน'], admins: [{ name: 'หญิง', note: 'ของ' }] };
+  await r.post(batch(textEvent(CUSTOMER, 'ร้านเปิดกี่โมง')));
+  const items = r.log.replies[0].messages[0].quickReply.items;
+  assert.deepEqual(items.map((i) => i.action.label), ['สั่งซื้อสินค้า', 'ส่งเอกสารโครงการ', 'ถามแอดมิน', 'เวลาเปิดร้าน']);
+  await r.post(batch(textEvent(CUSTOMER2, 'สั่งงาน', 2))); // another customer, so the first one's burst window does not apply
+  assert.match(JSON.stringify(r.log.replies.at(-1).messages), /คุยกับหญิง/);
+  assert.ok(!/คุยกับฟิล์ม/.test(JSON.stringify(r.log.replies.at(-1).messages))); // only the people the shop lists
 });

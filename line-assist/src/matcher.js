@@ -170,6 +170,7 @@ export function isMenuTap(text, shop) {
     ...(shop.quickReplies ?? []).map((t) => (typeof t === 'string' ? t : t?.text)),
     shop.contact?.button,
     ...(shop.contact?.buttonAliases ?? []),
+    ...(shop.menuTexts ?? []),
     ...(shop.richMenu?.areas ?? []).map((a) => a?.text),
   ];
   return texts.some((t) => t && normalize(t) === q);

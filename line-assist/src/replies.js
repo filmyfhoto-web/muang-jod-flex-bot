@@ -8,6 +8,7 @@ export const topics = (shop) =>
   (shop.quickReplies ?? []).map((t) => (typeof t === 'string' ? { label: t, text: t } : t));
 
 export function quick(shop) {
+  if (Array.isArray(shop.chips) && shop.chips.length) return { items: shop.chips.slice(0, 13) }; // the shop's own buttons (see chips.js)
   const items = topics(shop)
     .slice(0, 13)
     .map((t) => ({ type: 'action', action: { type: 'message', label: t.label.slice(0, 20), text: t.text } }));

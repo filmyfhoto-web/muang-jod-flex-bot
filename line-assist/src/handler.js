@@ -3,6 +3,8 @@
 //   POST  a LINE webhook body  → answered here, or passed on to the old bot (see "mode" in config.js)
 //   POST  { "action": "seed_assets", "from": "<https folder with the 6 pictures>" }  → copies the pictures
 //         into a public Storage folder, once
+//   POST  { "action": "pick_alert", "user_id": "U…", "admin_name": "หญิง" }  → tells that person a customer
+//         chose them in the shop's own picker (sent by the database, see sql/002_pick_alert.sql)
 //   GET   → "ok"
 //
 // Who may call: a request that carries a valid LINE signature (if the channel secret is saved in
@@ -20,7 +22,7 @@ const SEED_FROM = [/^https:\/\/raw\.githubusercontent\.com\/filmyfhoto-web\//, /
 const BUCKET = 'line-assist';
 
 export function createHandler(deps) {
-  const { store, fetch: doFetch = fetch, now = () => Date.now(), env = () => undefined, waitUntil = () => {}, selfUrl = '' } = deps;
+  const { store, fetch: doFetch = fetch, now = () => Date.now(), env = () => undefined, waitUntil = () => {}, selfUrl = '', iconsUrl = '' } = deps;
   const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'Content-Type': 'application/json' } });
   const memo = { forward: '' }; // the last good pass-on address, for when the store is unreachable
 
@@ -66,6 +68,37 @@ export function createHandler(deps) {
     return job;
   }
 
+  // The shop's settings, the OA token and the old bot's address. Throws when the database cannot be reached.
+  async function load() {
+    const [row, bot, token, fwd] = await Promise.all([store.getConfig('faq_bot'), store.getConfig('line_bot'), store.getSecret('line_channel_token'), forwardTarget()]);
+    return { row, bot, token: String(token ?? '').trim(), fwd };
+  }
+
+  // A customer chose a person in the shop's own picker (line-bot goes quiet for them by itself); the database
+  // calls this so the chosen person is told too. Body: { action: 'pick_alert', user_id, admin_name }.
+  async function pickAlert(body) {
+    const customerId = String(body.user_id ?? '');
+    const adminName = String(body.admin_name ?? '').slice(0, 40);
+    if (!/^U[0-9a-f]{32}$/i.test(customerId) || !adminName.trim()) return json({ error: 'bad_request' }, 400);
+    let setup;
+    try {
+      setup = await load();
+    } catch (e) {
+      console.error('[setup]', e.message);
+      return json({ ok: false, error: 'setup_failed' }, 500);
+    }
+    const mode = modeOf(setup.row);
+    if (mode === 'off' || !setup.token) return json({ ok: true, skipped: mode === 'off' ? 'off' : 'no_token' });
+    const shop = buildShop(setup.row, { bot: setup.bot, iconsBase: iconsUrl });
+    const engine = createEngine({ store, line: createLine({ fetch: doFetch, token: setup.token }), fetch: doFetch, now, env });
+    try {
+      return json({ ok: true, r: await engine.alertPick(shop, { customerId, adminName }) });
+    } catch (e) {
+      console.error('[pick_alert]', e.message);
+      return json({ ok: false, error: 'alert_failed' }, 500);
+    }
+  }
+
   async function seedAssets(from) {
     if (!SEED_FROM.some((re) => re.test(from))) return json({ error: 'bad_source' }, 400);
     if (typeof store.putPublicFile !== 'function') return json({ error: 'no_storage' }, 500);
@@ -101,14 +134,16 @@ export function createHandler(deps) {
       return json({ error: 'bad_json' }, 400);
     }
     if (body.action === 'seed_assets') return seedAssets(String(body.from ?? ''));
+    if (body.action === 'pick_alert') return pickAlert(body);
     const events = Array.isArray(body.events) ? body.events : [];
     if (!events.length) return json({ ok: true, r: [] }); // LINE's "verify" ping
 
     let row;
+    let bot;
     let token;
     let fwd;
     try {
-      [row, token, fwd] = await Promise.all([store.getConfig('faq_bot'), store.getSecret('line_channel_token'), forwardTarget()]);
+      ({ row, bot, token, fwd } = await load());
     } catch (e) {
       // The settings cannot be read: do what the old bot would have done, if we still know where it is.
       console.error('[setup]', e.message);
@@ -119,8 +154,7 @@ export function createHandler(deps) {
       return json({ ok: false, error: 'setup_failed' }, 500);
     }
     const mode = modeOf(row);
-    const shop = buildShop(row);
-    token = String(token ?? '').trim();
+    const shop = buildShop(row, { bot, iconsBase: iconsUrl });
 
     const pass = (why) => {
       if (fwd) {

@@ -273,24 +273,37 @@ function avatar(url, size = 44) {
   };
 }
 
-// "ต้องการติดต่อใคร?" — one button per person, with their photo when LINE gave us one
-// (`photos` maps a person's name to an https image URL). The button sends "ติดต่อ <name>".
+const noteText = (shop, t) => text(t, { size: 'xs', color: pal(shop).muted, align: 'center' });
+
+// "ต้องการติดต่อใคร?" — one button per person (with their photo when LINE gave us one and, under the
+// name, what they look after). `photos` maps a person's name to an https image URL. The button sends
+// "คุยกับ<name>", which the shop's own picker understands too.
 export function contactCard(shop, text, photos = {}) {
   const ppl = shop.contact?.people ?? [];
+  const label = (p) => `คุยกับ${p.name}`;
   return flex(
-    `${text} ${ppl.map((p) => `ติดต่อ ${p.name}`).join(' / ')}`,
+    `${text} ${ppl.map((p) => label(p)).join(' / ')}`,
     bubble(shop, {
       header: header('ติดต่อแอดมิน', shop, 'admin'),
       body: { type: 'box', layout: 'vertical', contents: [text_(text)] },
       footer: {
         type: 'box',
         layout: 'vertical',
-        spacing: 'sm',
+        spacing: 'md',
         contents: ppl.map((p, i) => {
-          const button = { ...msgButton(`ติดต่อ ${p.name}`, `ติดต่อ ${p.name}`, shop, 'secondary', i), flex: 1 };
+          const column = {
+            type: 'box',
+            layout: 'vertical',
+            flex: 1,
+            spacing: 'xs',
+            contents: [
+              { ...msgButton(label(p), label(p), shop, 'secondary', i), flex: 1 },
+              ...(p.note ? [noteText(shop, p.note)] : []),
+            ],
+          };
           return photos[p.name]
-            ? { type: 'box', layout: 'horizontal', spacing: 'md', alignItems: 'center', contents: [avatar(photos[p.name]), button] }
-            : button;
+            ? { type: 'box', layout: 'horizontal', spacing: 'md', alignItems: 'center', contents: [avatar(photos[p.name]), column] }
+            : column;
         }),
       },
     })

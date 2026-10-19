@@ -5,15 +5,29 @@
 import { normalize } from './matcher.js';
 import { notifyCard } from './flex.js';
 
-export const contactLabel = (person) => `ติดต่อ ${person.name}`;
+// What a person's button says and sends: the shop's own wording, so its picker and ours are one thing.
+export const contactLabel = (person) => `คุยกับ${person.name}`;
 
 export const people = (shop) => shop.contact?.people ?? [];
 
-// The exact text a "ติดต่อ <name>" button sends.
+// The ways a customer may ask for one person (a button, or typed): "คุยกับหญิง", "ขอคุยกับหญิง",
+// "คุยกับแอดมินหญิง", "แอดมินหญิง", "ติดต่อหญิง" — the whole message, nothing else.
+const askedFor = (person) => {
+  const n = person.name;
+  return [`คุยกับ${n}`, `ขอคุยกับ${n}`, `คุยกับแอดมิน${n}`, `แอดมิน${n}`, `ติดต่อ${n}`].map(normalize);
+};
+
 export function findContact(text, shop) {
   const q = normalize(text);
   if (!q) return null;
-  return people(shop).find((p) => normalize(contactLabel(p)) === q) ?? null;
+  return people(shop).find((p) => askedFor(p).includes(q)) ?? null;
+}
+
+// The same person by the name the shop's settings use (matching ignores spaces and politeness).
+export function findByName(name, shop) {
+  const q = normalize(name);
+  if (!q) return null;
+  return people(shop).find((p) => normalize(p.name) === q) ?? null;
 }
 
 // The line that pops up on the admin's LINE (also the Flex card's alt text — what shows in the

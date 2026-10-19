@@ -21,5 +21,6 @@ Deno.serve(
     waitUntil,
     env: (k: string) => Deno.env.get(k) ?? undefined,
     selfUrl: url + '/functions/v1/line-assist',
+    iconsUrl: url + '/functions/v1/line-assets', // the shop's own button pictures
   }),
 )

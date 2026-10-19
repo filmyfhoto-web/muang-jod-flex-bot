@@ -124,5 +124,5 @@ test('thanks that name an admin is still thanks; a thank-you with a question is 
   assert.ok(!isThanks('ขอบคุณ ป้าย 2 ผืน', names));
   // through the reply builder: "ขอบคุณเจ้าพี่" now gets the thank-you card
   assert.match(JSON.stringify(buildReply('ขอบคุณเจ้าพี่', makeShop()).messages), /ยินดีค่ะ/);
-  assert.match(JSON.stringify(buildReply('ขอบคุณพี่ปิ่น', makeShop()).messages), /ยินดีค่ะ/);
+  assert.match(JSON.stringify(buildReply('ขอบคุณเจ้ปิ่น', makeShop()).messages), /ยินดีค่ะ/);
 });
