@@ -26,12 +26,12 @@ export const contactCfg = (shop) => ({
 const SCHOOL_WAIT = 10 * MIN; // how long "which school?" stays open
 
 export function createEngine({ store, line, fetch: doFetch = fetch, now = () => Date.now(), env = () => undefined }) {
-  const send = (shop, messages) => withSender(messages, shop.senderIcon ? shop.assetBase : '', quick(shop));
+  const send = (shop, messages, { quick: withQuick = true } = {}) => withSender(messages, shop.senderIcon ? shop.assetBase : '', withQuick ? quick(shop) : undefined);
 
   // A reply is free; when its token has run out (400) the message goes out as a push instead,
   // which counts against the plan's monthly quota.
-  async function deliver(ev, userId, shop, messages) {
-    const out = send(shop, messages);
+  async function deliver(ev, userId, shop, messages, opts) {
+    const out = send(shop, messages, opts);
     const r = await line.reply(ev.replyToken, out);
     if (r.ok) return;
     if (r.status === 400 && userId !== 'anon') {
@@ -187,7 +187,7 @@ export function createEngine({ store, line, fetch: doFetch = fetch, now = () => 
       if (!out.length) return 'silent'; // nothing to say
       // noted before the reply goes out, so a second webhook arriving a moment later already sees it
       if (userId !== 'anon') await store.set(`last:${userId}`, { said: normalize(said) });
-      await deliver(ev, userId, shop, out);
+      await deliver(ev, userId, shop, out, { quick: r.quick !== false });
       return 'reply';
     }
 

@@ -1,6 +1,7 @@
 import { matchIntent, findSchool, mentionsSupplies, isThanks, isHello } from './matcher.js';
 import { isWakeWord } from './wake.js';
 import { menuCard, faqCard, productCards, schoolLinkCard, noteCard, contactCard } from './flex.js';
+import { ruleMessages } from './rules.js';
 
 // quickReplies entries are "text" or { label, text } — LINE button labels stop at
 // 20 characters, so a long message can wear a shorter label.
@@ -48,7 +49,7 @@ export function buildReply(text, shop, session = {}) {
 
   const intent = matchIntent(text, shop);
   const qr = quick(shop);
-  if (intent.type === 'off') return { messages: [], awaitingSchool: false, silent: true, quiet: true };
+  if (intent.type === 'off') return { messages: [], awaitingSchool: false, silent: true, quiet: true, matched: intent.rule?.id };
   if (intent.type === 'ask') return { messages: [], awaitingSchool: false, needsPhotos: true }; // the contact card, no alert
   if (intent.type === 'order') return { messages: [], awaitingSchool: false, needsPhotos: true, askText: shop.contact[intent.ask ?? 'orderAsk'] ?? shop.contact.orderAsk ?? shop.contact.ask };
   if (intent.type === 'contact') return { messages: [contactCard(shop, shop.contact.ask)], awaitingSchool: false, needsPhotos: true };
@@ -58,6 +59,9 @@ export function buildReply(text, shop, session = {}) {
       return out(productCards(shop, intent.products, qr));
     case 'faq':
       return out(faqCard(shop, intent.faq, qr));
+    case 'rule':
+      // the owner's own rule: its replies as written; the topic buttons ride on the last one unless the rule says no
+      return { messages: ruleMessages(shop, intent.rule), awaitingSchool: false, matched: intent.rule.id, quick: intent.rule.quick !== false };
     case 'greeting':
       return { ...out(menuCard(shop, shop.name, shop.greeting, { image: 'staff' })), greeting: true, pureHello: isHello(text), menuRequest: isWakeWord(text) };
     default:

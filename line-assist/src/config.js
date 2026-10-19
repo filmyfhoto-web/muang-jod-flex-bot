@@ -19,12 +19,16 @@
 import data from './data.js';
 import { normalize } from './matcher.js';
 import { shopChips, chipTexts, DEFAULT_ADMIN_LABEL } from './chips.js';
+import { cleanRules } from './rules.js';
 
 export const MODES = ['off', 'admins', 'all'];
 export const modeOf = (row) => (row && MODES.includes(row.mode) ? row.mode : 'off');
 
 const ID = /^U[0-9a-f]{32}$/i;
-const CONTENT_KEYS = ['name', 'greeting', 'fallback', 'quickReplies', 'faq', 'products', 'productsEnabled', 'schoolSupplies', 'thanks', 'holiday', 'replyOnlyKnown', 'welcome', 'theme', 'adminPauseHours'];
+const CONTENT_KEYS = ['name', 'greeting', 'fallback', 'quickReplies', 'faq', 'products', 'productsEnabled', 'thanks', 'holiday', 'replyOnlyKnown', 'welcome', 'theme', 'adminPauseHours'];
+// the texts and trigger words of the "talk to a person" flow the owner may change from the Studio
+const CONTACT_TEXTS = ['ask', 'orderAsk', 'documentAsk'];
+const CONTACT_WORDS = ['orderWords', 'askWords', 'documentWords'];
 const NUMBERS = ['quietMinutes', 'alertEveryHours', 'pictureReplyMinutes', 'burstSeconds'];
 
 // What the shop's bot uses when its settings row names nobody.
@@ -35,6 +39,26 @@ export const DEFAULT_ADMINS = [
 ];
 
 const isObj = (x) => x && typeof x === 'object' && !Array.isArray(x);
+const str = (v, n) => String(v ?? '').trim().slice(0, n);
+const https = (v) => (/^https:\/\/[^\s<>"']{3,990}$/i.test(String(v ?? '').trim()) ? String(v).trim() : '');
+const strings = (a, n, max) => (Array.isArray(a) ? a : []).map((x) => str(x, n)).filter(Boolean).slice(0, max);
+
+// The school-supplies settings (the "อุปกรณ์การเรียน" flow). Anything unusable leaves the shipped value in place.
+function cleanSupplies(x, base) {
+  if (!isObj(x) || !Array.isArray(x.schools)) return base;
+  const schools = x.schools
+    .map((s) => ({ name: str(s?.name, 80), aliases: strings(s?.aliases, 60, 10), link: https(s?.link) }))
+    .filter((s) => s.name && s.link)
+    .slice(0, 300);
+  return {
+    label: str(x.label, 40) || base.label,
+    keywords: strings(x.keywords, 40, 20).length ? strings(x.keywords, 40, 20) : base.keywords,
+    ask: str(x.ask, 500) || base.ask,
+    found: str(x.found, 500) || base.found,
+    notFound: str(x.notFound, 500) || base.notFound,
+    schools,
+  };
+}
 
 export function buildShop(row, { bot = null, iconsBase = '' } = {}) {
   const c = isObj(row) ? row : {};
@@ -43,6 +67,13 @@ export function buildShop(row, { bot = null, iconsBase = '' } = {}) {
   if (isObj(c.content)) {
     const sameKind = (x, y) => typeof x === typeof y && Array.isArray(x) === Array.isArray(y) && (x === null) === (y === null);
     for (const k of CONTENT_KEYS) if (c.content[k] !== undefined && sameKind(c.content[k], shop[k])) shop[k] = c.content[k];
+    if (c.content.schoolSupplies !== undefined) shop.schoolSupplies = cleanSupplies(c.content.schoolSupplies, shop.schoolSupplies);
+    if (Array.isArray(c.content.rules)) shop.rules = cleanRules(c.content.rules); // the owner's own question list replaces the shipped one
+    if (isObj(c.content.contact)) {
+      const o = c.content.contact;
+      for (const k of CONTACT_TEXTS) if (str(o[k], 500)) shop.contact[k] = str(o[k], 500);
+      for (const k of CONTACT_WORDS) if (Array.isArray(o[k])) shop.contact[k] = strings(o[k], 40, 60);
+    }
   }
 
   // The people: names and notes as the shop's bot has them; their LINE ids from our row. Someone without a

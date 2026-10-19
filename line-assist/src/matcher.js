@@ -106,6 +106,21 @@ export function findFaq(text, faq) {
   return best?.entry ?? null;
 }
 
+// The owner's rules (see rules.js): the first enabled rule with a usable reply that matches wins.
+// 'exact' = the whole message is the keyword (politeness and spaces ignored); 'contains' = the keyword is somewhere in it.
+export function findRule(text, rules) {
+  const q = normalize(text);
+  if (!q) return null;
+  for (const r of rules ?? []) {
+    if (!r || r.enabled === false || !r.replies?.length) continue;
+    for (const k of r.keywords ?? []) {
+      const kw = normalize(k);
+      if (kw && (r.match === 'exact' ? q === kw : q.includes(kw))) return r;
+    }
+  }
+  return null;
+}
+
 // "ขอบคุณค่ะ", "ขอบคุณมากครับ", "thanks" — but not "ขอบคุณ ปากกาเท่าไหร่": a message
 // that still says something else is a question, not a goodbye.
 const THANKS = /ขอบคุณ|ขอบใจ|ขอบพระคุณ|ขอบคุน|ขอบคูณ|thank(?:s|you)?|thx/g;
@@ -147,12 +162,18 @@ export function matchIntent(text, shop) {
   if (orderWords.some((w) => q.includes(w))) return { type: 'order' };
   const products = shop.productsEnabled === false ? [] : findProducts(text, shop.products ?? []);
   if (products.length) return { type: 'products', products };
-  const faq = findFaq(text, (shop.faq ?? []).filter((f) => f.enabled !== false));
-  if (faq) return { type: 'faq', faq };
+  if (Array.isArray(shop.rules)) {
+    // The owner's own rules (saved from the Reply Studio) replace the shipped question list.
+    const rule = findRule(text, shop.rules);
+    if (rule) return rule.replies[0].type === 'silent' ? { type: 'off', rule } : { type: 'rule', rule };
+  } else {
+    const faq = findFaq(text, (shop.faq ?? []).filter((f) => f.enabled !== false));
+    if (faq) return { type: 'faq', faq };
+  }
   // A topic the shop has switched off (payment, promotions, receipts, products): nothing is
   // sent and nobody is alerted — the admins deal with it when they see the chat.
   if (shop.productsEnabled === false && findProducts(text, shop.products ?? []).length) return { type: 'off' };
-  if (findFaq(text, (shop.faq ?? []).filter((f) => f.enabled === false))) return { type: 'off' };
+  if (!Array.isArray(shop.rules) && findFaq(text, (shop.faq ?? []).filter((f) => f.enabled === false))) return { type: 'off' };
   // A question the bot has no answer for ("ขอถาม…", "มีสินค้าแบบนี้ไหม"): known answers above win,
   // anything left over goes to the admins.
   const askWords = (shop.contact?.askWords ?? []).map(normalize).filter(Boolean);
