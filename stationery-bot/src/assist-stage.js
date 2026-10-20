@@ -76,6 +76,7 @@ export async function createAssistStage({ env = process.env, fetch: doFetch = fe
     async run(ev) {
       const s = await setup();
       if (!s) throw new Error('settings unreadable');
+      if (Math.random() < 0.02) Promise.resolve(store.prune?.(now() - 3 * 24 * 3600e3)).catch(() => {}); // old per-customer memory, now and then
       return engine.handle(ev, s.shop);
     },
     // A customer picked a person in the app's card: that person is told (once per customer per person per window).
