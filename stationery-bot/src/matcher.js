@@ -129,11 +129,15 @@ export function isThanks(text, names = []) {
 export const isThanksSticker = (keywords) =>
   Array.isArray(keywords) && keywords.some((k) => /thank|thx|ขอบคุณ/i.test(String(k)));
 
+// The texts that mean "I want to talk to a person": the card's own button plus any aliases
+// (e.g. the "คุยกับแอดมิน" button of the shop's rich menu).
+const contactButtons = (shop) => [shop.contact?.button, ...(shop.contact?.buttonAliases ?? [])].filter(Boolean).map(normalize);
+
 // → { type: 'thanks' | 'greeting' | 'products' | 'faq' | 'fallback', ... }
 export function matchIntent(text, shop) {
   const q = normalize(text);
   if (isThanks(text)) return { type: 'thanks' };
-  if (shop.contact?.button && q === normalize(shop.contact.button)) return { type: 'contact' };
+  if (contactButtons(shop).includes(q)) return { type: 'contact' };
   // "ส่งเอกสารโครงการ" (a menu button): the customer is about to send files — point them at the admins.
   const documentWords = (shop.contact?.documentWords ?? []).map(normalize).filter(Boolean);
   if (documentWords.some((w) => q.includes(w))) return { type: 'order', ask: 'documentAsk' };
@@ -164,6 +168,7 @@ export function isMenuTap(text, shop) {
   const texts = [
     ...(shop.quickReplies ?? []).map((t) => (typeof t === 'string' ? t : t?.text)),
     shop.contact?.button,
+    ...(shop.contact?.buttonAliases ?? []),
     ...(shop.richMenu?.areas ?? []).map((a) => a?.text),
   ];
   return texts.some((t) => t && normalize(t) === q);

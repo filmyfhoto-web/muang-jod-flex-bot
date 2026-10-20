@@ -14,7 +14,7 @@ const MAX_COLUMNS = 6;
 export const menuName = (shop) => String(shop.richMenu?.name || 'stationery-bot-menu').slice(0, 300);
 
 // → the rich menu object LINE wants, built from shop.richMenu: one row of equal columns,
-// each column sends its `text` as the customer's own message (so the bot answers it as usual).
+// each column sends its `text` as the customer's own message (so the bot answers it as usual) — or opens its `uri`.
 export function buildRichMenu(shop) {
   const rm = shop.richMenu;
   const cols = Array.isArray(rm?.areas) ? rm.areas : [];
@@ -28,11 +28,17 @@ export function buildRichMenu(shop) {
     name: menuName(shop),
     chatBarText: String(rm.chatBarText || 'เมนู').slice(0, 14), // LINE: at most 14 characters
     areas: cols.map((c, i) => {
-      if (!c || !String(c.text ?? '').trim()) throw new Error(`ช่องที่ ${i + 1} ไม่มี text`);
-      return {
-        bounds: { x: i * w, y: top, width: i === cols.length - 1 ? WIDTH - i * w : w, height: HEIGHT - top },
-        action: { type: 'message', label: String(c.label || c.text).slice(0, 20), text: String(c.text).slice(0, 300) },
-      };
+      const uri = String(c?.uri ?? '').trim();
+      let action;
+      if (uri) {
+        // a column that opens a web page instead of sending a message (e.g. "สั่งซื้อสินค้า" → the shop's site)
+        if (!/^https:\/\/\S{3,980}$/i.test(uri)) throw new Error(`ช่องที่ ${i + 1} uri ต้องเป็นลิงก์ https`);
+        action = { type: 'uri', label: String(c.label || c.text || 'เปิดเว็บ').slice(0, 20), uri };
+      } else {
+        if (!c || !String(c.text ?? '').trim()) throw new Error(`ช่องที่ ${i + 1} ไม่มี text`);
+        action = { type: 'message', label: String(c.label || c.text).slice(0, 20), text: String(c.text).slice(0, 300) };
+      }
+      return { bounds: { x: i * w, y: top, width: i === cols.length - 1 ? WIDTH - i * w : w, height: HEIGHT - top }, action };
     }),
   };
 }

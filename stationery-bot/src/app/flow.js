@@ -16,7 +16,7 @@ const SETTINGS_STALE = 10 * 60_000; // …and how long the last good copy is use
 const within = (promise, ms) =>
   Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timed out')), ms).unref?.())]);
 
-export async function createAppFlow({ env = process.env, fetch: doFetch = fetch, others, onPick, paused = () => false, log = console, now = () => Date.now(), store: injected } = {}) {
+export async function createAppFlow({ env = process.env, fetch: doFetch = fetch, others, onPick, skip, paused = () => false, log = console, now = () => Date.now(), store: injected } = {}) {
   if (typeof others !== 'function') throw new TypeError('createAppFlow needs an `others` function');
   const url = String(env.SUPABASE_URL ?? '').trim().replace(/\/+$/, '');
   const key = String(env.SUPABASE_SERVICE_ROLE_KEY ?? '').trim();
@@ -81,6 +81,14 @@ export async function createAppFlow({ env = process.env, fetch: doFetch = fetch,
       log.error?.('[app] others:', String(e?.message ?? e).slice(0, 160));
     }
   };
+  // The Render bot's own admin / set-up commands ("ติดตั้งเมนู", "ปิดบอท", "ไอดีฉัน"): never a question for the app's cards.
+  const isOwn = (ev) => {
+    try {
+      return Boolean(skip?.(ev));
+    } catch {
+      return false;
+    }
+  };
 
   const bot = createBotHandler({
     store,
@@ -94,6 +102,7 @@ export async function createAppFlow({ env = process.env, fetch: doFetch = fetch,
     selfUrl: '',
     others: runOthers,
     onPick,
+    skip: isOwn,
   });
 
   return {
@@ -107,7 +116,12 @@ export async function createAppFlow({ env = process.env, fetch: doFetch = fetch,
         await runOthers(events);
         return { bypass: 'off' };
       }
-      if (paused()) return { bypass: 'paused' };
+      if (paused()) {
+        // a pause silences the bot for customers, not for the admins who switch it: "เปิดบอท" must still reach the Render bot
+        const own = events.filter(isOwn);
+        if (own.length) await runOthers(own);
+        return { bypass: 'paused' };
+      }
       const res = await bot(new Request('http://app.invalid/webhook', { method: 'POST', headers: { 'content-type': 'application/json', 'x-line-signature': sig || '' }, body: raw }));
       let out = null;
       try {

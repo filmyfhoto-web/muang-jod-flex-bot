@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { matchIntent, isThanks, isThanksSticker } from '../src/matcher.js';
+import { matchIntent, isMenuTap, isThanks, isThanksSticker } from '../src/matcher.js';
 import { buildReply, withSender, thanksReply } from '../src/replies.js';
 import { verifySignature } from '../src/line.js';
 import crypto from 'node:crypto';
@@ -125,6 +125,19 @@ test('unknown school while asked → ask again; other topics still work', () => 
 
 test('สั่งของ has an answer', () => {
   assert.equal(matchIntent('สั่งของ', shop).faq.label, 'สั่งของ');
+});
+
+test('"คุยกับแอดมิน" (the shop\'s rich menu button) is a request for a person, exactly like "ติดต่อแอดมิน"', () => {
+  for (const t of ['คุยกับแอดมิน', 'ติดต่อแอดมิน', 'คุยกับแอดมิน ', 'คุยกับ แอดมิน']) {
+    assert.deepEqual(matchIntent(t, shop), { type: 'contact' }, t);
+    assert.equal(isMenuTap(t, shop), true, t);
+  }
+  const card = buildReply('คุยกับแอดมิน', shop).messages[0];
+  assert.equal(card.type, 'flex');
+  assert.match(JSON.stringify(card), /ต้องการติดต่อใครคะ/);
+  // only the exact button text: a sentence that merely contains it is not a tap
+  assert.notEqual(matchIntent('อยากคุยกับแอดมินเรื่องบิล', shop).type, 'contact');
+  assert.equal(isMenuTap('อยากคุยกับแอดมินเรื่องบิล', shop), false);
 });
 
 test('greeting asks what the customer is contacting about', () => {

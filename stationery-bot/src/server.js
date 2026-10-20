@@ -65,10 +65,12 @@ const send = (messages) => {
 };
 app.get('/', (_req, res) => res.type('text/plain; charset=utf-8').send('บอทร้านนัฐภรณ์ เชียงกลาง ทำงานอยู่ ✅'));
 // "app": off = SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set · no-db = set, but the database cannot be read with them · on = working
+// "build": the commit this deploy is running (Render sets RENDER_GIT_COMMIT), so a push can be told apart from the one before it
 app.get('/health', async (_req, res) => {
   let state = 'off';
   if (appFlow) state = (await appFlow.check().catch(() => false)) ? 'on' : 'no-db';
-  res.json({ ok: true, app: state, assist: assist ? 'ready' : 'off' });
+  const build = String(process.env.RENDER_GIT_COMMIT ?? '').trim().slice(0, 7);
+  res.json({ ok: true, app: state, assist: assist ? 'ready' : 'off', ...(build ? { build } : {}) });
 });
 
 app.post('/webhook', express.raw({ type: '*/*' }), (req, res) => {
@@ -341,6 +343,11 @@ function escalate(userId, said, shop, cfg, reason) {
 // ---- the app's features (app/flow.js) ----------------------------------------------------------------------------
 // What the app's features do not answer comes back here, one event at a time, still inside that customer's turn.
 async function runOthers(events) {
+  try {
+    if (isPaused(loadShop(), process.env)) return; // the master switch: no replies, no welcome, nothing — the Studio's engine included
+  } catch {
+    /* an unreadable shop file is reported by handleEvent below */
+  }
   for (const ev of events) {
     let viaAssist = false;
     try {
@@ -353,6 +360,21 @@ async function runOthers(events) {
     } catch (e) {
       console.error('[event]', e.message);
     }
+  }
+}
+
+// The Render bot's own set-up and admin commands ("ติดตั้งเมนู", "ปิดบอท", "ไอดีฉัน" …) go straight to it, past the app's cards:
+// otherwise an admin's first message of the day would get the shop menu, and "แอดมินออนไลน์" would open the admin picker.
+function isOwnCommand(ev) {
+  if (ev?.type !== 'message' || ev.message?.type !== 'text' || ev.source?.type !== 'user' || !ev.source.userId) return false;
+  const said = ev.message.text;
+  if (isWhoAmI(said)) return true; // anybody may ask for their own id (that is how a new admin finds theirs)
+  if (!parseAdminCommand(said)) return false;
+  if (adminIds.has(ev.source.userId)) return true;
+  try {
+    return people(loadShop()).some((p) => p.userId && p.userId === ev.source.userId);
+  } catch {
+    return false;
   }
 }
 
@@ -379,6 +401,7 @@ try {
     env: process.env,
     others: runOthers,
     onPick,
+    skip: isOwnCommand,
     paused: () => {
       try {
         return isPaused(loadShop(), process.env) || quiet.allPaused();

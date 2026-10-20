@@ -63,6 +63,7 @@ async function boot({ withApp, badDb = false }) {
     LINE_CHANNEL_ACCESS_TOKEN: 'test-token',
     LINE_CHANNEL_SECRET: SECRET,
     TEST_LINE_BASE: `http://127.0.0.1:${linePort}`,
+    RENDER_GIT_COMMIT: 'abc1234def5678',
     SETTINGS_TTL_MS: '300',
     SETTINGS_TIMEOUT_MS: '500',
     NODE_OPTIONS: `--import ${fileURLToPath(new URL('./helpers/redirect-fetch.mjs', import.meta.url))}`,
@@ -128,7 +129,7 @@ test('with the app features on', async (t) => {
   t.after(stop);
 
   await t.test('health says the app features are on; a wrong signature is refused', async () => {
-    assert.deepEqual(await (await fetch(`http://127.0.0.1:${port}/health`)).json(), { ok: true, app: 'on', assist: 'ready' });
+    assert.deepEqual(await (await fetch(`http://127.0.0.1:${port}/health`)).json(), { ok: true, app: 'on', assist: 'ready', build: 'abc1234' });
     const r = await fetch(`http://127.0.0.1:${port}/webhook`, { method: 'POST', headers: { 'x-line-signature': 'nope' }, body: '{"events":[]}' });
     assert.equal(r.status, 401);
   });
@@ -189,10 +190,42 @@ test('with the app features on', async (t) => {
   });
 });
 
+test('the Render bot\'s own commands are not taken by the app\'s cards: the menu command, pausing and resuming', async (t) => {
+  await boot({ withApp: true });
+  t.after(stop);
+  const ask = async (said, userId) => {
+    const n = replies().length;
+    await post(text(said, userId));
+    return (await until(() => replies().length > n && replies().at(-1))).body.messages;
+  };
+  const menuCalls = () => lineCalls.filter((c) => c.path.includes('richmenu'));
+
+  // an admin's first message in ages is "ติดตั้งเมนู": the shop menu card (switched on) must not swallow it. The Render bot's
+  // own answer is "not switched on" (shop.json richMenu.enabled is false: the shop's own menu in LINE is the one in use)
+  let msgs = await ask('ติดตั้งเมนู', piin.userId);
+  assert.match(msgs[0].text, /ยังไม่เปิดให้บอทติดตั้งเมนู/);
+  assert.equal(menuCalls().length, 0, 'nothing was done to the menus');
+
+  // a customer who types the same words is just a customer: the shop menu card
+  msgs = await ask('ติดตั้งเมนู', CUSTOMER);
+  assert.deepEqual(msgs.map((m) => m.type), ['text', 'imagemap']);
+
+  // "ปิดบอท": customers get nothing; the admin's "เปิดบอท" still gets through, and then customers are answered again
+  msgs = await ask('ปิดบอท 1', piin.userId);
+  assert.match(msgs[0].text, /ปิดบอทชั่วคราว 1 ชั่วโมง/);
+  const n = replies().length;
+  await post(text('เวลาเปิดร้าน', BUYER));
+  await new Promise((r) => setTimeout(r, 400));
+  assert.equal(replies().length, n, 'paused: nobody is answered');
+  msgs = await ask('เปิดบอท', piin.userId);
+  assert.match(msgs[0].text, /เปิดบอทแล้ว/);
+  assert.ok((await ask('เวลาเปิดร้าน', BUYER)).length >= 1, 'answered again');
+});
+
 test('without SUPABASE_URL the Render bot answers exactly as before', async (t) => {
   await boot({ withApp: false });
   t.after(stop);
-  assert.deepEqual(await (await fetch(`http://127.0.0.1:${port}/health`)).json(), { ok: true, app: 'off', assist: 'off' });
+  assert.deepEqual(await (await fetch(`http://127.0.0.1:${port}/health`)).json(), { ok: true, app: 'off', assist: 'off', build: 'abc1234' });
   await post(text('เวลาเปิดร้าน'));
   const reply = await until(() => replies().at(-1));
   assert.equal(reply.body.messages.length, 1);
@@ -200,6 +233,11 @@ test('without SUPABASE_URL the Render bot answers exactly as before', async (t) 
   await new Promise((r) => setTimeout(r, 500));
   // today the Render bot reads this as an order and offers its own "who do you want to talk to" card — never an order card
   assert.ok(!JSON.stringify(replies().map((c) => c.body)).includes('NT-0044'), 'no order card without the app features');
+  // the shop's rich menu has a "คุยกับแอดมิน" button: with the app's admin picker off, the Render bot's own "who?" card answers it
+  const n = replies().length;
+  await post(text('คุยกับแอดมิน', 'U' + '8'.repeat(32)));
+  const card = await until(() => replies().length > n && replies().at(-1));
+  assert.match(JSON.stringify(card.body.messages), /ต้องการติดต่อใครคะ/);
 });
 
 test('the Studio\'s engine: faq_bot.mode "all" answers everybody with the rules saved in the Studio; "admins" only the admins', async (t) => {
@@ -235,7 +273,7 @@ test('the Studio\'s engine: faq_bot.mode "all" answers everybody with the rules 
 test('a database address or key that does not work: /health says no-db and the Render bot still answers', async (t) => {
   await boot({ withApp: true, badDb: true });
   t.after(stop);
-  assert.deepEqual(await (await fetch(`http://127.0.0.1:${port}/health`)).json(), { ok: true, app: 'no-db', assist: 'ready' });
+  assert.deepEqual(await (await fetch(`http://127.0.0.1:${port}/health`)).json(), { ok: true, app: 'no-db', assist: 'ready', build: 'abc1234' });
   await post(text('เวลาเปิดร้าน'));
   const reply = await until(() => replies().at(-1));
   assert.equal(reply.body.messages.length, 1);

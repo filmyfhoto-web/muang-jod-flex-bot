@@ -5,6 +5,8 @@
 //   1. deps.others(events)  — events this flow does not answer are handed to the Render bot's own answers
 //                              (instead of being relayed over HTTP to an "old bot").
 //   2. deps.onPick(ev, admin) — called after a customer picked an admin, so the chosen person can be told.
+//   3. deps.skip(ev)        — the Render bot's own admin / set-up commands ("ติดตั้งเมนู", "ปิดบอท", "ไอดีฉัน") go straight to
+//                              deps.others, so a menu card or an admin card never swallows them.
 // ---------------------------------------------------------------------------------------------------------------
 import { customerMessages, confirmMessages, parseCardAsk, orderView, withTag } from './cards.js'
 import { createDocFlow } from './docs.js'
@@ -455,6 +457,7 @@ export function createBotHandler(deps) {
       return sts.get(uid)
     }
     for (const ev of all) {
+      if (deps.skip && deps.skip(ev)) { others.push(ev); continue } // [render] the Render bot's own commands: not a customer's question
       const uid = userEv(ev) && (ev.type === 'message' || ev.type === 'follow') ? str(ev.source.userId, 64) : ''
       // ช่วงเวลาที่ลูกค้าทักล่าสุด (ไว้ดูว่าเป็นการเข้ามาใหม่หรือไม่) — อ่านก่อน แล้วค่อยบันทึกเวลาใหม่ทีหลัง
       const st = uid && token && (cfg.menu_card || cfg.admin_pick) ? await stOf(uid) : null

@@ -26,6 +26,7 @@ async function setup(opts = {}) {
     onPick: async (ev, admin) => {
       picks.push({ uid: ev.source.userId, admin: admin.name });
     },
+    skip: opts.skip,
     paused: () => isPaused,
   });
   const send = (...events) => flow.handle(batch(...events), 'sig', events);
@@ -190,6 +191,41 @@ test('a batch with an order request and an ordinary message: each goes where it 
   await t.send(textEv('ขอใบสั่งซื้อ NT-0044'), textEv('อยากได้สมุดเล่มละ 10 บาท'));
   assert.equal(t.replies().length, 1);
   assert.deepEqual(t.got.map((e) => e.message.text), ['อยากได้สมุดเล่มละ 10 บาท']);
+});
+
+// ---- the Render bot's own commands ------------------------------------------------------------------------------
+
+// stands in for server.js's isOwnCommand: the Render bot's admin / set-up words
+const ownCommand = (ev) => ev.type === 'message' && /^(?:ติดตั้งเมนู|ปิดบอท|เปิดบอท|แอดมินออนไลน์|ไอดีฉัน)$/.test(String(ev.message?.text ?? '').trim());
+
+test('the Render bot\'s own commands go straight to it: never answered with the shop menu or the admin picker', async () => {
+  const t = await setup({ line_bot: settings({ menu_card: true, admin_pick: true }), skip: ownCommand });
+  // the first message in ages would get the menu card, and "แอดมินออนไลน์" has "แอดมิน" in it, which would open the picker
+  await t.send(textEv('ติดตั้งเมนู', STAFF), textEv('แอดมินออนไลน์', STAFF), textEv('ไอดีฉัน', OTHER));
+  assert.equal(t.calls.length, 0, 'the app says nothing');
+  assert.deepEqual(t.got.map((e) => e.message.text), ['ติดตั้งเมนู', 'แอดมินออนไลน์', 'ไอดีฉัน']);
+  assert.equal(t.fake.chatOf(STAFF)?.seen_ms ?? 0, 0, 'a command is not a visit');
+  // …and an ordinary first message from the same person is still a customer\'s first message
+  await t.send(textEv('สวัสดีค่ะ', STAFF));
+  assert.deepEqual(kinds(t.replies().at(-1).body.messages), ['text', 'imagemap']);
+});
+
+test('a "skip" that fails counts as "not a command", and without one nothing is skipped', async () => {
+  const bad = await setup({ line_bot: settings({ menu_card: true }), skip: () => { throw new Error('boom'); } });
+  await bad.send(textEv('ติดตั้งเมนู'));
+  assert.deepEqual(kinds(bad.replies().at(-1).body.messages), ['text', 'imagemap']);
+  const none = await setup({ line_bot: settings({ menu_card: true }) });
+  await none.send(textEv('ติดตั้งเมนู'));
+  assert.deepEqual(kinds(none.replies().at(-1).body.messages), ['text', 'imagemap']);
+});
+
+test('while the bot is paused customers get nothing, but an admin\'s own command ("เปิดบอท") still reaches the Render bot', async () => {
+  const t = await setup({ line_bot: settings({ menu_card: true, admin_pick: true }), skip: ownCommand });
+  t.pause(true);
+  const out = await t.send(textEv('เวลาเปิดร้าน', OTHER), followEv(), textEv('เปิดบอท', STAFF));
+  assert.equal(out.bypass, 'paused');
+  assert.equal(t.calls.length, 0);
+  assert.deepEqual(t.got.map((e) => e.message?.text), ['เปิดบอท']);
 });
 
 test('settings that cannot be read: everything goes to the Render bot and nothing is sent by the app', async () => {

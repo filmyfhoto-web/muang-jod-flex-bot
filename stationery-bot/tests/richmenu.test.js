@@ -50,6 +50,17 @@ test('the menu is one row of equal tappable columns, open by default, inside LIN
   assert.equal(m.areas[0].bounds.y, 150); // the title strip is not tappable
 });
 
+test('a column can open a web page; only https links are accepted', () => {
+  const menu = (areas) => buildRichMenu({ richMenu: { areas } });
+  const m = menu([{ label: 'เว็บร้าน', uri: 'https://example.com/shop?a=1' }, { text: 'สั่งของ' }]);
+  assert.deepEqual(m.areas[0].action, { type: 'uri', label: 'เว็บร้าน', uri: 'https://example.com/shop?a=1' });
+  assert.deepEqual(m.areas[1].action, { type: 'message', label: 'สั่งของ', text: 'สั่งของ' });
+  assert.equal(menu([{ uri: 'https://example.com' }]).areas[0].action.label, 'เปิดเว็บ'); // a label is always sent
+  for (const bad of ['http://example.com', 'example.com', 'javascript:alert(1)', 'https://', 'line://nv/chat']) {
+    assert.throws(() => menu([{ label: 'x', uri: bad }]), /uri ต้องเป็นลิงก์ https/, bad);
+  }
+});
+
 test('a broken menu setting is rejected with a clear message', () => {
   assert.throws(() => buildRichMenu({}), /richMenu\.areas/);
   assert.throws(() => buildRichMenu({ richMenu: { areas: [] } }), /richMenu\.areas/);
