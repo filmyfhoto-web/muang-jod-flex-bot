@@ -64,7 +64,12 @@ const send = (messages) => {
   return withSender(messages, baseUrl, qr);
 };
 app.get('/', (_req, res) => res.type('text/plain; charset=utf-8').send('บอทร้านนัฐภรณ์ เชียงกลาง ทำงานอยู่ ✅'));
-app.get('/health', (_req, res) => res.json({ ok: true, app: appFlow ? 'on' : 'off', assist: assist ? 'ready' : 'off' }));
+// "app": off = SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set · no-db = set, but the database cannot be read with them · on = working
+app.get('/health', async (_req, res) => {
+  let state = 'off';
+  if (appFlow) state = (await appFlow.check().catch(() => false)) ? 'on' : 'no-db';
+  res.json({ ok: true, app: state, assist: assist ? 'ready' : 'off' });
+});
 
 app.post('/webhook', express.raw({ type: '*/*' }), (req, res) => {
   if (!verifySignature(req.body, req.get('x-line-signature'), secret)) return res.sendStatus(401);

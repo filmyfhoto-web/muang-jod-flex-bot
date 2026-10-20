@@ -46,7 +46,7 @@ async function startLine() {
   return lineSrv.address().port;
 }
 
-async function boot({ withApp }) {
+async function boot({ withApp, badDb = false }) {
   const linePort = await startLine();
   emu = createEmulator({
     tables: {
@@ -64,10 +64,11 @@ async function boot({ withApp }) {
     LINE_CHANNEL_SECRET: SECRET,
     TEST_LINE_BASE: `http://127.0.0.1:${linePort}`,
     SETTINGS_TTL_MS: '300',
+    SETTINGS_TIMEOUT_MS: '500',
     NODE_OPTIONS: `--import ${fileURLToPath(new URL('./helpers/redirect-fetch.mjs', import.meta.url))}`,
   };
   if (withApp) {
-    env.SUPABASE_URL = `http://127.0.0.1:${emuPort}`;
+    env.SUPABASE_URL = badDb ? 'http://127.0.0.1:9' : `http://127.0.0.1:${emuPort}`;
     env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-key';
   } else {
     delete env.SUPABASE_URL;
@@ -229,4 +230,14 @@ test('the Studio\'s engine: faq_bot.mode "all" answers everybody with the rules 
   setMode('all');
   await new Promise((r) => setTimeout(r, 450));
   assert.equal((await ask('U' + '4'.repeat(32))).text, 'ข้อความจากหน้า Studio', 'all: everybody');
+});
+
+test('a database address or key that does not work: /health says no-db and the Render bot still answers', async (t) => {
+  await boot({ withApp: true, badDb: true });
+  t.after(stop);
+  assert.deepEqual(await (await fetch(`http://127.0.0.1:${port}/health`)).json(), { ok: true, app: 'no-db', assist: 'ready' });
+  await post(text('เวลาเปิดร้าน'));
+  const reply = await until(() => replies().at(-1));
+  assert.equal(reply.body.messages.length, 1);
+  assert.equal(pushes().length, 0);
 });

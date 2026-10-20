@@ -10,6 +10,9 @@
 // No database settings, an unreadable row or a missing module all mean "off": the Render bot's own answers reply.
 import { parseAdminCommand } from './quiet.js';
 
+const within = (promise, ms) =>
+  Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timed out')), ms).unref?.())]);
+
 
 export async function createAssistStage({ env = process.env, fetch: doFetch = fetch, now = () => Date.now(), log = console, store: injected } = {}) {
   const url = String(env.SUPABASE_URL ?? '').trim().replace(/\/+$/, '');
@@ -36,18 +39,21 @@ export async function createAssistStage({ env = process.env, fetch: doFetch = fe
   const engine = mod.createEngine({ store, line: mod.createLine({ fetch: doFetch, token }), fetch: doFetch, now, env: (k) => env[k] });
   const TTL = Number(env.SETTINGS_TTL_MS) > 0 ? Number(env.SETTINGS_TTL_MS) : 15_000; // how long the settings are trusted (tests shorten it)
   const iconsBase = url ? `${url}/functions/v1/line-assets` : '';
-  const cache = { at: 0, v: null };
+  const WAIT = Number(env.SETTINGS_TIMEOUT_MS) > 0 ? Number(env.SETTINGS_TIMEOUT_MS) : 3000; // longest wait for the settings before the Render bot answers alone
+  const cache = { at: 0, v: null, failedAt: -Infinity };
 
   // The settings, read at most every 15 seconds; null when they cannot be read (and no recent copy exists).
   async function setup() {
     const t = now();
     if (cache.v && t - cache.at < TTL) return cache.v;
+    if (t - cache.failedAt < 3000) return cache.v; // just failed: do not make the next customer wait again
     try {
-      const [row, bot] = await Promise.all([store.getConfig('faq_bot'), store.getConfig('line_bot')]);
+      const [row, bot] = await within(Promise.all([store.getConfig('faq_bot'), store.getConfig('line_bot')]), WAIT);
       const shop = mod.buildShop(row, { bot, iconsBase });
       cache.v = { mode: mod.modeOf(row), shop, ids: new Set(mod.people(shop).map((p) => p.userId)) };
       cache.at = t;
     } catch (e) {
+      cache.failedAt = t;
       if (!cache.v || t - cache.at > 10 * 60_000) {
         cache.v = null;
         log.error?.('[assist] settings unreadable → the Render bot answers alone');

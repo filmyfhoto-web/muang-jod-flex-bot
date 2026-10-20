@@ -13,9 +13,11 @@ const must = (res, what) => {
 };
 
 export function createAppStore({ url, key, env = {}, fetch: doFetch = fetch }) {
+  // never wait for the database forever (a customer's messages are handled one at a time): 8 s for queries, 40 s for files
+  const limited = (u, init = {}) => doFetch(u, { ...init, signal: init.signal ?? AbortSignal.timeout(String(u).includes('/storage/') ? 40_000 : 8_000) });
   const db = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
-    global: { fetch: doFetch },
+    global: { fetch: limited },
   });
   const fromEnv = {
     line_channel_token: String(env.LINE_CHANNEL_ACCESS_TOKEN ?? '').trim(),

@@ -12,6 +12,10 @@ import { botConfig, createBotHandler } from './bot.js';
 
 const SETTINGS_STALE = 10 * 60_000; // …and how long the last good copy is used when the database cannot be reached
 
+// The promise's result, or an error after `ms` (a database that does not answer must not hold up the customer).
+const within = (promise, ms) =>
+  Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timed out')), ms).unref?.())]);
+
 export async function createAppFlow({ env = process.env, fetch: doFetch = fetch, others, onPick, paused = () => false, log = console, now = () => Date.now(), store: injected } = {}) {
   if (typeof others !== 'function') throw new TypeError('createAppFlow needs an `others` function');
   const url = String(env.SUPABASE_URL ?? '').trim().replace(/\/+$/, '');
@@ -32,18 +36,21 @@ export async function createAppFlow({ env = process.env, fetch: doFetch = fetch,
   }
 
   const SETTINGS_TTL = Number(env.SETTINGS_TTL_MS) > 0 ? Number(env.SETTINGS_TTL_MS) : 15_000; // how long a read of the settings row is trusted (tests shorten it)
-  const settings = { raw: undefined, at: 0, ok: false };
+  const SETTINGS_WAIT = Number(env.SETTINGS_TIMEOUT_MS) > 0 ? Number(env.SETTINGS_TIMEOUT_MS) : 3000; // longest wait for the settings row before the Render bot answers alone
+  const settings = { raw: undefined, at: 0, ok: false, failedAt: -Infinity };
   async function settingsOk() {
     const t = now();
     if (settings.ok && t - settings.at < SETTINGS_TTL) return true;
+    if (!settings.ok && t - settings.failedAt < 3000) return false; // do not hammer a database that just said no
     try {
-      settings.raw = await base.getConfig('line_bot');
+      settings.raw = await within(base.getConfig('line_bot'), SETTINGS_WAIT);
       settings.at = t;
       settings.ok = true;
       return true;
     } catch {
       if (settings.ok && t - settings.at < SETTINGS_STALE) return true; // a short outage: keep using the last good copy
       settings.ok = false;
+      settings.failedAt = t;
       log.error?.('[app] the shop settings (line_bot) cannot be read: customers get the Render bot\'s own answers only');
       return false;
     }
@@ -111,6 +118,8 @@ export async function createAppFlow({ env = process.env, fetch: doFetch = fetch,
       if (out?.error) log.error?.('[app]', out.error, String(out.message ?? '').slice(0, 120));
       return out;
     },
+    // Can the shop's database be reached with the key that was given? (what /health reports)
+    check: () => settingsOk(),
     // Which parts are switched on right now (false for all of them while the settings cannot be read).
     status() {
       if (!settings.ok) return { menu: false, pick: false, docs: false, enabled: false };
