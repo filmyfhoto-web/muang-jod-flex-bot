@@ -17,6 +17,7 @@ import { createSerial } from './serial.js';
 import { menuCommandReply } from './richmenu.js';
 import { createAppFlow } from './app/flow.js';
 import { sameAdmin } from './app/names.js';
+import { createAssistStage } from './assist-stage.js';
 
 const token = (process.env.LINE_CHANNEL_ACCESS_TOKEN ?? '').trim();
 const secret = (process.env.LINE_CHANNEL_SECRET ?? '').trim();
@@ -31,6 +32,7 @@ const baseUrl = process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL |
 // The NATTA GROUP app's features (order cards, shop menu, "talk to an admin", project documents) — see app/flow.js.
 // null = off (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set); it is created at the bottom of this file.
 let appFlow = null;
+let assist = null; // the Studio-editable answering engine (assist-stage.js); null = the Render bot's own answers only
 const appMenuOn = () => Boolean(appFlow?.status().menu); // the app's menu card greets every first message of a visit
 
 const shopFile = fileURLToPath(new URL('../data/shop.json', import.meta.url));
@@ -62,7 +64,7 @@ const send = (messages) => {
   return withSender(messages, baseUrl, qr);
 };
 app.get('/', (_req, res) => res.type('text/plain; charset=utf-8').send('บอทร้านนัฐภรณ์ เชียงกลาง ทำงานอยู่ ✅'));
-app.get('/health', (_req, res) => res.json({ ok: true, app: appFlow ? 'on' : 'off' }));
+app.get('/health', (_req, res) => res.json({ ok: true, app: appFlow ? 'on' : 'off', assist: assist ? 'ready' : 'off' }));
 
 app.post('/webhook', express.raw({ type: '*/*' }), (req, res) => {
   if (!verifySignature(req.body, req.get('x-line-signature'), secret)) return res.sendStatus(401);
@@ -335,8 +337,14 @@ function escalate(userId, said, shop, cfg, reason) {
 // What the app's features do not answer comes back here, one event at a time, still inside that customer's turn.
 async function runOthers(events) {
   for (const ev of events) {
+    let viaAssist = false;
     try {
-      await handleEvent(ev);
+      viaAssist = assist ? await assist.takes(ev) : false; // the Reply Studio's engine, per faq_bot.mode (off / admins / all)
+    } catch (e) {
+      console.error('[assist]', e.message); // settings unreadable: the Render bot's own answers
+    }
+    try {
+      await (viaAssist ? assist.run(ev) : handleEvent(ev));
     } catch (e) {
       console.error('[event]', e.message);
     }
@@ -346,6 +354,7 @@ async function runOthers(events) {
 // A customer picked an admin in the app's card: the chosen person is told (a push), like when they pick in this bot's own card.
 async function onPick(ev, admin) {
   const customerId = ev.source?.userId;
+  if (customerId && assist && (await assist.takesUser(customerId).catch(() => false))) return assist.alertPick(customerId, admin.name);
   let shop;
   try {
     shop = loadShop();
@@ -376,6 +385,14 @@ try {
 } catch (e) {
   console.error('[app] failed to start, the app features stay off:', e.message); // never stops the bot itself from starting
   appFlow = null;
+}
+if (appFlow) {
+  try {
+    assist = await createAssistStage({ env: process.env });
+  } catch (e) {
+    console.error('[assist] failed to start:', e.message);
+    assist = null;
+  }
 }
 
 const port = Number(process.env.PORT) || 3000;

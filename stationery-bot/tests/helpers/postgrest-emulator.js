@@ -140,11 +140,35 @@ export function createEmulator({ tables = {} } = {}) {
     return send(res, 405, { message: 'method' });
   }
 
+  // the two atomic helpers of line-assist's st_state table (sql/001_st_state.sql)
+  async function rpc(req, res, name) {
+    const chunks = [];
+    for await (const c of req) chunks.push(c);
+    const { p_key, p_now, p_ms } = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+    const rows = (db.st_state ??= []);
+    const at = rows.find((r) => r.key === p_key);
+    const fresh = Boolean(at) && p_now - Number(at.at) < p_ms;
+    if (name === 'st_claim') {
+      if (fresh) return send(res, 200, false);
+      if (at) at.at = p_now;
+      else rows.push({ key: p_key, at: p_now, data: {} });
+      return send(res, 200, true);
+    }
+    if (name === 'st_touch_within') {
+      if (!fresh) return send(res, 200, false);
+      at.at = p_now;
+      return send(res, 200, true);
+    }
+    return send(res, 404, { message: 'unknown function ' + name });
+  }
+
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, 'http://emulator');
     requests.push(`${req.method} ${url.pathname}`);
     try {
-      let m = /^\/rest\/v1\/([a-z_]+)$/.exec(url.pathname);
+      let m = /^\/rest\/v1\/rpc\/([a-z_]+)$/.exec(url.pathname);
+      if (m) return await rpc(req, res, m[1]);
+      m = /^\/rest\/v1\/([a-z_]+)$/.exec(url.pathname);
       if (m) return await rest(req, res, url, m[1]);
       m = /^\/storage\/v1\/object\/([^/]+)\/(.+)$/.exec(url.pathname);
       if (m) {

@@ -63,6 +63,7 @@ async function boot({ withApp }) {
     LINE_CHANNEL_ACCESS_TOKEN: 'test-token',
     LINE_CHANNEL_SECRET: SECRET,
     TEST_LINE_BASE: `http://127.0.0.1:${linePort}`,
+    SETTINGS_TTL_MS: '300',
     NODE_OPTIONS: `--import ${fileURLToPath(new URL('./helpers/redirect-fetch.mjs', import.meta.url))}`,
   };
   if (withApp) {
@@ -126,7 +127,7 @@ test('with the app features on', async (t) => {
   t.after(stop);
 
   await t.test('health says the app features are on; a wrong signature is refused', async () => {
-    assert.deepEqual(await (await fetch(`http://127.0.0.1:${port}/health`)).json(), { ok: true, app: 'on' });
+    assert.deepEqual(await (await fetch(`http://127.0.0.1:${port}/health`)).json(), { ok: true, app: 'on', assist: 'ready' });
     const r = await fetch(`http://127.0.0.1:${port}/webhook`, { method: 'POST', headers: { 'x-line-signature': 'nope' }, body: '{"events":[]}' });
     assert.equal(r.status, 401);
   });
@@ -190,7 +191,7 @@ test('with the app features on', async (t) => {
 test('without SUPABASE_URL the Render bot answers exactly as before', async (t) => {
   await boot({ withApp: false });
   t.after(stop);
-  assert.deepEqual(await (await fetch(`http://127.0.0.1:${port}/health`)).json(), { ok: true, app: 'off' });
+  assert.deepEqual(await (await fetch(`http://127.0.0.1:${port}/health`)).json(), { ok: true, app: 'off', assist: 'off' });
   await post(text('เวลาเปิดร้าน'));
   const reply = await until(() => replies().at(-1));
   assert.equal(reply.body.messages.length, 1);
@@ -198,4 +199,34 @@ test('without SUPABASE_URL the Render bot answers exactly as before', async (t) 
   await new Promise((r) => setTimeout(r, 500));
   // today the Render bot reads this as an order and offers its own "who do you want to talk to" card — never an order card
   assert.ok(!JSON.stringify(replies().map((c) => c.body)).includes('NT-0044'), 'no order card without the app features');
+});
+
+test('the Studio\'s engine: faq_bot.mode "all" answers everybody with the rules saved in the Studio; "admins" only the admins', async (t) => {
+  await boot({ withApp: true });
+  t.after(stop);
+  const rules = [{ id: 'r1', name: 'เวลา', enabled: true, match: 'contains', keywords: ['เวลาเปิดร้าน'], replies: [{ type: 'text', text: 'ข้อความจากหน้า Studio' }], quick: true }];
+  const setMode = (mode) => {
+    const row = emu.db.app_config.find((r) => r.key === 'faq_bot');
+    const value = { mode, admins: [{ name: 'เจ้ปิ่น', userId: piin.userId }, { name: 'หญิง', userId: 'U' + '5'.repeat(32) }, { name: 'ฟิล์ม', userId: 'U' + '6'.repeat(32) }], content: { rules } };
+    if (row) row.value = value;
+    else emu.db.app_config.push({ key: 'faq_bot', value });
+  };
+  const ask = async (userId) => {
+    const n = replies().length;
+    await post(text('เวลาเปิดร้าน', userId));
+    const reply = await until(() => replies().length > n && replies().at(-1));
+    return reply.body.messages[0];
+  };
+  // the app's settings: nothing switched on, so everything unclaimed reaches the answering engines
+  emu.db.app_config.find((r) => r.key === 'line_bot').value = { enabled: true, menu_card: false, admin_pick: false, docs: false, admins: settings.admins };
+
+  setMode('off');
+  assert.equal((await ask(CUSTOMER)).type, 'flex', 'off: the Render bot\'s own card');
+  setMode('admins');
+  await new Promise((r) => setTimeout(r, 450)); // the settings are re-read after SETTINGS_TTL_MS
+  assert.equal((await ask('U' + '3'.repeat(32))).type, 'flex', 'admins mode: a customer still gets the Render bot\'s card');
+  assert.equal((await ask(piin.userId)).text, 'ข้อความจากหน้า Studio', 'admins mode: an admin is answered by the Studio rule');
+  setMode('all');
+  await new Promise((r) => setTimeout(r, 450));
+  assert.equal((await ask('U' + '4'.repeat(32))).text, 'ข้อความจากหน้า Studio', 'all: everybody');
 });

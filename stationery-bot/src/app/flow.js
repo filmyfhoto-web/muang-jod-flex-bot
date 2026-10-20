@@ -10,7 +10,6 @@
 // read at most every 15 seconds — the same row the app's back office edits.
 import { botConfig, createBotHandler } from './bot.js';
 
-const SETTINGS_TTL = 15_000; // how long a read of the settings row is trusted
 const SETTINGS_STALE = 10 * 60_000; // …and how long the last good copy is used when the database cannot be reached
 
 export async function createAppFlow({ env = process.env, fetch: doFetch = fetch, others, onPick, paused = () => false, log = console, now = () => Date.now(), store: injected } = {}) {
@@ -32,6 +31,7 @@ export async function createAppFlow({ env = process.env, fetch: doFetch = fetch,
     }
   }
 
+  const SETTINGS_TTL = Number(env.SETTINGS_TTL_MS) > 0 ? Number(env.SETTINGS_TTL_MS) : 15_000; // how long a read of the settings row is trusted (tests shorten it)
   const settings = { raw: undefined, at: 0, ok: false };
   async function settingsOk() {
     const t = now();
