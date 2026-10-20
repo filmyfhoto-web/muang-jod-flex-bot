@@ -19,23 +19,27 @@ export function quick(shop) {
 const sendSchool = (shop, school) => ({
   messages: [schoolLinkCard(shop, school, shop.schoolSupplies.found.replace('{school}', school.name))],
   awaitingSchool: false,
+  stage: 'school',
 });
 
 const askSchool = (shop, text) => ({
   messages: [noteCard(shop, 'ask', 'อุปกรณ์การเรียน', text) ?? { type: 'text', text }],
   awaitingSchool: true,
+  stage: 'school-ask',
 });
 
 // Builds the LINE message array for an incoming text.
 //
 // `session.awaitingSchool` is true right after the customer was asked which
 // school they are from, so a bare school name is read as the answer.
-// Returns { messages, awaitingSchool } — the caller remembers the flag.
+// Returns { messages, awaitingSchool, stage } — the caller remembers the flag; `stage` names which step of the
+// answer order produced the reply (thanks, school, school-ask, off, ask, order, contact, products, faq, rule,
+// greeting, fallback), `matched` the rule when one did.
 export function buildReply(text, shop, session = {}) {
   const cfg = shop.schoolSupplies;
 
   // "ขอบคุณ" ends whatever was in progress, including a pending "which school?"
-  if (isThanks(text, (shop.contact?.people ?? []).map((p) => p.name))) return thanksReply(shop);
+  if (isThanks(text, (shop.contact?.people ?? []).map((p) => p.name))) return { ...thanksReply(shop), stage: 'thanks' };
 
   if (cfg) {
     const school = findSchool(text, cfg.schools);
@@ -49,27 +53,27 @@ export function buildReply(text, shop, session = {}) {
 
   const intent = matchIntent(text, shop);
   const qr = quick(shop);
-  if (intent.type === 'off') return { messages: [], awaitingSchool: false, silent: true, quiet: true, matched: intent.rule?.id };
-  if (intent.type === 'ask') return { messages: [], awaitingSchool: false, needsPhotos: true }; // the contact card, no alert
-  if (intent.type === 'order') return { messages: [], awaitingSchool: false, needsPhotos: true, askText: shop.contact[intent.ask ?? 'orderAsk'] ?? shop.contact.orderAsk ?? shop.contact.ask };
-  if (intent.type === 'contact') return { messages: [contactCard(shop, shop.contact.ask)], awaitingSchool: false, needsPhotos: true };
-  const out = (m) => ({ messages: [m], awaitingSchool: false });
+  if (intent.type === 'off') return { messages: [], awaitingSchool: false, silent: true, quiet: true, stage: 'off', matched: intent.rule?.id };
+  if (intent.type === 'ask') return { messages: [], awaitingSchool: false, needsPhotos: true, stage: 'ask' }; // the contact card, no alert
+  if (intent.type === 'order') return { messages: [], awaitingSchool: false, needsPhotos: true, stage: 'order', which: intent.ask ?? 'orderAsk', askText: shop.contact[intent.ask ?? 'orderAsk'] ?? shop.contact.orderAsk ?? shop.contact.ask };
+  if (intent.type === 'contact') return { messages: [contactCard(shop, shop.contact.ask)], awaitingSchool: false, needsPhotos: true, stage: 'contact' };
+  const out = (m) => ({ messages: [m], awaitingSchool: false, stage: intent.type });
   switch (intent.type) {
     case 'products':
       return out(productCards(shop, intent.products, qr));
     case 'faq':
-      return out(faqCard(shop, intent.faq, qr));
+      return { ...out(faqCard(shop, intent.faq, qr)), matched: intent.faq.label };
     case 'rule':
       // the owner's own rule: its replies as written; the topic buttons ride on the last one unless the rule says no
-      return { messages: ruleMessages(shop, intent.rule), awaitingSchool: false, matched: intent.rule.id, quick: intent.rule.quick !== false };
+      return { messages: ruleMessages(shop, intent.rule), awaitingSchool: false, stage: 'rule', matched: intent.rule.id, quick: intent.rule.quick !== false };
     case 'greeting':
       return { ...out(menuCard(shop, shop.name, shop.greeting, { image: 'staff' })), greeting: true, pureHello: isHello(text), menuRequest: isWakeWord(text) };
     default:
       // Only answer what the shop has set up. Anything else is left for the admin to
       // see and answer — set "replyOnlyKnown": false to get the old
       // "sorry, I don't understand" card back.
-      if (shop.replyOnlyKnown !== false) return { messages: [], awaitingSchool: false, silent: true };
-      return out(menuCard(shop, 'ขออภัยค่ะ', shop.fallback, { image: 'admin' }));
+      if (shop.replyOnlyKnown !== false) return { messages: [], awaitingSchool: false, silent: true, stage: 'fallback' };
+      return { ...out(menuCard(shop, 'ขออภัยค่ะ', shop.fallback, { image: 'admin' })), stage: 'fallback' };
   }
 }
 

@@ -1,0 +1,5106 @@
+<title>Reply Studio ร้านนัฐภรณ์</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: three columns (rules | editor | phone), a one-screen tool. On a phone the columns become three pages. */
+:root {
+  --bg: #edf1f4;
+  --panel: #ffffff;
+  --panel-2: #f5f7f9;
+  --line: #e0e5ea;
+  --line-2: #cdd5dc;
+  --ink: #16202a;
+  --ink-2: #56626f;
+  --ink-3: #85919e;
+  --accent: #06c755;
+  --accent-2: #05a548;
+  --accent-ink: #ffffff;
+  --accent-soft: #e3f8eb;
+  --accent-line: #9ddfb7;
+  --info: #2a67e0;
+  --info-soft: #e6eefd;
+  --warn: #b86e00;
+  --warn-soft: #fff2d4;
+  --bad: #d3342a;
+  --bad-soft: #fdebe9;
+  --ok: #0c8a46;
+  --ok-soft: #e3f8eb;
+  --violet: #7347d1;
+  --violet-soft: #efe9fc;
+  --orange: #bd530b;
+  --orange-soft: #ffeee0;
+  --chat-bg: #8ea6d3;
+  --bubble-me: #8ce04f;
+  --bubble-bot: #ffffff;
+  --shadow: 0 1px 2px rgba(20, 30, 40, 0.06), 0 6px 18px rgba(20, 30, 40, 0.06);
+  --font: 'IBM Plex Sans Thai', 'Noto Sans Thai', 'Leelawadee UI', Tahoma, system-ui, sans-serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #0d1217;
+    --panel: #151c23;
+    --panel-2: #1a232b;
+    --line: #25303a;
+    --line-2: #34414d;
+    --ink: #e7ecf0;
+    --ink-2: #a6b2bd;
+    --ink-3: #78858f;
+    --accent: #1fd068;
+    --accent-2: #3be07e;
+    --accent-ink: #04200f;
+    --accent-soft: #11301f;
+    --accent-line: #1f6b42;
+    --info: #7aa5ff;
+    --info-soft: #17274a;
+    --warn: #f0b34a;
+    --warn-soft: #3a2b0e;
+    --bad: #ff7d72;
+    --bad-soft: #3d1a17;
+    --ok: #46d98a;
+    --ok-soft: #11301f;
+    --violet: #b79bff;
+    --violet-soft: #2a2050;
+    --orange: #ffa766;
+    --orange-soft: #3a2314;
+    --chat-bg: #27364f;
+    --bubble-me: #5fbf3a;
+    --bubble-bot: #2d3743;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 22px rgba(0, 0, 0, 0.35);
+    color-scheme: dark;
+  }
+}
+:root[data-theme='dark'] {
+  --bg: #0d1217;
+  --panel: #151c23;
+  --panel-2: #1a232b;
+  --line: #25303a;
+  --line-2: #34414d;
+  --ink: #e7ecf0;
+  --ink-2: #a6b2bd;
+  --ink-3: #78858f;
+  --accent: #1fd068;
+  --accent-2: #3be07e;
+  --accent-ink: #04200f;
+  --accent-soft: #11301f;
+  --accent-line: #1f6b42;
+  --info: #7aa5ff;
+  --info-soft: #17274a;
+  --warn: #f0b34a;
+  --warn-soft: #3a2b0e;
+  --bad: #ff7d72;
+  --bad-soft: #3d1a17;
+  --ok: #46d98a;
+  --ok-soft: #11301f;
+  --violet: #b79bff;
+  --violet-soft: #2a2050;
+  --orange: #ffa766;
+  --orange-soft: #3a2314;
+  --chat-bg: #27364f;
+  --bubble-me: #5fbf3a;
+  --bubble-bot: #2d3743;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 22px rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+}
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.45;
+  scrollbar-width: thin;
+}
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+h2,
+h3,
+p {
+  margin: 0;
+}
+svg {
+  flex: none;
+}
+
+#app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* ---- header ---- */
+.top {
+  display: flex;
+  align-items: center;
+  gap: 12px 18px;
+  flex-wrap: wrap;
+  padding-block: 10px 6px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.logo {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  display: grid;
+  place-items: center;
+  box-shadow: var(--shadow);
+}
+.brand-t {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  min-width: 0;
+}
+.brand-t b {
+  font-size: 16px;
+  letter-spacing: 0.1px;
+}
+.brand-t small {
+  color: var(--ink-2);
+  font-size: 12px;
+}
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  overflow-x: auto;
+  max-width: 100%;
+  scrollbar-width: none;
+  box-shadow: var(--shadow);
+}
+.tab {
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  padding: 7px 12px;
+  border-radius: 9px;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.tab:hover {
+  background: var(--panel-2);
+}
+.tab.on {
+  background: var(--accent-soft);
+  color: var(--ok);
+  font-weight: 600;
+}
+.actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.dirty {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--warn);
+  font-weight: 600;
+}
+.dirty i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warn);
+}
+.savecfm {
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+
+/* ---- common bits ---- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--panel-2);
+  color: var(--ink-2);
+  border: 1px solid var(--line);
+  white-space: nowrap;
+}
+.pill.ok,
+.pill.on {
+  background: var(--ok-soft);
+  color: var(--ok);
+  border-color: transparent;
+}
+.pill.info {
+  background: var(--info-soft);
+  color: var(--info);
+  border-color: transparent;
+}
+.pill.warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+  border-color: transparent;
+}
+.pill.bad {
+  background: var(--bad-soft);
+  color: var(--bad);
+  border-color: transparent;
+}
+.pill.off {
+  background: var(--panel-2);
+  color: var(--ink-3);
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background 0.12s, border-color 0.12s, transform 0.05s;
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-2);
+}
+.btn-soft {
+  background: var(--accent-soft);
+  color: var(--ok);
+}
+.btn-soft:hover:not(:disabled) {
+  border-color: var(--accent-line);
+}
+.btn-ghost {
+  background: var(--panel);
+  border-color: var(--line-2);
+  color: var(--ink);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--panel-2);
+}
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 12.5px;
+  border-radius: 8px;
+}
+.iconbtn {
+  width: 30px;
+  height: 30px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-2);
+  padding: 0;
+}
+.iconbtn:hover:not(:disabled) {
+  background: var(--panel-2);
+  border-color: var(--line);
+  color: var(--ink);
+}
+.iconbtn.danger:hover:not(:disabled) {
+  color: var(--bad);
+  background: var(--bad-soft);
+  border-color: transparent;
+}
+.iconbtn.light {
+  color: #fff;
+}
+.iconbtn.light:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+.seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.seg button {
+  border: 0;
+  background: transparent;
+  padding: 6px 11px;
+  border-radius: 8px;
+  color: var(--ink-2);
+  font-weight: 500;
+}
+.seg button.on {
+  background: var(--panel);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+.seg-sm button {
+  padding: 3px 9px;
+  font-size: 12.5px;
+}
+.input {
+  width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--line-2);
+  border-radius: 9px;
+  padding: 8px 11px;
+  min-width: 0;
+}
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.area {
+  resize: vertical;
+  line-height: 1.5;
+}
+.mono {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.45;
+  white-space: pre;
+}
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  flex: none;
+}
+.switch input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+.switch i {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--line-2);
+  transition: background 0.15s;
+  pointer-events: none;
+}
+.switch i::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s;
+}
+.switch input:checked + i {
+  background: var(--accent);
+}
+.switch input:checked + i::after {
+  transform: translateX(16px);
+}
+.switch input:focus-visible + i {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  flex: none;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+.muted {
+  color: var(--ink-3);
+}
+.sub {
+  color: var(--ink-2);
+  font-size: 13px;
+  margin-top: 2px;
+}
+.note {
+  background: var(--panel-2);
+  border: 1px dashed var(--line-2);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: var(--ink-2);
+}
+.note.warn {
+  border-color: var(--warn);
+  color: var(--warn);
+  background: var(--warn-soft);
+}
+.banner {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.banner.bad {
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+.live-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+/* ---- the three columns ---- */
+.grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr) 392px;
+  gap: 14px;
+  padding-block: 8px 14px;
+}
+.col {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.col-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: var(--ink-2);
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.col-title small {
+  font-weight: 500;
+  color: var(--ink-3);
+}
+.pal-sec,
+.list-sec {
+  padding: 14px 14px 0;
+}
+.list-sec {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 10px;
+}
+.palette {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+  margin: 9px 0 14px;
+}
+.pal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 9px 2px 7px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 11px;
+  font-size: 12px;
+  color: var(--ink-2);
+  cursor: grab;
+  transition: border-color 0.12s, transform 0.12s, box-shadow 0.12s;
+}
+.pal:hover {
+  border-color: var(--accent-line);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+.pal svg {
+  color: var(--ink-3);
+}
+.pal-card svg {
+  color: var(--ok);
+}
+.pal-text svg {
+  color: var(--info);
+}
+.pal-image svg {
+  color: var(--violet);
+}
+.pal-sticker svg {
+  color: var(--warn);
+}
+.list-tools {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0 10px;
+}
+.searchbox {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+.searchbox svg {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-3);
+}
+.searchbox input {
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 8px 10px 8px 32px;
+  min-width: 0;
+}
+.searchbox input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.rules {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 6px;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  scrollbar-width: thin;
+}
+.rules.drop-end {
+  box-shadow: inset 0 -3px 0 var(--accent);
+}
+.rules-empty {
+  color: var(--ink-3);
+  text-align: center;
+  padding: 24px 10px;
+  border: 1px dashed var(--line-2);
+  border-radius: 12px;
+}
+.rule {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 10px 8px 10px 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  cursor: pointer;
+  position: relative;
+}
+.rule:hover {
+  border-color: var(--line-2);
+}
+.rule.sel {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+.rule.off .rule-title,
+.rule.off .rule-kw {
+  opacity: 0.55;
+}
+.rule.dragging {
+  opacity: 0.4;
+}
+.rule.drop-before::before,
+.rule.drop-after::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+.rule.drop-before::before {
+  top: -6px;
+}
+.rule.drop-after::after {
+  bottom: -6px;
+}
+.grip {
+  color: var(--ink-3);
+  cursor: grab;
+  padding-top: 2px;
+  flex: none;
+}
+.rule-main {
+  flex: 1;
+  min-width: 0;
+}
+.rule-title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rule-title b {
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 5px 0 4px;
+}
+.tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--ink-2);
+  border: 1px solid var(--line);
+}
+.t-card {
+  background: var(--ok-soft);
+  color: var(--ok);
+  border-color: transparent;
+}
+.t-text {
+  background: var(--info-soft);
+  color: var(--info);
+  border-color: transparent;
+}
+.t-image {
+  background: var(--violet-soft);
+  color: var(--violet);
+  border-color: transparent;
+}
+.t-sticker {
+  background: var(--warn-soft);
+  color: var(--warn);
+  border-color: transparent;
+}
+.t-flex {
+  background: var(--ok-soft);
+  color: var(--ok);
+  border-color: transparent;
+}
+.t-silent {
+  background: var(--panel-2);
+  color: var(--ink-2);
+}
+.t-quick {
+  background: var(--orange-soft);
+  color: var(--orange);
+  border-color: transparent;
+}
+.t-warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+  border-color: transparent;
+}
+.t-off {
+  margin-left: 6px;
+  background: var(--panel-2);
+}
+.rule-kw {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ink-2);
+  font-size: 12px;
+  min-width: 0;
+}
+.rule-kw svg {
+  color: var(--warn);
+}
+.rule-kw span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rule-act {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+.rule-act .switch {
+  margin-bottom: 4px;
+}
+.col-foot {
+  margin-top: 6px;
+  padding: 8px 4px 0;
+  font-size: 12px;
+  color: var(--ink-3);
+  border-top: 1px solid var(--line);
+}
+
+/* ---- centre ---- */
+#center,
+#sim {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.testbar {
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
+}
+.testrow {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+}
+.testrow label {
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--ink-2);
+  font-size: 13px;
+}
+.test-result {
+  margin-top: 8px;
+  font-size: 12.5px;
+  min-height: 20px;
+}
+.matched {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--ok-soft);
+  color: var(--ok);
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-weight: 500;
+}
+.matched.none {
+  background: var(--panel);
+  color: var(--ink-2);
+  border: 1px solid var(--line-2);
+}
+.center-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 18px 28px;
+  scrollbar-width: thin;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.ed-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.ed-head h2 {
+  font-size: 18px;
+}
+.ed-act {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.sec-title {
+  font-size: 14px;
+  font-weight: 700;
+}
+.sec-title small {
+  color: var(--ink-3);
+  font-weight: 500;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.f-label {
+  font-weight: 600;
+  font-size: 13px;
+}
+.f-hint {
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.f-hint.ok {
+  color: var(--ok);
+}
+.f-hint.bad {
+  color: var(--bad);
+}
+.name-row {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  align-items: flex-start;
+}
+.stack > .chips-in,
+.stack > textarea {
+  align-self: stretch;
+}
+.two {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  gap: 8px;
+}
+.chips-in {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 8px;
+  min-height: 42px;
+  background: var(--panel);
+  border: 1px solid var(--line-2);
+  border-radius: 9px;
+  align-items: center;
+  cursor: text;
+  width: 100%;
+}
+.chips-in:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.kchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--accent-soft);
+  color: var(--ok);
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  padding: 2px 4px 2px 10px;
+  font-size: 13px;
+  max-width: 100%;
+}
+.kchip.static {
+  padding-right: 10px;
+}
+.kchip button {
+  border: 0;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  color: inherit;
+  padding: 0;
+}
+.kchip button:hover {
+  background: color-mix(in srgb, var(--ok) 20%, transparent);
+}
+.chips-field {
+  flex: 1;
+  min-width: 140px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  padding: 4px 2px;
+}
+.replies {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: 12px;
+}
+.replies.drop-here {
+  outline: 2px dashed var(--accent);
+  outline-offset: 4px;
+}
+.rblock {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+.rb-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
+  border-radius: 12px 12px 0 0;
+}
+.rb-act {
+  margin-left: auto;
+  display: flex;
+  gap: 2px;
+}
+.rb-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pics {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.pic {
+  width: 66px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 4px 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 11px;
+  color: var(--ink-2);
+}
+.pic img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+.pic-none {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  color: var(--ink-3);
+  font-size: 18px;
+}
+.pic.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--ok);
+}
+.adders {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  color: var(--ink-2);
+}
+.problems {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.problems ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+.empty-state {
+  margin: auto;
+  max-width: 420px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-2);
+  padding: 30px 10px;
+}
+.empty-state svg {
+  color: var(--ink-3);
+}
+.empty-state h3 {
+  color: var(--ink);
+  font-size: 16px;
+}
+.card-sec {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--panel);
+}
+.toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.toolbar .input {
+  flex: 1;
+  min-width: 180px;
+}
+.schools {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.school {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) 34px;
+  gap: 8px 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  align-items: start;
+}
+.school.bad {
+  border-color: var(--warn);
+}
+.school-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.school-alias .chips-in {
+  min-height: 38px;
+}
+.hitbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--ok-soft);
+  color: var(--ok);
+  font-weight: 500;
+}
+.statusline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.modes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mode {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  text-align: left;
+  padding: 11px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+.mode small {
+  display: block;
+  color: var(--ink-2);
+  margin-top: 2px;
+}
+.mode .radio {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--line-2);
+  margin-top: 2px;
+  flex: none;
+}
+.mode.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.mode.on .radio {
+  border-color: var(--accent);
+  background: radial-gradient(var(--accent) 45%, transparent 50%);
+}
+.confirm {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.confirm div {
+  display: flex;
+  gap: 8px;
+}
+.people {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.kv {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 9px 14px;
+  margin: 0;
+}
+.kv dt {
+  color: var(--ink-2);
+}
+.kv dd {
+  margin: 0;
+  text-align: right;
+}
+
+/* ---- the answer-order map ---- */
+.flow {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.flow-start {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  padding: 8px 14px 8px 12px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--line-2);
+  box-shadow: var(--shadow);
+}
+.flow-start small {
+  display: block;
+  color: var(--ink-3);
+}
+.flow-start .live-dot {
+  margin: 0;
+}
+.nomatch {
+  margin: 0 0 0 26px;
+  padding: 3px 0 3px 10px;
+  border-left: 2px dashed var(--line-2);
+  color: var(--ink-3);
+  font-size: 11.5px;
+  min-height: 18px;
+}
+.nomatch.stop {
+  border-left-color: var(--accent);
+  min-height: 8px;
+}
+.flow-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 62px minmax(0, 0.8fr);
+  align-items: center;
+  gap: 0;
+}
+.stage {
+  text-align: left;
+  border: 1px solid var(--line-2);
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 9px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  box-shadow: var(--shadow);
+}
+.stage.sys {
+  background: var(--panel-2);
+  border-style: dashed;
+  box-shadow: none;
+}
+.stage.sel {
+  border-color: var(--accent);
+}
+.stage:hover {
+  border-color: var(--accent-line);
+}
+.stage-name {
+  font-weight: 600;
+}
+.stage-when {
+  color: var(--ink-2);
+  font-size: 12px;
+}
+.arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--accent);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.arrow i {
+  display: block;
+  width: 100%;
+  height: 2px;
+  background: var(--accent);
+  position: relative;
+}
+.arrow i::after {
+  content: '';
+  position: absolute;
+  right: -1px;
+  top: -4px;
+  border: 5px solid transparent;
+  border-left: 7px solid var(--accent);
+}
+.out {
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  color: var(--ok);
+  font-size: 12.5px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.out.silent {
+  background: var(--panel-2);
+  color: var(--ink-2);
+  border-color: var(--line-2);
+}
+.flow-row.hit .stage {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+.flow-row.hit .out {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.flow-row.skipped {
+  opacity: 0.45;
+}
+
+/* ---- the phone ---- */
+.sim-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px 6px;
+}
+.sim-title {
+  font-weight: 700;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+}
+.try {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 14px 10px;
+  color: var(--ink-2);
+  font-size: 12px;
+  max-height: 96px;
+  overflow: auto;
+}
+.chip {
+  border: 1px solid var(--line-2);
+  background: var(--panel);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  color: var(--ink);
+}
+.chip:hover {
+  border-color: var(--accent);
+  color: var(--ok);
+}
+.phone {
+  flex: 1;
+  min-height: 0;
+  margin: 0 14px 14px;
+  border-radius: 20px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--chat-bg);
+  border: 1px solid var(--line-2);
+}
+.phone-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px 9px 14px;
+  background: #1f2a3a;
+  color: #fff;
+}
+.phone-back {
+  font-size: 22px;
+  line-height: 1;
+  opacity: 0.8;
+}
+.phone-name {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  min-width: 0;
+}
+.phone-name b {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.phone-name small {
+  font-size: 11px;
+  color: #7be0a4;
+}
+.chat {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: thin;
+}
+.chat-empty {
+  margin: auto;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.85);
+  max-width: 250px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.row {
+  display: flex;
+  gap: 7px;
+  align-items: flex-start;
+}
+.row.user {
+  justify-content: flex-end;
+}
+.bubble {
+  max-width: 78%;
+  padding: 8px 12px;
+  border-radius: 18px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.12);
+  color: #111;
+}
+.bubble.me {
+  background: var(--bubble-me);
+  border-top-right-radius: 5px;
+}
+.bubble.bot {
+  background: var(--bubble-bot);
+  border-top-left-radius: 5px;
+}
+:root[data-theme='dark'] .bubble.bot,
+:root[data-theme='dark'] .bubble.me {
+  color: #f2f5f7;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .bubble.bot,
+  :root:not([data-theme='light']) .bubble.me {
+    color: #f2f5f7;
+  }
+}
+.avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  display: grid;
+  place-items: center;
+  flex: none;
+  margin-top: 2px;
+}
+.bot-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  align-items: flex-start;
+  max-width: calc(100% - 38px);
+}
+.flexwrap {
+  max-width: 100%;
+}
+.silent-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #2b3846;
+}
+.silent-note.small {
+  background: rgba(255, 255, 255, 0.6);
+}
+.media-ph {
+  width: 200px;
+  height: 120px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.85);
+  color: #3a4756;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-align: center;
+  padding: 8px;
+}
+.media-ph small {
+  font-size: 11px;
+  max-width: 180px;
+  overflow-wrap: anywhere;
+}
+.media-sticker {
+  width: 120px;
+  height: 120px;
+  background: transparent;
+  border: 2px dashed rgba(255, 255, 255, 0.7);
+  color: #fff;
+}
+.quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+.qchip {
+  border: 1px solid #b9c5d6;
+  background: #fff;
+  color: #1a2533;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 13px;
+  max-width: 100%;
+}
+.qchip:hover {
+  background: #eef6ff;
+}
+.phone-input {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+}
+.chat-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--line-2);
+  background: var(--panel-2);
+  border-radius: 999px;
+  padding: 8px 14px;
+}
+.chat-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.send {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--accent);
+  color: var(--accent-ink);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.json-pane {
+  flex: 1;
+  min-height: 0;
+  margin: 0 14px 14px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.json-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+.code {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  overflow: auto;
+  padding: 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+  background: var(--panel);
+  color: var(--ink);
+}
+
+/* ---- a Flex Message, drawn the LINE way ---- */
+.fx-bubble {
+  background: #fff;
+  border-radius: 17px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+  display: flex;
+  flex-direction: column;
+  max-width: 100%;
+  flex: none;
+  color: #111;
+  font-family: var(--font);
+}
+.fx-section {
+  display: flex;
+  position: relative;
+  box-sizing: border-box;
+  min-width: 0;
+}
+.fx-header,
+.fx-body,
+.fx-footer {
+  padding: 13px;
+}
+.fx-box {
+  display: flex;
+  position: relative;
+  box-sizing: border-box;
+  min-width: 0;
+}
+.fx-vertical {
+  flex-direction: column;
+}
+.fx-horizontal {
+  flex-direction: row;
+}
+.fx-baseline {
+  flex-direction: row;
+  align-items: baseline;
+}
+.fx-text {
+  line-height: 1.38;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: #111;
+}
+.fx-nowrap {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fx-img {
+  display: block;
+  max-width: 100%;
+}
+.fx-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 6px 10px;
+  border-radius: 9px;
+  font-weight: 600;
+  font-size: 14px;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  overflow-wrap: anywhere;
+}
+.fx-btn-primary {
+  background: #06c755;
+  color: #fff;
+}
+.fx-btn-secondary {
+  background: #efefef;
+  color: #111;
+}
+.fx-btn-link {
+  color: #0b6efd;
+  background: transparent;
+}
+.fx-btn:hover {
+  filter: brightness(0.96);
+}
+.fx-sep {
+  border-top: 1px solid #e5e5e5;
+  align-self: stretch;
+}
+.fx-filler {
+  flex: 1;
+}
+.fx-carousel {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  max-width: 100%;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+}
+.fx-missing {
+  background: rgba(120, 130, 140, 0.18);
+  color: #566371;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  text-align: center;
+  padding: 4px;
+}
+
+/* ---- popups ---- */
+#toasts {
+  position: fixed;
+  left: 50%;
+  bottom: max(18px, env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 60;
+  align-items: center;
+  pointer-events: none;
+}
+.toast {
+  background: #1b2530;
+  color: #fff;
+  padding: 9px 16px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  max-width: min(92vw, 520px);
+  transition: opacity 0.4s, transform 0.4s;
+}
+.toast-ok {
+  background: #0d8a45;
+}
+.toast-warn {
+  background: #8b5a00;
+}
+.toast-bad {
+  background: #b3261e;
+}
+.toast.out {
+  opacity: 0;
+  transform: translateY(6px);
+}
+.modal-back {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 14, 20, 0.5);
+  display: grid;
+  place-items: center;
+  z-index: 50;
+  padding: 16px;
+}
+.modal {
+  width: min(520px, 100%);
+  max-height: 82vh;
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.hist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.hist li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.hist li small {
+  display: block;
+  color: var(--ink-3);
+}
+.hist .empty {
+  color: var(--ink-3);
+  justify-content: center;
+}
+
+/* ---- narrower screens ---- */
+.bottomnav {
+  display: none;
+}
+@media (max-width: 1180px) {
+  .grid {
+    grid-template-columns: 300px minmax(0, 1fr) 340px;
+  }
+  .fx-bubble {
+    zoom: 0.92;
+  }
+}
+@media (max-width: 960px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+    padding-block: 6px 8px;
+  }
+  .col {
+    display: none;
+  }
+  #app[data-pane='rules'] .col-rules,
+  #app[data-pane='center'] .col-center,
+  #app[data-pane='sim'] .col-sim {
+    display: flex;
+  }
+  .bottomnav {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    padding: 6px 0 max(8px, env(safe-area-inset-bottom, 0px));
+  }
+  .bottomnav button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 7px 4px;
+    border-radius: 11px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink-2);
+    font-size: 12px;
+  }
+  .bottomnav button.on {
+    background: var(--accent-soft);
+    color: var(--ok);
+    border-color: var(--accent-line);
+    font-weight: 600;
+  }
+  .brand-t small {
+    display: none;
+  }
+  .actions {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .actions .lbl {
+    display: none;
+  }
+  .two {
+    grid-template-columns: 1fr;
+  }
+  .school {
+    grid-template-columns: minmax(0, 1fr) 34px;
+  }
+  .school-alias {
+    grid-column: 1 / -1;
+    order: 3;
+  }
+  .flow-row {
+    grid-template-columns: minmax(0, 1fr) 40px minmax(0, 0.9fr);
+  }
+  .testrow label {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}
+
+</style>
+<div id="app" data-pane="rules"></div>
+<div id="toasts" aria-live="polite"></div>
+<script>
+var Engine = (() => {
+  var __defProp = Object.defineProperty;
+  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+  var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __export = (target, all) => {
+    for (var name in all)
+      __defProp(target, name, { get: all[name], enumerable: true });
+  };
+  var __copyProps = (to, from, except, desc) => {
+    if (from && typeof from === "object" || typeof from === "function") {
+      for (let key of __getOwnPropNames(from))
+        if (!__hasOwnProp.call(to, key) && key !== except)
+          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+    }
+    return to;
+  };
+  var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+  // line-assist/studio/src/entry.js
+  var entry_exports = {};
+  __export(entry_exports, {
+    DEFAULT_ADMINS: () => DEFAULT_ADMINS,
+    MAX_KEYWORDS: () => MAX_KEYWORDS,
+    MAX_REPLIES: () => MAX_REPLIES,
+    MAX_RULES: () => MAX_RULES,
+    PICTURE_NAMES: () => PICTURE_NAMES,
+    REPLY_TYPES: () => REPLY_TYPES,
+    buildReply: () => buildReply,
+    buildShop: () => buildShop,
+    cleanReply: () => cleanReply,
+    cleanRule: () => cleanRule,
+    cleanRules: () => cleanRules,
+    contactCard: () => contactCard,
+    defaults: () => data_default,
+    findRule: () => findRule,
+    holidayNotice: () => holidayNotice,
+    matchIntent: () => matchIntent,
+    modeOf: () => modeOf,
+    normalize: () => normalize,
+    quick: () => quick,
+    ruleMessages: () => ruleMessages,
+    rulesFromFaq: () => rulesFromFaq,
+    withSender: () => withSender
+  });
+
+  // line-assist/src/data.js
+  var data_default = {
+    "paused": false,
+    "replyOnlyKnown": true,
+    "productsEnabled": false,
+    "welcome": true,
+    "name": "ร้านนัฐภรณ์ เชียงกลาง",
+    "theme": {
+      "cream": "#FBF7EF",
+      "apricot": "#FFB493",
+      "yellow": "#FFE68A",
+      "blue": "#BFDBFF",
+      "ink": "#2B2B2B",
+      "accent": "#E8643A"
+    },
+    "greeting": "สวัสดีค่ะ 😊 ติดต่อสอบถามเรื่องอะไรคะ\nพิมพ์สิ่งที่อยากสอบถามไว้ได้เลยค่ะ เดี๋ยวแอดมินมาตอบนะคะ หรือกดเลือกหัวข้อด้านล่างได้เลย",
+    "fallback": "ขออภัยค่ะ ยังไม่เข้าใจคำถามนี้ 🙏\nลองพิมพ์ชื่อสินค้า หรือเลือกหัวข้อด้านล่าง แอดมินจะตอบให้เร็วที่สุดนะคะ",
+    "quickReplies": [
+      "เวลาเปิดร้าน",
+      "สั่งของ",
+      "อุปกรณ์การเรียน 2-69",
+      "ที่ตั้งร้าน"
+    ],
+    "faq": [
+      {
+        "keywords": [
+          "เปิด",
+          "ปิด",
+          "กี่โมง",
+          "เวลาทำการ",
+          "เวลาเปิด"
+        ],
+        "label": "เวลาเปิดร้าน",
+        "answer": "เวลาเปิด-ปิดร้าน\nจันทร์ - ศุกร์  07.30 - 18.00 น.\nวันเสาร์  หยุด\nวันอาทิตย์  07.30 - 17.00 น.",
+        "image": "staff"
+      },
+      {
+        "keywords": [
+          "สั่งของ",
+          "สั่งซื้อ",
+          "วิธีสั่ง",
+          "อยากสั่ง",
+          "สั่งยังไง"
+        ],
+        "label": "สั่งของ",
+        "answer": "สั่งของได้ค่ะ 😊\nพิมพ์ชื่อสินค้าและจำนวนในแชทนี้ได้เลย แอดมินจะยืนยันยอดให้ค่ะ\n\nหรือกดสั่งผ่านเว็บได้ที่ปุ่มด้านล่างเลยค่ะ",
+        "link": {
+          "label": "สั่งผ่านเว็บ",
+          "url": "https://www.nattagroup.com/"
+        },
+        "image": "order"
+      },
+      {
+        "keywords": [
+          "ที่อยู่",
+          "ที่ตั้ง",
+          "แผนที่",
+          "อยู่ที่ไหน",
+          "ไปยังไง",
+          "พิกัด"
+        ],
+        "label": "ที่ตั้งร้าน",
+        "answer": "ร้านนัฐภรณ์ เชียงกลาง 📍\nกดปุ่มด้านล่างเพื่อเปิดแผนที่นำทางได้เลยค่ะ",
+        "image": "admin",
+        "link": {
+          "label": "เปิดแผนที่",
+          "url": "https://www.google.com/maps/place/%E0%B8%A3%E0%B9%89%E0%B8%B2%E0%B8%99%E0%B8%99%E0%B8%B1%E0%B8%90%E0%B8%A0%E0%B8%A3%E0%B8%93%E0%B9%8C+%E0%B8%84%E0%B8%B1%E0%B8%A5%E0%B9%80%E0%B8%A5%E0%B8%AD%E0%B8%A3%E0%B9%8C%E0%B9%81%E0%B8%A5%E0%B9%87%E0%B8%9B/@19.2906561,100.8612987,882m/data=!3m2!1e3!4b1!4m6!3m5!1s0x312803937953edbd:0xe574eedd2fcc2f7f!8m2!3d19.2906561!4d100.8612987!16s%2Fg%2F11ny0j_0ss?hl=th"
+        }
+      },
+      {
+        "keywords": [
+          "โอน",
+          "จ่าย",
+          "ชำระ",
+          "บัญชี",
+          "พร้อมเพย์",
+          "promptpay",
+          "เลขบัญชี"
+        ],
+        "label": "การชำระเงิน",
+        "answer": "รับโอนเงิน/พร้อมเพย์ และเงินสดหน้าร้านค่ะ\nพร้อมเพย์: 0xx-xxx-xxxx (แก้ใน data/shop.json)\nโอนแล้วส่งสลิปในแชทนี้ได้เลยค่ะ",
+        "image": "staff",
+        "enabled": false
+      },
+      {
+        "keywords": [
+          "ส่วนลด",
+          "โปร",
+          "โปรโมชั่น",
+          "ราคาส่ง",
+          "ยกโหล",
+          "ยกลัง"
+        ],
+        "label": "โปรโมชั่น/ราคาส่ง",
+        "answer": "ซื้อยกโหลหรือยกกล่องมีราคาพิเศษค่ะ บอกชื่อสินค้าและจำนวนที่ต้องการ แอดมินจะแจ้งราคาให้นะคะ",
+        "image": "school",
+        "enabled": false
+      },
+      {
+        "keywords": [
+          "ใบเสร็จ",
+          "ใบกำกับภาษี",
+          "ออกบิล",
+          "บริษัท",
+          "หน่วยงาน"
+        ],
+        "label": "ใบเสร็จ/หน่วยงาน",
+        "answer": "ออกใบเสร็จ/ใบกำกับภาษีได้ค่ะ ส่งชื่อ ที่อยู่ และเลขผู้เสียภาษีมาในแชทนี้ได้เลย รับใบสั่งซื้อจากหน่วยงานด้วยค่ะ",
+        "image": "admin",
+        "enabled": false
+      }
+    ],
+    "products": [
+      {
+        "name": "ปากกาลูกลื่น 0.5 สีน้ำเงิน",
+        "aliases": [
+          "ปากกา",
+          "ปากกาลูกลื่น",
+          "ปากกาน้ำเงิน"
+        ],
+        "price": 10,
+        "unit": "ด้าม",
+        "bulk": "ยกโหล 100 บาท",
+        "inStock": true
+      },
+      {
+        "name": "ดินสอ 2B",
+        "aliases": [
+          "ดินสอ",
+          "ดินสอ2b",
+          "ดินสอดำ"
+        ],
+        "price": 7,
+        "unit": "แท่ง",
+        "bulk": "ยกกล่อง (12 แท่ง) 75 บาท",
+        "inStock": true
+      },
+      {
+        "name": "สมุดปกอ่อน 80 แผ่น",
+        "aliases": [
+          "สมุด",
+          "สมุดปกอ่อน",
+          "สมุดเล่ม"
+        ],
+        "price": 25,
+        "unit": "เล่ม",
+        "inStock": true
+      },
+      {
+        "name": "กระดาษ A4 80 แกรม (500 แผ่น)",
+        "aliases": [
+          "กระดาษ",
+          "กระดาษa4",
+          "a4",
+          "รีม"
+        ],
+        "price": 125,
+        "unit": "รีม",
+        "bulk": "ยกลัง (5 รีม) 600 บาท",
+        "inStock": true
+      },
+      {
+        "name": "ปากกาเน้นข้อความ",
+        "aliases": [
+          "ไฮไลท์",
+          "ปากกาเน้นข้อความ",
+          "ไฮไลต์"
+        ],
+        "price": 20,
+        "unit": "ด้าม",
+        "inStock": false
+      }
+    ],
+    "schoolSupplies": {
+      "label": "อุปกรณ์การเรียน 2-69",
+      "keywords": [
+        "อุปกรณ์การเรียน",
+        "อุปกรณ์"
+      ],
+      "ask": 'รบกวนแจ้งหน่อยค่ะ ว่าลูกค้าอยู่ "โรงเรียนไหน" 🏫\nพิมพ์ชื่อโรงเรียนมาได้เลยนะคะ แล้วจะส่งลิงก์รายการอุปกรณ์ของโรงเรียนนั้นให้ค่ะ',
+      "found": "ส่งรายการอุปกรณ์การเรียนของ {school} ให้แล้วค่ะ 📚",
+      "notFound": "ยังไม่พบโรงเรียนนี้ในรายการค่ะ 🙏\nรบกวนพิมพ์ชื่อโรงเรียนอีกครั้ง หรือรอแอดมินมาช่วยดูให้นะคะ",
+      "schools": [
+        {
+          "name": "โรงเรียนชุมชนเจดีย์เชียงโคม",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/x7mep"
+        },
+        {
+          "name": "โรงเรียนไตรมิตรวิทยา",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/bc2m4"
+        },
+        {
+          "name": "โรงเรียนไทยรัฐวิทยา 98",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/c99h3"
+        },
+        {
+          "name": "โรงเรียนบรรณโศภิษฐ์",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/ey25m"
+        },
+        {
+          "name": "โรงเรียนบ้านกอก",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/qeujy"
+        },
+        {
+          "name": "โรงเรียนบ้านกอกจูน",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/bdtwk"
+        },
+        {
+          "name": "โรงเรียนบ้านกิ่วจันทร์",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/vkewq"
+        },
+        {
+          "name": "โรงเรียนบ้านดอนแก้ว",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/7mcc7"
+        },
+        {
+          "name": "โรงเรียนบ้านด่าน",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/x38jb"
+        },
+        {
+          "name": "โรงเรียนบ้านนางบง",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/29pne"
+        },
+        {
+          "name": "โรงเรียนบ้านน้ำช้างพัฒนา",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/n3tyr"
+        },
+        {
+          "name": "โรงเรียนบ้านน้ำรีพัฒนา",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/dya6k"
+        },
+        {
+          "name": "โรงเรียนบ้านน้ำลาด",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/deuqk"
+        },
+        {
+          "name": "โรงเรียนบ้านน้ำเลียง",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/3khsn"
+        },
+        {
+          "name": "โรงเรียนบ้านบ่อหยวก",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/e9pds"
+        },
+        {
+          "name": "โรงเรียนบ้านปอน",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/8c6dq"
+        },
+        {
+          "name": "โรงเรียนบ้านปางกอม",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/dcbt7"
+        },
+        {
+          "name": "โรงเรียนบ้านปางหก",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/nxhnn"
+        },
+        {
+          "name": "โรงเรียนบ้านเปียงซ้อ",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/bc9u9"
+        },
+        {
+          "name": "โรงเรียนบ้านผาหลัก",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/xyqhs"
+        },
+        {
+          "name": "โรงเรียนบ้านเพียงหลวง7",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/hgtzx"
+        },
+        {
+          "name": "โรงเรียนบ้านแพะกลาง",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/x5pkf"
+        },
+        {
+          "name": "โรงเรียนบ้านมณีพฤกษ์",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/qym2r"
+        },
+        {
+          "name": "โรงเรียนบ้านสบกอน",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/29m9m"
+        },
+        {
+          "name": "โรงเรียนบ้านสะเกิน",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/9eqk5"
+        },
+        {
+          "name": "โรงเรียนบ้านห้วยฟอง",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/rxdku"
+        },
+        {
+          "name": "โรงเรียนมัธยมพระราชทานเฉลิมพระเกียรติ",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/775kt"
+        },
+        {
+          "name": "โรงเรียนสกาดพัฒนา",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/kwpzu"
+        },
+        {
+          "name": "โรงเรียนอนุบาลภูกามยาว",
+          "aliases": [],
+          "link": "https://www.nattagroup.com/fzhee"
+        }
+      ]
+    },
+    "thanks": "ยินดีค่ะ หากต้องการสอบถามรายละเอียดเพิ่มเติม แจ้งได้เลยนะคะ",
+    "holiday": {
+      "weekday": 6,
+      "message": "วันนี้เป็นวันหยุดค่ะ ร้านหยุดทุกวันเสาร์\nขออภัยในความไม่สะดวก แอดมินจะตอบกลับให้เร็วที่สุดค่ะ"
+    },
+    "contact": {
+      "button": "ติดต่อแอดมิน",
+      "buttonAliases": ["คุยกับแอดมิน"],
+      "orderAsk": "รับเรื่องสั่งของ/สั่งงานค่ะ 😊 รบกวนเลือกติดต่อแอดมินด้านล่างได้เลยนะคะ แอดมินจะตอบกลับในแชทนี้ค่ะ",
+      "orderWords": ["โฟมบอร์ด", "สั่งงาน", "สั่งทำ", "รับทำ", "ทำป้าย", "ไวนิล", "ปริ้นงาน", "พิมพ์งาน"],
+      "receivedNote": "",
+      "askWords": ["ขอถาม", "รบกวนสอบถาม", "สอบถาม", "มีสินค้า", "สินค้าแบบนี้", "แบบนี้ไหม", "สั่งทำได้ไหม", "ทำได้ไหม", "มีขายไหม", "มีไหม"],
+      "ask": "ต้องการติดต่อใครคะ 😊 กดเลือกชื่อด้านล่างได้เลย แอดมินจะตอบกลับในแชทนี้ค่ะ",
+      "quietMinutes": 20,
+      "people": [],
+      "notify": true,
+      "askOnUnknown": false,
+      "burstSeconds": 6,
+      "chatLinkLabel": "เปิดแอปตอบลูกค้า",
+      "alertEveryHours": 5,
+      "pictureReplyMinutes": 10,
+      "documentWords": ["ส่งเอกสารโครงการ", "เอกสารโครงการ"],
+      "documentAsk": "ส่งไฟล์เอกสารโครงการมาในแชทนี้ได้เลยค่ะ 😊 แล้วเลือกแอดมินที่ต้องการติดต่อด้านล่างนะคะ"
+    },
+    "adminPauseHours": 4
+  };
+
+  // line-assist/src/matcher.js
+  var POLITE = /(?:ค่ะ|คะ|ครับ|คับ|จ้า|จ้ะ|นะ|น๊า|หน่อย|ด้วย|ที)+$/g;
+  function normalize(text2) {
+    return String(text2 ?? "").toLowerCase().replace(/\s+/g, "").replace(POLITE, "");
+  }
+  var HELLO = /^(?:สวัสดี|หวัดดี|hello|hi|hey)(?:ตอน)?(?:เช้า|บ่าย|เย็น)?(?:พี่|น้อง|แอดมิน|ร้าน|ทุกคน|ทุกท่าน|เจ้า|เน้อ|หนา)*$/;
+  var HELLO_FILLER = /ค่ะ|คะ|ครับ|คับ|จ้า|จ้ะ|จ๊ะ|จ๋า|ค่า|ฮะ|นะ|น๊า/g;
+  function isHello(text2) {
+    const q = String(text2 ?? "").toLowerCase().replace(/[^\p{L}\p{M}]/gu, "");
+    if (/^ดีจ้า(?:ค่ะ|คะ|ครับ|นะ)*$/.test(q)) return true;
+    return HELLO.test(q.replace(HELLO_FILLER, ""));
+  }
+  var GREETING = /^(?:สวัสดี|หวัดดี|hello|hi|ดีจ้า|ดีค่ะ|ดีครับ|เมนู|menu|บอท|เริ่มใหม่)/;
+  function findByNames(text2, items) {
+    const q = normalize(text2);
+    if (!q) return [];
+    const scored = [];
+    for (const p of items) {
+      const names = [p.name, ...p.aliases ?? []].map(normalize).filter(Boolean);
+      const hit = names.filter((n) => q.includes(n)).sort((a, b) => b.length - a.length)[0];
+      if (hit) scored.push({ p, score: hit.length });
+    }
+    const best = Math.max(0, ...scored.map((s) => s.score));
+    return scored.filter((s) => s.score === best).map((s) => s.p);
+  }
+  var findProducts = findByNames;
+  var schoolKey = (s) => String(s ?? "").toLowerCase().replace(/โรงเรียน/g, "").replace(/(^|\s)ร\s*\.?\s*ร\s*\.?/g, "$1").replace(/บ้าน/g, "").replace(/[\s.]+/g, "").replace(POLITE, "");
+  function findSchool(text2, schools) {
+    const q = schoolKey(text2);
+    if (!q) return null;
+    const cands = (schools ?? []).map((sc) => ({
+      sc,
+      keys: [sc.name, ...sc.aliases ?? []].map(schoolKey).filter(Boolean)
+    }));
+    const only = (list) => list.length === 1 ? list[0].sc : null;
+    const exact = cands.filter((c) => c.keys.includes(q));
+    if (exact.length) return only(exact);
+    const inside = cands.map((c) => ({ ...c, len: Math.max(0, ...c.keys.filter((k) => q.includes(k)).map((k) => k.length)) })).filter((c) => c.len > 0);
+    if (inside.length) {
+      const best = Math.max(...inside.map((c) => c.len));
+      return only(inside.filter((c) => c.len === best));
+    }
+    if (q.length >= 3) {
+      const part = only(cands.filter((c) => c.keys.some((k) => k.includes(q))));
+      if (part) return part;
+    }
+    const m = /^(\D{3,})(\d+)$/.exec(q);
+    if (m) return only(cands.filter((c) => c.keys.some((k) => k.includes(m[1]) && k.endsWith(m[2]))));
+    return null;
+  }
+  function mentionsSupplies(text2, cfg) {
+    const q = normalize(text2);
+    return Boolean(cfg) && (cfg.keywords ?? []).map(normalize).some((k) => k && q.includes(k));
+  }
+  function findFaq(text2, faq) {
+    const q = normalize(text2);
+    if (!q) return null;
+    let best = null;
+    for (const entry of faq) {
+      const hits = entry.keywords.map(normalize).filter((k) => k && q.includes(k));
+      const score = hits.reduce((n, k) => n + k.length, 0);
+      if (score && (!best || score > best.score)) best = { entry, score };
+    }
+    return best?.entry ?? null;
+  }
+  function findRule(text2, rules) {
+    const q = normalize(text2);
+    if (!q) return null;
+    for (const r of rules ?? []) {
+      if (!r || r.enabled === false || !r.replies?.length) continue;
+      for (const k of r.keywords ?? []) {
+        const kw = normalize(k);
+        if (kw && (r.match === "exact" ? q === kw : q.includes(kw))) return r;
+      }
+    }
+    return null;
+  }
+  var THANKS = /ขอบคุณ|ขอบใจ|ขอบพระคุณ|ขอบคุน|ขอบคูณ|thank(?:s|you)?|thx/g;
+  var THANKS_FILLER = /เจ้าค่ะ|เจ้าพี่|เจ้านาย|เจ้า|เจ้ะ|มากมาย|มากๆ|มาก|ที่ช่วย|ที่ดูแล|ที่แนะนำ|ที่ตอบ|ที่สละเวลา|ที่|ช่วย|ล่วงหน้า|อีกครั้ง|ทุกคน|ทุกท่าน|เลย|นะคะ|นะครับ|นะจ๊ะ|นะจ๊า|นะ|ค่ะ|ค่า|คะ|คร้าบ|ครับผม|ครับ|คับ|ค้าบ|ขอรับ|จ้า|จ้ะ|จ๊ะ|จ๋า|เด้อ|เน้อ|หนา|เน่อ|พี่|น้อง|น้า|ป้า|ลุง|อา|แม่|พ่อ|คุณ|ๆ|555+|ฮ่า|55/g;
+  function isThanks(text2, names = []) {
+    const q = String(text2 ?? "").toLowerCase().replace(/[^\p{L}\p{M}\p{N}]/gu, "");
+    if (!THANKS.test(q)) return false;
+    THANKS.lastIndex = 0;
+    let rest = q.replace(THANKS, "");
+    const clean = (n) => String(n).toLowerCase().replace(/[^\p{L}\p{M}\p{N}]/gu, "");
+    for (const n of [...names].map(clean).filter(Boolean).sort((a, b) => b.length - a.length)) rest = rest.split(n).join("");
+    return rest.replace(THANKS_FILLER, "") === "";
+  }
+  var contactButtons = (shop) => [shop.contact?.button, ...shop.contact?.buttonAliases ?? []].filter(Boolean).map(normalize);
+  function matchIntent(text2, shop) {
+    const q = normalize(text2);
+    if (isThanks(text2)) return { type: "thanks" };
+    if (contactButtons(shop).includes(q)) return { type: "contact" };
+    const documentWords = (shop.contact?.documentWords ?? []).map(normalize).filter(Boolean);
+    if (documentWords.some((w) => q.includes(w))) return { type: "order", ask: "documentAsk" };
+    const orderWords = (shop.contact?.orderWords ?? []).map(normalize).filter(Boolean);
+    if (orderWords.some((w) => q.includes(w))) return { type: "order" };
+    const products = shop.productsEnabled === false ? [] : findProducts(text2, shop.products ?? []);
+    if (products.length) return { type: "products", products };
+    if (Array.isArray(shop.rules)) {
+      const rule = findRule(text2, shop.rules);
+      if (rule) return rule.replies[0].type === "silent" ? { type: "off", rule } : { type: "rule", rule };
+    } else {
+      const faq = findFaq(text2, (shop.faq ?? []).filter((f) => f.enabled !== false));
+      if (faq) return { type: "faq", faq };
+    }
+    if (shop.productsEnabled === false && findProducts(text2, shop.products ?? []).length) return { type: "off" };
+    if (!Array.isArray(shop.rules) && findFaq(text2, (shop.faq ?? []).filter((f) => f.enabled === false))) return { type: "off" };
+    const askWords = (shop.contact?.askWords ?? []).map(normalize).filter(Boolean);
+    if (askWords.some((w) => q.includes(w))) return { type: "ask" };
+    if (GREETING.test(q)) return { type: "greeting" };
+    return { type: "fallback" };
+  }
+
+  // line-assist/src/chips.js
+  var str = (v, n) => String(v ?? "").slice(0, n);
+  var MENU_DOC_TEXT = "ส่งเอกสารโครงการ";
+  var DEFAULT_OLD_CHIPS = ["เวลาเปิดร้าน", "สั่งของ", "อุปกรณ์การเรียน 2-69", "ที่ตั้งร้าน"];
+  var DEFAULT_ADMIN_LABEL = "คุยกับแอดมิน";
+  function shopChips(bot, assets) {
+    const b = bot && typeof bot === "object" && !Array.isArray(bot) ? bot : {};
+    const A = String(assets ?? "").trim().replace(/\/+$/, "");
+    const adminLabel = str(b.admin_label, 20).trim() || DEFAULT_ADMIN_LABEL;
+    const orderUrl = (Array.isArray(b.links) && b.links[0] && /^https?:\/\//.test(String(b.links[0].url ?? "")) ? String(b.links[0].url) : "") || "https://www.nattagroup.com";
+    const old = (Array.isArray(b.old_chips) ? b.old_chips : DEFAULT_OLD_CHIPS).map((x) => str(x, 20).trim()).filter(Boolean).slice(0, 9);
+    const doc = { type: "action", action: { type: "message", label: MENU_DOC_TEXT, text: MENU_DOC_TEXT } };
+    const cart = { type: "action", action: { type: "uri", label: "สั่งซื้อสินค้า", uri: orderUrl } };
+    const chat = { type: "action", action: { type: "message", label: adminLabel, text: adminLabel } };
+    if (A) {
+      doc.imageUrl = `${A}/i/doc.png`;
+      cart.imageUrl = `${A}/i/cart.png`;
+      chat.imageUrl = `${A}/i/chat.png`;
+    }
+    const topics2 = old.map((x) => ({ type: "action", action: { type: "message", label: x, text: x } }));
+    const items = b.menu_style === "card" ? [doc, ...topics2] : [cart, doc, chat, ...topics2];
+    return items.slice(0, 13);
+  }
+  function chipTexts(bot) {
+    const b = bot && typeof bot === "object" && !Array.isArray(bot) ? bot : {};
+    return [MENU_DOC_TEXT, str(b.admin_label, 20).trim() || DEFAULT_ADMIN_LABEL, ...(Array.isArray(b.old_chips) ? b.old_chips : DEFAULT_OLD_CHIPS).map((x) => str(x, 20).trim())].filter(Boolean);
+  }
+
+  // line-assist/src/flex.js
+  var PALETTE = {
+    cream: "#FBF7EF",
+    apricot: "#FFB493",
+    yellow: "#FFE68A",
+    blue: "#BFDBFF",
+    ink: "#2B2B2B",
+    accent: "#E8643A",
+    // prices, highlights
+    muted: "#7A7468",
+    ok: "#2F9E6E",
+    warn: "#E5533D"
+  };
+  var pal = (shop) => ({ ...PALETTE, ...shop.theme && typeof shop.theme === "object" ? shop.theme : {} });
+  var TONES = ["apricot", "yellow", "blue"];
+  var baht = (n) => `${Number(n).toLocaleString("th-TH")} บาท`;
+  var clip = (s, n) => String(s).slice(0, n);
+  var text = (t, extra = {}) => ({ type: "text", text: t, wrap: true, color: PALETTE.ink, ...extra });
+  var msgButton = (label, sendText, shop, style = "secondary", tone = 0) => ({
+    type: "button",
+    style,
+    height: "sm",
+    color: style === "primary" ? pal(shop).ink : pal(shop)[TONES[tone % TONES.length]],
+    action: { type: "message", label: clip(label, 20), text: sendText ?? label }
+  });
+  var uriButton = (label, uri, shop) => ({
+    type: "button",
+    style: "primary",
+    height: "sm",
+    color: pal(shop).ink,
+    action: { type: "uri", label: clip(label, 20), uri }
+  });
+  var bubble = (shop, parts) => ({
+    type: "bubble",
+    ...parts,
+    styles: ["header", "hero", "body", "footer"].reduce(
+      (o, k) => ({ ...o, [k]: { backgroundColor: pal(shop).cream } }),
+      {}
+    )
+  });
+  var PICTURES = {
+    staff: { w: 104, ratio: "773:800", blob: "circle", tint: "#FFE1D3" },
+    admin: { w: 106, ratio: "800:778", blob: "circle", tint: "#DCEBFF" },
+    school: { w: 122, ratio: "800:630", blob: "circle", tint: "#FFF0B3" },
+    order: { w: 170, ratio: "1024:377", blob: "pill", tint: "#FFF0B3" },
+    ask: { w: 170, ratio: "1024:398", blob: "pill", tint: "#DCEBFF" }
+  };
+  function picture(shop, name) {
+    const spec = PICTURES[name];
+    if (!shop.assetBase || !spec) return null;
+    return {
+      type: "image",
+      url: `${shop.assetBase}/${name}.png`,
+      size: `${spec.w}px`,
+      aspectRatio: spec.ratio,
+      aspectMode: "fit",
+      flex: 0,
+      align: "end",
+      gravity: "bottom"
+      // stands on the lower edge of the band
+    };
+  }
+  function cornerArt(shop, name) {
+    const pic = picture(shop, name);
+    if (!pic) return null;
+    const spec = PICTURES[name];
+    const [rw, rh] = spec.ratio.split(":").map(Number);
+    const h = Math.round(spec.w * rh / rw);
+    const boxW = spec.w + 8;
+    const circle = spec.blob === "circle";
+    const d = Math.round(Math.min(spec.w, h) * 0.94);
+    const blob = {
+      type: "box",
+      layout: "vertical",
+      position: "absolute",
+      contents: [],
+      backgroundColor: spec.tint,
+      width: `${circle ? d : Math.round(spec.w * 0.96)}px`,
+      height: `${circle ? d : h}px`,
+      cornerRadius: circle ? `${Math.round(d / 2)}px` : "22px",
+      offsetBottom: "0px",
+      offsetStart: `${circle ? Math.round((boxW - d) / 2) : 4}px`
+    };
+    return {
+      type: "box",
+      layout: "vertical",
+      flex: 0,
+      width: `${boxW}px`,
+      height: `${h + 6}px`,
+      // both layers are placed absolutely, shape first, so the picture is always on top
+      contents: [blob, { ...pic, position: "absolute", offsetBottom: "0px", offsetStart: "4px", align: void 0, gravity: void 0 }]
+    };
+  }
+  var flex = (altText, contents, quickReply) => ({
+    type: "flex",
+    altText: clip(altText, 400),
+    contents,
+    ...quickReply ? { quickReply } : {}
+  });
+  function header(title, shop, imageName, height) {
+    const pic = imageName ? cornerArt(shop, imageName) : null;
+    return {
+      type: "box",
+      layout: "horizontal",
+      backgroundColor: pal(shop).cream,
+      ...pic ? { paddingTop: "md", paddingBottom: "none", paddingStart: "lg", paddingEnd: "sm" } : { paddingAll: "lg" },
+      spacing: "md",
+      ...height ? { height } : {},
+      contents: [
+        text(title, { weight: "bold", size: "md", flex: 1, gravity: "center" }),
+        ...pic ? [pic] : []
+      ]
+    };
+  }
+  function menuCard(shop, title, body, { image } = {}) {
+    const topicList = (shop.quickReplies ?? []).slice(0, 6).map((t) => typeof t === "string" ? { label: t, text: t } : t);
+    return flex(
+      title,
+      bubble(shop, {
+        header: header(title, shop, image),
+        body: { type: "box", layout: "vertical", spacing: "md", contents: [text(body, { size: "sm" })] },
+        footer: {
+          type: "box",
+          layout: "vertical",
+          spacing: "sm",
+          contents: [
+            ...topicList.map((t, i) => msgButton(t.label, t.text, shop, "secondary", i)),
+            ...shop.contact?.button ? [msgButton(shop.contact.button, shop.contact.button, shop, "primary")] : []
+          ]
+        }
+      })
+    );
+  }
+  function faqCard(shop, entry, quickReply) {
+    const title = entry.label || "ข้อมูลร้าน";
+    const link = entry.link?.url ? entry.link : null;
+    return flex(
+      `${title}: ${entry.answer}${link ? ` ${link.url}` : ""}`,
+      bubble(shop, {
+        header: header(title, shop, entry.image),
+        body: {
+          type: "box",
+          layout: "vertical",
+          spacing: "md",
+          contents: [
+            text(entry.answer, { size: "sm" }),
+            ...link ? [text(link.url, { size: "xs", color: pal(shop).muted })] : []
+          ]
+        },
+        ...link ? { footer: { type: "box", layout: "vertical", contents: [uriButton(link.label || "เปิดลิงก์", link.url, shop)] } } : {}
+      }),
+      quickReply
+    );
+  }
+  var PRODUCT_PICTURES = ["school", "staff", "admin"];
+  function productBubble(p, shop, index = 0) {
+    const inStock = p.inStock !== false;
+    return bubble(shop, {
+      size: "kilo",
+      // fixed height so the cards of one carousel line up whatever the picture's shape
+      header: header(p.name, shop, p.image || PRODUCT_PICTURES[index % PRODUCT_PICTURES.length], "116px"),
+      body: {
+        type: "box",
+        layout: "vertical",
+        spacing: "sm",
+        contents: [
+          text(`${baht(p.price)} / ${p.unit ?? "ชิ้น"}`, { size: "xl", weight: "bold", color: pal(shop).accent }),
+          ...p.bulk ? [text(`จำนวนมาก: ${p.bulk}`, { size: "xs", color: pal(shop).muted })] : [],
+          text(inStock ? "● มีสินค้า" : "● สินค้าหมดชั่วคราว", {
+            size: "sm",
+            weight: "bold",
+            color: inStock ? pal(shop).ok : pal(shop).warn
+          })
+        ]
+      },
+      footer: {
+        type: "box",
+        layout: "vertical",
+        contents: [
+          inStock ? msgButton("สั่งซื้อ", "สั่งของ", shop, "primary") : msgButton("ถามวันเข้าสินค้า", `ถามวันเข้าสินค้า ${p.name}`, shop, "primary")
+        ]
+      }
+    });
+  }
+  function productCards(shop, products, quickReply) {
+    const shown = products.slice(0, 10);
+    const alt = shown.map((p) => `${p.name} ${baht(p.price)}/${p.unit ?? "ชิ้น"}`).join(" | ");
+    const contents = shown.length === 1 ? productBubble(shown[0], shop, 0) : { type: "carousel", contents: shown.map((p, i) => productBubble(p, shop, i)) };
+    return flex(alt, contents, quickReply);
+  }
+  function schoolLinkCard(shop, school, message) {
+    return flex(
+      `${school.name}: ${school.link}`,
+      bubble(shop, {
+        header: header(school.name, shop, "school"),
+        body: {
+          type: "box",
+          layout: "vertical",
+          spacing: "md",
+          contents: [text(message, { size: "sm" }), text(school.link, { size: "xs", color: pal(shop).muted })]
+        },
+        footer: { type: "box", layout: "vertical", contents: [uriButton("เปิดรายการอุปกรณ์", school.link, shop)] }
+      })
+    );
+  }
+  function noteCard(shop, imageName, title, body, quickReply) {
+    if (!picture(shop, imageName)) return null;
+    return flex(
+      `${title}: ${body}`,
+      bubble(shop, {
+        header: header(title, shop, imageName),
+        body: { type: "box", layout: "vertical", contents: [text(body, { size: "sm" })] }
+      }),
+      quickReply
+    );
+  }
+  function avatar(url, size = 44) {
+    return {
+      type: "box",
+      layout: "vertical",
+      flex: 0,
+      width: `${size}px`,
+      height: `${size}px`,
+      cornerRadius: `${Math.round(size / 2)}px`,
+      contents: [{ type: "image", url, size: `${size}px`, aspectRatio: "1:1", aspectMode: "cover" }]
+    };
+  }
+  var noteText = (shop, t) => text(t, { size: "xs", color: pal(shop).muted, align: "center" });
+  function contactCard(shop, text2, photos = {}) {
+    const ppl = shop.contact?.people ?? [];
+    const label = (p) => `คุยกับ${p.name}`;
+    return flex(
+      `${text2} ${ppl.map((p) => label(p)).join(" / ")}`,
+      bubble(shop, {
+        header: header("ติดต่อแอดมิน", shop, "admin"),
+        body: { type: "box", layout: "vertical", contents: [text_(text2)] },
+        footer: {
+          type: "box",
+          layout: "vertical",
+          spacing: "md",
+          contents: ppl.map((p, i) => {
+            const column = {
+              type: "box",
+              layout: "vertical",
+              flex: 1,
+              spacing: "xs",
+              contents: [
+                { ...msgButton(label(p), label(p), shop, "secondary", i), flex: 1 },
+                ...p.note ? [noteText(shop, p.note)] : []
+              ]
+            };
+            return photos[p.name] ? { type: "box", layout: "horizontal", spacing: "md", alignItems: "center", contents: [avatar(photos[p.name]), column] } : column;
+          })
+        }
+      })
+    );
+  }
+  var text_ = (t) => text(t, { size: "sm" });
+
+  // line-assist/src/rules.js
+  var REPLY_TYPES = ["card", "text", "image", "sticker", "flex", "silent"];
+  var PICTURE_NAMES = ["staff", "admin", "school", "order", "ask"];
+  var MAX_RULES = 100;
+  var MAX_KEYWORDS = 40;
+  var MAX_REPLIES = 5;
+  var FLEX_MAX = 3e4;
+  var isObj = (x) => Boolean(x) && typeof x === "object" && !Array.isArray(x);
+  var str2 = (v, n) => String(v ?? "").trim().slice(0, n);
+  var https = (v, n = 1e3) => {
+    const s = str2(v, n);
+    return /^https:\/\/[^\s<>"']{3,}$/i.test(s) ? s : "";
+  };
+  function cleanReply(r) {
+    if (!isObj(r)) return null;
+    switch (r.type) {
+      case "card": {
+        const text2 = str2(r.text, 2e3);
+        if (!text2) return null;
+        const url = https(r.button?.url);
+        return {
+          type: "card",
+          title: str2(r.title, 40),
+          text: text2,
+          image: PICTURE_NAMES.includes(r.image) ? r.image : "",
+          button: url ? { label: str2(r.button?.label, 20) || "เปิดลิงก์", url } : null
+        };
+      }
+      case "text": {
+        const text2 = str2(r.text, 5e3);
+        return text2 ? { type: "text", text: text2 } : null;
+      }
+      case "image": {
+        const url = https(r.url);
+        if (!url) return null;
+        const preview = https(r.previewUrl);
+        return { type: "image", url, previewUrl: preview && preview !== url ? preview : "" };
+      }
+      case "sticker": {
+        const ok = (v) => /^\d{1,12}$/.test(String(v ?? "").trim());
+        if (!ok(r.packageId) || !ok(r.stickerId)) return null;
+        return { type: "sticker", packageId: String(r.packageId).trim(), stickerId: String(r.stickerId).trim() };
+      }
+      case "flex": {
+        const c = r.contents;
+        if (!isObj(c) || !["bubble", "carousel"].includes(c.type)) return null;
+        let json;
+        try {
+          json = JSON.stringify(c);
+        } catch {
+          return null;
+        }
+        if (json.length > FLEX_MAX) return null;
+        return { type: "flex", altText: str2(r.altText, 400) || "ข้อความจากร้าน", contents: JSON.parse(json) };
+      }
+      case "silent":
+        return { type: "silent" };
+      default:
+        return null;
+    }
+  }
+  function cleanRule(r, index = 0) {
+    if (!isObj(r)) return null;
+    const replies = (Array.isArray(r.replies) ? r.replies : r.reply ? [r.reply] : []).map(cleanReply).filter(Boolean).slice(0, MAX_REPLIES);
+    const seen = /* @__PURE__ */ new Set();
+    const keywords = [];
+    for (const k of Array.isArray(r.keywords) ? r.keywords : []) {
+      const kw = str2(k, 60);
+      const n = normalize(kw);
+      if (!kw || !n || seen.has(n)) continue;
+      seen.add(n);
+      keywords.push(kw);
+      if (keywords.length >= MAX_KEYWORDS) break;
+    }
+    return {
+      id: String(r.id ?? "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40) || `r${index + 1}`,
+      name: str2(r.name, 60) || `กฎ ${index + 1}`,
+      enabled: r.enabled !== false,
+      match: r.match === "exact" ? "exact" : "contains",
+      keywords,
+      replies: replies.some((x) => x.type === "silent") ? [{ type: "silent" }] : replies,
+      quick: r.quick !== false
+    };
+  }
+  function cleanRules(raw) {
+    const out = [];
+    const ids = /* @__PURE__ */ new Set();
+    for (const [i, r] of (Array.isArray(raw) ? raw : []).slice(0, MAX_RULES).entries()) {
+      const rule = cleanRule(r, i);
+      if (!rule) continue;
+      let id = rule.id;
+      for (let n = 2; ids.has(id); n++) id = `${rule.id.slice(0, 36)}-${n}`;
+      ids.add(id);
+      out.push({ ...rule, id });
+    }
+    return out;
+  }
+  function rulesFromFaq(faq) {
+    return cleanRules(
+      (Array.isArray(faq) ? faq : []).map((f, i) => ({
+        id: `faq-${i + 1}`,
+        name: f?.label,
+        match: "contains",
+        keywords: f?.keywords,
+        replies: [
+          f?.enabled === false ? { type: "silent" } : { type: "card", title: f?.label, text: f?.answer, image: f?.image, button: f?.link?.url ? { label: f.link.label, url: f.link.url } : null }
+        ]
+      }))
+    );
+  }
+  function ruleMessages(shop, rule) {
+    const out = [];
+    for (const r of rule?.replies ?? []) {
+      try {
+        if (r.type === "card") out.push(faqCard(shop, { label: r.title || shop.name, answer: r.text, link: r.button ?? void 0, image: r.image || void 0 }));
+        else if (r.type === "text") out.push({ type: "text", text: r.text });
+        else if (r.type === "image") out.push({ type: "image", originalContentUrl: r.url, previewImageUrl: r.previewUrl || r.url });
+        else if (r.type === "sticker") out.push({ type: "sticker", packageId: r.packageId, stickerId: r.stickerId });
+        else if (r.type === "flex") out.push({ type: "flex", altText: r.altText || "ข้อความจากร้าน", contents: r.contents });
+      } catch {
+      }
+    }
+    return out.slice(0, MAX_REPLIES);
+  }
+
+  // line-assist/src/config.js
+  var MODES = ["off", "admins", "all"];
+  var modeOf = (row) => row && MODES.includes(row.mode) ? row.mode : "off";
+  var ID = /^U[0-9a-f]{32}$/i;
+  var CONTENT_KEYS = ["name", "greeting", "fallback", "quickReplies", "faq", "products", "productsEnabled", "thanks", "holiday", "replyOnlyKnown", "welcome", "theme", "adminPauseHours"];
+  var CONTACT_TEXTS = ["ask", "orderAsk", "documentAsk"];
+  var CONTACT_WORDS = ["orderWords", "askWords", "documentWords"];
+  var NUMBERS = ["quietMinutes", "alertEveryHours", "pictureReplyMinutes", "burstSeconds"];
+  var DEFAULT_ADMINS = [
+    { name: "เจ้ปิ่น", note: "ร้านเครื่องเขียน" },
+    { name: "หญิง", note: "ร้านเครื่องเขียน" },
+    { name: "ฟิล์ม", note: "ถ่ายรูป · ถ่ายเอกสาร · ไวนิล" }
+  ];
+  var isObj2 = (x) => x && typeof x === "object" && !Array.isArray(x);
+  var str3 = (v, n) => String(v ?? "").trim().slice(0, n);
+  var https2 = (v) => /^https:\/\/[^\s<>"']{3,990}$/i.test(String(v ?? "").trim()) ? String(v).trim() : "";
+  var strings = (a, n, max) => (Array.isArray(a) ? a : []).map((x) => str3(x, n)).filter(Boolean).slice(0, max);
+  function cleanSupplies(x, base) {
+    if (!isObj2(x) || !Array.isArray(x.schools)) return base;
+    const schools = x.schools.map((s) => ({ name: str3(s?.name, 80), aliases: strings(s?.aliases, 60, 10), link: https2(s?.link) })).filter((s) => s.name && s.link).slice(0, 300);
+    return {
+      label: str3(x.label, 40) || base.label,
+      keywords: strings(x.keywords, 40, 20).length ? strings(x.keywords, 40, 20) : base.keywords,
+      ask: str3(x.ask, 500) || base.ask,
+      found: str3(x.found, 500) || base.found,
+      notFound: str3(x.notFound, 500) || base.notFound,
+      schools
+    };
+  }
+  function buildShop(row, { bot = null, iconsBase = "" } = {}) {
+    const c = isObj2(row) ? row : {};
+    const b = isObj2(bot) ? bot : {};
+    const shop = JSON.parse(JSON.stringify(data_default));
+    if (isObj2(c.content)) {
+      const sameKind = (x, y) => typeof x === typeof y && Array.isArray(x) === Array.isArray(y) && x === null === (y === null);
+      for (const k of CONTENT_KEYS) if (c.content[k] !== void 0 && sameKind(c.content[k], shop[k])) shop[k] = c.content[k];
+      if (c.content.schoolSupplies !== void 0) shop.schoolSupplies = cleanSupplies(c.content.schoolSupplies, shop.schoolSupplies);
+      if (Array.isArray(c.content.rules)) shop.rules = cleanRules(c.content.rules);
+      if (isObj2(c.content.contact)) {
+        const o = c.content.contact;
+        for (const k of CONTACT_TEXTS) if (str3(o[k], 500)) shop.contact[k] = str3(o[k], 500);
+        for (const k of CONTACT_WORDS) if (Array.isArray(o[k])) shop.contact[k] = strings(o[k], 40, 60);
+      }
+    }
+    const named = (Array.isArray(b.admins) && b.admins.length ? b.admins : DEFAULT_ADMINS).map((a) => ({ name: String(a?.name ?? "").trim().slice(0, 20), note: String(a?.note ?? "").trim().slice(0, 40) })).filter((a) => a.name);
+    const mine = (Array.isArray(c.admins) ? c.admins : []).map((a) => ({ name: String(a?.name ?? "").trim().slice(0, 20), note: String(a?.note ?? "").trim().slice(0, 40), userId: String(a?.userId ?? "").trim() })).filter((a) => a.name && ID.test(a.userId));
+    const people = [];
+    for (const n of named) {
+      const hit = mine.find((m) => normalize(m.name) === normalize(n.name));
+      if (hit) people.push({ name: n.name, note: n.note || hit.note, userId: hit.userId });
+    }
+    shop.contact.people = people.slice(0, 6);
+    const silence = Math.round(Number(b.silence_hours));
+    shop.contact.quietMinutes = (silence >= 1 && silence <= 168 ? silence : 24) * 60;
+    for (const k of NUMBERS) {
+      const n = Number(c[k]);
+      if (c[k] !== void 0 && Number.isFinite(n) && n > 0) shop.contact[k] = n;
+    }
+    if (typeof c.chatLinkTemplate === "string") shop.contact.chatLinkTemplate = c.chatLinkTemplate.trim();
+    if (typeof c.chatLinkLabel === "string" && c.chatLinkLabel.trim()) shop.contact.chatLinkLabel = c.chatLinkLabel.trim().slice(0, 20);
+    if (c.notify === false) shop.contact.notify = false;
+    const adminLabel = String(b.admin_label ?? "").trim() || DEFAULT_ADMIN_LABEL;
+    shop.contact.buttonAliases = [.../* @__PURE__ */ new Set([...shop.contact.buttonAliases ?? [], adminLabel])];
+    shop.chips = shopChips(b, iconsBase);
+    shop.menuTexts = chipTexts(b);
+    shop.paused = c.paused === true;
+    shop.engineGreeting = c.greeting === true;
+    shop.senderIcon = c.senderIcon === true;
+    shop.assetBase = /^https:\/\//.test(String(c.assets_base ?? "")) ? String(c.assets_base).replace(/\/+$/, "") : "";
+    return shop;
+  }
+
+  // line-assist/src/wake.js
+  var isWakeWord = (text2) => /^(?:เมนู|บอท|menu|เริ่มใหม่)\s*(?:ค่ะ|คะ|ครับ|คับ|นะคะ|นะครับ|นะ)*$/i.test(String(text2 ?? "").trim());
+
+  // line-assist/src/replies.js
+  var topics = (shop) => (shop.quickReplies ?? []).map((t) => typeof t === "string" ? { label: t, text: t } : t);
+  function quick(shop) {
+    if (Array.isArray(shop.chips) && shop.chips.length) return { items: shop.chips.slice(0, 13) };
+    const items = topics(shop).slice(0, 13).map((t) => ({ type: "action", action: { type: "message", label: t.label.slice(0, 20), text: t.text } }));
+    return items.length ? { items } : void 0;
+  }
+  var sendSchool = (shop, school) => ({
+    messages: [schoolLinkCard(shop, school, shop.schoolSupplies.found.replace("{school}", school.name))],
+    awaitingSchool: false,
+    stage: "school"
+  });
+  var askSchool = (shop, text2) => ({
+    messages: [noteCard(shop, "ask", "อุปกรณ์การเรียน", text2) ?? { type: "text", text: text2 }],
+    awaitingSchool: true,
+    stage: "school-ask"
+  });
+  function buildReply(text2, shop, session = {}) {
+    const cfg = shop.schoolSupplies;
+    if (isThanks(text2, (shop.contact?.people ?? []).map((p) => p.name))) return { ...thanksReply(shop), stage: "thanks" };
+    if (cfg) {
+      const school = findSchool(text2, cfg.schools);
+      if (school && (session.awaitingSchool || mentionsSupplies(text2, cfg))) return sendSchool(shop, school);
+      if (mentionsSupplies(text2, cfg)) return askSchool(shop, cfg.ask);
+      if (session.awaitingSchool) {
+        const other = matchIntent(text2, shop);
+        if (other.type === "fallback") return askSchool(shop, cfg.notFound);
+      }
+    }
+    const intent = matchIntent(text2, shop);
+    const qr = quick(shop);
+    if (intent.type === "off") return { messages: [], awaitingSchool: false, silent: true, quiet: true, stage: "off", matched: intent.rule?.id };
+    if (intent.type === "ask") return { messages: [], awaitingSchool: false, needsPhotos: true, stage: "ask" };
+    if (intent.type === "order") return { messages: [], awaitingSchool: false, needsPhotos: true, stage: "order", which: intent.ask ?? "orderAsk", askText: shop.contact[intent.ask ?? "orderAsk"] ?? shop.contact.orderAsk ?? shop.contact.ask };
+    if (intent.type === "contact") return { messages: [contactCard(shop, shop.contact.ask)], awaitingSchool: false, needsPhotos: true, stage: "contact" };
+    const out = (m) => ({ messages: [m], awaitingSchool: false, stage: intent.type });
+    switch (intent.type) {
+      case "products":
+        return out(productCards(shop, intent.products, qr));
+      case "faq":
+        return { ...out(faqCard(shop, intent.faq, qr)), matched: intent.faq.label };
+      case "rule":
+        return { messages: ruleMessages(shop, intent.rule), awaitingSchool: false, stage: "rule", matched: intent.rule.id, quick: intent.rule.quick !== false };
+      case "greeting":
+        return { ...out(menuCard(shop, shop.name, shop.greeting, { image: "staff" })), greeting: true, pureHello: isHello(text2), menuRequest: isWakeWord(text2) };
+      default:
+        if (shop.replyOnlyKnown !== false) return { messages: [], awaitingSchool: false, silent: true, stage: "fallback" };
+        return { ...out(menuCard(shop, "ขออภัยค่ะ", shop.fallback, { image: "admin" })), stage: "fallback" };
+    }
+  }
+  function thanksReply(shop) {
+    const text2 = shop.thanks || "ยินดีค่ะ หากต้องการสอบถามรายละเอียดเพิ่มเติม แจ้งได้เลยนะคะ";
+    const qr = quick(shop);
+    return { messages: [noteCard(shop, "staff", shop.name, text2, qr) ?? { type: "text", text: text2, quickReply: qr }], awaitingSchool: false };
+  }
+  function iconUrlFor(assetBase) {
+    const base = String(assetBase ?? "").trim().replace(/\/+$/, "");
+    return /^https:\/\//.test(base) ? `${base}/icon.png` : null;
+  }
+  function withSender(messages, assetBase, quickReply) {
+    const iconUrl = iconUrlFor(assetBase);
+    const out = iconUrl ? messages.map((m) => ({ ...m, sender: { iconUrl } })) : messages.map((m) => ({ ...m }));
+    const last = out[out.length - 1];
+    if (last && quickReply && !last.quickReply) last.quickReply = quickReply;
+    return out;
+  }
+
+  // line-assist/src/holiday.js
+  var DAY_NAMES = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+  var FALLBACK_TEXT = "วันนี้เป็นวันหยุดค่ะ ร้านหยุดทุกวันเสาร์\nขออภัยในความไม่สะดวก แอดมินจะตอบกลับให้เร็วที่สุดค่ะ";
+  function bangkokDay(now = /* @__PURE__ */ new Date()) {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Bangkok",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      weekday: "short"
+    }).formatToParts(now);
+    const get = (t) => parts.find((p) => p.type === t).value;
+    return {
+      weekday: DAY_NAMES.indexOf(get("weekday").slice(0, 3).toLowerCase()),
+      key: `${get("year")}-${get("month")}-${get("day")}`
+    };
+  }
+  function holidayNotice(shop, now = /* @__PURE__ */ new Date()) {
+    const h = shop.holiday;
+    if (!h || h.weekday === void 0 || h.weekday === null) return null;
+    const day = bangkokDay(now);
+    if (day.weekday !== Number(h.weekday)) return null;
+    return { key: day.key, message: { type: "text", text: h.message || FALLBACK_TEXT } };
+  }
+  return __toCommonJS(entry_exports);
+})();
+
+</script>
+<script>
+// ---- 00-util.js
+'use strict';
+// ---------------------------------------------------------------------------------------------------------------
+// Small helpers. Everything the page shows is built with h(): text goes in as text, never as markup.
+// ---------------------------------------------------------------------------------------------------------------
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k === 'class') el.className = v;
+    else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+    else if (k === 'dataset') Object.assign(el.dataset, v);
+    else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
+    else if (v === true) el.setAttribute(k, '');
+    else el.setAttribute(k, String(v));
+  }
+  for (const kid of kids.flat(Infinity)) {
+    if (kid == null || kid === false) continue;
+    el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  }
+  return el;
+}
+
+// Icons: fixed strings of our own, never user text.
+const ICONS = {
+  key: '<path d="M14.5 9.5a4 4 0 1 0-3.9 3.1L12 14h1.5v1.5H15V17h1.5l1-1v-1.7l-3.9-3.9a4 4 0 0 0 .9-.9Z" /><circle cx="9.5" cy="8.5" r="1"/>',
+  copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/>',
+  trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  up: '<path d="m6 14 6-6 6 6"/>',
+  down: '<path d="m6 10 6 6 6-6"/>',
+  grip: '<circle cx="9" cy="6" r="1.2"/><circle cx="15" cy="6" r="1.2"/><circle cx="9" cy="12" r="1.2"/><circle cx="15" cy="12" r="1.2"/><circle cx="9" cy="18" r="1.2"/><circle cx="15" cy="18" r="1.2"/>',
+  text: '<path d="M5 6h14M12 6v13M9 19h6"/>',
+  card: '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 11h16M8 15h5"/>',
+  image: '<rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m5 18 5-5 3 3 2-2 4 4"/>',
+  sticker: '<path d="M12 4a8 8 0 1 0 8 8c0-3-2-4-4-4a4 4 0 0 1-4-4Z"/><circle cx="9" cy="12" r="1"/><circle cx="14" cy="14" r="1"/>',
+  silent: '<path d="M5 5l14 14M9 9v3a3 3 0 0 0 5 2m1-3V8a3 3 0 0 0-6-1M6 12a6 6 0 0 0 9 5m3-5v0"/>',
+  flex: '<path d="M8 8 4 12l4 4M16 8l4 4-4 4M13.5 6l-3 12"/>',
+  send: '<path d="m4 12 16-7-6 15-2-6-8-2Z"/>',
+  play: '<path d="M7 5v14l12-7Z"/>',
+  refresh: '<path d="M4 12a8 8 0 0 1 14-5l2-2v6h-6l2.2-2.2A5.5 5.5 0 0 0 6.5 12M20 12a8 8 0 0 1-14 5l-2 2v-6h6l-2.2 2.2A5.5 5.5 0 0 0 17.5 12"/>',
+  save: '<path d="M5 4h11l3 3v13H5Z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/>',
+  history: '<path d="M4 12a8 8 0 1 0 3-6.2M4 4v4h4M12 8v5l3 2"/>',
+  check: '<path d="m5 12 5 5 9-10"/>',
+  warn: '<path d="M12 4 3 20h18Z"/><path d="M12 10v5M12 17.5v.5"/>',
+  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  bot: '<rect x="5" y="8" width="14" height="10" rx="3"/><path d="M12 4v4M9 13v1M15 13v1"/>',
+  x: '<path d="m6 6 12 12M18 6 6 18"/>',
+  search: '<circle cx="11" cy="11" r="6"/><path d="m20 20-4.2-4.2"/>',
+};
+function icon(name, size = 16) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('width', size);
+  svg.setAttribute('height', size);
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '1.8');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.innerHTML = ICONS[name] || '';
+  return svg;
+}
+
+const debounce = (fn, ms) => {
+  let t;
+  return (...a) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...a), ms);
+  };
+};
+const clone = (x) => JSON.parse(JSON.stringify(x));
+const clip = (s, n) => (String(s).length > n ? String(s).slice(0, n - 1) + '…' : String(s));
+
+function toast(text, kind = 'ok') {
+  const box = $('#toasts');
+  if (!box) return;
+  const t = h('div', { class: 'toast toast-' + kind, role: 'status' }, text);
+  box.append(t);
+  setTimeout(() => t.classList.add('out'), 3200);
+  setTimeout(() => t.remove(), 3700);
+}
+
+// UTF-8 text → base64 (so any text can travel inside a SQL statement without quoting trouble)
+function b64(str) {
+  const bytes = new TextEncoder().encode(str);
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+const sqlText = (str) => `convert_from(decode('${b64(str)}', 'base64'), 'UTF8')`;
+
+// "19 ต.ค. 23:44" in Bangkok time
+function thaiTime(iso) {
+  try {
+    const d = new Date(iso);
+    const parts = new Intl.DateTimeFormat('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+    return parts;
+  } catch {
+    return String(iso);
+  }
+}
+
+// ---- 01-flexrender.js
+// ---------------------------------------------------------------------------------------------------------------
+// A Flex Message drawn on the page the way LINE draws it (close enough to judge a card before it is sent).
+// Covers what the bot's cards use: bubble / carousel, box, text, image, button, separator, spacer, filler.
+// ---------------------------------------------------------------------------------------------------------------
+const FX = {
+  text: { xxs: 11, xs: 13, sm: 14, md: 16, lg: 19, xl: 22, xxl: 29, '3xl': 35, '4xl': 40, '5xl': 46 },
+  space: { none: 0, xs: 2, sm: 4, md: 8, lg: 12, xl: 16, xxl: 20 },
+  image: { xxs: 40, xs: 60, sm: 80, md: 100, lg: 120, xl: 140, xxl: 160, '3xl': 180, '4xl': 200, '5xl': 220 },
+  bubble: { nano: 120, micro: 160, deca: 220, hecto: 241, kilo: 260, mega: 300, giga: 320 },
+  radius: { none: 0, xs: 3, sm: 7, md: 10, lg: 13, xl: 16, xxl: 20 },
+  border: { none: 0, light: 0.5, normal: 1, medium: 2, 'semi-bold': 3, bold: 4 },
+};
+
+// keyword | "12px" | "40%" | number → CSS length (or null)
+function fxLen(v, table) {
+  if (v == null || v === '') return null;
+  if (typeof v === 'number') return `${v}px`;
+  const s = String(v);
+  if (table && s in table) return `${table[s]}px`;
+  return /^-?\d+(\.\d+)?(px|%)$/.test(s) ? s : null;
+}
+
+function fxPlaceholder(label, w, hgt) {
+  return h('div', { class: 'fx-missing', style: { width: w || '100%', height: hgt || '80px' } }, label);
+}
+
+function fxImage(n) {
+  const size = n.size === 'full' ? '100%' : fxLen(n.size, FX.image) || '100px';
+  const ratio = /^\d+(\.\d+)?:\d+(\.\d+)?$/.test(String(n.aspectRatio ?? '')) ? String(n.aspectRatio).replace(':', ' / ') : null;
+  const img = h('img', { class: 'fx-img', alt: '', src: n.url, draggable: 'false' });
+  img.style.width = size;
+  if (ratio) img.style.aspectRatio = ratio;
+  img.style.objectFit = n.aspectMode === 'cover' ? 'cover' : 'contain';
+  // pictures the page does not hold (another web address) cannot be fetched here: LINE will show them, we show a box
+  img.addEventListener('error', () => {
+    const w = img.style.width;
+    img.replaceWith(fxPlaceholder('รูป (แสดงใน LINE)', w, ratio ? '' : '80px'));
+  });
+  return img;
+}
+
+function fxButton(n, ctx) {
+  const style = n.style || 'link';
+  const el = h('div', { class: `fx-btn fx-btn-${style}`, role: 'button', tabindex: '0' }, String(n.action?.label ?? ''));
+  if (n.color) {
+    if (style === 'primary' || style === 'secondary') el.style.background = n.color;
+    else el.style.color = n.color;
+  }
+  el.style.minHeight = n.height === 'sm' ? '40px' : '52px';
+  const act = () => ctx?.onAction?.(n.action || {});
+  el.addEventListener('click', act);
+  el.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      act();
+    }
+  });
+  if (n.action?.type === 'uri') el.title = n.action.uri;
+  return el;
+}
+
+function fxText(n) {
+  const el = h('div', { class: 'fx-text' }, String(n.text ?? ''));
+  let fs = FX.text[n.size];
+  if (fs == null) {
+    const m = /^(\d+(?:\.\d+)?)px$/.exec(String(n.size ?? ''));
+    fs = m ? parseFloat(m[1]) : 14;
+  }
+  el.style.fontSize = `${fs}px`;
+  if (n.weight === 'bold') el.style.fontWeight = '700';
+  if (n.color) el.style.color = n.color;
+  if (n.align === 'center') el.style.textAlign = 'center';
+  else if (n.align === 'end') el.style.textAlign = 'right';
+  if (n.wrap === false) el.classList.add('fx-nowrap');
+  if (n.decoration === 'underline') el.style.textDecoration = 'underline';
+  return el;
+}
+
+function fxNode(n, parentLayout, ctx) {
+  if (!n || typeof n !== 'object') return document.createComment('');
+  let el;
+  switch (n.type) {
+    case 'box': {
+      const layout = n.layout || 'vertical';
+      el = h('div', { class: `fx-box fx-${layout}` });
+      const gap = fxLen(n.spacing, FX.space);
+      if (gap) el.style.gap = gap;
+      for (const kid of n.contents || []) {
+        const ke = fxNode(kid, layout, ctx);
+        const m = fxLen(kid?.margin, FX.space);
+        if (m && ke.style) ke.style[layout === 'vertical' ? 'marginTop' : 'marginLeft'] = m;
+        el.append(ke);
+      }
+      // padding
+      const all = fxLen(n.paddingAll, FX.space);
+      if (all) el.style.padding = all;
+      for (const [prop, css] of [['paddingTop', 'paddingTop'], ['paddingBottom', 'paddingBottom'], ['paddingStart', 'paddingLeft'], ['paddingEnd', 'paddingRight']]) {
+        const v = fxLen(n[prop], FX.space);
+        if (v) el.style[css] = v;
+      }
+      if (n.backgroundColor) el.style.background = n.backgroundColor;
+      const bw = n.borderWidth != null ? (n.borderWidth in FX.border ? FX.border[n.borderWidth] : parseFloat(n.borderWidth)) : 0;
+      if (bw) {
+        el.style.border = `${bw}px solid ${n.borderColor || '#ccc'}`;
+      }
+      const rad = fxLen(n.cornerRadius, FX.radius);
+      if (rad) {
+        el.style.borderRadius = rad;
+        el.style.overflow = 'hidden';
+      }
+      if (n.alignItems) el.style.alignItems = { center: 'center', 'flex-start': 'flex-start', 'flex-end': 'flex-end' }[n.alignItems] || '';
+      if (n.justifyContent) el.style.justifyContent = { center: 'center', 'flex-start': 'flex-start', 'flex-end': 'flex-end', 'space-between': 'space-between', 'space-around': 'space-around', 'space-evenly': 'space-evenly' }[n.justifyContent] || '';
+      break;
+    }
+    case 'text':
+      el = fxText(n);
+      break;
+    case 'image':
+      el = fxImage(n);
+      break;
+    case 'button':
+      el = fxButton(n, ctx);
+      break;
+    case 'separator':
+      el = h('div', { class: 'fx-sep' });
+      if (n.color) el.style.borderTopColor = n.color;
+      break;
+    case 'spacer':
+      el = h('div', { class: 'fx-spacer' });
+      el.style.height = fxLen(n.size, FX.space) || '8px';
+      break;
+    case 'filler':
+      el = h('div', { class: 'fx-filler' });
+      break;
+    default:
+      el = h('div', { class: 'fx-missing' }, `(${n.type ?? '?'})`);
+  }
+
+  if (el.nodeType !== 1) return el;
+  // size and place inside the parent
+  const w = fxLen(n.width);
+  const hgt = fxLen(n.height);
+  if (w && n.type !== 'image') el.style.width = w;
+  if (hgt) el.style.height = hgt;
+  if (fxLen(n.maxWidth)) el.style.maxWidth = fxLen(n.maxWidth);
+  if (fxLen(n.maxHeight)) el.style.maxHeight = fxLen(n.maxHeight);
+  if (n.position === 'absolute') {
+    el.style.position = 'absolute';
+    for (const [prop, css] of [['offsetTop', 'top'], ['offsetBottom', 'bottom'], ['offsetStart', 'left'], ['offsetEnd', 'right']]) {
+      const v = fxLen(n[prop], FX.space);
+      if (v) el.style[css] = v;
+    }
+  } else if (n.type !== 'spacer' && n.type !== 'filler' && n.type !== 'separator') {
+    const f = n.flex != null ? Number(n.flex) : parentLayout === 'vertical' ? 0 : 1;
+    el.style.flex = f > 0 && !(w && parentLayout !== 'vertical') ? `${f} 1 ${parentLayout === 'vertical' ? 'auto' : '0%'}` : '0 0 auto';
+    if (n.type === 'text' || n.type === 'box') el.style.minWidth = '0';
+  }
+  // alignment of a child along the cross axis
+  if (n.align && n.type === 'image') {
+    if (parentLayout === 'vertical') el.style.alignSelf = { start: 'flex-start', center: 'center', end: 'flex-end' }[n.align] || '';
+    else el.style.marginLeft = n.align === 'end' ? 'auto' : n.align === 'center' ? 'auto' : '';
+  }
+  if (n.gravity) {
+    const g = { top: 'flex-start', center: 'center', bottom: 'flex-end' }[n.gravity];
+    if (g && parentLayout !== 'vertical') el.style.alignSelf = g;
+  }
+  return el;
+}
+
+// → the element for one Flex Message (bubble or carousel). ctx.onAction(action) hears the buttons.
+function renderFlex(msg, ctx = {}) {
+  const c = msg?.contents;
+  const bubble = (b) => {
+    const el = h('div', { class: 'fx-bubble' });
+    el.style.width = `${FX.bubble[b.size] ?? 300}px`;
+    for (const part of ['header', 'hero', 'body', 'footer']) {
+      if (!b[part]) continue;
+      const sec = fxNode(b[part], 'vertical', ctx);
+      if (sec.nodeType !== 1) continue;
+      sec.classList.add('fx-section', `fx-${part}`);
+      const bg = b.styles?.[part]?.backgroundColor;
+      if (bg) sec.style.background = bg;
+      sec.style.flex = 'none';
+      el.append(sec);
+    }
+    if (b.styles?.body?.backgroundColor && !b.body) el.style.background = b.styles.body.backgroundColor;
+    return el;
+  };
+  if (c?.type === 'carousel') return h('div', { class: 'fx-carousel' }, (c.contents || []).map(bubble));
+  if (c?.type === 'bubble') return bubble(c);
+  return h('div', { class: 'fx-missing' }, 'Flex ที่แสดงไม่ได้');
+}
+
+// ---- 02-state.js
+// ---------------------------------------------------------------------------------------------------------------
+// State, and the line to the shop's database (the owner's own Supabase connection, through Claude's connector).
+// ---------------------------------------------------------------------------------------------------------------
+const PROJECT = 'mamlmgixovlwnjstetkj';
+const SERVER = 'Supabase';
+const CONTACT_KEYS = ['ask', 'orderAsk', 'documentAsk', 'orderWords', 'askWords', 'documentWords'];
+const DEMO_ID = 'U' + '0'.repeat(32);
+
+const S = {
+  conn: 'connecting', // connecting | ready | offline | error
+  connMsg: '',
+  mcp: null,
+  row: null, // the bot's settings row as the database shows it (LINE ids hidden)
+  bot: null, // the shop's own bot settings
+  history: [],
+  content: null, // the working copy the owner edits
+  savedJson: '',
+  hasSavedRules: false,
+  view: 'editor', // editor | flow | texts | schools | bot | json
+  sel: null,
+  q: '',
+  pane: 'rules', // on a phone: rules | center | sim
+  simTab: 'chat',
+  chat: [],
+  awaiting: false,
+  lastRun: null,
+  holidayShown: false,
+  busy: false,
+  saveConfirm: false,
+  modal: null,
+  modeAsk: null,
+  schoolQ: '',
+};
+
+const uid = () => 'r' + Math.random().toString(36).slice(2, 8);
+const pick = (o, keys) => Object.fromEntries(keys.filter((k) => o && o[k] !== undefined).map((k) => [k, o[k]]));
+
+// The working copy: what the bot uses today (the shipped list until the owner saves one).
+function contentFrom(row, bot) {
+  const shop = Engine.buildShop(row, { bot: bot || {}, iconsBase: '' });
+  return clone({
+    rules: shop.rules ?? Engine.rulesFromFaq(shop.faq),
+    schoolSupplies: shop.schoolSupplies,
+    greeting: shop.greeting,
+    thanks: shop.thanks,
+    holiday: shop.holiday,
+    contact: pick(shop.contact, CONTACT_KEYS),
+  });
+}
+
+// The bot as the page imagines it right now (pictures come from the page's own files).
+function currentShop() {
+  const row = { ...(S.row || {}), content: S.content };
+  const shop = Engine.buildShop(row, { bot: S.bot || {}, iconsBase: '' });
+  shop.assetBase = 'img';
+  return shop;
+}
+
+const dirty = () => S.content != null && JSON.stringify(S.content) !== S.savedJson;
+const ruleById = (id) => (S.content?.rules || []).find((r) => r.id === id) || null;
+
+// ---- the database --------------------------------------------------------------------------------------------
+
+function textOf(res) {
+  const p = res?.payload;
+  if (typeof p === 'string') {
+    try {
+      const j = JSON.parse(p);
+      if (typeof j?.result === 'string') return j.result;
+    } catch {
+      /* plain text */
+    }
+    return p;
+  }
+  if (p && typeof p.result === 'string') return p.result;
+  return (res?.content || []).map((c) => c.text || '').join('');
+}
+
+// The connector wraps rows as  "…the below <untrusted-data-ID> boundaries.\n\n<untrusted-data-ID>\n[rows]\n</untrusted-data-ID>\n\n…"
+// (the opening tag is also named in its first sentence, so the rows are what sits between the closing tag and the
+// opening tag nearest before it)
+function rowsOf(res) {
+  const text = textOf(res);
+  let body = text;
+  const close = text.search(/<\/untrusted-data-[^>]*>/);
+  if (close >= 0) {
+    const open = text.lastIndexOf('<untrusted-data-', close);
+    if (open >= 0) body = text.slice(text.indexOf('>', open) + 1, close);
+  }
+  try {
+    return JSON.parse(body.trim());
+  } catch {
+    throw Object.assign(new Error('อ่านคำตอบจากฐานข้อมูลไม่ได้'), { code: 'unreadable' });
+  }
+}
+
+async function runSql(query) {
+  if (!S.mcp) throw Object.assign(new Error('ยังไม่ได้เชื่อมฐานข้อมูล'), { code: 'offline' });
+  return rowsOf(await S.mcp.callTool(SERVER, 'execute_sql', { project_id: PROJECT, query }));
+}
+
+function explain(err) {
+  const code = err?.code;
+  switch (code) {
+    case 'server_not_connected':
+    case 'server_not_found':
+      return 'ยังไม่ได้เชื่อม Supabase ใน Claude (Settings → Connectors) เชื่อมแล้วโหลดหน้านี้ใหม่ค่ะ';
+    case 'needs_reauth':
+      return 'การเชื่อม Supabase หมดอายุ ต้องเชื่อมใหม่ใน Claude (Settings → Connectors) ค่ะ';
+    case 'selection_required':
+      return 'มี Supabase หลายบัญชี เลือกบัญชีของร้านให้หน้านี้ก่อนค่ะ';
+    case 'approval_required':
+    case 'not_in_manifest':
+    case 'consent_required':
+    case 'not_granted':
+      return 'ต้องกด "อนุญาต" ให้หน้านี้ใช้ Supabase ก่อนค่ะ (กดบันทึกหรือโหลดใหม่อีกครั้งแล้วเลือกอนุญาต)';
+    case 'blocked_by_policy':
+      return 'องค์กรไม่อนุญาตให้ใช้ Supabase จากหน้านี้ค่ะ';
+    case 'tool_error':
+      return 'ฐานข้อมูลปฏิเสธ: ' + clip(String(err.message || '').replace(/\s+/g, ' '), 180);
+    case 'server_unavailable':
+    case 'upstream_error':
+      return 'เชื่อมต่อฐานข้อมูลไม่ได้ชั่วคราว ลองใหม่อีกครั้งค่ะ';
+    default:
+      return clip(String(err?.message || 'เกิดข้อผิดพลาด'), 180);
+  }
+}
+
+function useData(d) {
+  S.row = d.faq_bot || { mode: 'off', admins: [], content: {} };
+  S.bot = d.line_bot || {};
+  S.history = Array.isArray(d.history) ? d.history : [];
+  S.hasSavedRules = Array.isArray(S.row?.content?.rules);
+  S.content = contentFrom(S.row, S.bot);
+  S.savedJson = JSON.stringify(S.content);
+  if (!ruleById(S.sel)) S.sel = S.content.rules[0]?.id ?? null;
+}
+
+async function loadAll() {
+  try {
+    const rows = await runSql('select public.studio_load() as d');
+    const d = rows[0]?.d;
+    if (!d || !d.faq_bot) throw Object.assign(new Error('ไม่พบตั้งค่าบอทในฐานข้อมูล'), { code: 'nodata' });
+    useData(d);
+    S.conn = 'ready';
+    S.connMsg = '';
+  } catch (e) {
+    S.conn = 'error';
+    S.connMsg = explain(e);
+    if (!S.content) loadDemo();
+  }
+}
+
+// Without a database (opened outside Claude, or not allowed): the shipped bot, to look at and try. Nothing is saved.
+function loadDemo() {
+  const admins = Engine.DEFAULT_ADMINS.map((a) => ({ name: a.name, userId: DEMO_ID }));
+  useData({ faq_bot: { mode: 'off', admins, content: {} }, line_bot: {}, history: [] });
+  S.savedJson = JSON.stringify(S.content);
+}
+
+async function connect() {
+  S.conn = 'connecting';
+  try {
+    S.mcp = (await window.claude?.use?.('mcp')) || null;
+  } catch {
+    S.mcp = null;
+  }
+  if (!S.mcp) {
+    S.conn = 'offline';
+    S.connMsg = 'เปิดนอก Claude หรือยังไม่ได้เชื่อม Supabase: ดู ลอง และ Export ได้ แต่บันทึกเข้าบอทไม่ได้';
+    loadDemo();
+    return;
+  }
+  await loadAll();
+}
+
+async function saveAll(note) {
+  // exactly what the bot will read: cleaned the same way
+  const out = clone(S.content);
+  out.rules = Engine.cleanRules(out.rules);
+  await runSql(`select public.studio_save(${sqlText(JSON.stringify(out))}::jsonb, ${sqlText(note || '')}) as r`);
+  const keep = S.sel;
+  await loadAll();
+  if (ruleById(keep)) S.sel = keep;
+}
+
+async function setMode(mode) {
+  await runSql(`select public.studio_set_mode(${sqlText(mode)}) as r`);
+  S.row = { ...S.row, mode };
+}
+
+async function restoreVersion(id) {
+  const n = Number(id);
+  if (!Number.isInteger(n)) throw new Error('เลขเวอร์ชันไม่ถูกต้อง');
+  await runSql(`select public.studio_restore(${n}) as r`);
+  await loadAll();
+}
+
+// ---- 03-sim.js
+// ---------------------------------------------------------------------------------------------------------------
+// The phone: a customer typing, and what the bot would answer (the bot's own code decides, not the page).
+// ---------------------------------------------------------------------------------------------------------------
+
+// What the bot would do with one message. pure = look only, change nothing (used to refresh an earlier turn after an edit).
+function simulate(text, { pure = false } = {}) {
+  const shop = currentShop();
+  const r = Engine.buildReply(text, shop, { awaitingSchool: S.awaiting });
+  if (!pure) S.awaiting = Boolean(r.awaitingSchool);
+  let messages = r.messages;
+  let note = '';
+  if (r.needsPhotos) {
+    messages = shop.contact.people.length ? [Engine.contactCard(shop, r.askText ?? shop.contact.ask, {})] : [];
+  } else if (r.greeting && !shop.engineGreeting && !r.menuRequest) {
+    messages = [];
+    note = 'แค่ทักทาย: บอทนี้ไม่ตอบ (การ์ดเมนูของระบบร้านทักให้อยู่แล้ว)';
+  } else if (r.silent) {
+    note = r.matched ? 'กฎนี้ตั้งไว้ "ไม่ตอบ": แอดมินตอบเอง' : 'บอทไม่รู้จักเรื่องนี้: ไม่ตอบ แอดมินเห็นแชทแล้วตอบเอง';
+  }
+  const holiday = !pure && !S.holidayShown && !/ขอบคุณ/.test(text) ? Engine.holidayNotice(shop, new Date()) : null;
+  if (holiday && messages.length) {
+    messages = [holiday.message, ...messages].slice(0, 5);
+    S.holidayShown = true;
+  }
+  const out = Engine.withSender(messages, '', r.quick === false ? undefined : Engine.quick(shop));
+  return { stage: r.stage || 'fallback', matched: r.matched ?? null, which: r.which ?? null, msgs: out, note, silent: Boolean(r.silent) || !out.length };
+}
+
+function sendUser(text) {
+  const t = String(text ?? '').trim();
+  if (!t) return;
+  const turn = { id: uid(), text: t, ...simulate(t) };
+  S.chat.push(turn);
+  if (S.chat.length > 40) S.chat.shift();
+  S.lastRun = { text: t, stage: turn.stage, matched: turn.matched, which: turn.which };
+  renderSim();
+  if (S.view === 'flow') renderCenter();
+  else renderTestLine();
+}
+
+// after an edit: the earlier answers that came from the rule being edited are redrawn with the new wording
+const refreshTurns = debounce(() => {
+  let changed = false;
+  for (const t of S.chat) {
+    if (t.matched && t.matched === S.sel) {
+      Object.assign(t, simulate(t.text, { pure: true }));
+      changed = true;
+    }
+  }
+  if (changed) renderSim();
+}, 250);
+
+function resetChat() {
+  S.chat = [];
+  S.awaiting = false;
+  S.lastRun = null;
+  S.holidayShown = false;
+  renderSim();
+  renderTestLine();
+  if (S.view === 'flow') renderCenter();
+}
+
+// ---- drawing --------------------------------------------------------------------------------------------------
+
+const botName = () => {
+  try {
+    return currentShop().name || 'ร้านนัฐภรณ์';
+  } catch {
+    return 'ร้านนัฐภรณ์';
+  }
+};
+
+function onFlexAction(a) {
+  if (a.type === 'message') sendUser(a.text ?? a.label);
+  else if (a.type === 'uri') toast('ปุ่มนี้เปิดลิงก์: ' + clip(a.uri, 70), 'info');
+}
+
+function mediaBox(kind, label, sub) {
+  return h('div', { class: 'media-ph media-' + kind }, icon(kind === 'sticker' ? 'sticker' : 'image', 26), h('b', {}, label), sub ? h('small', {}, sub) : null);
+}
+
+function botMessage(m) {
+  switch (m.type) {
+    case 'text':
+      return h('div', { class: 'bubble bot' }, m.text);
+    case 'flex':
+      return h('div', { class: 'flexwrap' }, renderFlex(m, { onAction: onFlexAction }));
+    case 'image':
+      return mediaBox('image', 'รูปภาพ', clip(m.originalContentUrl || '', 46));
+    case 'sticker':
+      return mediaBox('sticker', 'สติกเกอร์', `${m.packageId} / ${m.stickerId}`);
+    default:
+      return h('div', { class: 'bubble bot' }, `(${m.type})`);
+  }
+}
+
+function renderChat(box) {
+  box.replaceChildren();
+  if (!S.chat.length) {
+    box.append(h('div', { class: 'chat-empty' }, icon('bot', 30), h('p', {}, 'พิมพ์ข้อความของลูกค้าด้านล่าง หรือกดตัวอย่างด้านบน แล้วดูว่าบอทตอบอะไร')));
+    return;
+  }
+  S.chat.forEach((t, i) => {
+    box.append(h('div', { class: 'row user' }, h('div', { class: 'bubble me' }, t.text)));
+    const botRow = h('div', { class: 'row bot' }, h('div', { class: 'avatar' }, icon('bot', 18)));
+    const col = h('div', { class: 'bot-col' });
+    if (!t.msgs.length) col.append(h('div', { class: 'silent-note' }, icon('silent', 14), t.note || 'ไม่ตอบ'));
+    for (const m of t.msgs) col.append(botMessage(m));
+    const last = t.msgs[t.msgs.length - 1];
+    if (i === S.chat.length - 1 && last?.quickReply?.items?.length) {
+      col.append(
+        h(
+          'div',
+          { class: 'quick' },
+          last.quickReply.items.map((it) =>
+            h(
+              'button',
+              {
+                type: 'button',
+                class: 'qchip',
+                onclick: () => (it.action?.type === 'message' ? sendUser(it.action.text ?? it.action.label) : toast('ปุ่มนี้เปิดลิงก์: ' + clip(it.action?.uri || '', 70), 'info')),
+              },
+              it.action?.label || ''
+            )
+          )
+        )
+      );
+    }
+    if (t.msgs.length && t.note) col.append(h('div', { class: 'silent-note small' }, t.note));
+    botRow.append(col);
+    box.append(botRow);
+  });
+  // stay at the newest message, also after the card pictures have loaded and made the chat taller
+  const toBottom = () => (box.scrollTop = box.scrollHeight);
+  toBottom();
+  requestAnimationFrame(toBottom);
+  box.querySelectorAll('img').forEach((img) => {
+    if (!img.complete) img.addEventListener('load', toBottom, { once: true });
+  });
+}
+
+function payloadOf(turn) {
+  return JSON.stringify({ replyToken: '<replyToken>', messages: turn.msgs }, null, 2);
+}
+
+function renderSim() {
+  const root = $('#sim');
+  if (!root) return;
+  root.replaceChildren();
+  const shop = (() => {
+    try {
+      return currentShop();
+    } catch {
+      return { name: 'ร้านนัฐภรณ์' };
+    }
+  })();
+
+  const head = h(
+    'div',
+    { class: 'sim-head' },
+    h('span', { class: 'sim-title' }, h('i', { class: 'live-dot' }), 'LINE Live Simulator'),
+    h(
+      'div',
+      { class: 'seg seg-sm' },
+      h('button', { type: 'button', class: S.simTab === 'chat' ? 'on' : '', onclick: () => ((S.simTab = 'chat'), renderSim()) }, 'หน้าจอแชท'),
+      h('button', { type: 'button', class: S.simTab === 'json' ? 'on' : '', onclick: () => ((S.simTab = 'json'), renderSim()) }, '{ } JSON')
+    )
+  );
+  root.append(head);
+
+  const samples = sampleMessages();
+  root.append(
+    h(
+      'div',
+      { class: 'try' },
+      h('span', {}, 'ลองพิมพ์:'),
+      samples.map((s) => h('button', { type: 'button', class: 'chip', onclick: () => sendUser(s) }, s))
+    )
+  );
+
+  if (S.simTab === 'json') {
+    const last = [...S.chat].reverse().find((t) => t.msgs.length);
+    const text = last ? payloadOf(last) : '// ยังไม่มีคำตอบ ลองพิมพ์ข้อความทางซ้ายก่อน';
+    root.append(
+      h(
+        'div',
+        { class: 'json-pane' },
+        h('div', { class: 'json-bar' }, h('span', {}, last ? `คำตอบของ “${clip(last.text, 24)}”` : 'JSON Payload'), last ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => copyText(text) }, icon('copy', 14), 'คัดลอก') : null),
+        h('pre', { class: 'code' }, text)
+      )
+    );
+    return;
+  }
+
+  const phone = h('div', { class: 'phone' });
+  phone.append(
+    h(
+      'div',
+      { class: 'phone-bar' },
+      h('span', { class: 'phone-back' }, '‹'),
+      h('div', { class: 'phone-name' }, h('b', {}, shop.name || 'ร้านนัฐภรณ์'), h('small', {}, 'Official Account')),
+      h('button', { type: 'button', class: 'iconbtn light', title: 'เริ่มแชทใหม่', onclick: resetChat }, icon('refresh', 16))
+    )
+  );
+  const chat = h('div', { class: 'chat', id: 'chat' });
+  renderChat(chat);
+  phone.append(chat);
+  const input = h('input', { class: 'chat-input', id: 'chat-input', type: 'text', placeholder: 'พิมพ์ข้อความทดสอบบอท…', autocomplete: 'off' });
+  const go = () => {
+    const v = input.value;
+    input.value = '';
+    sendUser(v);
+    input.focus();
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.isComposing) {
+      e.preventDefault();
+      go();
+    }
+  });
+  phone.append(h('div', { class: 'phone-input' }, input, h('button', { type: 'button', class: 'send', title: 'ส่ง', onclick: go }, icon('send', 18))));
+  root.append(phone);
+}
+
+// a few messages worth trying: the usual questions, then the first keyword of the owner's own rules
+function sampleMessages() {
+  const base = ['เวลาเปิดร้าน', 'สั่งของ', 'อุปกรณ์การเรียน 2-69', 'ที่ตั้งร้าน', 'ขอบคุณค่ะ', 'คุยกับแอดมิน', 'สั่งทำป้ายไวนิล', 'เมนู'];
+  const seen = new Set(base);
+  const extra = [];
+  for (const r of S.content?.rules || []) {
+    const k = r.keywords?.[0];
+    if (r.enabled !== false && k && !seen.has(k)) {
+      seen.add(k);
+      extra.push(k);
+    }
+    if (extra.length >= 5) break;
+  }
+  return [...base, ...extra];
+}
+
+function copyText(text) {
+  const done = () => toast('คัดลอกแล้ว');
+  const fallback = () => {
+    const ta = h('textarea', { style: { position: 'fixed', opacity: '0' } });
+    ta.value = text;
+    document.body.append(ta);
+    ta.select();
+    try {
+      document.execCommand('copy');
+      done();
+    } catch {
+      toast('คัดลอกไม่ได้ เลือกข้อความแล้วกด Ctrl+C ค่ะ', 'warn');
+    }
+    ta.remove();
+  };
+  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done, fallback);
+  else fallback();
+}
+
+// ---- 04-rules.js
+// ---------------------------------------------------------------------------------------------------------------
+// Left column: the kinds of answer to drag in, and the list of rules (checked top to bottom, the first match answers).
+// ---------------------------------------------------------------------------------------------------------------
+const TYPE_INFO = {
+  card: { tag: 'CARD', name: 'การ์ด', icon: 'card', hint: 'หัวเรื่อง + ข้อความ + รูป + ปุ่มลิงก์' },
+  text: { tag: 'TEXT', name: 'ข้อความ', icon: 'text', hint: 'ข้อความธรรมดา' },
+  image: { tag: 'IMAGE', name: 'รูปภาพ', icon: 'image', hint: 'รูปจากลิงก์ https' },
+  sticker: { tag: 'STICKER', name: 'สติกเกอร์', icon: 'sticker', hint: 'สติกเกอร์ LINE' },
+  flex: { tag: 'FLEX', name: 'Flex เอง', icon: 'flex', hint: 'การ์ดที่ออกแบบเองจาก LINE Flex Simulator' },
+  silent: { tag: 'ไม่ตอบ', name: 'ไม่ตอบ', icon: 'silent', hint: 'บอทเงียบ ให้แอดมินตอบเอง' },
+};
+const PALETTE = ['text', 'card', 'image', 'sticker', 'silent'];
+
+function newReply(type) {
+  switch (type) {
+    case 'text':
+      return { type: 'text', text: '' };
+    case 'card':
+      return { type: 'card', title: '', text: '', image: '', button: null };
+    case 'image':
+      return { type: 'image', url: '', previewUrl: '' };
+    case 'sticker':
+      return { type: 'sticker', packageId: '446', stickerId: '1988' };
+    case 'flex':
+      return {
+        type: 'flex',
+        altText: 'ข้อความจากร้าน',
+        contents: { type: 'bubble', body: { type: 'box', layout: 'vertical', contents: [{ type: 'text', text: 'สวัสดีค่ะ', weight: 'bold', size: 'lg', wrap: true }] } },
+      };
+    default:
+      return { type: 'silent' };
+  }
+}
+
+function newRule(type) {
+  return { id: uid(), name: 'กฎใหม่', enabled: true, match: 'contains', keywords: [], replies: [newReply(type)], quick: true };
+}
+
+// what is missing before a rule can answer
+function problemsOf(rule) {
+  const p = [];
+  if (!rule.keywords?.length) p.push('ยังไม่มีคำที่ลูกค้าพิมพ์');
+  const rs = rule.replies || [];
+  if (!rs.length) p.push('ยังไม่มีคำตอบ');
+  rs.forEach((r, i) => {
+    const n = rs.length > 1 ? ` (คำตอบที่ ${i + 1})` : '';
+    if (r.type === 'text' && !String(r.text || '').trim()) p.push('ข้อความว่าง' + n);
+    if (r.type === 'card' && !String(r.text || '').trim()) p.push('การ์ดยังไม่มีข้อความ' + n);
+    if (r.type === 'card' && r.button && String(r.button.url || '').trim() && !/^https:\/\//i.test(r.button.url)) p.push('ลิงก์ปุ่มต้องขึ้นต้น https://' + n);
+    if (r.type === 'image' && !/^https:\/\//i.test(String(r.url || ''))) p.push('รูปต้องเป็นลิงก์ https://' + n);
+    if (r.type === 'sticker' && !(/^\d+$/.test(String(r.packageId || '')) && /^\d+$/.test(String(r.stickerId || '')))) p.push('เลขสติกเกอร์ไม่ถูกต้อง' + n);
+    if (r.type === 'flex' && !(r.contents && ['bubble', 'carousel'].includes(r.contents.type))) p.push('JSON ของ Flex ไม่ถูกต้อง' + n);
+  });
+  return p;
+}
+
+const typesOf = (rule) => [...new Set((rule.replies || []).map((r) => r.type))];
+
+function ruleItem(rule, index) {
+  const probs = problemsOf(rule);
+  const li = h('li', { class: 'rule' + (rule.id === S.sel ? ' sel' : '') + (rule.enabled === false ? ' off' : ''), draggable: 'true', dataset: { id: rule.id }, tabindex: '0' });
+  const tags = h('div', { class: 'tags' });
+  for (const t of typesOf(rule)) tags.append(h('span', { class: 'tag t-' + t }, TYPE_INFO[t]?.tag || t));
+  tags.append(h('span', { class: 'tag t-match' }, rule.match === 'exact' ? 'ตรงทั้งข้อความ' : 'มีคำนี้'));
+  if (rule.quick !== false && typesOf(rule)[0] !== 'silent') tags.append(h('span', { class: 't-quick tag' }, 'ปุ่มลัด'));
+  if (probs.length) tags.append(h('span', { class: 'tag t-warn', title: probs.join(' · ') }, 'ยังไม่ครบ'));
+  const kw = (rule.keywords || []).join(', ');
+  li.append(
+    h('span', { class: 'grip', title: 'ลากเพื่อสลับลำดับ' }, icon('grip', 16)),
+    h(
+      'div',
+      { class: 'rule-main' },
+      h('div', { class: 'rule-title' }, h('b', {}, `${index + 1}. `), rule.name || '(ไม่มีชื่อ)'),
+      tags,
+      h('div', { class: 'rule-kw' }, icon('key', 13), h('span', {}, kw ? clip(kw, 70) : 'ยังไม่มีคำ'))
+    ),
+    h(
+      'div',
+      { class: 'rule-act' },
+      h('label', { class: 'switch', title: rule.enabled === false ? 'ปิดอยู่ (บอทข้ามกฎนี้)' : 'เปิดใช้' }, h('input', { type: 'checkbox', checked: rule.enabled !== false, 'aria-label': 'เปิดใช้กฎนี้', onchange: (e) => ((rule.enabled = e.target.checked), touch()) }), h('i')),
+      h('button', { type: 'button', class: 'iconbtn', title: 'ทำสำเนา', onclick: (e) => (e.stopPropagation(), duplicateRule(rule.id)) }, icon('copy', 15)),
+      h('button', { type: 'button', class: 'iconbtn danger', title: 'ลบกฎนี้', onclick: (e) => (e.stopPropagation(), deleteRule(rule.id)) }, icon('trash', 15))
+    )
+  );
+  li.addEventListener('click', (e) => {
+    if (e.target.closest('.rule-act')) return;
+    selectRule(rule.id);
+  });
+  li.addEventListener('keydown', (e) => {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target === li) {
+      e.preventDefault();
+      selectRule(rule.id);
+    }
+  });
+  return li;
+}
+
+function renderPalette() {
+  const box = $('#palette');
+  if (!box) return;
+  box.replaceChildren(
+    ...PALETTE.map((t) => {
+      const info = TYPE_INFO[t];
+      const b = h('button', { type: 'button', class: 'pal pal-' + t, draggable: 'true', title: info.hint + ' — ลากไปวาง หรือกดเพื่อสร้างกฎใหม่' }, icon(info.icon, 20), h('span', {}, info.name));
+      b.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/x-new-reply', t);
+        e.dataTransfer.effectAllowed = 'copy';
+      });
+      b.addEventListener('click', () => addRule(t));
+      return b;
+    })
+  );
+}
+
+function renderRules() {
+  const ul = $('#rules');
+  if (!ul) return;
+  const rules = S.content?.rules || [];
+  const q = S.q.trim().toLowerCase();
+  const shown = rules.map((r, i) => ({ r, i })).filter(({ r }) => !q || (r.name || '').toLowerCase().includes(q) || (r.keywords || []).some((k) => k.toLowerCase().includes(q)));
+  ul.replaceChildren(...shown.map(({ r, i }) => ruleItem(r, i)));
+  if (!shown.length) ul.append(h('li', { class: 'rules-empty' }, rules.length ? 'ไม่พบกฎที่ค้นหา' : 'ยังไม่มีกฎ กด “เพิ่มกฎใหม่” หรือลากชนิดคำตอบมาวางที่นี่'));
+  const cnt = $('#rules-count');
+  if (cnt) cnt.textContent = String(rules.length);
+}
+
+// ---- changing the list ------------------------------------------------------------------------------------------
+
+function touch() {
+  updateHeader();
+  renderRules();
+  refreshTurns();
+}
+
+function selectRule(id) {
+  S.sel = id;
+  if (S.view !== 'editor' && S.view !== 'flow') S.view = 'editor';
+  S.pane = 'center';
+  renderRules();
+  renderCenter();
+  renderPane();
+}
+
+function addRule(type, at) {
+  const r = newRule(type);
+  const list = S.content.rules;
+  if (list.length >= Engine.MAX_RULES) return toast(`ใส่ได้ไม่เกิน ${Engine.MAX_RULES} กฎค่ะ`, 'warn');
+  if (at == null || at > list.length) list.push(r);
+  else list.splice(at, 0, r);
+  S.sel = r.id;
+  S.view = 'editor';
+  S.pane = 'center';
+  S.q = '';
+  const qi = $('#rule-q');
+  if (qi) qi.value = '';
+  touch();
+  renderCenter();
+  renderPane();
+  setTimeout(() => $('#f-name')?.select(), 0);
+}
+
+function duplicateRule(id) {
+  const i = S.content.rules.findIndex((r) => r.id === id);
+  if (i < 0) return;
+  const copy = clone(S.content.rules[i]);
+  copy.id = uid();
+  copy.name = (copy.name || 'กฎ') + ' (สำเนา)';
+  S.content.rules.splice(i + 1, 0, copy);
+  S.sel = copy.id;
+  touch();
+  renderCenter();
+}
+
+function deleteRule(id) {
+  const i = S.content.rules.findIndex((r) => r.id === id);
+  if (i < 0) return;
+  const [gone] = S.content.rules.splice(i, 1);
+  if (S.sel === id) S.sel = S.content.rules[Math.min(i, S.content.rules.length - 1)]?.id ?? null;
+  touch();
+  renderCenter();
+  toast(`ลบ “${clip(gone.name || 'กฎ', 24)}” แล้ว (ยังไม่บันทึกจนกว่าจะกดบันทึก)`, 'info');
+}
+
+function moveRule(id, delta) {
+  const list = S.content.rules;
+  const i = list.findIndex((r) => r.id === id);
+  const j = i + delta;
+  if (i < 0 || j < 0 || j >= list.length) return;
+  [list[i], list[j]] = [list[j], list[i]];
+  touch();
+  renderCenter();
+}
+
+// ---- drag and drop --------------------------------------------------------------------------------------------
+
+function wireRulesDnD() {
+  const ul = $('#rules');
+  if (!ul) return;
+  let overEl = null;
+  let overAfter = false;
+  const clear = () => {
+    $$('.drop-before,.drop-after', ul).forEach((e) => e.classList.remove('drop-before', 'drop-after'));
+    ul.classList.remove('drop-end');
+    overEl = null;
+  };
+  ul.addEventListener('dragstart', (e) => {
+    const li = e.target.closest?.('li.rule');
+    if (!li) return;
+    e.dataTransfer.setData('text/x-rule', li.dataset.id);
+    e.dataTransfer.effectAllowed = 'move';
+    li.classList.add('dragging');
+  });
+  ul.addEventListener('dragend', () => {
+    $$('.dragging', ul).forEach((e) => e.classList.remove('dragging'));
+    clear();
+  });
+  ul.addEventListener('dragover', (e) => {
+    const types = Array.from(e.dataTransfer?.types || []);
+    if (!types.includes('text/x-rule') && !types.includes('text/x-new-reply')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = types.includes('text/x-rule') ? 'move' : 'copy';
+    clear();
+    const li = e.target.closest('li.rule');
+    if (li) {
+      const r = li.getBoundingClientRect();
+      overAfter = e.clientY > r.top + r.height / 2;
+      overEl = li;
+      li.classList.add(overAfter ? 'drop-after' : 'drop-before');
+    } else {
+      ul.classList.add('drop-end');
+    }
+  });
+  ul.addEventListener('dragleave', (e) => {
+    if (!ul.contains(e.relatedTarget)) clear();
+  });
+  ul.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const rid = e.dataTransfer.getData('text/x-rule');
+    const nt = e.dataTransfer.getData('text/x-new-reply');
+    const list = S.content.rules;
+    let at = list.length;
+    if (overEl) {
+      const i = list.findIndex((r) => r.id === overEl.dataset.id);
+      at = overAfter ? i + 1 : i;
+    }
+    clear();
+    if (rid) {
+      const from = list.findIndex((r) => r.id === rid);
+      if (from < 0) return;
+      const [moved] = list.splice(from, 1);
+      if (from < at) at -= 1;
+      list.splice(Math.max(0, Math.min(at, list.length)), 0, moved);
+      touch();
+      renderCenter();
+    } else if (nt) {
+      addRule(nt, at);
+    }
+  });
+}
+
+// ---- 05-editor.js
+// ---------------------------------------------------------------------------------------------------------------
+// Form pieces, and the rule editor (centre column, "แก้ไขกฎ").
+// ---------------------------------------------------------------------------------------------------------------
+function field(label, control, hint, cls) {
+  return h('div', { class: 'field' + (cls ? ' ' + cls : '') }, h('label', { class: 'f-label' }, label), control, hint ? h('p', { class: 'f-hint' }, hint) : null);
+}
+
+function textInput(value, onInput, attrs = {}) {
+  const el = h('input', { type: 'text', class: 'input', autocomplete: 'off', ...attrs });
+  el.value = value ?? '';
+  el.addEventListener('input', () => onInput(el.value));
+  return el;
+}
+
+function textArea(value, onInput, rows = 4, attrs = {}) {
+  const el = h('textarea', { class: 'input area', rows: String(rows), ...attrs });
+  el.value = value ?? '';
+  el.addEventListener('input', () => onInput(el.value));
+  return el;
+}
+
+function seg(options, value, onChange) {
+  return h('div', { class: 'seg' }, options.map(([v, label, hint]) => h('button', { type: 'button', class: v === value ? 'on' : '', title: hint || '', onclick: () => onChange(v) }, label)));
+}
+
+function toggle(checked, label, onChange, id) {
+  return h('label', { class: 'toggle' }, h('span', { class: 'switch' }, h('input', { type: 'checkbox', id, checked: !!checked, onchange: (e) => onChange(e.target.checked) }), h('i')), h('span', {}, label));
+}
+
+// words as little tags: type, press Enter or comma to add
+function chipsInput(values, onChange, { placeholder = 'พิมพ์คำแล้วกด Enter', max = 40, maxLen = 60 } = {}) {
+  const box = h('div', { class: 'chips-in' });
+  const list = values;
+  const draw = () => {
+    box.replaceChildren();
+    list.forEach((v, i) =>
+      box.append(
+        h(
+          'span',
+          { class: 'kchip' },
+          v,
+          h(
+            'button',
+            {
+              type: 'button',
+              title: 'เอาออก',
+              onclick: () => {
+                list.splice(i, 1);
+                onChange(list);
+                draw();
+              },
+            },
+            icon('x', 12)
+          )
+        )
+      )
+    );
+    const inp = h('input', { type: 'text', class: 'chips-field', placeholder: list.length ? '' : placeholder, autocomplete: 'off' });
+    const add = () => {
+      const parts = inp.value.split(/[,\n]/).map((s) => s.trim().slice(0, maxLen)).filter(Boolean);
+      if (!parts.length) return;
+      let n = 0;
+      for (const p of parts) {
+        if (list.length >= max) break;
+        if (list.some((x) => x.toLowerCase() === p.toLowerCase())) continue;
+        list.push(p);
+        n++;
+      }
+      inp.value = '';
+      if (n) {
+        onChange(list);
+        draw();
+        box.querySelector('.chips-field')?.focus();
+      }
+    };
+    inp.addEventListener('keydown', (e) => {
+      if ((e.key === 'Enter' || e.key === ',') && !e.isComposing) {
+        e.preventDefault();
+        add();
+      } else if (e.key === 'Backspace' && !inp.value && list.length) {
+        list.pop();
+        onChange(list);
+        draw();
+        box.querySelector('.chips-field')?.focus();
+      }
+    });
+    inp.addEventListener('blur', add);
+    box.append(inp);
+  };
+  draw();
+  box.addEventListener('click', (e) => {
+    if (e.target === box) box.querySelector('.chips-field')?.focus();
+  });
+  return box;
+}
+
+// ---- the editor -----------------------------------------------------------------------------------------------------
+
+const flexRaw = new WeakMap(); // the text of a Flex JSON box while it is being typed
+
+function replyBlock(rule, reply, index) {
+  const info = TYPE_INFO[reply.type] || TYPE_INFO.text;
+  const total = rule.replies.length;
+  const head = h(
+    'div',
+    { class: 'rb-head' },
+    h('span', { class: 'tag t-' + reply.type }, info.tag),
+    h('b', {}, `คำตอบที่ ${index + 1}: ${info.name}`),
+    h(
+      'div',
+      { class: 'rb-act' },
+      total > 1 ? h('button', { type: 'button', class: 'iconbtn', title: 'เลื่อนขึ้น', disabled: index === 0, onclick: () => moveReply(rule, index, -1) }, icon('up', 15)) : null,
+      total > 1 ? h('button', { type: 'button', class: 'iconbtn', title: 'เลื่อนลง', disabled: index === total - 1, onclick: () => moveReply(rule, index, 1) }, icon('down', 15)) : null,
+      h('button', { type: 'button', class: 'iconbtn danger', title: 'เอาคำตอบนี้ออก', onclick: () => removeReply(rule, index) }, icon('trash', 15))
+    )
+  );
+  const body = h('div', { class: 'rb-body' });
+  const upd = () => touch();
+
+  switch (reply.type) {
+    case 'text':
+      body.append(field('ข้อความที่บอทส่ง', textArea(reply.text, (v) => ((reply.text = v), upd()), 5, { maxlength: '5000', placeholder: 'พิมพ์คำตอบ…' })));
+      break;
+    case 'card':
+      body.append(
+        field('หัวเรื่อง', textInput(reply.title, (v) => ((reply.title = v), upd()), { maxlength: '40', placeholder: 'เช่น เวลาเปิดร้าน' })),
+        field('ข้อความในการ์ด', textArea(reply.text, (v) => ((reply.text = v), upd()), 5, { maxlength: '2000', placeholder: 'พิมพ์รายละเอียด…' })),
+        field('รูปตัวการ์ตูนมุมการ์ด', picturePicker(reply, upd)),
+        field(
+          'ปุ่มลิงก์ (ไม่ใส่ก็ได้)',
+          h(
+            'div',
+            { class: 'two' },
+            textInput(reply.button?.label ?? '', (v) => ((reply.button = { label: v, url: reply.button?.url ?? '' }), upd()), { maxlength: '20', placeholder: 'ชื่อปุ่ม เช่น เปิดแผนที่' }),
+            textInput(reply.button?.url ?? '', (v) => ((reply.button = { label: reply.button?.label ?? '', url: v }), upd()), { placeholder: 'https://…' })
+          ),
+          'ลิงก์ต้องขึ้นต้นด้วย https:// ถ้าไม่ใส่ลิงก์ ปุ่มจะไม่แสดง'
+        )
+      );
+      break;
+    case 'image':
+      body.append(
+        field('ลิงก์รูป (https)', textInput(reply.url, (v) => ((reply.url = v), upd()), { placeholder: 'https://…/รูป.png' }), 'ไฟล์ JPEG หรือ PNG ไม่เกิน 10 MB ในหน้านี้จะเห็นเป็นกรอบ รูปจริงจะแสดงใน LINE'),
+        field('รูปตัวอย่างเล็ก (ไม่ใส่ก็ได้)', textInput(reply.previewUrl, (v) => ((reply.previewUrl = v), upd()), { placeholder: 'https://… ไม่เกิน 1 MB' }))
+      );
+      break;
+    case 'sticker':
+      body.append(
+        field(
+          'เลขสติกเกอร์',
+          h(
+            'div',
+            { class: 'two' },
+            textInput(reply.packageId, (v) => ((reply.packageId = v.trim()), upd()), { inputmode: 'numeric', placeholder: 'Package ID เช่น 446' }),
+            textInput(reply.stickerId, (v) => ((reply.stickerId = v.trim()), upd()), { inputmode: 'numeric', placeholder: 'Sticker ID เช่น 1988' })
+          ),
+          'ดูเลขได้ที่ developers.line.biz → Messaging API → Sticker list (ใช้ได้เฉพาะชุดที่ LINE อนุญาตให้บอทส่ง)'
+        )
+      );
+      break;
+    case 'flex': {
+      if (!flexRaw.has(reply)) flexRaw.set(reply, JSON.stringify(reply.contents ?? {}, null, 2));
+      const msg = h('p', { class: 'f-hint' });
+      const check = () => {
+        try {
+          const j = JSON.parse(flexRaw.get(reply));
+          if (!j || !['bubble', 'carousel'].includes(j.type)) throw new Error('ต้องขึ้นต้นด้วย "type": "bubble" หรือ "carousel"');
+          reply.contents = j;
+          msg.textContent = 'JSON ถูกต้อง';
+          msg.className = 'f-hint ok';
+        } catch (e) {
+          msg.textContent = 'ยังใช้ไม่ได้: ' + clip(e.message, 90);
+          msg.className = 'f-hint bad';
+        }
+      };
+      const area = textArea(flexRaw.get(reply), (v) => (flexRaw.set(reply, v), check(), upd()), 10, { class: 'input area mono', spellcheck: 'false' });
+      area.classList.add('mono');
+      check();
+      body.append(
+        field('ข้อความสำรอง (แสดงในแจ้งเตือน)', textInput(reply.altText, (v) => ((reply.altText = v), upd()), { maxlength: '400' })),
+        field('JSON ของ Flex Message', area, 'สร้างและทดลองที่ LINE Flex Message Simulator แล้ววางเฉพาะส่วนที่ขึ้นต้นด้วย { "type": "bubble" …'),
+        msg
+      );
+      break;
+    }
+    default:
+      body.append(h('p', { class: 'note' }, 'กฎนี้ให้บอทเงียบ ไม่ส่งอะไรและไม่แจ้งเตือนใคร แอดมินเห็นแชทแล้วตอบเอง ใช้กับเรื่องที่อยากตอบเอง เช่น เลขบัญชี ใบเสร็จ'));
+  }
+  return h('section', { class: 'rblock' }, head, body);
+}
+
+function picturePicker(reply, upd) {
+  const names = [['', 'ไม่ใช้'], ['staff', 'ร้าน'], ['admin', 'แอดมิน'], ['order', 'สั่งของ'], ['school', 'โรงเรียน'], ['ask', 'ถาม']];
+  const box = h('div', { class: 'pics' });
+  const draw = () => {
+    box.replaceChildren(
+      ...names.map(([v, label]) =>
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'pic' + ((reply.image || '') === v ? ' on' : ''),
+            title: label,
+            onclick: () => {
+              reply.image = v;
+              upd();
+              draw();
+            },
+          },
+          v ? h('img', { src: `img/${v}.png`, alt: '', draggable: 'false' }) : h('span', { class: 'pic-none' }, '–'),
+          h('small', {}, label)
+        )
+      )
+    );
+  };
+  draw();
+  return box;
+}
+
+function moveReply(rule, i, d) {
+  const j = i + d;
+  if (j < 0 || j >= rule.replies.length) return;
+  [rule.replies[i], rule.replies[j]] = [rule.replies[j], rule.replies[i]];
+  touch();
+  renderCenter();
+}
+
+function removeReply(rule, i) {
+  rule.replies.splice(i, 1);
+  touch();
+  renderCenter();
+}
+
+function addReply(rule, type) {
+  if (type === 'silent') rule.replies = [newReply('silent')];
+  else {
+    if (rule.replies.some((r) => r.type === 'silent')) rule.replies = [];
+    if (rule.replies.length >= Engine.MAX_REPLIES) return toast(`หนึ่งกฎส่งได้ไม่เกิน ${Engine.MAX_REPLIES} ข้อความค่ะ`, 'warn');
+    rule.replies.push(newReply(type));
+  }
+  touch();
+  renderCenter();
+}
+
+function renderEditor(root) {
+  const rule = ruleById(S.sel);
+  if (!rule) {
+    root.append(
+      h(
+        'div',
+        { class: 'empty-state' },
+        icon('card', 34),
+        h('h3', {}, 'เลือกกฎทางซ้าย หรือสร้างกฎใหม่'),
+        h('p', {}, 'กฎ = “ลูกค้าพิมพ์คำนี้ → บอทตอบแบบนี้” บอทไล่ดูจากบนลงล่าง เจอกฎแรกที่ตรงก็ตอบเลย'),
+        h('button', { type: 'button', class: 'btn btn-primary', onclick: () => addRule('card') }, icon('plus', 16), 'เพิ่มกฎใหม่')
+      )
+    );
+    return;
+  }
+  const i = S.content.rules.findIndex((r) => r.id === rule.id);
+  const probs = problemsOf(rule);
+
+  const head = h(
+    'div',
+    { class: 'ed-head' },
+    h('div', {}, h('h2', {}, `กฎที่ ${i + 1}`), h('p', { class: 'sub' }, 'ลูกค้าพิมพ์คำที่ตั้งไว้ → บอทตอบตามนี้')),
+    h(
+      'div',
+      { class: 'ed-act' },
+      h('button', { type: 'button', class: 'btn btn-soft btn-sm', title: 'ลองพิมพ์คำแรกของกฎนี้ในโทรศัพท์จำลอง', onclick: () => (rule.keywords.length ? sendUser(rule.keywords[0]) : toast('ใส่คำที่ลูกค้าพิมพ์ก่อนค่ะ แล้วค่อยลอง', 'warn')) }, icon('play', 14), 'ลองกฎนี้'),
+      h('button', { type: 'button', class: 'iconbtn', title: 'เลื่อนขึ้น (ตรวจก่อน)', disabled: i === 0, onclick: () => moveRule(rule.id, -1) }, icon('up', 16)),
+      h('button', { type: 'button', class: 'iconbtn', title: 'เลื่อนลง (ตรวจทีหลัง)', disabled: i === S.content.rules.length - 1, onclick: () => moveRule(rule.id, 1) }, icon('down', 16)),
+      h('button', { type: 'button', class: 'iconbtn', title: 'ทำสำเนา', onclick: () => duplicateRule(rule.id) }, icon('copy', 16)),
+      h('button', { type: 'button', class: 'iconbtn danger', title: 'ลบกฎนี้', onclick: () => deleteRule(rule.id) }, icon('trash', 16))
+    )
+  );
+
+  const name = field(
+    'ชื่อกฎ (ไว้ดูเอง ลูกค้าไม่เห็น)',
+    h('div', { class: 'name-row' }, textInput(rule.name, (v) => ((rule.name = v), touch()), { id: 'f-name', maxlength: '60' }), toggle(rule.enabled !== false, 'เปิดใช้', (v) => ((rule.enabled = v), touch(), renderCenter())))
+  );
+
+  const matchRow = field(
+    'ลูกค้าพิมพ์แบบไหนบอทถึงจะตอบ',
+    h(
+      'div',
+      { class: 'stack' },
+      seg(
+        [
+          ['contains', 'มีคำเหล่านี้อยู่ในข้อความ', 'เช่น คำว่า เปิด อยู่ใน “ร้านเปิดกี่โมงคะ”'],
+          ['exact', 'พิมพ์ตรงทั้งข้อความ', 'ต้องเป็นคำนั้นคำเดียว (คำว่า ค่ะ/ครับ ไม่นับ)'],
+        ],
+        rule.match === 'exact' ? 'exact' : 'contains',
+        (v) => ((rule.match = v), touch(), renderCenter())
+      ),
+      chipsInput(rule.keywords, () => touch(), { placeholder: 'พิมพ์คำที่ลูกค้าอาจพิมพ์ แล้วกด Enter (เพิ่มได้หลายคำ)' })
+    ),
+    'ไม่ต้องกังวลเรื่องช่องว่าง ตัวพิมพ์เล็ก/ใหญ่ หรือคำลงท้าย ค่ะ คะ ครับ'
+  );
+
+  const replies = h('div', { class: 'replies' }, ...rule.replies.map((r, k) => replyBlock(rule, r, k)));
+  if (!rule.replies.length) replies.append(h('p', { class: 'note warn' }, 'ยังไม่มีคำตอบ: เพิ่มจากปุ่มด้านล่าง หรือลากชนิดคำตอบจากด้านซ้ายมาวางตรงนี้'));
+  replies.addEventListener('dragover', (e) => {
+    if (Array.from(e.dataTransfer?.types || []).includes('text/x-new-reply')) {
+      e.preventDefault();
+      replies.classList.add('drop-here');
+    }
+  });
+  replies.addEventListener('dragleave', () => replies.classList.remove('drop-here'));
+  replies.addEventListener('drop', (e) => {
+    const t = e.dataTransfer.getData('text/x-new-reply');
+    replies.classList.remove('drop-here');
+    if (t) {
+      e.preventDefault();
+      addReply(rule, t);
+    }
+  });
+
+  const adders = h(
+    'div',
+    { class: 'adders' },
+    h('span', {}, 'เพิ่มคำตอบ:'),
+    ['text', 'card', 'image', 'sticker', 'flex', 'silent'].map((t) => h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => addReply(rule, t) }, icon(TYPE_INFO[t].icon, 14), TYPE_INFO[t].name))
+  );
+
+  const quick = toggle(rule.quick !== false, 'ให้มีปุ่มหัวข้อลัด (เวลาเปิดร้าน สั่งของ …) ใต้ข้อความสุดท้าย', (v) => ((rule.quick = v), touch()));
+
+  root.append(head, name, matchRow, h('h3', { class: 'sec-title' }, 'คำตอบ ', h('small', {}, `${rule.replies.length}/${Engine.MAX_REPLIES} ข้อความ`)), replies, adders, h('div', { class: 'field' }, quick));
+  if (probs.length) root.append(h('div', { class: 'problems' }, icon('warn', 16), h('div', {}, h('b', {}, 'ยังไม่ครบ บอทจะยังไม่ใช้กฎนี้:'), h('ul', {}, probs.map((p) => h('li', {}, p))))));
+}
+
+// ---- 06-views.js
+// ---------------------------------------------------------------------------------------------------------------
+// Centre column: the test line, the answer-order map (flow), general texts, schools, the bot's state, export/import.
+// ---------------------------------------------------------------------------------------------------------------
+const STAGE_NAMES = {
+  thanks: 'ขอบคุณ (ระบบ)',
+  school: 'ลูกค้าบอกชื่อโรงเรียน (ระบบ)',
+  supplies: 'อุปกรณ์การเรียน → ถามว่าโรงเรียนไหน (ระบบ)',
+  contact: 'คุยกับแอดมิน (ระบบ)',
+  document: 'ส่งเอกสารโครงการ (ระบบ)',
+  order: 'สั่งงาน/สั่งทำ → เลือกแอดมิน (ระบบ)',
+  ask: 'ถามเรื่องที่บอทไม่รู้ → เลือกแอดมิน (ระบบ)',
+  greeting: 'ทักทาย / เมนู (ระบบ)',
+  fallback: 'ไม่ตรงกฎไหน → บอทไม่ตอบ',
+};
+
+// which box of the map a test message ended in
+function stageKeyOf(run) {
+  if (!run) return null;
+  switch (run.stage) {
+    case 'school-ask':
+      return 'supplies';
+    case 'order':
+      return run.which === 'documentAsk' ? 'document' : 'order';
+    case 'rule':
+    case 'off':
+      return run.matched ? 'rule:' + run.matched : 'fallback';
+    default:
+      return run.stage;
+  }
+}
+
+function runLabel(run) {
+  const key = stageKeyOf(run);
+  if (!key) return '';
+  if (key.startsWith('rule:')) {
+    const i = S.content.rules.findIndex((r) => r.id === key.slice(5));
+    const r = S.content.rules[i];
+    return r ? `กฎที่ ${i + 1}: ${r.name}${run.stage === 'off' ? ' (ตั้งไว้ไม่ตอบ)' : ''}` : 'กฎที่เพิ่งลบ';
+  }
+  return STAGE_NAMES[key] || key;
+}
+
+function renderTestLine() {
+  const el = $('#test-result');
+  if (!el) return;
+  el.replaceChildren();
+  if (!S.lastRun) {
+    el.append(h('span', { class: 'muted' }, 'พิมพ์ข้อความลูกค้า กด “ทดสอบ” จะบอกว่าตรงกับกฎไหน และโทรศัพท์ทางขวาจะแสดงคำตอบ'));
+    return;
+  }
+  const silent = S.lastRun.stage === 'fallback' || S.lastRun.stage === 'off';
+  el.append(h('span', { class: 'matched' + (silent ? ' none' : '') }, icon(silent ? 'silent' : 'check', 14), h('b', {}, silent ? 'บอทไม่ตอบ' : 'ตรงกับ'), ' ', runLabel(S.lastRun)));
+}
+
+function testBar() {
+  const input = h('input', { id: 'test-input', class: 'input', type: 'text', placeholder: 'ข้อความของลูกค้า เช่น ร้านเปิดกี่โมงคะ', autocomplete: 'off' });
+  const go = () => {
+    const v = input.value;
+    if (!v.trim()) return;
+    sendUser(v);
+    input.select();
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.isComposing) {
+      e.preventDefault();
+      go();
+    }
+  });
+  return h(
+    'div',
+    { class: 'testbar' },
+    h('div', { class: 'testrow' }, h('label', { for: 'test-input' }, 'ทดสอบข้อความ'), input, h('button', { type: 'button', class: 'btn btn-primary', onclick: go }, icon('play', 14), 'ทดสอบ')),
+    h('div', { id: 'test-result', class: 'test-result' })
+  );
+}
+
+// ---- the answer-order map -----------------------------------------------------------------------------------------
+
+function replySummary(replies) {
+  const rs = replies || [];
+  if (!rs.length) return 'ยังไม่มีคำตอบ';
+  if (rs[0].type === 'silent') return 'ไม่ตอบ';
+  const first = rs[0];
+  const t = first.type === 'card' ? first.title || first.text : first.type === 'text' ? first.text : first.type === 'image' ? first.url : first.type === 'sticker' ? `${first.packageId}/${first.stickerId}` : first.altText;
+  return `${rs.length} คำตอบ · ${TYPE_INFO[first.type]?.tag || first.type}${t ? ' “' + clip(String(t).replace(/\s+/g, ' '), 26) + '”' : ''}`;
+}
+
+function flowStages(shop) {
+  const c = shop.contact;
+  const sup = shop.schoolSupplies;
+  const sys = (key, name, when, out, go) => ({ key, name, when, out, sys: true, go });
+  const first = [
+    sys('thanks', 'ขอบคุณ', 'ลูกค้าพิมพ์ ขอบคุณ / thanks / ขอบใจ', 'การ์ดตอบรับ', 'texts'),
+    sys('school', 'ลูกค้าบอกชื่อโรงเรียน', 'หลังบอทถามว่าโรงเรียนไหน', 'การ์ดลิงก์รายการอุปกรณ์', 'schools'),
+    sys('supplies', sup.label, 'พิมพ์ ' + (sup.keywords || []).slice(0, 3).join(' / '), 'ถามว่าโรงเรียนไหน', 'schools'),
+    sys('contact', 'คุยกับแอดมิน', 'กดปุ่ม ' + [c.button, ...(c.buttonAliases || [])].filter(Boolean).join(' / '), 'การ์ดเลือกชื่อแอดมิน', 'texts'),
+    sys('document', 'ส่งเอกสารโครงการ', 'พิมพ์ ' + (c.documentWords || []).slice(0, 3).join(' / '), 'การ์ดเลือกชื่อแอดมิน', 'texts'),
+    sys('order', 'สั่งงาน / สั่งทำ', 'พิมพ์ ' + (c.orderWords || []).slice(0, 4).join(' / ') + ((c.orderWords || []).length > 4 ? ' …' : ''), 'การ์ดเลือกชื่อแอดมิน', 'texts'),
+  ];
+  const rules = (S.content.rules || []).map((r, i) => ({ key: 'rule:' + r.id, name: `${i + 1}. ${r.name}`, rule: r, i }));
+  const last = [
+    sys('ask', 'ถามที่บอทไม่รู้', 'พิมพ์ ' + (c.askWords || []).slice(0, 3).join(' / ') + ((c.askWords || []).length > 3 ? ' …' : ''), 'การ์ดเลือกชื่อแอดมิน', 'texts'),
+    sys('greeting', 'ทักทาย / เมนู', 'พิมพ์ สวัสดี / เมนู', 'การ์ดเมนู', 'texts'),
+    sys('fallback', 'เรื่องอื่น ๆ', 'ไม่ตรงอะไรเลย', 'ไม่ตอบ (แอดมินเห็นแชทแล้วตอบเอง)', null),
+  ];
+  return [...first, ...rules, ...last];
+}
+
+function renderFlow(root) {
+  const shop = currentShop();
+  const hitKey = stageKeyOf(S.lastRun);
+  root.append(
+    h('p', { class: 'sub' }, 'บอทไล่ดูจากบนลงล่าง เจอที่ตรงก่อนก็ตอบเลยและหยุด กล่องสีเทาคือขั้นตอนของระบบ กล่องสีขาวคือกฎของร้าน (คลิกเพื่อแก้ไข)')
+  );
+  if (S.lastRun) root.append(h('div', { class: 'hitbar' }, icon('check', 14), h('b', {}, 'ข้อความ “' + clip(S.lastRun.text, 30) + '” '), runLabel(S.lastRun)));
+  const list = h('div', { class: 'flow' });
+  list.append(h('div', { class: 'flow-start' }, h('i', { class: 'live-dot' }), h('div', {}, h('b', {}, 'ข้อความเข้า'), h('small', {}, 'จากแชท LINE ของลูกค้า'))));
+  let passed = Boolean(hitKey);
+  for (const st of flowStages(shop)) {
+    const hit = st.key === hitKey;
+    if (hit) passed = false;
+    const node = h('div', { class: 'flow-row' + (hit ? ' hit' : '') + (passed ? ' passed' : '') + (!hit && hitKey && !passed ? ' skipped' : '') });
+    const left = h('button', { type: 'button', class: 'stage' + (st.sys ? ' sys' : ' own') + (st.rule && st.rule.id === S.sel ? ' sel' : ''), onclick: () => (st.rule ? selectRuleFromFlow(st.rule.id) : st.go ? ((S.view = st.go), renderTabs(), renderCenter()) : null) });
+    if (st.rule) {
+      const r = st.rule;
+      left.append(
+        h('div', { class: 'stage-name' }, st.name, r.enabled === false ? h('span', { class: 'tag t-off' }, 'ปิดอยู่') : null),
+        h('div', { class: 'tags' }, typesOf(r).map((t) => h('span', { class: 'tag t-' + t }, TYPE_INFO[t]?.tag || t)), h('span', { class: 'tag t-match' }, r.match === 'exact' ? 'ตรงทั้งข้อความ' : 'มีคำนี้')),
+        h('div', { class: 'rule-kw' }, icon('key', 13), h('span', {}, r.keywords.length ? clip(r.keywords.join(', '), 60) : 'ยังไม่มีคำ'))
+      );
+    } else {
+      left.append(h('div', { class: 'stage-name' }, st.name), h('div', { class: 'stage-when' }, st.when));
+    }
+    const right = h('div', { class: 'out' + (st.rule && st.rule.replies[0]?.type === 'silent' ? ' silent' : '') }, st.rule ? replySummary(st.rule.replies) : st.out);
+    node.append(left, h('div', { class: 'arrow' }, h('span', {}, 'ตรง'), h('i')), right);
+    list.append(h('div', { class: 'nomatch' + (hit ? ' stop' : '') }, hit ? '' : 'ไม่ตรง ↓'), node);
+  }
+  root.append(list);
+}
+
+function selectRuleFromFlow(id) {
+  S.sel = id;
+  S.view = 'editor';
+  renderTabs();
+  renderRules();
+  renderCenter();
+}
+
+// ---- general texts -------------------------------------------------------------------------------------------------
+
+const WEEKDAYS = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+
+function renderTexts(root) {
+  const c = S.content;
+  c.contact = c.contact || {};
+  const words = (key) => {
+    c.contact[key] = Array.isArray(c.contact[key]) ? c.contact[key] : [];
+    return c.contact[key];
+  };
+  const holiday = (c.holiday = c.holiday || { weekday: 6, message: '' });
+  root.append(
+    h('div', { class: 'ed-head' }, h('div', {}, h('h2', {}, 'ข้อความทั่วไป'), h('p', { class: 'sub' }, 'ข้อความของระบบที่ไม่ใช่กฎถามตอบ'))),
+    h(
+      'section',
+      { class: 'card-sec' },
+      h('h3', { class: 'sec-title' }, 'ทักทายและขอบคุณ'),
+      field('ข้อความทักทาย (การ์ดเมนูตอนลูกค้าพิมพ์ “เมนู”)', textArea(c.greeting, (v) => ((c.greeting = v), touch()), 3, { maxlength: '1000' })),
+      field('ข้อความตอบ “ขอบคุณ”', textArea(c.thanks, (v) => ((c.thanks = v), touch()), 2, { maxlength: '500' }))
+    ),
+    h(
+      'section',
+      { class: 'card-sec' },
+      h('h3', { class: 'sec-title' }, 'วันหยุดประจำสัปดาห์'),
+      field(
+        'วันที่ร้านหยุด',
+        h(
+          'div',
+          { class: 'stack' },
+          seg(
+            [['none', 'ไม่มีวันหยุด'], ...WEEKDAYS.map((d, i) => [String(i), d])],
+            holiday.weekday == null ? 'none' : String(holiday.weekday),
+            (v) => ((holiday.weekday = v === 'none' ? null : Number(v)), touch(), renderCenter())
+          ),
+          textArea(holiday.message, (v) => ((holiday.message = v), touch()), 3, { maxlength: '500', placeholder: 'ข้อความแจ้งวันหยุด (ส่งนำหน้าคำตอบแรกของลูกค้าในวันนั้น วันละครั้ง)' })
+        ),
+        'นับเวลาประเทศไทย บอทแจ้งลูกค้าคนละครั้งต่อวัน'
+      )
+    ),
+    h(
+      'section',
+      { class: 'card-sec' },
+      h('h3', { class: 'sec-title' }, 'เรียกแอดมิน'),
+      field('ข้อความเหนือปุ่มเลือกแอดมิน (ทั่วไป)', textArea(c.contact.ask, (v) => ((c.contact.ask = v), touch()), 3, { maxlength: '500' })),
+      field('ข้อความเมื่อลูกค้าสั่งงาน/สั่งทำ', textArea(c.contact.orderAsk, (v) => ((c.contact.orderAsk = v), touch()), 3, { maxlength: '500' })),
+      field('ข้อความเมื่อลูกค้าจะส่งเอกสารโครงการ', textArea(c.contact.documentAsk, (v) => ((c.contact.documentAsk = v), touch()), 3, { maxlength: '500' })),
+      field('คำที่แปลว่า “สั่งงาน/สั่งทำ”', chipsInput(words('orderWords'), () => touch(), { max: 60, maxLen: 40 }), 'ลูกค้าพิมพ์คำเหล่านี้ → บอทให้เลือกแอดมิน'),
+      field('คำที่แปลว่า “ขอถามเรื่องที่บอทไม่รู้”', chipsInput(words('askWords'), () => touch(), { max: 60, maxLen: 40 }), 'ถ้าไม่ตรงกฎไหนแต่มีคำเหล่านี้ → ให้เลือกแอดมิน'),
+      field('คำที่แปลว่า “ส่งเอกสารโครงการ”', chipsInput(words('documentWords'), () => touch(), { max: 20, maxLen: 40 }))
+    ),
+    h('p', { class: 'note' }, 'รายชื่อแอดมิน (เจ้ปิ่น หญิง ฟิล์ม) และเวลาที่บอทเงียบหลังลูกค้าเลือก ตั้งในหน้าตั้งค่า LINE ของร้าน หน้านี้ไม่ได้แก้ส่วนนั้น')
+  );
+}
+
+// ---- schools ---------------------------------------------------------------------------------------------------------
+
+function renderSchools(root) {
+  const sup = S.content.schoolSupplies;
+  sup.schools = Array.isArray(sup.schools) ? sup.schools : [];
+  sup.keywords = Array.isArray(sup.keywords) ? sup.keywords : [];
+  const q = S.schoolQ.trim().toLowerCase();
+  const rows = sup.schools.map((s, i) => ({ s, i })).filter(({ s }) => !q || (s.name || '').toLowerCase().includes(q) || (s.aliases || []).some((a) => a.toLowerCase().includes(q)));
+
+  const table = h('div', { class: 'schools' });
+  for (const { s, i } of rows) {
+    s.aliases = Array.isArray(s.aliases) ? s.aliases : [];
+    const bad = !/^https:\/\//i.test(String(s.link || '')) || !String(s.name || '').trim();
+    table.append(
+      h(
+        'div',
+        { class: 'school' + (bad ? ' bad' : '') },
+        h('div', { class: 'school-main' }, textInput(s.name, (v) => ((s.name = v), updateHeader()), { placeholder: 'ชื่อโรงเรียน เช่น โรงเรียนบ้านกอก', maxlength: '80' }), textInput(s.link, (v) => ((s.link = v), updateHeader()), { placeholder: 'https://www.nattagroup.com/…' })),
+        h('div', { class: 'school-alias' }, chipsInput(s.aliases, () => updateHeader(), { placeholder: 'ชื่อเรียกอื่น (ไม่บังคับ)', max: 10, maxLen: 60 })),
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'iconbtn danger',
+            title: 'ลบโรงเรียนนี้',
+            onclick: () => {
+              sup.schools.splice(i, 1);
+              updateHeader();
+              renderCenter();
+            },
+          },
+          icon('trash', 15)
+        )
+      )
+    );
+  }
+  if (!rows.length) table.append(h('p', { class: 'note' }, sup.schools.length ? 'ไม่พบโรงเรียนที่ค้นหา' : 'ยังไม่มีโรงเรียน กด “เพิ่มโรงเรียน”'));
+
+  const search = textInput(S.schoolQ, (v) => {
+    S.schoolQ = v;
+    renderCenterKeepFocus('#school-q');
+  }, { id: 'school-q', placeholder: 'ค้นหาโรงเรียน…' });
+
+  root.append(
+    h('div', { class: 'ed-head' }, h('div', {}, h('h2', {}, 'โรงเรียน · อุปกรณ์การเรียน'), h('p', { class: 'sub' }, `${sup.schools.length} โรงเรียน · ลูกค้าพิมพ์ “${(sup.keywords || [])[0] || 'อุปกรณ์การเรียน'}” → บอทถามชื่อโรงเรียน → ส่งลิงก์`))),
+    h(
+      'section',
+      { class: 'card-sec' },
+      field('ชื่อหัวข้อ (เช่น ภาคเรียน)', textInput(sup.label, (v) => ((sup.label = v), updateHeader()), { maxlength: '40' }), 'เปลี่ยนเป็น “อุปกรณ์การเรียน 1-70” เมื่อขึ้นภาคเรียนใหม่ แล้วอย่าลืมเปลี่ยนปุ่มลัดในหน้าตั้งค่า LINE ของร้านให้ตรงกัน'),
+      field('คำที่แปลว่าถามหาอุปกรณ์การเรียน', chipsInput(sup.keywords, () => updateHeader(), { max: 20, maxLen: 40 })),
+      field('ข้อความถามชื่อโรงเรียน', textArea(sup.ask, (v) => ((sup.ask = v), updateHeader()), 3, { maxlength: '500' })),
+      field('ข้อความตอนส่งลิงก์ ({school} = ชื่อโรงเรียน)', textArea(sup.found, (v) => ((sup.found = v), updateHeader()), 2, { maxlength: '500' })),
+      field('ข้อความเมื่อไม่พบโรงเรียน', textArea(sup.notFound, (v) => ((sup.notFound = v), updateHeader()), 2, { maxlength: '500' }))
+    ),
+    h('div', { class: 'toolbar' }, search, h('button', { type: 'button', class: 'btn btn-primary', onclick: () => {
+      sup.schools.push({ name: '', aliases: [], link: '' });
+      S.schoolQ = '';
+      updateHeader();
+      renderCenter();
+      setTimeout(() => $$('.school .input').slice(-2)[0]?.focus(), 0);
+    } }, icon('plus', 16), 'เพิ่มโรงเรียน')),
+    table
+  );
+}
+
+function renderCenterKeepFocus(sel) {
+  const el = $(sel);
+  const pos = el ? el.selectionStart : null;
+  renderCenter();
+  const again = $(sel);
+  if (again) {
+    again.focus();
+    if (pos != null) again.setSelectionRange(pos, pos);
+  }
+}
+
+// ---- the bot's state ----------------------------------------------------------------------------------------------------
+
+const MODES = [
+  ['off', 'บอทเดิมตอบทุกคน', 'ตัวตอบใหม่ไม่ตอบใคร ส่งต่อทุกข้อความให้บอทเดิม'],
+  ['admins', 'ทดลอง: เฉพาะแอดมิน 3 คน', 'ตัวตอบใหม่ตอบเฉพาะข้อความของแอดมิน ลูกค้าทั่วไปยังได้คำตอบจากบอทเดิม'],
+  ['all', 'ตัวตอบใหม่ตอบทุกคน', 'ลูกค้าทุกคนได้คำตอบจากตัวใหม่ (บอทเดิมไม่ถูกเรียกอีก)'],
+];
+
+function onoff(v) {
+  return h('span', { class: 'pill ' + (v ? 'on' : 'off') }, v ? 'เปิด' : 'ปิด');
+}
+
+function renderBotView(root) {
+  const row = S.row || {};
+  const bot = S.bot || {};
+  const mode = Engine.modeOf(row);
+  const people = (row.admins || []).map((a) => a.name);
+  const status = {
+    ready: ['ok', 'เชื่อมฐานข้อมูลร้านแล้ว'],
+    connecting: ['info', 'กำลังเชื่อมต่อ…'],
+    offline: ['warn', 'ยังไม่ได้เชื่อมฐานข้อมูล (โหมดดูตัวอย่าง)'],
+    error: ['bad', 'เชื่อมต่อไม่สำเร็จ'],
+  }[S.conn];
+
+  const modeList = h(
+    'div',
+    { class: 'modes' },
+    MODES.map(([v, name, desc]) =>
+      h(
+        'button',
+        { type: 'button', class: 'mode' + (v === mode ? ' on' : ''), disabled: S.conn !== 'ready' || S.busy, onclick: () => ((S.modeAsk = v === mode ? null : v), renderCenter()) },
+        h('span', { class: 'radio' }),
+        h('div', {}, h('b', {}, name), h('small', {}, desc))
+      )
+    )
+  );
+
+  const ask = S.modeAsk
+    ? h(
+        'div',
+        { class: 'confirm' },
+        h('p', {}, S.modeAsk === 'all' ? 'เปลี่ยนเป็น “ตัวตอบใหม่ตอบทุกคน” ลูกค้าจะได้คำตอบจากตัวใหม่ทันที ยืนยัน?' : S.modeAsk === 'off' ? 'เปลี่ยนกลับเป็น “บอทเดิมตอบทุกคน” ยืนยัน?' : 'เปลี่ยนเป็นโหมดทดลองเฉพาะแอดมิน ยืนยัน?'),
+        h(
+          'div',
+          {},
+          h('button', { type: 'button', class: 'btn btn-primary btn-sm', disabled: S.busy, onclick: () => applyMode(S.modeAsk) }, 'ยืนยัน'),
+          h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => ((S.modeAsk = null), renderCenter()) }, 'ยกเลิก')
+        )
+      )
+    : null;
+
+  root.append(
+    h('div', { class: 'ed-head' }, h('div', {}, h('h2', {}, 'สถานะบอท'), h('p', { class: 'sub' }, 'ใครได้คำตอบจากตัวตอบใหม่ และการตั้งค่าของระบบร้านที่เกี่ยวข้อง'))),
+    S.connMsg ? h('div', { class: 'banner ' + (S.conn === 'error' ? 'bad' : 'warn') }, icon('warn', 16), S.connMsg) : null,
+    h('section', { class: 'card-sec' }, h('h3', { class: 'sec-title' }, 'การเชื่อมต่อ'), h('p', { class: 'statusline' }, h('span', { class: 'pill ' + status[0] }, status[1]), S.conn === 'error' ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: reloadAll }, 'ลองอีกครั้ง') : null)),
+    h('section', { class: 'card-sec' }, h('h3', { class: 'sec-title' }, 'ใครได้คำตอบจากตัวตอบใหม่'), modeList, ask),
+    h(
+      'section',
+      { class: 'card-sec' },
+      h('h3', { class: 'sec-title' }, 'แอดมินที่บอทแจ้งเตือน'),
+      h('p', { class: 'people' }, people.length ? people.map((n) => h('span', { class: 'kchip static' }, n)) : 'ยังไม่มีแอดมินที่ผูก LINE ไว้'),
+      h('p', { class: 'f-hint' }, 'ลูกค้าส่งรูปหรือไฟล์ → แจ้งทั้ง 3 คน (ไม่เกินครั้งละ 5 ชั่วโมงต่อลูกค้า)')
+    ),
+    h(
+      'section',
+      { class: 'card-sec' },
+      h('h3', { class: 'sec-title' }, 'ตั้งค่าบอทในระบบร้าน (ดูอย่างเดียว)'),
+      h(
+        'dl',
+        { class: 'kv' },
+        h('dt', {}, 'ส่งต่อข้อความที่ระบบร้านไม่รับ ให้ตัวตอบ'), h('dd', {}, onoff(bot.relay !== false)),
+        h('dt', {}, 'การ์ดเมนูตอนเพิ่มเพื่อน / พิมพ์ “เมนู”'), h('dd', {}, onoff(bot.menu_card !== false)),
+        h('dt', {}, 'เลือกชื่อแอดมินแล้วบอทเงียบ'), h('dd', {}, onoff(bot.admin_pick !== false), ' ', bot.silence_hours ? `${bot.silence_hours} ชม.` : ''),
+        h('dt', {}, 'ส่งเอกสารโครงการ'), h('dd', {}, onoff(bot.docs !== false))
+      ),
+      h('p', { class: 'f-hint' }, 'สวิตช์เหล่านี้อยู่ในหน้าตั้งค่า LINE ของเว็บร้าน ถ้า “ส่งต่อ” ปิดอยู่ ตัวตอบนี้จะไม่ได้รับข้อความเลย')
+    )
+  );
+}
+
+async function applyMode(mode) {
+  S.busy = true;
+  renderCenter();
+  try {
+    await setMode(mode);
+    toast('เปลี่ยนโหมดแล้ว');
+  } catch (e) {
+    toast(explain(e), 'bad');
+  }
+  S.busy = false;
+  S.modeAsk = null;
+  renderCenter();
+}
+
+// ---- export / import -----------------------------------------------------------------------------------------------------
+
+function exportText() {
+  const out = clone(S.content);
+  out.rules = Engine.cleanRules(out.rules);
+  return JSON.stringify(out, null, 2);
+}
+
+function renderJson(root) {
+  const area = h('textarea', { class: 'input area mono', rows: '18', spellcheck: 'false', id: 'json-area' });
+  area.value = exportText();
+  const msg = h('p', { class: 'f-hint' }, 'ข้อมูลทั้งหมดที่หน้านี้บันทึก (กฎ โรงเรียน ข้อความ) คัดลอกเก็บไว้เป็นสำรอง หรือวางข้อมูลที่เคยสำรองไว้แล้วกด “นำเข้า”');
+  root.append(
+    h('div', { class: 'ed-head' }, h('div', {}, h('h2', {}, 'Export / Import JSON'), h('p', { class: 'sub' }, 'สำรองและย้ายข้อมูลของบอท'))),
+    area,
+    msg,
+    h(
+      'div',
+      { class: 'toolbar' },
+      h('button', { type: 'button', class: 'btn btn-ghost', onclick: () => copyText(area.value) }, icon('copy', 15), 'คัดลอก'),
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'btn btn-primary',
+          onclick: () => {
+            try {
+              const j = JSON.parse(area.value);
+              if (!j || typeof j !== 'object' || Array.isArray(j)) throw new Error('ต้องเป็น JSON แบบ { … }');
+              const next = clone(S.content);
+              if (Array.isArray(j.rules)) next.rules = Engine.cleanRules(j.rules);
+              if (j.schoolSupplies && Array.isArray(j.schoolSupplies.schools)) next.schoolSupplies = j.schoolSupplies;
+              for (const k of ['greeting', 'thanks']) if (typeof j[k] === 'string') next[k] = j[k];
+              if (j.holiday && typeof j.holiday === 'object') next.holiday = j.holiday;
+              if (j.contact && typeof j.contact === 'object') next.contact = { ...next.contact, ...pick(j.contact, CONTACT_KEYS) };
+              S.content = next;
+              if (!ruleById(S.sel)) S.sel = next.rules[0]?.id ?? null;
+              touch();
+              renderCenter();
+              toast('นำเข้าแล้ว (ยังไม่บันทึกจนกว่าจะกดบันทึก)');
+            } catch (e) {
+              msg.textContent = 'นำเข้าไม่ได้: ' + clip(e.message, 100);
+              msg.className = 'f-hint bad';
+            }
+          },
+        },
+        icon('save', 15),
+        'นำเข้า'
+      )
+    )
+  );
+}
+
+// ---- 07-main.js
+// ---------------------------------------------------------------------------------------------------------------
+// The frame: header, tabs, the three columns, phone navigation, saving, history, start-up.
+// ---------------------------------------------------------------------------------------------------------------
+const TABS = [
+  ['editor', 'แก้ไขกฎ'],
+  ['flow', 'ผังการตอบ'],
+  ['texts', 'ข้อความทั่วไป'],
+  ['schools', 'โรงเรียน'],
+  ['bot', 'สถานะบอท'],
+  ['json', 'Export / Import'],
+];
+
+const LOGO = () => {
+  const s = icon('bot', 22);
+  s.setAttribute('stroke-width', '2');
+  return s;
+};
+
+function skeleton() {
+  const app = $('#app');
+  app.replaceChildren(
+    h(
+      'header',
+      { class: 'top' },
+      h('div', { class: 'brand' }, h('span', { class: 'logo' }, LOGO()), h('div', { class: 'brand-t' }, h('b', {}, 'Reply Studio'), h('small', {}, 'ร้านนัฐภรณ์ · แก้คำตอบบอท LINE')), h('span', { id: 'conn-pill', class: 'pill' })),
+      h('nav', { id: 'tabs', class: 'tabs', 'aria-label': 'หน้า' }),
+      h('div', { id: 'actions', class: 'actions' })
+    ),
+    h(
+      'main',
+      { class: 'grid' },
+      h(
+        'aside',
+        { class: 'col col-rules' },
+        h('section', { class: 'pal-sec' }, h('h3', { class: 'col-title' }, '1. สร้างคำตอบ ', h('small', {}, '(ลากมาวาง)')), h('div', { id: 'palette', class: 'palette' })),
+        h(
+          'section',
+          { class: 'list-sec' },
+          h('h3', { class: 'col-title' }, '2. คำถาม–คำตอบ ', h('small', {}, h('span', { id: 'rules-count' }), ' กฎ')),
+          h(
+            'div',
+            { class: 'list-tools' },
+            h('div', { class: 'searchbox' }, icon('search', 15), h('input', { id: 'rule-q', type: 'search', placeholder: 'ค้นหาคำหรือชื่อกฎ…', autocomplete: 'off' })),
+            h('button', { type: 'button', id: 'add-rule', class: 'btn btn-soft' }, icon('plus', 15), 'เพิ่มกฎใหม่')
+          ),
+          h('ul', { id: 'rules', class: 'rules' }),
+          h('p', { class: 'col-foot' }, 'ลากสลับลำดับได้ กฎบนสุดถูกตรวจก่อน เจอกฎที่ตรงก็ตอบเลย')
+        )
+      ),
+      h('section', { class: 'col col-center' }, h('div', { id: 'center' })),
+      h('aside', { class: 'col col-sim' }, h('div', { id: 'sim' }))
+    ),
+    h('nav', { id: 'bottomnav', class: 'bottomnav', 'aria-label': 'ส่วนของหน้า' }),
+    h('div', { id: 'modal-root' })
+  );
+  $('#rule-q').addEventListener('input', (e) => {
+    S.q = e.target.value;
+    renderRules();
+  });
+  $('#add-rule').addEventListener('click', () => addRule('text'));
+  wireRulesDnD();
+}
+
+function renderTabs() {
+  const nav = $('#tabs');
+  if (!nav) return;
+  nav.replaceChildren(
+    ...TABS.map(([v, label]) =>
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'tab' + (S.view === v ? ' on' : ''),
+          onclick: () => {
+            S.view = v;
+            S.pane = 'center';
+            renderTabs();
+            renderCenter();
+            renderPane();
+          },
+        },
+        label
+      )
+    )
+  );
+}
+
+function updateHeader() {
+  const pill = $('#conn-pill');
+  if (pill) {
+    const [cls, text] = { ready: ['ok', 'เชื่อมฐานข้อมูลแล้ว'], connecting: ['info', 'กำลังเชื่อม…'], offline: ['warn', 'โหมดดูตัวอย่าง'], error: ['bad', 'เชื่อมไม่สำเร็จ'] }[S.conn] || ['info', ''];
+    pill.className = 'pill ' + cls;
+    pill.textContent = text;
+  }
+  const box = $('#actions');
+  if (!box) return;
+  const d = dirty();
+  const canSave = d && S.conn === 'ready' && !S.busy;
+  box.replaceChildren();
+  if (d) box.append(h('span', { class: 'dirty' }, h('i'), 'ยังไม่ได้บันทึก'));
+  if (d) box.append(h('button', { type: 'button', class: 'btn btn-ghost btn-sm', disabled: S.busy, onclick: discardChanges, title: 'ทิ้งสิ่งที่แก้ กลับไปใช้ที่บันทึกไว้' }, 'ยกเลิกที่แก้'));
+  box.append(h('button', { type: 'button', class: 'btn btn-ghost btn-sm', disabled: S.conn !== 'ready', onclick: openHistory, title: 'เวอร์ชันที่เคยบันทึก' }, icon('history', 15), h('span', { class: 'lbl' }, 'ประวัติ')));
+  if (S.saveConfirm && canSave) {
+    box.append(
+      h('span', { class: 'savecfm' }, 'บอทจะใช้คำตอบนี้ทันที'),
+      h('button', { type: 'button', class: 'btn btn-primary', onclick: doSave }, icon('check', 16), 'ยืนยันบันทึก'),
+      h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => ((S.saveConfirm = false), updateHeader()) }, 'ยกเลิก')
+    );
+  } else {
+    box.append(
+      h(
+        'button',
+        {
+          type: 'button',
+          id: 'save-btn',
+          class: 'btn btn-primary',
+          disabled: !canSave,
+          title: S.conn !== 'ready' ? 'ต้องเชื่อมฐานข้อมูลร้านก่อนถึงจะบันทึกได้' : d ? '' : 'ยังไม่มีอะไรเปลี่ยน',
+          onclick: askSave,
+        },
+        icon('save', 16),
+        'บันทึกการตั้งค่า'
+      )
+    );
+  }
+}
+
+function askSave() {
+  if (!dirty() || S.conn !== 'ready') return;
+  const bad = (S.content.rules || []).filter((r) => problemsOf(r).length);
+  if (bad.length) toast(`มี ${bad.length} กฎที่ยังไม่ครบ บอทจะข้ามกฎเหล่านั้น`, 'warn');
+  S.saveConfirm = true;
+  updateHeader();
+  clearTimeout(askSave.t);
+  askSave.t = setTimeout(() => {
+    S.saveConfirm = false;
+    updateHeader();
+  }, 8000);
+}
+
+async function doSave() {
+  S.busy = true;
+  S.saveConfirm = false;
+  updateHeader();
+  try {
+    await saveAll('จากหน้า Reply Studio');
+    toast('บันทึกแล้ว บอทใช้คำตอบใหม่ทันที');
+  } catch (e) {
+    toast(explain(e), 'bad');
+  }
+  S.busy = false;
+  renderAll();
+}
+
+function discardChanges() {
+  S.content = contentFrom(S.row, S.bot);
+  if (!ruleById(S.sel)) S.sel = S.content.rules[0]?.id ?? null;
+  renderAll();
+  toast('กลับไปใช้ที่บันทึกไว้แล้ว', 'info');
+}
+
+async function reloadAll() {
+  S.busy = true;
+  renderAll();
+  await connect();
+  S.busy = false;
+  renderAll();
+}
+
+function renderCenter() {
+  const root = $('#center');
+  if (!root) return;
+  const hadFocus = document.activeElement?.id === 'test-input';
+  const typed = $('#test-input')?.value ?? S.testText ?? '';
+  S.testText = typed;
+  root.replaceChildren();
+  const withTest = S.view === 'editor' || S.view === 'flow';
+  if (withTest) {
+    const bar = testBar();
+    $('input', bar).value = typed;
+    $('input', bar).addEventListener('input', (e) => (S.testText = e.target.value));
+    root.append(bar);
+  }
+  const body = h('div', { class: 'center-body view-' + S.view });
+  root.append(body);
+  if (!S.content) {
+    body.append(h('div', { class: 'empty-state' }, h('p', {}, 'กำลังเชื่อมต่อฐานข้อมูลร้าน…')));
+    return;
+  }
+  switch (S.view) {
+    case 'flow':
+      renderFlow(body);
+      break;
+    case 'texts':
+      renderTexts(body);
+      break;
+    case 'schools':
+      renderSchools(body);
+      break;
+    case 'bot':
+      renderBotView(body);
+      break;
+    case 'json':
+      renderJson(body);
+      break;
+    default:
+      renderEditor(body);
+  }
+  if (withTest) renderTestLine();
+  if (hadFocus) $('#test-input')?.focus();
+}
+
+function renderPane() {
+  const app = $('#app');
+  if (app) app.dataset.pane = S.pane;
+  const nav = $('#bottomnav');
+  if (nav) {
+    nav.replaceChildren(
+      ...[
+        ['rules', 'กฎ', 'card'],
+        ['center', 'แก้ไข', 'text'],
+        ['sim', 'ตัวอย่าง', 'bot'],
+      ].map(([v, label, ic]) => h('button', { type: 'button', class: S.pane === v ? 'on' : '', onclick: () => ((S.pane = v), renderPane()) }, icon(ic, 18), h('span', {}, label)))
+    );
+  }
+}
+
+// ---- history ----------------------------------------------------------------------------------------------------------
+
+function openHistory() {
+  S.modal = 'history';
+  renderModal();
+}
+
+function renderModal() {
+  const root = $('#modal-root');
+  if (!root) return;
+  root.replaceChildren();
+  if (S.modal !== 'history') return;
+  const close = () => {
+    S.modal = null;
+    renderModal();
+  };
+  const items = S.history.length
+    ? S.history.map((hv) =>
+        h(
+          'li',
+          {},
+          h('div', {}, h('b', {}, thaiTime(hv.saved_at)), h('small', {}, hv.note || '')),
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'btn btn-ghost btn-sm',
+              disabled: S.busy || dirty(),
+              title: dirty() ? 'บันทึกหรือยกเลิกสิ่งที่แก้อยู่ก่อน' : '',
+              onclick: async () => {
+                S.busy = true;
+                renderModal();
+                try {
+                  await restoreVersion(hv.id);
+                  toast('ย้อนกลับแล้ว บอทใช้เวอร์ชันนี้ทันที');
+                  S.modal = null;
+                } catch (e) {
+                  toast(explain(e), 'bad');
+                }
+                S.busy = false;
+                renderAll();
+                renderModal();
+              },
+            },
+            'ใช้เวอร์ชันนี้'
+          )
+        )
+      )
+    : [h('li', { class: 'empty' }, 'ยังไม่มีประวัติ เวอร์ชันเก่าจะถูกเก็บไว้ทุกครั้งที่กดบันทึก')];
+  root.append(
+    h(
+      'div',
+      { class: 'modal-back', onclick: (e) => e.target === e.currentTarget && close() },
+      h(
+        'div',
+        { class: 'modal', role: 'dialog', 'aria-label': 'ประวัติการบันทึก' },
+        h('div', { class: 'modal-head' }, h('h3', {}, 'ประวัติการบันทึก'), h('button', { type: 'button', class: 'iconbtn', onclick: close, title: 'ปิด' }, icon('x', 16))),
+        h('p', { class: 'f-hint' }, 'ทุกครั้งที่บันทึก ระบบเก็บ “ก่อนบันทึก” ไว้ให้ กดใช้เวอร์ชันนี้เพื่อย้อนกลับ (20 ครั้งล่าสุด)'),
+        h('ul', { class: 'hist' }, items)
+      )
+    )
+  );
+}
+
+// ---- start --------------------------------------------------------------------------------------------------------------
+
+function renderAll() {
+  updateHeader();
+  renderTabs();
+  renderPalette();
+  renderRules();
+  renderCenter();
+  renderSim();
+  renderPane();
+  renderModal();
+}
+
+function wireKeys() {
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      askSave();
+    } else if (e.key === 'Escape' && S.modal) {
+      S.modal = null;
+      renderModal();
+    }
+  });
+}
+
+async function startStudio() {
+  skeleton();
+  wireKeys();
+  updateHeader();
+  renderTabs();
+  renderPalette();
+  renderPane();
+  renderCenter();
+  await connect();
+  renderAll();
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startStudio);
+else startStudio();
+
+</script>
