@@ -80,6 +80,11 @@ function textOf(res) {
 // (the opening tag is also named in its first sentence, so the rows are what sits between the closing tag and the
 // opening tag nearest before it)
 function rowsOf(res) {
+  // some connectors hand the rows over directly
+  for (const x of [res?.structuredContent, res?.payload]) {
+    if (Array.isArray(x)) return x;
+    if (Array.isArray(x?.rows)) return x.rows;
+  }
   const text = textOf(res);
   let body = text;
   const close = text.search(/<\/untrusted-data-[^>]*>/);

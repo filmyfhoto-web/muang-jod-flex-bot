@@ -22,7 +22,7 @@ function skeleton() {
     h(
       'header',
       { class: 'top' },
-      h('div', { class: 'brand' }, h('span', { class: 'logo' }, LOGO()), h('div', { class: 'brand-t' }, h('b', {}, 'Reply Studio'), h('small', {}, 'ร้านนัฐภรณ์ · แก้คำตอบบอท LINE')), h('span', { id: 'conn-pill', class: 'pill' })),
+      h('div', { class: 'brand' }, h('span', { class: 'logo' }, LOGO()), h('div', { class: 'brand-t' }, h('b', {}, 'Reply Studio'), h('small', {}, 'ร้านนัฐภรณ์ · แก้คำตอบบอท LINE')), h('span', { id: 'conn-pill', class: 'pill' }), h('button', { type: 'button', id: 'conn-retry', class: 'btn btn-ghost btn-sm', hidden: true, onclick: reloadAll }, 'ลองเชื่อมใหม่')),
       h('nav', { id: 'tabs', class: 'tabs', 'aria-label': 'หน้า' }),
       h('div', { id: 'actions', class: 'actions' })
     ),
@@ -92,6 +92,8 @@ function updateHeader() {
     pill.className = 'pill ' + cls;
     pill.textContent = text;
   }
+  const retry = $('#conn-retry');
+  if (retry) retry.hidden = S.busy || (S.conn !== 'error' && S.conn !== 'offline');
   const box = $('#actions');
   if (!box) return;
   const d = dirty();
