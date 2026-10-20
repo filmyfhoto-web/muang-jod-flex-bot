@@ -15,6 +15,8 @@ import { isWakeWord } from './wake.js';
 import { createVisitTracker, HOUR } from './visit.js';
 import { createSerial } from './serial.js';
 import { menuCommandReply } from './richmenu.js';
+import { createAppFlow } from './app/flow.js';
+import { sameAdmin } from './app/names.js';
 
 const token = (process.env.LINE_CHANNEL_ACCESS_TOKEN ?? '').trim();
 const secret = (process.env.LINE_CHANNEL_SECRET ?? '').trim();
@@ -26,13 +28,24 @@ if (!token || !secret) {
 // Public https address of this server — Render sets RENDER_EXTERNAL_URL itself.
 const baseUrl = process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || '';
 
+// The NATTA GROUP app's features (order cards, shop menu, "talk to an admin", project documents) — see app/flow.js.
+// null = off (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set); it is created at the bottom of this file.
+let appFlow = null;
+const appMenuOn = () => Boolean(appFlow?.status().menu); // the app's menu card greets every first message of a visit
+
 const shopFile = fileURLToPath(new URL('../data/shop.json', import.meta.url));
 // Re-read on every message so the owner can edit shop.json without a restart.
-const loadShop = () => ({
-  ...JSON.parse(readFileSync(shopFile, 'utf8')),
-  iconUrl: iconUrlFor(baseUrl),
-  assetBase: iconUrlFor(baseUrl) ? baseUrl.replace(/\/+$/, '') : null,
-});
+const loadShop = () => {
+  const shop = {
+    ...JSON.parse(readFileSync(shopFile, 'utf8')),
+    iconUrl: iconUrlFor(baseUrl),
+    assetBase: iconUrlFor(baseUrl) ? baseUrl.replace(/\/+$/, '') : null,
+  };
+  // While the app's menu card is on, this bot does not also ask "who do you want to talk to?" on a first hello
+  // (two menus in a row).
+  if (appMenuOn()) shop.contact = { ...(shop.contact ?? {}), sessionAsk: false };
+  return shop;
+};
 loadShop(); // fail fast on a broken file
 
 const app = express();
@@ -49,7 +62,7 @@ const send = (messages) => {
   return withSender(messages, baseUrl, qr);
 };
 app.get('/', (_req, res) => res.type('text/plain; charset=utf-8').send('บอทร้านนัฐภรณ์ เชียงกลาง ทำงานอยู่ ✅'));
-app.get('/health', (_req, res) => res.json({ ok: true }));
+app.get('/health', (_req, res) => res.json({ ok: true, app: appFlow ? 'on' : 'off' }));
 
 app.post('/webhook', express.raw({ type: '*/*' }), (req, res) => {
   if (!verifySignature(req.body, req.get('x-line-signature'), secret)) return res.sendStatus(401);
@@ -58,6 +71,14 @@ app.post('/webhook', express.raw({ type: '*/*' }), (req, res) => {
   try {
     events = JSON.parse(req.body.toString('utf8')).events ?? [];
   } catch {
+    return;
+  }
+  if (appFlow) {
+    // The app's features answer first; what they do not answer comes back to runOthers (below) one event at a time.
+    for (const ev of events) console.log(describeEvent(ev));
+    const who = events.find((e) => e.source?.userId)?.source.userId;
+    const job = () => appFlow.handle(req.body.toString('utf8'), req.get('x-line-signature'), events);
+    (who ? serial.run(who, job) : job()).catch((e) => console.error('[app]', e.message));
     return;
   }
   for (const ev of events) {
@@ -251,6 +272,7 @@ async function handleEvent(ev) {
         messages = await withAsk(shopNow, []);
         visits.done(userId);
       }
+      if (appMenuOn() && r.greeting && !r.menuRequest) messages = []; // the app's menu card already greets; a bare hello needs no second menu
       if (r.alertAdmins && hasContacts) escalate(userId, said, shopNow, cfg, 'ลูกค้าสั่งงาน/สั่งของ'); // an order: the admins are told too
       if (r.silent && !r.quiet && hasContacts) {
         // Not understood: nobody is alerted (there are too many such questions a day). The
@@ -307,6 +329,53 @@ const receipt = (shopNow) => (shopNow.contact?.receivedNote ? [{ type: 'text', t
 function escalate(userId, said, shop, cfg, reason) {
   if (userId === 'anon' || !contacts.alertDue(userId, cfg.alertEveryMs)) return;
   void notifyAdmins(people(shop), shop, { customerId: userId, contact: null, said, reason });
+}
+
+// ---- the app's features (app/flow.js) ----------------------------------------------------------------------------
+// What the app's features do not answer comes back here, one event at a time, still inside that customer's turn.
+async function runOthers(events) {
+  for (const ev of events) {
+    try {
+      await handleEvent(ev);
+    } catch (e) {
+      console.error('[event]', e.message);
+    }
+  }
+}
+
+// A customer picked an admin in the app's card: the chosen person is told (a push), like when they pick in this bot's own card.
+async function onPick(ev, admin) {
+  const customerId = ev.source?.userId;
+  let shop;
+  try {
+    shop = loadShop();
+  } catch {
+    return;
+  }
+  if (!customerId || shop.contact?.notify === false) return;
+  const person = people(shop).find((p) => sameAdmin(p.name, admin.name));
+  if (!person) return; // no LINE id for that name in shop.json
+  const cfg = contactCfg(shop);
+  if (!contacts.alertDue(`pick:${customerId}:${person.name}`, cfg.alertEveryMs)) return;
+  await notifyAdmins([person], shop, { customerId, contact: person, said: '' });
+}
+
+try {
+  appFlow = await createAppFlow({
+    env: process.env,
+    others: runOthers,
+    onPick,
+    paused: () => {
+      try {
+        return isPaused(loadShop(), process.env) || quiet.allPaused();
+      } catch {
+        return false;
+      }
+    },
+  });
+} catch (e) {
+  console.error('[app] failed to start, the app features stay off:', e.message); // never stops the bot itself from starting
+  appFlow = null;
 }
 
 const port = Number(process.env.PORT) || 3000;
