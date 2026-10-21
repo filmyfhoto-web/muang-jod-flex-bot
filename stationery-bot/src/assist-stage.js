@@ -8,7 +8,7 @@
 //       admins  → only the people listed in faq_bot.admins are answered by this engine (a trial run); everybody else as before
 //       all     → everybody is answered by this engine
 // No database settings, an unreadable row or a missing module all mean "off": the Render bot's own answers reply.
-import { parseAdminCommand } from './quiet.js';
+import { parseAdminCommand, isWhoAmI } from './quiet.js';
 
 const within = (promise, ms) =>
   Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timed out')), ms).unref?.())]);
@@ -63,10 +63,12 @@ export async function createAssistStage({ env = process.env, fetch: doFetch = fe
   }
 
   const userOf = (ev) => (ev?.source?.type === 'user' ? ev.source.userId : '');
-  // Commands only the Render bot knows (installing / removing the rich menu) always go to it.
+  // The admin commands (ปิดบอท / เปิดบอท / โควตา / ไอดีฉัน / ติดตั้งเมนู / ลบเมนู) always go to the Render bot: its pause switch
+  // sits in front of every layer (the app's cards, this engine, its own answers), while this engine's own pause only reaches the
+  // customers this engine answers — in the trial mode an admin's "ปิดบอท" would silence nobody.
   const renderOnly = (ev) => {
-    const cmd = ev?.type === 'message' && ev.message?.type === 'text' ? parseAdminCommand(ev.message.text) : null;
-    return cmd?.type === 'menuInstall' || cmd?.type === 'menuRemove';
+    if (ev?.type !== 'message' || ev.message?.type !== 'text') return false;
+    return isWhoAmI(ev.message.text) || Boolean(parseAdminCommand(ev.message.text));
   };
 
   return {

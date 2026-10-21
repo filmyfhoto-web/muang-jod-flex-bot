@@ -44,11 +44,13 @@ test('mode off → nobody; admins → only the listed people; all → everybody'
   assert.equal(await all.mode(), 'all');
 });
 
-test('installing / removing the rich menu always stays with the Render bot', async () => {
-  const all = await setup({ mode: 'all' }).make();
-  assert.equal(await all.takes(textEv('ติดตั้งเมนู', ADMINS[0].userId)), false);
-  assert.equal(await all.takes(textEv('ลบเมนู', ADMINS[0].userId)), false);
-  assert.equal(await all.takes(textEv('ปิดบอท 2', ADMINS[0].userId)), true);
+test('the admin commands always stay with the Render bot, in every mode (its pause switch is in front of every layer)', async () => {
+  const words = ['ติดตั้งเมนู', 'ลบเมนู', 'ปิดบอท 2', 'เปิดบอท', 'แอดมินออนไลน์', 'โควตา', 'ไอดีฉัน'];
+  for (const mode of ['admins', 'all']) {
+    const s = await setup({ mode }).make();
+    for (const w of words) assert.equal(await s.takes(textEv(w, ADMINS[0].userId)), false, `${mode}: ${w}`);
+    assert.equal(await s.takes(textEv('เวลาเปิดร้าน', ADMINS[0].userId)), true, `${mode}: an ordinary question is still the engine's`);
+  }
 });
 
 test('settings that cannot be read: the stage declines (the Render bot answers) and does not throw', async () => {

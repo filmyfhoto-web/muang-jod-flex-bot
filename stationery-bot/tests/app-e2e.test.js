@@ -268,6 +268,21 @@ test('the Studio\'s engine: faq_bot.mode "all" answers everybody with the rules 
   setMode('all');
   await new Promise((r) => setTimeout(r, 450));
   assert.equal((await ask('U' + '4'.repeat(32))).text, 'ข้อความจากหน้า Studio', 'all: everybody');
+
+  // an admin's "ปิดบอท" is the Render bot's own and silences everybody, in the trial mode too; "เปิดบอท" brings it back
+  setMode('admins');
+  await new Promise((r) => setTimeout(r, 450));
+  const n = replies().length;
+  await post(text('ปิดบอท 1', piin.userId));
+  assert.match((await until(() => replies().length > n && replies().at(-1))).body.messages[0].text, /ปิดบอทชั่วคราว 1 ชั่วโมง/);
+  const m = replies().length;
+  await post(text('เวลาเปิดร้าน', 'U' + '3'.repeat(32)));
+  await new Promise((r) => setTimeout(r, 400));
+  assert.equal(replies().length, m, 'paused: a customer gets nothing');
+  const k = replies().length;
+  await post(text('เปิดบอท', piin.userId));
+  assert.match((await until(() => replies().length > k && replies().at(-1))).body.messages[0].text, /เปิดบอทแล้ว/);
+  assert.equal((await ask('U' + '8'.repeat(32))).type, 'flex', 'resumed: customers are answered again (by the Render bot: the trial mode is for admins only)');
 });
 
 test('a database address or key that does not work: /health says no-db and the Render bot still answers', async (t) => {
