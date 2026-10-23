@@ -1,0 +1,47 @@
+{
+  "manifestVersion": 5,
+  "id": "com.nongploy.nestingcut.ps",
+  "name": "Nong Ploy Nesting Cut",
+  "version": "1.0.0",
+  "main": "photoshop.html",
+  "host": {
+    "app": "PS",
+    "minVersion": "23.3.0"
+  },
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "nestingCutPanel",
+      "label": {
+        "default": "นัดพอน Nesting Cut"
+      },
+      "minimumSize": { "width": 260, "height": 360 },
+      "maximumSize": { "width": 900, "height": 2400 },
+      "preferredDockedSize": { "width": 320, "height": 640 },
+      "preferredFloatingSize": { "width": 340, "height": 700 },
+      "icons": [
+        {
+          "width": 23,
+          "height": 23,
+          "path": "assets/icons/panel.png",
+          "scale": [1, 2],
+          "theme": ["all"],
+          "species": ["chrome"]
+        }
+      ]
+    }
+  ],
+  "icons": [
+    {
+      "width": 48,
+      "height": 48,
+      "path": "assets/icons/plugin.png",
+      "scale": [1, 2],
+      "theme": ["all"],
+      "species": ["pluginList"]
+    }
+  ],
+  "requiredPermissions": {
+    "localFileSystem": "request"
+  }
+}
