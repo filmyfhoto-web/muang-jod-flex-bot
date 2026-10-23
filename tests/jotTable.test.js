@@ -68,6 +68,19 @@ test('บันทึกแล้วมี ใบแจ้งยอด/ใบเ
   assert.match(js, /\$\('#d-bill'\)\.hidden = !String\(job\.customer_name/);
 });
 
+/* ร้านถาม "ทำไมดูในคอมไม่ขึ้น" หลังอัปเดต — ของเดิม maxAge 5 นาทีให้เบราว์เซอร์
+ * จำหน้าแบบไม่ถามเซิร์ฟเวอร์ แท็บบนคอมที่เปิดค้างจึงโชว์หน้าเก่า
+ */
+test('หน้าแอปเช็กของใหม่กับเซิร์ฟเวอร์ทุกครั้ง — อัปเดตแล้วคอมเห็นของใหม่หลังรีเฟรชธรรมดา', async () => {
+  const { readFileSync } = await import('node:fs');
+  const server = readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
+  // no-cache = ถามทุกครั้ง ไฟล์ไม่เปลี่ยนได้ 304 ถูก ๆ — ห้ามกลับไปใช้ maxAge กับหน้าแอป
+  assert.match(server, /setHeaders: \(res\) => res\.set\('Cache-Control', 'no-cache'\)/);
+  assert.ok(!/express\.static\('public\/liff', \{ maxAge/.test(server), 'หน้าแอปถูกจำแบบไม่ถามอีกแล้ว');
+  // รูปโลโก้/มาสคอตนาน ๆ เปลี่ยนที จำยาว ๆ ได้เหมือนเดิม
+  assert.match(server, /express\.static\('public\/brand', \{ maxAge: '1d' \}\)/);
+});
+
 test('โทนส้ม-กรม-ขาว ย้ายพร้อมกันทุกหน้า และฟอนต์ระบบแบบไอโฟนนำหน้า', () => {
   // ค่ากลางอยู่ theme.js — การ์ดในแชตกับหน้าเว็บทุกหน้าถือ --gold ตัวเดียวกัน
   assert.equal(COLORS.gold.toLowerCase(), '#ee7b2f', 'ส้มกลางของการ์ดแชตหาย');
