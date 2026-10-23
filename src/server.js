@@ -35,7 +35,17 @@ app.use('/brand', express.static('public/brand', { maxAge: '1d' }));
 // LIFF web app (dashboard + edit form) and the JSON API behind it.
 const { default: apiRouter } = await import('./routes/api.js');
 const { default: receiptRouter } = await import('./routes/receipt.js');
-app.use('/app', express.static('public/liff', { maxAge: '5m', extensions: ['html'] }));
+/* หน้าแอปห้ามให้เบราว์เซอร์จำแบบไม่ถาม (no-cache = เช็กกับเซิร์ฟเวอร์ทุกครั้ง
+ * ไฟล์ไม่เปลี่ยนได้ 304 ถูก ๆ) — ของเดิม maxAge 5 นาทีทำให้คอมของร้านที่เปิด
+ * หน้าเดิมค้างไว้เห็นหน้าตาเก่าหลังอัปเดต ("ทำไมดูในคอมไม่ขึ้น") กดรีเฟรช
+ * หนึ่งทีหลังจากนี้ ทุกครั้งต่อไปจะได้ของใหม่เสมอ */
+app.use(
+  '/app',
+  express.static('public/liff', {
+    extensions: ['html'],
+    setHeaders: (res) => res.set('Cache-Control', 'no-cache'),
+  })
+);
 app.use('/api', apiRouter);
 
 // Printable receipt, readable by anyone holding the bill's share token.
