@@ -257,12 +257,12 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
 .thead,
 .track > .item > .row {
   display: grid;
-  grid-template-columns: minmax(96px, 1.3fr) 96px 42px 66px minmax(58px, auto) 26px;
+  grid-template-columns: minmax(96px, 1.3fr) 96px 46px 66px minmax(58px, auto) 26px;
   gap: 0;
   align-items: stretch;
 }
 .thead { background: var(--accent-soft); }
-.thead span { font-size: 11.5px; font-weight: 700; color: var(--accent-text); padding: 8px 7px; }
+.thead span { font-size: 11.5px; font-weight: 700; color: var(--accent-text); padding: 8px 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thead .num { text-align: right; }
 /* เส้นตั้งของตาราง: ทุกช่อง (หัวและแถว) มีเส้นซ้าย ยกเว้นช่องแรก */
 .thead > span + span,
@@ -299,19 +299,25 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
 .track .size-cell input { padding-left: 2px; padding-right: 2px; }
 .size-cell .x { flex: 0 0 auto; color: var(--grey); font-size: 12px; }
 .qty-cell { position: relative; }
-/* ช่องเงินช่องเดียวที่ต้องกรอก — หน่วยตามชนิดงาน (ตร.ม.ละ/บานละ) ห้อยใต้ช่อง */
-.rate-field { display: flex; flex-direction: column; justify-content: center; }
+/* ช่องเงินช่องเดียวที่ต้องกรอก — หน่วยตามชนิดงาน (ตร.ม.ละ/บานละ) ห้อยติดขอบ
+   ล่างในช่องตัวเอง (ตำแหน่งตายตัว ไม่ดันความสูงจนป้ายล้นทับเส้นแถว) */
+.rate-field { position: relative; }
+.track .row .rate-field input { min-height: 48px; padding-bottom: 16px; }
 .track .row .rate-field .rate-label {
-  display: block;
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  bottom: 2px;
+  margin: 0;
   font-size: 9.5px;
   font-weight: 600;
   color: var(--sub);
-  margin: -4px 4px 4px;
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   text-align: center;
+  pointer-events: none;
 }
 .rate-field input { color: var(--accent-text); font-weight: 700; }
 /* ยอดท้ายแถวเป็นปุ่มเต็มช่องตาราง: แตะ = เปิดตั้งราคาเอง/รายละเอียด/รูป
@@ -334,6 +340,7 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
   text-decoration: underline dashed color-mix(in srgb, var(--gold) 55%, transparent);
   text-underline-offset: 3px;
 }
+.row-amt:hover { background: var(--gold-soft); }
 .row-amt.on { color: var(--white); background: var(--gold); text-decoration: none; }
 .row .del { padding: 8px 2px; font-size: 13px; }
 .hintline { margin: 7px 2px 0; font-size: 11px; color: var(--grey); line-height: 1.5; }
@@ -734,6 +741,11 @@ body.quick .link-full { display: block; }
  * เพราะมันคือทางที่เร็วกว่า ไม่ใช่ของเสริมที่ซ่อนไว้ข้างล่าง
  */
 .paste { margin-bottom: 14px; }
+/* พับเป็นแถบบาง ๆ จนกว่าจะใช้ — หัวแถบคือตัวเปิด/ปิด */
+.paste > summary { list-style: none; cursor: pointer; user-select: none;
+  font-size: 13.5px; font-weight: 700; color: var(--accent-text); }
+.paste > summary::-webkit-details-marker { display: none; }
+.paste[open] > summary { margin-bottom: 6px; }
 .paste textarea {
   width: 100%; box-sizing: border-box; margin-top: 10px;
   border: 1.5px solid var(--line); border-radius: 12px; padding: 11px 12px;
