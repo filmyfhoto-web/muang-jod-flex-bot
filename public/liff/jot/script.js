@@ -1221,6 +1221,9 @@ async function pasteFill() {
       more ? 'bad' : 'good'
     );
     box.value = '';
+    // กรอกเสร็จแล้วพับแถบลง ให้ตารางที่เพิ่งเติมเป็นพระเอก (เหลือทิ้งไว้ตอนอ่าน
+    // ไม่ครบ จะได้เห็นข้อความบอกว่าเหลืออีกกี่งาน)
+    if (!more) $('#paste').open = false;
   } catch (err) {
     say(err.message || 'อ่านไม่ออกค่ะ', 'bad');
   } finally {
