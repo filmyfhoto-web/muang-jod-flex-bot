@@ -1,4 +1,5 @@
 // LINE Flex Message builders. Everything here is plain data → easy to test.
+import { fmtQty } from './picklist.js';
 
 // Pastel palette: cream paper, apricot / butter-yellow / powder-blue accents, black
 // for the one button that matters. shop.theme (an object) may override any key.
@@ -350,6 +351,65 @@ export function notifyCard(shop, { reason, title, customerName, customerPhoto, c
       ...(link
         ? { footer: { type: 'box', layout: 'vertical', contents: [uriButton(shop.contact?.chatLinkLabel || 'เปิดแชทตอบลูกค้า', link, shop)] } }
         : {}),
+    })
+  );
+}
+
+// "มีรายการสั่งจัดของ": a customer's order written as a list in the chat, tidied into lines for the admins
+// (see picklist.js). `items` are the lines shown, `more` how many did not fit; both buttons are optional.
+export function pickListCard(shop, { customerName, customerPhoto, items, more = 0, note = '', link, appUrl, altText }) {
+  const P = pal(shop);
+  const total = items.length + more;
+  const who = [
+    ...(customerPhoto ? [avatar(customerPhoto, 48)] : []),
+    {
+      type: 'box',
+      layout: 'vertical',
+      flex: 1,
+      justifyContent: 'center',
+      contents: [
+        text(`ไลน์ชื่อ ${customerName || 'ไม่ทราบชื่อ'}`, { weight: 'bold', size: 'md' }),
+        text(`${total} รายการ`, { size: 'xs', color: P.muted }),
+      ],
+    },
+  ];
+  const rows = items.map((it) => ({
+    type: 'box',
+    layout: 'horizontal',
+    spacing: 'md',
+    contents: [
+      text(clip(it.name, 60), { size: 'sm', flex: 5 }),
+      text(`× ${fmtQty(it.qty)}${it.unit ? ' ' + clip(it.unit, 14) : ''}`, { size: 'sm', weight: 'bold', flex: 3, align: 'end' }),
+    ],
+  }));
+  const buttons = [
+    ...(link ? [uriButton(shop.contact?.chatLinkLabel || 'เปิดแชทตอบลูกค้า', link, shop)] : []),
+    ...(appUrl ? [uriButton('เปิดหน้าออเดอร์ในแอป', appUrl, shop)] : []),
+  ];
+  return flex(
+    altText,
+    bubble(shop, {
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: P.cream,
+        paddingAll: 'lg',
+        contents: [text('📋 มีรายการสั่งจัดของ', { weight: 'bold', size: 'md' })],
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'md',
+        contents: [
+          { type: 'box', layout: 'horizontal', spacing: 'md', alignItems: 'center', contents: who },
+          { type: 'separator' },
+          { type: 'box', layout: 'vertical', spacing: 'sm', contents: rows },
+          ...(more > 0 ? [text(`…และอีก ${more} รายการ ดูทั้งหมดในแชท`, { size: 'xs', color: P.muted })] : []),
+          ...(note ? [text(`“${clip(note, 120)}”`, { size: 'sm', color: P.ink })] : []),
+          text('ตอบในแอป LINE Official Account ของร้าน (ไม่ใช่ห้องแชทนี้)', { size: 'xs', color: P.muted }),
+        ],
+      },
+      ...(buttons.length ? { footer: { type: 'box', layout: 'vertical', spacing: 'sm', contents: buttons } } : {}),
     })
   );
 }

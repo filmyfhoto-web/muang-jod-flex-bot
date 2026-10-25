@@ -368,6 +368,13 @@
     "documentWords": ["ส่งเอกสารโครงการ", "เอกสารโครงการ"],
     "documentAsk": "ส่งไฟล์เอกสารโครงการมาในแชทนี้ได้เลยค่ะ 😊 แล้วเลือกแอดมินที่ต้องการติดต่อด้านล่างนะคะ"
   },
+  "pickList": {
+    "enabled": true,
+    "reply": "",
+    "appUrl": "https://www.nattagroup.com/#weborders",
+    "maxLines": 12,
+    "followMinutes": 10
+  },
   "richMenu": {
     "enabled": false,
     "name": "stationery-bot-menu",

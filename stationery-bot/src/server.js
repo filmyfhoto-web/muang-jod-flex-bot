@@ -4,8 +4,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { verifySignature, replyMessage, pushMessage, getProfile, getProfileCached, getBotUserId, getMessageContent, getQuota, quotaText, chatLink, describeEvent } from './line.js';
 import { buildReply, welcomeMessage, withSender, iconUrlFor, thanksReply, quick } from './replies.js';
-import { contactCard } from './flex.js';
-import { isThanksSticker, isThanks, isMenuTap, normalize } from './matcher.js';
+import { contactCard, pickListCard } from './flex.js';
+import { isThanksSticker, isThanks, isMenuTap, normalize, matchIntent } from './matcher.js';
 import { applyHoliday, createNoticeTracker } from './holiday.js';
 import { createContactState, findContact, notificationCard, contactPhotos, people } from './contact.js';
 import { readSlip, slipReply, readerOn } from './slip.js';
@@ -15,6 +15,7 @@ import { isWakeWord } from './wake.js';
 import { createVisitTracker, HOUR } from './visit.js';
 import { createSerial } from './serial.js';
 import { menuCommandReply } from './richmenu.js';
+import { parsePickList, pickListKey, pickListAltText, pickListPushText } from './picklist.js';
 import { createAppFlow } from './app/flow.js';
 import { sameAdmin } from './app/names.js';
 import { createAssistStage } from './assist-stage.js';
@@ -178,14 +179,19 @@ function later(secs, fn) {
 
 const adminPhotos = (shop) => contactPhotos(shop, (id) => getProfileCached(id, token));
 
-// Pops up on the admins' LINE as a card from the OA. `to` = the people to tell.
-async function notifyAdmins(to, shop, { customerId, contact, said, reason }) {
-  if (shop.contact?.notify === false) return; // the shop relies on the OA app's own alerts
+// The customer's LINE profile (name, picture) and the link that opens their chat in the OA app.
+function customerAndLink(shop, customerId) {
   const template = shop.contact?.chatLinkTemplate;
-  const [customer, link] = await Promise.all([
+  return Promise.all([
     getProfile(customerId, token),
     template?.includes('{bot}') ? getBotUserId(token).then((b) => chatLink(b, customerId, template)) : chatLink(null, customerId, template),
   ]);
+}
+
+// Pops up on the admins' LINE as a card from the OA. `to` = the people to tell.
+async function notifyAdmins(to, shop, { customerId, contact, said, reason }) {
+  if (shop.contact?.notify === false) return; // the shop relies on the OA app's own alerts
+  const [customer, link] = await customerAndLink(shop, customerId);
   const contactProfile = contact?.userId ? await getProfileCached(contact.userId, token) : null;
   const card = notificationCard(shop, { customer, contact: contact && { ...contact, picture: contactProfile?.picture }, said, link, reason });
   for (const p of to) {
@@ -196,6 +202,78 @@ async function notifyAdmins(to, shop, { customerId, contact, said, reason }) {
       console.error('[notify]', p.name, e.message);
     }
   }
+}
+
+// ---- a customer's order written as a list in the chat (picklist.js) ----------------------------------------------------
+const recentLists = new Map(); // userId → { at, notes }: a list the admins were just told about (a remark that follows it goes to them too)
+
+// A card with the tidied list on every admin's LINE, and a note on the staff phones that use the shop's web app.
+async function notifyPickList(shop, { customerId, list }) {
+  const cfg = shop.pickList ?? {};
+  const [customer, link] = await customerAndLink(shop, customerId);
+  const shown = list.items.slice(0, Math.max(1, Math.min(Number(cfg.maxLines) || 12, 20)));
+  const appUrl = cfg.appUrl === '' ? '' : cfg.appUrl || 'https://www.nattagroup.com/#weborders';
+  if (shop.contact?.notify !== false) {
+    const card = pickListCard(shop, {
+      customerName: customer?.name,
+      customerPhoto: customer?.picture,
+      items: shown,
+      more: list.items.length - shown.length,
+      note: list.note,
+      link,
+      appUrl,
+      altText: pickListAltText({ customer: customer?.name, count: list.items.length }),
+    });
+    for (const p of people(shop)) {
+      if (!p.userId) continue;
+      try {
+        await pushMessage(p.userId, withSender([card], null, quick(shop)), token);
+      } catch (e) {
+        console.error('[picklist]', p.name, e.message);
+      }
+    }
+  }
+  const tag = `pick${Date.now().toString(36)}`; // one notification per list (a fixed tag would replace the one before)
+  await appFlow?.notifyApp({ title: '📋 มีรายการสั่งจัดของ', body: pickListPushText({ customer: customer?.name, items: list.items }), path: '/#weborders', tag }).catch(() => false);
+}
+
+// What the customer wrote right after the list ("ประมาณวันที่ 28 ครูจะมารับ"): one line to the admins.
+async function notifyPickNote(shop, { customerId, said }) {
+  if (shop.contact?.notify === false) return;
+  const customer = await getProfile(customerId, token);
+  const msg = { type: 'text', text: `📝 ข้อความต่อจากรายการสั่งจัดของ — ไลน์ชื่อ ${customer?.name || 'ไม่ทราบชื่อ'}\n“${String(said).replace(/\s+/g, ' ').trim().slice(0, 300)}”` };
+  for (const p of people(shop)) {
+    if (!p.userId) continue;
+    try {
+      await pushMessage(p.userId, [msg], token);
+    } catch (e) {
+      console.error('[picklist]', p.name, e.message);
+    }
+  }
+}
+
+// true = `said` is an order list and has been dealt with: the admins are told, the customer gets nothing (unless
+// shop.pickList.reply holds a sentence for them) and the other answers stay out of it.
+async function pickListIfAny(ev, shop, userId, said) {
+  const cfg = shop.pickList ?? {};
+  if (cfg.enabled === false || !userId || userId === 'anon' || ev._pickChecked) return false;
+  ev._pickChecked = true; // runOthers checks first and then hands the event to handleEvent: one look per message
+  const list = parsePickList(said);
+  if (!list) {
+    // a remark the bot cannot answer, within a few minutes after a list, goes to the admins as well
+    const rec = recentLists.get(userId);
+    if (rec && Date.now() - rec.at < (Number(cfg.followMinutes) || 10) * 60_000 && rec.notes < 3 && matchIntent(said, shop).type === 'fallback') {
+      rec.notes++;
+      void notifyPickNote(shop, { customerId: userId, said });
+    }
+    return false;
+  }
+  if (!contacts.alertDue(`picklist:${userId}:${pickListKey(said)}`, 10 * 60_000)) return true; // the same list again: the admins know
+  recentLists.set(userId, { at: Date.now(), notes: 0 });
+  if (recentLists.size > 2000) for (const [k, v] of recentLists) if (Date.now() - v.at > 3_600_000) recentLists.delete(k);
+  void notifyPickList(shop, { customerId: userId, list }).catch((e) => console.error('[picklist]', e.message));
+  if (cfg.reply) await replyMessage(ev.replyToken, [{ type: 'text', text: String(cfg.reply).slice(0, 1000) }], token).catch((e) => console.error('[picklist]', e.message));
+  return true;
 }
 
 async function handleEvent(ev) {
@@ -237,6 +315,9 @@ async function handleEvent(ev) {
     if (cmd) return replyMessage(ev.replyToken, [{ type: 'text', text: adminReply(cmd, shop) }], token);
     // An admin silenced the bot for everyone: say nothing.
     if (quiet.allPaused()) return;
+
+    // An order written as a list: the admins are told (even while the customer is talking to one of them).
+    if (await pickListIfAny(ev, shop, userId, said)) return;
 
     // The customer chose whom to contact → the bot goes quiet and that person is told.
     const chosen = hasContacts ? findContact(said, shop) : null;
@@ -349,6 +430,11 @@ async function runOthers(events) {
     /* an unreadable shop file is reported by handleEvent below */
   }
   for (const ev of events) {
+    try {
+      if (ev?.type === 'message' && ev.message?.type === 'text' && ev.source?.type === 'user' && (await pickListIfAny(ev, loadShop(), ev.source.userId, ev.message.text))) continue;
+    } catch (e) {
+      console.error('[picklist]', e.message);
+    }
     let viaAssist = false;
     try {
       viaAssist = assist ? await assist.takes(ev) : false; // the Reply Studio's engine, per faq_bot.mode (off / admins / all)
@@ -378,6 +464,16 @@ function isOwnCommand(ev) {
   }
 }
 
+// Is this an order written as a list? (the app flow lets the shop menu stay out of it, see app/bot.js)
+function isPickListEvent(ev) {
+  if (ev?.type !== 'message' || ev.message?.type !== 'text' || ev.source?.type !== 'user' || !ev.source.userId) return false;
+  try {
+    return loadShop().pickList?.enabled !== false && Boolean(parsePickList(ev.message.text));
+  } catch {
+    return false;
+  }
+}
+
 // A customer picked an admin in the app's card: the chosen person is told (a push), like when they pick in this bot's own card.
 async function onPick(ev, admin) {
   const customerId = ev.source?.userId;
@@ -402,6 +498,7 @@ try {
     others: runOthers,
     onPick,
     skip: isOwnCommand,
+    pickList: isPickListEvent,
     paused: () => {
       try {
         return isPaused(loadShop(), process.env) || quiet.allPaused();

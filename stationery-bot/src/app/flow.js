@@ -16,7 +16,7 @@ const SETTINGS_STALE = 10 * 60_000; // …and how long the last good copy is use
 const within = (promise, ms) =>
   Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timed out')), ms).unref?.())]);
 
-export async function createAppFlow({ env = process.env, fetch: doFetch = fetch, others, onPick, skip, paused = () => false, log = console, now = () => Date.now(), store: injected } = {}) {
+export async function createAppFlow({ env = process.env, fetch: doFetch = fetch, others, onPick, skip, pickList, paused = () => false, log = console, now = () => Date.now(), store: injected } = {}) {
   if (typeof others !== 'function') throw new TypeError('createAppFlow needs an `others` function');
   const url = String(env.SUPABASE_URL ?? '').trim().replace(/\/+$/, '');
   const key = String(env.SUPABASE_SERVICE_ROLE_KEY ?? '').trim();
@@ -90,6 +90,15 @@ export async function createAppFlow({ env = process.env, fetch: doFetch = fetch,
     }
   };
 
+  // A customer's order written as a list in the chat: the Render bot tells the admins (a failing check counts as "not a list").
+  const isList = (ev) => {
+    try {
+      return Boolean(pickList?.(ev));
+    } catch {
+      return false;
+    }
+  };
+
   const bot = createBotHandler({
     store,
     fetch: doFetch,
@@ -103,6 +112,7 @@ export async function createAppFlow({ env = process.env, fetch: doFetch = fetch,
     others: runOthers,
     onPick,
     skip: isOwn,
+    pickList: isList,
   });
 
   return {
@@ -131,6 +141,24 @@ export async function createAppFlow({ env = process.env, fetch: doFetch = fetch,
       }
       if (out?.error) log.error?.('[app]', out.error, String(out.message ?? '').slice(0, 120));
       return out;
+    },
+    // A short note for the staff who use the shop's web app (a push to their phones; tapping it opens `path`, e.g. "/#weborders").
+    // The key lives in the shop's database (app_secrets) and is never logged. → false when it could not be sent.
+    async notifyApp({ title, body, path = '/', tag = 'note' }) {
+      if (!url || !(await settingsOk())) return false;
+      try {
+        const key = await within(base.getSecret('push_hook_key'), SETTINGS_WAIT);
+        if (!key) return false;
+        const res = await doFetch(`${url}/functions/v1/push-notify`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ action: 'notify', key, title, body, url: path, tag }),
+          signal: AbortSignal.timeout(8000),
+        });
+        return res.ok;
+      } catch {
+        return false;
+      }
     },
     // Can the shop's database be reached with the key that was given? (what /health reports)
     check: () => settingsOk(),

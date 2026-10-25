@@ -27,6 +27,7 @@ async function setup(opts = {}) {
       picks.push({ uid: ev.source.userId, admin: admin.name });
     },
     skip: opts.skip,
+    pickList: opts.pickList,
     paused: () => isPaused,
   });
   const send = (...events) => flow.handle(batch(...events), 'sig', events);
@@ -226,6 +227,56 @@ test('while the bot is paused customers get nothing, but an admin\'s own command
   assert.equal(out.bypass, 'paused');
   assert.equal(t.calls.length, 0);
   assert.deepEqual(t.got.map((e) => e.message?.text), ['เปิดบอท']);
+});
+
+// ---- an order written as a list ---------------------------------------------------------------------------------
+
+const isList = (ev) => ev.type === 'message' && /=\d/.test(String(ev.message?.text ?? '')); // stands in for server.js's isPickListEvent
+const LIST = 'ไม้กวาดทางมะพร้าว=10\nไม้ถูพื้น=10\nน้ำยาล้างจาน=1แกลอน';
+
+test('an order written as a list goes to the Render bot: the shop menu stays out of it and out of the remark that follows', async () => {
+  const t = await setup({ line_bot: settings({ menu_card: true }), pickList: isList });
+  await t.send(textEv(LIST));
+  assert.equal(t.replies().length, 0, 'no menu card for a list');
+  assert.equal(t.got.length, 1);
+  assert.ok(t.fake.chatOf(OWNER).seen_ms, 'the customer counts as having visited');
+  await t.send(textEv('ฝากจัดของตามนี้ครับ ประมาณวันที่ 28'));
+  assert.equal(t.replies().length, 0, 'the remark that follows is not met with the menu either');
+  assert.equal(t.got.length, 2);
+  // somebody else\'s first message is still a first message
+  await t.send(textEv('สวัสดีค่ะ', OTHER));
+  assert.deepEqual(kinds(t.replies().at(-1).body.messages), ['text', 'imagemap']);
+});
+
+test('a list sent while the customer is talking to an admin is not lost: the Render bot gets it', async () => {
+  const t = await setup({ line_bot: settings({ admin_pick: true, menu_card: true, admins: [{ name: 'เจ้ปิ่น', note: '' }] }), pickList: isList });
+  await t.send(textEv('คุยกับเจ้ปิ่น'));
+  assert.equal(t.fake.chatOf(OWNER).mode, 'admin');
+  const n = t.replies().length;
+  await t.send(textEv(LIST));
+  assert.equal(t.replies().length, n, 'the app says nothing');
+  assert.equal(t.got.length, 1, 'the list is passed on');
+  await t.send(textEv('ขอราคาโฟมบอร์ด')); // an ordinary message in the quiet window is still silent
+  assert.equal(t.got.length, 1);
+});
+
+test('a failing list check counts as "not a list"', async () => {
+  const t = await setup({ line_bot: settings({ menu_card: true }), pickList: () => { throw new Error('boom'); } });
+  await t.send(textEv(LIST));
+  assert.deepEqual(kinds(t.replies().at(-1).body.messages), ['text', 'imagemap']);
+});
+
+test('notifyApp: a push to the staff of the shop\'s web app, with the key read from the database and never logged', async () => {
+  const t = await setup({ secrets: { push_hook_key: 'hook-secret' } });
+  await t.send(textEv('x')); // reads the settings once
+  assert.equal(await t.flow.notifyApp({ title: '📋 มีรายการสั่งจัดของ', body: 'ไลน์ชื่อ ปู่ · 3 รายการ', path: '/#weborders', tag: 'picktest' }), true);
+  const call = t.calls.find((c) => c.url === 'https://proj.supabase.co/functions/v1/push-notify');
+  assert.deepEqual(call.body, { action: 'notify', key: 'hook-secret', title: '📋 มีรายการสั่งจัดของ', body: 'ไลน์ชื่อ ปู่ · 3 รายการ', url: '/#weborders', tag: 'picktest' });
+  // no key in the database → nothing is sent
+  const u = await setup();
+  await u.send(textEv('x'));
+  assert.equal(await u.flow.notifyApp({ title: 't', body: 'b' }), false);
+  assert.equal(u.calls.filter((c) => c.url.includes('push-notify')).length, 0);
 });
 
 test('settings that cannot be read: everything goes to the Render bot and nothing is sent by the app', async () => {

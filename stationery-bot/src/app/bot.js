@@ -7,6 +7,8 @@
 //   2. deps.onPick(ev, admin) — called after a customer picked an admin, so the chosen person can be told.
 //   3. deps.skip(ev)        — the Render bot's own admin / set-up commands ("ติดตั้งเมนู", "ปิดบอท", "ไอดีฉัน") go straight to
 //                              deps.others, so a menu card or an admin card never swallows them.
+//   4. deps.pickList(ev)    — a customer's order written as a list in the chat goes to deps.others (the Render bot tells the admins),
+//                              and counts as a visit, so the shop menu does not answer it or the note that follows it.
 // ---------------------------------------------------------------------------------------------------------------
 import { customerMessages, confirmMessages, parseCardAsk, orderView, withTag } from './cards.js'
 import { createDocFlow } from './docs.js'
@@ -474,6 +476,7 @@ export function createBotHandler(deps) {
         } catch (_e) { doc = false }
       }
       if (doc) { mark(); mine.push([ev, null]); continue }
+      if (token && deps.pickList && deps.pickList(ev)) { mark(); others.push(ev); continue } // [render] an order list: the admins are told, the menu card stays out of it
       const fq = token && !relay ? faqOf(ev, cfg) : null
       if (fq) { mark(); mine.push([ev, fq]); continue }
       let q = null

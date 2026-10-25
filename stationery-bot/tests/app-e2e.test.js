@@ -51,7 +51,7 @@ async function boot({ withApp, badDb = false }) {
   emu = createEmulator({
     tables: {
       app_config: [{ key: 'line_bot', value: settings }],
-      app_secrets: [{ key: 'line_notify', value: JSON.stringify([{ id: 'U' + '7'.repeat(32), name: 'พนักงาน' }]) }],
+      app_secrets: [{ key: 'line_notify', value: JSON.stringify([{ id: 'U' + '7'.repeat(32), name: 'พนักงาน' }]) }, { key: 'push_hook_key', value: 'hook-secret' }],
       orders: [{ id: 'o1', order_no: 'NT-0044', status: 'new', line_user_id: BUYER, line_notify: '', orderer_name: 'ครูสมชาย', org: 'โรงเรียนทดสอบ', project: 'โครงการ', total: 150, school_id: null }],
       order_items: [{ order_id: 'o1', name: 'ปากกา', qty: 2, product_id: 'p1', sort: 1, line_total: 30 }],
     },
@@ -220,6 +220,48 @@ test('the Render bot\'s own commands are not taken by the app\'s cards: the menu
   msgs = await ask('เปิดบอท', piin.userId);
   assert.match(msgs[0].text, /เปิดบอทแล้ว/);
   assert.ok((await ask('เวลาเปิดร้าน', BUYER)).length >= 1, 'answered again');
+});
+
+const LIST = ['ไม้กวาดทางมะพร้าว=10', 'ไม้กวาดหยักใย=2', 'ไม้ถูพื้น=10', 'แปรงขัดห้องน้ำ=10', 'ขันน้ำ=10', 'น้ำยาล้างห้องน้ำ=2แพค', 'น้ำยาล้างจาน=1แกลอน'].join('\n');
+const adminIds = shopFile.contact.people.map((p) => p.userId).filter(Boolean);
+const listAlerts = () => pushes().filter((p) => String(p.body.messages?.[0]?.altText ?? '').includes('รายการสั่งจัดของ'));
+
+test('an order written as a list: every admin gets a card, the web app a note, and the customer neither a menu nor a reply', async (t) => {
+  await boot({ withApp: true }); // the shop menu is switched on here: as the customer's first message the list would have got the menu card
+  t.after(stop);
+  const n = replies().length;
+  await post(text(LIST, CUSTOMER));
+  await until(() => listAlerts().length >= adminIds.length);
+  assert.deepEqual(listAlerts().map((p) => p.body.to).sort(), [...adminIds].sort());
+  const card = listAlerts()[0].body.messages[0];
+  assert.equal(card.altText, '📋 มีรายการสั่งจัดของ — ไลน์ชื่อ ลูกค้า (7 รายการ)');
+  const json = JSON.stringify(card);
+  for (const w of ['ไม้กวาดทางมะพร้าว', 'น้ำยาล้างห้องน้ำ', '2 แพค', 'https://www.nattagroup.com/#weborders']) assert.ok(json.includes(w), w);
+  await until(() => emu.requests.includes('POST /functions/v1/push-notify'));
+  assert.equal(replies().length, n, 'nothing was said to the customer');
+
+  // the same list again: the admins already know
+  const told = listAlerts().length;
+  await post(text(LIST, CUSTOMER));
+  await new Promise((r) => setTimeout(r, 400));
+  assert.equal(listAlerts().length, told);
+
+  // what the customer writes next, which the bot cannot answer, goes to the admins as one line each
+  await post(text('ฝากจัดของตามนี้จิ่มเน้อครับ ประมาณวันที่28 ครูเขาจะแวะเอาครับ ลงไว้งบนอกครับ', CUSTOMER));
+  const notes = () => pushes().filter((p) => String(p.body.messages?.[0]?.text ?? '').startsWith('📝 ข้อความต่อจากรายการสั่งจัดของ'));
+  await until(() => notes().length >= adminIds.length);
+  assert.match(notes()[0].body.messages[0].text, /ไลน์ชื่อ ลูกค้า[\s\S]*ประมาณวันที่28/);
+  assert.equal(replies().length, n, 'still nothing said to the customer, and no menu card');
+  assert.equal(notes().length, adminIds.length, 'told once, not twice');
+});
+
+test('without SUPABASE_URL an order list still reaches the admins\' LINE (the web app note needs the database)', async (t) => {
+  await boot({ withApp: false });
+  t.after(stop);
+  await post(text(LIST, 'U' + '6'.repeat(32)));
+  await until(() => listAlerts().length >= adminIds.length);
+  assert.ok(!emu.requests.some((r) => r.includes('push-notify')));
+  assert.equal(replies().length, 0);
 });
 
 test('without SUPABASE_URL the Render bot answers exactly as before', async (t) => {
