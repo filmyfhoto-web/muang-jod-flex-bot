@@ -371,7 +371,7 @@
   "pickList": {
     "enabled": true,
     "reply": "",
-    "appUrl": "https://www.nattagroup.com/#weborders",
+    "appUrl": "https://admin.nattagroup.com/#projdocs",
     "maxLines": 12,
     "followMinutes": 10
   },

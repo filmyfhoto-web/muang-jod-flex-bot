@@ -142,7 +142,7 @@ export async function createAppFlow({ env = process.env, fetch: doFetch = fetch,
       if (out?.error) log.error?.('[app]', out.error, String(out.message ?? '').slice(0, 120));
       return out;
     },
-    // A short note for the staff who use the shop's web app (a push to their phones; tapping it opens `path`, e.g. "/#weborders").
+    // A short note for the staff who use the shop's web app (a push to their phones; tapping it opens `path`, e.g. "/#projdocs").
     // The key lives in the shop's database (app_secrets) and is never logged. → false when it could not be sent.
     async notifyApp({ title, body, path = '/', tag = 'note' }) {
       if (!url || !(await settingsOk())) return false;

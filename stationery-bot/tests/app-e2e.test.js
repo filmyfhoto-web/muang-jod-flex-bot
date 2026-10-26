@@ -236,7 +236,7 @@ test('an order written as a list: every admin gets a card, the web app a note, a
   const card = listAlerts()[0].body.messages[0];
   assert.equal(card.altText, '📋 มีรายการสั่งจัดของ — ไลน์ชื่อ ลูกค้า (7 รายการ)');
   const json = JSON.stringify(card);
-  for (const w of ['ไม้กวาดทางมะพร้าว', 'น้ำยาล้างห้องน้ำ', '2 แพค', 'https://www.nattagroup.com/#weborders']) assert.ok(json.includes(w), w);
+  for (const w of ['ไม้กวาดทางมะพร้าว', 'น้ำยาล้างห้องน้ำ', '2 แพค', 'https://admin.nattagroup.com/#projdocs']) assert.ok(json.includes(w), w);
   await until(() => emu.requests.includes('POST /functions/v1/push-notify'));
   assert.equal(replies().length, n, 'nothing was said to the customer');
 

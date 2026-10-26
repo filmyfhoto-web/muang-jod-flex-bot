@@ -212,7 +212,7 @@ async function notifyPickList(shop, { customerId, list }) {
   const cfg = shop.pickList ?? {};
   const [customer, link] = await customerAndLink(shop, customerId);
   const shown = list.items.slice(0, Math.max(1, Math.min(Number(cfg.maxLines) || 12, 20)));
-  const appUrl = cfg.appUrl === '' ? '' : cfg.appUrl || 'https://www.nattagroup.com/#weborders';
+  const appUrl = cfg.appUrl === '' ? '' : cfg.appUrl || 'https://admin.nattagroup.com/#projdocs'; // the back office, not the shop (www)
   if (shop.contact?.notify !== false) {
     const card = pickListCard(shop, {
       customerName: customer?.name,
@@ -234,7 +234,7 @@ async function notifyPickList(shop, { customerId, list }) {
     }
   }
   const tag = `pick${Date.now().toString(36)}`; // one notification per list (a fixed tag would replace the one before)
-  await appFlow?.notifyApp({ title: '📋 มีรายการสั่งจัดของ', body: pickListPushText({ customer: customer?.name, items: list.items }), path: '/#weborders', tag }).catch(() => false);
+  await appFlow?.notifyApp({ title: '📋 มีรายการสั่งจัดของ', body: pickListPushText({ customer: customer?.name, items: list.items }), path: '/#projdocs', tag }).catch(() => false);
 }
 
 // What the customer wrote right after the list ("ประมาณวันที่ 28 ครูจะมารับ"): one line to the admins.

@@ -68,7 +68,7 @@ test('the admin card: the list, the customer\'s LINE name, and two buttons that 
     more: 2,
     note: 'ฝากจัดของ',
     link: 'https://chat.line.biz/x',
-    appUrl: 'https://www.nattagroup.com/#weborders',
+    appUrl: 'https://admin.nattagroup.com/#projdocs',
     altText: pickListAltText({ customer: 'ปู่', count: 7 }),
   });
   assert.equal(card.type, 'flex');
@@ -77,7 +77,7 @@ test('the admin card: the list, the customer\'s LINE name, and two buttons that 
   for (const s of ['📋 มีรายการสั่งจัดของ', 'ไลน์ชื่อ ปู่', '7 รายการ', 'ไม้กวาดทางมะพร้าว', '× 10', 'และอีก 2 รายการ', 'ฝากจัดของ']) assert.ok(json.includes(s), s);
   const buttons = card.contents.footer.contents;
   assert.deepEqual(buttons.map((b) => b.action.type), ['uri', 'uri']);
-  assert.equal(buttons[1].action.uri, 'https://www.nattagroup.com/#weborders');
+  assert.equal(buttons[1].action.uri, 'https://admin.nattagroup.com/#projdocs');
   for (const b of buttons) assert.ok([...b.action.label].length <= 20, b.action.label);
   assert.ok(card.altText.length <= 400);
   // no buttons without links
