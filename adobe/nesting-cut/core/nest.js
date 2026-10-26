@@ -794,7 +794,8 @@
     var latticeCount = best ? best.list.length : 0;
     var meta = { method: 'lattice', timeMs: 0, cellSize: o.cellSize };
     var out;
-    if (blf && blf.placedCount > latticeCount) {
+    // แถวเรียบร้อย (ตัด/ลอก/นับง่าย เหมือนที่ร้านเรียงเอง) ชนะ เว้นแต่วางทีละดวงได้มากกว่าชัดเจน (≥ 5% และ ≥ 2 ดวง)
+    if (blf && blf.placedCount >= latticeCount + Math.max(2, Math.ceil(latticeCount * 0.05))) {
       out = blf;
       out.unplaced = [];
       out.totalCount = blf.placedCount;

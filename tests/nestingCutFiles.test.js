@@ -252,10 +252,36 @@ test('layout: ขนาดของร้าน — เทมเพลตที�
     'reg_2 0.00 0.00 0.00 0.00 25.00 25.00 25.00 25.00',
     'reg_1 1 1 1.00 1.00 8.00 100.00 1 0 0 0 0.00',
   ]);
-  // มาร์กมาตรฐาน Graphtec = L 4 มุม
-  const std = L.markShapes(320, 482.6, { type: 'graphtec', size: 20, thick: 1, inset: 10 });
-  assert.equal(std.length, 4);
-  assert.deepEqual(std[0].bbox, { x: 10, y: 10, w: 20, h: 20 });
+});
+
+test('layout: มาร์ก Graphtec แบบไฟล์ CM5 ของร้าน — L ┘└┐┌ ที่มุมงาน แขนชี้ออก ยาว 8 หนา 1 มม.', () => {
+  const m = { type: 'graphtec', size: 8, thick: 1, inset: 10, clearance: 3 };
+  assert.equal(L.cutter('graphtec').marks.size, 8);
+  assert.equal(L.cutter('graphtec').marks.thick, 1);
+  const marks = L.markShapes(330.2, 482.6, m, { x: 21, y: 47, w: 288, h: 413 });
+  assert.equal(marks.length, 4);
+  // มุมซ้ายบน ┘: แขนนอนอยู่ซ้ายมุม แขนตั้งอยู่เหนือมุม — มุม L ห่างงาน 3 มม.
+  assert.deepEqual(marks[0].parts, [
+    { kind: 'rect', x: 10, y: 43, w: 8, h: 1 },
+    { kind: 'rect', x: 17, y: 36, w: 1, h: 8 },
+  ]);
+  assert.deepEqual(marks[0].bbox, { x: 10, y: 36, w: 8, h: 8 });
+  // ขวาบน └ · ซ้ายล่าง ┐ · ขวาล่าง ┌
+  assert.deepEqual(marks[1].bbox, { x: 312, y: 36, w: 8, h: 8 });
+  assert.deepEqual(marks[2].bbox, { x: 10, y: 463, w: 8, h: 8 });
+  assert.deepEqual(marks[3].parts, [
+    { kind: 'rect', x: 312, y: 463, w: 8, h: 1 },
+    { kind: 'rect', x: 312, y: 463, w: 1, h: 8 },
+  ]);
+  // พื้นที่วางเว้นที่ให้มาร์ก: ขอบ 10 + แขน 8 + ห่างงาน 3 = 21 มม. ทุกด้าน, ไม่มีสิ่งกีดขวางที่มุม
+  const plan = L.planSheet({ width: 330.2, length: 482.6, margin: 5, marks: m });
+  assert.deepEqual([plan.area.x, plan.area.y], [21, 21]);
+  assert.ok(Math.abs(plan.area.x + plan.area.w - (330.2 - 21)) < 1e-9);
+  assert.ok(Math.abs(plan.area.y + plan.area.h - (482.6 - 21)) < 1e-9);
+  assert.equal(plan.obstacles.length, 0);
+  // หัวงานด้านบน: งานเริ่มใต้หัวงาน + ที่ให้แขนมาร์กบน
+  const withHeader = L.planSheet({ width: 330.2, length: 482.6, margin: 5, marks: m, header: { enabled: true, height: 18, gap: 3 } });
+  assert.equal(withHeader.area.y, 5 + 18 + 3 + 8 + 3);
 });
 
 test('layout: มาร์กจากไฟล์ต้นแบบยึดมุมที่ใกล้สุด — แผ่นเท่าต้นแบบตำแหน่งเดิม, แผ่นอื่นระยะจากมุมเท่าเดิม', () => {

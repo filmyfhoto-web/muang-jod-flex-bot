@@ -500,6 +500,7 @@ function np_drawMarks(layer, marks, ox, oy, color) {
     e.filled = true;
     e.fillColor = color;
     e.stroked = false;
+    np_tag(e);
   }
 }
 
@@ -1023,6 +1024,7 @@ function np_drawMarkPaths(doc, layers, fallback, paths, ox, oy) {
       sp.points.push({ a: [ox + q[0], oy - q[1]], l: [ox + q[2], oy - q[3]], r: [ox + q[4], oy - q[5]] });
     }
     np_applyPoints(p, sp);
+    np_tag(m.cp ? cps[m.layer + '#' + m.cp] : p);
     var fill = np_makeColor(doc, m.fill);
     var stroke = np_makeColor(doc, m.stroke);
     p.filled = !!fill;
@@ -1123,6 +1125,8 @@ function np_buildLayout(args) {
         groups.push(np_tag(np_placePiece(np_stockFor(sh.pieces[k].part, layPieces), layPieces, sh.pieces[k], rect[0], rect[1])));
         placed++;
       }
+      if (sh.marks && sh.marks.length) np_drawMarks(layMarks, sh.marks, rect[0], rect[1], color);
+      if (sh.markPaths && sh.markPaths.length) np_drawMarkPaths(doc, regs || {}, layMarks, sh.markPaths, rect[0], rect[1]);
       if (sh.gridLines && sh.gridLines.length) np_drawLines(layCut || layPieces, sh.gridLines, rect[0], rect[1], spot, args.strokeWidth);
       if (sh.cutPolys && sh.cutPolys.length) np_drawPolys(layCut || layPieces, sh.cutPolys, rect[0], rect[1], spot, args.strokeWidth);
       continue;

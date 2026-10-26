@@ -19,8 +19,8 @@
       id: 'graphtec',
       label: 'Graphtec (Cutting Master)',
       margin: 5,
-      marks: { type: 'graphtec', size: 20, thick: 1, inset: 10, clearance: 5, every: 0 },
-      note: 'ใส่เลเยอร์ margin / color / reg_2 / reg_1 แบบไฟล์ Cutting Master (มาร์กอยู่ใน reg_1)',
+      marks: { type: 'graphtec', size: 8, thick: 1, inset: 10, clearance: 3, every: 0 },
+      note: 'มาร์ก L ยาว 8 หนา 1 มม. ที่ 4 มุมของงาน (┘ └ ┐ ┌ ชี้ออก) ลงเลเยอร์ reg_1 แบบ Cutting Master 5',
     },
     {
       id: 'mimaki',
@@ -132,9 +132,43 @@
     return m.size || 0;
   }
 
+  // มาร์ก Graphtec / Cutting Master 5: L ที่ 4 มุมของงาน มุม L อยู่ที่มุมกรอบงาน แขนยื่นออกนอกตามแนวขอบ
+  //   ┘ ─ └      (ภาพจากไฟล์ CM5 ของร้าน: ยาว 8 หนา 1 มม.)
+  //   ┐ ─ ┌      inset = ขอบกระดาษถึงปลายแขนมาร์ก · clearance = ระยะจากงานถึงมุมมาร์ก
+  function isCm5(m) {
+    return !!m && m.type === 'graphtec' && !m.custom;
+  }
+
+  // งาน (ดวงทั้งหมด) อยู่ห่างขอบกระดาษอย่างน้อยเท่านี้ ให้มาร์กรอบงานยังอยู่ในแผ่น
+  function cm5Reach(m) {
+    return (m.inset || 0) + (m.size || 0) + (m.clearance == null ? 3 : m.clearance);
+  }
+
+  // rect = กรอบงาน (มม.) — มุม L ห่างงานเท่า clearance
+  function cm5Marks(m, rect) {
+    var s = m.size || 8;
+    var t = m.thick || 1;
+    var c = m.clearance == null ? 3 : m.clearance;
+    var x0 = rect.x - c;
+    var y0 = rect.y - c;
+    var x1 = rect.x + rect.w + c;
+    var y1 = rect.y + rect.h + c;
+    return [
+      group([rect4(x0 - s, y0 - t, s, t), rect4(x0 - t, y0 - s, t, s)]),
+      group([rect4(x1, y0 - t, s, t), rect4(x1, y0 - s, t, s)]),
+      group([rect4(x0 - s, y1, s, t), rect4(x0 - t, y1, t, s)]),
+      group([rect4(x1, y1, s, t), rect4(x1, y1, t, s)]),
+    ];
+  }
+
+  function rect4(x, y, w, h) {
+    return { kind: 'rect', x: x, y: y, w: w, h: h };
+  }
+
   // มาร์กกินเข้ามาจากขอบแผ่นลึกสุดกี่ มม.
   function markReach(m) {
     if (!hasMarks(m)) return 0;
+    if (isCm5(m)) return (m.inset || 0) + (m.size || 0);
     if (!m.custom) return (m.inset || 0) + markExtent(m);
     var c = m.custom;
     var reach = 0;
@@ -227,10 +261,14 @@
     return group([rect(hx, hy, s, t), rect(vx, vy, t, s)]);
   }
 
-  // มาร์กทั้งหมดของแผ่นกว้าง W ยาว L
-  function markShapes(W, L, m) {
+  // มาร์กทั้งหมดของแผ่นกว้าง W ยาว L — content = กรอบงานจริงหลังจัดวาง (มาร์ก Graphtec ล้อมงาน)
+  function markShapes(W, L, m, content) {
     if (!hasMarks(m)) return [];
     if (m.custom) return customMarks(W, L, m.custom);
+    if (isCm5(m)) {
+      var r = cm5Reach(m);
+      return cm5Marks(m, content && content.w > 0 ? content : { x: r, y: r, w: Math.max(0, W - 2 * r), h: Math.max(0, L - 2 * r) });
+    }
     var corners = m.type === 'silhouette' ? ['tl', 'tr', 'bl'] : ['tl', 'tr', 'bl', 'br'];
     var out = corners.map(function (c) {
       return cornerMark(m, c, W, L);
@@ -290,10 +328,18 @@
       // ม้วนก็จำกัดความยาวต่อแผ่นไว้ที่ pageLength (อาร์ตบอร์ด Illustrator ยาวได้จำกัด) — เกินแล้วขึ้นแผ่นใหม่
       h: pageLength - top - bottomReserve,
     };
+    if (isCm5(m)) {
+      // มาร์กล้อมงาน: เว้นขอบให้แขนมาร์ก + ระยะห่าง ทุกด้าน (ใต้หัวงานด้วย)
+      var reach = cm5Reach(m);
+      var ax0 = Math.max(M.left, reach);
+      var ax1 = W - Math.max(M.right, reach);
+      var ay0 = header ? Math.max(reach, top + (m.size || 0) + clear) : Math.max(M.top, reach);
+      area = { x: ax0, y: ay0, w: ax1 - ax0, h: pageLength - ay0 - bottomReserve };
+    }
 
     // สิ่งกีดขวาง: มาร์ก (บวกระยะปลอด) — ม้วนยังไม่รู้ความยาว ใส่แค่มาร์กบน + มาร์กกลาง
     var obstacles = [];
-    if (has) {
+    if (has && !isCm5(m)) {
       var shapes = markShapes(W, pageLength, m);
       shapes.forEach(function (g) {
         var b = g.bbox;
@@ -410,6 +456,8 @@
       return find(MEDIA, id);
     },
     hasMarks: hasMarks,
+    isCm5: isCm5,
+    cm5Reach: cm5Reach,
     markShapes: markShapes,
     planSheet: planSheet,
     finalLength: finalLength,

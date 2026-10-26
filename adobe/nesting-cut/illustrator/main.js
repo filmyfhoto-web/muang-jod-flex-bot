@@ -55,7 +55,7 @@
 
   var STORE_KEY = 'nongploy.nestingcut.settings.v2';
   // ค่าที่บันทึกจากรุ่นก่อน UI_VERSION: หัวงานเคยเปิดเป็นค่าเริ่มต้น → ปิดให้ครั้งเดียว
-  var UI_VERSION = 4;
+  var UI_VERSION = 5;
   var PV_W = 300; // กรอบพรีวิวขนาดคงที่ (px) — ต้องตรงกับ #previewBox ใน panel.css
   var PV_H = 400;
   // ชื่ออาร์ตบอร์ดของชีตที่ปลั๊กอินสร้าง — ปุ่ม “ล้างงานเก่า” ใช้หาชีตเก่า
@@ -90,11 +90,11 @@
     boxRadius: 0,
     spotName: 'CutContour',
     strokeWidth: 0.25,
-    markType: 'circle',
-    markSize: 5,
+    markType: 'graphtec', // L 4 มุมรอบงานแบบ Cutting Master 5
+    markSize: 8,
     markInset: 10,
-    markThick: 0.5,
-    markClearance: 4,
+    markThick: 1,
+    markClearance: 3,
     markEvery: 0,
     gtMarks: null, // มาร์ก Graphtec ที่จำจากไฟล์ต้นแบบของร้าน (np_readMarks)
     shopSize: null, // ขนาดงานตัดหน้าร้านที่แก้เอง { w, l } มม.
@@ -215,6 +215,13 @@
         s.length = 19;
         s.fillSheet = true;
         s.shopSize = null;
+      }
+      if (!(saved.uiVersion >= 5) && s.markType === 'graphtec') {
+        // รุ่น 5: มาร์ก Graphtec ตามไฟล์ CM5 ของร้าน — L ยาว 8 หนา 1 มม. ล้อมงาน
+        s.markSize = 8;
+        s.markThick = 1;
+        s.markInset = 10;
+        s.markClearance = 3;
       }
       s.uiVersion = UI_VERSION;
     } catch (e) {
@@ -808,6 +815,75 @@
     };
   }
 
+  // ---------------------------------------------------------------- กรอบงาน + จัดกลาง
+
+  // กรอบงานจริงของแผ่น (มม.): เส้นตัดทุกดวง + งานพิมพ์ที่เลยเส้นตัด — มาร์ก Graphtec ล้อมกรอบนี้
+  function contentBox(sh) {
+    var b = null;
+    function add(bb, pad) {
+      if (!bb || !isFinite(bb.minX)) return;
+      bb = { minX: bb.minX - pad, minY: bb.minY - pad, maxX: bb.maxX + pad, maxY: bb.maxY + pad };
+      b = b
+        ? { minX: Math.min(b.minX, bb.minX), minY: Math.min(b.minY, bb.minY), maxX: Math.max(b.maxX, bb.maxX), maxY: Math.max(b.maxY, bb.maxY) }
+        : bb;
+    }
+    if (sh.cutPaths && sh.cutPaths.length) {
+      add(
+        G.bounds(
+          sh.cutPaths.map(function (l) {
+            return l.points;
+          })
+        ),
+        0
+      );
+    } else {
+      sh.placements.forEach(function (pl) {
+        var p = byIdx(pl.partId);
+        if (p) add(G.bounds(G.transformRings(p.rings.length ? p.rings : [vbRing(p.vb)], pl)), rawBleed(p));
+      });
+    }
+    return b ? { x: b.minX, y: b.minY, w: b.maxX - b.minX, h: b.maxY - b.minY } : null;
+  }
+
+  function boxHit(a, o) {
+    return a.x < o.x + o.w && o.x < a.x + a.w && a.y < o.y + o.h && o.y < a.y + a.h;
+  }
+
+  // เลื่อนทั้งก้อนไปกลางแผ่นตามแนวนอน (ไม่ชนของบนแผ่น/เทมเพลต)
+  function centerSheet(plan, sh) {
+    var b = contentBox(sh);
+    if (!b || plan.roll) return;
+    var dx = plan.area.x + plan.area.w / 2 - (b.x + b.w / 2);
+    dx = Math.max(plan.area.x - b.x, Math.min(plan.area.x + plan.area.w - b.x - b.w, dx));
+    if (!(Math.abs(dx) > 0.5)) return;
+    var hit = sh.placements.some(function (pl) {
+      var p = byIdx(pl.partId);
+      if (!p) return false;
+      var pb = G.bounds(G.transformRings(p.rings.length ? p.rings : [vbRing(p.vb)], pl));
+      var r = { x: pb.minX + dx, y: pb.minY, w: pb.maxX - pb.minX, h: pb.maxY - pb.minY };
+      return (plan.obstacles || []).some(function (o) {
+        return boxHit(r, o);
+      });
+    });
+    if (hit) return;
+    sh.placements.forEach(function (pl) {
+      pl.tx += dx;
+      if (pl.cx != null) pl.cx += dx;
+    });
+  }
+
+  // มาร์กชนของบนเทมเพลต (หัวงาน/โลโก้) ไหม
+  function marksHitTemplate(plan, sheets) {
+    if (!plan.template) return false;
+    return sheets.some(function (sh) {
+      return sh.marks.some(function (g) {
+        return plan.template.boxes.some(function (o) {
+          return boxHit(g.bbox, o);
+        });
+      });
+    });
+  }
+
   // ---------------------------------------------------------------- เทมเพลตร้าน (อาร์ตบอร์ดที่เปิดอยู่)
 
   function templateMode() {
@@ -824,14 +900,15 @@
     var boxes = t.boxes.map(function (b) {
       return { x: b.x * K, y: b.y * K, w: b.w * K, h: b.h * K, mark: !!b.mark };
     });
+    // เทมเพลตไม่มีมาร์ก CM5 → ใส่มาร์ก L 4 มุมรอบงานให้ (ถ้าเลือกมาร์ก Graphtec)
+    var marks = !t.frame && S.settings.markType === 'graphtec' && !gtTemplate() ? markSpec() : { type: 'none' };
+    var reach = L.isCm5(marks) ? L.cm5Reach(marks) : 0;
+    var x0 = Math.max(num('marginLeft'), reach);
+    var y0 = Math.max(num('marginTop'), reach);
     var area = t.frame
       ? { x: t.frame.x * K, y: t.frame.y * K, w: t.frame.w * K, h: t.frame.h * K }
-      : {
-          x: num('marginLeft'),
-          y: num('marginTop'),
-          w: W - num('marginLeft') - num('marginRight'),
-          h: H - num('marginTop') - num('marginBottom'),
-        };
+      : { x: x0, y: y0, w: W - x0 - Math.max(num('marginRight'), reach), h: H - y0 - Math.max(num('marginBottom'), reach) };
+    S.tplMarks = L.isCm5(marks);
     renderTplInfo();
     return {
       width: W,
@@ -839,7 +916,7 @@
       fixedLength: H,
       pageLength: H,
       margin: { top: 0, right: 0, bottom: 0, left: 0 },
-      marks: { type: 'none' },
+      marks: marks,
       markClearance: 0,
       markExtent: 0,
       area: area,
@@ -869,7 +946,10 @@
       lines.push(
         t.frame
           ? 'มาร์ก CM5 ' + t.marks + ' ชิ้น — วางในกรอบมาร์ก · หลบของบนเทมเพลต ' + (t.boxes.length - t.marks) + ' ชิ้น'
-          : '⚠ ไม่เจอเลเยอร์มาร์ก (reg_1) — วางตามระยะขอบใน “ตั้งค่าละเอียด” · หลบของบนเทมเพลต ' + t.boxes.length + ' ชิ้น'
+          : (S.tplMarks
+              ? 'ไม่มีมาร์กในเทมเพลต — ใส่มาร์ก L 4 มุมรอบงาน (┘└┐┌ ยาว ' + num('markSize') + ' หนา ' + num('markThick') + ' มม.) ลงเลเยอร์ reg_1 ให้'
+              : '⚠ ไม่เจอเลเยอร์มาร์ก (reg_1) — วางตามระยะขอบใน “ตั้งค่าละเอียด”') +
+            ' · หลบของบนเทมเพลต ' + t.boxes.length + ' ชิ้น'
       );
       if (t.old) lines.push('มีดวงที่เรียงไว้รอบก่อน — กดเรียงอีกครั้งจะแทนที่ของเดิม');
     }
@@ -935,13 +1015,10 @@
       .then(function (res) {
         var sheets = res.sheets.map(function (sh, i) {
           var len = L.finalLength(plan, sh.contentMaxY);
-          return {
-            index: i,
-            length: len,
-            placements: sh.placements,
-            partsArea: sh.partsArea,
-            marks: L.markShapes(plan.width, len, plan.marks),
-          };
+          var out = { index: i, length: len, placements: sh.placements, partsArea: sh.partsArea };
+          centerSheet(plan, out);
+          out.marks = L.markShapes(plan.width, len, plan.marks, contentBox(out));
+          return out;
         });
         S.result = { plan: plan, res: res, sheets: sheets, ms: Date.now() - t0, fill: fill };
         S.pvSheet = 0;
@@ -994,6 +1071,7 @@
         if (res.sheets.some(function (sh) { return sh.placements.length >= 400; })) {
           warnings.push('ครบ 400 ดวงต่อแผ่นแล้ว (จำกัดสูงสุด 400 ดวง/แผ่น)');
         }
+        if (marksHitTemplate(plan, sheets)) warnings.push('มาร์กมุมงานชนหัวงาน/ของบนเทมเพลต — ย้ายหัวงานหรือเพิ่มระยะขอบ');
         S.result.warnings = warnings;
         if (warnings.length) status('⚠ ' + warnings.join(' · '), 'warn');
         if (missing.length) {
@@ -1087,9 +1165,9 @@
       length: len,
       placements: placements,
       partsArea: n * Math.abs(G.signedArea(lay.ring)),
-      marks: L.markShapes(plan.width, len, plan.marks),
       cutPaths: lay.paths,
     };
+    sheet.marks = L.markShapes(plan.width, len, plan.marks, contentBox(sheet));
     var printW = (p.vb[2] - p.vb[0]) * K;
     var printH = (p.vb[1] - p.vb[3]) * K;
     // งานพิมพ์ที่เลยรูปทรงของดวงออกไป (bleed) ต้องไม่เกินครึ่งหนึ่งของระยะห่าง ไม่งั้นภาพดวงข้าง ๆ ทับกัน
