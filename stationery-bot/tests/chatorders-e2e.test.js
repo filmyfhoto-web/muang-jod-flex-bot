@@ -192,7 +192,7 @@ test('mode "on": the list becomes a job in the app, the admins get a card with i
   const note = h.appNotes()[0].body;
   assert.equal(note.action, 'notify');
   assert.match(note.title, /PJ-0001/);
-  assert.equal(note.url, '/?doc=PJ-0001#projdocs');
+  assert.equal(note.url, '/#projdocs', 'the app\'s push-notify accepts only "/" or "/#word" as the page to open');
 
   // the customer: nothing at all
   assert.equal(h.replies().length, quiet);

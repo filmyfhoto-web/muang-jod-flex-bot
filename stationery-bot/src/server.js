@@ -255,8 +255,8 @@ async function notifyPickList(shop, { customerId, list, saved = null }) {
   }
   const tag = `pick${Date.now().toString(36)}`; // one notification per list (a fixed tag would replace the one before)
   const title = docNo ? `📋 มีรายการสั่งจัดของ ${docNo}` : '📋 มีรายการสั่งจัดของ';
-  const path = docNo ? `/?doc=${encodeURIComponent(docNo)}#projdocs` : '/#projdocs';
-  await appFlow?.notifyApp({ title, body: pickListPushText({ customer: customer?.name, items: list.items }), path, tag }).catch(() => false);
+  // (the app's push-notify only accepts "/" or "/#word" as the page to open, so the phone note opens the list of jobs; the number is in its title)
+  await appFlow?.notifyApp({ title, body: pickListPushText({ customer: customer?.name, items: list.items }), path: '/#projdocs', tag }).catch(() => false);
 }
 
 // Saves the list as a job in the shop's app (chatorders.js) when that is switched on for this customer. Awaited inside the
