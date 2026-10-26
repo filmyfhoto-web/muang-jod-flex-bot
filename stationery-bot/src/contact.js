@@ -47,6 +47,11 @@ export function createContactState(now = () => Date.now()) {
       chosen.set(id, now());
       return true;
     },
+    // the same question as isQuiet, without sliding the window (for things that run on their own, not when the customer writes)
+    peekQuiet(id, windowMs) {
+      const last = chosen.get(id);
+      return last !== undefined && now() - last <= windowMs;
+    },
     wake(id) {
       chosen.delete(id);
     },

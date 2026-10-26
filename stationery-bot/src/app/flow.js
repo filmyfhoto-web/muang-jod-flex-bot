@@ -116,6 +116,8 @@ export async function createAppFlow({ env = process.env, fetch: doFetch = fetch,
   });
 
   return {
+    // The window onto the shop's database, for the parts of the Render bot that are not the app's own cards (chatorders.js).
+    store: base,
     // One LINE webhook call. `raw` and `sig` are exactly what LINE sent; `events` is the parsed list.
     async handle(raw, sig, events) {
       if (!(await settingsOk())) {
@@ -162,6 +164,8 @@ export async function createAppFlow({ env = process.env, fetch: doFetch = fetch,
     },
     // Can the shop's database be reached with the key that was given? (what /health reports)
     check: () => settingsOk(),
+    // The answer of the latest look, without making another (for work that is not worth waiting for a dead database).
+    dbOk: () => settings.ok,
     // Which parts are switched on right now (false for all of them while the settings cannot be read).
     status() {
       if (!settings.ok) return { menu: false, pick: false, docs: false, enabled: false };

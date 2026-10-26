@@ -357,7 +357,9 @@ export function notifyCard(shop, { reason, title, customerName, customerPhoto, c
 
 // "มีรายการสั่งจัดของ": a customer's order written as a list in the chat, tidied into lines for the admins
 // (see picklist.js). `items` are the lines shown, `more` how many did not fit; both buttons are optional.
-export function pickListCard(shop, { customerName, customerPhoto, items, more = 0, note = '', link, appUrl, altText }) {
+// When the list was also saved in the shop's app (chatorders.js): `docNo` is its number (the button opens that job),
+// `merged`/`added` say it joined a job the customer had just started, `review` how many lines wait for a product check.
+export function pickListCard(shop, { customerName, customerPhoto, items, more = 0, note = '', link, appUrl, altText, docNo = '', merged = false, added = 0, review = 0 }) {
   const P = pal(shop);
   const total = items.length + more;
   const who = [
@@ -384,7 +386,12 @@ export function pickListCard(shop, { customerName, customerPhoto, items, more = 
   }));
   const buttons = [
     ...(link ? [uriButton(shop.contact?.chatLinkLabel || 'เปิดแชทตอบลูกค้า', link, shop)] : []),
-    ...(appUrl ? [uriButton('เปิดหน้าออเดอร์ในแอป', appUrl, shop)] : []),
+    ...(appUrl ? [uriButton(docNo ? `เปิดใบ ${docNo} ในแอป` : 'เปิดหน้าออเดอร์ในแอป', appUrl, shop)] : []),
+  ];
+  // what the app now holds for this list (nothing here = the admins were only told)
+  const saved = [
+    ...(docNo ? [text(merged ? `✅ เพิ่มอีก ${added} รายการในใบเดิม ${docNo}` : `✅ บันทึกในแอปแล้ว ${docNo}`, { size: 'sm', weight: 'bold', color: P.accent })] : []),
+    ...(docNo && review > 0 ? [text(`⚠️ ${review} รายการรอตรวจสอบสินค้า (ไม่ตรงกับสินค้าในร้าน)`, { size: 'xs', color: P.muted })] : []),
   ];
   return flex(
     altText,
@@ -402,6 +409,7 @@ export function pickListCard(shop, { customerName, customerPhoto, items, more = 
         spacing: 'md',
         contents: [
           { type: 'box', layout: 'horizontal', spacing: 'md', alignItems: 'center', contents: who },
+          ...saved,
           { type: 'separator' },
           { type: 'box', layout: 'vertical', spacing: 'sm', contents: rows },
           ...(more > 0 ? [text(`…และอีก ${more} รายการ ดูทั้งหมดในแชท`, { size: 'xs', color: P.muted })] : []),

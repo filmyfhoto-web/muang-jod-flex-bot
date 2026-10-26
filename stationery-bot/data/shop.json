@@ -375,6 +375,20 @@
     "maxLines": 12,
     "followMinutes": 10
   },
+  "chatOrders": {
+    "mode": "off",
+    "pilotUserIds": ["U4f9825c8c6430b03ed959b81ebb9f07e"],
+    "projectName": "สั่งของทางแชท LINE",
+    "mergeMinutes": 30,
+    "match": { "auto": 0.85, "gap": 0.12, "hint": 0.45 },
+    "ack": {
+      "enabled": false,
+      "text": "ได้รับรายการสั่งซื้อแล้วค่ะ ร้านกำลังดำเนินการจัดสินค้า",
+      "maxAgeHours": 48,
+      "busyHours": 4
+    },
+    "ai": { "mode": "off" }
+  },
   "richMenu": {
     "enabled": false,
     "name": "stationery-bot-menu",

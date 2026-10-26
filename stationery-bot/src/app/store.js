@@ -222,5 +222,65 @@ export function createAppStore({ url, key, env = {}, fetch: doFetch = fetch }) {
       if ('edit_req_text' in patch) p.edit_req_text = patch.edit_req_text;
       await db.from('project_docs').update(p).eq('id', id);
     },
+
+    // ---- orders typed in the chat (chatorders.js): jobs in the same `project_docs` table, origin 'chat' ----
+    // The shop's products, only to tell which of them a customer's words mean (nothing here ever changes a product).
+    async loadProducts() {
+      const out = [];
+      for (let from = 0; from < 5000; from += 1000) {
+        // 1000 rows at a time: that is the most the database hands over in one call
+        const page = must(await db.from('products').select('id,code,name,unit').order('name').order('id').range(from, from + 999), 'products') ?? [];
+        out.push(...page);
+        if (page.length < 1000) break;
+      }
+      return out;
+    },
+    // The customer's job from the last few minutes that the staff have not touched yet (a second message joins it), or null.
+    async chatDocOpen(uid, sinceIso) {
+      const { data, error } = await db
+        .from('project_docs')
+        .select('*')
+        .eq('line_user_id', uid)
+        .eq('origin', 'chat')
+        .eq('status', 'new')
+        .is('archived_at', null)
+        .gte('created_at', sinceIso)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (error) throw new Error(`open chat order: ${error.message}`);
+      return (data || [])[0] ?? null;
+    },
+    async chatDocCreate(row) {
+      return must(await db.from('project_docs').insert(row).select('*').single(), 'create chat order');
+    },
+    // Changes the job only if nobody has saved it since `ifUpdatedAt` was read (the staff may be editing it) → the row, or null.
+    async chatDocUpdate(id, ifUpdatedAt, patch) {
+      const { data, error } = await db.from('project_docs').update(patch).eq('id', id).eq('updated_at', ifUpdatedAt).select('*');
+      if (error) throw new Error(`update chat order: ${error.message}`);
+      return (data || [])[0] ?? null;
+    },
+    // Jobs from the chat that the staff have picked up (working / done) since `sinceIso`.
+    async chatDocsToAck(sinceIso) {
+      const { data, error } = await db
+        .from('project_docs')
+        .select('id,doc_no,line_user_id,status,updated_at')
+        .eq('origin', 'chat')
+        .in('status', ['working', 'done'])
+        .not('line_user_id', 'is', null)
+        .gte('updated_at', sinceIso)
+        .order('updated_at', { ascending: false })
+        .limit(50);
+      if (error) throw new Error(`chat orders to confirm: ${error.message}`);
+      return data || [];
+    },
+    // "Only the first one wins" for a key, across restarts (the same function line-assist uses: st_claim in the shop's database).
+    async claim(k, ms) {
+      const { data, error } = await db.rpc('st_claim', { p_key: k, p_now: Date.now(), p_ms: Math.round(ms) });
+      if (error) throw new Error(`claim: ${error.message}`);
+      return data === true;
+    },
+    async unclaim(k) {
+      await db.from('st_state').delete().eq('key', k);
+    },
   };
 }

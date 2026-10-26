@@ -49,10 +49,26 @@ function matcher(key, raw) {
   return (row) => (negate ? !test(row) : test(row));
 }
 
-export function createEmulator({ tables = {} } = {}) {
+// `defaults`: { table: (row, rows) => ({ column: value }) } — what the real database fills in when a column is left out
+// (only for the columns the insert did not give). `PROJECT_DOCS` below is the app's project_docs table.
+export const PROJECT_DOCS = (_row, rows) => {
+  const at = new Date().toISOString();
+  return {
+    doc_no: 'PJ-' + String(rows.length + 1).padStart(4, '0'),
+    status: 'new',
+    file_count: 0,
+    items: [],
+    sent_at: at,
+    created_at: at,
+    updated_at: at,
+  };
+};
+
+export function createEmulator({ tables = {}, defaults = {} } = {}) {
   const db = Object.fromEntries(Object.entries(tables).map(([k, rows]) => [k, rows.map((r) => ({ ...r }))]));
   const storage = new Map();
   const requests = [];
+  const functions = []; // calls to the app's edge functions (push-notify …): { path, body }
 
   const send = (res, status, body, headers = {}) => {
     const text = body === undefined ? '' : typeof body === 'string' || body instanceof Uint8Array ? body : JSON.stringify(body);
@@ -121,6 +137,8 @@ export function createEmulator({ tables = {} } = {}) {
           }
         }
         if (name !== 'app_secrets' && name !== 'app_config' && name !== 'line_chat_state' && name !== 'line_doc_state' && r.id === undefined) r.id = randomUUID();
+        const fill = defaults[name]?.(r, rows) ?? {};
+        for (const k of Object.keys(fill)) if (r[k] === undefined) r[k] = fill[k];
         rows.push(r);
         written.push(r);
       }
@@ -166,6 +184,18 @@ export function createEmulator({ tables = {} } = {}) {
     const url = new URL(req.url, 'http://emulator');
     requests.push(`${req.method} ${url.pathname}`);
     try {
+      if (url.pathname.startsWith('/functions/v1/')) {
+        const chunks = [];
+        for await (const c of req) chunks.push(c);
+        let body = null;
+        try {
+          body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+        } catch {
+          body = null;
+        }
+        functions.push({ path: url.pathname, body });
+        return send(res, 200, { ok: true });
+      }
       let m = /^\/rest\/v1\/rpc\/([a-z_]+)$/.exec(url.pathname);
       if (m) return await rpc(req, res, m[1]);
       m = /^\/rest\/v1\/([a-z_]+)$/.exec(url.pathname);
@@ -191,6 +221,7 @@ export function createEmulator({ tables = {} } = {}) {
     db,
     storage,
     requests,
+    functions,
     listen: () => new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(server.address().port))),
     close: () => new Promise((resolve) => server.close(resolve)),
   };

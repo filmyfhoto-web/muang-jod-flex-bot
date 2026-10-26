@@ -16,6 +16,9 @@ import { createVisitTracker, HOUR } from './visit.js';
 import { createSerial } from './serial.js';
 import { menuCommandReply } from './richmenu.js';
 import { parsePickList, pickListKey, pickListAltText, pickListPushText } from './picklist.js';
+import { createChatOrders, enabledFor, docLink } from './chatorders.js';
+import { createCatalog } from './catalog.js';
+import { looksLikeOrder, readOrder, aiOn } from './chatai.js';
 import { createAppFlow } from './app/flow.js';
 import { sameAdmin } from './app/names.js';
 import { createAssistStage } from './assist-stage.js';
@@ -34,9 +37,10 @@ const baseUrl = process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL |
 // null = off (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set); it is created at the bottom of this file.
 let appFlow = null;
 let assist = null; // the Studio-editable answering engine (assist-stage.js); null = the Render bot's own answers only
+let chatOrders = null; // an order typed in the chat → a job in the shop's app (chatorders.js); null = the admins are only told
 const appMenuOn = () => Boolean(appFlow?.status().menu); // the app's menu card greets every first message of a visit
 
-const shopFile = fileURLToPath(new URL('../data/shop.json', import.meta.url));
+const shopFile = process.env.SHOP_FILE || fileURLToPath(new URL('../data/shop.json', import.meta.url)); // SHOP_FILE: tests point it at their own copy
 // Re-read on every message so the owner can edit shop.json without a restart.
 const loadShop = () => {
   const shop = {
@@ -71,7 +75,15 @@ app.get('/health', async (_req, res) => {
   let state = 'off';
   if (appFlow) state = (await appFlow.check().catch(() => false)) ? 'on' : 'no-db';
   const build = String(process.env.RENDER_GIT_COMMIT ?? '').trim().slice(0, 7);
-  res.json({ ok: true, app: state, assist: assist ? 'ready' : 'off', ...(build ? { build } : {}) });
+  // "orders": whether an order typed in the chat is saved in the shop's app — off · pilot · on · no-db (switched on, but no database)
+  let orders = 'off';
+  try {
+    const mode = loadShop().chatOrders?.mode;
+    if (mode === 'pilot' || mode === 'on') orders = chatOrders ? mode : 'no-db';
+  } catch {
+    /* an unreadable shop file is reported by the message handler */
+  }
+  res.json({ ok: true, app: state, assist: assist ? 'ready' : 'off', orders, ...(build ? { build } : {}) });
 });
 
 app.post('/webhook', express.raw({ type: '*/*' }), (req, res) => {
@@ -208,11 +220,14 @@ async function notifyAdmins(to, shop, { customerId, contact, said, reason }) {
 const recentLists = new Map(); // userId → { at, notes }: a list the admins were just told about (a remark that follows it goes to them too)
 
 // A card with the tidied list on every admin's LINE, and a note on the staff phones that use the shop's web app.
-async function notifyPickList(shop, { customerId, list }) {
+// `saved` = what chatorders.js made of it in the app (the job's number, whether it joined an earlier one), if it did.
+async function notifyPickList(shop, { customerId, list, saved = null }) {
   const cfg = shop.pickList ?? {};
   const [customer, link] = await customerAndLink(shop, customerId);
   const shown = list.items.slice(0, Math.max(1, Math.min(Number(cfg.maxLines) || 12, 20)));
-  const appUrl = cfg.appUrl === '' ? '' : cfg.appUrl || 'https://admin.nattagroup.com/#projdocs'; // the back office, not the shop (www)
+  const appBase = cfg.appUrl === '' ? '' : cfg.appUrl || 'https://admin.nattagroup.com/#projdocs'; // the back office, not the shop (www)
+  const docNo = saved?.doc?.doc_no || '';
+  const appUrl = docNo ? docLink(appBase, docNo) : appBase; // …opening this very job when there is one
   if (shop.contact?.notify !== false) {
     const card = pickListCard(shop, {
       customerName: customer?.name,
@@ -223,6 +238,10 @@ async function notifyPickList(shop, { customerId, list }) {
       link,
       appUrl,
       altText: pickListAltText({ customer: customer?.name, count: list.items.length }),
+      docNo,
+      merged: Boolean(saved?.merged),
+      added: saved?.added ?? 0,
+      review: saved?.review ?? 0,
     });
     for (const p of people(shop)) {
       if (!p.userId) continue;
@@ -234,8 +253,30 @@ async function notifyPickList(shop, { customerId, list }) {
     }
   }
   const tag = `pick${Date.now().toString(36)}`; // one notification per list (a fixed tag would replace the one before)
-  await appFlow?.notifyApp({ title: '📋 มีรายการสั่งจัดของ', body: pickListPushText({ customer: customer?.name, items: list.items }), path: '/#projdocs', tag }).catch(() => false);
+  const title = docNo ? `📋 มีรายการสั่งจัดของ ${docNo}` : '📋 มีรายการสั่งจัดของ';
+  const path = docNo ? `/?doc=${encodeURIComponent(docNo)}#projdocs` : '/#projdocs';
+  await appFlow?.notifyApp({ title, body: pickListPushText({ customer: customer?.name, items: list.items }), path, tag }).catch(() => false);
 }
+
+// Saves the list as a job in the shop's app (chatorders.js) when that is switched on for this customer. Awaited inside the
+// customer's own turn, so a second piece of the same order finds the first one already there. → the result, or null.
+async function saveToApp(shop, userId, said, list, ev) {
+  const co = shop.chatOrders ?? {};
+  if (!chatOrders || !enabledFor(co, userId) || !appFlow?.dbOk()) return null; // (a database that is known to be down is not waited for)
+  const profile = await getProfileCached(userId, token).catch(() => null);
+  const r = await chatOrders.record({ userId, lineName: profile?.name ?? '', text: said, list, cfg: co, messageId: ev?.message?.id ?? null });
+  if (r.dup) return r;
+  if (r.ok && r.doc) console.log(`[chatorders] ${r.doc.doc_no}: ${r.merged ? `+${r.added}` : r.total} lines, ${r.review} to check`);
+  else if (!r.ok) console.error('[chatorders] not saved:', r.error);
+  return r.ok && r.doc ? r : null;
+}
+
+// Sentence-form orders ("ขอสั่งไม้กวาด 10 อัน แล้วก็น้ำยาล้างจาน 2 แกลลอนนะคะ") are read by the AI — only when the shop switched it
+// on for this customer (chatOrders.ai.mode "on", or "pilot" for the pilot people) and the server has an AI key.
+const aiAllowed = (co, userId) => {
+  const m = co.ai?.mode;
+  return aiOn(process.env) && (m === 'on' || (m === 'pilot' && enabledFor({ mode: 'pilot', pilotUserIds: co.pilotUserIds }, userId)));
+};
 
 // What the customer wrote right after the list ("ประมาณวันที่ 28 ครูจะมารับ"): one line to the admins.
 async function notifyPickNote(shop, { customerId, said }) {
@@ -258,20 +299,29 @@ async function pickListIfAny(ev, shop, userId, said) {
   const cfg = shop.pickList ?? {};
   if (cfg.enabled === false || !userId || userId === 'anon' || ev._pickChecked) return false;
   ev._pickChecked = true; // runOthers checks first and then hands the event to handleEvent: one look per message
-  const list = parsePickList(said);
+  const co = shop.chatOrders ?? {};
+  let list = parsePickList(said);
+  // not a list the rules can read: an order in a sentence, if the AI is switched on for this customer
+  if (!list && chatOrders && enabledFor(co, userId) && aiAllowed(co, userId) && looksLikeOrder(said) && contacts.alertDue(`airead:${userId}:${pickListKey(said)}`, 10 * 60_000)) {
+    list = await readOrder(said); // (the same sentence sent twice is read once)
+  }
   if (!list) {
-    // a remark the bot cannot answer, within a few minutes after a list, goes to the admins as well
+    // a remark the bot cannot answer, within a few minutes after a list, goes to the admins as well (and into the job's note)
     const rec = recentLists.get(userId);
     if (rec && Date.now() - rec.at < (Number(cfg.followMinutes) || 10) * 60_000 && rec.notes < 3 && matchIntent(said, shop).type === 'fallback') {
       rec.notes++;
       void notifyPickNote(shop, { customerId: userId, said });
+      if (chatOrders && enabledFor(co, userId)) await chatOrders.remark({ userId, text: said, cfg: co });
     }
     return false;
   }
   if (!contacts.alertDue(`picklist:${userId}:${pickListKey(said)}`, 10 * 60_000)) return true; // the same list again: the admins know
   recentLists.set(userId, { at: Date.now(), notes: 0 });
   if (recentLists.size > 2000) for (const [k, v] of recentLists) if (Date.now() - v.at > 3_600_000) recentLists.delete(k);
-  void notifyPickList(shop, { customerId: userId, list }).catch((e) => console.error('[picklist]', e.message));
+  const saved = await saveToApp(shop, userId, said, list, ev);
+  if (saved?.dup) return true; // LINE sent this very message twice (or the bot restarted mid-way): it is already in the app
+  if (saved?.merged && saved.added === 0) return true; // every line was already in the job: the admins know
+  void notifyPickList(shop, { customerId: userId, list, saved }).catch((e) => console.error('[picklist]', e.message));
   if (cfg.reply) await replyMessage(ev.replyToken, [{ type: 'text', text: String(cfg.reply).slice(0, 1000) }], token).catch((e) => console.error('[picklist]', e.message));
   return true;
 }
@@ -468,7 +518,11 @@ function isOwnCommand(ev) {
 function isPickListEvent(ev) {
   if (ev?.type !== 'message' || ev.message?.type !== 'text' || ev.source?.type !== 'user' || !ev.source.userId) return false;
   try {
-    return loadShop().pickList?.enabled !== false && Boolean(parsePickList(ev.message.text));
+    const shop = loadShop();
+    if (shop.pickList?.enabled === false) return false;
+    if (parsePickList(ev.message.text)) return true;
+    const co = shop.chatOrders ?? {};
+    return Boolean(chatOrders && enabledFor(co, ev.source.userId) && aiAllowed(co, ev.source.userId) && looksLikeOrder(ev.message.text));
   } catch {
     return false;
   }
@@ -517,6 +571,44 @@ if (appFlow) {
   } catch (e) {
     console.error('[assist] failed to start:', e.message);
     assist = null;
+  }
+  // an order typed in the chat → a job in the shop's app. It does nothing until shop.json `chatOrders.mode` says so.
+  const catalog = createCatalog({ load: () => appFlow.store.loadProducts() });
+  chatOrders = createChatOrders({ store: appFlow.store, catalog });
+  try {
+    if (['pilot', 'on'].includes(loadShop().chatOrders?.mode)) void catalog.get(); // the first customer does not wait for the product list
+  } catch {
+    /* an unreadable shop file is reported by the message handler */
+  }
+  setInterval(() => void ackTick(), Number(process.env.CHATORDERS_ACK_TICK_MS) > 0 ? Number(process.env.CHATORDERS_ACK_TICK_MS) : 60_000).unref();
+}
+
+// Tells a customer "ได้รับรายการสั่งซื้อแล้วค่ะ ร้านกำลังดำเนินการจัดสินค้า" once the staff have picked their order up in the app
+// (shop.json chatOrders.ack, off by default) — never while the customer is talking with a person, and once per order.
+let acking = false;
+async function ackTick() {
+  if (acking || !chatOrders || !appFlow?.dbOk()) return;
+  acking = true;
+  try {
+    const shop = loadShop();
+    const co = shop.chatOrders ?? {};
+    if (!co.ack?.enabled || (co.mode !== 'on' && co.mode !== 'pilot')) return;
+    if (isPaused(shop, process.env) || quiet.allPaused()) return;
+    const windowMs = contactCfg(shop).windowMs;
+    const busyMs = (Number(co.ack.busyHours) > 0 ? Number(co.ack.busyHours) : 4) * HOUR;
+    await chatOrders.ack({
+      cfg: co,
+      push: (uid, messages) => pushMessage(uid, send(messages), token),
+      busy: async (uid) => {
+        if (contacts.peekQuiet(uid, windowMs)) return true; // the customer chose a person to talk to: the bot stays out of it
+        const chat = await appFlow.store.getChat(uid); // the app's own "talking with an admin" state
+        return Boolean(chat && chat.mode === 'admin' && Date.now() - Number(chat.last_ms || 0) < busyMs);
+      },
+    });
+  } catch (e) {
+    console.error('[chatorders] ack:', e.message);
+  } finally {
+    acking = false;
   }
 }
 
