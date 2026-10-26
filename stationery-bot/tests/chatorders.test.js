@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createChatOrders, buildItems, mergeItems, enabledFor, docLink } from '../src/chatorders.js';
+import { createChatOrders, buildItems, mergeItems, enabledFor, docLink, chatOrdersFromEnv } from '../src/chatorders.js';
 import { createCatalog } from '../src/catalog.js';
 import { parsePickList } from '../src/picklist.js';
 
@@ -369,4 +369,20 @@ test('ack: a job that has been dealt with is not looked at again on every pass',
   assert.equal(await co.ack({ cfg: ackCfg(), push }), 0);
   assert.equal(await co.ack({ cfg: ackCfg(), push }), 0);
   assert.equal(claims, after, 'no more claims once both are settled');
+});
+
+test('Render\'s Environment page can switch it on and off without a code push; a value it does not understand changes nothing', () => {
+  const file = { mode: 'off', pilotUserIds: [ME], ack: { enabled: false, text: 'x' }, ai: { mode: 'off' }, mergeMinutes: 30 };
+  assert.deepEqual(chatOrdersFromEnv(file, {}), file, 'nothing set: the file as it is');
+  assert.deepEqual(chatOrdersFromEnv(file, { CHATORDERS_MODE: 'pilot' }).mode, 'pilot');
+  assert.equal(chatOrdersFromEnv(file, { CHATORDERS_MODE: ' ON ' }).mode, 'on', 'case and spaces do not matter');
+  assert.equal(chatOrdersFromEnv({ ...file, mode: 'on' }, { CHATORDERS_MODE: 'off' }).mode, 'off', 'the environment can switch it off too');
+  for (const bad of ['yes', 'true', '1', '', 'pilott']) assert.equal(chatOrdersFromEnv(file, { CHATORDERS_MODE: bad }).mode, 'off', bad);
+  const on = chatOrdersFromEnv(file, { CHATORDERS_ACK: 'on', CHATORDERS_AI: 'pilot' });
+  assert.deepEqual([on.ack.enabled, on.ack.text, on.ai.mode], [true, 'x', 'pilot'], 'the rest of the block is kept');
+  assert.equal(chatOrdersFromEnv({ ...file, ack: { enabled: true, text: 'x' } }, { CHATORDERS_ACK: 'off' }).ack.enabled, false);
+  assert.deepEqual(chatOrdersFromEnv(file, { CHATORDERS_PILOT_IDS: `${OTHER}, not-an-id ,${ME}` }).pilotUserIds, [OTHER, ME], 'only real LINE ids are taken');
+  assert.deepEqual(chatOrdersFromEnv(file, { CHATORDERS_PILOT_IDS: 'garbage' }).pilotUserIds, [ME]);
+  assert.deepEqual(chatOrdersFromEnv(undefined, { CHATORDERS_MODE: 'on' }), { mode: 'on' });
+  assert.deepEqual(file.ack, { enabled: false, text: 'x' }, 'the file\'s object is never changed in place');
 });

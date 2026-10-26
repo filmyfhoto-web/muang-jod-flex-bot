@@ -384,8 +384,7 @@
     "ack": {
       "enabled": false,
       "text": "ได้รับรายการสั่งซื้อแล้วค่ะ ร้านกำลังดำเนินการจัดสินค้า",
-      "maxAgeHours": 48,
-      "busyHours": 4
+      "maxAgeHours": 48
     },
     "ai": { "mode": "off" }
   },

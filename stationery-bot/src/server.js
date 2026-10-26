@@ -16,7 +16,7 @@ import { createVisitTracker, HOUR } from './visit.js';
 import { createSerial } from './serial.js';
 import { menuCommandReply } from './richmenu.js';
 import { parsePickList, pickListKey, pickListAltText, pickListPushText } from './picklist.js';
-import { createChatOrders, enabledFor, docLink } from './chatorders.js';
+import { createChatOrders, enabledFor, docLink, chatOrdersFromEnv } from './chatorders.js';
 import { createCatalog } from './catalog.js';
 import { looksLikeOrder, readOrder, aiOn } from './chatai.js';
 import { createAppFlow } from './app/flow.js';
@@ -48,6 +48,7 @@ const loadShop = () => {
     iconUrl: iconUrlFor(baseUrl),
     assetBase: iconUrlFor(baseUrl) ? baseUrl.replace(/\/+$/, '') : null,
   };
+  shop.chatOrders = chatOrdersFromEnv(shop.chatOrders ?? {}, process.env);
   // While the app's menu card is on, this bot does not also ask "who do you want to talk to?" on a first hello
   // (two menus in a row).
   if (appMenuOn()) shop.contact = { ...(shop.contact ?? {}), sessionAsk: false };
@@ -595,7 +596,8 @@ async function ackTick() {
     if (!co.ack?.enabled || (co.mode !== 'on' && co.mode !== 'pilot')) return;
     if (isPaused(shop, process.env) || quiet.allPaused()) return;
     const windowMs = contactCfg(shop).windowMs;
-    const busyMs = (Number(co.ack.busyHours) > 0 ? Number(co.ack.busyHours) : 4) * HOUR;
+    // "talking with an admin" lasts as long as the app's own silence window (24 h unless the shop changed it); busyHours overrides
+    const busyMs = (Number(co.ack.busyHours) > 0 ? Number(co.ack.busyHours) : appFlow.silenceHours()) * HOUR;
     await chatOrders.ack({
       cfg: co,
       push: (uid, messages) => pushMessage(uid, send(messages), token),

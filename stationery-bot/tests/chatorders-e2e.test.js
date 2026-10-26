@@ -29,7 +29,7 @@ const PRODUCTS = [
 ];
 
 // ---- the harness -----------------------------------------------------------------------------------------------------------
-async function harness({ chatOrders, ai = false, tick = false, closeDb = false, withApp = true } = {}) {
+async function harness({ chatOrders, ai = false, tick = false, closeDb = false, withApp = true, extraEnv = {} } = {}) {
   const h = { lineCalls: [], aiCalls: [], logs: '', dir: mkdtempSync(join(tmpdir(), 'chatorders-')) };
   const shop = { ...base, chatOrders: { ...base.chatOrders, mode: 'on', ...chatOrders } };
   writeFileSync(join(h.dir, 'shop.json'), JSON.stringify(shop));
@@ -88,8 +88,8 @@ async function harness({ chatOrders, ai = false, tick = false, closeDb = false, 
     SETTINGS_TIMEOUT_MS: '500',
     NODE_OPTIONS: `--import ${fileURLToPath(new URL('./helpers/redirect-fetch.mjs', import.meta.url))}`,
   };
-  delete env.GEMINI_API_KEY;
-  delete env.ANTHROPIC_API_KEY;
+  for (const k of ['CHATORDERS_MODE', 'CHATORDERS_ACK', 'CHATORDERS_AI', 'CHATORDERS_PILOT_IDS', 'GEMINI_API_KEY', 'ANTHROPIC_API_KEY']) delete env[k];
+  Object.assign(env, extraEnv);
   if (ai) env.ANTHROPIC_API_KEY = 'test-ai-key';
   if (tick) env.CHATORDERS_ACK_TICK_MS = '150';
   if (withApp) {
@@ -282,7 +282,7 @@ test('without SUPABASE_URL "on" cannot save anything: /health says so, and the a
 });
 
 test('ack: once the staff pick the job up in the app the customer is told, once; never while a person is talking with them', async (t) => {
-  const h = await harness({ tick: true, chatOrders: { ack: { enabled: true, text: ACK, maxAgeHours: 48, busyHours: 4 } } });
+  const h = await harness({ tick: true, chatOrders: { ack: { enabled: true, text: ACK, maxAgeHours: 48 } } });
   t.after(h.stop);
   await h.post(h.text(LIST));
   await h.until(() => h.docs().length === 1);
@@ -343,5 +343,28 @@ test('the AI stays out unless it is switched on, even with a key on the server',
   await h.post(h.text('ขอสั่งไม้กวาด 10 อัน แล้วก็น้ำยาล้างจาน 2 แกลอนนะคะ'));
   await h.settle(800);
   assert.equal(h.aiCalls.length, 0);
+  assert.equal(h.docs().length, 0);
+});
+
+test('the Environment page of Render wins over the shop file: CHATORDERS_MODE=pilot with an id of its own, then nothing else is recorded', async (t) => {
+  const h = await harness({ chatOrders: { mode: 'off' }, extraEnv: { CHATORDERS_MODE: 'pilot', CHATORDERS_PILOT_IDS: PILOT } });
+  t.after(h.stop);
+  assert.equal((await (await fetch(`http://127.0.0.1:${h.port}/health`)).json()).orders, 'pilot');
+  await h.post(h.text(LIST, CUSTOMER));
+  await h.until(() => h.alerts().length >= adminIds.length);
+  assert.equal(h.docs().length, 0, 'the file says off, the environment says pilot, and this customer is not in the pilot');
+  const told = h.alerts().length;
+  await h.post(h.text(LIST.replace('=10', '=14'), PILOT));
+  await h.until(() => h.alerts().length >= told + adminIds.length);
+  assert.equal(h.docs().length, 1);
+  assert.equal(h.docs()[0].line_user_id, PILOT);
+});
+
+test('CHATORDERS_MODE=off on Render switches it off whatever the file says', async (t) => {
+  const h = await harness({ chatOrders: { mode: 'on' }, extraEnv: { CHATORDERS_MODE: 'off' } });
+  t.after(h.stop);
+  assert.equal((await (await fetch(`http://127.0.0.1:${h.port}/health`)).json()).orders, 'off');
+  await h.post(h.text(LIST));
+  await h.until(() => h.alerts().length >= adminIds.length);
   assert.equal(h.docs().length, 0);
 });

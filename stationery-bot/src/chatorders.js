@@ -32,6 +32,30 @@ export function enabledFor(cfg, userId) {
   return cfg?.mode === 'pilot' && Array.isArray(cfg.pilotUserIds) && cfg.pilotUserIds.includes(userId);
 }
 
+// The switches can also be turned on Render's Environment page, with no code push:
+//   CHATORDERS_MODE = off | pilot | on · CHATORDERS_ACK = on | off · CHATORDERS_AI = off | pilot | on · CHATORDERS_PILOT_IDS = Uxxx,Uyyy
+// A value set there wins over data/shop.json; anything else in a variable is ignored (the file's setting stays).
+export function chatOrdersFromEnv(co, env = {}) {
+  const out = { ...co };
+  const modes = ['off', 'pilot', 'on'];
+  const pick = (v, list) => {
+    const t = String(v ?? '').trim().toLowerCase();
+    return list.includes(t) ? t : null;
+  };
+  const mode = pick(env.CHATORDERS_MODE, modes);
+  if (mode) out.mode = mode;
+  const ack = pick(env.CHATORDERS_ACK, ['on', 'off']);
+  if (ack) out.ack = { ...out.ack, enabled: ack === 'on' };
+  const ai = pick(env.CHATORDERS_AI, modes);
+  if (ai) out.ai = { ...out.ai, mode: ai };
+  const ids = String(env.CHATORDERS_PILOT_IDS ?? '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter((x) => /^U[0-9a-f]{32}$/.test(x));
+  if (ids.length) out.pilotUserIds = ids;
+  return out;
+}
+
 // The link that opens this job in the back office: https://admin.nattagroup.com/?doc=PJ-0123#projdocs
 export function docLink(appUrl, docNo) {
   if (!appUrl) return '';

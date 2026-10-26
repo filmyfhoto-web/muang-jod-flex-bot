@@ -166,6 +166,8 @@ export async function createAppFlow({ env = process.env, fetch: doFetch = fetch,
     check: () => settingsOk(),
     // The answer of the latest look, without making another (for work that is not worth waiting for a dead database).
     dbOk: () => settings.ok,
+    // How long the bot stays silent after a customer chose to talk with an admin (the app's own setting `silence_hours`).
+    silenceHours: () => (settings.ok ? botConfig(settings.raw).silence_hours : 24),
     // Which parts are switched on right now (false for all of them while the settings cannot be read).
     status() {
       if (!settings.ok) return { menu: false, pick: false, docs: false, enabled: false };
