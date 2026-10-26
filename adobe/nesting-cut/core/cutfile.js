@@ -149,7 +149,17 @@
       opts.marks.forEach(function (g) {
         (g.parts || [g]).forEach(function (p) {
           if (p.kind === 'circle') out.push('<circle cx="' + fmt(p.cx) + '" cy="' + fmt(p.cy) + '" r="' + fmt(p.r) + '"/>');
-          else out.push('<rect x="' + fmt(p.x) + '" y="' + fmt(p.y) + '" width="' + fmt(p.w) + '" height="' + fmt(p.h) + '"/>');
+          else if (p.kind === 'poly') {
+            // มาร์กที่จำจากไฟล์ต้นแบบ: เส้นจริง (ทึบ/เส้นขอบตามต้นแบบ)
+            if (!p.points.length) return;
+            var d = 'M' + p.points.map(function (q) {
+              return fmt(q[0]) + ' ' + fmt(q[1]);
+            }).join('L') + (p.closed ? 'Z' : '');
+            out.push(
+              '<path d="' + d + '"' + (p.fill ? '' : ' fill="none"') +
+                (p.sw > 0 ? ' stroke="#000000" stroke-width="' + fmt(p.sw) + '"' : '') + '/>'
+            );
+          } else out.push('<rect x="' + fmt(p.x) + '" y="' + fmt(p.y) + '" width="' + fmt(p.w) + '" height="' + fmt(p.h) + '"/>');
         });
       });
       out.push('</g>');

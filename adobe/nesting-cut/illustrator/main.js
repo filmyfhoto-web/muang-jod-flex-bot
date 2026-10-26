@@ -32,6 +32,8 @@
     EXPORT_FAILED: 'Illustrator ส่งออกรูปชั่วคราวไม่สำเร็จ',
     TOO_COMPLEX: 'ชิ้นงานเวกเตอร์ซับซ้อนเกินไป — เปลี่ยนเป็น “สร้างตามขอบงาน” แทน',
     NOTHING_PLACED: 'ยังไม่มีชิ้นที่จัดวางได้',
+    NO_REG_LAYERS: 'ไฟล์ที่เปิดอยู่ไม่มีเลเยอร์มาร์กของ Cutting Master (margin / color / reg_1) — เปิดไฟล์ต้นแบบ Graphtec ของร้านก่อน',
+    NO_REG_MARKS: 'เจอเลเยอร์ reg_1 แต่ไม่มีมาร์กบนอาร์ตบอร์ดที่เปิดอยู่ — คลิกอาร์ตบอร์ดที่มีมาร์กแล้วลองใหม่',
     CANVAS_FULL: 'แผ่นงานยาว/เยอะเกินพื้นที่ของ Illustrator — ลดความยาวหรือแบ่งงานเป็นหลายรอบ',
     NO_LAYOUT: 'ไฟล์ชีตไดคัทถูกปิดไปแล้ว — กด “สร้างชีต” ใหม่',
     FOLDER: 'สร้างโฟลเดอร์ไม่ได้: ',
@@ -54,6 +56,8 @@
   var STORE_KEY = 'nongploy.nestingcut.settings.v2';
   // ค่าที่บันทึกจากรุ่นก่อน UI_VERSION: หัวงานเคยเปิดเป็นค่าเริ่มต้น → ปิดให้ครั้งเดียว
   var UI_VERSION = 3;
+  var PV_W = 300; // กรอบพรีวิวขนาดคงที่ (px) — ต้องตรงกับ #previewBox ใน panel.css
+  var PV_H = 400;
   // ชื่ออาร์ตบอร์ดของชีตที่ปลั๊กอินสร้าง — ปุ่ม “ล้างงานเก่า” ใช้หาชีตเก่า
   var SHEET_MARK = 'นัดพอน · ';
   var DEFAULTS = {
@@ -92,6 +96,10 @@
     markThick: 0.5,
     markClearance: 4,
     markEvery: 0,
+    gtMarks: null, // มาร์ก Graphtec ที่จำจากไฟล์ต้นแบบของร้าน (np_readMarks)
+    shopSize: null, // ขนาดงานตัดหน้าร้านที่แก้เอง { w, l } มม.
+    sheetPrice: '', // ราคากระดาษต่อแผ่น (บาท) ของขนาดที่เลือกอยู่
+    prices: {}, // ราคาแยกตามขนาดกระดาษ { media: บาท }
     headerOn: false, // หัวงาน (โลโก้ + ชื่องาน) ด้านบนแผ่น — ปิดไว้ ร้านเปิดเองในขั้น “กระดาษ”
     headerHeight: 18,
     jobName: '',
@@ -302,6 +310,7 @@
     S.built = false;
     S.exported = false;
     updateFlow();
+    renderCost();
     $('previewSub').textContent = S.stale ? '(ค่าเปลี่ยน — กดคำนวณใหม่)' : '';
   }
 
@@ -679,6 +688,8 @@
   function markSpec() {
     var s = S.settings;
     if (s.markType === 'none') return { type: 'none' };
+    var gt = gtTemplate();
+    if (gt) return { type: 'graphtec', custom: gt, clearance: num('markClearance') };
     return {
       type: s.markType,
       size: num('markSize'),
@@ -688,6 +699,91 @@
       every: num('markEvery'),
       square: 5,
     };
+  }
+
+  // ---------------------------------------------------------------- มาร์ก Graphtec (Cutting Master)
+
+  // มาร์กที่จำจากไฟล์ต้นแบบ → รูปแบบที่ core/layout.js ใช้ (มม.) — ไม่ได้เลือกมาร์ก Graphtec / ยังไม่ได้จำ = null
+  function gtTemplate() {
+    var t = S.settings.gtMarks;
+    if (S.settings.markType !== 'graphtec' || !t || !t.items || !t.items.length) return null;
+    return {
+      w: t.w,
+      h: t.h,
+      items: t.items.map(function (it, i) {
+        return { box: it.box, poly: it.poly, closed: it.closed, fill: !!it.fill, sw: it.sw * K, src: i };
+      }),
+    };
+  }
+
+  // ผลจาก np_readMarks (pt, y ลง) → เก็บไว้ในค่าตั้ง พร้อมรูปเส้นตรง (มม.) ไว้วาดพรีวิว/กันพื้นที่
+  function gtFromHost(r) {
+    var items = r.items.map(function (it) {
+      var bez = it.pts.map(function (q) {
+        return { a: [q[0] * K, q[1] * K], l: [q[2] * K, q[3] * K], r: [q[4] * K, q[5] * K] };
+      });
+      var poly = G.flattenBezier(bez, it.closed, 0.05);
+      var b = G.bounds([poly]);
+      var half = it.stroke ? (it.sw * K) / 2 : 0;
+      return {
+        layer: it.layer,
+        closed: it.closed,
+        cp: it.cp || 0,
+        fill: it.fill,
+        stroke: it.stroke,
+        sw: it.stroke ? it.sw : 0,
+        pts: it.pts,
+        poly: poly.map(function (q) {
+          return [Math.round(q[0] * 1000) / 1000, Math.round(q[1] * 1000) / 1000];
+        }),
+        box: { x: b.minX - half, y: b.minY - half, w: b.maxX - b.minX + 2 * half, h: b.maxY - b.minY + 2 * half },
+      };
+    });
+    return { file: r.document, w: r.w * K, h: r.h * K, layers: r.layers, items: items };
+  }
+
+  function learnMarks() {
+    return host.call('np_readMarks', {}).then(function (r) {
+      S.settings.gtMarks = gtFromHost(r);
+      setSetting('markType', 'graphtec');
+      saveSettings();
+      markStale();
+      renderGtInfo();
+      var t = S.settings.gtMarks;
+      status(
+        'จำมาร์กจาก “' + t.file + '” แล้ว: ' + t.items.length + ' ชิ้น · ' + t.layers.length + ' เลเยอร์ (' +
+          t.layers.map(function (n) { return n.split(' ')[0]; }).join(' / ') + ') · หน้า ' + fmtSize(t.w, t.h),
+        'ok'
+      );
+    });
+  }
+
+  function forgetMarks() {
+    S.settings.gtMarks = null;
+    saveSettings();
+    markStale();
+    renderGtInfo();
+    status('กลับไปใช้มาร์ก Graphtec มาตรฐาน (L 4 มุม ลงเลเยอร์ reg_1)', 'ok');
+  }
+
+  // ขนาด มม. → "12.6 × 19 นิ้ว" หรือ "297 × 420 มม." ตามหน่วยที่เลือก
+  function fmtSize(w, l) {
+    var k = unitK();
+    function f(v) {
+      return Math.round((v / k) * 100) / 100;
+    }
+    return f(w) + ' × ' + (l ? f(l) : 'ม้วน') + (k === 1 ? ' มม.' : ' นิ้ว');
+  }
+
+  function renderGtInfo() {
+    var box = $('gtBox');
+    if (!box) return;
+    var t = S.settings.gtMarks;
+    box.hidden = S.settings.markType !== 'graphtec';
+    $('gtInfo').textContent = t
+      ? '✓ ใช้มาร์กจากไฟล์ “' + t.file + '” (' + t.items.length + ' ชิ้น · หน้า ' + fmtSize(t.w, t.h) + ') ลงเลเยอร์ชื่อเดียวกับไฟล์ต้นแบบ'
+      : 'มาร์กมาตรฐาน: L 4 มุม ลงเลเยอร์ reg_1 แบบ Cutting Master — ให้เหมือนไฟล์ร้านเป๊ะ: เปิดไฟล์ต้นแบบ Graphtec แล้วกด “จำมาร์ก”';
+    $('btnForgetMarks').hidden = !t;
   }
 
   function unitK() {
@@ -767,6 +863,7 @@
           };
         });
         S.result = { plan: plan, res: res, sheets: sheets, ms: Date.now() - t0, fill: fill };
+        S.pvSheet = 0;
         S.stale = false;
         S.built = false;
         $('previewSub').textContent = '';
@@ -787,11 +884,12 @@
           var b = G.bounds(fill.part.rings);
           status(
             'ได้ ' + res.placedCount + ' ดวง ต่อ 1 แผ่น · ดวงขนาด ' + Math.round(b.maxX - b.minX) + ' × ' + Math.round(b.maxY - b.minY) + ' มม.' +
-              (fill.others > 0 ? ' (โหมดเต็มแผ่นใช้แบบแรกแบบเดียว ข้ามอีก ' + fill.others + ' แบบ)' : ''),
+              (fill.others > 0 ? ' (โหมดเต็มแผ่นใช้แบบแรกแบบเดียว ข้ามอีก ' + fill.others + ' แบบ)' : '') +
+              (costInfo() ? ' · ' + costLine() : ''),
             'ok'
           );
         } else {
-          status('จัดวางครบ ' + res.placedCount + ' ชิ้น ✓', 'ok');
+          status('จัดวางครบ ' + res.placedCount + ' ชิ้น ✓' + (costInfo() ? ' · ' + costLine() : ''), 'ok');
         }
         // คำเตือนก่อนสร้างชีต
         var warnings = [];
@@ -931,6 +1029,7 @@
       run: { lay: lay, part: p, shape: shape, w: lay.w, h: lay.h },
       warnings: warnings,
     };
+    S.pvSheet = 0;
     S.stale = false;
     S.built = false;
     $('previewSub').textContent = '';
@@ -938,17 +1037,80 @@
     renderStats();
     var msg =
       'ได้ ' + n + ' ดวง · ยกใบมีด ' + lay.lifts + ' ครั้ง · เส้นตัดยาว ' + (lay.cutLength / 1000).toFixed(2) + ' ม. · ดวง ' +
-      lay.w.toFixed(1) + ' × ' + lay.h.toFixed(1) + ' มม.';
+      lay.w.toFixed(1) + ' × ' + lay.h.toFixed(1) + ' มม.' + (costInfo() ? ' · ' + costLine() : '');
     if (warnings.length) status('⚠ ' + warnings.join(' · ') + ' — ' + msg, 'warn');
     else status(msg, 'ok');
   }
 
   // ---------------------------------------------------------------- สถิติ + พรีวิว
 
+  // ---------------------------------------------------------------- ต้นทุน
+
+  function priceUnit() {
+    return num('length') > 0 ? 'บาท/แผ่น' : 'บาท/เมตร';
+  }
+
+  function baht(v) {
+    var d = v >= 100 ? 0 : 2;
+    var t = v.toFixed(d);
+    if (d) t = t.replace(/\.00$/, '');
+    return t.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
+  // ต้นทุนกระดาษ: แผ่นที่ใช้ × ราคา (ม้วน = เมตรที่ใช้ × ราคา) ÷ จำนวนชิ้นที่วางได้
+  function costInfo() {
+    var r = S.result;
+    var price = parseFloat(S.settings.sheetPrice);
+    if (!r || !(price > 0) || !r.res.placedCount) return null;
+    var used = r.sheets.reduce(function (a, sh) {
+      return a + sh.length;
+    }, 0);
+    var qty = r.plan.roll ? used / 1000 : r.sheets.length;
+    var total = qty * price;
+    return { total: total, per: total / r.res.placedCount, qty: qty, roll: r.plan.roll, price: price, pieces: r.res.placedCount };
+  }
+
+  function costLine() {
+    var c = costInfo();
+    if (!c) return '';
+    return 'ต้นทุนกระดาษ ' + baht(c.total) + ' บาท · ตกชิ้นละ ' + baht(c.per) + ' บาท';
+  }
+
+  function renderCost() {
+    $('priceUnit').textContent = priceUnit();
+    var out = $('costOut');
+    var c = costInfo();
+    out.innerHTML = '';
+    if (c && S.stale) {
+      out.className = 'cost-out empty';
+      out.textContent = 'ค่าเปลี่ยน — กดคำนวณใหม่แล้วจะบอกต้นทุนต่อชิ้น';
+      return;
+    }
+    if (!c) {
+      out.className = 'cost-out empty';
+      out.textContent = S.result ? 'ใส่ราคากระดาษ แล้วจะบอกว่าตกชิ้นละกี่บาท' : '';
+      return;
+    }
+    out.className = 'cost-out';
+    var per = el('div', 'cost-per');
+    per.appendChild(el('span', null, 'ตกชิ้นละ'));
+    per.appendChild(el('b', null, baht(c.per)));
+    per.appendChild(el('span', null, 'บาท'));
+    out.appendChild(per);
+    out.appendChild(
+      el(
+        'div',
+        'cost-sum',
+        (c.roll ? (Math.round(c.qty * 100) / 100) + ' ม.' : c.qty + ' แผ่น') + ' × ' + baht(c.price) + ' = ' + baht(c.total) + ' บาท · ' + c.pieces + ' ชิ้น'
+      )
+    );
+  }
+
   function renderStats() {
     var r = S.result;
     var box = $('stats');
     box.innerHTML = '';
+    renderCost();
     if (!r) {
       box.hidden = true;
       return;
@@ -987,6 +1149,8 @@
 
   function clearPreview() {
     $('previewInfo').textContent = '';
+    $('pvPager').hidden = true;
+    renderCost();
     $('preview').hidden = true;
     $('previewEmpty').hidden = false;
     $('stats').hidden = true;
@@ -1005,25 +1169,33 @@
     });
   }
 
+  // พรีวิวกรอบขนาดคงที่ (ไม่ยืดตามแผง) ทีละแผ่น — หลายแผ่นกด ‹ › เปลี่ยน
   function drawPreview() {
     if (!S.result) return clearPreview();
+    var r = S.result;
     var canvas = $('preview');
     canvas.hidden = false;
     $('previewEmpty').hidden = true;
+    var n = r.sheets.length;
+    S.pvSheet = Math.max(0, Math.min(n - 1, S.pvSheet || 0));
+    var sh = r.sheets[S.pvSheet];
     var box = $('previewBox');
-    var cssW = box.clientWidth || 300;
-    if (document.body.classList.contains('wide')) {
-      // จอกว้าง: ย่อให้เห็นทั้งแผ่นในกรอบเดียว ไม่ต้องเลื่อน
-      var r = S.result;
-      var total = r.sheets.reduce(function (a, sh) {
-        return a + sh.length;
-      }, 0);
-      var h = Math.max(200, box.clientHeight - 16);
-      cssW = Math.min(cssW - 16, (h - 12 * r.sheets.length) * (r.plan.width / total));
-    }
-    renderSheets(canvas, Math.max(120, cssW), Math.min(2, window.devicePixelRatio || 1));
-    canvas.style.width = Math.max(120, cssW) + 'px';
+    var bw = Math.min(PV_W, box.clientWidth || PV_W) - 16;
+    var bh = PV_H - 16;
+    var sc = Math.min(bw / r.plan.width, bh / sh.length);
+    var cssW = Math.max(60, r.plan.width * sc);
+    renderSheets(canvas, cssW, Math.min(2, window.devicePixelRatio || 1), S.pvSheet);
+    canvas.style.width = cssW + 'px';
+    $('pvPager').hidden = n < 2;
+    $('pvPage').textContent = 'แผ่น ' + (S.pvSheet + 1) + '/' + n;
+    $('pvPrev').disabled = S.pvSheet === 0;
+    $('pvNext').disabled = S.pvSheet === n - 1;
     renderInfo();
+  }
+
+  function pvStep(d) {
+    S.pvSheet = (S.pvSheet || 0) + d;
+    drawPreview();
   }
 
   // บรรทัดสรุปใต้พรีวิว: "132 ดวง · หน้า 330.2 × 482.6 มม."
@@ -1068,13 +1240,14 @@
     if (S.vec) drawVec();
   }
 
-  // วาดทุกแผ่นลงแคนวาสกว้าง cssW (ใช้ทั้งพรีวิวบนแผงและรูปส่งลูกค้า)
-  function renderSheets(canvas, cssW, dpr) {
+  // วาดแผ่นลงแคนวาสกว้าง cssW: ทุกแผ่นเรียงลงมา (รูปส่งลูกค้า) หรือแผ่นเดียว (only = ลำดับแผ่น, พรีวิวบนแผง)
+  function renderSheets(canvas, cssW, dpr, only) {
     var r = S.result;
     var s = cssW / r.plan.width; // px ต่อ mm
-    var gap = 12;
+    var list = only == null ? r.sheets : [r.sheets[only]];
+    var gap = only == null ? 12 : 0;
     var totalH = 0;
-    r.sheets.forEach(function (sh) {
+    list.forEach(function (sh) {
       totalH += sh.length * s + gap;
     });
     var maxPx = 16000;
@@ -1087,7 +1260,7 @@
     ctx.clearRect(0, 0, cssW, totalH);
 
     var y0 = 0;
-    r.sheets.forEach(function (sh) {
+    list.forEach(function (sh) {
       ctx.save();
       ctx.translate(0, y0);
       ctx.fillStyle = '#ffffff';
@@ -1107,9 +1280,22 @@
 
       // มาร์ก
       ctx.fillStyle = '#000';
+      ctx.strokeStyle = '#000';
       sh.marks.forEach(function (g) {
         g.parts.forEach(function (m) {
-          if (m.kind === 'circle') {
+          if (m.kind === 'poly') {
+            ctx.beginPath();
+            m.points.forEach(function (q, i) {
+              if (i) ctx.lineTo(q[0] * s, q[1] * s);
+              else ctx.moveTo(q[0] * s, q[1] * s);
+            });
+            if (m.closed) ctx.closePath();
+            if (m.fill) ctx.fill();
+            if (m.sw > 0) {
+              ctx.lineWidth = Math.max(1, m.sw * s);
+              ctx.stroke();
+            }
+          } else if (m.kind === 'circle') {
             ctx.beginPath();
             ctx.arc(m.cx * s, m.cy * s, m.r * s, 0, Math.PI * 2);
             ctx.fill();
@@ -1255,7 +1441,10 @@
       var r = S.result;
       var n = r.sheets.length;
       var grid = useGridCut();
+      var gt = r.plan.marks.type === 'graphtec' ? S.settings.gtMarks : null;
       return {
+        // Graphtec: เลเยอร์ชื่อเดียวกับที่ Cutting Master ใช้ มาร์กอยู่ใน reg_1
+        regLayers: r.plan.marks.type === 'graphtec' ? (gt && gt.layers.length ? gt.layers : L.GRAPHTEC_LAYERS) : null,
         target: target,
         spotName: S.settings.spotName || 'CutContour',
         strokeWidth: num('strokeWidth'),
@@ -1270,9 +1459,26 @@
         sheets: r.sheets.map(function (sh, i) {
           var copies = {};
           var marks = [];
+          var markPaths = [];
           sh.marks.forEach(function (g) {
             g.parts.forEach(function (m) {
-              marks.push(toPtShape(m));
+              if (m.kind !== 'poly') return marks.push(toPtShape(m));
+              // มาร์กจากไฟล์ต้นแบบ: ใช้เส้นจริง (โค้ง + สี) เลื่อนตามมุมที่ยึด
+              var src = gt && gt.items[m.src];
+              if (!src) return;
+              var dx = m.dx * PT;
+              var dy = m.dy * PT;
+              markPaths.push({
+                layer: src.layer,
+                closed: src.closed,
+                cp: src.cp,
+                fill: src.fill,
+                stroke: src.stroke,
+                sw: src.sw,
+                pts: src.pts.map(function (q) {
+                  return [q[0] + dx, q[1] + dy, q[2] + dx, q[3] + dy, q[4] + dx, q[5] + dy];
+                }),
+              });
             });
           });
           return {
@@ -1286,6 +1492,7 @@
               return { part: pl.partId, angle: c.angle, tx: c.tx, ty: c.ty, name: p.name + ' #' + copies[pl.partId] };
             }),
             marks: marks,
+            markPaths: markPaths,
             header: headerPayload(sh, i, n),
             cutPolys: sh.cutPaths
               ? sh.cutPaths.map(function (l) {
@@ -1461,7 +1668,7 @@
         }, 0);
         var msg = host.demo
           ? 'จัดวางเสร็จ! (โหมดทดลอง) ไปขั้น 4 ส่งออก เพื่อดาวน์โหลด PLT / DXF / SVG'
-          : 'เสร็จแล้วจ้า! ' + r.res.placedCount + ' ชิ้น ยาว ' + Math.round(used) + ' มม. — ส่งไฟล์เข้าเครื่องตัดได้เลย';
+          : 'เสร็จแล้วจ้า! ' + r.res.placedCount + ' ชิ้น ยาว ' + Math.round(used) + ' มม.' + (costInfo() ? ' · ' + costLine() : '') + ' — ส่งไฟล์เข้าเครื่องตัดได้เลย';
         status(msg, 'ok');
       });
   }
@@ -2478,6 +2685,13 @@
     show('[data-num-style]', s.numStyle === 'custom');
     show('[data-run-custom]', s.runSize === 'custom');
     show('#headerFields', !!s.headerOn);
+    // ขนาดของร้านที่ล็อกไว้ แก้กว้าง/สูงไม่ได้
+    var med = L.media(s.media);
+    var fixed = !!(med && med.fixed);
+    $('width').disabled = fixed;
+    $('length').disabled = fixed;
+    show('#mediaLock', fixed);
+    renderGtInfo();
     var unit = s.sizeUnit === 'in' ? ' (นิ้ว)' : ' (มม.)';
     Array.prototype.forEach.call(document.querySelectorAll('[data-unit]'), function (e) {
       e.textContent = e.getAttribute('data-unit') + unit;
@@ -2541,7 +2755,7 @@
       if (!S.parts.length) return isRun ? 'เลือกสติ๊กเกอร์ต้นแบบ 1 ดวงใน Illustrator แล้วกดปุ่มส้ม' : 'เลือกชิ้นงานใน Illustrator แล้วกดปุ่มส้มด้านล่าง';
       return isRun ? 'ได้ต้นแบบแล้ว กด “ถัดไป”' : 'ตรวจจำนวนแต่ละแบบ (ช่องตัวเลขขวามือ) แล้วกด “ถัดไป”';
     }
-    if (S.page === 2) return isRun ? 'ตั้งขนาดดวงและกระดาษ แล้วกด “ถัดไป”' : 'ใช้ค่าเดิมได้เลยถ้าไม่เปลี่ยนกระดาษ — กด “ถัดไป”';
+    if (S.page === 2) return isRun ? 'ตั้งขนาดดวงและกระดาษ แล้วกด “ถัดไป”' : 'เลือกขนาดกระดาษของร้าน แล้วกด “ถัดไป”';
     if (S.page === 3) {
       if (S.built) return 'สร้างชีตแล้ว ✓ อยู่ในไฟล์ Illustrator — ไปขั้นส่งออกต่อ';
       if (hasResult()) return 'ดูพรีวิวว่าได้กี่ดวง โอเคแล้วกด “สร้างชีต” (งานเดิมไม่ถูกย้าย)';
@@ -2678,7 +2892,7 @@
   // ช่องกรอกแบบ “ชื่ออยู่ซ้าย ช่องอยู่ขวา” อ่านง่ายเหมือนแผงของ Illustrator
   function markFields() {
     Array.prototype.forEach.call(document.querySelectorAll('label'), function (l) {
-      if (l.classList.contains('check')) return;
+      if (l.classList.contains('check') || l.classList.contains('cost-in') || l.classList.contains('stack')) return;
       if (l.querySelector('input:not([type="checkbox"]), select')) l.classList.add('field');
     });
   }
@@ -2745,12 +2959,46 @@
     $('cutterNote').textContent = c.note || '';
   }
 
-  function applyMedia(id) {
+  // ขนาดของกระดาษ (มม.) — “ขนาดงานตัดหน้าร้าน” ใช้ขนาดที่ร้านแก้ไว้ถ้ามี
+  function mediaSize(m) {
+    var sz = m.id === 'gt_shop' && S.settings.shopSize;
+    return sz && sz.w > 0 ? { w: sz.w, l: sz.l } : { w: m.width, l: m.length };
+  }
+
+  function mediaLabel(m) {
+    if (!m.cutter) return m.label;
+    var z = mediaSize(m);
+    var k = m.unit === 'in' ? 25.4 : 1;
+    function f(v) {
+      return Math.round((v / k) * 100) / 100;
+    }
+    return m.label + ' · ' + f(z.w) + '×' + f(z.l) + (k === 1 ? ' มม.' : ' นิ้ว');
+  }
+
+  // เลือกขนาดกระดาษ: ขนาดของร้านตั้งหน่วย + เครื่องตัด + มาร์กให้ด้วย
+  function applyMedia(id, keepCutter) {
     var m = L.media(id);
     if (!m || id === 'custom') return;
+    if (m.unit && !keepCutter) setSetting('sizeUnit', m.unit);
+    if (m.cutter && !keepCutter) {
+      setSetting('cutter', m.cutter);
+      applyCutter(m.cutter);
+    }
+    var z = mediaSize(m);
     var k = unitK();
-    setSetting('width', Math.round((m.width / k) * 100) / 100);
-    setSetting('length', m.length ? Math.round((m.length / k) * 100) / 100 : '');
+    setSetting('width', Math.round((z.w / k) * 100) / 100);
+    setSetting('length', z.l ? Math.round((z.l / k) * 100) / 100 : '');
+  }
+
+  // ราคากระดาษจำแยกตามขนาด
+  function loadPrice() {
+    var p = (S.settings.prices || {})[S.settings.media];
+    setSetting('sheetPrice', p == null ? '' : p);
+  }
+
+  function savePrice() {
+    S.settings.prices = S.settings.prices || {};
+    S.settings.prices[S.settings.media] = S.settings.sheetPrice;
   }
 
   function fillSelect(id, list) {
@@ -2762,9 +3010,29 @@
     });
   }
 
+  // ขนาดของร้าน (Graphtec) อยู่กลุ่มบนสุด
+  function fillMedia() {
+    var sel = $('media');
+    sel.innerHTML = '';
+    [
+      ['ขนาดของร้าน', L.MEDIA.filter(function (m) { return !!m.cutter; })],
+      ['ขนาดทั่วไป', L.MEDIA.filter(function (m) { return !m.cutter; })],
+    ].forEach(function (grp) {
+      var g = document.createElement('optgroup');
+      g.label = grp[0];
+      grp[1].forEach(function (m) {
+        var o = el('option', null, mediaLabel(m));
+        o.value = m.id;
+        g.appendChild(o);
+      });
+      sel.appendChild(g);
+    });
+    sel.value = S.settings.media;
+  }
+
   function bindSettings() {
     fillSelect('cutter', L.CUTTERS);
-    fillSelect('media', L.MEDIA);
+    fillMedia();
     fillSelect('runShape', NC.diecut.SHAPES);
     fillSelect('stShape', NC.stamp.SHAPES);
     var keys = [];
@@ -2777,6 +3045,9 @@
         S.settings[key] = f.type === 'checkbox' ? f.checked : f.value;
         writeField(key); // ช่องเดียวกันที่อยู่หลายที่ (เช่น หมายเหตุงาน)
         if (key === 'cutter') applyCutter(f.value);
+        if (key === 'media') loadPrice();
+        if (key === 'sheetPrice') savePrice();
+        if (key === 'markType') renderGtInfo();
         if (key === 'sizeUnit' && S.settings.media === 'custom') {
           // กำหนดเอง: แปลงตัวเลขเดิมเป็นหน่วยใหม่
           var r = f.value === 'in' ? 1 / 25.4 : 25.4;
@@ -2784,8 +3055,15 @@
             var v = parseFloat(S.settings[k2]);
             if (v > 0) setSetting(k2, Math.round(v * r * 100) / 100);
           });
-        } else if (key === 'media' || key === 'sizeUnit') applyMedia(S.settings.media);
-        if ((key === 'width' || key === 'length') && S.settings.media !== 'custom') setSetting('media', 'custom');
+        } else if (key === 'media') applyMedia(S.settings.media);
+        else if (key === 'sizeUnit') applyMedia(S.settings.media, true);
+        if (key === 'width' || key === 'length') {
+          if (S.settings.media === 'gt_shop') {
+            // ขนาดงานตัดหน้าร้าน: แก้ขนาดได้ ชื่อเดิม (จำไว้ใช้ครั้งหน้า)
+            S.settings.shopSize = { w: num('width') * unitK(), l: num('length') * unitK() };
+            fillMedia();
+          } else if (S.settings.media !== 'custom') setSetting('media', 'custom');
+        }
         if (key === 'cutMode') {
           S.parts.forEach(function (p) {
             if (p.mode !== 'contour') p.mode = defaultMode(p);
@@ -2799,6 +3077,7 @@
           drawVec();
         }
         syncFields();
+        if (key === 'sheetPrice') return renderStats();
         if (NEST_KEYS.indexOf(key) >= 0) markStale();
         else S.built = false;
         if (S.result && !S.stale) drawPreview();
@@ -2806,6 +3085,14 @@
     });
     var c = L.cutter(S.settings.cutter);
     $('cutterNote').textContent = c ? c.note : '';
+    // ราคาอัปเดตทันทีที่พิมพ์ ไม่ต้องรอออกจากช่อง
+    $('sheetPrice').addEventListener('input', function () {
+      S.settings.sheetPrice = this.value;
+      savePrice();
+      saveSettings();
+      renderStats();
+    });
+    renderGtInfo();
     renderLogoName();
   }
 
@@ -2896,6 +3183,16 @@
     };
     $('btnNest').onclick = function () {
       run(calcNow);
+    };
+    $('btnLearnMarks').onclick = function () {
+      run(learnMarks);
+    };
+    $('btnForgetMarks').onclick = forgetMarks;
+    $('pvPrev').onclick = function () {
+      pvStep(-1);
+    };
+    $('pvNext').onclick = function () {
+      pvStep(1);
     };
     $('btnSelectCut').onclick = function () {
       run(selectCutLines);

@@ -615,11 +615,205 @@ function np_drawPolys(layer, polys, ox, oy, spot, width) {
   }
 }
 
+// ---------------------------------------------------------------- Graphtec (Cutting Master) marks
+//
+// Cutting Master keeps its mark settings in layer names (margin / color / reg_2 / reg_1, top to bottom)
+// and the marks themselves inside reg_1. np_readMarks learns them from the shop's own template file,
+// np_buildLayout re-creates the same layers + marks on every new sheet.
+
+function np_isRegLayer(name) {
+  return /^(margin|color|reg_\d+)(\s|$)/i.test(String(name));
+}
+
+function np_colorObj(c) {
+  if (!c) return null;
+  var t = c.typename;
+  if (t === 'CMYKColor') return { t: 'cmyk', v: [c.cyan, c.magenta, c.yellow, c.black] };
+  if (t === 'RGBColor') return { t: 'rgb', v: [c.red, c.green, c.blue] };
+  if (t === 'GrayColor') return { t: 'gray', v: [c.gray] };
+  if (t === 'SpotColor') return { t: 'spot', name: c.spot.name, tint: c.tint, base: np_colorObj(c.spot.color) };
+  return null;
+}
+
+function np_makeColor(doc, o) {
+  if (!o) return null;
+  var c;
+  if (o.t === 'cmyk') {
+    c = new CMYKColor();
+    c.cyan = o.v[0];
+    c.magenta = o.v[1];
+    c.yellow = o.v[2];
+    c.black = o.v[3];
+    return c;
+  }
+  if (o.t === 'rgb') {
+    c = new RGBColor();
+    c.red = o.v[0];
+    c.green = o.v[1];
+    c.blue = o.v[2];
+    return c;
+  }
+  if (o.t === 'gray') {
+    c = new GrayColor();
+    c.gray = o.v[0];
+    return c;
+  }
+  if (o.t === 'spot') {
+    var spot = null;
+    try {
+      spot = doc.spots.getByName(o.name);
+    } catch (e) {}
+    if (!spot) {
+      var base = np_makeColor(doc, o.base);
+      if (!base) return null;
+      try {
+        spot = doc.spots.add();
+        spot.name = o.name;
+        spot.colorType = ColorModel.SPOT;
+        spot.color = base;
+      } catch (e2) {
+        return base;
+      }
+    }
+    c = new SpotColor();
+    c.spot = spot;
+    c.tint = o.tint == null ? 100 : o.tint;
+    return c;
+  }
+  return null;
+}
+
+// one path of a mark, relative to the artboard top-left with y going down: [ax, ay, lx, ly, rx, ry]
+function np_markPath(p, ab, cp) {
+  var pts = p.pathPoints;
+  var list = [];
+  for (var k = 0; k < pts.length; k++) {
+    var q = pts[k];
+    list.push([
+      np_r(q.anchor[0] - ab[0]), np_r(ab[1] - q.anchor[1]),
+      np_r(q.leftDirection[0] - ab[0]), np_r(ab[1] - q.leftDirection[1]),
+      np_r(q.rightDirection[0] - ab[0]), np_r(ab[1] - q.rightDirection[1])
+    ]);
+  }
+  return {
+    closed: p.closed,
+    cp: cp,
+    fill: p.filled ? np_colorObj(p.fillColor) : null,
+    stroke: p.stroked ? np_colorObj(p.strokeColor) : null,
+    sw: p.stroked ? p.strokeWidth : 0,
+    pts: list
+  };
+}
+
+function np_walkMarks(it, layerName, ab, out, depth) {
+  if (depth > 20 || out.length > 400) return;
+  var t = it.typename;
+  var k;
+  if (t === 'GroupItem') {
+    for (k = 0; k < it.pageItems.length; k++) np_walkMarks(it.pageItems[k], layerName, ab, out, depth + 1);
+    return;
+  }
+  if (t !== 'PathItem' && t !== 'CompoundPathItem') return;
+  // only what sits on the active artboard
+  var b = it.geometricBounds;
+  if (b[2] < ab[0] || b[0] > ab[2] || b[1] < ab[3] || b[3] > ab[1]) return;
+  if (t === 'PathItem') {
+    var one = np_markPath(it, ab, 0);
+    one.layer = layerName;
+    out.push(one);
+    return;
+  }
+  NP.cpSeq = (NP.cpSeq || 0) + 1;
+  for (k = 0; k < it.pathItems.length; k++) {
+    var sub = np_markPath(it.pathItems[k], ab, NP.cpSeq);
+    sub.layer = layerName;
+    out.push(sub);
+  }
+}
+
+function np_walkRegLayer(lay, name, ab, out, depth) {
+  var k;
+  for (k = 0; k < lay.pageItems.length; k++) np_walkMarks(lay.pageItems[k], name, ab, out, 0);
+  if (depth < 5) {
+    for (k = 0; k < lay.layers.length; k++) np_walkRegLayer(lay.layers[k], name, ab, out, depth + 1);
+  }
+}
+
+// args: {} - reads the active document + active artboard
+function np_readMarks(args) {
+  if (!app.documents.length) throw np_E('NO_DOC');
+  var doc = app.activeDocument;
+  var ab = doc.artboards[doc.artboards.getActiveArtboardIndex()].artboardRect;
+  var names = [];
+  var items = [];
+  for (var i = 0; i < doc.layers.length; i++) {
+    var lay = doc.layers[i];
+    if (!np_isRegLayer(lay.name)) continue;
+    names.push(lay.name);
+    np_walkRegLayer(lay, lay.name, ab, items, 0);
+  }
+  if (!names.length) throw np_E('NO_REG_LAYERS');
+  if (!items.length) throw np_E('NO_REG_MARKS');
+  return { document: doc.name, w: np_r(ab[2] - ab[0]), h: np_r(ab[1] - ab[3]), layers: names, items: items };
+}
+
+// the reg layers in the same order as the template (top to bottom), above everything the layout made
+function np_regLayers(doc, names) {
+  var out = {};
+  for (var i = names.length - 1; i >= 0; i--) {
+    var lay = np_layer(doc, names[i]);
+    try {
+      lay.zOrder(ZOrderMethod.BRINGTOFRONT);
+    } catch (e) {}
+    out[names[i]] = lay;
+  }
+  return out;
+}
+
+// the layer that holds the marks: reg_1 (else the bottom one)
+function np_regMarkLayer(names) {
+  for (var i = 0; i < names.length; i++) {
+    if (/^reg_1(\s|$)/i.test(names[i])) return names[i];
+  }
+  return names[names.length - 1];
+}
+
+// marks learned with np_readMarks: [{ layer, closed, cp, fill, stroke, sw, pts }] already moved for this sheet
+function np_drawMarkPaths(doc, layers, fallback, paths, ox, oy) {
+  var cps = {};
+  for (var i = 0; i < paths.length; i++) {
+    var m = paths[i];
+    var lay = layers[m.layer] || fallback;
+    var p;
+    if (m.cp) {
+      var key = m.layer + '#' + m.cp;
+      if (!cps[key]) cps[key] = lay.compoundPathItems.add();
+      p = cps[key].pathItems.add();
+    } else p = lay.pathItems.add();
+    var sp = { closed: m.closed, points: [] };
+    for (var k = 0; k < m.pts.length; k++) {
+      var q = m.pts[k];
+      sp.points.push({ a: [ox + q[0], oy - q[1]], l: [ox + q[2], oy - q[3]], r: [ox + q[4], oy - q[5]] });
+    }
+    np_applyPoints(p, sp);
+    var fill = np_makeColor(doc, m.fill);
+    var stroke = np_makeColor(doc, m.stroke);
+    p.filled = !!fill;
+    if (fill) p.fillColor = fill;
+    p.stroked = !!stroke;
+    if (stroke) {
+      p.strokeColor = stroke;
+      p.strokeWidth = m.sw;
+    }
+  }
+}
+
 // args: {
 //   target: 'artboard' (new artboards next to the existing ones in the source document, default)
 //         | 'document' (a separate new document - used for exporting),
-//   sheets: [{ w, h, name, pieces: [{ part, angle, tx, ty, name }], marks: [], header: {}, gridLines: [] }],
-//   layerNames: { pieces, cut, marks, header }, cutNames, spotName, strokeWidth, dropPieceCuts
+//   sheets: [{ w, h, name, pieces: [{ part, angle, tx, ty, name }], marks: [], markPaths: [], header: {}, gridLines: [] }],
+//   layerNames: { pieces, cut, marks, header }, cutNames, spotName, strokeWidth, dropPieceCuts,
+//   regLayers: ['margin ...', 'color ...', 'reg_2 ...', 'reg_1 ...'] (Graphtec: marks go into regLayers[last])
 // } all lengths in pt, positions relative to the artboard top-left with y going down
 function np_buildLayout(args) {
   var src = np_sourceDoc();
@@ -660,8 +854,10 @@ function np_buildLayout(args) {
   NP.stock = [];
   var layPieces = np_layer(doc, names.pieces || 'Pieces');
   var layCut = names.cut ? np_layer(doc, names.cut) : null;
-  var layMarks = np_layer(doc, names.marks || 'Marks');
   var layHeader = np_layer(doc, names.header || 'Header');
+  var regNames = args.regLayers && args.regLayers.length ? args.regLayers : null;
+  var regs = regNames ? np_regLayers(doc, regNames) : null;
+  var layMarks = regs ? regs[np_regMarkLayer(regNames)] : np_layer(doc, names.marks || 'Marks');
   var color = np_black(doc);
   var spot = np_spot(doc, args.spotName || 'CutContour');
 
@@ -704,6 +900,7 @@ function np_buildLayout(args) {
       placed++;
     }
     if (sh.marks && sh.marks.length) np_drawMarks(layMarks, sh.marks, rect[0], rect[1], color);
+    if (sh.markPaths && sh.markPaths.length) np_drawMarkPaths(doc, regs || {}, layMarks, sh.markPaths, rect[0], rect[1]);
     if (sh.header) np_drawHeader(layHeader, sh.header, rect[0], rect[1], color);
     if (sh.gridLines && sh.gridLines.length) np_drawLines(layCut || layPieces, sh.gridLines, rect[0], rect[1], spot, args.strokeWidth);
     if (sh.cutPolys && sh.cutPolys.length) np_drawPolys(layCut || layPieces, sh.cutPolys, rect[0], rect[1], spot, args.strokeWidth);

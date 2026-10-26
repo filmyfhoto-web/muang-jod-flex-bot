@@ -552,27 +552,129 @@ button.go {
 }
 
 .preview-info {
+  flex: 1;
   text-align: right;
   color: var(--muted);
   font-size: 12px;
-  margin-top: 6px;
   min-height: 14px;
+}
+
+/* ชื่ออยู่บน ช่องเต็มบรรทัด (ชื่อขนาดกระดาษยาว) */
+label.stack {
+  display: block;
+  font-size: 12px;
+  margin: 0 0 6px;
+}
+label.stack > select {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+}
+
+/* พรีวิวจัดวางดวง: กรอบขนาดคงที่ 300×400 (ตรงกับ PV_W/PV_H ใน main.js) ไม่ยืดตามแผง */
+.preview.pv-fixed {
+  width: 300px;
+  max-width: 100%;
+  height: 400px;
+  max-height: none;
+  margin: 0 auto;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  border: 1px solid var(--line);
+}
+.preview.pv-fixed canvas {
+  width: auto;
+  flex: none;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+}
+.pv-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 300px;
+  max-width: 100%;
+  margin: 6px auto 0;
+}
+.pv-pager {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.pv-pager button.mini {
+  min-width: 26px;
+  padding: 2px 6px;
+}
+
+/* ต้นทุน: ราคากระดาษ → ตกชิ้นละกี่บาท */
+.cost {
+  width: 300px;
+  max-width: 100%;
+  margin: 0 auto 8px;
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  padding: 6px 8px;
+}
+.cost-in {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  margin: 0;
+}
+.cost-in input {
+  width: 80px;
+  flex: none;
+  margin: 0;
+  text-align: right;
+}
+.cost-out {
+  margin-top: 6px;
+}
+.cost-out.empty {
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 4px;
+}
+.cost-out:empty {
+  display: none;
+}
+.cost-per {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.cost-per b {
+  font-size: 22px;
+  line-height: 1.1;
+  color: var(--accent);
+}
+.cost-sum {
+  color: var(--muted);
+  font-size: 11px;
 }
 
 /* จอกว้าง: พรีวิวซ้าย คำสั่งขวา */
 #previewSide {
   display: none;
 }
+/* ช่องพรีวิวกว้างคงที่ — ขยายแผงแล้วพรีวิวไม่ยืดตาม (ที่เหลือให้ช่องคำสั่ง) */
 body.wide #previewSide {
   display: block;
-  flex: 1 1 auto;
-  min-width: 0;
+  flex: 0 0 334px;
+  width: 334px;
   padding: 8px 0 8px 8px;
   height: 100vh;
+  overflow-y: auto;
 }
 body.wide #controls {
-  flex: 0 0 clamp(320px, 42%, 460px);
-  width: clamp(320px, 42%, 460px);
+  flex: 1 1 auto;
+  min-width: 320px;
+  max-width: 560px;
 }
 body.wide .preview-card {
   height: 100%;
@@ -581,6 +683,9 @@ body.wide .preview-card {
   margin: 0;
   background: var(--card);
 }
+body.wide #previewCard {
+  height: auto;
+}
 body.wide .preview {
   flex: 1;
   max-height: none;
@@ -588,6 +693,9 @@ body.wide .preview {
   align-items: center;
   justify-content: center;
   background: var(--bg);
+}
+body.wide .preview.pv-fixed {
+  flex: none;
 }
 body.wide .preview canvas {
   width: auto;

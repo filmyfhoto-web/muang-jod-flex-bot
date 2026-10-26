@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 
 const require = createRequire(import.meta.url);
 const G = require('../adobe/nesting-cut/core/geometry.js');
@@ -159,4 +160,45 @@ test('host.jsx: มีฟังก์ชันของเครื่องม�
   }
   for (const fn of ['np_exportSelection', 'np_readClipPaths', 'np_drawDieCut']) assert.ok(main.includes("'" + fn + "'"));
   assert.match(host, /sh\.cutPolys/);
+});
+
+test('host.jsx: จำมาร์ก Graphtec จากเลเยอร์ margin / color / reg_* ของไฟล์ต้นแบบ (DOM ปลอม)', () => {
+  const host = readFileSync(new URL('../adobe/nesting-cut/illustrator/host.jsx', import.meta.url), 'utf8');
+  const main = readFileSync(new URL('../adobe/nesting-cut/illustrator/main.js', import.meta.url), 'utf8');
+  assert.ok(main.includes("'np_readMarks'"));
+  // อาร์ตบอร์ด 0..900 x, y บน 1368 → ล่าง 0 (pt, y ขึ้น)
+  const path = (pts, extra = {}) => ({
+    typename: 'PathItem',
+    closed: true,
+    filled: true,
+    fillColor: { typename: 'CMYKColor', cyan: 0, magenta: 0, yellow: 0, black: 100 },
+    stroked: false,
+    pathPoints: pts.map(([x, y]) => ({ anchor: [x, y], leftDirection: [x, y], rightDirection: [x, y] })),
+    geometricBounds: [Math.min(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[1])), Math.max(...pts.map((p) => p[0])), Math.min(...pts.map((p) => p[1]))],
+    ...extra,
+  });
+  const layer = (name, items) => ({ name, pageItems: items, layers: [] });
+  const doc = {
+    name: 'template.ai',
+    artboards: Object.assign([{ artboardRect: [0, 1368, 907.2, 0] }], { getActiveArtboardIndex: () => 0 }),
+    layers: [
+      layer('margin 0.000000 0.000000 0.000000 0.000000', []),
+      layer('color 0 0 0 255 0 0 0 255 17.007874', []),
+      layer('reg_2 0.00 0.00 0.00 0.00 25.00 25.00 25.00 25.00', []),
+      layer('reg_1 1 1 1.00 1.00 8.00 100.00 1 0 0 0 0.00', [
+        { typename: 'GroupItem', pageItems: [path([[28, 1340], [99, 1340], [99, 1337], [28, 1337]]), path([[2000, 10], [2010, 10], [2010, 0]])] },
+      ]),
+      layer('ไฟล์ปริ้นชิ้นงาน', [path([[100, 100], [200, 100], [200, 200]])]),
+    ],
+  };
+  const ctx = vm.createContext({ $: { global: {} }, app: { documents: [doc], activeDocument: doc } });
+  vm.runInContext(host + '\nthis.api = { np_readMarks: np_readMarks, np_regMarkLayer: np_regMarkLayer };', ctx);
+  const r = JSON.parse(JSON.stringify(ctx.api.np_readMarks({})));
+  assert.equal(r.layers.length, 4);
+  assert.equal(r.layers[3], 'reg_1 1 1 1.00 1.00 8.00 100.00 1 0 0 0 0.00');
+  assert.equal(r.items.length, 1, 'เฉพาะของบนอาร์ตบอร์ดที่เปิดอยู่ ในเลเยอร์ reg');
+  assert.deepEqual(r.items[0].pts[0], [28, 28, 28, 28, 28, 28]);
+  assert.equal(r.items[0].layer, r.layers[3]);
+  assert.deepEqual(r.items[0].fill, { t: 'cmyk', v: [0, 0, 0, 100] });
+  assert.equal(ctx.api.np_regMarkLayer(r.layers), r.layers[3]);
 });

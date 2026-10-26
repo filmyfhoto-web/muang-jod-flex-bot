@@ -231,3 +231,48 @@ test('layout: เส้นตัดตารางลากยาวทั้ง
     if (x0 === x1 && x0 > 13 && x0 < 23) assert.fail('เส้นตั้งผ่านกลางดวง');
   }
 });
+
+test('layout: ขนาดของร้าน Graphtec — งานสีดำ 12.6×19 นิ้ว ล็อกขนาด, หน้าร้าน 12.5×18 นิ้ว, เลเยอร์แบบ Cutting Master', () => {
+  const black = L.media('gt_black');
+  assert.equal(black.label, 'ขนาดตัดสติ๊กเกอร์งานสีดำ');
+  assert.ok(Math.abs(black.width - 12.6 * 25.4) < 1e-9 && Math.abs(black.length - 19 * 25.4) < 1e-9);
+  assert.equal(black.fixed, true);
+  assert.equal(black.cutter, 'graphtec');
+  const shop = L.media('gt_shop');
+  assert.equal(shop.label, 'ขนาดงานตัดหน้าร้าน');
+  assert.ok(!shop.fixed);
+  assert.equal(L.cutter('graphtec').marks.type, 'graphtec');
+  assert.deepEqual(L.GRAPHTEC_LAYERS, [
+    'margin 0.000000 0.000000 0.000000 0.000000',
+    'color 0 0 0 255 0 0 0 255 17.007874',
+    'reg_2 0.00 0.00 0.00 0.00 25.00 25.00 25.00 25.00',
+    'reg_1 1 1 1.00 1.00 8.00 100.00 1 0 0 0 0.00',
+  ]);
+  // มาร์กมาตรฐาน Graphtec = L 4 มุม
+  const std = L.markShapes(320, 482.6, { type: 'graphtec', size: 20, thick: 1, inset: 10 });
+  assert.equal(std.length, 4);
+  assert.deepEqual(std[0].bbox, { x: 10, y: 10, w: 20, h: 20 });
+});
+
+test('layout: มาร์กจากไฟล์ต้นแบบยึดมุมที่ใกล้สุด — แผ่นเท่าต้นแบบตำแหน่งเดิม, แผ่นอื่นระยะจากมุมเท่าเดิม', () => {
+  const box = (x, y, w, h) => ({ box: { x, y, w, h }, poly: [[x, y], [x + w, y], [x + w, y + h], [x, y + h]], closed: true, fill: true, sw: 0 });
+  const custom = { w: 320, h: 480, items: [box(10, 10, 25, 25), box(285, 10, 25, 25), box(10, 445, 25, 25), box(285, 445, 25, 25)] };
+  const m = { type: 'graphtec', custom, clearance: 5 };
+  const same = L.markShapes(320, 480, m);
+  assert.deepEqual(same.map((g) => [g.bbox.x, g.bbox.y]), [[10, 10], [285, 10], [10, 445], [285, 445]]);
+  const big = L.markShapes(400, 600, m);
+  assert.deepEqual(big.map((g) => [g.bbox.x, g.bbox.y]), [[10, 10], [365, 10], [10, 565], [365, 565]]);
+  assert.deepEqual(big[3].parts[0].points[0], [365, 565]);
+  assert.equal(big[3].parts[0].dx, 80);
+  // พื้นที่วางกันมาร์ก: ล่างกันลึก 35 + ระยะปลอด 5
+  const plan = L.planSheet({ width: 320, length: 480, margin: 5, marks: m });
+  assert.equal(plan.obstacles.length, 4);
+  assert.equal(plan.markExtent, 35);
+  assert.equal(plan.area.y + plan.area.h, 480 - 40);
+});
+
+test('cutfile: SVG มีมาร์กจากไฟล์ต้นแบบเป็นเส้นจริง', () => {
+  const marks = [{ parts: [{ kind: 'poly', points: [[0, 0], [10, 0], [10, 1]], closed: true, fill: true, sw: 0 }] }];
+  const svg = F.toSVG([], { width: 100, length: 100 }, { marks });
+  assert.match(svg, /<path d="M0 0L10 0L10 1Z"\/>/);
+});

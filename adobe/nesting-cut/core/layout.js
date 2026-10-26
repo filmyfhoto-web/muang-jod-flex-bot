@@ -19,8 +19,8 @@
       id: 'graphtec',
       label: 'Graphtec (Cutting Master)',
       margin: 5,
-      marks: { type: 'L', size: 20, thick: 0.5, inset: 10, clearance: 5, every: 0 },
-      note: 'มาร์กแบบ L 4 มุม — ตั้ง ARMS ใน Cutting Master ให้ตรง (ยาว 20 มม. หนา 0.5 มม.) หรือปิดมาร์กแล้วใช้มาร์กของ Cutting Master เอง',
+      marks: { type: 'graphtec', size: 20, thick: 1, inset: 10, clearance: 5, every: 0 },
+      note: 'ใส่เลเยอร์ margin / color / reg_2 / reg_1 แบบไฟล์ Cutting Master (มาร์กอยู่ใน reg_1)',
     },
     {
       id: 'mimaki',
@@ -74,8 +74,20 @@
     },
   ];
 
+  // เลเยอร์ที่ Cutting Master (Graphtec) ใช้เก็บค่ามาร์กไว้ในชื่อ เรียงจากบนลงล่าง — ตัวมาร์กอยู่ใน reg_1
+  // (ตรงกับไฟล์ต้นแบบของร้าน ถ้ากด “จำมาร์กจากไฟล์” จะใช้ชื่อจากไฟล์นั้นแทน)
+  var GRAPHTEC_LAYERS = [
+    'margin 0.000000 0.000000 0.000000 0.000000',
+    'color 0 0 0 255 0 0 0 255 17.007874',
+    'reg_2 0.00 0.00 0.00 0.00 25.00 25.00 25.00 25.00',
+    'reg_1 1 1 1.00 1.00 8.00 100.00 1 0 0 0 0.00',
+  ];
+
   var IN = 25.4;
+  // ขนาดสำเร็จของร้าน: เลือกแล้วตั้งเครื่องตัด + หน่วยให้เลย (fixed = แก้ขนาดไม่ได้)
   var MEDIA = [
+    { id: 'gt_black', label: 'ขนาดตัดสติ๊กเกอร์งานสีดำ', width: 12.6 * IN, length: 19 * IN, unit: 'in', cutter: 'graphtec', fixed: true },
+    { id: 'gt_shop', label: 'ขนาดงานตัดหน้าร้าน', width: 12.5 * IN, length: 18 * IN, unit: 'in', cutter: 'graphtec' },
     { id: 'a3', label: 'A3 (297 × 420 มม.)', width: 297, length: 420 },
     { id: 'in12x18', label: '12 × 18 นิ้ว', width: 12 * IN, length: 18 * IN },
     { id: 'in125x18', label: '12.5 × 18 นิ้ว', width: 12.5 * IN, length: 18 * IN },
@@ -116,6 +128,54 @@
     if (!hasMarks(m)) return 0;
     if (m.type === 'silhouette') return Math.max(m.size || 0, m.square || 0);
     return m.size || 0;
+  }
+
+  // มาร์กกินเข้ามาจากขอบแผ่นลึกสุดกี่ มม.
+  function markReach(m) {
+    if (!hasMarks(m)) return 0;
+    if (!m.custom) return (m.inset || 0) + markExtent(m);
+    var c = m.custom;
+    var reach = 0;
+    c.items.forEach(function (it) {
+      var b = it.box;
+      var left = b.x + b.w / 2 <= c.w / 2;
+      var top = b.y + b.h / 2 <= c.h / 2;
+      reach = Math.max(reach, left ? b.x + b.w : c.w - b.x, top ? b.y + b.h : c.h - b.y);
+    });
+    return reach;
+  }
+
+  // มาร์กที่จำมาจากไฟล์ต้นแบบ (custom = { w, h, items: [{ box, poly, closed, fill, sw }] } หน่วย มม.)
+  // ทุกชิ้นยึดมุมแผ่นที่ใกล้ที่สุด: แผ่นขนาดเท่าต้นแบบ = ตำแหน่งเดิมเป๊ะ, แผ่นขนาดอื่น = ระยะจากมุมเท่าเดิม
+  function anchorShift(c, b, W, L) {
+    return {
+      dx: b.x + b.w / 2 > c.w / 2 ? W - c.w : 0,
+      dy: b.y + b.h / 2 > c.h / 2 ? L - c.h : 0,
+    };
+  }
+
+  function customMarks(W, L, c) {
+    return c.items.map(function (it) {
+      var d = anchorShift(c, it.box, W, L);
+      return group([
+        {
+          kind: 'poly',
+          x: it.box.x + d.dx,
+          y: it.box.y + d.dy,
+          w: it.box.w,
+          h: it.box.h,
+          dx: d.dx,
+          dy: d.dy,
+          points: (it.poly || []).map(function (q) {
+            return [q[0] + d.dx, q[1] + d.dy];
+          }),
+          closed: it.closed !== false,
+          fill: it.fill !== false,
+          sw: it.sw || 0,
+          src: it.src,
+        },
+      ]);
+    });
   }
 
   function rect(x, y, w, h) {
@@ -168,6 +228,7 @@
   // มาร์กทั้งหมดของแผ่นกว้าง W ยาว L
   function markShapes(W, L, m) {
     if (!hasMarks(m)) return [];
+    if (m.custom) return customMarks(W, L, m.custom);
     var corners = m.type === 'silhouette' ? ['tl', 'tr', 'bl'] : ['tl', 'tr', 'bl', 'br'];
     var out = corners.map(function (c) {
       return cornerMark(m, c, W, L);
@@ -205,7 +266,7 @@
     var m = spec.marks || { type: 'none' };
     var has = hasMarks(m);
     var clear = has ? (m.clearance == null ? 3 : m.clearance) : 0;
-    var ext = has ? (m.inset || 0) + markExtent(m) : 0;
+    var ext = markReach(m);
     var roll = !(spec.length > 0);
     var pageLength = roll ? Math.min(spec.rollMaxLength || ROLL_MAX_LENGTH, ROLL_MAX_LENGTH) : spec.length;
 
@@ -335,6 +396,7 @@
 
   return {
     CUTTERS: CUTTERS,
+    GRAPHTEC_LAYERS: GRAPHTEC_LAYERS,
     normMargin: normMargin,
     gridSegments: gridSegments,
     MEDIA: MEDIA,

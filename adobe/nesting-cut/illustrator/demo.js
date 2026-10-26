@@ -393,6 +393,36 @@
         }),
       };
     },
+    // ตัวอย่างไฟล์ต้นแบบ Graphtec: หน้า 12.6 × 19 นิ้ว มาร์ก L ทึบ 4 มุม (ห่างขอบ 10 มม. ยาว 25 หนา 1)
+    np_readMarks: function () {
+      var mm = 72 / 25.4;
+      var W = 12.6 * 72;
+      var H = 19 * 72;
+      var ins = 10 * mm;
+      var len = 25 * mm;
+      var t = 1 * mm;
+      var black = { t: 'cmyk', v: [0, 0, 0, 100] };
+      function corner(x, y, sx, sy) {
+        var p = [[0, 0], [len, 0], [len, t], [t, t], [t, len], [0, len]].map(function (q) {
+          var px = x + sx * q[0];
+          var py = y + sy * q[1];
+          return [px, py, px, py, px, py];
+        });
+        return { layer: 'reg_1 1 1 1.00 1.00 8.00 100.00 1 0 0 0 0.00', closed: true, cp: 0, fill: black, stroke: null, sw: 0, pts: p };
+      }
+      return {
+        document: 'ต้นแบบ Graphtec 12.6x19.ai',
+        w: W,
+        h: H,
+        layers: [
+          'margin 0.000000 0.000000 0.000000 0.000000',
+          'color 0 0 0 255 0 0 0 255 17.007874',
+          'reg_2 0.00 0.00 0.00 0.00 25.00 25.00 25.00 25.00',
+          'reg_1 1 1 1.00 1.00 8.00 100.00 1 0 0 0 0.00',
+        ],
+        items: [corner(ins, ins, 1, 1), corner(W - ins, ins, -1, 1), corner(ins, H - ins, 1, -1), corner(W - ins, H - ins, -1, -1)],
+      };
+    },
     np_buildLayout: function (a) {
       var n = 0;
       a.sheets.forEach(function (s) {
