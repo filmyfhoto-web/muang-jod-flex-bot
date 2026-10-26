@@ -46,7 +46,7 @@
     <section class="card clearbox" id="clearBox" hidden>
       <h2>ล้างงาน</h2>
       <label class="check"><input type="checkbox" checked disabled /> รายการชิ้นงาน ผลคำนวณ และพรีวิวในแผง</label>
-      <label class="check"><input type="checkbox" id="clearSheets" /> ลบชีตไดคัทที่นัดพอนสร้างไว้ในไฟล์นี้ (อาร์ตบอร์ด “นัดพอน · แผ่น …” และของบนชีต)</label>
+      <label class="check"><input type="checkbox" id="clearSheets" /> ลบชีตไดคัทที่นัดพอนสร้างไว้ในไฟล์นี้ (อาร์ตบอร์ด “นัดพอน · แผ่น …” และดวงที่เรียงลงเทมเพลต)</label>
       <label class="check"><input type="checkbox" id="clearLayers" /> <span>ลบเลเยอร์ผลลัพธ์ของเครื่องมืออื่น: <span id="clearLayerNames"></span></span></label>
       <p class="hint">งานต้นฉบับไม่ถูกแตะ · ลบในไฟล์แล้วกด Undo (Ctrl/Cmd+Z) ใน Illustrator ย้อนได้</p>
       <div class="row">
@@ -506,6 +506,11 @@
     <section class="card" id="secMedia" data-for="nest run" data-page="2">
       <h2>กระดาษ &amp; มาร์ก</h2>
       <label class="stack">ขนาดกระดาษ <select id="media" data-setting="media"></select></label>
+      <!-- เทมเพลตร้าน: เรียงลงอาร์ตบอร์ดที่เปิดอยู่ มาร์ก CM5 + หัวงาน/โลโก้/QR อยู่ที่เดิม ดวงหลบให้เอง -->
+      <div id="tplBox" class="subcard tpl" hidden>
+        <p id="tplInfo" class="hint"></p>
+      </div>
+      <div id="sizeBox">
       <div class="grid2 grid4">
         <label><span data-unit="กว้าง">กว้าง</span> <input id="width" type="number" min="1" step="0.1" data-setting="width" /></label>
         <label><span data-unit="สูง">สูง</span> <input id="length" type="number" min="0" step="0.1" placeholder="ม้วน" data-setting="length" /></label>
@@ -534,11 +539,15 @@
           <button type="button" id="btnForgetMarks" class="ghost" hidden>ใช้มาร์กมาตรฐาน</button>
         </div>
       </div>
+      </div>
+      <label class="check big" data-for="nest"
+        ><input id="fillSheet" type="checkbox" data-setting="fillSheet" /> <span><b>เต็มแผ่น</b> — ใส่ดวงแบบแรกให้ได้มากที่สุด ไม่ต้องตั้งจำนวน</span></label
+      >
       <label data-for="nest" title="วัดจากเส้นไดคัทถึงเส้นไดคัท ต้องมากกว่า 2 เท่าของ Bleed"
         >ระยะห่างดวง (มม.)
         <input id="spacing" type="number" min="0.2" step="0.5" data-setting="spacing"
       /></label>
-      <label class="check"><input id="headerOn" type="checkbox" data-setting="headerOn" /> ใส่หัวงานด้านบน (โลโก้ + ชื่องาน)</label>
+      <label class="check" id="headerOnRow"><input id="headerOn" type="checkbox" data-setting="headerOn" /> ใส่หัวงานด้านบน (โลโก้ + ชื่องาน)</label>
       <div id="headerFields" class="subcard" hidden>
         <div class="grid2">
           <label>ชื่องาน <input id="jobName" data-setting="jobName" placeholder="งานสติ๊กเกอร์" /></label>
@@ -601,7 +610,6 @@
         >
       </div>
       <label class="check" data-for="nest"><input id="gridCut" type="checkbox" data-setting="gridCut" /> เส้นตัดแบบตาราง — ลากเส้นยาวทั้งแผ่น (ใช้กับแบบตาราง)</label>
-      <label class="check" data-for="nest"><input id="fillSheet" type="checkbox" data-setting="fillSheet" /> เต็มแผ่น — ใส่ดวงแบบแรกให้ได้มากที่สุด</label>
       <label class="check" data-for="nest"><input id="respectBleed" type="checkbox" data-setting="respectBleed" /> เผื่อ bleed ที่เลยเส้นตัด (สีไม่ล้นทับดวงข้าง ๆ)</label>
 
       <h3 class="sec">เส้นตัด</h3>
@@ -700,14 +708,20 @@
     <!-- หน้า 3: สร้างชีต -->
     <section class="card" id="secBuild" data-for="nest run" data-page="3">
       <h2>สร้างชีตใน Illustrator</h2>
-      <label
-        >สร้างที่
-        <select id="target" data-setting="target">
-          <option value="artboard">อาร์ตบอร์ดใหม่ในไฟล์เดิม</option>
-          <option value="document">ไฟล์ใหม่</option>
-        </select></label
-      >
-      <p class="hint">ดวงต้นฉบับไม่ถูกย้าย — ปลั๊กอินทำสำเนาลงชีตใหม่ แยกเลเยอร์งานพิมพ์ / เส้นไดคัท / มาร์ก · กด Undo ย้อนได้</p>
+      <div id="buildNormal">
+        <label
+          >สร้างที่
+          <select id="target" data-setting="target">
+            <option value="artboard">อาร์ตบอร์ดใหม่ในไฟล์เดิม</option>
+            <option value="document">ไฟล์ใหม่</option>
+          </select></label
+        >
+        <p class="hint">ดวงต้นฉบับไม่ถูกย้าย — ปลั๊กอินทำสำเนาลงชีตใหม่ แยกเลเยอร์งานพิมพ์ / เส้นไดคัท / มาร์ก · กด Undo ย้อนได้</p>
+      </div>
+      <p id="buildTpl" class="hint" hidden>
+        เรียงลงอาร์ตบอร์ดเทมเพลตที่เปิดอยู่ — มาร์ก CM5 และหัวงานอยู่ที่เดิม · กดซ้ำ = แทนที่ของรอบก่อน · กด Undo ย้อนได้
+        · เสร็จแล้วส่งเข้า Cutting Master 5 ได้เลย
+      </p>
     </section>
 
     <!-- หน้า 4: ส่งออก -->

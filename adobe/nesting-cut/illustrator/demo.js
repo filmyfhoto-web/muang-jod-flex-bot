@@ -423,12 +423,40 @@
         items: [corner(ins, ins, 1, 1), corner(W - ins, ins, -1, 1), corner(ins, H - ins, 1, -1), corner(W - ins, H - ins, -1, -1)],
       };
     },
+    // ตัวอย่างเทมเพลตร้าน 13 × 19 นิ้ว: หัวงาน (โลโก้ + QR) กลางด้านบน + มาร์ก L ของ CM5 สี่มุม (pt, y ลง)
+    np_readTemplate: function () {
+      var W = 13 * 72;
+      var H = 19 * 72;
+      var mm = 72 / 25.4;
+      var ins = 5 * mm;
+      var len = 20 * mm;
+      var t = 1 * mm;
+      var boxes = [{ x: W / 2 - 150, y: 8, w: 300, h: 100, mark: 0 }];
+      [[ins, ins, 1, 1], [W - ins, ins, -1, 1], [ins, H - ins, 1, -1], [W - ins, H - ins, -1, -1]].forEach(function (c) {
+        var x = c[0];
+        var y = c[1];
+        boxes.push({ x: c[2] > 0 ? x : x - len, y: c[3] > 0 ? y : y - t, w: len, h: t, mark: 1 });
+        boxes.push({ x: c[2] > 0 ? x : x - t, y: c[3] > 0 ? y : y - len, w: t, h: len, mark: 1 });
+      });
+      return {
+        document: 'เทมเพลตหน้าร้าน 13x19.ai',
+        abIndex: 0,
+        abName: 'Artboard 1',
+        w: W,
+        h: H,
+        frame: { x: ins, y: ins, w: W - 2 * ins, h: H - 2 * ins },
+        boxes: boxes,
+        marks: 8,
+        parts: 0,
+        old: 0,
+      };
+    },
     np_buildLayout: function (a) {
       var n = 0;
       a.sheets.forEach(function (s) {
         n += s.pieces.length;
       });
-      return { document: 'โหมดทดลอง', sheets: a.sheets.length, pieces: n };
+      return { document: 'โหมดทดลอง', sheets: a.sheets.length, pieces: n, template: !!a.template && a.target === 'artboard' };
     },
     np_defaultFolder: function () {
       return { folder: 'ดาวน์โหลด' };

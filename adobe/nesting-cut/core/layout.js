@@ -84,10 +84,12 @@
   ];
 
   var IN = 25.4;
-  // ขนาดสำเร็จของร้าน: เลือกแล้วตั้งเครื่องตัด + หน่วยให้เลย (fixed = แก้ขนาดไม่ได้)
+  // ขนาดของร้าน (shop): template = เรียงลงอาร์ตบอร์ดเทมเพลตที่เปิดอยู่ (มาร์ก CM5 + หัวงานของร้านอยู่ที่เดิม)
+  // ขนาดสำเร็จ: เลือกแล้วตั้งเครื่องตัด + หน่วยให้เลย (fixed = แก้ขนาดไม่ได้)
   var MEDIA = [
-    { id: 'gt_black', label: 'ขนาดตัดสติ๊กเกอร์งานสีดำ', width: 12.6 * IN, length: 19 * IN, unit: 'in', cutter: 'graphtec', fixed: true },
-    { id: 'gt_shop', label: 'ขนาดงานตัดหน้าร้าน', width: 12.5 * IN, length: 18 * IN, unit: 'in', cutter: 'graphtec' },
+    { id: 'artboard', label: 'ใช้อาร์ตบอร์ดที่เปิดอยู่ (เทมเพลตร้าน)', width: 13 * IN, length: 19 * IN, unit: 'in', shop: true, template: true },
+    { id: 'gt_black', label: 'ขนาดตัดสติ๊กเกอร์งานสีดำ', width: 12.6 * IN, length: 19 * IN, unit: 'in', cutter: 'graphtec', shop: true, fixed: true },
+    { id: 'gt_shop', label: 'ขนาดงานตัดหน้าร้าน', width: 13 * IN, length: 19 * IN, unit: 'in', cutter: 'graphtec', shop: true, fixed: true },
     { id: 'a3', label: 'A3 (297 × 420 มม.)', width: 297, length: 420 },
     { id: 'in12x18', label: '12 × 18 นิ้ว', width: 12 * IN, length: 18 * IN },
     { id: 'in125x18', label: '12.5 × 18 นิ้ว', width: 12.5 * IN, length: 18 * IN },

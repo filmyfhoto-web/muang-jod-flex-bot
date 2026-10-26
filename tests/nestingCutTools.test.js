@@ -202,3 +202,55 @@ test('host.jsx: จำมาร์ก Graphtec จากเลเยอร์ ma
   assert.deepEqual(r.items[0].fill, { t: 'cmyk', v: [0, 0, 0, 100] });
   assert.equal(ctx.api.np_regMarkLayer(r.layers), r.layers[3]);
 });
+
+test('host.jsx: อ่านเทมเพลตร้าน — กรอบมาร์ก CM5, หลบหัวงาน, ข้ามพื้นหลังเต็มหน้า/ต้นแบบ/ดวงรอบก่อน (DOM ปลอม)', () => {
+  const host = readFileSync(new URL('../adobe/nesting-cut/illustrator/host.jsx', import.meta.url), 'utf8');
+  // อาร์ตบอร์ด 13×19 นิ้ว = 936 × 1368 pt (y ขึ้น: บน 1368 ล่าง 0)
+  const docRef = { typename: 'Document' };
+  const item = (typename, b, extra = {}) => ({ typename, visibleBounds: b, hidden: false, note: '', clipped: false, ...extra });
+  const layer = (name, items, visible = true) => {
+    const lay = { typename: 'Layer', name, visible, pageItems: items, layers: [], parent: docRef, locked: false };
+    items.forEach((it) => (it.layer = lay));
+    return lay;
+  };
+  const L1 = (x0, y0, x1, y1) => item('PathItem', [x0, y0, x1, y1]);
+  // มาร์ก 4 มุมอยู่ในกลุ่มเดียว (กรอบกลุ่ม = ทั้งหน้า) → ต้องแตกกลุ่มเป็นมาร์กทีละตัว
+  const marks = item('GroupItem', [14, 1354, 922, 14], {
+    pageItems: [L1(14, 1354, 71, 1297), L1(865, 1354, 922, 1297), L1(14, 71, 71, 14), L1(865, 71, 922, 14)],
+  });
+  const header = item('GroupItem', [318, 1360, 618, 1260]);
+  const background = item('PathItem', [0, 1368, 936, 0]);
+  const part = item('GroupItem', [400, 700, 500, 640]);
+  const old = item('GroupItem', [100, 500, 160, 460], { note: 'nongploy-nestingcut' });
+  const hiddenStuff = item('PathItem', [300, 300, 400, 200]);
+  const doc = {
+    name: 'template.ai',
+    artboards: Object.assign([{ artboardRect: [0, 1368, 936, 0], name: 'A1' }], { getActiveArtboardIndex: () => 0 }),
+    layers: [
+      layer('margin 0.000000 0.000000 0.000000 0.000000', []),
+      layer('reg_1 1 1 1.00 1.00 8.00 100.00 1 0 0 0 0.00', [marks]),
+      layer('หัวงาน', [header, background]),
+      layer('งาน', [part, old]),
+      layer('ซ่อน', [hiddenStuff], false),
+    ],
+  };
+  const ctx = vm.createContext({ $: { global: {} }, app: { documents: [doc], activeDocument: doc } });
+  vm.runInContext(host + '\nthis.api = { np_readTemplate: np_readTemplate, np_removeTagged: np_removeTagged, NP: NP };', ctx);
+  ctx.api.NP.parts = [part];
+  const t = JSON.parse(JSON.stringify(ctx.api.np_readTemplate({})));
+  assert.equal(t.w, 936);
+  assert.equal(t.h, 1368);
+  assert.equal(t.marks, 4);
+  assert.deepEqual(t.frame, { x: 14, y: 14, w: 908, h: 1340 });
+  assert.equal(t.boxes.length, 5, 'มาร์ก 4 + หัวงาน 1 (ไม่นับพื้นหลังเต็มหน้า ต้นแบบ ดวงรอบก่อน และเลเยอร์ที่ซ่อน)');
+  assert.deepEqual(t.boxes.find((b) => !b.mark), { x: 318, y: 8, w: 300, h: 100, mark: 0 });
+  assert.equal(t.parts, 1);
+  assert.equal(t.old, 1);
+  // เรียงใหม่: ลบเฉพาะของที่ปลั๊กอินวางไว้บนอาร์ตบอร์ดนี้
+  let removed = 0;
+  old.remove = () => removed++;
+  part.remove = () => assert.fail('ห้ามลบงานของร้าน');
+  header.remove = () => assert.fail('ห้ามลบหัวงาน');
+  assert.equal(ctx.api.np_removeTagged(doc, [0, 1368, 936, 0]), 1);
+  assert.equal(removed, 1);
+});

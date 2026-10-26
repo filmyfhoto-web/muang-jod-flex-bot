@@ -559,6 +559,22 @@ button.go {
   min-height: 14px;
 }
 
+/* เทมเพลตร้าน: กล่องบอกว่าอ่านอาร์ตบอร์ดไหน เจอมาร์กกี่ชิ้น */
+.subcard.tpl {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+#tplInfo {
+  white-space: pre-line;
+  margin: 0;
+  color: var(--fg);
+}
+/* เต็มแผ่น: ตัวเลือกหลักของหน้า 2 */
+label.check.big {
+  font-size: 13px;
+  padding: 6px 0;
+}
+
 /* ชื่ออยู่บน ช่องเต็มบรรทัด (ชื่อขนาดกระดาษยาว) */
 label.stack {
   display: block;

@@ -55,7 +55,7 @@
 
   var STORE_KEY = 'nongploy.nestingcut.settings.v2';
   // ค่าที่บันทึกจากรุ่นก่อน UI_VERSION: หัวงานเคยเปิดเป็นค่าเริ่มต้น → ปิดให้ครั้งเดียว
-  var UI_VERSION = 3;
+  var UI_VERSION = 4;
   var PV_W = 300; // กรอบพรีวิวขนาดคงที่ (px) — ต้องตรงกับ #previewBox ใน panel.css
   var PV_H = 400;
   // ชื่ออาร์ตบอร์ดของชีตที่ปลั๊กอินสร้าง — ปุ่ม “ล้างงานเก่า” ใช้หาชีตเก่า
@@ -65,11 +65,11 @@
     tool: 'nest',
     guideSeen: false, // เคยเห็นการ์ด “วันนี้จะทำอะไร?” แล้ว
     layoutMode: 'auto', // auto | side | stack — ตำแหน่งพรีวิว
-    cutter: 'circle4',
-    media: 'a3',
-    sizeUnit: 'mm',
-    width: 297,
-    length: 420,
+    cutter: 'graphtec',
+    media: 'artboard', // เรียงลงอาร์ตบอร์ดเทมเพลตร้านที่เปิดอยู่
+    sizeUnit: 'in',
+    width: 13,
+    length: 19,
     marginTop: 20,
     marginBottom: 20,
     marginLeft: 20,
@@ -80,7 +80,7 @@
     respectBleed: true,
     arrange: 'shape',
     gridCut: false,
-    fillSheet: false,
+    fillSheet: true, // เต็มแผ่น: ดวงแบบแรกใส่ให้ได้มากที่สุด
     target: 'artboard',
     cutMode: 'none',
     detectRed: true,
@@ -206,10 +206,17 @@
     try {
       var saved = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
       for (var j in saved) if (j in DEFAULTS) s[j] = saved[j];
-      if (!(saved.uiVersion >= UI_VERSION)) {
-        s.headerOn = false;
-        s.uiVersion = UI_VERSION;
+      if (!(saved.uiVersion >= 3)) s.headerOn = false;
+      if (!(saved.uiVersion >= 4)) {
+        // รุ่น 4: ร้านใช้เทมเพลต 13×19 นิ้ว (มาร์ก CM5 + หัวงาน) → เรียงลงอาร์ตบอร์ดที่เปิดอยู่ + เต็มแผ่น
+        s.media = 'artboard';
+        s.sizeUnit = 'in';
+        s.width = 13;
+        s.length = 19;
+        s.fillSheet = true;
+        s.shopSize = null;
       }
+      s.uiVersion = UI_VERSION;
     } catch (e) {
       /* ใช้ค่าเริ่มต้น */
     }
@@ -801,8 +808,83 @@
     };
   }
 
+  // ---------------------------------------------------------------- เทมเพลตร้าน (อาร์ตบอร์ดที่เปิดอยู่)
+
+  function templateMode() {
+    return S.settings.media === 'artboard';
+  }
+
+  // แผ่น = อาร์ตบอร์ดเทมเพลต: พื้นที่วาง = กรอบมาร์ก CM5 (เลเยอร์ reg_*) ถ้าไม่มีมาร์กใช้ระยะขอบแทน
+  // ของบนเทมเพลต (มาร์ก หัวงาน โลโก้ QR) เป็นที่ห้ามวาง — มาร์กเว้นขาวรอบ ๆ 3 มม.
+  function templatePlan(t) {
+    S.tpl = t;
+    var W = t.w * K;
+    var H = t.h * K;
+    var gap = Math.max(0.2, num('spacing'));
+    var boxes = t.boxes.map(function (b) {
+      return { x: b.x * K, y: b.y * K, w: b.w * K, h: b.h * K, mark: !!b.mark };
+    });
+    var area = t.frame
+      ? { x: t.frame.x * K, y: t.frame.y * K, w: t.frame.w * K, h: t.frame.h * K }
+      : {
+          x: num('marginLeft'),
+          y: num('marginTop'),
+          w: W - num('marginLeft') - num('marginRight'),
+          h: H - num('marginTop') - num('marginBottom'),
+        };
+    renderTplInfo();
+    return {
+      width: W,
+      roll: false,
+      fixedLength: H,
+      pageLength: H,
+      margin: { top: 0, right: 0, bottom: 0, left: 0 },
+      marks: { type: 'none' },
+      markClearance: 0,
+      markExtent: 0,
+      area: area,
+      obstacles: boxes.map(function (b) {
+        var c = b.mark ? 3 : gap / 2;
+        return { x: b.x - c, y: b.y - c, w: b.w + 2 * c, h: b.h + 2 * c };
+      }),
+      headerBox: null,
+      template: { abIndex: t.abIndex, boxes: boxes, framed: !!t.frame },
+    };
+  }
+
+  function planNow() {
+    if (!templateMode()) return Promise.resolve(L.planSheet(sheetSpec()));
+    status('กำลังอ่านเทมเพลตที่เปิดอยู่…');
+    return host.call('np_readTemplate', {}).then(templatePlan);
+  }
+
+  function renderTplInfo() {
+    var t = S.tpl;
+    var lines = [];
+    if (!t) {
+      lines.push('เปิดไฟล์เทมเพลตของร้าน (มาร์ก CM5 + หัวงาน) แล้วคลิกอาร์ตบอร์ดนั้นให้ทำงานอยู่');
+      lines.push('ดวงจะเรียงลงที่ว่างในอาร์ตบอร์ด — มาร์ก หัวงาน โลโก้ QR อยู่ที่เดิม ไม่ต้องสร้างมาร์กใหม่');
+    } else {
+      lines.push('✓ “' + t.document + '” · อาร์ตบอร์ด ' + (t.abIndex + 1) + ' · ' + fmtSize(t.w * K, t.h * K));
+      lines.push(
+        t.frame
+          ? 'มาร์ก CM5 ' + t.marks + ' ชิ้น — วางในกรอบมาร์ก · หลบของบนเทมเพลต ' + (t.boxes.length - t.marks) + ' ชิ้น'
+          : '⚠ ไม่เจอเลเยอร์มาร์ก (reg_1) — วางตามระยะขอบใน “ตั้งค่าละเอียด” · หลบของบนเทมเพลต ' + t.boxes.length + ' ชิ้น'
+      );
+      if (t.old) lines.push('มีดวงที่เรียงไว้รอบก่อน — กดเรียงอีกครั้งจะแทนที่ของเดิม');
+    }
+    $('tplInfo').textContent = lines.join('\n');
+  }
+
   function nestNow() {
-    if (S.settings.tool === 'run') return runNow();
+    if (S.settings.tool === 'run') {
+      if (templateMode()) throw new Error('ไดคัทต่อเนื่องยังใช้กับเทมเพลตไม่ได้ — ใช้ “จัดวางดวง” + ติ๊กเต็มแผ่น หรือเลือกขนาดกระดาษอื่น');
+      return runNow();
+    }
+    return planNow().then(nestWith);
+  }
+
+  function nestWith(plan) {
     var parts = engineParts();
     var missing = S.parts.filter(function (p) {
       return p.qty > 0 && !p.rings.length;
@@ -815,7 +897,6 @@
         missing.length ? 'ชิ้นงานยังไม่มีเส้นตัด — กด “เจ๊หญิงสั่งลุย!” หรือ “คำนวณ” ให้สร้างเส้นตัดก่อน' : 'ยังไม่มีชิ้นงาน (หรือจำนวนเป็น 0 ทั้งหมด)'
       );
     }
-    var plan = L.planSheet(sheetSpec());
     if (!(plan.area.w > 5 && plan.area.h > 5)) throw new Error('แผ่นเล็กเกินไปเมื่อหักขอบ มาร์ก และหัวงานแล้ว');
     var opts = {
       spacing: Math.max(0.2, num('spacing')),
@@ -1047,7 +1128,8 @@
   // ---------------------------------------------------------------- ต้นทุน
 
   function priceUnit() {
-    return num('length') > 0 ? 'บาท/แผ่น' : 'บาท/เมตร';
+    if (S.result) return S.result.plan.roll ? 'บาท/เมตร' : 'บาท/แผ่น';
+    return templateMode() || num('length') > 0 ? 'บาท/แผ่น' : 'บาท/เมตร';
   }
 
   function baht(v) {
@@ -1278,6 +1360,19 @@
 
       drawHeaderPreview(ctx, r, sh, s);
 
+      // ของบนเทมเพลต: มาร์ก CM5 สีดำ · หัวงาน/โลโก้/QR สีเทา
+      if (r.plan.template) {
+        r.plan.template.boxes.forEach(function (b) {
+          ctx.fillStyle = b.mark ? '#000' : 'rgba(31,42,68,.22)';
+          ctx.fillRect(b.x * s, b.y * s, Math.max(1, b.w * s), Math.max(1, b.h * s));
+          if (!b.mark) {
+            ctx.strokeStyle = 'rgba(31,42,68,.55)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(b.x * s, b.y * s, b.w * s, b.h * s);
+          }
+        });
+      }
+
       // มาร์ก
       ctx.fillStyle = '#000';
       ctx.strokeStyle = '#000';
@@ -1446,6 +1541,7 @@
         // Graphtec: เลเยอร์ชื่อเดียวกับที่ Cutting Master ใช้ มาร์กอยู่ใน reg_1
         regLayers: r.plan.marks.type === 'graphtec' ? (gt && gt.layers.length ? gt.layers : L.GRAPHTEC_LAYERS) : null,
         target: target,
+        template: r.plan.template ? { abIndex: r.plan.template.abIndex } : null,
         spotName: S.settings.spotName || 'CutContour',
         strokeWidth: num('strokeWidth'),
         dropPieceCuts: grid || !!r.run,
@@ -1524,11 +1620,22 @@
   function buildLayout() {
     return ensureNested().then(function () {
       if (!confirmWarnings()) throw new Error('ยกเลิกแล้ว — แก้ไฟล์/ระยะห่างแล้วกดคำนวณใหม่');
-      var target = S.settings.target === 'document' ? 'document' : 'artboard';
-      status('กำลังสร้างชีตไดคัทใน Illustrator (' + S.result.res.placedCount + ' ดวง)…');
+      var tpl = !!S.result.plan.template;
+      var target = tpl || S.settings.target !== 'document' ? 'artboard' : 'document';
+      status((tpl ? 'กำลังเรียงลงเทมเพลต (' : 'กำลังสร้างชีตไดคัทใน Illustrator (') + S.result.res.placedCount + ' ดวง)…');
       progress(0.85);
       return host.call('np_buildLayout', layoutPayload(target)).then(function (out) {
         S.built = true;
+        if (out.template) {
+          return status(
+            'เรียงลงอาร์ตบอร์ดเทมเพลตแล้ว ' + out.pieces + ' ดวง' +
+              (out.sheets > 1 ? ' (' + out.sheets + ' แผ่น — แผ่นที่เพิ่มมีเทมเพลตให้ครบ)' : '') +
+              (out.replaced ? ' · แทนที่ของรอบก่อน' : '') +
+              (out.parked ? ' · ย้ายต้นแบบไปไว้ซ้ายอาร์ตบอร์ด' : '') +
+              ' — ส่งเข้า Cutting Master 5 ได้เลย',
+            'ok'
+          );
+        }
         status(
           (out.newDocument ? 'สร้างไฟล์ “' + out.document + '”' : 'สร้างอาร์ตบอร์ดใหม่ใน “' + out.document + '”') +
             ' แล้ว: ' + out.pieces + ' ดวง ' + out.sheets + ' แผ่น (ของเดิมไม่ถูกย้าย)',
@@ -1658,10 +1765,14 @@
       .then(nestNow)
       .then(function () {
         if (host.demo) return;
+        // เทมเพลตร้าน: เรียงลงอาร์ตบอร์ดแล้วจบ (ส่งเข้า Cutting Master 5 ต่อจาก Illustrator)
+        if (templateMode()) return buildLayout();
         return buildLayout().then(exportAll);
       })
       .then(function () {
-        setPage(host.demo ? 3 : 4);
+        var tpl = templateMode() && !host.demo;
+        setPage(host.demo || tpl ? 3 : 4);
+        if (tpl) return; // ข้อความผลจาก buildLayout
         var r = S.result;
         var used = r.sheets.reduce(function (a, sh) {
           return a + sh.length;
@@ -2691,6 +2802,14 @@
     $('width').disabled = fixed;
     $('length').disabled = fixed;
     show('#mediaLock', fixed);
+    var tpl = templateMode();
+    show('#tplBox', tpl);
+    show('#sizeBox', !tpl);
+    show('#headerOnRow', !tpl);
+    show('#buildNormal', !tpl);
+    show('#buildTpl', tpl);
+    if (tpl) show('#headerFields', false);
+    if (tpl) renderTplInfo();
     renderGtInfo();
     var unit = s.sizeUnit === 'in' ? ' (นิ้ว)' : ' (มม.)';
     Array.prototype.forEach.call(document.querySelectorAll('[data-unit]'), function (e) {
@@ -2723,7 +2842,9 @@
 
   function buildNow() {
     return buildLayout().then(function () {
-      setPage(4);
+      // เทมเพลต: อยู่หน้าพรีวิว ส่งเข้า Cutting Master 5 ต่อได้เลย (ส่งออกไฟล์ไม่จำเป็น)
+      if (templateMode()) updateFlow();
+      else setPage(4);
     });
   }
 
@@ -2744,7 +2865,7 @@
       if (!S.parts.length) return ['‹ ไปดึงชิ้นงานก่อน', goPage(1), true];
       if (!hasResult()) return ['คำนวณ — ดูจำนวนดวง', calcNow];
       if (S.built) return ['ถัดไป › ส่งออก', goPage(4), true];
-      return ['สร้างชีตใน Illustrator', buildNow];
+      return [templateMode() ? 'เรียงลงเทมเพลตใน Illustrator' : 'สร้างชีตใน Illustrator', buildNow];
     }
     return [S.exported ? '✓ ส่งออกแล้ว — ส่งอีกครั้ง' : 'ส่งออกไฟล์', exportAll];
   }
@@ -2753,11 +2874,15 @@
     var isRun = S.settings.tool === 'run';
     if (S.page === 1) {
       if (!S.parts.length) return isRun ? 'เลือกสติ๊กเกอร์ต้นแบบ 1 ดวงใน Illustrator แล้วกดปุ่มส้ม' : 'เลือกชิ้นงานใน Illustrator แล้วกดปุ่มส้มด้านล่าง';
-      return isRun ? 'ได้ต้นแบบแล้ว กด “ถัดไป”' : 'ตรวจจำนวนแต่ละแบบ (ช่องตัวเลขขวามือ) แล้วกด “ถัดไป”';
+      if (isRun) return 'ได้ต้นแบบแล้ว กด “ถัดไป”';
+      return S.settings.fillSheet ? 'ได้ชิ้นงานแล้ว — เต็มแผ่นใช้แบบแรก ไม่ต้องตั้งจำนวน กด “ถัดไป”' : 'ตรวจจำนวนแต่ละแบบ (ช่องตัวเลขขวามือ) แล้วกด “ถัดไป”';
     }
-    if (S.page === 2) return isRun ? 'ตั้งขนาดดวงและกระดาษ แล้วกด “ถัดไป”' : 'เลือกขนาดกระดาษของร้าน แล้วกด “ถัดไป”';
+    if (S.page === 2) {
+      if (isRun) return 'ตั้งขนาดดวงและกระดาษ แล้วกด “ถัดไป”';
+      return templateMode() ? 'เปิดไฟล์เทมเพลตร้านไว้ แล้วกด “ถัดไป”' : 'เลือกขนาดกระดาษของร้าน แล้วกด “ถัดไป”';
+    }
     if (S.page === 3) {
-      if (S.built) return 'สร้างชีตแล้ว ✓ อยู่ในไฟล์ Illustrator — ไปขั้นส่งออกต่อ';
+      if (S.built) return templateMode() ? 'เรียงลงเทมเพลตแล้ว ✓ ส่งเข้า Cutting Master 5 ได้เลย (ขั้นส่งออกไม่ต้องทำก็ได้)' : 'สร้างชีตแล้ว ✓ อยู่ในไฟล์ Illustrator — ไปขั้นส่งออกต่อ';
       if (hasResult()) return 'ดูพรีวิวว่าได้กี่ดวง โอเคแล้วกด “สร้างชีต” (งานเดิมไม่ถูกย้าย)';
       return 'กดคำนวณเพื่อดูว่าได้กี่ดวงต่อแผ่น (ยังไม่แตะไฟล์งาน)';
     }
@@ -2978,7 +3103,7 @@
   // เลือกขนาดกระดาษ: ขนาดของร้านตั้งหน่วย + เครื่องตัด + มาร์กให้ด้วย
   function applyMedia(id, keepCutter) {
     var m = L.media(id);
-    if (!m || id === 'custom') return;
+    if (!m || id === 'custom' || m.template) return;
     if (m.unit && !keepCutter) setSetting('sizeUnit', m.unit);
     if (m.cutter && !keepCutter) {
       setSetting('cutter', m.cutter);
@@ -3015,8 +3140,8 @@
     var sel = $('media');
     sel.innerHTML = '';
     [
-      ['ขนาดของร้าน', L.MEDIA.filter(function (m) { return !!m.cutter; })],
-      ['ขนาดทั่วไป', L.MEDIA.filter(function (m) { return !m.cutter; })],
+      ['ของร้าน', L.MEDIA.filter(function (m) { return !!m.shop; })],
+      ['ขนาดทั่วไป', L.MEDIA.filter(function (m) { return !m.shop; })],
     ].forEach(function (grp) {
       var g = document.createElement('optgroup');
       g.label = grp[0];

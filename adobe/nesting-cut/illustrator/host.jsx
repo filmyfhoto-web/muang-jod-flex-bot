@@ -602,6 +602,7 @@ function np_drawLines(layer, lines, ox, oy, spot, width) {
     p.strokeWidth = width > 0 ? width : 0.25;
     p.strokeOverprint = true;
     p.name = spot.name;
+    np_tag(p);
   }
 }
 
@@ -611,8 +612,234 @@ function np_drawPolys(layer, polys, ox, oy, spot, width) {
     var pts = polys[i].points;
     var anchors = [];
     for (var k = 0; k < pts.length; k++) anchors.push({ a: [ox + pts[k][0], oy - pts[k][1]] });
-    np_drawPath(layer, { closed: polys[i].closed !== false, points: anchors }, spot, width);
+    np_tag(np_drawPath(layer, { closed: polys[i].closed !== false, points: anchors }, spot, width));
   }
+}
+
+// ---------------------------------------------------------------- shop template (open artboard)
+//
+// The shop's own template (e.g. 13 x 19 in with Cutting Master 5 marks + a logo/QR header) stays as it is:
+// the stickers are laid into the free area of that artboard. Everything the plugin places is tagged
+// (note = NP_TAG) so a second run replaces the previous layout instead of piling on top of it.
+
+var NP_TAG = 'nongploy-nestingcut';
+
+function np_tag(it) {
+  try {
+    if (it) it.note = NP_TAG;
+  } catch (e) {}
+  return it;
+}
+
+function np_tagged(it) {
+  try {
+    return it.note === NP_TAG;
+  } catch (e) {
+    return false;
+  }
+}
+
+// DOM references are not always identical objects - same type + same bounds counts as the same item
+function np_isPart(it) {
+  var b = null;
+  for (var i = 0; i < NP.parts.length; i++) {
+    var p = NP.parts[i];
+    try {
+      if (p === it) return true;
+      if (!np_alive(p) || p.typename !== it.typename) continue;
+      if (!b) b = it.visibleBounds;
+      var q = p.visibleBounds;
+      if (Math.abs(q[0] - b[0]) + Math.abs(q[1] - b[1]) + Math.abs(q[2] - b[2]) + Math.abs(q[3] - b[3]) < 0.01) return true;
+    } catch (e) {}
+  }
+  return false;
+}
+
+function np_overlaps(b, r) {
+  return !(b[2] <= r[0] || b[0] >= r[2] || b[1] <= r[3] || b[3] >= r[1]);
+}
+
+function np_inside(b, r) {
+  var tol = 1;
+  return b[0] >= r[0] - tol && b[2] <= r[2] + tol && b[1] <= r[1] + tol && b[3] >= r[3] - tol;
+}
+
+// top-level items of the template artboard (on visible layers), without the selected parts and earlier layouts
+function np_templateItems(doc, r) {
+  var out = [];
+  function walk(lay, depth) {
+    try {
+      if (!lay.visible) return;
+    } catch (e0) {}
+    var k;
+    for (k = 0; k < lay.pageItems.length; k++) {
+      var it = lay.pageItems[k];
+      try {
+        if (it.hidden || (it.typename === 'PathItem' && it.guides)) continue;
+      } catch (e1) {}
+      if (np_tagged(it) || np_isPart(it)) continue;
+      if (np_overlaps(it.visibleBounds, r)) out.push(it);
+    }
+    if (depth < 5) {
+      for (k = 0; k < lay.layers.length; k++) walk(lay.layers[k], depth + 1);
+    }
+  }
+  for (var i = 0; i < doc.layers.length; i++) walk(doc.layers[i], 0);
+  return out;
+}
+
+// boxes the stickers must stay away from; a big group (e.g. every mark in one group) is opened up,
+// a single page-size shape (background / frame) is ignored
+function np_boxesOf(it, r, mark, out, depth) {
+  var b = it.visibleBounds;
+  var abArea = (r[2] - r[0]) * (r[1] - r[3]);
+  var area = (b[2] - b[0]) * (b[1] - b[3]);
+  var t = it.typename;
+  var k;
+  if (area > abArea * 0.25 && depth < 10) {
+    if (t === 'GroupItem' && !it.clipped) {
+      for (k = 0; k < it.pageItems.length; k++) np_boxesOf(it.pageItems[k], r, mark, out, depth + 1);
+      return;
+    }
+    if (t === 'CompoundPathItem') {
+      for (k = 0; k < it.pathItems.length; k++) np_boxesOf(it.pathItems[k], r, mark, out, depth + 1);
+      return;
+    }
+    if (area > abArea * 0.5) return;
+  }
+  if (!np_overlaps(b, r)) return;
+  out.push({ x: np_r(b[0] - r[0]), y: np_r(r[1] - b[1]), w: np_r(b[2] - b[0]), h: np_r(b[1] - b[3]), mark: mark ? 1 : 0 });
+}
+
+function np_layerOf(it) {
+  try {
+    var lay = it.layer;
+    while (lay.parent && lay.parent.typename === 'Layer') lay = lay.parent;
+    return lay;
+  } catch (e) {
+    return null;
+  }
+}
+
+// args: {} - the artboard that is active in the document the parts came from
+function np_readTemplate(args) {
+  var doc = np_alive(NP.sourceDoc) ? NP.sourceDoc : app.documents.length ? app.activeDocument : null;
+  if (!doc) throw np_E('NO_DOC');
+  var abIndex = doc.artboards.getActiveArtboardIndex();
+  var r = doc.artboards[abIndex].artboardRect;
+  var items = np_templateItems(doc, r);
+  var boxes = [];
+  var marks = 0;
+  var fx0 = 1e9;
+  var fy0 = 1e9;
+  var fx1 = -1e9;
+  var fy1 = -1e9;
+  for (var i = 0; i < items.length; i++) {
+    var lay = np_layerOf(items[i]);
+    var mark = !!lay && np_isRegLayer(lay.name);
+    var start = boxes.length;
+    np_boxesOf(items[i], r, mark, boxes, 0);
+    if (!mark) continue;
+    for (var k = start; k < boxes.length; k++) {
+      var b = boxes[k];
+      marks++;
+      if (b.x < fx0) fx0 = b.x;
+      if (b.y < fy0) fy0 = b.y;
+      if (b.x + b.w > fx1) fx1 = b.x + b.w;
+      if (b.y + b.h > fy1) fy1 = b.y + b.h;
+    }
+  }
+  var old = 0;
+  var onBoard = 0;
+  var p;
+  for (p = 0; p < NP.parts.length; p++) {
+    if (np_alive(NP.parts[p]) && np_overlaps(NP.parts[p].visibleBounds, r)) onBoard++;
+  }
+  for (p = 0; p < doc.layers.length; p++) {
+    for (var q = 0; q < doc.layers[p].pageItems.length; q++) {
+      var it = doc.layers[p].pageItems[q];
+      if (np_tagged(it) && np_inside(it.visibleBounds, r)) old++;
+    }
+  }
+  return {
+    document: doc.name,
+    abIndex: abIndex,
+    abName: doc.artboards[abIndex].name,
+    w: np_r(r[2] - r[0]),
+    h: np_r(r[1] - r[3]),
+    frame: marks >= 2 ? { x: fx0, y: fy0, w: np_r(fx1 - fx0), h: np_r(fy1 - fy0) } : null,
+    boxes: boxes,
+    marks: marks,
+    parts: onBoard,
+    old: old
+  };
+}
+
+// a previous layout on the template artboard (only what the plugin placed)
+function np_removeTagged(doc, r) {
+  var n = 0;
+  for (var l = 0; l < doc.layers.length; l++) {
+    var lay = doc.layers[l];
+    for (var i = lay.pageItems.length - 1; i >= 0; i--) {
+      var it = lay.pageItems[i];
+      if (!np_tagged(it) || !np_inside(it.visibleBounds, r)) continue;
+      try {
+        lay.locked = false;
+        it.locked = false;
+        it.remove();
+        n++;
+      } catch (e) {}
+    }
+  }
+  return n;
+}
+
+// copy the template (marks, header, logo ...) onto another sheet - same document or a new one
+// (a locked template layer, e.g. the CM5 marks, is unlocked only while copying)
+function np_copyTemplate(items, src, doc, rect) {
+  var dx = rect[0] - src[0];
+  var dy = rect[1] - src[1];
+  var relock = [];
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    var lay = np_layerOf(it);
+    var name = lay ? lay.name : 'Template';
+    var target = null;
+    try {
+      target = doc.layers.getByName(name);
+    } catch (e0) {}
+    if (!target) target = np_layer(doc, name);
+    try {
+      if (target.locked) {
+        target.locked = false;
+        relock.push(target);
+      }
+    } catch (e1) {}
+    var pos = it.position;
+    var dup = it.duplicate(target, ElementPlacement.PLACEATEND);
+    dup.position = [pos[0] + dx, pos[1] + dy];
+  }
+  for (var k = 0; k < relock.length; k++) {
+    try {
+      relock[k].locked = true;
+    } catch (e2) {}
+  }
+}
+
+// selected originals that sit on the template artboard move to the pasteboard on its left
+function np_parkParts(r) {
+  var moved = 0;
+  for (var i = 0; i < NP.parts.length; i++) {
+    var it = NP.parts[i];
+    if (!np_alive(it)) continue;
+    var b = it.visibleBounds;
+    if (!np_overlaps(b, r)) continue;
+    try {
+      it.translate(r[0] - 36 - b[2], 0);
+      moved++;
+    } catch (e) {}
+  }
+  return moved;
 }
 
 // ---------------------------------------------------------------- Graphtec (Cutting Master) marks
@@ -814,6 +1041,8 @@ function np_drawMarkPaths(doc, layers, fallback, paths, ox, oy) {
 //   sheets: [{ w, h, name, pieces: [{ part, angle, tx, ty, name }], marks: [], markPaths: [], header: {}, gridLines: [] }],
 //   layerNames: { pieces, cut, marks, header }, cutNames, spotName, strokeWidth, dropPieceCuts,
 //   regLayers: ['margin ...', 'color ...', 'reg_2 ...', 'reg_1 ...'] (Graphtec: marks go into regLayers[last])
+//   template: { abIndex } - the shop's template artboard: with target 'artboard' sheet 1 goes straight into it
+//             (an earlier layout there is replaced), every other sheet gets a copy of the template
 // } all lengths in pt, positions relative to the artboard top-left with y going down
 function np_buildLayout(args) {
   var src = np_sourceDoc();
@@ -831,6 +1060,13 @@ function np_buildLayout(args) {
   var GAP = 60;
   var left;
   var top;
+  var tplRect = null;
+  var tplItems = [];
+  var removed = 0;
+  if (args.template) {
+    tplRect = src.artboards[args.template.abIndex].artboardRect;
+    tplItems = np_templateItems(src, tplRect);
+  }
   if (newDoc) {
     doc = app.documents.add(DocumentColorSpace.CMYK, sheets[0].w, sheets[0].h);
     doc.layers[0].name = names.pieces || 'Pieces';
@@ -867,6 +1103,8 @@ function np_buildLayout(args) {
   var placed = 0;
   var firstIndex = -1;
   var groups = [];
+  var inPlace = !!tplRect && !newDoc;
+  if (inPlace) removed = np_removeTagged(doc, tplRect);
   for (i = 0; i < sheets.length; i++) {
     var sh = sheets[i];
     if (i > 0 && x + sh.w - rowLeft > 15000) {
@@ -876,6 +1114,19 @@ function np_buildLayout(args) {
     }
     var rect = [x, top, x + sh.w, top - sh.h];
     var abIndex;
+    if (inPlace && i === 0) {
+      // sheet 1 = the template artboard itself
+      rect = [tplRect[0], tplRect[1], tplRect[2], tplRect[3]];
+      abIndex = args.template.abIndex;
+      firstIndex = abIndex;
+      for (k = 0; k < sh.pieces.length; k++) {
+        groups.push(np_tag(np_placePiece(np_stockFor(sh.pieces[k].part, layPieces), layPieces, sh.pieces[k], rect[0], rect[1])));
+        placed++;
+      }
+      if (sh.gridLines && sh.gridLines.length) np_drawLines(layCut || layPieces, sh.gridLines, rect[0], rect[1], spot, args.strokeWidth);
+      if (sh.cutPolys && sh.cutPolys.length) np_drawPolys(layCut || layPieces, sh.cutPolys, rect[0], rect[1], spot, args.strokeWidth);
+      continue;
+    }
     try {
       if (newDoc && i === 0) {
         doc.artboards[0].artboardRect = rect;
@@ -893,10 +1144,11 @@ function np_buildLayout(args) {
     } catch (eName) {}
     x = rect[2] + GAP;
     if (sh.h > rowH) rowH = sh.h;
+    if (tplRect) np_copyTemplate(tplItems, tplRect, doc, rect);
 
     for (k = 0; k < sh.pieces.length; k++) {
       var pc = sh.pieces[k];
-      groups.push(np_placePiece(np_stockFor(pc.part, layPieces), layPieces, pc, rect[0], rect[1]));
+      groups.push(np_tag(np_placePiece(np_stockFor(pc.part, layPieces), layPieces, pc, rect[0], rect[1])));
       placed++;
     }
     if (sh.marks && sh.marks.length) np_drawMarks(layMarks, sh.marks, rect[0], rect[1], color);
@@ -916,15 +1168,28 @@ function np_buildLayout(args) {
   for (i = 0; i < cuts.length; i++) {
     try {
       if (args.dropPieceCuts) cuts[i].remove();
-      else if (layCut) cuts[i].move(layCut, ElementPlacement.PLACEATEND);
+      else if (layCut) {
+        cuts[i].move(layCut, ElementPlacement.PLACEATEND);
+        np_tag(cuts[i]);
+      }
     } catch (eMove) {}
   }
+  var parked = inPlace ? np_parkParts(tplRect) : 0;
   try {
     doc.artboards.setActiveArtboardIndex(firstIndex);
     doc.selection = null;
     app.executeMenuCommand('fitin');
   } catch (eView) {}
-  return { document: doc.name, sheets: sheets.length, pieces: placed, newDocument: newDoc, firstArtboard: firstIndex };
+  return {
+    document: doc.name,
+    sheets: sheets.length,
+    pieces: placed,
+    newDocument: newDoc,
+    firstArtboard: firstIndex,
+    template: inPlace,
+    replaced: removed,
+    parked: parked
+  };
 }
 
 // close a separate layout document made only for exporting
@@ -1413,6 +1678,8 @@ function np_clearSheets(args) {
       removedBoards++;
     } else kept++;
   }
+  // layouts laid into the shop template (tagged, on any artboard)
+  removedItems += np_removeTagged(doc, [-1e9, 1e9, 1e9, -1e9]);
   NP.layoutDoc = null;
   NP.layoutTemp = false;
   return { artboards: removedBoards, items: removedItems, kept: kept };

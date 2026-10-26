@@ -232,7 +232,10 @@ test('layout: เส้นตัดตารางลากยาวทั้ง
   }
 });
 
-test('layout: ขนาดของร้าน Graphtec — งานสีดำ 12.6×19 นิ้ว ล็อกขนาด, หน้าร้าน 12.5×18 นิ้ว, เลเยอร์แบบ Cutting Master', () => {
+test('layout: ขนาดของร้าน — เทมเพลตที่เปิดอยู่, งานสีดำ 12.6×19 และหน้าร้าน 13×19 นิ้ว ล็อกขนาด, เลเยอร์แบบ Cutting Master', () => {
+  const tpl = L.media('artboard');
+  assert.equal(tpl.template, true);
+  assert.equal(L.MEDIA[0].id, 'artboard', 'เทมเพลตอยู่บนสุดของรายการ');
   const black = L.media('gt_black');
   assert.equal(black.label, 'ขนาดตัดสติ๊กเกอร์งานสีดำ');
   assert.ok(Math.abs(black.width - 12.6 * 25.4) < 1e-9 && Math.abs(black.length - 19 * 25.4) < 1e-9);
@@ -240,7 +243,8 @@ test('layout: ขนาดของร้าน Graphtec — งานสีด�
   assert.equal(black.cutter, 'graphtec');
   const shop = L.media('gt_shop');
   assert.equal(shop.label, 'ขนาดงานตัดหน้าร้าน');
-  assert.ok(!shop.fixed);
+  assert.ok(Math.abs(shop.width - 13 * 25.4) < 1e-9 && Math.abs(shop.length - 19 * 25.4) < 1e-9);
+  assert.equal(shop.fixed, true);
   assert.equal(L.cutter('graphtec').marks.type, 'graphtec');
   assert.deepEqual(L.GRAPHTEC_LAYERS, [
     'margin 0.000000 0.000000 0.000000 0.000000',
