@@ -94,6 +94,22 @@ test('ปุ่มติดตั้งแอป กดเดียวขึ้�
   assert.match(js, /muangjod\.install\.dismissed/);
 });
 
+/* ร้านสั่งสั้น ๆ: "ไม่เอาขอบมน" — ทุกหน้าของแอปเป็นเหลี่ยมทั้งแผง
+ * ที่เหลือกลมได้มีแค่วงกลมแท้ ๆ (รูปโปรไฟล์/จุด/เลขคิว = 50%)
+ * โทเคนมุม (--r / --radius) ต้องเป็นศูนย์ด้วย ไม่งั้น var() คือขอบมนแฝง
+ */
+test('ไม่เอาขอบมน: ทุกหน้าเป็นเหลี่ยม เหลือได้เฉพาะวงกลมแท้ ๆ', () => {
+  for (const page of ['index.html', 'jot/index.html', 'jot/style.css', 'book/index.html', 'ledger/index.html', 'categories/index.html']) {
+    const src = read(page);
+    const bad = [...src.matchAll(/border-radius:\s*([^;"}]+)/g)]
+      .map((m) => m[1].trim())
+      .filter((v) => !(v === '0' || v === '50%' || v === 'var(--r)' || v === 'var(--radius)'));
+    assert.deepEqual(bad, [], `${page} ยังมีขอบมน: ${bad.join(', ')}`);
+    const tok = /--r(?:adius)?:\s*([^;]+);/.exec(src);
+    if (tok) assert.equal(tok[1].trim(), '0', `${page} โทเคนมุมยังมน`);
+  }
+});
+
 test('หน้าจด: แถบบันทึกลอยเหนือแถบแอป — โหมดด่วน (แผ่นทับแชต) ไม่มีแถบแอป', () => {
   const css = read('jot/style.css');
   assert.match(css, /\.quickbar \{[^}]*bottom: calc\(52px \+ var\(--safe-bottom\)\)/, 'แถบบันทึกทับแถบแอป');

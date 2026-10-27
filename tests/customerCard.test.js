@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { customerCardMessage } from '../src/actions/customerCard.js';
+import { customerCardMessage, parseCardAsk } from '../src/actions/customerCard.js';
 import { moveCategoryGroupsFlex, categoryJobsFlex } from '../src/flex/categoryPickerFlex.js';
 import { BASE_TAXONOMY } from '../src/utils/category.js';
 
@@ -126,4 +126,26 @@ test('ย้ายหมวด: การ์ดหมวด → การ์ด�
 
   const empty = JSON.stringify(categoryJobsFlex(BASE_TAXONOMY.findGroup('stamp'), []));
   assert.match(empty, /หมวดนี้ยังไม่มีงานค่ะ/);
+});
+
+/* ร้านสอนประโยคมาเอง: "พิมพ์ว่า ขอดูงานของโรงเรียนบ้านห้วยฟอง ก็ลิสขึ้นมาให้ดูเลย" */
+test('ขอดูงานของ… ดึงชื่อออกมาเปิดการ์ด และเกตต้องมาก่อนตัวทายจดงาน', () => {
+  assert.deepEqual(parseCardAsk('ขอดูงานของโรงเรียนบ้านห้วยฟอง'), { name: 'โรงเรียนบ้านห้วยฟอง', explicit: true });
+  assert.deepEqual(parseCardAsk('ดูงานของ อบต.ผาทอง'), { name: 'อบต.ผาทอง', explicit: true });
+  assert.deepEqual(parseCardAsk('งานของคุณนก'), { name: 'คุณนก', explicit: true });
+  // ไม่มี "ของ" = เดา: เจอก็เปิดการ์ด ไม่เจอปล่อยไหลตามทางเดิม
+  assert.deepEqual(parseCardAsk('ดูงาน ครูแนน'), { name: 'ครูแนน', explicit: false });
+  // คำสั่งเดิมห้ามโดนแย่ง: มุมมองรายร้าน (เขียนติดกัน) กับงานค้าง
+  assert.equal(parseCardAsk('ดูงานเชียงกลาง'), null);
+  assert.equal(parseCardAsk('ขอดูงานค้าง'), null);
+  assert.equal(parseCardAsk('จดงานของเดิม'), null);
+
+  // ในแชต เกตนี้อยู่ก่อน looksLikeJob — "ขอดูงานของโรงเรียน…" มีทั้งคำว่า งาน
+  // และชื่อหน่วยงาน ถ้าไปอยู่หลัง จะโดนทายเป็นจดงานใหม่ชื่อประหลาด
+  const handler = readFileSync(new URL('../src/handlers/messageHandler.js', import.meta.url), 'utf8');
+  const gate = handler.indexOf('parseCardAsk(text)');
+  const guess = handler.indexOf('if (looksLikeJob(text) || looksLikePricelessJob(text))');
+  assert.ok(gate > 0 && gate < guess, 'เกต ขอดูงานของ ต้องมาก่อนตัวทายจดงาน');
+  // บอกชัดว่า "ของใคร" แล้วไม่เจอ ต้องตอบตรง ๆ ไม่เงียบไหลไปทางอื่น
+  assert.match(handler, /ยังไม่เจอลูกค้าชื่อ/);
 });

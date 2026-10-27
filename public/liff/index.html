@@ -29,7 +29,7 @@
     --orange: #8A6114; --orange-bg: #FBEFD8;
     --red: #B3402F; --red-bg: #F8E4E1;
     --shadow: rgba(31, 43, 69, .10);
-    --r: 18px;
+    --r: 0;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body {
@@ -66,9 +66,9 @@
 
   /* Stat grid — the big total plus one tile per category */
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
-  .stat { background: var(--tint); border-radius: 14px; padding: 12px; }
+  .stat { background: var(--tint); border-radius: 0; padding: 12px; }
   .stat .top { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
-  .stat .ic { width: 28px; height: 28px; border-radius: 9px; background: var(--surface); display: grid; place-items: center; font-size: 15px; flex: none; }
+  .stat .ic { width: 28px; height: 28px; border-radius: 0; background: var(--surface); display: grid; place-items: center; font-size: 15px; flex: none; }
   .stat .lbl { font-size: 11.5px; color: var(--sub); font-weight: 500; }
   .stat .big { font-size: 21px; font-weight: 700; color: var(--accent-text); line-height: 1.25; }
   .stat .sm { font-size: 12px; color: var(--grey); }
@@ -89,7 +89,7 @@
   .tappable:active { transform: scale(.985); }
   .stat.tappable { transition: background .12s ease; }
   .stat.tappable:active { background: var(--accent-soft, #dce7fb); }
-  .legend .tappable { border-radius: 9px; margin: 0 -6px; padding-left: 6px; padding-right: 6px; }
+  .legend .tappable { border-radius: 0; margin: 0 -6px; padding-left: 6px; padding-right: 6px; }
   .legend .tappable:active { background: var(--tint); }
   .tappable:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -97,11 +97,11 @@
   .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
   .cat-grid button {
     display: flex; align-items: center; gap: 9px; text-align: left;
-    border: 1.5px solid var(--line); background: var(--tint); border-radius: 14px;
+    border: 1.5px solid var(--line); background: var(--tint); border-radius: 0;
     padding: 11px 10px; font: inherit; color: var(--ink); cursor: pointer;
   }
   .cat-grid button:active { background: var(--accent-soft, #dce7fb); transform: scale(.985); }
-  .cat-grid .ic { width: 30px; height: 30px; border-radius: 10px; background: var(--surface); display: grid; place-items: center; font-size: 16px; flex: none; }
+  .cat-grid .ic { width: 30px; height: 30px; border-radius: 0; background: var(--surface); display: grid; place-items: center; font-size: 16px; flex: none; }
   .cat-grid .nm { font-size: 13px; font-weight: 700; line-height: 1.25; min-width: 0; }
 
   /* หน้าตั้งค่า "ม่วงทักถามงาน" */
@@ -110,7 +110,7 @@
   .times { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
   .times .t {
     display: flex; align-items: center; gap: 6px; background: var(--tint);
-    border: 1px solid var(--line); border-radius: 999px; padding: 6px 8px 6px 12px; font-size: 14px; font-weight: 700;
+    border: 1px solid var(--line); border-radius: 0; padding: 6px 8px 6px 12px; font-size: 14px; font-weight: 700;
   }
   .times .t button { border: 0; background: none; color: var(--grey); font-size: 16px; line-height: 1; cursor: pointer; padding: 0 2px; }
   .time-add { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
@@ -119,7 +119,7 @@
   .days { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
   .days button {
     border: 1px solid var(--line); background: var(--surface); color: var(--sub);
-    border-radius: 10px; padding: 8px 0; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; flex: 1 1 40px;
+    border-radius: 0; padding: 8px 0; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; flex: 1 1 40px;
   }
   .days button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 
@@ -138,7 +138,7 @@
   .q-head:first-child { margin-top: 0; }
   .q-head .amt { font-weight: 600; color: var(--grey); }
   .q-day {
-    margin: 9px 0 0; padding: 3px 9px; border-radius: 999px; display: inline-block;
+    margin: 9px 0 0; padding: 3px 9px; border-radius: 0; display: inline-block;
     font-size: 11px; font-weight: 700; background: var(--tint); color: var(--sub);
   }
   .q-day.late { background: var(--red-bg); color: var(--red); }
@@ -148,7 +148,7 @@
   .kinds { display: flex; gap: 8px; margin: 2px 0 14px; }
   .kinds button {
     flex: 1; display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
-    border: 1.5px solid var(--line); background: var(--tint); border-radius: 13px;
+    border: 1.5px solid var(--line); background: var(--tint); border-radius: 0;
     padding: 11px 12px; font: inherit; text-align: left; cursor: pointer; color: var(--sub);
   }
   .kinds button b { font-size: 13.5px; font-weight: 700; }
@@ -159,7 +159,7 @@
   /* ติ๊กเดียวแทนการกรอกสถานะการเงิน + ช่องรับมาแล้ว */
   .cash {
     display: flex; gap: 11px; align-items: center; margin: 4px 0 14px;
-    padding: 12px 13px; border-radius: 13px; border: 1.5px solid var(--line); background: var(--tint);
+    padding: 12px 13px; border-radius: 0; border: 1.5px solid var(--line); background: var(--tint);
     cursor: pointer;
   }
   .cash input { width: 21px; height: 21px; flex: none; accent-color: var(--green); margin: 0; }
@@ -186,16 +186,16 @@
   .q-cat {
     display: flex; align-items: center; gap: 9px; width: 100%;
     margin: 8px 0 0; padding: 11px 12px; border: 0;
-    border-radius: 13px; background: var(--tint); font: inherit; text-align: left; cursor: pointer;
+    border-radius: 0; background: var(--tint); font: inherit; text-align: left; cursor: pointer;
   }
-  .q-cat .dot { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; font-size: 15px; flex: none; }
+  .q-cat .dot { width: 28px; height: 28px; border-radius: 0; display: grid; place-items: center; font-size: 15px; flex: none; }
   .q-cat .nm { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .q-cat .ct { font-size: 11.5px; font-weight: 600; color: var(--grey); flex: none; }
   .q-cat .mny { font-size: 13px; font-weight: 700; color: var(--sub); flex: none; }
   .q-cat .car { font-size: 10px; color: var(--grey); flex: none; transition: transform .15s; }
   .q-cat[aria-expanded="true"] .car { transform: rotate(90deg); }
   /* งานค้างจ่ายในหมวดนี้กี่ใบ — ตัวเลขที่ร้านตามเก็บเงิน ต้องเห็นตอนพับอยู่ */
-  .q-cat .owe { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: var(--red-bg); color: var(--red); flex: none; }
+  .q-cat .owe { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 0; background: var(--red-bg); color: var(--red); flex: none; }
   .q-body[hidden] { display: none; }
 
   /* แผงสถานะใต้งาน — เลือกอิสระ ไม่ใช่ขั้นที่ติ๊กต่อกัน
@@ -211,7 +211,7 @@
   /* ตัวเลือกรองพับไว้ — หัวพับโชว์ค่าที่เลือกอยู่ */
   details.fil { margin-bottom: 10px; }
   details.fil > summary { list-style: none; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--accent-text);
-    background: var(--tint, #e8ecf5); border-radius: 10px; padding: 9px 12px; user-select: none; }
+    background: var(--tint, #e8ecf5); border-radius: 0; padding: 9px 12px; user-select: none; }
   details.fil > summary::-webkit-details-marker { display: none; }
   details.fil > summary::after { content: ' ⌄'; color: var(--grey); }
   details.fil[open] > summary { margin-bottom: 9px; }
@@ -220,7 +220,7 @@
   .sp-row { display: flex; gap: 6px; flex-wrap: wrap; }
   .sp-row.sub { padding-left: 2px; }
   .sp-b {
-    flex: 1 1 0; min-width: 0; min-height: 38px; padding: 6px 8px; border-radius: 10px;
+    flex: 1 1 0; min-width: 0; min-height: 38px; padding: 6px 8px; border-radius: 0;
     font: inherit; font-size: 12.5px; line-height: 1.25; cursor: pointer;
     background: var(--white); border: 1.5px solid var(--line); color: var(--sub);
   }
@@ -234,20 +234,20 @@
 
   .job { display: flex; gap: 11px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
   .job:last-child { border-bottom: 0; }
-  .job .ic { width: 38px; height: 38px; border-radius: 12px; background: var(--tint); display: grid; place-items: center; font-size: 18px; flex: none; }
+  .job .ic { width: 38px; height: 38px; border-radius: 0; background: var(--tint); display: grid; place-items: center; font-size: 18px; flex: none; }
   .job .txt { flex: 1; min-width: 0; }
   .job .txt b { display: block; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .job .txt small { color: var(--grey); font-size: 11.5px; }
   .job .amt { text-align: right; flex: none; }
   .job .amt b { display: block; font-size: 14px; }
-  .badge { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; display: inline-block; margin-top: 2px; }
+  .badge { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 0; display: inline-block; margin-top: 2px; }
 
   /* ชิปชื่อลูกค้า ระบายด้วยสีของหมวดงานนั้น
      ร้านบอกว่า "อยากได้ชื่อลูกค้าเป็นเหมือนสีเน้นคำว่าค้างรับ แต่เป็นสีของเฉพาะ
      หมวดงาน ไม่ซ้ำกัน" — ชื่อลูกค้าเคยเป็นตัวจาง ๆ ปนอยู่กับวันที่และเลขงาน
      ทั้งที่เป็นสิ่งที่ร้านกวาดตาหาก่อนเพื่อน */
   .who {
-    font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+    font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 0;
     display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
     white-space: nowrap; vertical-align: -1px;
   }
@@ -258,7 +258,7 @@
   /* Edit form. The delete button belongs in the header next to the title, not
      as a full-width red slab under Save where it is one mis-tap from it. */
   .card > h2 .icon-btn {
-    width: 36px; height: 36px; border: 0; border-radius: 11px; flex: none;
+    width: 36px; height: 36px; border: 0; border-radius: 0; flex: none;
     background: var(--red-bg); color: var(--red); font-size: 16px; line-height: 1;
   }
   .card > h2 .head-right { display: flex; align-items: center; gap: 10px; }
@@ -270,13 +270,13 @@
   label .req { color: var(--red); }
   input, select, textarea {
     width: 100%; font: inherit; font-size: 15px; padding: 11px 12px; border: 1.5px solid var(--line);
-    border-radius: 12px; background: var(--tint); color: var(--ink); appearance: none;
+    border-radius: 0; background: var(--tint); color: var(--ink); appearance: none;
   }
   select { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8'><path d='M1 1l5 5 5-5' stroke='%231c4fd8' stroke-width='2' fill='none' stroke-linecap='round'/></svg>"); background-repeat: no-repeat; background-position: right 14px center; }
   input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent-text); }
   /* ราคาที่ยังไม่ปัด — สีส้ม ไม่ใช่สีของหน้า เพื่อให้เห็นแต่ไกลว่าส่วนนี้ไม่ได้
      ออกไปถึงลูกค้า */
-  .mine { margin-top: 9px; background: #fff7ed; border-radius: 12px; padding: 10px 12px; }
+  .mine { margin-top: 9px; background: #fff7ed; border-radius: 0; padding: 10px 12px; }
   .mine .mine-tag { display: block; font-size: 11.5px; font-weight: 700; color: #b45309; }
   .mine .mine-lab { display: block; margin: 8px 0 4px; font-size: 12.5px; font-weight: 700; color: #b45309; }
   .mine input { background: #fff; border-color: #fed7aa; }
@@ -284,9 +284,9 @@
   .mine .mine-row .up { color: var(--green, #1a7f4b); }
   .mine .mine-row .down { color: var(--red); }
   .mine .mine-round { display: flex; gap: 6px; margin-top: 8px; }
-  .mine .mine-round button { flex: 1; border: 1.5px solid #fed7aa; background: #fff; border-radius: 10px; padding: 8px 4px; font: inherit; font-size: 12.5px; font-weight: 700; color: #b45309; }
+  .mine .mine-round button { flex: 1; border: 1.5px solid #fed7aa; background: #fff; border-radius: 0; padding: 8px 4px; font: inherit; font-size: 12.5px; font-weight: 700; color: #b45309; }
   .seg { display: flex; gap: 7px; margin-bottom: 8px; }
-  .seg button { flex: 1; border: 1.5px solid var(--line); background: var(--tint); border-radius: 12px; padding: 13px 4px; font: inherit; font-size: 13.5px; font-weight: 600; color: var(--sub); }
+  .seg button { flex: 1; border: 1.5px solid var(--line); background: var(--tint); border-radius: 0; padding: 13px 4px; font: inherit; font-size: 13.5px; font-weight: 600; color: var(--sub); }
   .seg button[aria-pressed="true"] { border-color: var(--accent-text); background: var(--accent-dim); color: var(--white); font-weight: 700; }
   /* แถวที่สอง "จะแบ่งกองด้วยอะไร" เป็นของรอง ไม่ใช่ตัวกรองหลัก จึงเตี้ยและจางกว่า */
   .seg.wrap { flex-wrap: wrap; }
@@ -294,9 +294,9 @@
   .money-sum { margin: -3px 2px 11px; font-size: 12px; color: var(--sub); line-height: 1.5; }
   .money-sum b { color: var(--accent-text); }
   .seg.sub { margin-bottom: 11px; }
-  .seg.sub button { padding: 8px 4px; font-size: 12.5px; border-radius: 10px; }
+  .seg.sub button { padding: 8px 4px; font-size: 12.5px; border-radius: 0; }
   .seg.sub button[aria-pressed="true"] { background: var(--accent-soft, #dce7fb); border-color: transparent; color: var(--accent-text); }
-  .btn { width: 100%; border: 0; border-radius: 13px; padding: 13px; font: inherit; font-size: 15px; font-weight: 700; margin-top: 15px; }
+  .btn { width: 100%; border: 0; border-radius: 0; padding: 13px; font: inherit; font-size: 15px; font-weight: 700; margin-top: 15px; }
   .btn-primary { background: var(--accent); color: #fff; }
   .btn-danger { background: var(--red-bg); color: var(--red); }
   .btn-ghost { background: transparent; color: var(--sub); font-weight: 500; }
@@ -322,7 +322,7 @@
 
   .toast {
     position: fixed; left: 50%; bottom: 96px; transform: translate(-50%, 16px); opacity: 0;
-    background: var(--tint); color: var(--ink); border: 1px solid var(--line); padding: 11px 18px; border-radius: 999px; font-size: 13.5px;
+    background: var(--tint); color: var(--ink); border: 1px solid var(--line); padding: 11px 18px; border-radius: 0; font-size: 13.5px;
     transition: .25s; pointer-events: none; max-width: 90vw; z-index: 9;
   }
   .toast.on { opacity: 1; transform: translate(-50%, 0); }
@@ -330,7 +330,7 @@
   #fatal-msg { white-space: pre-line; }
   .retry {
     display: block; margin: 0 auto; min-height: 44px; padding: 0 22px;
-    border: 0; border-radius: 999px; background: var(--accent); color: var(--white);
+    border: 0; border-radius: 0; background: var(--accent); color: var(--white);
     font: inherit; font-size: 14px; font-weight: 600;
   }
   [hidden] { display: none !important; }
@@ -350,7 +350,7 @@
     }
     nav button {
       flex: 0 0 auto; display: flex; align-items: center; gap: 11px;
-      font-size: 13.5px; padding: 10px 12px; border-radius: 11px; text-align: left;
+      font-size: 13.5px; padding: 10px 12px; border-radius: 0; text-align: left;
     }
     nav button span { font-size: 18px; line-height: 1; }
     nav button[aria-selected="true"] { background: var(--tint); }
@@ -363,12 +363,12 @@
      ที่แตะได้ทั้งแถว — ของละเอียด (แบ่งกอง/แยกตามเงิน/สัดส่วน) ยังอยู่ครบ
      ในหน้า "คิวงานละเอียด" เข้าจากปุ่มเล็กท้ายหน้า */
   .hstat { display: flex; gap: 9px; margin-bottom: 13px; }
-  .hstat .box { flex: 1; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 11px 13px; box-shadow: 0 2px 14px var(--shadow); }
+  .hstat .box { flex: 1; background: var(--surface); border: 1px solid var(--line); border-radius: 0; padding: 11px 13px; box-shadow: 0 2px 14px var(--shadow); }
   .hstat .box span { display: block; font-size: 11.5px; color: var(--sub); }
   .hstat .box b { font-size: 20px; font-variant-numeric: tabular-nums; line-height: 1.35; }
   .hstat .got b { color: var(--green); }
   .hstat .owe b { color: var(--gold); }
-  #h-q { width: 100%; border: 1.5px solid var(--line); border-radius: 12px; background: var(--surface); padding: 10px 12px; font: inherit; font-size: 14px; color: var(--ink); margin: 10px 0 4px; }
+  #h-q { width: 100%; border: 1.5px solid var(--line); border-radius: 0; background: var(--surface); padding: 10px 12px; font: inherit; font-size: 14px; color: var(--ink); margin: 10px 0 4px; }
   #h-q:focus { outline: none; border-color: var(--accent-dim); }
   .hj { display: flex; align-items: center; gap: 10px; padding: 11px 2px; border-bottom: 1px solid var(--line); }
   .hj:last-child { border-bottom: 0; }
@@ -377,23 +377,23 @@
   .hj .who span { font-size: 12px; color: var(--grey); }
   .hj .money { text-align: right; flex: none; }
   .hj .money b { display: block; font-size: 15.5px; font-variant-numeric: tabular-nums; color: var(--accent-text); }
-  .hj .money .st { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+  .hj .money .st { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 0; }
   .st.owe { color: var(--red); background: var(--red-bg); }
   .st.book { color: var(--accent-text); background: var(--tint); }
   .st.paid { color: var(--green); background: var(--green-bg); }
   .hlinks { text-align: center; font-size: 12.5px; margin: 2px 0 10px; line-height: 2.3; }
-  .hlinks button, .hlinks a { border: 1px solid var(--line); background: var(--surface); color: var(--sub); font: inherit; font-size: 12.5px; border-radius: 999px; padding: 5px 11px; cursor: pointer; text-decoration: none; margin: 0 2px; display: inline-block; }
+  .hlinks button, .hlinks a { border: 1px solid var(--line); background: var(--surface); color: var(--sub); font: inherit; font-size: 12.5px; border-radius: 0; padding: 5px 11px; cursor: pointer; text-decoration: none; margin: 0 2px; display: inline-block; }
 
   /* แผ่นปุ่มใหญ่ของงานหนึ่งใบ — สี่ปุ่มจบ ตามแบบร่าง */
   .hsheet-bg { position: fixed; inset: 0; background: rgba(21, 29, 48, .45); z-index: 60; }
-  .hsheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 61; background: var(--surface); border-radius: 18px 18px 0 0; padding: 10px 16px calc(14px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -8px 30px rgba(31, 43, 69, .18); }
+  .hsheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 61; background: var(--surface); border-radius: 0; padding: 10px 16px calc(14px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -8px 30px rgba(31, 43, 69, .18); }
   .hsheet .in { max-width: 560px; margin: 0 auto; }
-  .hsheet .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--line); margin: 0 auto 10px; }
+  .hsheet .grab { width: 40px; height: 5px; border-radius: 0; background: var(--line); margin: 0 auto 10px; }
   .hsheet h3 { margin: 0 0 2px; font-size: 16.5px; }
   .hsheet .sub { font-size: 13px; color: var(--sub); margin-bottom: 12px; }
   .hsheet .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .hsheet .acts .wide { grid-column: 1 / -1; }
-  .hs-b { border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-weight: 700; font-size: 14.5px; border-radius: 13px; padding: 13px 8px; cursor: pointer; }
+  .hs-b { border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-weight: 700; font-size: 14.5px; border-radius: 0; padding: 13px 8px; cursor: pointer; }
   .hs-b.pay { background: var(--gold); border-color: var(--gold); color: #fff; }
   .hs-b.ghost { color: var(--grey); }
   .hs-b:disabled { opacity: .55; }
