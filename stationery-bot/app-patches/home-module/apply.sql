@@ -109,6 +109,16 @@ select 'overview', $ov$/* ===== NATTA GROUP · ภาพรวม (overview, CD 
       paintInto(box,`<div class="ov-wrap"><div class="ov-err">${esc(hint)}</div><p class="ov-meta">${esc(msg)}</p><button type="button" class="ov-btn" id="ov-refresh">↻ รีเฟรช</button></div>`)
     })
   }
+
+  // ---- ทางเข้า: เมนูข้างและแถบล่างถูกสร้างใหม่โดยโมดูลอื่น (เช่น skin ซึ่งใช้รายการคงที่) จึงแทรกลิงก์ "ภาพรวม" หลังทุกครั้งที่สร้างเมนู ----
+  const navLink=()=>{ const a=document.createElement('a'); a.dataset.r='overview'; a.href='#overview'; a.innerHTML='<span class="ic">📊</span><span>ภาพรวม</span>'; a.onclick=e=>{ e.preventDefault(); go('overview') }; return a }
+  function putNavLink(box){
+    if(!box||box.querySelector('a[data-r="overview"]')) return
+    const home=box.querySelector('a[data-r="home"]'), a=navLink()
+    if(home) home.after(a); else box.appendChild(a)
+  }
+  const buildNavBefore=buildNav
+  buildNav=function(){ buildNavBefore(); putNavLink(document.getElementById('nav')); putNavLink(document.getElementById('mobnav')) }
 })()
 $ov$, 66, false
 where not exists (select 1 from app_modules where name = 'overview');

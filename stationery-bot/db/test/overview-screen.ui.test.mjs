@@ -16,6 +16,7 @@ import { seedShopCatalogue, seedBackOffice, STORE, P1, P3 } from '../helpers/bac
 const LIVE = liveDir();
 const MIG = fileURLToPath(new URL('../migrations/002_home_summary.sql', import.meta.url));
 const MODULE_DIR = fileURLToPath(new URL('../../app-patches/home-module/', import.meta.url));
+const STUB = fileURLToPath(new URL('../fixtures/skin-nav.stub.js', import.meta.url)); // the live skin module's menus (seq 20)
 const SHOTS = process.env.OVERVIEW_SHOTS || join(tmpdir(), 'overview-shots');
 const SERVICE = 'svc-service-key';
 // the first moment of today in Bangkok: the "today" orders are at this moment plus a few minutes
@@ -36,6 +37,7 @@ before(async () => {
   await db.exec(readFileSync(MIG, 'utf8')); // home_summary() (002)
   await seedShopCatalogue(db);
   await seedBackOffice(db, { weborders: LIVE + '/modules/weborders.js' }); // app_modules, pick_slips, weborders, chatorders (on)
+  await db.query("insert into app_modules (name, code, seq, enabled) values ('skin-nav-stub', $1, 20, true)", [readFileSync(STUB, 'utf8')]);
   await db.exec(readFileSync(MODULE_DIR + 'apply.sql', 'utf8')); // the overview module: installed switched off …
   await db.query("update app_modules set enabled = true where name = 'overview'"); // … then switched on, as the owner does
   await asService(db, async (tx) => {
@@ -161,5 +163,24 @@ test('the start page is still หน้าหลัก: the overview opens only 
   await page.goto(`${shell.url}/admin/index.html#home`);
   await page.waitForSelector('#view > *', { timeout: 15000 });
   assert.equal(await page.locator('.ov-hero').count(), 0, 'the existing home screen is not replaced');
+  assert.deepEqual(pageErrors, []);
+});
+
+test('the side menu and the bottom bar each have ภาพรวม once, and both open it', skipIt, async () => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('about:blank');
+  await page.goto(`${shell.url}/admin/index.html#home`);
+  await page.waitForSelector('#nav a[data-r="overview"]', { timeout: 15000 });
+  assert.equal(await page.locator('#nav a[data-r="overview"]').count(), 1, 'one link in the side menu');
+  await page.locator('#nav a[data-r="overview"]').click();
+  await page.waitForSelector('.ov-hero', { timeout: 15000 });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('about:blank');
+  await page.goto(`${shell.url}/admin/index.html#home`);
+  await page.waitForSelector('#mobnav a[data-r="overview"]', { timeout: 15000 });
+  assert.equal(await page.locator('#mobnav a[data-r="overview"]').count(), 1, 'one link in the bottom bar');
+  await page.locator('#mobnav a[data-r="overview"]').click();
+  await page.waitForSelector('.ov-hero', { timeout: 15000 });
   assert.deepEqual(pageErrors, []);
 });
