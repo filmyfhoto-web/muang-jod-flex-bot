@@ -359,7 +359,7 @@ export function notifyCard(shop, { reason, title, customerName, customerPhoto, c
 // (see picklist.js). `items` are the lines shown, `more` how many did not fit; both buttons are optional.
 // When the list was also saved in the shop's app (chatorders.js): `docNo` is its number (the button opens that job),
 // `merged`/`added` say it joined a job the customer had just started, `review` how many lines wait for a product check.
-export function pickListCard(shop, { customerName, customerPhoto, items, more = 0, note = '', link, appUrl, altText, docNo = '', merged = false, added = 0, review = 0 }) {
+export function pickListCard(shop, { customerName, customerPhoto, items, more = 0, note = '', link, appUrl, altText, docNo = '', merged = false, added = 0, review = 0, source = '' }) {
   const P = pal(shop);
   const total = items.length + more;
   const who = [
@@ -390,6 +390,7 @@ export function pickListCard(shop, { customerName, customerPhoto, items, more = 
   ];
   // what the app now holds for this list (nothing here = the admins were only told)
   const saved = [
+    ...(source ? [text(`จาก ${source}`, { size: 'xs', color: P.muted })] : []),
     ...(docNo ? [text(merged ? `✅ เพิ่มอีก ${added} รายการในใบเดิม ${docNo}` : `✅ บันทึกในแอปแล้ว ${docNo}`, { size: 'sm', weight: 'bold', color: P.accent })] : []),
     ...(docNo && review > 0 ? [text(`⚠️ ${review} รายการรอตรวจสอบสินค้า (ไม่ตรงกับสินค้าในร้าน)`, { size: 'xs', color: P.muted })] : []),
   ];

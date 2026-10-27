@@ -1,0 +1,11 @@
+{
+  "name": "chat-to-order-db-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/migration.test.js test/confirm-pos.test.js test/chain.test.js"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.12"
+  }
+}

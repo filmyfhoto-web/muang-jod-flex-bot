@@ -129,7 +129,7 @@ test('with the app features on', async (t) => {
   t.after(stop);
 
   await t.test('health says the app features are on; a wrong signature is refused', async () => {
-    assert.deepEqual(await (await fetch(`http://127.0.0.1:${port}/health`)).json(), { ok: true, app: 'on', assist: 'ready', orders: 'off', build: 'abc1234' });
+    assert.deepEqual(await (await fetch(`http://127.0.0.1:${port}/health`)).json(), { ok: true, app: 'on', assist: 'ready', orders: 'off', drafts: 'off', build: 'abc1234' });
     const r = await fetch(`http://127.0.0.1:${port}/webhook`, { method: 'POST', headers: { 'x-line-signature': 'nope' }, body: '{"events":[]}' });
     assert.equal(r.status, 401);
   });
@@ -267,7 +267,7 @@ test('without SUPABASE_URL an order list still reaches the admins\' LINE (the we
 test('without SUPABASE_URL the Render bot answers exactly as before', async (t) => {
   await boot({ withApp: false });
   t.after(stop);
-  assert.deepEqual(await (await fetch(`http://127.0.0.1:${port}/health`)).json(), { ok: true, app: 'off', assist: 'off', orders: 'off', build: 'abc1234' });
+  assert.deepEqual(await (await fetch(`http://127.0.0.1:${port}/health`)).json(), { ok: true, app: 'off', assist: 'off', orders: 'off', drafts: 'off', build: 'abc1234' });
   await post(text('เวลาเปิดร้าน'));
   const reply = await until(() => replies().at(-1));
   assert.equal(reply.body.messages.length, 1);
@@ -330,7 +330,7 @@ test('the Studio\'s engine: faq_bot.mode "all" answers everybody with the rules 
 test('a database address or key that does not work: /health says no-db and the Render bot still answers', async (t) => {
   await boot({ withApp: true, badDb: true });
   t.after(stop);
-  assert.deepEqual(await (await fetch(`http://127.0.0.1:${port}/health`)).json(), { ok: true, app: 'no-db', assist: 'ready', orders: 'off', build: 'abc1234' });
+  assert.deepEqual(await (await fetch(`http://127.0.0.1:${port}/health`)).json(), { ok: true, app: 'no-db', assist: 'ready', orders: 'off', drafts: 'off', build: 'abc1234' });
   await post(text('เวลาเปิดร้าน'));
   const reply = await until(() => replies().at(-1));
   assert.equal(reply.body.messages.length, 1);

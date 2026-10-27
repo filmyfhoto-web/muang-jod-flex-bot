@@ -18,7 +18,13 @@ import { menuCommandReply } from './richmenu.js';
 import { parsePickList, pickListKey, pickListAltText, pickListPushText } from './picklist.js';
 import { createChatOrders, enabledFor, docLink, chatOrdersFromEnv } from './chatorders.js';
 import { createCatalog } from './catalog.js';
-import { looksLikeOrder, readOrder, aiOn } from './chatai.js';
+import { looksLikeOrder, readOrder, readThreadOrder, aiOn } from './chatai.js';
+import { createOrdersStore } from './orders/store.js';
+import { createOrderIngest } from './orders/ingest.js';
+import { createChannelRegistry } from './orders/channels.js';
+import { createDraftAck } from './orders/ack.js';
+import { chatDraftsFromEnv } from './orders/config.js';
+import { summarize } from './orders/draft.js';
 import { createAppFlow } from './app/flow.js';
 import { sameAdmin } from './app/names.js';
 import { createAssistStage } from './assist-stage.js';
@@ -38,6 +44,10 @@ const baseUrl = process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL |
 let appFlow = null;
 let assist = null; // the Studio-editable answering engine (assist-stage.js); null = the Render bot's own answers only
 let chatOrders = null; // an order typed in the chat → a job in the shop's app (chatorders.js); null = the admins are only told
+// the order drafts (orders/): every message of every OA is kept apart by its channel; null until the database answers
+let orderIngest = null;
+let draftAck = null;
+let channelRegistry = null;
 const appMenuOn = () => Boolean(appFlow?.status().menu); // the app's menu card greets every first message of a visit
 
 const shopFile = process.env.SHOP_FILE || fileURLToPath(new URL('../data/shop.json', import.meta.url)); // SHOP_FILE: tests point it at their own copy
@@ -49,6 +59,7 @@ const loadShop = () => {
     assetBase: iconUrlFor(baseUrl) ? baseUrl.replace(/\/+$/, '') : null,
   };
   shop.chatOrders = chatOrdersFromEnv(shop.chatOrders ?? {}, process.env);
+  shop.chatDrafts = chatDraftsFromEnv(shop.chatDrafts ?? {}, process.env);
   // While the app's menu card is on, this bot does not also ask "who do you want to talk to?" on a first hello
   // (two menus in a row).
   if (appMenuOn()) shop.contact = { ...(shop.contact ?? {}), sessionAsk: false };
@@ -84,7 +95,15 @@ app.get('/health', async (_req, res) => {
   } catch {
     /* an unreadable shop file is reported by the message handler */
   }
-  res.json({ ok: true, app: state, assist: assist ? 'ready' : 'off', orders, ...(build ? { build } : {}) });
+  // "drafts": the same for the order drafts (orders/) — off · pilot · on · no-db
+  let drafts = 'off';
+  try {
+    const dm = loadShop().chatDrafts?.mode;
+    if (dm === 'pilot' || dm === 'on') drafts = orderIngest ? dm : 'no-db';
+  } catch {
+    /* reported by the message handler */
+  }
+  res.json({ ok: true, app: state, assist: assist ? 'ready' : 'off', orders, drafts, ...(build ? { build } : {}) });
 });
 
 app.post('/webhook', express.raw({ type: '*/*' }), (req, res) => {
@@ -96,6 +115,7 @@ app.post('/webhook', express.raw({ type: '*/*' }), (req, res) => {
   } catch {
     return;
   }
+  for (const ev of events) recordChatEvent('main', ev); // the order drafts take the shop's own OA's messages (silently)
   if (appFlow) {
     // The app's features answer first; what they do not answer comes back to runOthers (below) one event at a time.
     for (const ev of events) console.log(describeEvent(ev));
@@ -110,6 +130,23 @@ app.post('/webhook', express.raw({ type: '*/*' }), (req, res) => {
     const job = () => handleEvent(ev);
     (who ? serial.run(who, job) : job()).catch((e) => console.error('[event]', e.message));
   }
+});
+
+// Another LINE official account (line_channels): its own webhook, verified with its own secret. Its messages go to the drafts
+// and are never answered — the customer gets nothing from the bot there.
+app.post('/webhook/ch/:key', express.raw({ type: '*/*' }), async (req, res) => {
+  const key = String(req.params.key || '');
+  const row = channelRegistry ? await channelRegistry.get(key).catch(() => null) : null;
+  if (!row || !row.channel_secret) return res.sendStatus(404);
+  if (!verifySignature(req.body, req.get('x-line-signature'), row.channel_secret)) return res.sendStatus(401);
+  res.sendStatus(200);
+  let events = [];
+  try {
+    events = JSON.parse(req.body.toString('utf8')).events ?? [];
+  } catch {
+    return;
+  }
+  for (const ev of events) recordChatEvent(key, ev, { label: row.shop_label || row.name || key, token: row.channel_token });
 });
 
 // Who is mid-way through a two-step question ("which school?") — in memory, so a restart forgets it (the customer is simply asked again).
@@ -217,6 +254,74 @@ async function notifyAdmins(to, shop, { customerId, contact, said, reason }) {
   }
 }
 
+// ---- order drafts (orders/) -----------------------------------------------------------------------------------------------
+// One message → the drafts, one customer at a time, never answered. The main OA's token and name come from the environment and
+// shop.json; another OA brings its own.
+function recordChatEvent(channelKey, ev, { label, token: channelToken } = {}) {
+  if (!orderIngest || !ev?.source?.userId) return;
+  const who = ev.source.userId;
+  const useLabel = label ?? (loadShop().chatDrafts?.mainLabel || 'นัฐภรณ์ เชียงกลาง');
+  const useToken = channelToken ?? token;
+  serial
+    .run(who, () => orderIngest.handle({ channelKey, label: useLabel, token: useToken, ev }))
+    .catch((e) => console.error('[orders]', e.message));
+}
+
+// add a query value to an address, keeping its #hash (…/#chatorders → …/?chat=CH-0001#chatorders)
+function withParam(address, name, value) {
+  try {
+    const u = new URL(address);
+    u.searchParams.set(name, value);
+    return u.toString();
+  } catch {
+    return address;
+  }
+}
+
+// The admins' card for a chat order: its number, the lines, what needs a look, and a button that opens it in the back office.
+async function notifyDraftCard({ draft, created, added, label, channelKey, userId }) {
+  const shop = loadShop();
+  if (shop.contact?.notify === false) return;
+  const live = (draft.items ?? []).filter((x) => !x.removed);
+  const maxLines = Math.max(1, Math.min(Number(shop.pickList?.maxLines) || 12, 20));
+  const shown = live.slice(0, maxLines).map((x) => ({ name: x.name, qty: Number(x.qty), unit: x.unit || '' }));
+  const name = draft.customer_name || draft.line_name || 'ไม่ทราบชื่อ';
+  const link = channelKey === 'main' ? (await customerAndLink(shop, userId).catch(() => [null, null]))[1] : null;
+  const lastNote = String(draft.note ?? '').split('———').pop().trim().slice(0, 120);
+  const card = pickListCard(shop, {
+    customerName: name,
+    items: shown,
+    more: live.length - shown.length,
+    note: lastNote,
+    link,
+    appUrl: withParam(shop.chatDrafts?.appUrl || 'https://admin.nattagroup.com/#chatorders', 'chat', draft.draft_no),
+    altText: `📋 ออเดอร์จากแชท ${draft.draft_no} — ${name} (${live.length} รายการ)`,
+    docNo: draft.draft_no,
+    merged: !created,
+    added: added ?? 0,
+    review: summarize(draft.items).review,
+    source: label,
+  });
+  for (const p of people(shop)) {
+    if (!p.userId) continue;
+    try {
+      await pushMessage(p.userId, withSender([card], null, quick(shop)), token);
+    } catch (e) {
+      console.error('[orders] card', p.name, e.message);
+    }
+  }
+  await appFlow
+    ?.notifyApp({ title: `💬 ออเดอร์จากแชท ${draft.draft_no}`, body: `${name} · ${live.length} รายการ`, path: '/#chatorders', tag: `chat-${draft.draft_no}` })
+    .catch(() => false);
+}
+
+// a person is with this customer: the bot stays out of it (the same test as the other answers)
+async function draftAckBusy(userId) {
+  if (contacts.peekQuiet(userId, contactCfg(loadShop()).windowMs)) return true;
+  const chat = await appFlow.store.getChat(userId).catch(() => null);
+  return Boolean(chat && chat.mode === 'admin' && Date.now() - Number(chat.last_ms || 0) < appFlow.silenceHours() * HOUR);
+}
+
 // ---- a customer's order written as a list in the chat (picklist.js) ----------------------------------------------------
 const recentLists = new Map(); // userId → { at, notes }: a list the admins were just told about (a remark that follows it goes to them too)
 
@@ -300,6 +405,8 @@ async function pickListIfAny(ev, shop, userId, said) {
   const cfg = shop.pickList ?? {};
   if (cfg.enabled === false || !userId || userId === 'anon' || ev._pickChecked) return false;
   ev._pickChecked = true; // runOthers checks first and then hands the event to handleEvent: one look per message
+  // the order drafts keep the list and send its card; this path only keeps the bot silent about it
+  if (orderIngest && enabledFor(shop.chatDrafts ?? {}, userId)) return parsePickList(said) !== null;
   const co = shop.chatOrders ?? {};
   let list = parsePickList(said);
   // not a list the rules can read: an order in a sentence, if the AI is switched on for this customer
@@ -582,6 +689,44 @@ if (appFlow) {
     /* an unreadable shop file is reported by the message handler */
   }
   setInterval(() => void ackTick(), Number(process.env.CHATORDERS_ACK_TICK_MS) > 0 ? Number(process.env.CHATORDERS_ACK_TICK_MS) : 60_000).unref();
+  // the order drafts: their own client on the same database; they answer nobody, they only record and tell the admins
+  const dbUrl = String(process.env.SUPABASE_URL ?? '').trim().replace(/\/+$/, '');
+  const dbKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY ?? '').trim();
+  if (dbUrl && dbKey) {
+    const draftStore = createOrdersStore({ url: dbUrl, key: dbKey });
+    channelRegistry = createChannelRegistry({ store: draftStore });
+    orderIngest = createOrderIngest({
+      store: draftStore,
+      catalog,
+      lineApi: { profile: (uid, tok) => getProfileCached(uid, tok), content: (mid, tok) => getMessageContent(mid, tok) },
+      getConfig: () => loadShop().chatDrafts,
+      ai: aiOn(process.env) ? { read: (texts) => readThreadOrder(texts) } : null,
+      notify: notifyDraftCard,
+    });
+    draftAck = createDraftAck({
+      store: draftStore,
+      getConfig: () => loadShop().chatDrafts,
+      push: (uid, messages) => pushMessage(uid, send(messages), token),
+      busy: draftAckBusy,
+    });
+    setInterval(() => void draftAckTick(), Number(process.env.CHATDRAFTS_ACK_TICK_MS) > 0 ? Number(process.env.CHATDRAFTS_ACK_TICK_MS) : 60_000).unref();
+  }
+}
+
+// the drafts' own "we have the order" pass (shop.json chatDrafts.ack, off by default)
+let draftAcking = false;
+async function draftAckTick() {
+  if (draftAcking || !draftAck || !appFlow?.dbOk()) return;
+  draftAcking = true;
+  try {
+    const shop = loadShop();
+    if (isPaused(shop, process.env) || quiet.allPaused()) return;
+    await draftAck();
+  } catch (e) {
+    console.error('[orders] ack:', e.message);
+  } finally {
+    draftAcking = false;
+  }
 }
 
 // Tells a customer "ได้รับรายการสั่งซื้อแล้วค่ะ ร้านกำลังดำเนินการจัดสินค้า" once the staff have picked their order up in the app
