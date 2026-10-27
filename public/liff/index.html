@@ -357,6 +357,46 @@
 
     .toast { left: calc(50% + 118px); }
   }
+
+  /* ---- หน้าแรก "งาน & เงิน" — ตามแบบร่างรื้อระบบที่ร้านอนุมัติ ----
+     เปิดมาเห็นสองตัวเลขที่ร้านถามทุกวัน (เงินเข้าวันนี้ / รอเก็บ) แล้วก็ลิสต์งาน
+     ที่แตะได้ทั้งแถว — ของละเอียด (แบ่งกอง/แยกตามเงิน/สัดส่วน) ยังอยู่ครบ
+     ในหน้า "คิวงานละเอียด" เข้าจากปุ่มเล็กท้ายหน้า */
+  .hstat { display: flex; gap: 9px; margin-bottom: 13px; }
+  .hstat .box { flex: 1; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 11px 13px; box-shadow: 0 2px 14px var(--shadow); }
+  .hstat .box span { display: block; font-size: 11.5px; color: var(--sub); }
+  .hstat .box b { font-size: 20px; font-variant-numeric: tabular-nums; line-height: 1.35; }
+  .hstat .got b { color: var(--green); }
+  .hstat .owe b { color: var(--gold); }
+  #h-q { width: 100%; border: 1.5px solid var(--line); border-radius: 12px; background: var(--surface); padding: 10px 12px; font: inherit; font-size: 14px; color: var(--ink); margin: 10px 0 4px; }
+  #h-q:focus { outline: none; border-color: var(--accent-dim); }
+  .hj { display: flex; align-items: center; gap: 10px; padding: 11px 2px; border-bottom: 1px solid var(--line); }
+  .hj:last-child { border-bottom: 0; }
+  .hj .who { flex: 1; min-width: 0; }
+  .hj .who b { display: block; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hj .who span { font-size: 12px; color: var(--grey); }
+  .hj .money { text-align: right; flex: none; }
+  .hj .money b { display: block; font-size: 15.5px; font-variant-numeric: tabular-nums; color: var(--accent-text); }
+  .hj .money .st { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+  .st.owe { color: var(--red); background: var(--red-bg); }
+  .st.book { color: var(--accent-text); background: var(--tint); }
+  .st.paid { color: var(--green); background: var(--green-bg); }
+  .hlinks { text-align: center; font-size: 12.5px; margin: 2px 0 10px; line-height: 2.3; }
+  .hlinks button, .hlinks a { border: 1px solid var(--line); background: var(--surface); color: var(--sub); font: inherit; font-size: 12.5px; border-radius: 999px; padding: 5px 11px; cursor: pointer; text-decoration: none; margin: 0 2px; display: inline-block; }
+
+  /* แผ่นปุ่มใหญ่ของงานหนึ่งใบ — สี่ปุ่มจบ ตามแบบร่าง */
+  .hsheet-bg { position: fixed; inset: 0; background: rgba(21, 29, 48, .45); z-index: 60; }
+  .hsheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 61; background: var(--surface); border-radius: 18px 18px 0 0; padding: 10px 16px calc(14px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -8px 30px rgba(31, 43, 69, .18); }
+  .hsheet .in { max-width: 560px; margin: 0 auto; }
+  .hsheet .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--line); margin: 0 auto 10px; }
+  .hsheet h3 { margin: 0 0 2px; font-size: 16.5px; }
+  .hsheet .sub { font-size: 13px; color: var(--sub); margin-bottom: 12px; }
+  .hsheet .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .hsheet .acts .wide { grid-column: 1 / -1; }
+  .hs-b { border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-weight: 700; font-size: 14.5px; border-radius: 13px; padding: 13px 8px; cursor: pointer; }
+  .hs-b.pay { background: var(--gold); border-color: var(--gold); color: #fff; }
+  .hs-b.ghost { color: var(--grey); }
+  .hs-b:disabled { opacity: .55; }
 </style>
 </head>
 <body>
@@ -366,6 +406,34 @@
 </header>
 
 <main>
+  <!-- 0. งาน & เงิน — หน้าแรกแบบง่าย ตามแบบร่างรื้อระบบที่ร้านอนุมัติ
+       ("ฉันก็ยังงงกับระบบ ช่วยทำระบบใหม่ให้เลย") เปิดมาเห็นเงินเข้าวันนี้กับ
+       ยอดรอเก็บ แล้วก็ลิสต์งานแตะได้ทั้งแถว แตะแล้วเป็นแผ่นปุ่มใหญ่
+       เก็บสด/โอน/ใบเสร็จ/แก้ไข — หน้าเดิมทุกหน้ายังอยู่ เข้าจากปุ่มเล็กท้ายลิสต์ -->
+  <section id="v-home" hidden>
+    <div class="hstat">
+      <div class="box got"><span>เงินเข้าวันนี้</span><b id="h-got">—</b></div>
+      <div class="box owe"><span>รอเก็บทั้งหมด</span><b id="h-owe">—</b></div>
+    </div>
+    <div class="card mascot-foot">
+      <div class="seg" id="h-seg">
+        <button type="button" data-v="owed" aria-pressed="true">รอเก็บ</button>
+        <button type="button" data-v="paid" aria-pressed="false">ได้เงินแล้ว</button>
+        <button type="button" data-v="all" aria-pressed="false">ทั้งหมด</button>
+      </div>
+      <input type="search" id="h-q" placeholder="🔍 ค้นชื่อลูกค้า ชื่องาน หรือเลขงาน" autocomplete="off" />
+      <div id="h-list"></div>
+      <img class="peek front" src="/brand/ui/rest.png" alt="" style="right:10px;bottom:-14px;width:84px" />
+    </div>
+    <p class="hlinks">
+      <button type="button" data-go="today">🗂 คิวงานละเอียด</button>
+      <button type="button" data-go="pending">📋 งานค้างรับ</button>
+      <button type="button" data-go="report">📊 สรุปรายการ</button>
+      <a href="/app/ledger/">🧾 บัญชีรายวัน</a>
+      <button type="button" data-go="settings">⚙️ ตั้งค่า</button>
+    </p>
+  </section>
+
   <!-- 1. งานวันนี้ -->
   <section id="v-today" hidden>
     <div class="card">
@@ -646,15 +714,31 @@
   </div>
 </main>
 
+<!-- สามแท็บเดียวกับแถบแอปของหน้าจด/สมุด/บัญชี: จด · งาน&เงิน · ลูกค้า
+     หน้าเดิม (คิวละเอียด/ค้างรับ/สรุป/ตั้งค่า) ย้ายเป็นปุ่มเล็กท้ายหน้าแรก
+     และยังเปิดตรงด้วย ?tab= จากริชเมนูได้เหมือนเดิม -->
 <nav id="nav" hidden>
-  <button data-tab="today" aria-selected="true"><span>🏠</span>งานวันนี้</button>
-  <button data-tab="report" aria-selected="false"><span>📊</span>สรุปรายการ</button>
-  <button data-tab="pending" aria-selected="false"><span>📋</span>งานค้างรับ</button>
-  <button data-page="/app/book/"><span>📒</span>สมุดลูกค้า</button>
-  <!-- ปุ่มจดอยู่ท้ายแถว (หลังปุ่มสมุด — เทสต์อ่าน data-page ตัวแรกเป็นสมุด) -->
-  <button data-page="/app/jot/"><span>✏️</span>จดงาน</button>
-  <button data-tab="settings" aria-selected="false"><span>⚙️</span>ตั้งค่า</button>
+  <button data-page="/app/jot/"><span>✏️</span>จด</button>
+  <button data-tab="home" aria-selected="true"><span>📋</span>งาน &amp; เงิน</button>
+  <button data-page="/app/book/"><span>👤</span>ลูกค้า</button>
 </nav>
+
+<!-- แผ่นปุ่มใหญ่ของงานหนึ่งใบ (เปิดจากแถวในหน้า งาน & เงิน) -->
+<div class="hsheet-bg" id="hsheet-bg" hidden></div>
+<div class="hsheet" id="hsheet" hidden>
+  <div class="in">
+    <div class="grab"></div>
+    <h3 id="hs-title"></h3>
+    <div class="sub" id="hs-sub"></div>
+    <div class="acts">
+      <button type="button" class="hs-b pay" id="hs-cash">💵 เก็บเงินสดแล้ว</button>
+      <button type="button" class="hs-b pay" id="hs-tf">🏦 รับโอนแล้ว</button>
+      <button type="button" class="hs-b" id="hs-receipt">🖨 ใบเสร็จ</button>
+      <button type="button" class="hs-b" id="hs-edit">✏️ แก้ไขงาน</button>
+      <button type="button" class="hs-b ghost wide" id="hs-close">ปิด</button>
+    </div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -684,7 +768,7 @@ function jobStatusOf(job) {
 // แยกสีกันไม่ออก ชุดนี้เข้มพอที่จะอ่านบนขาวและยังต่างกันชัด
 const COLORS = { sign: '#db2777', print: '#7c3aed', design: '#1c4fd8', food: '#d97706', shipping: '#0d9488', other: '#64748b' };
 
-let token = null, groups = [], current = null, tab = 'today', period = 'daily', me = null, categoryId = '';
+let token = null, groups = [], current = null, tab = 'home', period = 'daily', me = null, categoryId = '';
 
 function toast(msg, isErr) {
   const t = $('toast');
@@ -1635,14 +1719,169 @@ async function loadCategory() {
   renderJobs($('c-list'), jobs, 'ยังไม่มีงานในหมวดนี้ค่ะ', { showDate: true, panel: true });
 }
 
-const LOADERS = { today: loadToday, report: loadReport, pending: loadPending, settings: loadSettings, category: loadCategory };
+// --- home: งาน & เงิน — หน้าแรกแบบง่าย ตามแบบร่างรื้อระบบที่ร้านอนุมัติ ------
+
+/* ร้านบอก "ฉันก็ยังงงกับระบบ" — หน้าแรกเดิมคือคิวงานพร้อมตัวกรองสามชั้น
+ * หน้านี้เหลือเรื่องเดียว: เงินเข้าวันนี้ รอเก็บเท่าไหร่ และงานใบไหนจะจัดการ
+ * แตะงานแล้วเป็นแผ่นปุ่มใหญ่ เก็บสด/โอน/ใบเสร็จ/แก้ไข — ของละเอียดทั้งหมด
+ * ยังอยู่ในหน้าเดิม (ปุ่มเล็กท้ายหน้า + ?tab= จากริชเมนู) ไม่ได้ลบอะไรทิ้ง */
+let homeFilter = 'owed';
+let homeJob = null; // งานที่แผ่นปุ่มเปิดอยู่
+
+// ป้ายเดียวต่อแถว: ได้เงินแล้ว / ลงบัญชี / ค้างรับ — กติกาเดียวกับ jobStatusOf
+function homeStatus(job) {
+  const m = jobStatusOf(job).money;
+  if (m === 'cash' || m === 'transfer' || m === 'paid') return ['paid', 'ได้เงินแล้ว'];
+  if (m === 'account') return ['book', 'ลงบัญชี'];
+  return ['owe', 'ค้างรับ'];
+}
+
+async function loadHome() {
+  /* ตัวเลขหัวหน้ามาจากใบลงบัญชีจริง (เส้นเดียวกับ /app/ledger/) — เงินเข้า
+   * นับวันที่เก็บเงินจริง ไม่ใช่วันจด ส่วนลิสต์คืองานในมือชุดเดียวกับคิวละเอียด
+   * ใบลงบัญชีโหลดพังก็ขีดไว้ ไม่เดาตัวเลขเงิน และลิสต์งานยังใช้ได้ */
+  const [led] = await Promise.all([api('/ledger').catch(() => null), loadQueue()]);
+  $('h-got').textContent = led ? thb(led.total) : '—';
+  $('h-owe').textContent = led ? thb(led.carry?.owed || 0) : '—';
+  paintHome();
+}
+
+function paintHome() {
+  const all = queueJobs || [];
+  const owed = all.filter((j) => j.payment_status !== 'paid');
+  const paid = all.filter((j) => j.payment_status === 'paid');
+  const counts = { owed: owed.length, paid: paid.length, all: all.length };
+  const names = { owed: 'รอเก็บ', paid: 'ได้เงินแล้ว', all: 'ทั้งหมด' };
+  [...$('h-seg').children].forEach((b) => {
+    const v = b.dataset.v;
+    b.textContent = names[v] + (counts[v] ? ' ' + counts[v] : '');
+    b.setAttribute('aria-pressed', String(v === homeFilter));
+  });
+
+  let jobs = homeFilter === 'owed' ? owed : homeFilter === 'paid' ? paid : all;
+  const q = ($('h-q').value || '').trim().toLowerCase();
+  if (q) {
+    jobs = jobs.filter((j) =>
+      [j.customer_name, j.job_name, j.job_number].some((v) => String(v || '').toLowerCase().includes(q)));
+  }
+
+  const list = $('h-list');
+  list.textContent = '';
+  if (!jobs.length) {
+    const msg = q ? 'ไม่เจองานที่ค้นค่ะ'
+      : homeFilter === 'owed' ? 'ไม่มีงานรอเก็บเงินค่ะ 💜'
+      : homeFilter === 'paid' ? 'ยังไม่มีงานที่ได้เงินแล้วในคิวค่ะ'
+      : 'ไม่มีงานค้างอยู่ในมือค่ะ 💜';
+    list.innerHTML = '<div class="empty">' + msg + '</div>';
+    return;
+  }
+  jobs.forEach((j) => {
+    const [st, stLabel] = homeStatus(j);
+    const row = document.createElement('div');
+    row.className = 'hj tappable';
+    row.innerHTML = '<div class="who"><b></b><span></span></div>' +
+      '<div class="money"><b></b><span class="st"></span></div>';
+    row.querySelector('.who b').textContent =
+      (j.customer_name ? j.customer_name + ' — ' : '') + (j.job_name || 'งาน');
+    row.querySelector('.who span').textContent =
+      [j.job_number, j.due_date ? 'นัด ' + shortThaiDate(j.due_date) : ''].filter(Boolean).join(' · ');
+    const owedNow = Number(j.balance_due) || 0;
+    // แถวที่ยังค้างโชว์ยอดที่ต้องเก็บ (สิ่งที่ร้านถาม) แถวที่จบแล้วโชว์ยอดงาน
+    row.querySelector('.money b').textContent = baht(st === 'paid' ? j.total : owedNow || j.total);
+    const stEl = row.querySelector('.money .st');
+    stEl.className = 'st ' + st;
+    stEl.textContent = stLabel;
+    row.onclick = () => openSheet(j);
+    list.appendChild(row);
+  });
+}
+
+/* แผ่นปุ่มใหญ่ของงานหนึ่งใบ — เก็บสด/โอนคือ POST /status ตัวเดียวกับแผงใน
+ * คิวละเอียด ใบเสร็จคือเส้นเดียวกับปุ่มในหน้าแก้ไข ไม่มีเส้นใหม่ให้เพี้ยนจากกัน */
+function openSheet(job) {
+  homeJob = job;
+  $('hs-title').textContent = (job.customer_name ? job.customer_name + ' — ' : '') + (job.job_name || 'งาน');
+  const owedNow = Number(job.balance_due) || 0;
+  $('hs-sub').textContent = [
+    job.job_number,
+    'ยอด ' + thb(job.total),
+    owedNow > 0.009 ? 'ค้าง ' + thb(owedNow) : homeStatus(job)[1],
+  ].filter(Boolean).join(' · ');
+  // จ่ายครบแล้วไม่เสนอปุ่มเก็บเงินซ้ำ — เหลือใบเสร็จกับแก้ไข
+  const paidUp = owedNow <= 0.009 && (Number(job.total) || 0) > 0;
+  $('hs-cash').hidden = paidUp;
+  $('hs-tf').hidden = paidUp;
+  $('hsheet-bg').hidden = false;
+  $('hsheet').hidden = false;
+}
+
+function closeSheet() {
+  $('hsheet-bg').hidden = true;
+  $('hsheet').hidden = true;
+  homeJob = null;
+}
+$('hsheet-bg').onclick = closeSheet;
+$('hs-close').onclick = closeSheet;
+
+async function sheetMoney(money, said) {
+  if (!homeJob) return;
+  const btn = money === 'cash' ? $('hs-cash') : $('hs-tf');
+  btn.disabled = true;
+  try {
+    await api('/jobs/' + homeJob.id + '/status', { method: 'POST', body: JSON.stringify({ money }) });
+    toast(said);
+    closeSheet();
+    await loadHome();
+  } catch (err) {
+    toast(err.message, true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+$('hs-cash').onclick = () => sheetMoney('cash', 'บันทึกเก็บเงินสดแล้วค่ะ 💵');
+$('hs-tf').onclick = () => sheetMoney('transfer', 'บันทึกรับโอนแล้วค่ะ 🏦');
+
+// ใบเสร็จจากแผ่นปุ่ม — งานที่ออกบิลแล้วใช้ใบเดิม เหมือนปุ่มในหน้าแก้ไข
+$('hs-receipt').onclick = async () => {
+  if (!homeJob) return;
+  const btn = $('hs-receipt');
+  btn.disabled = true;
+  try {
+    const { url, shopUrl, reused } = await api('/jobs/' + homeJob.id + '/receipt', { method: 'POST' });
+    toast(reused ? 'เปิดใบเสร็จเดิมของงานนี้ค่ะ' : 'ออกใบเสร็จให้แล้วค่ะ 💜');
+    const open = shopUrl || url;
+    if (window.liff && liff.isInClient && liff.isInClient()) liff.openWindow({ url: open, external: false });
+    else window.open(open, '_blank');
+  } catch (err) {
+    toast(err.message || 'ออกใบเสร็จไม่สำเร็จค่ะ', true);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+$('hs-edit').onclick = () => {
+  if (!homeJob) return;
+  const id = homeJob.id;
+  closeSheet();
+  openEdit(id);
+};
+
+$('h-seg').onclick = (e) => {
+  const b = e.target.closest('button[data-v]');
+  if (!b) return;
+  homeFilter = b.dataset.v;
+  paintHome();
+};
+$('h-q').oninput = () => paintHome();
+
+const LOADERS = { home: loadHome, today: loadToday, report: loadReport, pending: loadPending, settings: loadSettings, category: loadCategory };
 
 async function show(name) {
   const view = $('v-' + name);
   if (!view) {
     // ชื่อแท็บผิด แปลว่าโค้ดพลาด ไม่ใช่ความผิดของคนใช้ แต่อย่างน้อย
     // ต้องมีข้อความบอก ไม่ใช่ซ่อนทุกอย่างทิ้งไว้เป็นหน้าว่าง
-    fatal('เปิดหน้า "' + (TAB_NAMES[name] || name) + '" ไม่ได้ค่ะ', { retry: () => show('today') });
+    fatal('เปิดหน้า "' + (TAB_NAMES[name] || name) + '" ไม่ได้ค่ะ', { retry: () => show('home') });
     return;
   }
   tab = name;
@@ -1660,7 +1899,7 @@ async function show(name) {
   }
 }
 
-const TAB_NAMES = { today: 'งานวันนี้', report: 'สรุปรายการ', pending: 'งานค้างรับ', settings: 'ตั้งค่า', category: 'หมวดงาน' };
+const TAB_NAMES = { today: 'งานวันนี้', report: 'สรุปรายการ', pending: 'งานค้างรับ', settings: 'ตั้งค่า', category: 'หมวดงาน', home: 'งาน & เงิน' };
 
 // --- edit -----------------------------------------------------------------
 
@@ -1910,7 +2149,7 @@ $('e-save').onclick = async () => {
       });
     }
     toast('บันทึกเรียบร้อยแล้วค่ะ 💜');
-    await show(tab === 'edit' ? 'today' : tab);
+    await show(tab === 'edit' ? 'home' : tab);
   } catch (err) {
     toast(err.message, true);
   } finally {
@@ -1923,14 +2162,14 @@ $('e-delete').onclick = async () => {
   try {
     await api('/jobs/' + current.id + '/cancel', { method: 'POST' });
     toast('ยกเลิกรายการแล้วค่ะ');
-    await show('today');
+    await show('home');
   } catch (err) {
     toast(err.message, true);
   }
 };
 
-$('e-back').onclick = () => show(tab === 'edit' ? 'today' : tab);
-$('s-close').onclick = () => (liff.isInClient() ? liff.closeWindow() : show('today'));
+$('e-back').onclick = () => show(tab === 'edit' ? 'home' : tab);
+$('s-close').onclick = () => (liff.isInClient() ? liff.closeWindow() : show('home'));
 // หน้าแก้หมวดงานเป็นหน้าของมันเอง โดเมนเดียวกัน
 $('s-cats').onclick = () => (location.href = '/app/categories/');
 
@@ -2005,11 +2244,11 @@ $('r-period').onclick = async (e) => {
       await openEdit(editId);
     } else {
       // ?tab=… ต้องรับได้ทุกแท็บที่มีจริง ไม่ใช่แค่ pending — ปุ่ม "ตั้งค่า"
-      // บนริชเมนูลิงก์มาที่ ?tab=settings ตรง ๆ ถ้าตกไปหน้า "งานวันนี้"
+      // บนริชเมนูลิงก์มาที่ ?tab=settings ตรง ๆ ถ้าตกไปหน้าแรก
       // เท่ากับปุ่มพาไปผิดที่
-      const TABS = ['today', 'report', 'pending', 'settings', 'category'];
+      const TABS = ['home', 'today', 'report', 'pending', 'settings', 'category'];
       const want = new URLSearchParams(location.search).get('tab');
-      await show(TABS.includes(want) ? want : 'today');
+      await show(TABS.includes(want) ? want : 'home');
     }
   } catch (err) {
     fatal(err.message || 'เปิดหน้านี้ไม่สำเร็จค่ะ', { retry: () => location.reload() });
