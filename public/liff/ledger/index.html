@@ -48,13 +48,13 @@
     display: flex; gap: 6px; background: var(--navy, #35486e);
     padding: 5px max(14px, env(safe-area-inset-right, 0px)) calc(5px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px)); }
   .appbar a { flex: 1; text-align: center; color: #fff; opacity: .62; text-decoration: none;
-    font-size: 11px; font-weight: 700; border-radius: 10px; padding: 3px 2px 4px; line-height: 1.2; }
+    font-size: 11px; font-weight: 700; border-radius: 0; padding: 3px 2px 4px; line-height: 1.2; }
   .appbar a span { display: block; font-size: 18px; }
   .appbar a.on { opacity: 1; background: rgba(255, 255, 255, .15); }
 
   header {
     background: var(--navy);
-    border-radius: 0 0 26px 26px;
+    border-radius: 0;
     padding: 14px 18px 16px;
     display: flex;
     flex-direction: column;
@@ -66,13 +66,13 @@
   .htitle b { display: block; font-size: 16px; font-weight: 600; color: #fff; line-height: 1.3; }
   .htitle span { font-size: 11.5px; color: #C6CFE0; line-height: 1.4; }
   .back { width: 38px; height: 38px; margin-left: -8px; border: 0; background: none;
-          border-radius: 999px; display: flex; align-items: center; justify-content: center; }
+          border-radius: 0; display: flex; align-items: center; justify-content: center; }
 
   .when { display: flex; align-items: center; gap: 8px; }
   /* ช่องวันที่ของเบราว์เซอร์แสดงตามภาษาเครื่อง ซึ่งขึ้นเป็น 09/30/2026 แบบ
      อเมริกัน และสั่งให้แสดงแบบไทยไม่ได้ — จึงเขียนวันที่ไทยเอง แล้ววางช่องจริง
      ทับไว้แบบโปร่งใส แตะแล้วยังได้ปฏิทินของเครื่องเหมือนเดิม */
-  .pick { position: relative; flex: 1; height: 38px; border-radius: 11px; background: #fff; }
+  .pick { position: relative; flex: 1; height: 38px; border-radius: 0; background: #fff; }
   .pick .shown {
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
     font-size: 13.5px; font-weight: 600; color: var(--ink); pointer-events: none;
@@ -82,13 +82,13 @@
     opacity: 0; border: 0; background: none; -webkit-appearance: none; appearance: none;
   }
   .when button {
-    height: 38px; min-width: 38px; padding: 0 12px; border: 0; border-radius: 11px;
+    height: 38px; min-width: 38px; padding: 0 12px; border: 0; border-radius: 0;
     background: var(--navy-soft); color: #fff; font-size: 12px; font-weight: 600;
     display: flex; align-items: center; justify-content: center;
   }
 
   .sums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-  .sums div { background: var(--navy-soft); border-radius: 13px; padding: 8px 11px; }
+  .sums div { background: var(--navy-soft); border-radius: 0; padding: 8px 11px; }
   /* ก้อนรวมกินเต็มแถว เวลามีวิธีรับเงินครบสามแบบแล้วมันตกลงมาอยู่แถวล่าง
      คนเดียว — เต็มแถวอ่านเป็น "รวม" ชัดกว่าก้อนเล็กลอยอยู่มุมซ้าย */
   .sums div.big { background: #fff; grid-column: 1 / -1; }
@@ -102,7 +102,7 @@
   .headline span { flex: 1; font-size: 12.5px; color: var(--muted); }
   .headline b { font-size: 12.5px; }
 
-  .card { background: #fff; border-radius: 16px; padding: 3px 13px 8px;
+  .card { background: #fff; border-radius: 0; padding: 3px 13px 8px;
           box-shadow: 0 1px 2px rgba(31,43,69,.05), 0 4px 12px rgba(31,43,69,.05); }
   .row { display: flex; align-items: center; gap: 9px; padding: 8px 0; border-bottom: 1px solid var(--hair); }
   .row:last-child { border-bottom: 0; }
@@ -110,17 +110,17 @@
   .row .what { flex: 1; min-width: 0; }
   .row .what b { display: block; font-size: 13px; font-weight: 600; line-height: 1.35; }
   .row .what span { font-size: 10.5px; color: var(--muted); line-height: 1.4; }
-  .tag { font-size: 10px; font-weight: 600; padding: 1px 8px; border-radius: 999px; flex-shrink: 0; }
+  .tag { font-size: 10px; font-weight: 600; padding: 1px 8px; border-radius: 0; flex-shrink: 0; }
   .tag.cash { background: var(--green-tint); color: var(--green); }
   .tag.transfer { background: var(--blue-tint); color: var(--blue); }
   .tag.unknown { background: #F1F4F9; color: var(--muted); }
   .row .amt { font-size: 13px; font-weight: 600; white-space: nowrap; width: 66px; text-align: right; }
 
-  .total { background: var(--navy); border-radius: 16px; padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
+  .total { background: var(--navy); border-radius: 0; padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
   .total span { flex: 1; font-size: 13px; font-weight: 600; color: #fff; }
   .total b { font-size: 21px; font-weight: 700; color: var(--gold); }
 
-  .carry { background: #fff; border-radius: 16px; padding: 11px 13px; display: flex; align-items: center; gap: 10px;
+  .carry { background: #fff; border-radius: 0; padding: 11px 13px; display: flex; align-items: center; gap: 10px;
            box-shadow: 0 1px 2px rgba(31,43,69,.05), 0 4px 12px rgba(31,43,69,.05); }
   .carry div { flex: 1; min-width: 0; }
   .carry b { display: block; font-size: 12.5px; font-weight: 600; line-height: 1.4; }
@@ -129,7 +129,7 @@
 
 
   /* ยอดยกไปแยกสองกอง: ลงบัญชีไว้ / ยังไม่ได้รับเงิน — กางดูรายการแล้วไปตรวจต่อได้ */
-  details.cgroup { background: #fff; border-radius: 16px; padding: 0 13px;
+  details.cgroup { background: #fff; border-radius: 0; padding: 0 13px;
                    box-shadow: 0 1px 2px rgba(31,43,69,.05), 0 4px 12px rgba(31,43,69,.05); }
   details.cgroup > summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 11px 0; cursor: pointer; }
   details.cgroup > summary::-webkit-details-marker { display: none; }
@@ -148,7 +148,7 @@
   .foot span { font-size: 10.5px; color: var(--muted); line-height: 1.55; }
 
   .save {
-    width: 100%; min-height: 46px; border: 1.5px solid var(--line); border-radius: 14px;
+    width: 100%; min-height: 46px; border: 1.5px solid var(--line); border-radius: 0;
     background: #fff; color: var(--navy); font-size: 13.5px; font-weight: 600;
     display: flex; align-items: center; justify-content: center; gap: 8px;
   }

@@ -936,15 +936,32 @@ function syncPayChips() {
  * เป็นป้ายบอก ไม่ใช่ปุ่ม: โรงเรียน/รพ./บริษัท เข้าหน่วยงานเองตั้งแต่พิมพ์ชื่อ */
 const ORG_RE = /^\s*(?:รพ\.?\s?สต\.?|โรงพยาบาลส่งเสริมสุขภาพตำบล|โรงพยาบาล|รพ\.|โรงเรียน|ร\.?ร\.|รร\.?|มหาวิทยาลัย|เทศบาล|อบต\.?|อบจ\.?|สำนักงาน|บริษัท|หจก\.?|ธ\.?ก\.?ส\.?|สหกรณ์|กศน\.?|วัด|ร้าน)/;
 
+// ร้านแตะชิปเงินเองแล้วหรือยัง — แตะแล้วตัวเดาห้ามทับของร้านเด็ดขาด
+let payTouched = false;
+
 function paintKind() {
   const pill = $('#kind-pill');
   if (!pill) return;
   const name = state.customer.trim();
+  const org = Boolean(name) && ORG_RE.test(name);
   pill.hidden = !name;
-  if (!name) return;
-  const org = ORG_RE.test(name);
-  pill.textContent = org ? '🏛 หน่วยงาน' : '🏠 หน้าร้าน';
-  pill.classList.toggle('org', org);
+  if (name) {
+    pill.textContent = org ? '🏛 หน่วยงาน' : '🏠 หน้าร้าน';
+    pill.classList.toggle('org', org);
+  }
+  /* โรงเรียน/หน่วยงาน → ชิป "ลงบัญชี" ติดให้เอง (ร้านสั่ง "บอทแยกลงบัญชี และ
+   * โรงเรียนให้อัตโนมัติ") — เดาเฉพาะตอนที่ร้านยังไม่แตะชิปเงินเองและยังไม่มี
+   * มัดจำ ถอยกลับเป็น "ยังไม่จ่าย" เมื่อชื่อกลายเป็นหน้าร้าน เซิร์ฟเวอร์เดา
+   * กติกาเดียวกันให้ฝั่งแชต (jobService.createJob) — แตะแค่สถานะสมุด ไม่แตะเงิน */
+  if (!payTouched && !editingJobId && !(Number(state.paid) > 0)) {
+    const want = org ? 'account' : '';
+    const can = org ? !state.payMethod : state.payMethod === 'account';
+    if (can && (state.payMethod || '') !== want) {
+      state.payMethod = want;
+      syncPayChips();
+      renderSummary();
+    }
+  }
 }
 
 /* ------------------------------------------------------------------- เริ่ม */
@@ -1121,6 +1138,8 @@ function fromDraft(draft) {
   state.due = draft.dueDate || '';
   state.payMethod = draft.payMethod || '';
   state.paid = num(draft.paidAmount);
+  // ร่างจากแชตที่พกเรื่องเงินมา = ร้านพูดไว้เองแล้ว ตัวเดาห้ามทับ
+  payTouched = payTouched || Boolean(state.payMethod) || Number(state.paid) > 0;
   state.note = draft.note || '';
   // ราคายังไม่ปัดที่ร้านเคยพิมพ์ทับไว้ ติดมาเฉพาะตอนที่มันไม่เท่ากับผลบวกของ
   // รายการ ไม่งั้นแก้จำนวนแล้วยอดค้างอยู่ที่เลขเก่า
@@ -1257,6 +1276,7 @@ $('#qb-save').onclick = save;
 $('#paychips').onclick = (e) => {
   const b = e.target.closest('.paychip');
   if (!b) return;
+  payTouched = true;
   state.payMethod = b.dataset.pay;
   // จ่ายครบเป็นเรื่องของชิป ไม่ใช่ช่องมัดจำ — เลขมัดจำเก่าต้องไม่ค้างไปปนยอดครบ
   if (state.payMethod === 'cash' || state.payMethod === 'transfer') {
@@ -1381,6 +1401,8 @@ function offerDraft(saved) {
 
   $('#resume-yes').onclick = () => {
     loadDraft(saved);
+    // ร่างค้างที่พกเรื่องเงินมา = ร้านตัดสินใจไว้แล้ว ตัวเดาห้ามทับ
+    payTouched = payTouched || Boolean(state.payMethod) || Number(state.paid) > 0;
     bar.hidden = true;
     syncHeaderFields();
     renderItems();

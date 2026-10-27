@@ -106,3 +106,20 @@ test('โทนส้ม-กรม-ขาว ย้ายพร้อมกั�
   // แถบยอด+บันทึกลอยล่างอยู่ทุกโหมดแล้ว ไม่ใช่เฉพาะจดด่วน
   assert.match(js, /\n\$\('#quickbar'\)\.hidden = false;/);
 });
+
+/* ร้านสั่ง "บอทแยกลงบัญชี และ โรงเรียนให้อัตโนมัติ" — ฝั่งฟอร์ม: พิมพ์ชื่อ
+ * โรงเรียน/หน่วยงานแล้วชิป "ลงบัญชี" ติดเอง (ยังแตะเปลี่ยนได้เสมอ) ฝั่ง
+ * เซิร์ฟเวอร์มีกติกาเดียวกันใน createJob — เทสต์อยู่ใน services.test.js
+ */
+test('ชื่อหน่วยงานติดชิปลงบัญชีให้เอง — ร้านแตะชิปเองแล้วห้ามเดาทับ', () => {
+  const js = read('jot/script.js');
+  assert.match(js, /let payTouched = false/);
+  assert.match(js, /payTouched = true;\n  state\.payMethod = b\.dataset\.pay;/, 'แตะชิป = การตัดสินใจของร้าน');
+  assert.match(js, /if \(!payTouched && !editingJobId && !\(Number\(state\.paid\) > 0\)\)/);
+  assert.match(js, /const want = org \? 'account' : ''/);
+  // ถอยกลับเฉพาะค่าที่ตัวเองเดาไว้ ไม่แตะค่าที่มาจากร่าง/แชต
+  assert.match(js, /const can = org \? !state\.payMethod : state\.payMethod === 'account'/);
+  // ร่างจากแชตและร่างค้างที่พกเรื่องเงินมา = ร้านพูดไว้แล้ว ปักธงกันเดาทับ
+  const guards = js.match(/payTouched = payTouched \|\| Boolean\(state\.payMethod\) \|\| Number\(state\.paid\) > 0;/g) || [];
+  assert.ok(guards.length >= 2, 'ร่างจากแชต/ร่างค้าง ต้องปักว่าร้านตัดสินใจแล้ว');
+});

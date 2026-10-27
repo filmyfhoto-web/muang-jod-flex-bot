@@ -17,7 +17,7 @@ import { resolveMenuCommand, splitLeadingAddJob, suggestMenuCommand, labelForAct
 import { matchCustomer } from '../utils/customerMatch.js';
 import { parseChatIntent } from '../utils/chatIntent.js';
 import { parseNaturalJob, looksLikeWorkDetail } from '../utils/nlParser.js';
-import { customerCardForText } from '../actions/customerCard.js';
+import { customerCardForText, parseCardAsk } from '../actions/customerCard.js';
 import { deriveJobName, classifyJob } from '../utils/category.js';
 import { makeDraft, draftToBubble, priceDraft, parseBarePrice, parseBareSqmRate, priceDraftBySqm, parseCustomerName } from '../utils/jobDraft.js';
 import { extractDate, extractDueDate } from '../utils/thaiDate.js';
@@ -427,6 +427,20 @@ export async function handleTextMessage(event, profile) {
    */
   if (looksLikeDump(text)) {
     return handleDump(replyToken, profile, text);
+  }
+
+  /* Idle: "ขอดูงานของโรงเรียนบ้านห้วยฟอง" → การ์ดลูกค้าเจ้านั้นทันที (ร้านสอนมา)
+   * ต้องมาก่อนตัวทายจดงาน: ประโยคนี้มีทั้งคำว่า "งาน" และชื่อหน่วยงาน ปล่อยลงไป
+   * จะโดนทายเป็นจดงานใหม่ — บอกชัดว่า "ของใคร" แล้วไม่เจอ ก็ตอบตรง ๆ ว่าไม่เจอ */
+  const cardAsk = parseCardAsk(text);
+  if (cardAsk) {
+    if (await customerCardForText({ replyToken, profile }, cardAsk.name)) return;
+    if (cardAsk.explicit) {
+      return reply(replyToken, {
+        type: 'text',
+        text: `ยังไม่เจอลูกค้าชื่อ "${cardAsk.name}" ในสมุดค่ะ ลองพิมพ์แค่บางส่วนของชื่อดูได้นะคะ 💜`,
+      });
+    }
   }
 
   // Idle: a message that already looks like a job goes straight to preview —

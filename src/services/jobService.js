@@ -6,6 +6,7 @@ import { derivePaymentFields, paidAtPatch } from '../utils/payment.js';
 import { categoryFields } from '../utils/category.js';
 import { ensureTaxonomy } from './categoryService.js';
 import { formatJobNumber } from '../utils/jobNumber.js';
+import { customerKind } from '../utils/customerKind.js';
 import { logger } from './logger.js';
 
 const ACTIVE_STATUSES = ['active', 'completed'];
@@ -107,7 +108,14 @@ export async function createJob(userId, payload, client = supabase) {
    *   ลงบัญชี              → booked_at อย่างเดียว (ยังไม่ได้เงิน รอวางบิล)
    */
   const method = ['cash', 'transfer'].includes(payload.payMethod) ? payload.payMethod : null;
-  const bookNow = payload.payMethod === 'account' || (method && pay.payment_status === 'paid');
+  /* โรงเรียน/หน่วยงานที่จดมาโดยไม่พูดเรื่องเงินสักคำ = ขายเชื่อ ลงบัญชีให้เลย
+   * (ร้านสั่ง "บอทแยกลงบัญชี และ โรงเรียนให้อัตโนมัติ") — เดาเฉพาะสถานะสมุด
+   * ไม่แตะตัวเงิน: ยอดค้างเต็มเหมือนเดิม เดาผิดก็กด 💵 เก็บสด แก้ได้ทุกหน้า
+   * ส่วนงานที่บอกมัดจำ/ช่องทางมาด้วย = ร้านกำลังคุมเรื่องเงินเอง ไม่ลงให้ */
+  const orgCredit =
+    !payload.payMethod && pay.payment_status === 'pending' && !(Number(paidAmount) > 0) &&
+    customerKind(customerName) === 'org';
+  const bookNow = payload.payMethod === 'account' || (method && pay.payment_status === 'paid') || orgCredit;
   const moneyStamp = {
     ...(method ? { pay_method: method } : {}),
     ...(bookNow ? { booked_at: new Date().toISOString() } : {}),
