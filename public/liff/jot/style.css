@@ -697,6 +697,22 @@ body.quick .appbar { display: none; }
 .mine .mine-gap.up { color: var(--green); }
 .mine .mine-gap.down { color: var(--red); }
 
+/* แถบชวนติดตั้งแอป — โผล่เฉพาะที่ติดตั้งได้จริง กดกากบาทแล้วไม่กวนอีก */
+.install {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  border: 1.5px dashed color-mix(in srgb, var(--gold) 55%, transparent);
+  border-radius: 14px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.install span { flex: 1; min-width: 0; }
+.install .btn { width: auto; min-height: 38px; padding: 0 14px; font-size: 13.5px; }
+
 /* แถบ "มีงานที่ค้างไว้" — ฟอร์มเปิดมาเป็นหน้าใหม่เสมอ ของเก่ามารอตรงนี้
    ร้านถามว่า "ทำไมจดด่วนถึงไม่ขึ้นหน้าใหม่ ไปขึ้นหน้าเดิมทำไม" — ของเดิมยัด
    ร่างเก่ากลับเข้าฟอร์มให้เอง ตั้งใจจะจดงานใหม่แต่ได้งานเมื่อวานมาทั้งใบ */

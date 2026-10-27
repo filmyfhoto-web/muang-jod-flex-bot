@@ -45,6 +45,15 @@
     </div>
   </div>
 
+  <!-- แถบชวนติดตั้งแอป — โผล่เฉพาะเบราว์เซอร์ที่ติดตั้งได้และยังไม่ได้ติดตั้ง
+       (Chrome/Edge ยิง beforeinstallprompt ให้) ใน LINE หรือ iPhone Safari
+       อีเวนต์นี้ไม่มา แถบจึงไม่มีวันโผล่มากวนการใช้ในไลน์ -->
+  <div class="install" id="install" hidden>
+    <span>🐶 ติดตั้ง "ม่วงจด" เป็นแอปไว้หน้าจอ เปิดปุ๊บจดได้เลย</span>
+    <button type="button" class="btn btn-primary" id="install-go">ติดตั้งแอป</button>
+    <button type="button" class="icon-btn" id="install-no" aria-label="ไม่ติดตั้งตอนนี้">✕</button>
+  </div>
+
   <!-- ข้อความจากบอท: หน้าตาเดียวกับบับเบิลในแชต LINE — น้องหมาอยู่ตรงนี้เสมอ -->
   <div class="chat">
     <div class="msg">

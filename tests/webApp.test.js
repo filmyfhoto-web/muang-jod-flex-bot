@@ -45,6 +45,21 @@ test('แถบแอป 3 แท็บ จด·งาน&เงิน·ลู�
   assert.equal(/data-page="([^"]+)"/.exec(dash)?.[1], '/app/book/', 'ปุ่มสมุดต้องเป็น data-page ตัวแรก');
 });
 
+/* ร้านย้ำ: "อยากสร้างเป็นแอพออกมาค่ะ แต่ก็สามารถทำงานใน ม่วงจดในไลน์ได้" —
+ * มันคือเว็บเดียวกันสองประตูอยู่แล้ว ที่เพิ่มคือปุ่มติดตั้งกดเดียวจบ
+ */
+test('ปุ่มติดตั้งแอป กดเดียวขึ้นกล่องติดตั้ง — ใน LINE ไม่มีวันโผล่มากวน', () => {
+  const html = read('jot/index.html');
+  const js = read('jot/script.js');
+  assert.ok(html.includes('<div class="install" id="install" hidden>'), 'แถบติดตั้งต้องซ่อนมาแต่แรก');
+  // โผล่เมื่อเบราว์เซอร์บอกว่าติดตั้งได้เท่านั้น (LINE/iPhone ไม่ยิงอีเวนต์นี้)
+  assert.match(js, /addEventListener\('beforeinstallprompt'/);
+  assert.match(js, /installEvent\.prompt\(\)/);
+  // โหมดด่วนทับแชตไม่ชวนติดตั้ง และกดปิดแล้วจำ ไม่ชวนซ้ำทุกวัน
+  assert.match(js, /if \(!off && !quick\) \$\('#install'\)\.hidden = false/);
+  assert.match(js, /muangjod\.install\.dismissed/);
+});
+
 test('หน้าจด: แถบบันทึกลอยเหนือแถบแอป — โหมดด่วน (แผ่นทับแชต) ไม่มีแถบแอป', () => {
   const css = read('jot/style.css');
   assert.match(css, /\.quickbar \{[^}]*bottom: calc\(52px \+ var\(--safe-bottom\)\)/, 'แถบบันทึกทับแถบแอป');
