@@ -1331,6 +1331,30 @@ if (quick) {
 // กดง่ายไม่ต้องเลื่อนหาการ์ดสรุป
 $('#quickbar').hidden = false;
 
+/* ปุ่มติดตั้งแอป — ร้านขอ "สร้างเป็นแอพออกมา แต่ก็ทำงานในไลน์ได้" ซึ่งคือ
+ * สิ่งที่เป็นอยู่ (เว็บเดียวกัน ประตูสองบาน) เหลือแค่ให้การติดตั้งง่าย:
+ * Chrome/Edge ยิง beforeinstallprompt เมื่อหน้าเข้าเกณฑ์และยังไม่ได้ติดตั้ง
+ * กดปุ่มเดียวขึ้นกล่องติดตั้งของเบราว์เซอร์เลย — ใน LINE อีเวนต์นี้ไม่มา
+ * ปุ่มจึงไม่โผล่ และกดกากบาทแล้วจำไว้ ไม่ชวนซ้ำทุกวัน */
+let installEvent = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  installEvent = e;
+  let off = false;
+  try { off = localStorage.getItem('muangjod.install.dismissed') === '1'; } catch { /* ไม่เป็นไร */ }
+  if (!off && !quick) $('#install').hidden = false;
+});
+$('#install-go').onclick = async () => {
+  $('#install').hidden = true;
+  if (!installEvent) return;
+  try { await installEvent.prompt(); } catch { /* ร้านปิดกล่องเอง ไม่เป็นไร */ }
+  installEvent = null;
+};
+$('#install-no').onclick = () => {
+  $('#install').hidden = true;
+  try { localStorage.setItem('muangjod.install.dismissed', '1'); } catch { /* ไม่เป็นไร */ }
+};
+
 // ธีม: ขาว-น้ำเงินเป็นค่าเริ่มต้น ให้เข้าชุดกับการ์ดในแชตที่กดเข้ามา
 // ?theme=night ได้โทนกรมท่ากลางคืน
 if (params.get('theme') === 'night') {
