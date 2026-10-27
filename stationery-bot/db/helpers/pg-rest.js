@@ -214,6 +214,15 @@ export async function startPgRest({ db, serviceKey, port = 0 }) {
   };
 
   const server = http.createServer(async (req, res) => {
+    // the back office runs in a browser on another origin: answer like Supabase does
+    res.setHeader('access-control-allow-origin', '*');
+    res.setHeader('access-control-allow-headers', 'authorization, apikey, content-type, prefer, range, x-client-info, x-upsert, accept, accept-profile, content-profile');
+    res.setHeader('access-control-allow-methods', 'GET,POST,PATCH,PUT,DELETE,OPTIONS');
+    res.setHeader('access-control-expose-headers', 'content-range');
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      return res.end();
+    }
     const chunks = [];
     for await (const c of req) chunks.push(c);
     const raw = Buffer.concat(chunks);
@@ -243,6 +252,24 @@ export async function startPgRest({ db, serviceKey, port = 0 }) {
           return send(res, 200, out[0]);
         }
         return send(res, 200, out ?? []);
+      }
+      // a signed link to a private object (createSignedUrl): the test double does not check the token
+      m = /^\/storage\/v1\/object\/sign\/([^/]+)\/(.+)$/.exec(url.pathname);
+      if (m) {
+        const key = `${m[1]}/${decodeURIComponent(m[2])}`;
+        if (req.method === 'POST') {
+          if (!storage.has(key)) throw new HttpError(400, 'Object not found', 'NotFound');
+          return send(res, 200, { signedURL: `/object/sign/${key}?token=test` });
+        }
+        if (req.method === 'GET') {
+          const hit = storage.get(key);
+          if (!hit) throw new HttpError(404, 'not found', 'NotFound');
+          return send(res, 200, hit.bytes, hit.contentType);
+        }
+      }
+      if (url.pathname === '/auth/v1/user') {
+        const claims = pr.claims || {};
+        return send(res, 200, { id: claims.sub, aud: 'authenticated', role: 'authenticated', email: claims.email || null });
       }
       m = /^\/storage\/v1\/object\/([^/]+)\/(.+)$/.exec(url.pathname);
       if (m) {
@@ -280,7 +307,7 @@ export async function startPgRest({ db, serviceKey, port = 0 }) {
 }
 
 // A JWT for a signed-in staff member (the signature is not checked by the test server).
-export function staffJwt(sub) {
+export function staffJwt(sub, email = 'staff@test.local') {
   const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
-  return `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub, role: 'authenticated', aud: 'authenticated' })}.sig`;
+  return `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub, email, role: 'authenticated', aud: 'authenticated' })}.sig`;
 }

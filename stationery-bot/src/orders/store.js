@@ -117,5 +117,25 @@ export function createOrdersStore({ url, key, fetch: doFetch = fetch }) {
     async releaseAck(id) {
       must(await db.from('chat_drafts').update({ ack_sent_at: null }).eq('id', id), 'release told');
     },
+    // the app's own "talking with a person" state for this customer (line_chat_state), used to keep the acknowledgement quiet
+    async getChat(userId) {
+      const rows = must(await db.from('line_chat_state').select('mode,admin_ms,last_ms,seen_ms,menu_ms').eq('user_id', userId).limit(1), 'chat state');
+      return (rows && rows[0]) || null;
+    },
+    // a secret the app keeps in app_secrets (the key of the phone note), read with the drafts' own connection
+    async getSecret(name) {
+      const rows = must(await db.from('app_secrets').select('value').eq('key', name).limit(1), 'secret');
+      return (rows && rows[0] && rows[0].value) || null;
+    },
+    // the shop's products for the matcher (SKU, name, unit, price), read in pages
+    async loadProducts() {
+      const out = [];
+      for (let from = 0; from < 50_000; from += 1000) {
+        const page = must(await db.from('products').select('id,code,name,unit,price').order('name').order('id').range(from, from + 999), 'products');
+        out.push(...(page || []));
+        if (!page || page.length < 1000) break;
+      }
+      return out;
+    },
   };
 }

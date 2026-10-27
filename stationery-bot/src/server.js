@@ -47,6 +47,7 @@ let chatOrders = null; // an order typed in the chat → a job in the shop's app
 // the order drafts (orders/): every message of every OA is kept apart by its channel; null until the database answers
 let orderIngest = null;
 let draftAck = null;
+let draftStore = null; // the drafts' own database connection (CHATDRAFTS_SUPABASE_URL); independent of the app's
 let channelRegistry = null;
 const appMenuOn = () => Boolean(appFlow?.status().menu); // the app's menu card greets every first message of a visit
 
@@ -278,6 +279,26 @@ function withParam(address, name, value) {
   }
 }
 
+// The staff's phone note: the app's own push function (push-notify), with the key the app keeps. With the app's answers on, the app
+// sends it; without them, the same request goes out through the drafts' own connection.
+async function notifyPhone({ title, body, path, tag }) {
+  if (appFlow) return appFlow.notifyApp({ title, body, path, tag }).catch(() => false);
+  if (!draftStore || !draftDbUrl) return false;
+  try {
+    const key = await draftStore.getSecret('push_hook_key');
+    if (!key) return false;
+    const res = await fetch(`${draftDbUrl}/functions/v1/push-notify`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'notify', key, title, body, url: path, tag }),
+      signal: AbortSignal.timeout(8000),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 // The admins' card for a chat order: its number, the lines, what needs a look, and a button that opens it in the back office.
 async function notifyDraftCard({ draft, created, added, label, channelKey, userId }) {
   const shop = loadShop();
@@ -310,16 +331,17 @@ async function notifyDraftCard({ draft, created, added, label, channelKey, userI
       console.error('[orders] card', p.name, e.message);
     }
   }
-  await appFlow
-    ?.notifyApp({ title: `💬 ออเดอร์จากแชท ${draft.draft_no}`, body: `${name} · ${live.length} รายการ`, path: '/#chatorders', tag: `chat-${draft.draft_no}` })
-    .catch(() => false);
+  await notifyPhone({ title: `💬 ออเดอร์จากแชท ${draft.draft_no}`, body: `${name} · ${live.length} รายการ`, path: '/#chatorders', tag: `chat-${draft.draft_no}` });
 }
 
 // a person is with this customer: the bot stays out of it (the same test as the other answers)
 async function draftAckBusy(userId) {
   if (contacts.peekQuiet(userId, contactCfg(loadShop()).windowMs)) return true;
-  const chat = await appFlow.store.getChat(userId).catch(() => null);
-  return Boolean(chat && chat.mode === 'admin' && Date.now() - Number(chat.last_ms || 0) < appFlow.silenceHours() * HOUR);
+  // the same "talking with a person" state the app keeps (line_chat_state), read from whichever connection is up
+  const read = appFlow ? appFlow.store.getChat(userId) : draftStore ? draftStore.getChat(userId) : Promise.resolve(null);
+  const chat = await read.catch(() => null);
+  const hours = appFlow ? appFlow.silenceHours() : 24;
+  return Boolean(chat && chat.mode === 'admin' && Date.now() - Number(chat.last_ms || 0) < hours * HOUR);
 }
 
 // ---- a customer's order written as a list in the chat (picklist.js) ----------------------------------------------------
@@ -689,34 +711,38 @@ if (appFlow) {
     /* an unreadable shop file is reported by the message handler */
   }
   setInterval(() => void ackTick(), Number(process.env.CHATORDERS_ACK_TICK_MS) > 0 ? Number(process.env.CHATORDERS_ACK_TICK_MS) : 60_000).unref();
-  // the order drafts: their own client on the same database; they answer nobody, they only record and tell the admins
-  const dbUrl = String(process.env.SUPABASE_URL ?? '').trim().replace(/\/+$/, '');
-  const dbKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY ?? '').trim();
-  if (dbUrl && dbKey) {
-    const draftStore = createOrdersStore({ url: dbUrl, key: dbKey });
-    channelRegistry = createChannelRegistry({ store: draftStore });
-    orderIngest = createOrderIngest({
-      store: draftStore,
-      catalog,
-      lineApi: { profile: (uid, tok) => getProfileCached(uid, tok), content: (mid, tok) => getMessageContent(mid, tok) },
-      getConfig: () => loadShop().chatDrafts,
-      ai: aiOn(process.env) ? { read: (texts) => readThreadOrder(texts) } : null,
-      notify: notifyDraftCard,
-    });
-    draftAck = createDraftAck({
-      store: draftStore,
-      getConfig: () => loadShop().chatDrafts,
-      push: (uid, messages) => pushMessage(uid, send(messages), token),
-      busy: draftAckBusy,
-    });
-    setInterval(() => void draftAckTick(), Number(process.env.CHATDRAFTS_ACK_TICK_MS) > 0 ? Number(process.env.CHATDRAFTS_ACK_TICK_MS) : 60_000).unref();
-  }
+}
+
+// The order drafts have their own database connection (CHATDRAFTS_SUPABASE_URL + CHATDRAFTS_SERVICE_ROLE_KEY). They do not use the
+// app's SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY: those switch on the app's own answers to customers, which stay off here.
+// They answer nobody; they only record the messages and tell the admins.
+const draftDbUrl = String(process.env.CHATDRAFTS_SUPABASE_URL ?? '').trim().replace(/\/+$/, '');
+const draftDbKey = String(process.env.CHATDRAFTS_SERVICE_ROLE_KEY ?? '').trim();
+if (draftDbUrl && draftDbKey) {
+  draftStore = createOrdersStore({ url: draftDbUrl, key: draftDbKey });
+  channelRegistry = createChannelRegistry({ store: draftStore });
+  const draftCatalog = createCatalog({ load: () => draftStore.loadProducts() });
+  orderIngest = createOrderIngest({
+    store: draftStore,
+    catalog: draftCatalog,
+    lineApi: { profile: (uid, tok) => getProfileCached(uid, tok), content: (mid, tok) => getMessageContent(mid, tok) },
+    getConfig: () => loadShop().chatDrafts,
+    ai: aiOn(process.env) ? { read: (texts) => readThreadOrder(texts) } : null,
+    notify: notifyDraftCard,
+  });
+  draftAck = createDraftAck({
+    store: draftStore,
+    getConfig: () => loadShop().chatDrafts,
+    push: (uid, messages) => pushMessage(uid, send(messages), token),
+    busy: draftAckBusy,
+  });
+  setInterval(() => void draftAckTick(), Number(process.env.CHATDRAFTS_ACK_TICK_MS) > 0 ? Number(process.env.CHATDRAFTS_ACK_TICK_MS) : 60_000).unref();
 }
 
 // the drafts' own "we have the order" pass (shop.json chatDrafts.ack, off by default)
 let draftAcking = false;
 async function draftAckTick() {
-  if (draftAcking || !draftAck || !appFlow?.dbOk()) return;
+  if (draftAcking || !draftAck) return;
   draftAcking = true;
   try {
     const shop = loadShop();

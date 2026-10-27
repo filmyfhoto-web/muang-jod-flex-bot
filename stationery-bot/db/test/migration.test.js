@@ -17,7 +17,7 @@ test('the migration applies on a copy of the shop schema, and the reverse remove
   );
   assert.deepEqual(tables.rows.map((r) => r.table_name), ['chat_draft_events', 'chat_drafts', 'chat_messages', 'line_channels']);
   const fns = await db.query("select proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and proname like 'chat\\_%' order by 1");
-  assert.deepEqual(fns.rows.map((r) => r.proname), ['chat_draft_cancel', 'chat_draft_confirm', 'chat_draft_pos', 'chat_draft_save', 'chat_next_draft_no']);
+  assert.deepEqual(fns.rows.map((r) => r.proname), ['chat_draft_cancel', 'chat_draft_confirm', 'chat_draft_manual', 'chat_draft_pos', 'chat_draft_save', 'chat_next_draft_no']);
   const bucket = await db.query("select id, public, file_size_limit from storage.buckets where id = 'chat-media'");
   assert.deepEqual(bucket.rows, [{ id: 'chat-media', public: false, file_size_limit: 8388608 }]);
   // the shop's own functions are still the same single definitions

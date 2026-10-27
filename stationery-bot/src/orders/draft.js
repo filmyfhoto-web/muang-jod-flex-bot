@@ -22,10 +22,16 @@ const positive = (v) => {
   return Number.isFinite(n) && n > 0 ? n : null;
 };
 
+// Words that ask for something rather than name it: "ขอ 1 ขวด" is one bottle, not a product called "ขอ". Only a word standing alone
+// (at a line's start or end, or next to a space or a digit) is taken out, so "ขอบ…" or "สั่งของ" are left as they are.
+const ASK_WORDS = /(^|\s)(ขอ|เอา|สั่ง|ซื้อ|อยาก|ต้องการ|รบกวน)(?=\s|[0-9๐-๙]|$)/gm;
+const withoutAsk = (text) => String(text ?? '').replace(ASK_WORDS, '$1');
+
 export function classifyText(text, { open = false } = {}) {
-  const strict = parsePickList(text);
+  const said = withoutAsk(text);
+  const strict = parsePickList(said);
   if (strict) return { kind: 'list', items: strict.items, day: strict.day, notes: strict.notes };
-  const loose = parseOrderText(text);
+  const loose = parseOrderText(said);
   const strong = loose.items.filter((i) => i.strong);
   if (!open) {
     if (strong.length >= 1 && looksLikeOrder(text)) return { kind: 'single', items: strong, day: loose.day, notes: loose.notes };

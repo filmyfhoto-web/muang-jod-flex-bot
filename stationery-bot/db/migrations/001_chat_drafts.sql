@@ -29,6 +29,11 @@ insert into public.line_channels (key, name, shop_label, enabled)
 values ('main', 'OA หลัก (นัฐภรณ์ เชียงกลาง)', 'นัฐภรณ์ เชียงกลาง', true)
 on conflict (key) do nothing;
 
+-- ร่างที่พนักงานพิมพ์/วางเอง (ไม่ผ่าน LINE) ใช้ช่อง 'manual' ที่ปิดไว้ — ไม่มี webhook และบอทไม่ตอบ
+insert into public.line_channels (key, name, shop_label, enabled)
+values ('manual', 'พิมพ์เองในหลังร้าน (ไม่ผ่าน LINE)', null, false)
+on conflict (key) do nothing;
+
 -- 2) ออเดอร์ร่างจากแชท -----------------------------------------------------------------------------------------
 create sequence if not exists public.chat_draft_seq;
 
@@ -234,6 +239,38 @@ begin
 end
 $fn$;
 
+-- สร้างร่างจากข้อความที่พนักงานวางมาเอง (ลูกค้าไม่ได้ทักมาทาง LINE) · ใช้กติกาเดียวกับ chat_draft_save ทุกบรรทัด
+-- ร่างอยู่ช่อง 'manual' กับรหัสสุ่มของตัวเอง จึงไม่ชนกับร่างที่เปิดอยู่ของลูกค้า LINE คนใด · ยืนยันเป็นออเดอร์ได้เหมือนร่างจากแชท
+create or replace function public.chat_draft_manual(
+  p_items jsonb, p_name text, p_phone text, p_school text, p_note text, p_actor text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  v_id uuid := gen_random_uuid();
+  v_no text := public.chat_next_draft_no();
+  r jsonb;
+begin
+  if auth.uid() is null then raise exception 'auth'; end if;
+  if p_items is null or jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) not between 1 and 200 then
+    return jsonb_build_object('ok', false, 'error', 'bad_items');
+  end if;
+  insert into public.chat_drafts (id, draft_no, channel_key, line_user_id, items, status, version)
+  values (v_id, v_no, 'manual', 'manual:' || v_id::text, '[]'::jsonb, 'open', 1);
+  insert into public.chat_draft_events (draft_id, actor, action, detail)
+  values (v_id, coalesce(nullif(p_actor, ''), 'staff'), 'created', jsonb_build_object('via', 'paste'));
+  r := public.chat_draft_save(v_id, 1, p_items, p_name, p_phone, p_school, null, p_note, p_actor);
+  -- ข้อมูลที่ส่งมาไม่ผ่านกติกาของร่าง: ยกเลิกทั้งชุด (ไม่มีร่างค้างครึ่งๆ กลางๆ)
+  if coalesce((r->>'ok')::boolean, false) is not true then
+    raise exception 'manual draft refused: %', coalesce(r->>'error', 'unknown');
+  end if;
+  return jsonb_build_object('ok', true, 'draft_id', v_id, 'draft_no', v_no, 'lines', jsonb_array_length(r->'items'));
+end
+$fn$;
+
 -- ยืนยันร่างเป็นออเดอร์จริง: ตรวจทุกบรรทัดก่อน (ไม่ผูกสินค้า = ต้องให้พนักงานรับรอง และต้องมีราคา) แล้วสร้าง orders + order_items
 -- ราคาคิดจากสินค้าในฐานข้อมูลตอนยืนยัน (หรือราคาที่พนักงานพิมพ์เอง) · ไม่ตัดสต็อก · ไม่ส่งอะไรให้ลูกค้า
 create or replace function public.chat_draft_confirm(p_draft uuid, p_version integer, p_actor text)
@@ -430,3 +467,6 @@ grant execute on function public.chat_draft_cancel(uuid, integer, text, text) to
 
 revoke all on function public.chat_draft_pos(uuid, uuid, text, text) from public, anon;
 grant execute on function public.chat_draft_pos(uuid, uuid, text, text) to authenticated, service_role;
+
+revoke all on function public.chat_draft_manual(jsonb, text, text, text, text, text) from public, anon;
+grant execute on function public.chat_draft_manual(jsonb, text, text, text, text, text) to authenticated, service_role;
