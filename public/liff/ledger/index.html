@@ -4,6 +4,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>ม่วงจดให้ — ใบลงบัญชี</title>
+<meta name="theme-color" content="#f5f6f8" />
+<link rel="manifest" href="/app/manifest.webmanifest" />
+<link rel="apple-touch-icon" href="/brand/ui/app-192.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -35,9 +38,19 @@
     background: var(--bg);
     color: var(--ink);
     -webkit-text-size-adjust: 100%;
+    /* เผื่อที่ให้แถบแอป 3 แท็บที่ลอยล่างจอ */
+    padding-bottom: calc(62px + env(safe-area-inset-bottom, 0px));
   }
   button, input { font: inherit; }
   button { cursor: pointer; }
+  /* แถบแอป 3 แท็บ ล่างจอ — สลับ จด/งาน&เงิน/ลูกค้า ได้จากทุกหน้า */
+  .appbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    display: flex; gap: 6px; background: var(--navy, #35486e);
+    padding: 5px max(14px, env(safe-area-inset-right, 0px)) calc(5px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px)); }
+  .appbar a { flex: 1; text-align: center; color: #fff; opacity: .62; text-decoration: none;
+    font-size: 11px; font-weight: 700; border-radius: 10px; padding: 3px 2px 4px; line-height: 1.2; }
+  .appbar a span { display: block; font-size: 18px; }
+  .appbar a.on { opacity: 1; background: rgba(255, 255, 255, .15); }
 
   header {
     background: var(--navy);
@@ -498,5 +511,10 @@ $('next').onclick = () => load(shiftDay($('date').value || todayTH(), 1));
   }
 })();
 </script>
+<nav class="appbar" aria-label="เมนูหลัก">
+  <a href="/app/jot/"><span>✏️</span>จด</a>
+  <a href="/app/"><span>📋</span>งาน &amp; เงิน</a>
+  <a href="/app/book/"><span>👤</span>ลูกค้า</a>
+</nav>
 </body>
 </html>

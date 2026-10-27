@@ -4,6 +4,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>ม่วงจดให้ — สมุดลูกค้า</title>
+<meta name="theme-color" content="#f5f6f8" />
+<link rel="manifest" href="/app/manifest.webmanifest" />
+<link rel="apple-touch-icon" href="/brand/ui/app-192.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -42,10 +45,20 @@
     background: var(--bg);
     color: var(--ink);
     -webkit-text-size-adjust: 100%;
+    /* เผื่อที่ให้แถบแอป 3 แท็บที่ลอยล่างจอ */
+    padding-bottom: calc(62px + env(safe-area-inset-bottom, 0px));
   }
   button, input { font: inherit; }
   button { cursor: pointer; }
   a { color: var(--blue); }
+  /* แถบแอป 3 แท็บ ล่างจอ — สลับ จด/งาน&เงิน/ลูกค้า ได้จากทุกหน้า */
+  .appbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    display: flex; gap: 6px; background: var(--navy, #35486e);
+    padding: 5px max(14px, env(safe-area-inset-right, 0px)) calc(5px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px)); }
+  .appbar a { flex: 1; text-align: center; color: #fff; opacity: .62; text-decoration: none;
+    font-size: 11px; font-weight: 700; border-radius: 10px; padding: 3px 2px 4px; line-height: 1.2; }
+  .appbar a span { display: block; font-size: 18px; }
+  .appbar a.on { opacity: 1; background: rgba(255, 255, 255, .15); }
 
   header {
     background: var(--navy);
@@ -177,7 +190,7 @@
   .empty img { width: 92px; height: 92px; object-fit: contain; display: block; margin: 0 auto 10px; }
 
   #toast {
-    position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+    position: fixed; left: 50%; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
     background: var(--ink); color: #fff; font-size: 12.5px; padding: 10px 16px;
     border-radius: 999px; max-width: 88vw; box-shadow: 0 8px 24px rgba(31,43,69,.28);
   }
@@ -686,5 +699,10 @@ $('q').oninput = () => (account ? renderAccount() : renderBook());
   }
 })();
 </script>
+<nav class="appbar" aria-label="เมนูหลัก">
+  <a href="/app/jot/"><span>✏️</span>จด</a>
+  <a href="/app/"><span>📋</span>งาน &amp; เงิน</a>
+  <a href="/app/book/" class="on" aria-current="page"><span>👤</span>ลูกค้า</a>
+</nav>
 </body>
 </html>

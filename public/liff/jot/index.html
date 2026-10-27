@@ -4,6 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#f5f6f8" />
+<link rel="manifest" href="/app/manifest.webmanifest" />
+<link rel="apple-touch-icon" href="/brand/ui/app-192.png" />
 <title>ม่วงจดให้ — บันทึกงาน</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -247,6 +249,14 @@
   </div>
   <button class="btn btn-primary" id="qb-save">💾 บันทึก</button>
 </div>
+
+<!-- แถบแอป 3 แท็บ — หน้าเดียวกันทุกหน้า ร้านสลับ จด/งาน&เงิน/ลูกค้า ได้จากทุกที่
+     (โหมดด่วนที่เด้งทับแชตไม่มีแถบนี้ เพราะงานเดียวจบแล้วกลับแชต) -->
+<nav class="appbar" aria-label="เมนูหลัก">
+  <a href="/app/jot/" class="on" aria-current="page"><span>✏️</span>จด</a>
+  <a href="/app/"><span>📋</span>งาน &amp; เงิน</a>
+  <a href="/app/book/"><span>👤</span>ลูกค้า</a>
+</nav>
 
 <div class="toast" id="toast" role="status"></div>
 
