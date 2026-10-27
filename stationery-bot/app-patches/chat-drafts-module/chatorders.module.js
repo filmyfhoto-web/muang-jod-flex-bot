@@ -1,7 +1,7 @@
 /* ===== NATTA GROUP · ออเดอร์จากแชท (CD 2026-10-27) =====
    ร่างที่บอทบันทึกจากข้อความ LINE ของลูกค้า (chat_drafts) หรือที่พนักงานวางเอง (chat_draft_manual) ·
    พนักงานตรวจ แก้จำนวน หน่วย ราคา ผูกสินค้า แล้วยืนยันเป็นคำสั่งซื้อ NT-… (chat_draft_confirm) ·
-   พิมพ์ใบจัดของด้วยหน้า “งานลูกค้า” เดิม (window.NattaWO) · ขายผ่าน POS ได้ครั้งเดียว (chat_draft_pos).
+   พิมพ์ใบจัดของด้วยหน้า “คำสั่งซื้อจากหน้าเว็บ” เดิม (window.NattaWO) · ขายผ่าน POS ได้ครั้งเดียว (chat_draft_pos).
    ทุกการเขียนผ่านฟังก์ชันฐานข้อมูล · หน้านี้ไม่ตัดสต็อกเอง และไม่ส่งข้อความถึงลูกค้า */
 (function(){
   if(ROUTES.some(r=>r.id==='chatorders')) return
@@ -413,13 +413,13 @@
     return o
   }
   async function pickSlip(){
-    if(!window.NattaWO) throw new Error('หน้า “งานลูกค้า” ยังไม่พร้อม — รีเฟรชหน้าแล้วลองใหม่')
+    if(!window.NattaWO) throw new Error('หน้า “คำสั่งซื้อจากหน้าเว็บ” ยังไม่พร้อม — รีเฟรชหน้าแล้วลองใหม่')
     const o=await orderRow()
     await NattaWO.ensure()
     await NattaWO.print(o)
   }
   async function orderOpen(){
-    if(!window.NattaWO) throw new Error('หน้า “งานลูกค้า” ยังไม่พร้อม — รีเฟรชหน้าแล้วลองใหม่')
+    if(!window.NattaWO) throw new Error('หน้า “คำสั่งซื้อจากหน้าเว็บ” ยังไม่พร้อม — รีเฟรชหน้าแล้วลองใหม่')
     const o=await orderRow()
     await NattaWO.ensure()
     NattaWO.open(o)
