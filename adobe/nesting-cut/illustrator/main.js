@@ -55,7 +55,7 @@
 
   var STORE_KEY = 'nongploy.nestingcut.settings.v2';
   // ค่าที่บันทึกจากรุ่นก่อน UI_VERSION: หัวงานเคยเปิดเป็นค่าเริ่มต้น → ปิดให้ครั้งเดียว
-  var UI_VERSION = 5;
+  var UI_VERSION = 6;
   var PV_W = 300; // กรอบพรีวิวขนาดคงที่ (px) — ต้องตรงกับ #previewBox ใน panel.css
   var PV_H = 400;
   // ชื่ออาร์ตบอร์ดของชีตที่ปลั๊กอินสร้าง — ปุ่ม “ล้างงานเก่า” ใช้หาชีตเก่า
@@ -81,6 +81,7 @@
     arrange: 'shape',
     gridCut: false,
     fillSheet: true, // เต็มแผ่น: ดวงแบบแรกใส่ให้ได้มากที่สุด
+    rectButt: true, // ป้ายสี่เหลี่ยม: วางชิดกันเป็นตาราง ตัดเส้นตรงยาว (แบบไฟล์งานสีดำ)
     target: 'artboard',
     cutMode: 'none',
     detectRed: true,
@@ -94,7 +95,7 @@
     markSize: 8,
     markInset: 10,
     markThick: 1,
-    markClearance: 3,
+    markClearance: 1,
     markEvery: 0,
     gtMarks: null, // มาร์ก Graphtec ที่จำจากไฟล์ต้นแบบของร้าน (np_readMarks)
     shopSize: null, // ขนาดงานตัดหน้าร้านที่แก้เอง { w, l } มม.
@@ -223,6 +224,7 @@
         s.markInset = 10;
         s.markClearance = 3;
       }
+      if (!(saved.uiVersion >= 6) && s.markType === 'graphtec') s.markClearance = 1; // ไฟล์ CM5 ของร้าน: มาร์กห่างงาน ~1 มม.
       s.uiVersion = UI_VERSION;
     } catch (e) {
       /* ใช้ค่าเริ่มต้น */
@@ -712,6 +714,8 @@
       clearance: num('markClearance'),
       every: num('markEvery'),
       square: 5,
+      // มาร์ก Graphtec สีดำ 4 สีแบบที่ CM5 ใส่ (C75 M68 Y67 K90)
+      color: s.markType === 'graphtec' ? [75, 68, 67, 90] : null,
     };
   }
 
@@ -906,7 +910,7 @@
     var x0 = Math.max(num('marginLeft'), reach);
     var y0 = Math.max(num('marginTop'), reach);
     var area = t.frame
-      ? { x: t.frame.x * K, y: t.frame.y * K, w: t.frame.w * K, h: t.frame.h * K }
+      ? markInner(boxes, { x: t.frame.x * K, y: t.frame.y * K, w: t.frame.w * K, h: t.frame.h * K })
       : { x: x0, y: y0, w: W - x0 - Math.max(num('marginRight'), reach), h: H - y0 - Math.max(num('marginBottom'), reach) };
     S.tplMarks = L.isCm5(marks);
     renderTplInfo();
@@ -920,13 +924,37 @@
       markClearance: 0,
       markExtent: 0,
       area: area,
-      obstacles: boxes.map(function (b) {
-        var c = b.mark ? 3 : gap / 2;
-        return { x: b.x - c, y: b.y - c, w: b.w + 2 * c, h: b.h + 2 * c };
-      }),
+      // มาร์กของเทมเพลตอยู่นอกพื้นที่วางอยู่แล้ว (วางในกรอบด้านในของมาร์ก) — หลบเฉพาะหัวงาน/ของอื่น
+      obstacles: boxes
+        .filter(function (b) {
+          return !(t.frame && b.mark);
+        })
+        .map(function (b) {
+          var c = b.mark ? 3 : gap / 2;
+          return { x: b.x - c, y: b.y - c, w: b.w + 2 * c, h: b.h + 2 * c };
+        }),
       headerBox: null,
       template: { abIndex: t.abIndex, boxes: boxes, framed: !!t.frame },
     };
+  }
+
+  // กรอบด้านในของมาร์ก 4 มุม (ขอบในของมาร์กซ้าย/ขวา/บน/ล่าง) = ที่วางงานแบบไฟล์ CM5 ของร้าน
+  function markInner(boxes, frame) {
+    var cx = frame.x + frame.w / 2;
+    var cy = frame.y + frame.h / 2;
+    var x0 = frame.x;
+    var x1 = frame.x + frame.w;
+    var y0 = frame.y;
+    var y1 = frame.y + frame.h;
+    boxes.forEach(function (b) {
+      if (!b.mark) return;
+      if (b.x + b.w / 2 < cx) x0 = Math.max(x0, b.x + b.w);
+      else x1 = Math.min(x1, b.x);
+      if (b.y + b.h / 2 < cy) y0 = Math.max(y0, b.y + b.h);
+      else y1 = Math.min(y1, b.y);
+    });
+    if (!(x1 - x0 > 10 && y1 - y0 > 10)) return frame;
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
   }
 
   function planNow() {
@@ -995,10 +1023,16 @@
         return p.quantity > 0;
       })[0];
       fill = { part: byIdx(first.id), others: parts.filter(function (p) { return p.quantity > 0; }).length - 1 };
+      // ป้ายสี่เหลี่ยม: เรียงชิดกันเป็นตารางเป๊ะ เส้นตัดเป็นเส้นตรงยาวเส้นเดียวต่อแนว (แบบไฟล์งานสีดำของร้าน)
+      fill.butt = !!S.settings.rectButt && isRectPart(fill.part);
       status('นัดพอนกำลังหาวิธีใส่ “' + fill.part.name + '” ให้ได้มากที่สุด…');
       job = new Promise(function (resolve, reject) {
         setTimeout(function () {
           try {
+            if (fill.butt) {
+              var box = { id: first.id, rings: [bboxRing(fill.part.rings.length ? fill.part.rings : [vbRing(fill.part.vb)])], rotations: first.rotations };
+              return resolve(NC.nest.fillGrid(box, plan, { spacing: 0, maxPerSheet: opts.maxPerSheet }));
+            }
             resolve(NC.nest.fillSheet(first, plan, opts));
           } catch (e) {
             reject(e);
@@ -1020,7 +1054,7 @@
           out.marks = L.markShapes(plan.width, len, plan.marks, contentBox(out));
           return out;
         });
-        S.result = { plan: plan, res: res, sheets: sheets, ms: Date.now() - t0, fill: fill };
+        S.result = { plan: plan, res: res, sheets: sheets, ms: Date.now() - t0, fill: fill, butt: !!(fill && fill.butt) };
         S.pvSheet = 0;
         S.stale = false;
         S.built = false;
@@ -1054,14 +1088,15 @@
         var worst = S.parts.reduce(function (m, p) {
           return p.qty > 0 ? Math.max(m, rawBleed(p)) : m;
         }, 0);
-        if (worst > 0 && worst * 2 >= opts.spacing) {
+        var gapNow = fill && fill.butt ? 0 : opts.spacing;
+        if (worst > 0.2 && worst * 2 >= gapNow) {
           warnings.push(
             'งานพิมพ์เลยเส้นตัดออกมา ' + worst.toFixed(1) + ' มม. มากกว่าครึ่งหนึ่งของระยะห่าง — ภาพของดวงข้าง ๆ อาจทับกัน' +
               ' เพิ่มระยะห่างเป็นมากกว่า ' + (Math.ceil(worst * 2 * 10) / 10) + ' มม.' +
               (S.settings.respectBleed ? ' (ตอนนี้ “เผื่อ bleed” เว้นระยะเพิ่มให้แล้ว)' : '')
           );
         }
-        var nocut = noCutParts();
+        var nocut = fill && fill.butt ? [] : noCutParts();
         if (nocut.length) {
           warnings.push(
             'ไม่พบเส้นไดคัท ' + nocut.length + ' แบบ (' + nocut.map(function (p) { return p.name; }).join(', ') +
@@ -1620,6 +1655,7 @@
         regLayers: r.plan.marks.type === 'graphtec' ? (gt && gt.layers.length ? gt.layers : L.GRAPHTEC_LAYERS) : null,
         target: target,
         template: r.plan.template ? { abIndex: r.plan.template.abIndex } : null,
+        markColor: r.plan.marks && r.plan.marks.color ? r.plan.marks.color : null,
         spotName: S.settings.spotName || 'CutContour',
         strokeWidth: num('strokeWidth'),
         dropPieceCuts: grid || !!r.run,
@@ -1747,7 +1783,17 @@
   }
 
   function useGridCut() {
-    return S.settings.tool !== 'run' && !!S.settings.gridCut && gridMode();
+    if (S.settings.tool === 'run') return false;
+    return (!!S.settings.gridCut && gridMode()) || !!(S.result && S.result.butt);
+  }
+
+  // ป้ายสี่เหลี่ยม (เส้นตัดเป็นสี่เหลี่ยม หรือไม่มีเส้นตัด → ใช้กรอบ)
+  function isRectPart(p) {
+    if (p.mode === 'none' || !p.cut) return true;
+    if (p.rings.length !== 1) return false;
+    var b = G.bounds(p.rings);
+    var box = (b.maxX - b.minX) * (b.maxY - b.minY);
+    return box > 0 && Math.abs(G.signedArea(p.rings[0])) / box > 0.985;
   }
 
   function cutPaths(sh) {
@@ -2886,6 +2932,7 @@
     show('#headerOnRow', !tpl);
     show('#buildNormal', !tpl);
     show('#buildTpl', tpl);
+    show('#rectButtRow', !!s.fillSheet);
     if (tpl) show('#headerFields', false);
     if (tpl) renderTplInfo();
     renderGtInfo();
@@ -3125,7 +3172,7 @@
   var NEST_KEYS = [
     'width', 'length', 'sizeUnit', 'marginTop', 'marginBottom', 'marginLeft', 'marginRight', 'gridCut', 'spacing', 'rotation', 'quality', 'respectBleed', 'markType', 'markSize',
     'markInset', 'markThick', 'markClearance', 'markEvery', 'headerOn', 'headerHeight', 'cutter', 'media',
-    'arrange', 'fillSheet', 'runShape', 'runSize', 'runW', 'runH', 'runRadius', 'runGap', 'runLayout',
+    'arrange', 'fillSheet', 'rectButt', 'runShape', 'runSize', 'runW', 'runH', 'runRadius', 'runGap', 'runLayout',
   ];
   var VEC_KEYS = ['cnIn', 'cnOut', 'ledWidth', 'ledRadius', 'ledMargin', 'stShape', 'stMargin', 'stRadius', 'stGroup', 'stMirror', 'stNegative'];
   var DC_KEYS = ['dcSource', 'dcOffset', 'dcJoin', 'dcMiter', 'dcHoles', 'dcTol', 'dcShadow', 'dcDetail'];

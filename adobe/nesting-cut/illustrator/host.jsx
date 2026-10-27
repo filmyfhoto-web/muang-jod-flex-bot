@@ -261,6 +261,17 @@ function np_black(doc) {
   return r;
 }
 
+// [c, m, y, k] in a CMYK document; plain black in an RGB one
+function np_cmyk(doc, v) {
+  if (doc.documentColorSpace !== DocumentColorSpace.CMYK) return np_black(doc);
+  var c = new CMYKColor();
+  c.cyan = v[0];
+  c.magenta = v[1];
+  c.yellow = v[2];
+  c.black = v[3];
+  return c;
+}
+
 function np_same(a, b) {
   return Math.abs(a[0] - b[0]) < 1e-6 && Math.abs(a[1] - b[1]) < 1e-6;
 }
@@ -1096,7 +1107,7 @@ function np_buildLayout(args) {
   var regNames = args.regLayers && args.regLayers.length ? args.regLayers : null;
   var regs = regNames ? np_regLayers(doc, regNames) : null;
   var layMarks = regs ? regs[np_regMarkLayer(regNames)] : np_layer(doc, names.marks || 'Marks');
-  var color = np_black(doc);
+  var color = args.markColor ? np_cmyk(doc, args.markColor) : np_black(doc);
   var spot = np_spot(doc, args.spotName || 'CutContour');
 
   var x = left;

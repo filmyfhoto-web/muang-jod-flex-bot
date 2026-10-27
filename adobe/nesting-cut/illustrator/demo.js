@@ -423,19 +423,29 @@
         items: [corner(ins, ins, 1, 1), corner(W - ins, ins, -1, 1), corner(ins, H - ins, 1, -1), corner(W - ins, H - ins, -1, -1)],
       };
     },
-    // ตัวอย่างเทมเพลตร้าน 13 × 19 นิ้ว: หัวงาน (โลโก้ + QR) กลางด้านบน ยังไม่มีมาร์ก → ปลั๊กอินใส่มาร์ก CM5 รอบงานให้
+    // ตัวอย่างเทมเพลตร้าน “ตัดงานสีดำ” 12.6 × 19 นิ้ว (ค่าจากไฟล์จริง): หัวงานโลโก้ + QR ด้านบน
+    // + มาร์ก CM5 L ┘└┐┌ ทึบ 8.5 มม. ในเลเยอร์ reg_1 (pt, y ลง)
     np_readTemplate: function () {
-      var W = 13 * 72;
-      var H = 19 * 72;
+      var mm = 72 / 25.4;
+      function b(x, y, w, h, mark) {
+        return { x: x * mm, y: y * mm, w: w * mm, h: h * mm, mark: mark };
+      }
+      var boxes = [
+        b(84.32, 4.53, 150.03, 45.38, 0),
+        b(15.4, 40.41, 8.5, 8.5, 1),
+        b(294.76, 40.41, 8.5, 8.5, 1),
+        b(15.4, 452.81, 8.5, 8.5, 1),
+        b(294.76, 452.81, 8.5, 8.5, 1),
+      ];
       return {
-        document: 'เทมเพลตหน้าร้าน 13x19.ai',
+        document: 'ตัดงานสีดำ 12.6x19.ai',
         abIndex: 0,
         abName: 'Artboard 1',
-        w: W,
-        h: H,
-        frame: null,
-        boxes: [{ x: W / 2 - 180, y: 6, w: 360, h: 112, mark: 0 }],
-        marks: 0,
+        w: 907.2,
+        h: 1368,
+        frame: { x: 15.4 * mm, y: 40.41 * mm, w: (303.26 - 15.4) * mm, h: (461.31 - 40.41) * mm },
+        boxes: boxes,
+        marks: 4,
         parts: 0,
         old: 0,
       };

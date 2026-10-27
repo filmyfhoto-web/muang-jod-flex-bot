@@ -19,8 +19,8 @@
       id: 'graphtec',
       label: 'Graphtec (Cutting Master)',
       margin: 5,
-      marks: { type: 'graphtec', size: 8, thick: 1, inset: 10, clearance: 3, every: 0 },
-      note: 'มาร์ก L ยาว 8 หนา 1 มม. ที่ 4 มุมของงาน (┘ └ ┐ ┌ ชี้ออก) ลงเลเยอร์ reg_1 แบบ Cutting Master 5',
+      marks: { type: 'graphtec', size: 8, thick: 1, inset: 10, clearance: 1, every: 0, color: [75, 68, 67, 90] },
+      note: 'มาร์ก L 4 มุมของงาน (┘ └ ┐ ┌) ยาว 8 หนา 1 มม. สีดำ 4 สี ห่างงาน 1 มม. ลงเลเยอร์ reg_1 — เหมือนไฟล์ CM5 ของร้าน',
     },
     {
       id: 'mimaki',
@@ -78,7 +78,7 @@
   // (ตรงกับไฟล์ต้นแบบของร้าน ถ้ากด “จำมาร์กจากไฟล์” จะใช้ชื่อจากไฟล์นั้นแทน)
   var GRAPHTEC_LAYERS = [
     'margin 0.000000 0.000000 0.000000 0.000000',
-    'color 0 0 0 255 0 0 0 255 17.007874',
+    'color 0 0 0 255 0 0 0 0 255 17.007874',
     'reg_2 0.00 0.00 0.00 0.00 25.00 25.00 25.00 25.00',
     'reg_1 1 1 1.00 1.00 8.00 100.00 1 0 0 0 0.00',
   ];
@@ -133,22 +133,26 @@
   }
 
   // มาร์ก Graphtec / Cutting Master 5: L ที่ 4 มุมของงาน มุม L อยู่ที่มุมกรอบงาน แขนยื่นออกนอกตามแนวขอบ
-  //   ┘ ─ └      (ภาพจากไฟล์ CM5 ของร้าน: ยาว 8 หนา 1 มม.)
-  //   ┐ ─ ┌      inset = ขอบกระดาษถึงปลายแขนมาร์ก · clearance = ระยะจากงานถึงมุมมาร์ก
+  //   ┘ ─ └      จากไฟล์ CM5 ของร้าน (reg_1 “1.00 … 8.00”): เส้นหนา 1 ยาว 8 มม. วัดที่แนวกลางเส้น
+  //   ┐ ─ ┌      = รูป L ทึบ ยื่นจากมุม 8.5 มม. · inset = ขอบกระดาษถึงปลายแขน · clearance = งานถึงมุมมาร์ก
   function isCm5(m) {
     return !!m && m.type === 'graphtec' && !m.custom;
   }
 
   // งาน (ดวงทั้งหมด) อยู่ห่างขอบกระดาษอย่างน้อยเท่านี้ ให้มาร์กรอบงานยังอยู่ในแผ่น
+  function cm5Extent(m) {
+    return (m.size || 8) + (m.thick || 1) / 2;
+  }
+
   function cm5Reach(m) {
-    return (m.inset || 0) + (m.size || 0) + (m.clearance == null ? 3 : m.clearance);
+    return (m.inset || 0) + cm5Extent(m) + (m.clearance == null ? 1 : m.clearance);
   }
 
   // rect = กรอบงาน (มม.) — มุม L ห่างงานเท่า clearance
   function cm5Marks(m, rect) {
-    var s = m.size || 8;
+    var s = cm5Extent(m);
     var t = m.thick || 1;
-    var c = m.clearance == null ? 3 : m.clearance;
+    var c = m.clearance == null ? 1 : m.clearance;
     var x0 = rect.x - c;
     var y0 = rect.y - c;
     var x1 = rect.x + rect.w + c;
@@ -168,7 +172,7 @@
   // มาร์กกินเข้ามาจากขอบแผ่นลึกสุดกี่ มม.
   function markReach(m) {
     if (!hasMarks(m)) return 0;
-    if (isCm5(m)) return (m.inset || 0) + (m.size || 0);
+    if (isCm5(m)) return (m.inset || 0) + cm5Extent(m);
     if (!m.custom) return (m.inset || 0) + markExtent(m);
     var c = m.custom;
     var reach = 0;
@@ -333,7 +337,7 @@
       var reach = cm5Reach(m);
       var ax0 = Math.max(M.left, reach);
       var ax1 = W - Math.max(M.right, reach);
-      var ay0 = header ? Math.max(reach, top + (m.size || 0) + clear) : Math.max(M.top, reach);
+      var ay0 = header ? Math.max(reach, top + cm5Extent(m) + clear) : Math.max(M.top, reach);
       area = { x: ax0, y: ay0, w: ax1 - ax0, h: pageLength - ay0 - bottomReserve };
     }
 

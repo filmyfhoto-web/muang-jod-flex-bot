@@ -234,3 +234,23 @@ test('nest: ไม่เกิน 400 ดวงต่อแผ่น (maxPerShee
   assert.equal(r.sheets[0].placements.length, 400);
   assert.equal(r.sheets.reduce((n, s) => n + s.placements.length, 0), 450);
 });
+
+test('fillGrid: ป้ายสี่เหลี่ยมชิดกันเป็นตาราง เหมือนไฟล์ตัดงานสีดำ 12.6×19 — 120 ดวง เริ่มใต้หัวงานพอดี เส้นตัดตรงยาวเส้นเดียวต่อแนว', () => {
+  const L = require('../adobe/nesting-cut/core/layout.js');
+  // เทมเพลตของร้าน: กรอบด้านในของมาร์ก CM5 + หัวงาน (โลโก้ + QR) ด้านบน (มม. จากไฟล์จริง)
+  const plan = { area: { x: 23.9, y: 48.91, w: 294.76 - 23.9, h: 452.81 - 48.91 }, obstacles: [{ x: 84.32, y: 4.53, w: 150.03, h: 45.38 }] };
+  const label = [[[0, 0], [44.98, 0], [44.98, 19.98], [0, 19.98]]];
+  const r = N.fillGrid({ id: 7, rings: label, rotations: [0, 90, 180, 270] }, plan, { spacing: 0 });
+  assert.equal(r.placedCount, 120);
+  assert.equal(r.stats.grid.cols, 6);
+  const p = r.sheets[0].placements;
+  assert.ok(Math.abs(p[0].bbox.minX - 24.39) < 0.02 && Math.abs(p[0].bbox.minY - 49.91) < 1e-6, 'แถวแรกเริ่มใต้หัวงานพอดี');
+  assert.equal(p[0].partId, 7);
+  // ไม่มีดวงทับหัวงาน
+  for (const q of p) assert.ok(!(q.bbox.minX < 234.35 && q.bbox.maxX > 84.32 && q.bbox.minY < 49.91 - 1e-6));
+  // เส้นตัดตาราง: เส้นตั้ง 7 เส้น เส้นนอน 21 เส้น (เหมือนไฟล์)
+  const segs = L.gridSegments(p.map((q) => ({ minX: q.bbox.minX, minY: q.bbox.minY, maxX: q.bbox.maxX, maxY: q.bbox.maxY })));
+  const vert = segs.filter((s) => s.points[0][0] === s.points[1][0]);
+  assert.equal(vert.length, 7);
+  assert.equal(segs.length - vert.length, 21);
+});

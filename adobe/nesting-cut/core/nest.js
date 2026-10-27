@@ -811,9 +811,91 @@
     return out;
   }
 
+  // ป้ายสี่เหลี่ยมเต็มแผ่นแบบตารางเป๊ะ (ไม่ผ่านตารางช่อง cell): ดวงชิดกัน (gap 0) ขอบตรงกันพอดี
+  // เส้นตัดจึงเป็นเส้นตรงยาวเส้นเดียวต่อแนว — ลองหมุน 0/90° และเลื่อนแถวลง (หลบหัวงาน) เลือกแบบที่ได้มากสุด
+  // part = { id, rings, rotations? } · plan = { area, obstacles } · opts = { spacing, maxPerSheet }
+  function fillGrid(part, plan, opts) {
+    opts = opts || {};
+    var t0 = now();
+    var gap = opts.spacing > 0 ? opts.spacing : 0;
+    var area = plan.area;
+    var obs = plan.obstacles || [];
+    var rots = part.rotations && part.rotations.length ? part.rotations : [0];
+    var angles = [];
+    rots.forEach(function (a) {
+      a = ((a % 180) + 180) % 180;
+      if ((a === 0 || a === 90) && angles.indexOf(a) < 0) angles.push(a);
+    });
+    if (!angles.length) angles = [0];
+    var E = 1e-6;
+    var best = null;
+    angles.forEach(function (angle) {
+      var rb = G.bounds(G.rotateRings(part.rings, angle));
+      var w = rb.maxX - rb.minX;
+      var h = rb.maxY - rb.minY;
+      if (!(w > 0 && h > 0)) return;
+      var cols = Math.floor((area.w + gap + E) / (w + gap));
+      if (cols < 1) return;
+      var blockW = cols * w + (cols - 1) * gap;
+      var x0 = area.x + (area.w - blockW) / 2;
+      var pitch = h + gap;
+      // จุดเริ่มแถว: ชิดบนพื้นที่ · ชิดใต้ของที่ขวาง (หัวงาน) พอดี · ไล่ทีละ 0.25 มม. — เท่ากันเอาอันที่สูงกว่า
+      var offsets = [0];
+      obs.forEach(function (o) {
+        var d = o.y + o.h - area.y;
+        if (d > 0) offsets.push(d % pitch);
+      });
+      var steps = obs.length ? Math.max(1, Math.ceil(pitch / 0.25)) : 1;
+      for (var k = 1; k < steps; k++) offsets.push((k * pitch) / steps);
+      offsets.sort(function (a, b) {
+        return a - b;
+      });
+      for (var j = 0; j < offsets.length; j++) {
+        var oy = offsets[j];
+        var list = [];
+        for (var y = area.y + oy; y + h <= area.y + area.h + E; y += pitch) {
+          for (var c = 0; c < cols; c++) {
+            var x = x0 + c * (w + gap);
+            var hit = false;
+            for (var i = 0; i < obs.length && !hit; i++) {
+              var o = obs[i];
+              hit = x < o.x + o.w - E && o.x < x + w - E && y < o.y + o.h - E && o.y < y + h - E;
+            }
+            if (!hit) list.push({ x: x, y: y });
+          }
+        }
+        if (opts.maxPerSheet > 0 && list.length > opts.maxPerSheet) list = list.slice(0, opts.maxPerSheet);
+        if (!best || list.length > best.list.length) best = { list: list, angle: angle, rb: rb, w: w, h: h, cols: cols, oy: oy };
+      }
+    });
+    var area1 = Math.abs(part.rings.reduce(function (s, r) { return s + G.signedArea(r); }, 0));
+    var placements = best
+      ? best.list.map(function (p) {
+          return {
+            partIndex: 0,
+            partId: part.id,
+            angle: best.angle,
+            tx: p.x - best.rb.minX,
+            ty: p.y - best.rb.minY,
+            bbox: { minX: p.x, minY: p.y, maxX: p.x + best.w, maxY: p.y + best.h },
+          };
+        })
+      : [];
+    var maxY = placements.reduce(function (m, p) { return Math.max(m, p.bbox.maxY); }, -Infinity);
+    return {
+      sheets: [{ index: 0, placements: placements, contentMaxY: placements.length ? maxY : null, partsArea: area1 * placements.length }],
+      unplaced: [],
+      placedCount: placements.length,
+      totalCount: placements.length,
+      options: { spacing: gap },
+      stats: { method: 'grid', timeMs: Math.round(now() - t0), grid: best ? { cols: best.cols, angle: best.angle, offsetY: best.oy, w: best.w, h: best.h } : null },
+    };
+  }
+
   return {
     ROTATION_SETS: ROTATION_SETS,
     fillSheet: fillSheet,
+    fillGrid: fillGrid,
     DEFAULTS: DEFAULTS,
     rasterize: rasterize,
     materialArea: materialArea,

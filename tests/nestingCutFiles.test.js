@@ -248,40 +248,40 @@ test('layout: ขนาดของร้าน — เทมเพลตที�
   assert.equal(L.cutter('graphtec').marks.type, 'graphtec');
   assert.deepEqual(L.GRAPHTEC_LAYERS, [
     'margin 0.000000 0.000000 0.000000 0.000000',
-    'color 0 0 0 255 0 0 0 255 17.007874',
+    'color 0 0 0 255 0 0 0 0 255 17.007874',
     'reg_2 0.00 0.00 0.00 0.00 25.00 25.00 25.00 25.00',
     'reg_1 1 1 1.00 1.00 8.00 100.00 1 0 0 0 0.00',
   ]);
 });
 
-test('layout: มาร์ก Graphtec แบบไฟล์ CM5 ของร้าน — L ┘└┐┌ ที่มุมงาน แขนชี้ออก ยาว 8 หนา 1 มม.', () => {
-  const m = { type: 'graphtec', size: 8, thick: 1, inset: 10, clearance: 3 };
-  assert.equal(L.cutter('graphtec').marks.size, 8);
-  assert.equal(L.cutter('graphtec').marks.thick, 1);
-  const marks = L.markShapes(330.2, 482.6, m, { x: 21, y: 47, w: 288, h: 413 });
+test('layout: มาร์ก Graphtec แบบไฟล์ CM5 ของร้าน (ตัดงานสีดำ 12.6×19) — L ┘└┐┌ ทึบ ยื่น 8.5 หนา 1 มม. ห่างงาน 1 มม.', () => {
+  const m = { type: 'graphtec', size: 8, thick: 1, inset: 10, clearance: 1 };
+  const g = L.cutter('graphtec').marks;
+  assert.deepEqual([g.size, g.thick, g.clearance, g.color], [8, 1, 1, [75, 68, 67, 90]]);
+  // กรอบงานจากไฟล์จริง: ป้าย 6 × 20 ดวง เริ่ม (24.4, 49.91) กว้าง 269.87 สูง 401.31 มม.
+  const marks = L.markShapes(320.04, 482.6, m, { x: 24.4, y: 49.91, w: 269.87, h: 401.31 });
+  const r2 = (b) => Object.fromEntries(Object.entries(b).map(([k, v]) => [k, typeof v === 'number' ? Math.round(v * 100) / 100 : v]));
   assert.equal(marks.length, 4);
-  // มุมซ้ายบน ┘: แขนนอนอยู่ซ้ายมุม แขนตั้งอยู่เหนือมุม — มุม L ห่างงาน 3 มม.
-  assert.deepEqual(marks[0].parts, [
-    { kind: 'rect', x: 10, y: 43, w: 8, h: 1 },
-    { kind: 'rect', x: 17, y: 36, w: 1, h: 8 },
+  // ซ้ายบน ┘: แขนนอนซ้าย แขนตั้งขึ้น — ขนาด 8.5 × 8.5 แบบในไฟล์ (ไฟล์: x 15.4 y 40.41)
+  assert.deepEqual(marks[0].parts.map(r2), [
+    { kind: 'rect', x: 14.9, y: 47.91, w: 8.5, h: 1 },
+    { kind: 'rect', x: 22.4, y: 40.41, w: 1, h: 8.5 },
   ]);
-  assert.deepEqual(marks[0].bbox, { x: 10, y: 36, w: 8, h: 8 });
+  assert.deepEqual(r2(marks[0].bbox), { x: 14.9, y: 40.41, w: 8.5, h: 8.5 });
   // ขวาบน └ · ซ้ายล่าง ┐ · ขวาล่าง ┌
-  assert.deepEqual(marks[1].bbox, { x: 312, y: 36, w: 8, h: 8 });
-  assert.deepEqual(marks[2].bbox, { x: 10, y: 463, w: 8, h: 8 });
-  assert.deepEqual(marks[3].parts, [
-    { kind: 'rect', x: 312, y: 463, w: 8, h: 1 },
-    { kind: 'rect', x: 312, y: 463, w: 1, h: 8 },
+  assert.deepEqual(r2(marks[1].bbox), { x: 295.27, y: 40.41, w: 8.5, h: 8.5 });
+  assert.deepEqual(r2(marks[2].bbox), { x: 14.9, y: 452.22, w: 8.5, h: 8.5 });
+  assert.deepEqual(marks[3].parts.map(r2), [
+    { kind: 'rect', x: 295.27, y: 452.22, w: 8.5, h: 1 },
+    { kind: 'rect', x: 295.27, y: 452.22, w: 1, h: 8.5 },
   ]);
-  // พื้นที่วางเว้นที่ให้มาร์ก: ขอบ 10 + แขน 8 + ห่างงาน 3 = 21 มม. ทุกด้าน, ไม่มีสิ่งกีดขวางที่มุม
-  const plan = L.planSheet({ width: 330.2, length: 482.6, margin: 5, marks: m });
-  assert.deepEqual([plan.area.x, plan.area.y], [21, 21]);
-  assert.ok(Math.abs(plan.area.x + plan.area.w - (330.2 - 21)) < 1e-9);
-  assert.ok(Math.abs(plan.area.y + plan.area.h - (482.6 - 21)) < 1e-9);
+  // พื้นที่วางเว้นที่ให้มาร์ก: ขอบ 10 + มาร์ก 8.5 + ห่างงาน 1 = 19.5 มม. ทุกด้าน, ไม่มีสิ่งกีดขวางที่มุม
+  const plan = L.planSheet({ width: 320.04, length: 482.6, margin: 5, marks: m });
+  assert.deepEqual([plan.area.x, plan.area.y], [19.5, 19.5]);
+  assert.ok(Math.abs(plan.area.x + plan.area.w - (320.04 - 19.5)) < 1e-9);
   assert.equal(plan.obstacles.length, 0);
-  // หัวงานด้านบน: งานเริ่มใต้หัวงาน + ที่ให้แขนมาร์กบน
-  const withHeader = L.planSheet({ width: 330.2, length: 482.6, margin: 5, marks: m, header: { enabled: true, height: 18, gap: 3 } });
-  assert.equal(withHeader.area.y, 5 + 18 + 3 + 8 + 3);
+  const withHeader = L.planSheet({ width: 320.04, length: 482.6, margin: 5, marks: m, header: { enabled: true, height: 18, gap: 3 } });
+  assert.equal(withHeader.area.y, 5 + 18 + 3 + 8.5 + 1);
 });
 
 test('layout: มาร์กจากไฟล์ต้นแบบยึดมุมที่ใกล้สุด — แผ่นเท่าต้นแบบตำแหน่งเดิม, แผ่นอื่นระยะจากมุมเท่าเดิม', () => {
