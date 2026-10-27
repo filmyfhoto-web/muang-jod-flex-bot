@@ -75,6 +75,12 @@ body {
   text-rendering: optimizeLegibility;
 }
 /* ทั้งแผงอยู่กับที่ หัวกับปุ่มล่างไม่ขยับ เลื่อนได้เฉพาะส่วนกลาง (#scroller) */
+/* ขนาดแผงตายตัว: ช่องพรีวิว + ช่องคำสั่งกว้างคงที่ ชิดซ้าย — ขยายแผงแล้วไม่ยืด ไม่เลื่อน
+   (ต้องตรงกับ WIDE_MIN ใน main.js = --pv-col + --ctl-w) */
+:root {
+  --pv-col: 334px;
+  --ctl-w: 400px;
+}
 body {
   overflow: hidden;
 }
@@ -83,7 +89,9 @@ body {
   height: 100vh;
 }
 #controls {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
+  width: var(--ctl-w);
+  max-width: 100%;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -681,16 +689,23 @@ label.stack > select {
 /* ช่องพรีวิวกว้างคงที่ — ขยายแผงแล้วพรีวิวไม่ยืดตาม (ที่เหลือให้ช่องคำสั่ง) */
 body.wide #previewSide {
   display: block;
-  flex: 0 0 334px;
-  width: 334px;
+  flex: 0 0 var(--pv-col);
+  width: var(--pv-col);
   padding: 8px 0 8px 8px;
   height: 100vh;
   overflow-y: auto;
 }
 body.wide #controls {
-  flex: 1 1 auto;
-  min-width: 320px;
-  max-width: 560px;
+  flex: 0 0 var(--ctl-w);
+  width: var(--ctl-w);
+  max-width: none;
+}
+/* บังคับพรีวิวข้าง ๆ ในแผงแคบ: เลื่อนซ้าย-ขวาได้ แทนการบีบ */
+body.wide {
+  overflow-x: auto;
+}
+body.wide .layout {
+  width: calc(var(--pv-col) + var(--ctl-w));
 }
 body.wide .preview-card {
   height: 100%;
@@ -873,11 +888,11 @@ body.wide.nopreview #previewSide {
   display: none;
 }
 body.wide.nopreview #controls {
-  flex: 1 1 auto;
-  width: auto;
+  flex: 0 0 var(--ctl-w);
+  width: var(--ctl-w);
 }
-body.wide.nopreview #scroller > * {
-  max-width: 620px;
+body.wide.nopreview .layout {
+  width: var(--ctl-w);
 }
 
 /* ช่องกรอก: ชื่อซ้าย ช่องขวา */

@@ -58,6 +58,7 @@
   var UI_VERSION = 6;
   var PV_W = 300; // กรอบพรีวิวขนาดคงที่ (px) — ต้องตรงกับ #previewBox ใน panel.css
   var PV_H = 400;
+  var WIDE_MIN = 734; // แผงกว้างพอวางพรีวิว (334) คู่ช่องคำสั่ง (400) — ตรงกับ --pv-col + --ctl-w ใน panel.css
   // ชื่ออาร์ตบอร์ดของชีตที่ปลั๊กอินสร้าง — ปุ่ม “ล้างงานเก่า” ใช้หาชีตเก่า
   var SHEET_MARK = 'นัดพอน · ';
   var DEFAULTS = {
@@ -1418,10 +1419,10 @@
     stack: 'พรีวิว: ในขั้น “สร้างชีต” — กดเพื่อสลับ',
   };
 
-  // พรีวิวข้างเมนู: อัตโนมัติ (แผงกว้าง ≥ 560 px) · บังคับข้าง ๆ · บังคับอยู่ในหน้าขั้นที่ 3
+  // พรีวิวข้างเมนู: อัตโนมัติ (แผงกว้าง ≥ 734 px) · บังคับข้าง ๆ · บังคับอยู่ในหน้าขั้นที่ 3
   function placePreview() {
     var mode = S.settings.layoutMode;
-    var wide = mode === 'side' ? true : mode === 'stack' ? false : window.innerWidth >= 560;
+    var wide = mode === 'side' ? true : mode === 'stack' ? false : window.innerWidth >= WIDE_MIN;
     $('btnLayout').title = LAYOUT_LABEL[mode] || LAYOUT_LABEL.auto;
     document.body.classList.toggle('wide', wide);
     var target = wide ? $('previewSide') : $('previewSlot');
