@@ -193,3 +193,20 @@ test('ปลั๊กอิน: core ใช้ได้ทั้งแบบ <sc
   assert.deepEqual(Object.keys(win.NestingCut).sort(), ['bridge', 'contour', 'cutfile', 'geometry', 'layout', 'nest', 'pack']);
   assert.equal(typeof win.NestingCut.nest.nest, 'function');
 });
+
+test('ปลั๊กอิน: เลขรุ่นบนแผงตรงกับ manifest (ร้านเช็กได้ว่าลงรุ่นใหม่แล้ว)', () => {
+  const cep = readFileSync(path.join(ROOT, 'CSXS', 'manifest.xml'), 'utf8');
+  const main = readFileSync(path.join(ROOT, 'illustrator', 'main.js'), 'utf8');
+  const bundle = cep.match(/ExtensionBundleVersion="([^"]+)"/)[1];
+  assert.equal(main.match(/var PANEL_VERSION = '([^']+)'/)[1], bundle);
+  assert.match(cep, new RegExp('<Extension Id="com.nongploy.nestingcut.panel" Version="' + bundle.replace(/\./g, '\\.') + '"'));
+  assert.equal(JSON.parse(readFileSync(path.join(ROOT, 'manifest.json'), 'utf8')).version, bundle);
+  // ตัวติดตั้งลบรุ่นเก่าที่ลงไว้โฟลเดอร์อื่น + ล้างแคชแผง
+  const win = readFileSync(path.join(ROOT, 'install', 'install-illustrator-windows.cmd'), 'utf8');
+  const mac = readFileSync(path.join(ROOT, 'install', 'install-illustrator-mac.command'), 'utf8');
+  for (const s of [win, mac]) {
+    assert.match(s, /cep_cache/);
+    assert.match(s, /com\.nongploy\.nestingcut/);
+  }
+  assert.ok(![...win].some((c) => c.charCodeAt(0) > 0x7e), 'ไฟล์ .cmd ต้องเป็น ASCII');
+});

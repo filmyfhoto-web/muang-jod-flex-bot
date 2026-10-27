@@ -212,9 +212,9 @@ body {
   border-color: var(--accent);
   color: #fff;
 }
-/* คำบอกสั้น ๆ ว่าหน้านี้ต้องทำอะไร — สูงคงที่ 2 บรรทัด แถบไม่ยืดหด */
+/* คำบอกสั้น ๆ ว่าตอนนี้ต้องทำอะไร — สูงคงที่ 2 บรรทัด แถบไม่ยืดหด */
 .step-hint {
-  margin: 6px 0 0;
+  margin: 0;
   height: 2.8em;
   overflow: hidden;
   font-size: 12.5px;
@@ -965,6 +965,21 @@ label.field > input[type='color'] {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+/* เลขรุ่น: มุมล่างขวา ให้ร้านเช็กว่าลงรุ่นใหม่แล้ว */
+.sticky-actions .ver {
+  text-align: right;
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+#secOut > summary {
+  font-weight: 700;
+  cursor: pointer;
+}
+#btnExport {
+  width: 100%;
+  margin-top: 8px;
 }
 .sticky-actions button.linkish {
   margin-top: 6px;

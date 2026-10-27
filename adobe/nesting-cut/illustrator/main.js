@@ -56,6 +56,7 @@
   var STORE_KEY = 'nongploy.nestingcut.settings.v2';
   // ค่าที่บันทึกจากรุ่นก่อน UI_VERSION: หัวงานเคยเปิดเป็นค่าเริ่มต้น → ปิดให้ครั้งเดียว
   var UI_VERSION = 6;
+  var PANEL_VERSION = '1.6.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
   var PV_W = 300; // กรอบพรีวิวขนาดคงที่ (px) — ต้องตรงกับ #previewBox ใน panel.css
   var PV_H = 400;
   var WIDE_MIN = 734; // แผงกว้างพอวางพรีวิว (334) คู่ช่องคำสั่ง (400) — ตรงกับ --pv-col + --ctl-w ใน panel.css
@@ -328,7 +329,8 @@
     S.exported = false;
     updateFlow();
     renderCost();
-    $('previewSub').textContent = S.stale ? '(ค่าเปลี่ยน — กดคำนวณใหม่)' : '';
+    $('previewSub').textContent = S.stale ? '(กำลังคำนวณใหม่…)' : '';
+    autoCalc();
   }
 
   // ---------------------------------------------------------------- ชิ้นงาน
@@ -492,7 +494,9 @@
       }
       renderParts();
       clearPreview();
-      status('ได้ ' + S.parts.length + ' แบบ จาก “' + res.document + '”', 'ok');
+      updateFlow();
+      status('ได้ ' + S.parts.length + ' แบบ จาก “' + res.document + '” — กำลังเตรียมพรีวิว…', 'ok');
+      autoCalc();
     });
   }
 
@@ -2933,7 +2937,7 @@
     show('#headerOnRow', !tpl);
     show('#buildNormal', !tpl);
     show('#buildTpl', tpl);
-    show('#rectButtRow', !!s.fillSheet);
+    show('#rectButtRow', s.tool === 'nest' && !!s.fillSheet);
     if (tpl) show('#headerFields', false);
     if (tpl) renderTplInfo();
     renderGtInfo();
@@ -2943,10 +2947,10 @@
     });
   }
 
-  // ---------------------------------------------------------------- ทีละขั้น (จัดวางดวง / ไดคัทต่อเนื่อง)
+  // ---------------------------------------------------------------- หน้าเดียว (จัดวางดวง / ไดคัทต่อเนื่อง)
   //
-  // แผงแสดงทีละหน้า: 1 ชิ้นงาน · 2 กระดาษ · 3 สร้างชีต (พรีวิว) · 4 ส่งออก
-  // ปุ่มส้มด้านล่างทำงานของหน้านั้น — กดเลขขั้นด้านบนเพื่อไปหน้าไหนก็ได้
+  // ทุกอย่างอยู่หน้าเดียว ตายตัว: พรีวิวซ้าย เครื่องมือขวา — เปลี่ยนค่าอะไรก็คำนวณใหม่ให้เองทันที (พรีวิวสด)
+  // ปุ่มส้มปุ่มเดียว: ① ดึงชิ้นงานที่เลือก → ② เรียงลงเทมเพลต / สร้างชีตใน Illustrator
 
   var WIZARD = ['nest', 'run'];
 
@@ -2954,93 +2958,66 @@
     return !!S.result && !S.stale;
   }
 
-  // ขั้นที่เสร็จแล้ว (ติ๊กเขียวที่แถบขั้น)
-  function stepDone(n) {
-    if (n === 1) return S.parts.length > 0;
-    if (n === 2) return hasResult();
-    if (n === 3) return !!S.built;
-    return !!S.exported;
-  }
-
   function calcNow() {
     return (S.parts.length ? Promise.resolve() : scan()).then(prepareForTool).then(nestNow);
   }
 
+  // พรีวิวสด: รอให้หยุดแก้ค่าแป๊บหนึ่งแล้วคำนวณใหม่ (ยังไม่แตะไฟล์งาน)
+  var autoTimer = null;
+  function autoCalc() {
+    if (WIZARD.indexOf(S.settings.tool) < 0) return;
+    clearTimeout(autoTimer);
+    autoTimer = setTimeout(function () {
+      if (!S.parts.length || hasResult()) return;
+      if (S.busy) return autoCalc();
+      run(calcNow);
+    }, 350);
+  }
+
   function buildNow() {
-    return buildLayout().then(function () {
-      // เทมเพลต: อยู่หน้าพรีวิว ส่งเข้า Cutting Master 5 ต่อได้เลย (ส่งออกไฟล์ไม่จำเป็น)
-      if (templateMode()) updateFlow();
-      else setPage(4);
-    });
+    return buildLayout().then(updateFlow);
   }
 
-  function goPage(n) {
-    return function () {
-      setPage(n);
-    };
-  }
-
-  // ปุ่มส้มของหน้าปัจจุบัน: [ข้อความ, งาน, แค่เปลี่ยนหน้า]
+  // ปุ่มส้ม: [ข้อความ, งาน]
   function nextAction() {
-    if (S.page === 1) {
-      if (!S.parts.length) return [host.demo ? 'โหลดชิ้นงานตัวอย่าง' : 'ดึงชิ้นงานที่เลือก', scan];
-      return ['ถัดไป › ตั้งกระดาษ', goPage(2), true];
-    }
-    if (S.page === 2) return ['ถัดไป › คำนวณ ดูพรีวิว', goPage(3), true];
-    if (S.page === 3) {
-      if (!S.parts.length) return ['‹ ไปดึงชิ้นงานก่อน', goPage(1), true];
-      if (!hasResult()) return ['คำนวณ — ดูจำนวนดวง', calcNow];
-      if (S.built) return ['ถัดไป › ส่งออก', goPage(4), true];
-      return [templateMode() ? 'เรียงลงเทมเพลตใน Illustrator' : 'สร้างชีตใน Illustrator', buildNow];
-    }
-    return [S.exported ? '✓ ส่งออกแล้ว — ส่งอีกครั้ง' : 'ส่งออกไฟล์', exportAll];
+    var tpl = templateMode();
+    if (!S.parts.length) return [host.demo ? '① โหลดชิ้นงานตัวอย่าง' : '① ดึงชิ้นงานที่เลือก', scan];
+    if (!hasResult()) return ['คำนวณ', calcNow];
+    if (S.built) return [tpl ? '✓ เรียงแล้ว — เรียงใหม่อีกครั้ง' : '✓ สร้างแล้ว — สร้างใหม่อีกครั้ง', buildNow];
+    return [tpl ? '② เรียงลงเทมเพลตใน Illustrator' : '② สร้างชีตใน Illustrator', buildNow];
   }
 
   function stepHint() {
     var isRun = S.settings.tool === 'run';
-    if (S.page === 1) {
-      if (!S.parts.length) return isRun ? 'เลือกสติ๊กเกอร์ต้นแบบ 1 ดวงใน Illustrator แล้วกดปุ่มส้ม' : 'เลือกชิ้นงานใน Illustrator แล้วกดปุ่มส้มด้านล่าง';
-      if (isRun) return 'ได้ต้นแบบแล้ว กด “ถัดไป”';
-      return S.settings.fillSheet ? 'ได้ชิ้นงานแล้ว — เต็มแผ่นใช้แบบแรก ไม่ต้องตั้งจำนวน กด “ถัดไป”' : 'ตรวจจำนวนแต่ละแบบ (ช่องตัวเลขขวามือ) แล้วกด “ถัดไป”';
+    if (!S.parts.length) {
+      return isRun
+        ? 'เลือกสติ๊กเกอร์ต้นแบบ 1 ดวงใน Illustrator แล้วกด ① — พรีวิวขึ้นให้เอง'
+        : 'เลือกชิ้นงานใน Illustrator แล้วกด ① — พรีวิวขึ้นให้เอง';
     }
-    if (S.page === 2) {
-      if (isRun) return 'ตั้งขนาดดวงและกระดาษ แล้วกด “ถัดไป”';
-      return templateMode() ? 'เปิดไฟล์เทมเพลตร้านไว้ แล้วกด “ถัดไป”' : 'เลือกขนาดกระดาษของร้าน แล้วกด “ถัดไป”';
+    if (S.busy) return 'กำลังคำนวณ…';
+    if (S.built) {
+      return templateMode()
+        ? 'เรียงลงเทมเพลตแล้ว ✓ ส่งเข้า Cutting Master 5 ได้เลย — แก้ค่าแล้วกดเรียงใหม่ได้'
+        : 'สร้างชีตแล้ว ✓ — ส่งออกไฟล์ได้ที่ “ส่งออกไฟล์” ด้านล่าง';
     }
-    if (S.page === 3) {
-      if (S.built) return templateMode() ? 'เรียงลงเทมเพลตแล้ว ✓ ส่งเข้า Cutting Master 5 ได้เลย (ขั้นส่งออกไม่ต้องทำก็ได้)' : 'สร้างชีตแล้ว ✓ อยู่ในไฟล์ Illustrator — ไปขั้นส่งออกต่อ';
-      if (hasResult()) return 'ดูพรีวิวว่าได้กี่ดวง โอเคแล้วกด “สร้างชีต” (งานเดิมไม่ถูกย้าย)';
-      return 'กดคำนวณเพื่อดูว่าได้กี่ดวงต่อแผ่น (ยังไม่แตะไฟล์งาน)';
-    }
-    return S.exported ? 'ส่งออกครบแล้ว 🎉 งานต่อไป: กลับไปขั้น 1 ดึงชิ้นงานใหม่' : 'ติ๊กชนิดไฟล์ที่ต้องการ แล้วกด “ส่งออกไฟล์”';
+    if (hasResult()) return 'ปรับค่าได้เลย พรีวิวเปลี่ยนตามทันที — โอเคแล้วกด ② (งานเดิมไม่ถูกย้าย)';
+    return 'กำลังเตรียมพรีวิว…';
   }
 
   function updateFlow() {
     var act = nextAction();
     var btn = $('btnNext');
     btn.textContent = act[0];
-    btn.classList.toggle('done', S.page === 4 && !!S.exported);
-    // ซ่อนแบบยังกินที่ ปุ่มส้มจะได้อยู่ตำแหน่งเดิมทุกหน้า
-    $('btnBack').style.visibility = S.page > 1 ? 'visible' : 'hidden';
+    btn.classList.toggle('done', !!S.built);
     $('stepHint').textContent = stepHint();
-    Array.prototype.forEach.call(document.querySelectorAll('#stepper li'), function (li) {
-      var n = parseInt(li.getAttribute('data-step'), 10);
-      var done = stepDone(n);
-      li.classList.toggle('done', done);
-      li.classList.toggle('current', n === S.page);
-      li.querySelector('i').textContent = done && n !== S.page ? '✓' : n;
-    });
+    $('btnExport').textContent = S.exported ? '✓ ส่งออกแล้ว — ส่งอีกครั้ง' : 'ส่งออกไฟล์';
   }
 
+  // หน้าเดียวแล้ว — เก็บไว้ให้ส่วนอื่นเรียกได้ (เลื่อนกลับบนสุด)
   function setPage(n) {
-    S.page = Math.max(1, Math.min(4, n));
-    applyVisibility();
-    $('scroller').scrollTop = 0;
+    S.page = n;
     updateFlow();
-    if (S.page !== 3) return;
-    // เข้าหน้าสร้างชีตแล้วยังไม่มีผล (หรือค่าเปลี่ยน) → คำนวณให้เลย
-    if (S.parts.length && !hasResult() && !S.busy) run(calcNow);
-    else if (S.result) drawPreview();
+    if (S.result) drawPreview();
   }
 
   // ---------------------------------------------------------------- การ์ด “วันนี้จะทำอะไร?”
@@ -3125,18 +3102,17 @@
   };
   var NO_PREVIEW = ['dim', 'number', 'hotkey'];
 
-  // ส่วนที่แสดง = ตรงกับเครื่องมือ · จัดวางดวง / ไดคัทต่อเนื่องโชว์เฉพาะการ์ดของหน้าปัจจุบัน
-  // (พรีวิวที่ย้ายไปช่องซ้ายของจอกว้างเห็นตลอด)
+  // ส่วนที่แสดง = ตรงกับเครื่องมือ (พรีวิวที่ย้ายไปช่องซ้ายของจอกว้างเห็นตลอด)
   function applyVisibility() {
     var tool = S.settings.tool;
-    var wizard = WIZARD.indexOf(tool) >= 0;
     Array.prototype.forEach.call(document.querySelectorAll('[data-for]'), function (e) {
       e.hidden = e.getAttribute('data-for').split(' ').indexOf(tool) < 0;
     });
-    Array.prototype.forEach.call(document.querySelectorAll('[data-page]'), function (e) {
-      var side = !!e.closest('#previewSide');
-      e.classList.toggle('off-page', wizard && !side && parseInt(e.getAttribute('data-page'), 10) !== S.page);
+    // หน้าเดียว: แสดงทุกการ์ดของเครื่องมือ (ไม่ซ่อนตามขั้นแล้ว)
+    Array.prototype.forEach.call(document.querySelectorAll('.off-page'), function (e) {
+      e.classList.remove('off-page');
     });
+    syncFields(); // ช่องที่โชว์ตามตัวเลือก (data-for ข้างบนเพิ่งเปิดทุกอย่างของเครื่องมือนี้)
     if ($('toolSelect').value !== tool) $('toolSelect').value = tool;
   }
 
@@ -3468,14 +3444,10 @@
       if (act[2]) act[1]();
       else run(act[1]);
     };
-    $('btnBack').onclick = function () {
-      if (!S.busy) setPage(S.page - 1);
+    $('btnExport').onclick = function () {
+      run(exportAll);
     };
-    Array.prototype.forEach.call(document.querySelectorAll('#stepper li'), function (li) {
-      li.onclick = function () {
-        if (!S.busy) setPage(parseInt(li.getAttribute('data-step'), 10));
-      };
-    });
+    $('appVer').textContent = 'รุ่น ' + PANEL_VERSION;
     $('btnStRead').onclick = function () {
       run(stampRead);
     };

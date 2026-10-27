@@ -29,14 +29,8 @@
       <button type="button" id="btnClear" class="ghost icon" title="ล้างรายการชิ้นงาน ผลคำนวณ และพรีวิว (เลือกลบชีตเก่าในไฟล์ได้)">ล้าง</button>
     </header>
 
-    <!-- ขั้นตอนของจัดวางดวง / ไดคัทต่อเนื่อง: ทีละหน้า กดขั้นไหนก็ได้ -->
+    <!-- จัดวางดวง / ไดคัทต่อเนื่อง: หน้าเดียว — บรรทัดบอกว่าตอนนี้ต้องทำอะไร -->
     <nav class="steps" id="steps" data-for="nest run">
-      <ol id="stepper">
-        <li data-step="1"><i>1</i><span>ชิ้นงาน</span></li>
-        <li data-step="2"><i>2</i><span>กระดาษ</span></li>
-        <li data-step="3"><i>3</i><span>สร้างชีต</span></li>
-        <li data-step="4"><i>4</i><span>ส่งออก</span></li>
-      </ol>
       <p id="stepHint" class="step-hint"></p>
     </nav>
 
@@ -452,12 +446,69 @@
 
     <!-- ================= จัดวางดวง / ไดคัทต่อเนื่อง: แสดงทีละหน้า (data-page) ================= -->
 
-    <!-- หน้า 1: ชิ้นงาน -->
+    <!-- พรีวิวสด (จอกว้างย้ายไปช่องซ้าย เห็นตลอด · จอแคบอยู่บนสุด) -->
+    <div id="previewSlot">
+      <section class="card preview-card" id="previewCard" data-for="nest run" data-page="3">
+        <h2>
+          พรีวิว <span id="previewSub" class="sub"></span><span class="grow"></span>
+          <button type="button" id="btnNest" class="ghost mini" title="จัดวางใหม่ด้วยค่าล่าสุด (ยังไม่แตะไฟล์งาน)">↻ คำนวณใหม่</button>
+          <button type="button" id="btnLayout" class="ghost mini" title="สลับตำแหน่งพรีวิว">⇆</button>
+        </h2>
+        <div id="stats" class="stats" hidden></div>
+        <!-- ต้นทุน: ใส่ราคากระดาษ → ตกชิ้นละกี่บาท (จำราคาแยกตามขนาดกระดาษ) -->
+        <div class="cost" id="costRow">
+          <label class="cost-in"
+            >ราคากระดาษ
+            <input id="sheetPrice" type="number" min="0" step="0.5" inputmode="decimal" placeholder="เช่น 50" data-setting="sheetPrice" />
+            <span id="priceUnit">บาท/แผ่น</span></label
+          >
+          <div id="costOut" class="cost-out"></div>
+        </div>
+        <!-- กรอบพรีวิวขนาดคงที่ ไม่ยืดตามแผง · หลายแผ่นกด ‹ › -->
+        <div class="preview pv-fixed" id="previewBox">
+          <div id="previewEmpty" class="empty-preview">ยังไม่ได้คำนวณ</div>
+          <canvas id="preview" hidden></canvas>
+        </div>
+        <div class="pv-foot">
+          <span id="pvPager" class="pv-pager" hidden>
+            <button type="button" id="pvPrev" class="ghost mini" title="แผ่นก่อนหน้า">‹</button>
+            <span id="pvPage"></span>
+            <button type="button" id="pvNext" class="ghost mini" title="แผ่นถัดไป">›</button>
+          </span>
+          <span id="previewInfo" class="preview-info"></span>
+        </div>
+      </section>
+      <section class="card preview-card" id="vecPreviewCard" data-for="corner led stamp">
+        <h2><span id="vecTitle">ตัวอย่าง</span> <span id="vecSub" class="sub"></span></h2>
+        <div class="preview" id="vecBox">
+          <div id="vecEmpty" class="empty-preview">เลือกชิ้นงานใน Illustrator แล้วกด “① วิเคราะห์ / ดูตัวอย่าง”</div>
+          <canvas id="vecCanvas" hidden></canvas>
+        </div>
+        <div id="vecLegend" class="legend"></div>
+        <p id="vecReport" class="dc-report"></p>
+      </section>
+      <section class="card preview-card" id="dcPreviewCard" data-for="shape">
+        <h2>ตัวอย่างเส้นไดคัท <span id="dcSub" class="sub"></span></h2>
+        <div class="preview" id="dcBox">
+          <div id="dcEmpty" class="empty-preview">เลือกชิ้นงานใน Illustrator แล้วกด “① อ่านรูป / ดูตัวอย่าง”</div>
+          <canvas id="dcCanvas" hidden></canvas>
+        </div>
+        <p id="dcReport" class="dc-report"></p>
+        <div class="row">
+          <button id="btnDcRead" class="ghost">① อ่านรูป / ดูตัวอย่าง</button>
+          <button id="btnDcMake">② สร้างเส้นไดคัท</button>
+        </div>
+        <div class="progress"><div id="dcBar"></div></div>
+        <div id="dcStatus" class="status">เลือกชิ้นงานแล้วกดอ่านรูป</div>
+      </section>
+    </div>
+
+    <!-- ① ชิ้นงาน -->
     <section class="card" id="secParts" data-for="nest run" data-page="1">
-      <h2><span data-for="nest">ชิ้นงาน</span><span data-for="run">ต้นแบบ 1 ดวง</span></h2>
+      <h2>① <span data-for="nest">ชิ้นงาน</span><span data-for="run">ต้นแบบ 1 ดวง</span></h2>
       <ol id="partsEmpty" class="how">
         <li>ใน Illustrator คลิกเลือก<span data-for="nest">ชิ้นงาน (ภาพ + เส้นตัดสีแดง) กี่ชิ้นก็ได้</span><span data-for="run">สติ๊กเกอร์ 1 ดวง (ภาพ + เส้นตัด)</span></li>
-        <li>กลับมากดปุ่มส้ม <b>“ดึงชิ้นงานที่เลือก”</b> ด้านล่าง</li>
+        <li>กดปุ่มส้ม <b>“① ดึงชิ้นงานที่เลือก”</b> ด้านล่าง — พรีวิวขึ้นให้เอง</li>
         <li class="hint" data-for="nest">ตั้งจำนวนไว้ในชื่อได้ เช่น “โลโก้ร้าน x20”</li>
       </ol>
       <ul id="partsList" class="parts"></ul>
@@ -543,7 +594,7 @@
       <label class="check big" data-for="nest"
         ><input id="fillSheet" type="checkbox" data-setting="fillSheet" /> <span><b>เต็มแผ่น</b> — ใส่ดวงแบบแรกให้ได้มากที่สุด ไม่ต้องตั้งจำนวน</span></label
       >
-      <label class="check" id="rectButtRow" data-for="nest"
+      <label class="check" id="rectButtRow"
         ><input id="rectButt" type="checkbox" data-setting="rectButt" /> ป้ายสี่เหลี่ยม: วางชิดกันเป็นตาราง ตัดเส้นตรงยาว (แบบไฟล์งานสีดำ)</label
       >
       <label data-for="nest" title="วัดจากเส้นไดคัทถึงเส้นไดคัท ต้องมากกว่า 2 เท่าของ Bleed"
@@ -651,63 +702,6 @@
       </div>
     </details>
 
-    <!-- หน้า 3: พรีวิว (จอกว้างย้ายไปช่องซ้าย เห็นตลอด) -->
-    <div id="previewSlot">
-      <section class="card preview-card" id="previewCard" data-for="nest run" data-page="3">
-        <h2>
-          พรีวิว <span id="previewSub" class="sub"></span><span class="grow"></span>
-          <button type="button" id="btnNest" class="ghost mini" title="จัดวางใหม่ด้วยค่าล่าสุด (ยังไม่แตะไฟล์งาน)">↻ คำนวณใหม่</button>
-          <button type="button" id="btnLayout" class="ghost mini" title="สลับตำแหน่งพรีวิว">⇆</button>
-        </h2>
-        <div id="stats" class="stats" hidden></div>
-        <!-- ต้นทุน: ใส่ราคากระดาษ → ตกชิ้นละกี่บาท (จำราคาแยกตามขนาดกระดาษ) -->
-        <div class="cost" id="costRow">
-          <label class="cost-in"
-            >ราคากระดาษ
-            <input id="sheetPrice" type="number" min="0" step="0.5" inputmode="decimal" placeholder="เช่น 50" data-setting="sheetPrice" />
-            <span id="priceUnit">บาท/แผ่น</span></label
-          >
-          <div id="costOut" class="cost-out"></div>
-        </div>
-        <!-- กรอบพรีวิวขนาดคงที่ ไม่ยืดตามแผง · หลายแผ่นกด ‹ › -->
-        <div class="preview pv-fixed" id="previewBox">
-          <div id="previewEmpty" class="empty-preview">ยังไม่ได้คำนวณ</div>
-          <canvas id="preview" hidden></canvas>
-        </div>
-        <div class="pv-foot">
-          <span id="pvPager" class="pv-pager" hidden>
-            <button type="button" id="pvPrev" class="ghost mini" title="แผ่นก่อนหน้า">‹</button>
-            <span id="pvPage"></span>
-            <button type="button" id="pvNext" class="ghost mini" title="แผ่นถัดไป">›</button>
-          </span>
-          <span id="previewInfo" class="preview-info"></span>
-        </div>
-      </section>
-      <section class="card preview-card" id="vecPreviewCard" data-for="corner led stamp">
-        <h2><span id="vecTitle">ตัวอย่าง</span> <span id="vecSub" class="sub"></span></h2>
-        <div class="preview" id="vecBox">
-          <div id="vecEmpty" class="empty-preview">เลือกชิ้นงานใน Illustrator แล้วกด “① วิเคราะห์ / ดูตัวอย่าง”</div>
-          <canvas id="vecCanvas" hidden></canvas>
-        </div>
-        <div id="vecLegend" class="legend"></div>
-        <p id="vecReport" class="dc-report"></p>
-      </section>
-      <section class="card preview-card" id="dcPreviewCard" data-for="shape">
-        <h2>ตัวอย่างเส้นไดคัท <span id="dcSub" class="sub"></span></h2>
-        <div class="preview" id="dcBox">
-          <div id="dcEmpty" class="empty-preview">เลือกชิ้นงานใน Illustrator แล้วกด “① อ่านรูป / ดูตัวอย่าง”</div>
-          <canvas id="dcCanvas" hidden></canvas>
-        </div>
-        <p id="dcReport" class="dc-report"></p>
-        <div class="row">
-          <button id="btnDcRead" class="ghost">① อ่านรูป / ดูตัวอย่าง</button>
-          <button id="btnDcMake">② สร้างเส้นไดคัท</button>
-        </div>
-        <div class="progress"><div id="dcBar"></div></div>
-        <div id="dcStatus" class="status">เลือกชิ้นงานแล้วกดอ่านรูป</div>
-      </section>
-    </div>
-
     <!-- หน้า 3: สร้างชีต -->
     <section class="card" id="secBuild" data-for="nest run" data-page="3">
       <h2>สร้างชีตใน Illustrator</h2>
@@ -727,9 +721,9 @@
       </p>
     </section>
 
-    <!-- หน้า 4: ส่งออก -->
-    <section class="card" id="secOut" data-for="nest run" data-page="4">
-      <h2>ส่งออกไฟล์</h2>
+    <!-- ส่งออกไฟล์ (พับไว้ — ส่ง Cutting Master 5 จาก Illustrator ไม่ต้องใช้) -->
+    <details class="card" id="secOut" data-for="nest run" data-page="4">
+      <summary>ส่งออกไฟล์ <span class="sub">PDF · PLT · DXF · รูปส่งลูกค้า</span></summary>
       <div class="checks">
         <label class="check"><input id="outPdf" type="checkbox" data-setting="outPdf" /> PDF (RIP พิมพ์+ตัด)</label>
         <label class="check"><input id="outAi" type="checkbox" data-setting="outAi" /> ไฟล์ .ai</label>
@@ -761,19 +755,20 @@
         <p class="hint">ส่งผ่านปลั๊กอินของเครื่องตัด (Cutting Master / CutStudio / FineCut)? เลือกเส้นตัดในไฟล์แล้วสั่งจากปลั๊กอินนั้น</p>
         <button id="btnSelectCut" class="ghost wide">เลือกเส้นตัดใน Illustrator</button>
       </div>
-    </section>
+      <button type="button" id="btnExport" class="go wide">ส่งออกไฟล์</button>
+    </details>
 
     </div>
 
     <!-- ปุ่มหลัก: ปุ่มเดียวทำขั้นปัจจุบัน (อยู่ล่างสุดเสมอ ตำแหน่งไม่ขยับ) -->
     <section class="card actions sticky-actions" id="actions" data-for="nest run">
       <div class="row nav">
-        <button type="button" id="btnBack" class="ghost back" title="ย้อนกลับขั้นก่อน">‹ ย้อน</button>
-        <button type="button" id="btnNext" class="go">ดึงชิ้นงานที่เลือก</button>
+        <button type="button" id="btnNext" class="go">① ดึงชิ้นงานที่เลือก</button>
       </div>
       <button id="btnGo" class="linkish" data-for="nest" title="ดึงชิ้นงาน → คำนวณ → สร้างชีต → ส่งออก ในปุ่มเดียว">⚡ เจ๊หญิงสั่งลุย! — ทำครบทุกขั้นในปุ่มเดียว</button>
       <div class="progress"><div id="progressBar"></div></div>
       <div id="status" class="status">พร้อมลุย</div>
+      <div id="appVer" class="ver"></div>
     </section>
 
     </div>
