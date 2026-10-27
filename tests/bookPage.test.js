@@ -9,8 +9,8 @@ const ledger = readFileSync(new URL('../public/liff/ledger/index.html', import.m
 
 test('มีทางเข้าสมุดลูกค้าจากหน้างานวันนี้ และทางกลับ', () => {
   // ปุ่มบนแถบล่างของหน้าหลัก — เป็นปุ่มพาไปอีกหน้า ไม่ใช่แท็บ จึงไม่ถือ
-  // data-tab ที่แปลว่า ?tab=book ต้องเปิดได้
-  assert.match(dash, /data-page="[^"]+"[^>]*>.*สมุดลูกค้า/s);
+  // data-tab ที่แปลว่า ?tab=book ต้องเปิดได้ (รื้อระบบแล้วป้ายสั้นลงเป็น "ลูกค้า")
+  assert.match(dash, /data-page="\/app\/book\/"[^>]*>.*ลูกค้า/s);
   assert.ok(!/data-tab="book"/.test(dash));
   assert.match(dash, /if \(b\.dataset\.page\) return void \(location\.href = b\.dataset\.page\)/);
 });
@@ -31,10 +31,16 @@ test('ลิงก์ข้ามหน้าต้องไปถูกที�
     'https://shop.example.com/app/index.html',
   ];
 
-  const target = /data-page="([^"]+)"/.exec(dash)?.[1];
-  assert.ok(target, 'ไม่มีปุ่มพาไปสมุดลูกค้า');
+  // แถบล่างมีปุ่มออกไปหน้าอื่นสองปุ่ม (จด กับ ลูกค้า) — ทุกปุ่มต้องคิดปลายทาง
+  // แล้วไปถูกที่ ไม่ว่าหน้าหลักถูกเปิดด้วยที่อยู่แบบไหน
+  const targets = [...dash.matchAll(/data-page="([^"]+)"/g)].map((m) => m[1]);
+  const toBook = targets.find((t) => t.includes('book'));
+  const toJot = targets.find((t) => t.includes('jot'));
+  assert.ok(toBook, 'ไม่มีปุ่มพาไปสมุดลูกค้า');
+  assert.ok(toJot, 'ไม่มีปุ่มพาไปหน้าจด');
   for (const from of ENTRIES) {
-    assert.equal(new URL(target, from).pathname, '/app/book/', 'เปิดจาก ' + from);
+    assert.equal(new URL(toBook, from).pathname, '/app/book/', 'เปิดจาก ' + from);
+    assert.equal(new URL(toJot, from).pathname, '/app/jot/', 'เปิดจาก ' + from);
   }
 
   // ทางกลับและลิงก์ข้ามหน้าของอีกสองหน้า คิดจากที่อยู่จริงของหน้านั้น
@@ -76,7 +82,7 @@ test('สั่งเปิดแท็บที่ไม่มีอยู่ �
   assert.ok(guard >= 0 && guard < hideAll, 'ยังซ่อนทุกส่วนก่อนเช็กว่ามีแท็บจริงไหม');
 
   assert.match(show, /if \(!view\) \{/);
-  assert.match(show, /retry: \(\) => show\('today'\)/);
+  assert.match(show, /retry: \(\) => show\('home'\)/);
   assert.match(show, /view\.hidden = false;/);
 });
 

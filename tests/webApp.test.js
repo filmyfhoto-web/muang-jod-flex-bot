@@ -38,11 +38,45 @@ test('แถบแอป 3 แท็บ จด·งาน&เงิน·ลู�
       assert.ok(bar.includes(href), `${page} แถบแอปไม่มีลิงก์ ${href}`);
     }
   }
-  // หน้าจัดการงานมีแถบล่างของตัวเองอยู่แล้ว — เพิ่มปุ่มจดให้ครบวง โดยปุ่มสมุด
-  // ยังเป็น data-page ตัวแรก (เทสต์สมุดอ่านตัวแรก)
+  // หน้าจัดการงานใช้แถบล่างของตัวเอง (nav) แต่สามปุ่มเดียวกับแถบแอป:
+  // จด (ออกไปหน้าจด) · งาน & เงิน (แท็บ home ของหน้านี้) · ลูกค้า (ออกไปสมุด)
   const dash = read('index.html');
-  assert.ok(dash.includes('data-page="/app/jot/"'), 'หน้าจัดการงานไม่มีปุ่มกลับไปจด');
-  assert.equal(/data-page="([^"]+)"/.exec(dash)?.[1], '/app/book/', 'ปุ่มสมุดต้องเป็น data-page ตัวแรก');
+  assert.ok(dash.includes('data-page="/app/jot/"'), 'หน้าจัดการงานไม่มีปุ่มไปจด');
+  assert.ok(dash.includes('data-page="/app/book/"'), 'หน้าจัดการงานไม่มีปุ่มไปลูกค้า');
+  assert.ok(dash.includes('data-tab="home"'), 'หน้าจัดการงานไม่มีแท็บ งาน & เงิน');
+});
+
+/* ร้านย้ำอีกรอบ: "ฉันก็ยัง งง กับระบบ ช่วยทำระบบใหม่ให้เลยได้ไหม แล้วดูหน้าตา
+ * เว็บก็เข้าใช้ยาก" — เฟสสองของการรื้อ: หน้าแรกของหน้าจัดการงานเป็น
+ * "งาน & เงิน" ตามแบบร่าง สองตัวเลขใหญ่ + ลิสต์งานแตะได้ + แผ่นปุ่มใหญ่ต่องาน
+ * หน้าเดิมทั้งหมด (คิวละเอียด/ค้างรับ/สรุป/ตั้งค่า) ยังเข้าได้จากปุ่มเล็ก + ?tab=
+ */
+test('หน้าแรกเป็น งาน & เงิน: ตัวเลขจากใบลงบัญชีจริง แตะงานแล้วได้แผ่นปุ่มใหญ่', () => {
+  const dash = read('index.html');
+
+  // เปิดมาที่ home และ deep link เดิม (?tab=/?edit=) ยังเข้าหน้าเดิมได้
+  assert.match(dash, /await show\(TABS\.includes\(want\) \? want : 'home'\)/);
+  assert.ok(dash.includes('<section id="v-home"'), 'ไม่มีหน้า งาน & เงิน');
+
+  // สองตัวเลขหัวหน้าอ่านจาก /ledger (แหล่งเดียวกับใบลงบัญชี) — ไม่คำนวณเอง
+  // โหลดพังขีดไว้ ไม่เดาตัวเลขเงิน (กติกา V2 §4)
+  assert.match(dash, /api\('\/ledger'\)\.catch\(\(\) => null\)/);
+  assert.match(dash, /\$\('h-got'\)\.textContent = led \? thb\(led\.total\) : '—'/);
+  assert.match(dash, /\$\('h-owe'\)\.textContent = led \? thb\(led\.carry\?\.owed \|\| 0\) : '—'/);
+
+  // แผ่นปุ่มใหญ่: เก็บสด/โอนยิง POST /status ตัวเดิมของแผงคิว ใบเสร็จเส้นเดิม
+  // ของหน้าแก้ไข ส่วนแก้ไขเปิด openEdit — ไม่มีเส้นใหม่ให้เพี้ยนจากกัน
+  assert.match(dash, /sheetMoney\('cash'/);
+  assert.match(dash, /sheetMoney\('transfer'/);
+  assert.match(dash, /'\/jobs\/' \+ homeJob\.id \+ '\/status', \{ method: 'POST', body: JSON\.stringify\(\{ money \}\) \}/);
+  assert.match(dash, /'\/jobs\/' \+ homeJob\.id \+ '\/receipt', \{ method: 'POST' \}/);
+  assert.match(dash, /\$\('hs-edit'\)\.onclick/);
+
+  // จ่ายครบแล้วปุ่มเก็บเงินต้องหาย ไม่ชวนเก็บซ้ำ
+  assert.match(dash, /\$\('hs-cash'\)\.hidden = paidUp/);
+
+  // ออกจากหน้าแก้ไขแล้วกลับหน้าแรกใหม่ ไม่หลงไปหน้าเก่า
+  assert.match(dash, /show\(tab === 'edit' \? 'home' : tab\)/);
 });
 
 /* ร้านย้ำ: "อยากสร้างเป็นแอพออกมาค่ะ แต่ก็สามารถทำงานใน ม่วงจดในไลน์ได้" —

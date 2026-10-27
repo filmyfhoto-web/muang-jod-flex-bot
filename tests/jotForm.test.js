@@ -220,11 +220,12 @@ test('quick mode is a sheet: no chat, no summary card, a total bar that stays pu
 });
 
 test('the dashboard opens whichever tab the link asks for', () => {
-  // The rich menu links straight to ?tab=settings and ?tab=pending. The page
-  // used to accept only 'pending' and send everything else to งานวันนี้, so
-  // the ตั้งค่า button would have opened the wrong screen.
+  // The nav keeps a single in-page tab now (งาน & เงิน, the redesigned home),
+  // but the rich menu still links straight to ?tab=settings, ?tab=pending and
+  // friends — those names must stay reachable or a menu button opens the
+  // wrong screen.
   const tabs = [...new Set([...dashboard.matchAll(/data-tab="([a-z]+)"/g)].map((m) => m[1]))];
-  assert.deepEqual(tabs.sort(), ['pending', 'report', 'settings', 'today']);
+  assert.deepEqual(tabs.sort(), ['home']);
 
   const list = /const TABS = \[([^\]]+)\]/.exec(dashboard);
   assert.ok(list, 'no list of tabs the URL may name');
@@ -233,9 +234,13 @@ test('the dashboard opens whichever tab the link asks for', () => {
   // Every button in the nav has to be reachable by a link.
   for (const t of tabs) assert.ok(allowed.includes(t), `?tab=${t} cannot reach its own nav button`);
 
-  // The reverse does not hold: "category" is opened by a link from the chat
-  // and has no home in the nav, because it is "which category", not a place.
-  // But every name the URL may carry must still go somewhere real.
+  // หน้าเดิมไม่มีปุ่มบนแถบแล้ว แต่ริชเมนูกับลิงก์จากแชตยังพาเข้าตรง ๆ —
+  // ชื่อไหนหายจาก TABS เมื่อไหร่ ปุ่มบนเมนูจะพาไปผิดหน้า
+  for (const t of ['home', 'today', 'report', 'pending', 'settings', 'category']) {
+    assert.ok(allowed.includes(t), `?tab=${t} is no longer reachable`);
+  }
+
+  // Every name the URL may carry must still go somewhere real.
   for (const t of allowed) {
     assert.ok(dashboard.includes(`id="v-${t}"`), `?tab=${t} names a view that does not exist`);
     assert.match(dashboard, new RegExp(`LOADERS = \\{[^}]*\\b${t}:`), `?tab=${t} has nothing to load it`);
