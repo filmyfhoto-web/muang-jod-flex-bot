@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test test/migration.test.js test/confirm-pos.test.js test/manual.test.js test/module-sql.test.js test/chain.test.js test/chain-ai.test.js",
-    "test:ui": "node --test test/staff-screen.ui.test.mjs test/chat-to-pick-slip.ui.test.mjs"
+    "test": "node --test test/migration.test.js test/confirm-pos.test.js test/manual.test.js test/module-sql.test.js test/chain.test.js test/chain-ai.test.js test/home-summary.test.js test/module-sql-overview.test.js",
+    "test:ui": "node --test test/staff-screen.ui.test.mjs test/chat-to-pick-slip.ui.test.mjs test/overview-screen.ui.test.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.12"
