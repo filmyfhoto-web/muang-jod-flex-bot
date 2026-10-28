@@ -455,13 +455,8 @@
           <button type="button" id="btnLayout" class="ghost mini" title="สลับตำแหน่งพรีวิว">⇆</button>
         </h2>
         <div id="stats" class="stats" hidden></div>
-        <!-- ต้นทุน: ใส่ราคากระดาษ → ตกชิ้นละกี่บาท (จำราคาแยกตามขนาดกระดาษ) -->
+        <!-- ลูกค้าตกดวงละกี่บาท คิดให้เองจากราคาแผ่นละในช่อง “ข้อมูลงาน & ราคา” -->
         <div class="cost" id="costRow">
-          <label class="cost-in"
-            >ราคากระดาษ
-            <input id="sheetPrice" type="number" min="0" step="0.5" inputmode="decimal" placeholder="เช่น 50" data-setting="sheetPrice" />
-            <span id="priceUnit">บาท/แผ่น</span></label
-          >
           <div id="costOut" class="cost-out"></div>
         </div>
         <!-- กรอบพรีวิวขนาดคงที่ ไม่ยืดตามแผง · หลายแผ่นกด ‹ › -->
@@ -603,20 +598,41 @@
       /></label>
       <label class="check" id="headerOnRow"><input id="headerOn" type="checkbox" data-setting="headerOn" /> ใส่หัวงานด้านบน (โลโก้ + ชื่องาน)</label>
       <div id="headerFields" class="subcard" hidden>
-        <div class="grid2">
-          <label>ชื่องาน <input id="jobName" data-setting="jobName" placeholder="งานสติ๊กเกอร์" /></label>
-          <label>ลูกค้า <input id="customer" data-setting="customer" /></label>
-          <label>หมายเหตุ <input id="jobNote" data-setting="jobNote" /></label>
-          <label data-for="run">วัสดุ <input data-setting="runMaterial" placeholder="เช่น PP ขาวเงา" /></label>
-          <label data-for="run">แกรม <input type="number" min="0" step="1" data-setting="runGram" /></label>
-          <label>สูง (มม.) <input id="headerHeight" type="number" min="8" step="1" data-setting="headerHeight" /></label>
-        </div>
+        <p class="hint">ชื่องาน · ลูกค้า · หมายเหตุ กรอกที่ “ข้อมูลงาน &amp; ราคา” ด้านล่าง</p>
+        <label>สูงของหัวงาน (มม.) <input id="headerHeight" type="number" min="8" step="1" data-setting="headerHeight" /></label>
         <div class="row">
           <button id="btnLogo" class="ghost">เปลี่ยนโลโก้</button>
           <button id="btnLogoReset" class="ghost">ใช้โลโก้นัดพอน</button>
         </div>
         <p id="logoName" class="hint"></p>
       </div>
+    </section>
+
+    <!-- ข้อมูลงาน + ราคาลูกค้า: ใส่ราคาแผ่นละครั้งเดียว ระบบจำไว้ ดวงละกี่บาทเปลี่ยนตามพรีวิวเอง -->
+    <section class="card" id="secJob" data-for="nest run" data-page="2">
+      <h2>ข้อมูลงาน &amp; ราคา <span class="sub">ลูกค้าตกดวงละกี่บาท</span></h2>
+      <div class="grid2">
+        <label>ชื่องาน <input id="jobName" data-setting="jobName" placeholder="งานสติ๊กเกอร์" /></label>
+        <label>ลูกค้า <input id="customer" data-setting="customer" /></label>
+        <label data-for="run">วัสดุ <input data-setting="runMaterial" placeholder="เช่น PP ขาวเงา" /></label>
+        <label data-for="run">แกรม <input type="number" min="0" step="1" data-setting="runGram" /></label>
+      </div>
+      <label class="stack">หมายเหตุ <input id="jobNote" data-setting="jobNote" /></label>
+      <h3 class="sec">ราคาลูกค้า</h3>
+      <div class="grid2 price-in">
+        <label title="ราคาที่ลูกค้าจ่ายต่อแผ่น — จำแยกตามขนาดกระดาษ"
+          ><span>ราคา<span data-price-unit>แผ่นละ</span> (บาท)</span>
+          <input id="sheetPrice" type="number" min="0" step="1" inputmode="decimal" placeholder="เช่น 50" data-setting="sheetPrice" data-price
+        /></label>
+        <label id="orderQtyRow" title="จำนวนดวงที่ลูกค้าสั่ง — ว่างไว้ = คิดตามพรีวิว"
+          >ลูกค้าสั่ง (ดวง)
+          <input id="orderQty" type="number" min="0" step="1" inputmode="numeric" placeholder="ตามพรีวิว" data-setting="orderQty" data-price
+        /></label>
+      </div>
+      <div id="quoteOut" class="quote"></div>
+      <label class="check" id="priceHeadRow" hidden
+        ><input id="priceInHeader" type="checkbox" data-setting="priceInHeader" /> พิมพ์ราคาต่อท้ายหมายเหตุบนหัวงาน</label
+      >
     </section>
 
     <!-- หน้า 2: ค่าละเอียด (ปิดไว้ ไม่ต้องแก้ก็ใช้ได้) -->
@@ -784,6 +800,7 @@
     <script src="core/cnc.js"></script>
     <script src="core/dimension.js"></script>
     <script src="core/pack.js"></script>
+    <script src="core/price.js"></script>
     <script src="core/bridge.js"></script>
     <script src="illustrator/host-bridge.js"></script>
     <script src="illustrator/demo.js"></script>

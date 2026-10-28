@@ -13,6 +13,7 @@
   var G = NC.geometry;
   var L = NC.layout;
   var B = NC.bridge;
+  var P = NC.price;
   var host = window.NPHost || window.NPDemoHost;
   var PT = G.PT_PER_MM;
   var K = 1 / PT;
@@ -56,7 +57,7 @@
   var STORE_KEY = 'nongploy.nestingcut.settings.v2';
   // ค่าที่บันทึกจากรุ่นก่อน UI_VERSION: หัวงานเคยเปิดเป็นค่าเริ่มต้น → ปิดให้ครั้งเดียว
   var UI_VERSION = 6;
-  var PANEL_VERSION = '1.6.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
+  var PANEL_VERSION = '1.7.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
   var PV_W = 300; // กรอบพรีวิวขนาดคงที่ (px) — ต้องตรงกับ #previewBox ใน panel.css
   var PV_H = 400;
   var WIDE_MIN = 734; // แผงกว้างพอวางพรีวิว (334) คู่ช่องคำสั่ง (400) — ตรงกับ --pv-col + --ctl-w ใน panel.css
@@ -101,8 +102,10 @@
     markEvery: 0,
     gtMarks: null, // มาร์ก Graphtec ที่จำจากไฟล์ต้นแบบของร้าน (np_readMarks)
     shopSize: null, // ขนาดงานตัดหน้าร้านที่แก้เอง { w, l } มม.
-    sheetPrice: '', // ราคากระดาษต่อแผ่น (บาท) ของขนาดที่เลือกอยู่
+    sheetPrice: '', // ราคาที่ลูกค้าจ่ายต่อแผ่น (บาท) ของขนาดที่เลือกอยู่ (ม้วน = ต่อเมตร)
     prices: {}, // ราคาแยกตามขนาดกระดาษ { media: บาท }
+    orderQty: '', // จำนวนดวงที่ลูกค้าสั่ง (งานดวงเดียวซ้ำ) — ว่าง = ตามพรีวิว
+    priceInHeader: true, // พิมพ์ราคาต่อท้ายหมายเหตุบนหัวงาน (เมื่อเปิดหัวงาน)
     headerOn: false, // หัวงาน (โลโก้ + ชื่องาน) ด้านบนแผ่น — ปิดไว้ ร้านเปิดเองในขั้น “กระดาษ”
     headerHeight: 18,
     jobName: '',
@@ -1243,67 +1246,124 @@
 
   // ---------------------------------------------------------------- สถิติ + พรีวิว
 
-  // ---------------------------------------------------------------- ต้นทุน
+  // ---------------------------------------------------------------- ราคาลูกค้า
 
-  function priceUnit() {
-    if (S.result) return S.result.plan.roll ? 'บาท/เมตร' : 'บาท/แผ่น';
-    return templateMode() || num('length') > 0 ? 'บาท/แผ่น' : 'บาท/เมตร';
+  // ร้านขายเป็นแผ่น (ม้วน = เมตร)
+  function rollNow() {
+    if (S.result) return !!S.result.plan.roll;
+    return !templateMode() && !(num('length') > 0);
   }
 
   function baht(v) {
-    var d = v >= 100 ? 0 : 2;
-    var t = v.toFixed(d);
-    if (d) t = t.replace(/\.00$/, '');
-    return t.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return P.baht(v);
   }
 
-  // ต้นทุนกระดาษ: แผ่นที่ใช้ × ราคา (ม้วน = เมตรที่ใช้ × ราคา) ÷ จำนวนชิ้นที่วางได้
+  // ช่องราคาที่แก้แล้วคิดใหม่ทันที ไม่ต้องจัดวางใหม่
+  var PRICE_KEYS = ['sheetPrice', 'orderQty'];
+
+  // งานดวงเดียวซ้ำทั้งแผ่น → ใส่จำนวนที่ลูกค้าสั่งได้ คิดจำนวนแผ่นให้
+  function repeatJob(r) {
+    return !!(r && (r.fill || r.run));
+  }
+
+  // ราคาลูกค้า: แผ่นละ X บาท → ตกดวงละกี่บาท (สูตรอยู่ใน core/price.js)
   function costInfo() {
     var r = S.result;
-    var price = parseFloat(S.settings.sheetPrice);
-    if (!r || !(price > 0) || !r.res.placedCount) return null;
+    if (!r || !r.res.placedCount) return null;
     var used = r.sheets.reduce(function (a, sh) {
       return a + sh.length;
     }, 0);
-    var qty = r.plan.roll ? used / 1000 : r.sheets.length;
-    var total = qty * price;
-    return { total: total, per: total / r.res.placedCount, qty: qty, roll: r.plan.roll, price: price, pieces: r.res.placedCount };
+    return P.quote({
+      repeat: repeatJob(r),
+      perSheet: r.sheets.length ? r.sheets[0].placements.length : 0,
+      sheets: r.sheets.length,
+      roll: r.plan.roll,
+      meters: used / 1000,
+      pieces: r.res.placedCount,
+      orderQty: S.settings.orderQty,
+      price: S.settings.sheetPrice,
+    });
+  }
+
+  function unitWord(c) {
+    return c.roll ? 'เมตรละ' : 'แผ่นละ';
+  }
+
+  function qtyText(c) {
+    return c.roll ? Math.round(c.units * 100) / 100 + ' ม.' : c.units + ' แผ่น';
+  }
+
+  // บรรทัดสรุป เช่น “18 แผ่น × 50 = 900 บาท · 504 ดวง” / “แผ่นละ 50 บาท ÷ 28 ดวง”
+  function quoteSum(c) {
+    if (!c.byOrder && !c.roll && c.units === 1) return unitWord(c) + ' ' + baht(c.price) + ' บาท ÷ ' + c.pieces + ' ดวง';
+    return qtyText(c) + ' × ' + baht(c.price) + ' = ' + baht(c.total) + ' บาท · ' + c.pieces + ' ดวง';
   }
 
   function costLine() {
     var c = costInfo();
     if (!c) return '';
-    return 'ต้นทุนกระดาษ ' + baht(c.total) + ' บาท · ตกชิ้นละ ' + baht(c.per) + ' บาท';
+    return 'ลูกค้าตกดวงละ ' + baht(c.per) + ' บาท (' + quoteSum(c) + ')';
   }
 
   function renderCost() {
-    $('priceUnit').textContent = priceUnit();
+    var word = rollNow() ? 'เมตรละ' : 'แผ่นละ';
+    Array.prototype.forEach.call(document.querySelectorAll('[data-price-unit]'), function (e) {
+      e.textContent = word;
+    });
+    renderQuote();
     var out = $('costOut');
     var c = costInfo();
     out.innerHTML = '';
     if (c && S.stale) {
       out.className = 'cost-out empty';
-      out.textContent = 'ค่าเปลี่ยน — กดคำนวณใหม่แล้วจะบอกต้นทุนต่อชิ้น';
+      out.textContent = 'ค่าเปลี่ยน — กำลังคำนวณใหม่…';
       return;
     }
     if (!c) {
       out.className = 'cost-out empty';
-      out.textContent = S.result ? 'ใส่ราคากระดาษ แล้วจะบอกว่าตกชิ้นละกี่บาท' : '';
+      out.textContent = S.result ? 'ใส่ราคา' + word + 'ที่ “ข้อมูลงาน & ราคา” แล้วจะบอกว่าลูกค้าตกดวงละกี่บาท' : 'ลูกค้าตกดวงละกี่บาท จะขึ้นตรงนี้';
       return;
     }
     out.className = 'cost-out';
     var per = el('div', 'cost-per');
-    per.appendChild(el('span', null, 'ตกชิ้นละ'));
+    per.appendChild(el('span', null, 'ลูกค้าตกดวงละ'));
     per.appendChild(el('b', null, baht(c.per)));
     per.appendChild(el('span', null, 'บาท'));
     out.appendChild(per);
-    out.appendChild(
-      el(
-        'div',
-        'cost-sum',
-        (c.roll ? (Math.round(c.qty * 100) / 100) + ' ม.' : c.qty + ' แผ่น') + ' × ' + baht(c.price) + ' = ' + baht(c.total) + ' บาท · ' + c.pieces + ' ชิ้น'
-      )
-    );
+    out.appendChild(el('div', 'cost-sum', quoteSum(c)));
+  }
+
+  // ราคาลูกค้าในส่วน “ข้อมูลงาน & ราคา”
+  function renderQuote() {
+    var box = $('quoteOut');
+    var c = costInfo();
+    box.innerHTML = '';
+    if (!c || S.stale) {
+      box.className = 'quote empty';
+      box.textContent = !S.result
+        ? 'ดึงชิ้นงานก่อน แล้วราคาจะคิดให้เองตามพรีวิว'
+        : S.stale
+        ? 'กำลังคำนวณใหม่…'
+        : 'ใส่ราคาแผ่นละกี่บาท — ระบบจำไว้ใช้งานถัดไป (แยกตามขนาดกระดาษ)';
+      return;
+    }
+    box.className = 'quote';
+    function row(label, value, cls) {
+      var tr = el('div', 'q-row' + (cls ? ' ' + cls : ''));
+      tr.appendChild(el('span', null, label));
+      tr.appendChild(el('b', null, value));
+      box.appendChild(tr);
+    }
+    if (c.byOrder) {
+      row('ลูกค้าสั่ง ' + c.order + ' ดวง', 'ใช้ ' + c.sheets + ' แผ่น (แผ่นละ ' + c.perSheet + ' ดวง)');
+      if (c.spare) row('ได้จริง', c.pieces + ' ดวง (เกิน ' + c.spare + ')');
+    } else if (!c.roll && c.units === 1) {
+      row('1 แผ่น', c.pieces + ' ดวง');
+    } else {
+      row(qtyText(c), c.pieces + ' ดวง');
+    }
+    row('ราคารวม', qtyText(c) + ' × ' + baht(c.price) + ' = ' + baht(c.total) + ' บาท', 'q-cost');
+    row('ลูกค้าตกดวงละ', baht(c.per) + ' บาท', 'q-sell');
   }
 
   function renderStats() {
@@ -1595,7 +1655,13 @@
       ' มม.' +
       (n > 1 ? '  •  แผ่น ' + (i + 1) + '/' + n : '');
     var material = r.run && (s.runMaterial || s.runGram) ? 'วัสดุ ' + [s.runMaterial, s.runGram ? s.runGram + ' แกรม' : ''].filter(Boolean).join(' ') : '';
-    var line3 = [material, s.jobNote, cutter ? 'เครื่องตัด ' + cutter.label : '']
+    var c = s.priceInHeader ? costInfo() : null;
+    var price = '';
+    if (c) {
+      price = unitWord(c) + ' ' + baht(c.price) + ' บาท · ดวงละ ' + baht(c.per) + ' บาท';
+      if (c.byOrder) price += ' · ' + c.order + ' ดวง ' + c.sheets + ' แผ่น ' + baht(c.total) + ' บาท';
+    }
+    var line3 = [material, s.jobNote, price, cutter ? 'เครื่องตัด ' + cutter.label : '']
       .filter(Boolean)
       .join('  •  ');
     return [line1, line2, line3].filter(Boolean);
@@ -2938,6 +3004,8 @@
     show('#buildNormal', !tpl);
     show('#buildTpl', tpl);
     show('#rectButtRow', s.tool === 'nest' && !!s.fillSheet);
+    show('#orderQtyRow', s.tool === 'run' || !!s.fillSheet);
+    show('#priceHeadRow', !!s.headerOn && !tpl);
     if (tpl) show('#headerFields', false);
     if (tpl) renderTplInfo();
     renderGtInfo();
@@ -3119,7 +3187,7 @@
   // ช่องกรอกแบบ “ชื่ออยู่ซ้าย ช่องอยู่ขวา” อ่านง่ายเหมือนแผงของ Illustrator
   function markFields() {
     Array.prototype.forEach.call(document.querySelectorAll('label'), function (l) {
-      if (l.classList.contains('check') || l.classList.contains('cost-in') || l.classList.contains('stack')) return;
+      if (l.classList.contains('check') || l.classList.contains('stack')) return;
       if (l.querySelector('input:not([type="checkbox"]), select')) l.classList.add('field');
     });
   }
@@ -3304,7 +3372,7 @@
           drawVec();
         }
         syncFields();
-        if (key === 'sheetPrice') return renderStats();
+        if (PRICE_KEYS.indexOf(key) >= 0) return priceChanged();
         if (NEST_KEYS.indexOf(key) >= 0) markStale();
         else S.built = false;
         if (S.result && !S.stale) drawPreview();
@@ -3313,14 +3381,26 @@
     var c = L.cutter(S.settings.cutter);
     $('cutterNote').textContent = c ? c.note : '';
     // ราคาอัปเดตทันทีที่พิมพ์ ไม่ต้องรอออกจากช่อง
-    $('sheetPrice').addEventListener('input', function () {
-      S.settings.sheetPrice = this.value;
-      savePrice();
-      saveSettings();
-      renderStats();
+    Array.prototype.forEach.call(document.querySelectorAll('[data-price]'), function (f) {
+      f.addEventListener('input', function () {
+        var key = f.getAttribute('data-setting');
+        S.settings[key] = f.value;
+        if (key === 'sheetPrice') savePrice();
+        saveSettings();
+        priceChanged();
+      });
     });
     renderGtInfo();
     renderLogoName();
+  }
+
+  // ราคาเปลี่ยน: คิดใหม่ทันที (ไม่ต้องจัดวางใหม่) · ถ้าพิมพ์ราคาลงหัวงาน หัวงานในไฟล์ต้องสร้างใหม่
+  function priceChanged() {
+    renderStats();
+    if (S.settings.priceInHeader && S.settings.headerOn && !templateMode()) {
+      S.built = false;
+      if (S.result && !S.stale) drawPreview();
+    }
   }
 
   function renderLogoName() {

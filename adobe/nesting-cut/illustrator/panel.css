@@ -634,38 +634,19 @@ label.stack > select {
   padding: 2px 6px;
 }
 
-/* ต้นทุน: ราคากระดาษ → ตกชิ้นละกี่บาท */
+/* ลูกค้าตกดวงละกี่บาท (คิดจากราคาแผ่นละใน “ข้อมูลงาน & ราคา”) — สูงคงที่ พรีวิวด้านล่างไม่ขยับ */
 .cost {
   width: 300px;
   max-width: 100%;
+  min-height: 56px;
   margin: 0 auto 8px;
   border: 1px solid var(--accent);
   background: var(--accent-soft);
   padding: 6px 8px;
 }
-.cost-in {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  margin: 0;
-}
-.cost-in input {
-  width: 80px;
-  flex: none;
-  margin: 0;
-  text-align: right;
-}
-.cost-out {
-  margin-top: 6px;
-}
 .cost-out.empty {
   color: var(--muted);
   font-size: 11px;
-  margin-top: 4px;
-}
-.cost-out:empty {
-  display: none;
 }
 .cost-per {
   display: flex;
@@ -680,6 +661,50 @@ label.stack > select {
 .cost-sum {
   color: var(--muted);
   font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ราคาลูกค้า: ใช้กี่แผ่น → ราคารวม → ตกดวงละกี่บาท */
+.quote {
+  border: 1px solid var(--line);
+  background: var(--card-2);
+  padding: 6px 8px;
+  margin: 2px 0 6px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.quote.empty {
+  color: var(--muted);
+  font-size: 11px;
+}
+.q-head {
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.q-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0;
+}
+.q-row > span {
+  color: var(--muted);
+}
+.q-row > b {
+  font-weight: 600;
+  text-align: right;
+}
+.q-row.q-cost {
+  border-top: 1px solid var(--line);
+  margin-top: 2px;
+  padding-top: 4px;
+}
+.q-row.q-sell > span,
+.q-row.q-sell > b {
+  color: var(--accent);
+  font-weight: 700;
 }
 
 /* จอกว้าง: พรีวิวซ้าย คำสั่งขวา */
