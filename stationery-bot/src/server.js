@@ -203,7 +203,7 @@ const visits = createVisitTracker();
 const serial = createSerial(); // one customer's messages are handled one at a time, in order
 const MIN = 60 * 1000;
 const contactCfg = (shop) => ({
-  windowMs: (shop.contact?.quietMinutes ?? 20) * MIN,
+  windowMs: (shop.contact?.quietMinutes ?? 60) * MIN, // after a name is tapped: an hour with no customer message (the bot cannot see the admin's replies)
   alertEveryMs: (shop.contact?.alertEveryHours ?? 5) * HOUR, // the admins are told about one customer at most once per this long
   pictureReplyMs: (shop.contact?.pictureReplyMinutes ?? 10) * MIN, // pictures in a row get one thank-you per this long
   visitGapMs: (shop.contact?.sessionGapHours ?? 4) * HOUR, // a new visit starts after this long without a message (or on a new day)

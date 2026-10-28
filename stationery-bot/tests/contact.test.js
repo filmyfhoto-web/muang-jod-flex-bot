@@ -12,12 +12,12 @@ const clock = () => {
   let t = 1_000_000;
   return { now: () => t, tick: (ms) => (t += ms) };
 };
-const WINDOW = 20 * MIN;
+const WINDOW = 60 * MIN;
 
 test('the three people are หญิง, ฟิล์ม, พี่ปิ่น and the bot answers at once', () => {
   assert.deepEqual(shop.contact.people.map((p) => p.name), ['หญิง', 'ฟิล์ม', 'พี่ปิ่น']);
   assert.equal(shop.replyDelaySeconds, 0);
-  assert.equal(shop.contact.quietMinutes, 20);
+  assert.equal(shop.contact.quietMinutes, 60);
 });
 
 test('the contact card shows the three names as buttons that send "ติดต่อ <name>"', () => {
@@ -57,16 +57,16 @@ test('"the bot did not understand" alerts: once per customer per window, per cus
   assert.equal(st.alertDue('u1', win), true);
 });
 
-test('once a name is tapped the bot is quiet for 20 minutes of silence, each message extends it', () => {
+test('once a name is tapped the bot is quiet for an hour of silence, each message extends it', () => {
   const c = clock();
   const st = createContactState(c.now);
   st.choose('u1');
   assert.equal(st.isQuiet('u1', WINDOW), true);
-  c.tick(15 * MIN);
-  assert.equal(st.isQuiet('u1', WINDOW), true); // a message at 15 min extends the window
-  c.tick(15 * MIN);
+  c.tick(45 * MIN);
+  assert.equal(st.isQuiet('u1', WINDOW), true); // a message at 45 min extends the window
+  c.tick(45 * MIN);
   assert.equal(st.isQuiet('u1', WINDOW), true);
-  c.tick(21 * MIN); // 20+ minutes of nothing
+  c.tick(61 * MIN); // an hour of nothing
   assert.equal(st.isQuiet('u1', WINDOW), false); // BOT MODE again
 });
 
