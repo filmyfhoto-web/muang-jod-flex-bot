@@ -17,9 +17,9 @@ test('wait: none by default; when set it spares buttons and two-step questions',
   assert.equal(waitFor(shop, 'ขอสอบถามหน่อยค่ะ'), 0);
   assert.equal(waitFor({ ...shop, replyDelaySeconds: 90 }, 'สวัสดีค่ะ'), 90);
   const slow = { ...shop, replyDelaySeconds: 90 };
-  for (const b of ['เวลาเปิดร้าน', 'สั่งของ', 'อุปกรณ์การเรียน 2-69', 'ที่ตั้งร้าน']) assert.equal(waitFor(slow, b), 0, b);
+  for (const b of ['เวลาเปิด - ปิด', 'ที่ตั้งร้าน']) assert.equal(waitFor(slow, b), 0, b);
   assert.equal(waitFor(slow, 'ร.ร.บ้านกอก', { awaitingSchool: true }), 0);
-  assert.ok(isMenuText(shop, 'เวลาเปิดร้านค่ะ'));
+  assert.ok(isMenuText(shop, 'เวลาเปิด - ปิดค่ะ'));
 });
 
 test('the wait can be changed or switched off', () => {

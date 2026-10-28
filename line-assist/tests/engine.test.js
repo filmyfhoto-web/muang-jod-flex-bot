@@ -16,7 +16,7 @@ test('an answer the shop has set up: one free reply, with the topic buttons unde
   assert.equal(m.type, 'flex');
   assert.match(flexText(m), /07\.30 - 18\.00/);
   assert.equal(m.sender, undefined); // same face as the shop's own messages
-  assert.deepEqual(m.quickReply.items.map((i) => i.action.text ?? i.action.uri), ['เวลาเปิดร้าน', 'สั่งของ', 'อุปกรณ์การเรียน 2-69', 'ที่ตั้งร้าน']);
+  assert.deepEqual(m.quickReply.items.map((i) => i.action.text ?? i.action.uri), ['เวลาเปิด - ปิด', 'ที่ตั้งร้าน']);
 });
 
 test('the shop picture can be switched on as the sender\'s avatar', async () => {
@@ -26,13 +26,12 @@ test('the shop picture can be switched on as the sender\'s avatar', async () => 
 });
 
 test('with the shop\'s own buttons known, they are the ones under our answers too', async () => {
-  const chips = shopChips({}, 'https://x.supabase.co/functions/v1/line-assets');
+  const chips = shopChips({});
   const t = setup({ shop: makeShop({ chips }) });
   await t.say(CUSTOMER, 'ร้านเปิดกี่โมงคะ');
   const items = lastReply(t).messages[0].quickReply.items;
-  assert.deepEqual(items.map((i) => i.action.label), ['สั่งซื้อสินค้า', 'ส่งเอกสารโครงการ', 'คุยกับแอดมิน', 'เวลาเปิดร้าน', 'สั่งของ', 'อุปกรณ์การเรียน 2-69', 'ที่ตั้งร้าน']);
-  assert.equal(items[0].action.type, 'uri');
-  assert.equal(items[0].imageUrl, 'https://x.supabase.co/functions/v1/line-assets/i/cart.png');
+  assert.deepEqual(items.map((i) => i.action.label), ['เวลาเปิด - ปิด', 'ที่ตั้งร้าน']);
+  assert.equal(items[0].action.type, 'message');
 });
 
 test('what the bot does not know gets no reply and no alert', async () => {

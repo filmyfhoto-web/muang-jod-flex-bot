@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildShop, modeOf, DEFAULT_ADMINS } from '../src/config.js';
-import { shopChips } from '../src/chips.js';
+import { shopChips, chipTexts } from '../src/chips.js';
 import { IDS, NOTES } from './_shop.js';
 
 const ADMINS = Object.entries(IDS).map(([name, userId]) => ({ name, userId }));
@@ -15,7 +15,7 @@ test('no settings at all: nobody to offer, quiet for the shop\'s 24 hours, the s
   assert.equal(s.senderIcon, false);
   assert.equal(s.engineGreeting, false);
   assert.equal(s.assetBase, '');
-  assert.equal(s.chips.length, 7);
+  assert.equal(s.chips.length, 2);
   assert.equal(modeOf(null), 'off');
 });
 
@@ -46,24 +46,19 @@ test('quiet time follows the shop\'s silence_hours unless our row says otherwise
   assert.equal(buildShop({ alertEveryHours: 'x', burstSeconds: -1 }).contact.burstSeconds, 6);
 });
 
-test('the buttons under our answers are the shop\'s: same order, same words, same pictures', () => {
-  const chips = shopChips({}, ICONS);
-  assert.deepEqual(chips.map((c) => c.action.label), ['สั่งซื้อสินค้า', 'ส่งเอกสารโครงการ', 'คุยกับแอดมิน', 'เวลาเปิดร้าน', 'สั่งของ', 'อุปกรณ์การเรียน 2-69', 'ที่ตั้งร้าน']);
-  assert.deepEqual(chips.map((c) => c.action.type), ['uri', 'message', 'message', 'message', 'message', 'message', 'message']);
-  assert.equal(chips[0].action.uri, 'https://www.nattagroup.com');
-  assert.deepEqual(chips.slice(0, 3).map((c) => c.imageUrl), [`${ICONS}/i/cart.png`, `${ICONS}/i/doc.png`, `${ICONS}/i/chat.png`]);
-  assert.equal(chips[3].imageUrl, undefined); // the four topics have no picture, as in the shop
+test('the buttons under our answers are the shop\'s topics only, with the same words', () => {
+  const chips = shopChips({});
+  assert.deepEqual(chips.map((c) => c.action.label), ['เวลาเปิด - ปิด', 'ที่ตั้งร้าน']);
+  assert.deepEqual(chips.map((c) => c.action.type), ['message', 'message']);
+  assert.ok(chips.every((c) => c.imageUrl === undefined)); // the topics have no picture, as in the shop
 
-  const custom = shopChips({ admin_label: 'ถามแอดมิน', links: [{ url: 'https://shop.example/' }], old_chips: ['เวลาเปิดร้าน', 'ที่ตั้งร้าน'] }, '');
-  assert.deepEqual(custom.map((c) => c.action.label), ['สั่งซื้อสินค้า', 'ส่งเอกสารโครงการ', 'ถามแอดมิน', 'เวลาเปิดร้าน', 'ที่ตั้งร้าน']);
-  assert.equal(custom[0].action.uri, 'https://shop.example/');
-  assert.ok(custom.every((c) => c.imageUrl === undefined)); // no picture folder, no pictures
-  // the shop's "card" style leaves out the two big buttons
-  assert.deepEqual(shopChips({ menu_style: 'card' }, '').map((c) => c.action.label), ['ส่งเอกสารโครงการ', 'เวลาเปิดร้าน', 'สั่งของ', 'อุปกรณ์การเรียน 2-69', 'ที่ตั้งร้าน']);
+  const custom = shopChips({ admin_label: 'ถามแอดมิน', links: [{ url: 'https://shop.example/' }], old_chips: ['เวลาเปิดร้าน', 'ที่ตั้งร้าน'] });
+  assert.deepEqual(custom.map((c) => c.action.label), ['เวลาเปิดร้าน', 'ที่ตั้งร้าน']);
   // never more than LINE shows, never a label longer than LINE allows
-  const many = shopChips({ old_chips: Array.from({ length: 30 }, (_, i) => `หัวข้อยาวมากมากมากมากมาก ${i}`) }, '');
+  const many = shopChips({ old_chips: Array.from({ length: 30 }, (_, i) => `หัวข้อยาวมากมากมากมากมาก ${i}`) });
   assert.ok(many.length <= 13 && many.every((c) => c.action.label.length <= 20));
-  assert.equal(buildShop({}, { bot: { admin_label: 'ถามแอดมิน' }, iconsBase: ICONS }).chips[2].action.text, 'ถามแอดมิน');
+  // the admin's words are still a request for a person and a tap, though their button is on the picture now
+  assert.ok(chipTexts({ admin_label: 'ถามแอดมิน' }).includes('ถามแอดมิน'));
 });
 
 test('the shop\'s own "talk to the admin" button counts as asking for a person, and its buttons count as taps', () => {

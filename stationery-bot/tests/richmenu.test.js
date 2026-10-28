@@ -35,7 +35,7 @@ test('the menu is one row of equal tappable columns, open by default, inside LIN
   assert.deepEqual(m.size, { width: 2500, height: 843 });
   assert.equal(m.selected, true);
   assert.ok([...m.chatBarText].length <= 14);
-  assert.equal(m.areas.length, 3);
+  assert.equal(m.areas.length, 2);
   let x = 0;
   for (const a of m.areas) {
     assert.equal(a.bounds.x, x); // no gaps, no overlap
@@ -46,7 +46,7 @@ test('the menu is one row of equal tappable columns, open by default, inside LIN
     assert.ok([...a.action.label].length <= 20);
   }
   assert.equal(x, WIDTH); // the columns cover the whole width
-  assert.deepEqual(m.areas.map((a) => a.action.text), ['สั่งของ', 'ส่งเอกสารโครงการ', 'ติดต่อแอดมิน']);
+  assert.deepEqual(m.areas.map((a) => a.action.text), ['สั่งของ', 'ติดต่อแอดมิน']);
   assert.equal(m.areas[0].bounds.y, 150); // the title strip is not tappable
 });
 
@@ -158,7 +158,7 @@ test('admin commands: "ติดตั้งเมนู" / "ลบเมนู"
 });
 
 test('what a menu button or a topic chip sends is recognised as a tap', () => {
-  for (const t of ['สั่งของ', 'ติดต่อแอดมิน', 'ส่งเอกสารโครงการ', 'เวลาเปิดร้าน', 'ที่ตั้งร้าน', 'อุปกรณ์การเรียน 2-69', 'สั่งของค่ะ']) assert.equal(isMenuTap(t, shop), true, t);
+  for (const t of ['สั่งของ', 'ติดต่อแอดมิน', 'เวลาเปิด - ปิด', 'ที่ตั้งร้าน', 'สั่งของค่ะ']) assert.equal(isMenuTap(t, shop), true, t);
   for (const t of ['xyz', 'สั่งของ 3 กล่อง', '', 'ขอถามหน่อย']) assert.equal(isMenuTap(t, shop), false, t);
 });
 

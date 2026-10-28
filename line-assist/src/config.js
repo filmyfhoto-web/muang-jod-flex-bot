@@ -105,7 +105,7 @@ export function buildShop(row, { bot = null, iconsBase = '' } = {}) {
   // the shop's own "talk to the admin" button counts as asking for a person, and its buttons are ours too
   const adminLabel = String(b.admin_label ?? '').trim() || DEFAULT_ADMIN_LABEL;
   shop.contact.buttonAliases = [...new Set([...(shop.contact.buttonAliases ?? []), adminLabel])];
-  shop.chips = shopChips(b, iconsBase);
+  shop.chips = shopChips(b);
   shop.menuTexts = chipTexts(b);
 
   shop.paused = c.paused === true;

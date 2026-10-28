@@ -101,7 +101,7 @@ test('menu card: follow, first message after 60 minutes, and "เมนู"; not
   assert.equal(t.sent()[1].actions.length, 3);
   assert.equal(t.sent()[1].baseUrl, 'https://proj.supabase.co/functions/v1/line-assets/qm/v2');
   assert.deepEqual(t.sent()[1].actions.map((a) => a.type === 'uri' ? a.linkUri : a.text), ['https://www.nattagroup.com', 'ส่งเอกสารโครงการ', 'คุยกับแอดมิน']);
-  assert.deepEqual(t.sent()[1].quickReply.items.map((i) => i.action.label).slice(0, 4), ['สั่งซื้อสินค้า', 'ส่งเอกสารโครงการ', 'คุยกับแอดมิน', 'เวลาเปิดร้าน']);
+  assert.deepEqual(t.sent()[1].quickReply.items.map((i) => i.action.label), ['เวลาเปิด - ปิด', 'ที่ตั้งร้าน']); // the top quick bar: only the shop's two topics
   assert.ok(t.fake.chatOf(OWNER).menu_ms);
   // first message right after: same visit, so it is NOT answered with a second menu
   const before = t.replies().length;
@@ -118,12 +118,12 @@ test('menu card: follow, first message after 60 minutes, and "เมนู"; not
   assert.equal(t.replies().length, before + 2);
 });
 
-test('menu card: the four old buttons are not answered with the menu, they go to the Render bot', async () => {
+test('menu card: the two old buttons are not answered with the menu, they go to the Render bot', async () => {
   const t = await setup({ line_bot: settings({ menu_card: true }), chat: { [OWNER]: { mode: 'bot', seen_ms: 0 } } });
   t.clock.t += 5 * HOUR;
-  for (const w of ['เวลาเปิดร้าน', 'สั่งของ', 'อุปกรณ์การเรียน 2-69', 'ที่ตั้งร้าน']) await t.send(textEv(w));
+  for (const w of ['เวลาเปิด - ปิด', 'ที่ตั้งร้าน']) await t.send(textEv(w));
   assert.equal(t.replies().length, 0);
-  assert.deepEqual(t.got.map((e) => e.message.text), ['เวลาเปิดร้าน', 'สั่งของ', 'อุปกรณ์การเรียน 2-69', 'ที่ตั้งร้าน']);
+  assert.deepEqual(t.got.map((e) => e.message.text), ['เวลาเปิด - ปิด', 'ที่ตั้งร้าน']);
 });
 
 // ---- talk to an admin -------------------------------------------------------------------------------------------

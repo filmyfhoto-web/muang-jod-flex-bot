@@ -261,7 +261,7 @@ test('the shop\'s own settings are read: its people, its buttons, its silence ti
   r.store.config.line_bot = { admin_label: 'ถามแอดมิน', silence_hours: 12, old_chips: ['เวลาเปิดร้าน'], admins: [{ name: 'หญิง', note: 'ของ' }] };
   await r.post(batch(textEvent(CUSTOMER, 'ร้านเปิดกี่โมง')));
   const items = r.log.replies[0].messages[0].quickReply.items;
-  assert.deepEqual(items.map((i) => i.action.label), ['สั่งซื้อสินค้า', 'ส่งเอกสารโครงการ', 'ถามแอดมิน', 'เวลาเปิดร้าน']);
+  assert.deepEqual(items.map((i) => i.action.label), ['เวลาเปิดร้าน']);
   await r.post(batch(textEvent(CUSTOMER2, 'สั่งงาน', 2))); // another customer, so the first one's burst window does not apply
   assert.match(JSON.stringify(r.log.replies.at(-1).messages), /คุยกับหญิง/);
   assert.ok(!/คุยกับฟิล์ม/.test(JSON.stringify(r.log.replies.at(-1).messages))); // only the people the shop lists

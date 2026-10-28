@@ -41,7 +41,7 @@ export const BOT_DEFAULT = {
   menu_card: true,
   menu_gap_min: 60,
   menu_greet: 'สวัสดีค่ะ ร้านนัฐภรณ์ เชียงกลาง ยินดีให้บริการค่ะ 🙏',
-  old_chips: ['เวลาเปิดร้าน', 'สั่งของ', 'อุปกรณ์การเรียน 2-69', 'ที่ตั้งร้าน'], // ปุ่มลัดของบอทเดิม (Render) · กดแล้วส่งต่อให้บอทเดิมตอบ
+  old_chips: ['เวลาเปิด - ปิด', 'ที่ตั้งร้าน'], // ปุ่มลัดด้านบน (เจ้าของ: เหลือแค่เวลาเปิด-ปิด กับที่ตั้งร้าน) · กดแล้วส่งต่อให้บอทเดิมตอบ
   // (CS ต่อ · เจ้าของเลือกแบบ ก: ข้อความทักทาย + ปุ่มลัดมีไอคอนสี) chips = แบบ ก · card = การ์ดภาพ (แบบ ข) · both = การ์ด + ปุ่มลัดแบบ ก
   menu_style: 'chips',
   menu_hint: 'เลือกเมนูด้านล่างได้เลยนะคะ',
@@ -132,16 +132,14 @@ export function adminPickMessage(cfg) {
 }
 export const adminPickText = (cfg) => 'เลือกแอดมินที่ต้องการคุยด้วยค่ะ 🙏\n' + (cfg.admins || []).map((a) => '• ' + a.name + (a.note ? ' (' + a.note + ')' : '')).join('\n') + '\nกดชื่อด้านล่าง หรือพิมพ์ "คุยกับ" ตามด้วยชื่อ'
 export const adminPickedText = (a, cfg) => '✓ เลือกคุยกับ ' + a.name + (a.note ? ' (' + a.note + ')' : '') + ' แล้วค่ะ\nพิมพ์ข้อความหรือส่งรูปได้เลย ' + a.name + ' จะตอบในแชทนี้นะคะ 🙏\n(กลับไปที่เมนู พิมพ์ "' + cfg.resume_word + '")'
-// (CS) การ์ดเมนูภาพแรก (imagemap 3 ช่อง = ภาพเดียวกับริชเมนู) + ปุ่มลัด: ส่งเอกสารโครงการ (ไอคอน) + ปุ่มเดิมของบอทเดิม
+// (CS) การ์ดเมนูภาพแรก (imagemap 3 ช่อง = ภาพเดียวกับริชเมนู เดิม) · ปุ่มลัดด้านบนเหลือเฉพาะหัวข้อของร้าน
 export const MENU_DOC_TEXT = 'ส่งเอกสารโครงการ'
 const shopUrl = (cfg) => (cfg.links && cfg.links[0] && cfg.links[0].url) || 'https://www.nattagroup.com'
-export function menuChips(cfg, assets) {
-  const A = String(assets || '').replace(/\/+$/, '')
-  const doc = { type: 'action', action: { type: 'message', label: MENU_DOC_TEXT, text: MENU_DOC_TEXT } }
-  if (A) doc.imageUrl = A + '/i/doc.png'
-  return [doc].concat((cfg.old_chips || []).map((x) => ({ type: 'action', action: { type: 'message', label: str(x, 20), text: x } }))).slice(0, 13)
+// ปุ่มลัดด้านบน = หัวข้อที่ร้านตั้งไว้เท่านั้น (old_chips) · สั่งซื้อสินค้า / ส่งเอกสารโครงการ / คุยกับแอดมิน อยู่บนริชเมนูและการ์ดรูปแล้ว
+export function menuChips(cfg) {
+  return (cfg.old_chips || []).map((x) => ({ type: 'action', action: { type: 'message', label: str(x, 20), text: x } })).slice(0, 13)
 }
-export function menuCardMessages(cfg, assets, iconChips) {
+export function menuCardMessages(cfg, assets) {
   const A = String(assets || '').replace(/\/+$/, '')
   if (!A) return menuCardText(cfg, '')
   return [
@@ -156,27 +154,15 @@ export function menuCardMessages(cfg, assets, iconChips) {
         { type: 'message', label: MENU_DOC_TEXT, text: MENU_DOC_TEXT, area: { x: 347, y: 0, width: 346, height: 351 } },
         { type: 'message', label: cfg.admin_label, text: cfg.admin_label, area: { x: 693, y: 0, width: 347, height: 351 } },
       ],
-      quickReply: { items: iconChips ? menuIconChips(cfg, A) : menuChips(cfg, A) },
+      quickReply: { items: menuChips(cfg) },
     },
   ]
 }
-// แบบ ก (ค่าเริ่มต้น) + สำรองของการ์ด: ข้อความทักทาย + ปุ่มลัด สั่งซื้อสินค้า (ไอคอนส้ม) · ส่งเอกสารโครงการ (กรมท่า) · คุยกับแอดมิน (เขียว) + ปุ่มเดิม
-export function menuIconChips(cfg, assets) {
-  const A = String(assets || '').replace(/\/+$/, '')
-  const top = [
-    { type: 'action', action: { type: 'uri', label: 'สั่งซื้อสินค้า', uri: shopUrl(cfg) } },
-    { type: 'action', action: { type: 'message', label: str(cfg.admin_label, 20), text: cfg.admin_label } },
-  ]
-  if (A) { top[0].imageUrl = A + '/i/cart.png'; top[1].imageUrl = A + '/i/chat.png' }
-  const ch = menuChips(cfg, A)
-  return [top[0], ch[0], top[1]].concat(ch.slice(1)).slice(0, 13)
-}
 export function menuCardText(cfg, assets) {
-  return [{ type: 'text', text: cfg.menu_greet + '\n' + cfg.menu_hint, quickReply: { items: menuIconChips(cfg, assets) } }]
+  return [{ type: 'text', text: cfg.menu_greet + '\n' + cfg.menu_hint, quickReply: { items: menuChips(cfg) } }]
 }
 export function menuReply(cfg, assets) {
-  if (cfg.menu_style === 'card') return menuCardMessages(cfg, assets, false)
-  if (cfg.menu_style === 'both') return menuCardMessages(cfg, assets, true)
+  if (cfg.menu_style === 'card' || cfg.menu_style === 'both') return menuCardMessages(cfg, assets)
   return menuCardText(cfg, assets)
 }
 export function menuMessage(cfg) {
@@ -191,7 +177,7 @@ export function menuMessage(cfg) {
       body: { type: 'box', layout: 'vertical', paddingAll: '16px', contents: [{ type: 'text', text: cfg.text, wrap: true, size: 'sm', color: '#222222' }] },
       footer: { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '12px', contents: btn },
     },
-    quickReply: { items: [{ type: 'action', action: { type: 'message', label: cfg.admin_label, text: cfg.admin_label } }] },
+    quickReply: { items: menuChips(cfg) },
   }
 }
 async function hmacB64(secret, raw) {
@@ -424,7 +410,7 @@ export function createBotHandler(deps) {
   }
   async function onFaq(ev, fq, cfg, token) {
     const reply = (messages) => lineSend('POST', '/v2/bot/message/reply', token, { replyToken: ev.replyToken, messages })
-    const items = cfg.menu_style === 'card' ? menuChips(cfg, assets) : menuIconChips(cfg, assets)
+    const items = menuChips(cfg)
     let r = await reply([{ type: 'text', text: fq.faq.a, quickReply: { items } }])
     if (r.status !== 200 && !/reply ?token/i.test(String((r.data && r.data.message) || ''))) r = await reply([{ type: 'text', text: fq.faq.a }])
     return r.status === 200 ? 'faq' : 'faq_failed:' + r.status

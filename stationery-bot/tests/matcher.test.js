@@ -165,8 +165,7 @@ test('every button label fits LINE (<=20) and sends a message the bot understand
   const card = buildReply('สวัสดี', shop).messages[0];
   const buttons = card.contents.footer.contents.map((b) => b.action);
   for (const a of buttons) assert.ok(a.label.length <= 20, a.label);
-  const supplies = buttons.find((a) => a.label.startsWith('อุปกรณ์'));
-  assert.equal(buildReply(supplies.text, shop).awaitingSchool, true);
+  assert.equal(buildReply('อุปกรณ์การเรียน 2-69', shop).awaitingSchool, true); // typed now: no longer a topic button
   const chips = buildReply('ปากกา', shop).messages[0].quickReply.items;
   for (const c of chips) assert.ok(c.action.label.length <= 20, c.action.label);
 });
@@ -277,7 +276,7 @@ test('pastel theme: cream paper (no coloured header band), pastel topic buttons,
   const menu = buildReply('xyz', chatty).messages[0].contents;
   assert.equal(menu.header.backgroundColor, t.cream); // picture on the plain paper, no band
   const btns = menu.footer.contents;
-  assert.deepEqual(btns.slice(0, 3).map((b) => b.color), [t.apricot, t.yellow, t.blue]);
+  assert.deepEqual(btns.slice(0, 2).map((b) => b.color), [t.apricot, t.yellow]); // two topics: เวลาเปิด - ปิด, ที่ตั้งร้าน
   assert.ok(btns.slice(0, -1).every((b) => b.style === 'secondary')); // topic buttons are all pastel
   assert.equal(btns.at(-1).style, 'primary'); // … and the contact button is the black one
   assert.equal(btns.at(-1).color, t.ink);

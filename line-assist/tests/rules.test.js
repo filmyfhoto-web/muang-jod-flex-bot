@@ -132,7 +132,7 @@ test('a custom rule answers instead of the shipped question list, and the topic 
   const [m] = lastReply(t).messages;
   assert.equal(m.type, 'text');
   assert.equal(m.text, 'วันนี้เปิดถึงสองทุ่มค่ะ');
-  assert.ok(m.quickReply.items.length >= 4);
+  assert.ok(m.quickReply.items.length >= 2);
   assert.equal(t.log.pushes.length, 0);
   // what the list does not cover stays silent, as before
   assert.equal(await t.say(CUSTOMER2, 'ที่ตั้งร้าน'), 'silent');
