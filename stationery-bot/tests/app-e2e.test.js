@@ -201,10 +201,10 @@ test('the Render bot\'s own commands are not taken by the app\'s cards: the menu
   const menuCalls = () => lineCalls.filter((c) => c.path.includes('richmenu'));
 
   // an admin's first message in ages is "ติดตั้งเมนู": the shop menu card (switched on) must not swallow it. The Render bot's
-  // own answer is "not switched on" (shop.json richMenu.enabled is false: the shop's own menu in LINE is the one in use)
+  // own answer is the install result (shop.json richMenu.enabled is true; the test's LINE answers every menu call with {})
   let msgs = await ask('ติดตั้งเมนู', piin.userId);
-  assert.match(msgs[0].text, /ยังไม่เปิดให้บอทติดตั้งเมนู/);
-  assert.equal(menuCalls().length, 0, 'nothing was done to the menus');
+  assert.match(msgs[0].text, /ติดตั้งเมนูเรียบร้อย/);
+  assert.ok(menuCalls().length > 0, 'the bot made its menu through the LINE API');
 
   // a customer who types the same words is just a customer: the shop menu card
   msgs = await ask('ติดตั้งเมนู', CUSTOMER);

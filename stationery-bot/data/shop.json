@@ -404,9 +404,9 @@
     "ai": { "mode": "off" }
   },
   "richMenu": {
-    "enabled": false,
+    "enabled": true,
     "name": "stationery-bot-menu",
-    "chatBarText": "เมนู",
+    "chatBarText": "เมนูร้าน",
     "selected": true,
     "image": "assets/richmenu.png",
     "top": 150,

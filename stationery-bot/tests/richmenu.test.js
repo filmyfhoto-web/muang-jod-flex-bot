@@ -191,10 +191,11 @@ test('install: our own menu as the current default (a re-install) or no default 
   assert.equal((await installRichMenu({ token: 'tok', shop, imageFile: IMAGE, fetchImpl: none.fetchImpl })).richMenuId, 'richmenu-new');
 });
 
-test('the menu command is OFF in the shop file until the owner turns it on, and nothing is called while it is off', async () => {
-  assert.equal(shop.richMenu.enabled, false);
+test('the menu command is ON in the shop file; switched off, it says so and nothing is called', async () => {
+  assert.equal(shop.richMenu.enabled, true);
+  const off = { ...shop, richMenu: { ...shop.richMenu, enabled: false } };
   const line = fakeLine({});
-  const text = await menuCommandReply({ cmd: { type: 'menuInstall', force: false }, shop, token: 'tok', imageFile: IMAGE, fetchImpl: line.fetchImpl, log: quietLog });
+  const text = await menuCommandReply({ cmd: { type: 'menuInstall', force: false }, shop: off, token: 'tok', imageFile: IMAGE, fetchImpl: line.fetchImpl, log: quietLog });
   assert.match(text, /ยังไม่เปิด/);
   assert.deepEqual(line.seen(), []);
 });
@@ -210,7 +211,8 @@ test('with the menu command on: install says done; a foreign menu is explained; 
   const bad = fakeLine({ failOn: 'POST API/richmenu' });
   assert.match(await menuCommandReply({ cmd: { type: 'menuInstall' }, shop: on, token: 'tok', imageFile: IMAGE, fetchImpl: bad.fetchImpl, log: quietLog }), /ไม่สำเร็จ/);
   const gone = fakeLine({ menus: [{ richMenuId: 'richmenu-ours', name: 'stationery-bot-menu' }], defaultId: 'richmenu-ours' });
-  assert.match(await menuCommandReply({ cmd: { type: 'menuRemove' }, shop, token: 'tok', fetchImpl: gone.fetchImpl, log: quietLog }), /เอาเมนูออกแล้ว/); // even while installing is off
+  const off = { ...shop, richMenu: { ...shop.richMenu, enabled: false } };
+  assert.match(await menuCommandReply({ cmd: { type: 'menuRemove' }, shop: off, token: 'tok', fetchImpl: gone.fetchImpl, log: quietLog }), /เอาเมนูออกแล้ว/); // even while installing is off
 });
 
 test('the welcome card on "add friend" can be switched off (when the OA\'s own greeting is kept)', () => {
