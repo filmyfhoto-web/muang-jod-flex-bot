@@ -371,7 +371,8 @@
     "reply": "",
     "appUrl": "https://admin.nattagroup.com/#projdocs",
     "maxLines": 12,
-    "followMinutes": 10
+    "followMinutes": 10,
+    "remarkEveryMinutes": 60
   },
   "chatDrafts": {
     "mode": "off",

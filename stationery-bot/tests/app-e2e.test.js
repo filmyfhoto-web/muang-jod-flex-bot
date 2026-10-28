@@ -253,6 +253,11 @@ test('an order written as a list: every admin gets a card, the web app a note, a
   assert.match(notes()[0].body.messages[0].text, /ไลน์ชื่อ ลูกค้า[\s\S]*ประมาณวันที่28/);
   assert.equal(replies().length, n, 'still nothing said to the customer, and no menu card');
   assert.equal(notes().length, adminIds.length, 'told once, not twice');
+
+  // a second remark a moment later is kept in the job's note, but the admins are not buzzed again within the hour
+  await post(text('ขออภัยค่ะที่ทำให้เสียเวลา', CUSTOMER));
+  await new Promise((r) => setTimeout(r, 400));
+  assert.equal(notes().length, adminIds.length, 'one remark an hour reaches the admins');
 });
 
 test('without SUPABASE_URL an order list still reaches the admins\' LINE (the web app note needs the database)', async (t) => {

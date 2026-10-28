@@ -436,11 +436,12 @@ async function pickListIfAny(ev, shop, userId, said) {
     list = await readOrder(said); // (the same sentence sent twice is read once)
   }
   if (!list) {
-    // a remark the bot cannot answer, within a few minutes after a list, goes to the admins as well (and into the job's note)
+    // a remark the bot cannot answer, within a few minutes after a list, goes into the job's note; the admins' phones get one
+    // of them an hour, so a burst of remarks does not buzz them one by one (the rest are in the app's note)
     const rec = recentLists.get(userId);
     if (rec && Date.now() - rec.at < (Number(cfg.followMinutes) || 10) * 60_000 && rec.notes < 3 && matchIntent(said, shop).type === 'fallback') {
       rec.notes++;
-      void notifyPickNote(shop, { customerId: userId, said });
+      if (contacts.alertDue(`remark:${userId}`, (Number(cfg.remarkEveryMinutes) || 60) * 60_000)) void notifyPickNote(shop, { customerId: userId, said });
       if (chatOrders && enabledFor(co, userId)) await chatOrders.remark({ userId, text: said, cfg: co });
     }
     return false;
