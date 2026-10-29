@@ -1,0 +1,611 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#35486e" />
+<link rel="manifest" href="/app/manifest.webmanifest" />
+<link rel="apple-touch-icon" href="/brand/ui/app-192.png" />
+<title>ม่วงจดให้ — สร้างคำสั่งซื้อ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /* หน้าสร้างคำสั่งซื้อ — กดเลือกสินค้าจากรายการแทนการพิมพ์ประโยค
+   *
+   * ร้านส่งภาพแผง "สร้างคำสั่งซื้อ" ของ Pancake มาเป็นตัวอย่าง: ลูกค้า → สินค้า →
+   * การชำระเงิน → ปุ่มสร้างคำสั่งซื้อ หน้านี้ยกโครงนั้นมา ซ้ายเป็นชั้นวางของให้กด
+   * ขวาเป็นใบสั่งที่กำลังเปิดอยู่ บนมือถือเรียงลงมาเป็นแถวเดียว
+   * สีชุดเดียวกับหน้าอื่น (กรม-ส้ม-ขาว ไม่มีขอบมน)
+   */
+  :root {
+    --navy: #35486e; --navy-deep: #2c3c5e; --navy-soft: #43578a;
+    --gold: #ee7b2f; --gold-2: #d9640f; --gold-soft: #fdeee0;
+    --page: #f5f6f8; --surface: #fff; --tint: #e8ecf5; --line: #e2e6ee;
+    --ink: #1f2b45; --sub: #5e6e8c; --grey: #7e8ca3;
+    --green: #2e7d5b; --green-bg: #e4f0ea; --red: #b3402f; --red-bg: #f8e4e1;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    font-family: 'Noto Sans Thai', system-ui, sans-serif; color: var(--ink); background: var(--page);
+    font-size: 14px; padding-bottom: calc(132px + env(safe-area-inset-bottom, 0px));
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  [hidden] { display: none !important; }
+
+  header.bar { background: var(--navy); color: #fff; padding: 12px 16px; display: flex; align-items: center; gap: 10px; }
+  header.bar img { width: 38px; height: 38px; object-fit: contain; }
+  header.bar .who { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+  header.bar strong { font-size: 16px; }
+  header.bar span { font-size: 12px; opacity: .75; }
+  header.bar a { color: #fff; text-decoration: none; font-size: 12.5px; font-weight: 600; background: rgba(255,255,255,.14); padding: 6px 10px; }
+
+  .wrap { display: grid; gap: 12px; padding: 12px; max-width: 1180px; margin: 0 auto; }
+  .wrap > * { min-width: 0; } /* ไม่งั้นแถวชิปที่เลื่อนข้างได้ดันคอลัมน์จนจอมือถือล้น */
+  @media (min-width: 900px) {
+    .wrap { grid-template-columns: minmax(0, 1fr) 400px; align-items: start; padding: 16px; }
+    .order { position: sticky; top: 12px; }
+    body { padding-bottom: 72px; }
+    .dock { display: none !important; }
+  }
+
+  .card { background: var(--surface); border: 1px solid var(--line); }
+  .sec { padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  .sec:last-child { border-bottom: 0; }
+  .sec h2 { margin: 0 0 10px; font-size: 14px; display: flex; align-items: center; gap: 6px; }
+  .sec h2 small { margin-left: auto; font-weight: 500; color: var(--sub); font-size: 12px; }
+
+  /* ---- ชั้นวางสินค้า ---- */
+  .search { display: flex; gap: 8px; }
+  .search input { flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--tint); padding: 10px 12px; }
+  .search button { border: 0; background: var(--navy); color: #fff; padding: 0 14px; font-weight: 600; white-space: nowrap; }
+  .chips { display: flex; gap: 6px; overflow-x: auto; padding: 10px 0 2px; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip { flex: none; border: 1px solid var(--line); background: #fff; padding: 6px 11px; font-size: 13px; white-space: nowrap; }
+  .chip[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .shelf-h { margin: 14px 0 8px; font-size: 12.5px; font-weight: 700; color: var(--sub); display: flex; align-items: center; gap: 6px; }
+  .shelf-h::before { content: ''; width: 3px; height: 14px; background: var(--c, var(--navy)); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+  .tile {
+    position: relative; text-align: left; border: 1px solid var(--line); border-top: 3px solid var(--c, var(--navy));
+    background: #fff; padding: 10px; display: flex; flex-direction: column; gap: 4px; min-height: 92px;
+  }
+  .tile:hover { border-color: var(--navy-soft); }
+  .tile:active { transform: scale(.98); }
+  .tile .ic { font-size: 22px; line-height: 1; }
+  .tile b { font-size: 13.5px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+  .tile .meta { margin-top: auto; display: flex; justify-content: space-between; gap: 6px; font-size: 12px; color: var(--grey); }
+  .tile .meta .p { color: var(--gold-2); font-weight: 700; }
+  .tile .badge {
+    position: absolute; top: 6px; right: 6px; min-width: 22px; height: 22px; padding: 0 6px;
+    background: var(--gold); color: #fff; font-size: 12px; font-weight: 700; display: grid; place-items: center;
+  }
+  .empty { color: var(--grey); text-align: center; padding: 26px 10px; }
+
+  /* ---- ใบสั่ง ---- */
+  .tabs { display: flex; }
+  .tabs b { flex: 1; text-align: center; padding: 12px; font-size: 14.5px; color: var(--navy); border-bottom: 3px solid var(--navy); }
+  label.f { display: block; font-size: 12px; color: var(--sub); margin: 0 0 4px; }
+  .in { width: 100%; border: 1px solid var(--line); background: #fff; padding: 9px 10px; }
+  .in:focus, .search input:focus { outline: 2px solid var(--navy-soft); outline-offset: -1px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+
+  /* แถวสินค้าสองบรรทัด: ชื่อ / จำนวน × ราคา = รวม — ตารางห้าคอลัมน์ล้นจอมือถือ */
+  .line { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .line .top { display: flex; align-items: flex-start; gap: 6px; }
+  .line .top div { flex: 1; min-width: 0; }
+  .line .nm { width: 100%; border: 0; border-bottom: 1px dashed transparent; padding: 2px 0; font-weight: 600; background: transparent; }
+  .line .nm:focus { outline: 0; border-bottom-color: var(--navy-soft); }
+  .line .sub { font-size: 11.5px; color: var(--grey); }
+  .line .bot { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+  .line .bot .mul { color: var(--grey); }
+  .line .bot [data-total] { margin-left: auto; font-weight: 700; white-space: nowrap; }
+  .qty { display: inline-flex; border: 1px solid var(--line); }
+  .qty button { width: 26px; border: 0; background: var(--tint); font-weight: 700; }
+  .qty input { width: 42px; border: 0; text-align: center; padding: 4px 0; }
+  .price { width: 84px; border: 1px solid var(--line); padding: 4px 6px; text-align: right; }
+  .price.need { border-color: var(--gold); background: var(--gold-soft); }
+  .x { border: 0; background: none; color: var(--grey); font-size: 16px; padding: 0 2px; }
+  .addown { margin-top: 10px; width: 100%; border: 1.5px dashed #b9c3d6; background: #fff; color: var(--navy); padding: 9px; font-weight: 600; }
+
+  .pays { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .pay { border: 1px solid var(--line); background: #fff; padding: 8px 2px; font-size: 12.5px; text-align: center; }
+  .pay span { display: block; font-size: 17px; }
+  .pay[aria-pressed="true"] { border-color: var(--navy); background: var(--navy); color: #fff; }
+  .sum { margin-top: 12px; display: grid; gap: 6px; }
+  .sum div { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .sum .in { width: 110px; text-align: right; padding: 5px 8px; }
+  .sum .grand { font-size: 16px; font-weight: 700; padding-top: 8px; border-top: 1px solid var(--line); }
+  .sum .grand b, .dock b { color: var(--gold-2); }
+  .sum .due b { color: var(--red); }
+
+  .actions { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; padding: 12px 14px; }
+  .btn { border: 0; padding: 12px; font-weight: 700; }
+  .btn.ghost { background: var(--tint); color: var(--navy); }
+  .btn.main { background: var(--navy); color: #fff; }
+  .btn.main[disabled] { background: var(--navy-soft); color: #c6cfe0; cursor: not-allowed; }
+
+  .done { padding: 22px 16px; text-align: center; }
+  .done img { width: 86px; }
+  .done h3 { margin: 6px 0 4px; }
+  .done p { margin: 0 0 14px; color: var(--sub); }
+  .done .actions { padding: 0; }
+
+  /* แถบยอดบนมือถือ — ชั้นวางยาว ใบสั่งอยู่ล่างสุด ต้องเห็นยอดตลอดและกดลงไปได้ทันที */
+  .dock {
+    position: fixed; left: 0; right: 0; bottom: calc(52px + env(safe-area-inset-bottom, 0px)); z-index: 39;
+    background: #fff; border-top: 1px solid var(--line); box-shadow: 0 -6px 18px rgba(31,43,69,.08);
+    display: flex; align-items: center; gap: 10px; padding: 8px 14px;
+  }
+  .dock .t { flex: 1; line-height: 1.3; font-size: 12.5px; color: var(--sub); }
+  .dock .t b { display: block; font-size: 17px; }
+  .dock .btn { padding: 10px 16px; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: calc(140px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+    background: var(--ink); color: #fff; padding: 10px 16px; z-index: 60; max-width: 90vw; font-size: 13.5px;
+  }
+  .toast.err { background: var(--red); }
+
+  .appbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    display: flex; gap: 6px; background: var(--navy);
+    padding: 5px max(14px, env(safe-area-inset-right, 0px)) calc(5px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px)); }
+  .appbar a { flex: 1; text-align: center; color: #fff; opacity: .62; text-decoration: none;
+    font-size: 11px; font-weight: 700; padding: 3px 2px 4px; line-height: 1.2; }
+  .appbar a span { display: block; font-size: 18px; }
+  .appbar a.on { opacity: 1; background: rgba(255, 255, 255, .15); }
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <img src="/brand/ui/happy.png" alt="" />
+  <div class="who">
+    <strong>สร้างคำสั่งซื้อ</strong>
+    <span id="bar-sub">กดเลือกสินค้าจากรายการ ไม่ต้องพิมพ์</span>
+  </div>
+  <a href="/app/jot/">✏️ พิมพ์จดแทน</a>
+</header>
+
+<div class="wrap">
+  <!-- ชั้นวางสินค้า -->
+  <section class="card shelf" aria-label="เลือกสินค้า">
+    <div class="sec">
+      <div class="search">
+        <input id="q" type="search" placeholder="🔍 ค้นหาสินค้า เช่น ไวนิล, ถ่ายเอกสาร" autocomplete="off" />
+        <button type="button" id="btn-own">+ เพิ่มเอง</button>
+      </div>
+      <div class="chips" id="chips" role="toolbar" aria-label="กรองตามหมวด"></div>
+      <div id="shelf"><p class="empty">กำลังโหลดรายการสินค้า…</p></div>
+    </div>
+  </section>
+
+  <!-- ใบสั่ง -->
+  <section class="card order" id="order" aria-label="คำสั่งซื้อ">
+    <div id="form">
+      <div class="tabs"><b>🧾 สร้างคำสั่งซื้อ</b></div>
+
+      <div class="sec">
+        <h2>👤 ลูกค้า</h2>
+        <label class="f" for="customer">ชื่อลูกค้า / หน่วยงาน</label>
+        <input class="in" id="customer" list="customers" placeholder="เช่น ร้านป้าแดง, รร.สบกอน" maxlength="200" autocomplete="off" />
+        <datalist id="customers"></datalist>
+        <div class="row2">
+          <div>
+            <label class="f" for="due">วันนัดรับ</label>
+            <input class="in" id="due" type="date" />
+          </div>
+          <div>
+            <label class="f" for="phone">เบอร์โทร</label>
+            <input class="in" id="phone" type="tel" inputmode="tel" placeholder="ไม่ใส่ก็ได้" maxlength="20" />
+          </div>
+        </div>
+        <label class="f" for="note" style="margin-top:8px">หมายเหตุ / ที่อยู่จัดส่ง</label>
+        <textarea class="in" id="note" rows="2" maxlength="400" placeholder="ไม่ใส่ก็ได้"></textarea>
+      </div>
+
+      <div class="sec">
+        <h2>🛒 สินค้า <small id="count">ยังไม่ได้เลือก</small></h2>
+        <div id="lines"></div>
+        <p class="empty" id="lines-empty">กดสินค้าทางซ้ายเพื่อใส่ในคำสั่งซื้อ</p>
+      </div>
+
+      <div class="sec">
+        <h2>💳 การชำระเงิน</h2>
+        <div class="pays" id="pays">
+          <button type="button" class="pay" data-pay="none" aria-pressed="true"><span>⏳</span>ยังไม่จ่าย</button>
+          <button type="button" class="pay" data-pay="cash" aria-pressed="false"><span>💵</span>เงินสด</button>
+          <button type="button" class="pay" data-pay="transfer" aria-pressed="false"><span>📲</span>โอนเงิน</button>
+          <button type="button" class="pay" data-pay="account" aria-pressed="false"><span>📒</span>ลงบัญชี</button>
+        </div>
+        <div class="sum">
+          <div><span>ราคารวมสินค้า</span><span id="s-sub">0 ฿</span></div>
+          <div><label for="discount">ส่วนลด</label><input class="in" id="discount" type="number" min="0" step="any" inputmode="decimal" placeholder="0" /></div>
+          <div id="paid-row" hidden><label for="paid">รับเงินแล้ว</label><input class="in" id="paid" type="number" min="0" step="any" inputmode="decimal" /></div>
+          <div class="grand"><span>ยอดสุทธิ</span><b id="s-total">0 ฿</b></div>
+          <div class="due" id="due-row" hidden><span>ค้างชำระ</span><b id="s-due">0 ฿</b></div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn ghost" id="btn-reset">รีเซ็ต</button>
+        <button type="button" class="btn main" id="btn-save" disabled>สร้างคำสั่งซื้อ</button>
+      </div>
+    </div>
+
+    <div class="done" id="done" hidden>
+      <img src="/brand/ui/happy.png" alt="" />
+      <h3 id="done-title">สร้างคำสั่งซื้อแล้ว</h3>
+      <p id="done-text"></p>
+      <div class="actions">
+        <a class="btn ghost" href="/app/" style="text-decoration:none">ดูงาน</a>
+        <button type="button" class="btn main" id="btn-next">สร้างคำสั่งซื้อใหม่</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="dock" id="dock">
+  <div class="t">เลือกแล้ว <span id="d-count">0</span> รายการ<b id="d-total">0 ฿</b></div>
+  <button type="button" class="btn main" id="btn-jump">ดูคำสั่งซื้อ ↓</button>
+</div>
+
+<nav class="appbar" aria-label="เมนูหลัก">
+  <a href="/app/jot/"><span>✏️</span>จด</a>
+  <a href="/app/order/" class="on" aria-current="page"><span>🛒</span>สั่งซื้อ</a>
+  <a href="/app/"><span>📋</span>งาน &amp; เงิน</a>
+  <a href="/app/book/"><span>👤</span>ลูกค้า</a>
+</nav>
+
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script src="./cart.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const Cart = window.OrderCart;
+const DRAFT_KEY = 'mj.order.draft';
+
+let token = null;
+let groups = [];      // หมวด + ประเภทของร้าน (ชั้นวาง)
+let units = {};       // id ประเภท -> หน่วยขาย
+let frequent = [];    // ขายบ่อย จากงานที่เคยจด
+let filter = 'all';
+const state = { lines: [], pay: 'none', paid: null, discount: '', customer: '', due: '', phone: '', note: '' };
+
+const baht = (n) => Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 }) + ' ฿';
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+function toast(text, kind) {
+  document.querySelectorAll('.toast').forEach((t) => t.remove());
+  const el = document.createElement('div');
+  el.className = 'toast' + (kind === 'err' ? ' err' : '');
+  el.textContent = text;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2600);
+}
+
+// ร่างในเครื่อง — ปิดหน้าไปกลางคันแล้วเปิดใหม่ ของในตะกร้ายังอยู่ (เบราว์เซอร์ห้ามเก็บก็แค่ไม่จำ)
+function saveDraft() {
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(state)); } catch {}
+}
+function loadDraft() {
+  try {
+    const got = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null');
+    if (got && Array.isArray(got.lines)) Object.assign(state, got);
+  } catch {}
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch('/api' + path, {
+    ...opts,
+    headers: { Authorization: 'Bearer ' + token, ...(opts.body ? { 'Content-Type': 'application/json' } : {}) },
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.message || body.error || 'เกิดข้อผิดพลาด');
+  return body;
+}
+
+/* ---------- ชั้นวาง ---------- */
+
+function shelfSections() {
+  const q = $('q').value.trim().toLowerCase();
+  const hit = (name) => !q || name.toLowerCase().includes(q);
+  const out = [];
+  if (filter === 'all' || filter === 'freq') {
+    const items = frequent.filter((f) => hit(f.name));
+    if (items.length) out.push({ label: '⭐ ขายบ่อย (ราคาล่าสุด)', color: 'var(--gold)', items: items.map((f) => ({ ...f, icon: '⭐' })) });
+  }
+  for (const g of groups) {
+    if (filter !== 'all' && filter !== g.id) continue;
+    const items = g.types
+      .filter((t) => hit(t.label))
+      .map((t) => ({ name: t.label, icon: t.icon || g.icon, unit: units[t.id] || '', price: 0 }));
+    if (items.length) out.push({ label: g.icon + ' ' + g.label, color: g.color, items });
+  }
+  return out;
+}
+
+function inCart(item) {
+  const line = state.lines.find((l) => l.name === item.name && (l.unit || '') === (item.unit || ''));
+  return line ? line.qty : 0;
+}
+
+let shelfItems = [];
+function renderShelf() {
+  const chips = [{ id: 'all', label: 'ทั้งหมด' }]
+    .concat(frequent.length ? [{ id: 'freq', label: '⭐ ขายบ่อย' }] : [])
+    .concat(groups.map((g) => ({ id: g.id, label: g.icon + ' ' + g.label })));
+  $('chips').innerHTML = chips
+    .map((c) => `<button type="button" class="chip" data-f="${esc(c.id)}" aria-pressed="${c.id === filter}">${esc(c.label)}</button>`)
+    .join('');
+
+  const sections = shelfSections();
+  shelfItems = [];
+  if (!sections.length) {
+    const q = $('q').value.trim();
+    $('shelf').innerHTML = `<p class="empty">ไม่เจอ "${esc(q)}" ในรายการ<br><button type="button" class="addown" id="add-q" style="max-width:260px">+ ใส่ "${esc(q)}" เป็นสินค้าใหม่</button></p>`;
+    return;
+  }
+  $('shelf').innerHTML = sections
+    .map((s) => {
+      const tiles = s.items
+        .map((it) => {
+          const i = shelfItems.push(it) - 1;
+          const n = inCart(it);
+          const meta = [it.size, it.unit && 'ต่อ' + it.unit].filter(Boolean).join(' · ');
+          return `<button type="button" class="tile" style="--c:${esc(s.color)}" data-i="${i}">
+            ${n ? `<span class="badge">${n}</span>` : ''}
+            <span class="ic">${esc(it.icon || '📦')}</span>
+            <b>${esc(it.name)}</b>
+            <span class="meta"><span>${esc(meta)}</span>${it.price > 0 ? `<span class="p">${baht(it.price)}</span>` : ''}</span>
+          </button>`;
+        })
+        .join('');
+      return `<div class="shelf-h" style="--c:${esc(s.color)}">${esc(s.label)}</div><div class="grid">${tiles}</div>`;
+    })
+    .join('');
+}
+
+$('chips').onclick = (e) => {
+  const b = e.target.closest('[data-f]');
+  if (!b) return;
+  filter = b.dataset.f;
+  renderShelf();
+};
+$('q').oninput = renderShelf;
+$('shelf').onclick = (e) => {
+  if (e.target.closest('#add-q')) {
+    addLine({ name: $('q').value.trim(), unit: '', price: 0 });
+    $('q').value = '';
+    renderShelf();
+    return;
+  }
+  const t = e.target.closest('[data-i]');
+  if (t) addLine(shelfItems[Number(t.dataset.i)]);
+};
+$('btn-own').onclick = () => {
+  state.lines = state.lines.concat([{ name: '', unit: '', size: '', qty: 1, price: 0 }]);
+  renderAll();
+  const names = document.querySelectorAll('#lines .nm');
+  names[names.length - 1]?.focus();
+};
+
+function addLine(item) {
+  state.lines = Cart.add(state.lines, item);
+  renderAll();
+  toast('ใส่ "' + item.name + '" แล้ว');
+}
+
+/* ---------- ใบสั่ง ---------- */
+
+function renderLines() {
+  $('lines').innerHTML = state.lines
+    .map((l, i) => {
+      const sub = [l.size, l.unit && 'ต่อ' + l.unit].filter(Boolean).join(' · ');
+      return `<div class="line" data-row="${i}">
+        <div class="top">
+          <div><input class="nm" data-k="name" value="${esc(l.name)}" placeholder="ชื่อสินค้า" maxlength="200" aria-label="ชื่อสินค้า" />${sub ? `<div class="sub">${esc(sub)}</div>` : ''}</div>
+          <button type="button" class="x" data-del aria-label="ลบ">✕</button>
+        </div>
+        <div class="bot">
+          <span class="qty"><button type="button" data-step="-1" aria-label="ลด">−</button><input data-k="qty" type="number" min="0" step="any" inputmode="decimal" value="${l.qty}" aria-label="จำนวน" /><button type="button" data-step="1" aria-label="เพิ่ม">+</button></span>
+          <span class="mul">×</span>
+          <input class="price${l.price > 0 ? '' : ' need'}" data-k="price" type="number" min="0" step="any" inputmode="decimal" value="${l.price || ''}" placeholder="ราคา" aria-label="ราคาต่อหน่วย" />
+          <span data-total>${baht(Cart.lineTotal(l))}</span>
+        </div>
+      </div>`;
+    })
+    .join('');
+  $('lines-empty').hidden = state.lines.length > 0;
+}
+
+function renderSum() {
+  const t = Cart.totals(state.lines, { discount: state.discount, paid: paidAmount() });
+  $('s-sub').textContent = baht(t.subtotal);
+  $('s-total').textContent = baht(t.total);
+  $('s-due').textContent = baht(t.due);
+  $('due-row').hidden = !(t.due > 0) || state.pay === 'none' || state.pay === 'account';
+  $('paid-row').hidden = !(state.pay === 'cash' || state.pay === 'transfer');
+  if (!$('paid-row').hidden && document.activeElement !== $('paid')) $('paid').value = paidAmount();
+  $('count').textContent = state.lines.length ? state.lines.length + ' รายการ' : 'ยังไม่ได้เลือก';
+  $('d-count').textContent = state.lines.length;
+  $('d-total').textContent = baht(t.total);
+  $('btn-save').disabled = Cart.toItems(state.lines).length === 0;
+  document.querySelectorAll('#pays .pay').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.pay === state.pay)));
+}
+
+// เงินสด/โอน = ปกติจ่ายครบ แก้เป็นมัดจำได้ · ยังไม่จ่าย/ลงบัญชี = ยังไม่ได้เงิน
+function paidAmount() {
+  if (state.pay !== 'cash' && state.pay !== 'transfer') return 0;
+  const total = Cart.totals(state.lines, { discount: state.discount }).total;
+  return state.paid === null || state.paid === '' ? total : Math.min(Number(state.paid) || 0, total);
+}
+
+function renderAll() {
+  renderLines();
+  renderSum();
+  renderShelf();
+  saveDraft();
+}
+
+$('lines').oninput = (e) => {
+  const row = e.target.closest('[data-row]');
+  const k = e.target.dataset.k;
+  if (!row || !k) return;
+  const line = state.lines[Number(row.dataset.row)];
+  line[k] = k === 'name' ? e.target.value : Number(e.target.value) || 0;
+  if (k === 'price') e.target.classList.toggle('need', !(line.price > 0));
+  row.querySelector('[data-total]').textContent = baht(Cart.lineTotal(line));
+  renderSum();
+  saveDraft();
+};
+$('lines').onchange = () => renderShelf(); // ป้ายจำนวนบนชั้นวาง — ไม่วาดใหม่ระหว่างพิมพ์ จะได้ไม่หลุดโฟกัส
+$('lines').onclick = (e) => {
+  const row = e.target.closest('[data-row]');
+  if (!row) return;
+  const i = Number(row.dataset.row);
+  const step = e.target.closest('[data-step]');
+  if (step) {
+    const next = Cart.round2((Number(state.lines[i].qty) || 0) + Number(step.dataset.step));
+    if (next <= 0) state.lines.splice(i, 1);
+    else state.lines[i].qty = next;
+    renderAll();
+  } else if (e.target.closest('[data-del]')) {
+    state.lines.splice(i, 1);
+    renderAll();
+  }
+};
+
+$('pays').onclick = (e) => {
+  const b = e.target.closest('[data-pay]');
+  if (!b) return;
+  state.pay = b.dataset.pay;
+  state.paid = null;
+  renderSum();
+  saveDraft();
+};
+$('discount').oninput = (e) => { state.discount = e.target.value; renderSum(); saveDraft(); };
+$('paid').oninput = (e) => { state.paid = e.target.value; renderSum(); saveDraft(); };
+for (const k of ['customer', 'due', 'phone', 'note']) {
+  $(k).oninput = (e) => { state[k] = e.target.value; saveDraft(); };
+}
+
+function syncFields() {
+  for (const k of ['customer', 'due', 'phone', 'note']) $(k).value = state[k] || '';
+  $('discount').value = state.discount || '';
+}
+
+function reset() {
+  Object.assign(state, { lines: [], pay: 'none', paid: null, discount: '', customer: '', due: '', phone: '', note: '' });
+  syncFields();
+  renderAll();
+}
+$('btn-reset').onclick = () => {
+  if (state.lines.length && !confirm('ล้างคำสั่งซื้อนี้ทั้งหมด?')) return;
+  reset();
+};
+$('btn-jump').onclick = () => $('order').scrollIntoView({ behavior: 'smooth' });
+$('btn-next').onclick = () => {
+  $('done').hidden = true;
+  $('form').hidden = false;
+  reset();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+/* ---------- บันทึก ---------- */
+
+$('btn-save').onclick = async () => {
+  const items = Cart.toItems(state.lines);
+  if (!items.length) return;
+  if (!token) return toast('เปิดหน้านี้จาก LINE เพื่อบันทึกค่ะ', 'err');
+  if (items.some((it) => !(it.unit_price > 0)) && !confirm('มีสินค้าที่ยังไม่ใส่ราคา บันทึกเป็น 0 บาทไปก่อนไหม?')) return;
+
+  const t = Cart.totals(state.lines, { discount: state.discount, paid: paidAmount() });
+  // เบอร์โทรไม่มีช่องในงาน — ต่อไว้ในหมายเหตุ ร้านเปิดงานแล้วเห็นอยู่ที่เดียวกัน
+  const note = [state.phone && 'โทร ' + state.phone.trim(), state.note.trim()].filter(Boolean).join(' · ');
+  const payload = {
+    customerName: state.customer.trim() || null,
+    dueDate: state.due || null,
+    items,
+    discount: t.discount,
+    paidAmount: t.paid,
+    payMethod: state.pay === 'none' ? null : state.pay,
+    note: note || null,
+  };
+
+  const btn = $('btn-save');
+  btn.disabled = true;
+  btn.textContent = 'กำลังบันทึก…';
+  try {
+    const { job } = await api('/jobs', { method: 'POST', body: JSON.stringify(payload) });
+    $('done-title').textContent = 'สร้างคำสั่งซื้อแล้ว ' + (job?.job_number || '');
+    $('done-text').textContent =
+      (job?.customer_name ? job.customer_name + ' · ' : '') + 'ยอด ' + baht(job?.total ?? t.total) + ' — ส่งใบงานเข้าแชตให้แล้วค่ะ 💜';
+    $('form').hidden = true;
+    $('done').hidden = false;
+    $('order').scrollIntoView({ behavior: 'smooth' });
+    try { localStorage.removeItem(DRAFT_KEY); } catch {}
+    // ของที่เพิ่งขายขึ้นเป็น "ขายบ่อย" พร้อมราคาใหม่ทันที
+    loadFrequent();
+  } catch (err) {
+    toast('บันทึกไม่สำเร็จ: ' + err.message, 'err');
+  } finally {
+    btn.textContent = 'สร้างคำสั่งซื้อ';
+    renderSum();
+  }
+};
+
+/* ---------- โหลด ---------- */
+
+function useCategories(list, priceUnits) {
+  groups = (list || [])
+    .filter((g) => !g.hidden)
+    .map((g) => ({ ...g, types: (g.types || []).filter((t) => !t.hidden) }))
+    .filter((g) => g.types.length);
+  units = {};
+  for (const [id, p] of Object.entries(priceUnits?.types || {})) units[id] = p.unit || p.builtinUnit || '';
+}
+
+async function loadFrequent() {
+  try {
+    const { jobs } = await api('/jobs?limit=50');
+    frequent = Cart.frequentFrom(jobs, 24);
+    renderShelf();
+  } catch {}
+}
+
+(async function start() {
+  loadDraft();
+  syncFields();
+  renderLines();
+  renderSum();
+  try {
+    const cfg = await (await fetch('/api/config')).json();
+    useCategories(cfg.categories);
+    renderShelf();
+    if (!cfg.liffId) throw new Error('ยังไม่ได้ตั้งค่า LIFF_ID');
+    await liff.init({ liffId: cfg.liffId });
+    if (!liff.isLoggedIn()) return liff.login({ redirectUri: location.href });
+    token = liff.getAccessToken();
+    $('bar-sub').textContent = 'บันทึกเข้าบัญชีของคุณ';
+
+    // หมวดที่ร้านตั้งเอง (ชื่อ ซ่อน เพิ่มประเภท) ทับชุดตั้งต้น
+    api('/categories')
+      .then((c) => { if (Array.isArray(c.groups)) { useCategories(c.groups, c.priceUnits); renderShelf(); } })
+      .catch(() => {});
+    api('/customers')
+      .then(({ customers }) => {
+        $('customers').innerHTML = (customers || []).map((c) => `<option value="${esc(c.name)}"></option>`).join('');
+      })
+      .catch(() => {});
+    loadFrequent();
+  } catch (err) {
+    // นอก LINE ยังกดเลือกดูได้ แค่บันทึกไม่ได้
+    $('bar-sub').textContent = 'โหมดทดลอง — ' + (err.message || 'ยังไม่ได้ล็อกอิน');
+    renderShelf();
+  }
+})();
+</script>
+</body>
+</html>
