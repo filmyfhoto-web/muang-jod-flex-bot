@@ -6,6 +6,7 @@ import { verifySignature, replyMessage, pushMessage, getProfile, getProfileCache
 import { buildReply, welcomeMessage, withSender, iconUrlFor, thanksReply, quick } from './replies.js';
 import { contactCard, pickListCard } from './flex.js';
 import { isThanksSticker, isThanks, isMenuTap, normalize, matchIntent } from './matcher.js';
+import { postbackAsMessage } from './postback.js';
 import { applyHoliday, createNoticeTracker } from './holiday.js';
 import { createContactState, findContact, notificationCard, contactPhotos, people } from './contact.js';
 import { readSlip, slipReply, readerOn } from './slip.js';
@@ -467,6 +468,7 @@ async function handleEvent(ev) {
     return;
   }
   if (isPaused(shop, process.env)) return; // paused: no replies, no welcome, nothing
+  ev = postbackAsMessage(ev, shop); // a rich-menu button that opens the keyboard arrives as a postback: handled as the words it stands for
   const userId = ev.source?.userId ?? 'anon';
   const holiday = (shopNow, messages, extra = {}) =>
     applyHoliday(messages, { shop: shopNow, userId, tracker: noticed, ...extra });

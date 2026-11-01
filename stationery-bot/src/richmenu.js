@@ -14,7 +14,9 @@ const MAX_COLUMNS = 6;
 export const menuName = (shop) => String(shop.richMenu?.name || 'stationery-bot-menu').slice(0, 300);
 
 // → the rich menu object LINE wants, built from shop.richMenu: one row of equal columns,
-// each column sends its `text` as the customer's own message (so the bot answers it as usual) — or opens its `uri`.
+// each column sends its `text` as the customer's own message (so the bot answers it as usual) — or opens its `uri` — or, with
+// `postback`, sends no message at all: LINE shows `displayText` as the customer's own bubble and (openKeyboard) opens the keyboard
+// at once, and the bot gets a postback event carrying `postback` (see postback.js). Only a postback button can open the keyboard.
 export function buildRichMenu(shop) {
   const rm = shop.richMenu;
   const cols = Array.isArray(rm?.areas) ? rm.areas : [];
@@ -29,8 +31,19 @@ export function buildRichMenu(shop) {
     chatBarText: String(rm.chatBarText || 'เมนู').slice(0, 14), // LINE: at most 14 characters
     areas: cols.map((c, i) => {
       const uri = String(c?.uri ?? '').trim();
+      const pb = String(c?.postback ?? '').trim();
       let action;
-      if (uri) {
+      if (pb) {
+        if (pb.length > 300) throw new Error(`ช่องที่ ${i + 1} postback ยาวเกิน 300 ตัวอักษร`);
+        action = { type: 'postback', label: String(c.label || c.text || pb).slice(0, 20), data: pb };
+        const shown = String(c.displayText ?? '').trim();
+        if (shown) action.displayText = shown.slice(0, 300); // the customer's own bubble in the chat
+        if (c.openKeyboard === true) {
+          action.inputOption = 'openKeyboard';
+          const fill = String(c.fillInText ?? '');
+          if (fill) action.fillInText = fill.slice(0, 300); // text already typed in the box (optional)
+        }
+      } else if (uri) {
         // a column that opens a web page instead of sending a message (e.g. "สั่งซื้อสินค้า" → the shop's site)
         if (!/^https:\/\/\S{3,980}$/i.test(uri)) throw new Error(`ช่องที่ ${i + 1} uri ต้องเป็นลิงก์ https`);
         action = { type: 'uri', label: String(c.label || c.text || 'เปิดเว็บ').slice(0, 20), uri };

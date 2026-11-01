@@ -49,6 +49,16 @@ const MENU2 = {
   ],
 }
 
+// v3 = เหมือน v2 แต่ปุ่มที่ 1 เป็น postback: LINE เปิดแป้นพิมพ์ทันที + โชว์ "ต้องการคุยกับแอดมิน" เป็นฟองข้อความของลูกค้า
+//   บอทรับ postback 'talk-admin' แล้วตอบเหมือนลูกค้าพิมพ์ "คุยกับแอดมิน" (การ์ดเลือกแอดมิน) — ตรงกับ shop.json richMenu.areas[0] ของบอท
+const MENU3 = {
+  ...MENU2, name: 'NATTA เมนูหลัก v3',
+  areas: [
+    { bounds: MENU2.areas[0].bounds, action: { type: 'postback', label: 'คุยกับแอดมิน', data: 'talk-admin', displayText: 'ต้องการคุยกับแอดมิน', inputOption: 'openKeyboard' } },
+    MENU2.areas[1], MENU2.areas[2],
+  ],
+}
+
 Deno.serve(async (req) => {
   let b: any = {}
   try { b = await req.json() } catch (_e) { b = {} }
@@ -83,6 +93,28 @@ Deno.serve(async (req) => {
     const i: any = await (await fetch('https://api.line.me/v2/bot/info', { headers: H })).json().catch(() => null)
     return json({ endpoint: e, test, info: i && { displayName: i.displayName, basicId: i.basicId, chatMode: i.chatMode, markAsReadMode: i.markAsReadMode } })
   }
+  if (b.action === 'validate') {
+    // ให้ LINE ตรวจรูปแบบเมนู (ไม่สร้างอะไร): ส่ง menu เอง หรือ layout:'v3' / 'v2'
+    const m = b.menu && typeof b.menu === 'object' ? b.menu : b.layout === 'v3' ? MENU3 : MENU2
+    const r = await fetch('https://api.line.me/v2/bot/richmenu/validate', { method: 'POST', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify(m) })
+    return json({ ok: r.status === 200, status: r.status, detail: (await r.text()).slice(0, 600) })
+  }
+  if (b.action === 'link' && /^U[0-9a-f]{32}$/.test(String(b.user || '')) && /^richmenu-[0-9a-f]{32}$/.test(String(b.id || ''))) {
+    // ให้ผู้ใช้คนเดียวเห็นเมนูนี้ (ใช้ทดลองก่อนเปลี่ยนให้ทุกคน) · เอาออกด้วย unlink
+    const r = await fetch('https://api.line.me/v2/bot/user/' + b.user + '/richmenu/' + b.id, { method: 'POST', headers: H })
+    return json({ ok: r.status === 200, status: r.status, detail: (await r.text()).slice(0, 300) })
+  }
+  if (b.action === 'unlink' && /^U[0-9a-f]{32}$/.test(String(b.user || ''))) {
+    const r = await fetch('https://api.line.me/v2/bot/user/' + b.user + '/richmenu', { method: 'DELETE', headers: H })
+    return json({ ok: r.status === 200, status: r.status, detail: (await r.text()).slice(0, 300) })
+  }
+  if (b.action === 'delete' && /^richmenu-[0-9a-f]{32}$/.test(String(b.id || ''))) {
+    // ลบเมนูที่ไม่ใช้แล้ว — ไม่ยอมลบเมนูที่ทุกคนเห็นอยู่
+    const cur: any = await (await fetch('https://api.line.me/v2/bot/user/all/richmenu', { headers: H })).json().catch(() => null)
+    if (cur?.richMenuId === b.id) return json({ error: 'is_default' }, 409)
+    const r = await fetch('https://api.line.me/v2/bot/richmenu/' + b.id, { method: 'DELETE', headers: H })
+    return json({ ok: r.status === 200, status: r.status, detail: (await r.text()).slice(0, 300) })
+  }
   if (b.action === 'off') {
     // เลิกแสดงเมนูด่วนเริ่มต้น (ตัวเมนูยังเก็บไว้ · เปิดใหม่ได้ด้วย on + id)
     const r = await fetch('https://api.line.me/v2/bot/user/all/richmenu', { method: 'DELETE', headers: H })
@@ -93,13 +125,13 @@ Deno.serve(async (req) => {
     return json({ ok: r.status === 200, status: r.status, detail: (await r.text()).slice(0, 300) })
   }
   if (b.action === 'apply') {
-    // ไม่ส่ง image_url = เมนู v1 กับรูปใน DB (เหมือนเดิม) · ส่ง image_url = เมนู v2 กับรูปจากเว็บบอท (ต้อง PNG 2500×843)
+    // ไม่ส่ง image_url = เมนู v1 กับรูปใน DB (เหมือนเดิม) · ส่ง image_url = เมนู v2 (หรือ layout:'v3') กับรูปจากเว็บบอท (ต้อง PNG 2500×843) · default:false = ไม่ตั้งเป็นของทุกคน
     let menu: any = MENU1, pic: Uint8Array = img, picSha = sha
     if (b.image_url) {
       const r = await remote(b.image_url)
       if (!r.img) return json(r, 400)
       if (!r.png || r.w !== 2500 || r.h !== 843) return json({ error: 'size', png: r.png, w: r.w, h: r.h }, 400)
-      menu = MENU2; pic = r.img; picSha = r.sha
+      menu = b.layout === 'v3' ? MENU3 : MENU2; pic = r.img; picSha = r.sha
     }
     if (!picSha || b.sha !== picSha) return json({ error: 'sha', sha: picSha }, 400)
     const rp = await fetch('https://api.line.me/v2/bot/user/all/richmenu', { headers: H }) // เมนูที่ทุกคนเห็นอยู่ตอนนี้ (ไว้ย้อนกลับ)
@@ -111,6 +143,7 @@ Deno.serve(async (req) => {
     const r2 = await fetch('https://api-data.line.me/v2/bot/richmenu/' + id + '/content', { method: 'POST', headers: { ...H, 'Content-Type': 'image/png' }, body: pic })
     const t2 = await r2.text()
     if (r2.status !== 200) return json({ error: 'upload', status: r2.status, detail: t2.slice(0, 300), id }, 502)
+    if (b.default === false) return json({ ok: true, id, prev: prev?.richMenuId || null, default: false }) // สร้างและอัปรูปแล้ว แต่ยังไม่ตั้งเป็นของทุกคน (ใช้ link ให้คนทดลอง หรือ on + id ภายหลัง)
     const r3 = await fetch('https://api.line.me/v2/bot/user/all/richmenu/' + id, { method: 'POST', headers: H })
     const t3 = await r3.text()
     return json({ ok: r3.status === 200, id, prev: prev?.richMenuId || null, status: r3.status, detail: t3.slice(0, 300) })

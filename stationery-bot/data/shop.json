@@ -411,7 +411,7 @@
     "image": "assets/richmenu.png",
     "top": 150,
     "areas": [
-      { "label": "คุยกับแอดมิน", "text": "คุยกับแอดมิน" },
+      { "label": "คุยกับแอดมิน", "postback": "talk-admin", "text": "คุยกับแอดมิน", "displayText": "ต้องการคุยกับแอดมิน", "openKeyboard": true },
       { "label": "สั่งสินค้าจัดของ", "uri": "https://www.nattagroup.com" },
       { "label": "สั่งสินค้าออกเอกสาร", "text": "ส่งเอกสารโครงการ" }
     ]

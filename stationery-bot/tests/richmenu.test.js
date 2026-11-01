@@ -42,7 +42,7 @@ test('the menu is one row of equal tappable columns, open by default, inside LIN
     assert.ok(a.bounds.y >= 0 && a.bounds.y + a.bounds.height <= HEIGHT);
     assert.ok(a.bounds.width > 0);
     x += a.bounds.width;
-    assert.ok(['message', 'uri'].includes(a.action.type));
+    assert.ok(['message', 'uri', 'postback'].includes(a.action.type));
     assert.ok([...a.action.label].length <= 20);
   }
   assert.equal(x, WIDTH); // the columns cover the whole width
@@ -50,15 +50,18 @@ test('the menu is one row of equal tappable columns, open by default, inside LIN
   assert.equal(m.areas[0].bounds.y, 150); // the title strip is not tappable
 });
 
-test('the three buttons: talk to an admin (the bot asks who) · order for picking (the shop site) · order with documents', () => {
+test('the three buttons: talk to an admin (keyboard opens, the bot asks who) · order for picking (the shop site) · order with documents', () => {
   const [chat, order, docs] = buildRichMenu(shop).areas.map((a) => a.action);
-  assert.equal(chat.type, 'message');
-  assert.equal(chat.text, 'คุยกับแอดมิน');
+  // the first one sends no message of its own: LINE opens the keyboard and shows "ต้องการคุยกับแอดมิน" as the customer's bubble;
+  // the bot gets a postback and answers it as the words "คุยกับแอดมิน" (tests/menu-postback-e2e.test.js runs that on the real server)
+  assert.equal(chat.type, 'postback');
+  assert.equal(chat.inputOption, 'openKeyboard');
+  assert.equal(chat.displayText, 'ต้องการคุยกับแอดมิน');
   assert.deepEqual([order.type, order.uri], ['uri', 'https://www.nattagroup.com']);
   assert.equal(docs.type, 'message');
   assert.equal(docs.text, 'ส่งเอกสารโครงการ');
-  // …and what the first and third buttons send really does bring up the "who do you want to talk to?" card
-  assert.equal(buildReply(chat.text, shop, {}).needsPhotos, true);
+  // …and the words the first and third buttons stand for really do bring up the "who do you want to talk to?" card
+  assert.equal(buildReply(shop.richMenu.areas[0].text, shop, {}).needsPhotos, true);
   assert.equal(buildReply(docs.text, shop, {}).needsPhotos, true);
   assert.equal(buildReply(docs.text, shop, {}).askText, shop.contact.documentAsk);
 });
