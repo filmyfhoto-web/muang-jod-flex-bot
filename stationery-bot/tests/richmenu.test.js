@@ -35,19 +35,32 @@ test('the menu is one row of equal tappable columns, open by default, inside LIN
   assert.deepEqual(m.size, { width: 2500, height: 843 });
   assert.equal(m.selected, true);
   assert.ok([...m.chatBarText].length <= 14);
-  assert.equal(m.areas.length, 2);
+  assert.equal(m.areas.length, 3);
   let x = 0;
   for (const a of m.areas) {
     assert.equal(a.bounds.x, x); // no gaps, no overlap
     assert.ok(a.bounds.y >= 0 && a.bounds.y + a.bounds.height <= HEIGHT);
     assert.ok(a.bounds.width > 0);
     x += a.bounds.width;
-    assert.equal(a.action.type, 'message');
+    assert.ok(['message', 'uri'].includes(a.action.type));
     assert.ok([...a.action.label].length <= 20);
   }
   assert.equal(x, WIDTH); // the columns cover the whole width
-  assert.deepEqual(m.areas.map((a) => a.action.text), ['สั่งของ', 'ติดต่อแอดมิน']);
+  assert.deepEqual(m.areas.map((a) => a.bounds.width), [833, 833, 834]);
   assert.equal(m.areas[0].bounds.y, 150); // the title strip is not tappable
+});
+
+test('the three buttons: talk to an admin (the bot asks who) · order for picking (the shop site) · order with documents', () => {
+  const [chat, order, docs] = buildRichMenu(shop).areas.map((a) => a.action);
+  assert.equal(chat.type, 'message');
+  assert.equal(chat.text, 'คุยกับแอดมิน');
+  assert.deepEqual([order.type, order.uri], ['uri', 'https://www.nattagroup.com']);
+  assert.equal(docs.type, 'message');
+  assert.equal(docs.text, 'ส่งเอกสารโครงการ');
+  // …and what the first and third buttons send really does bring up the "who do you want to talk to?" card
+  assert.equal(buildReply(chat.text, shop, {}).needsPhotos, true);
+  assert.equal(buildReply(docs.text, shop, {}).needsPhotos, true);
+  assert.equal(buildReply(docs.text, shop, {}).askText, shop.contact.documentAsk);
 });
 
 test('a column can open a web page; only https links are accepted', () => {
@@ -74,6 +87,14 @@ test('the menu picture in the project is exactly what LINE accepts: PNG, 2500×8
   assert.ok(img.bytes.length < MAX_BYTES);
   assert.equal(img.bytes.readUInt32BE(16), 2500);
   assert.equal(img.bytes.readUInt32BE(20), 843);
+});
+
+test('the copy served to the shop app (public/richmenu-v2.png) is the very same picture', () => {
+  // The app's `line-richmenu` function downloads the picture from <host>/assets/richmenu-v2.png and checks its
+  // SHA-256 before uploading it to LINE — so the two files must never drift apart.
+  const served = readFileSync(new URL('../public/richmenu-v2.png', import.meta.url));
+  assert.equal(served.length, readFileSync(IMAGE).length);
+  assert.ok(served.equals(readFileSync(IMAGE)));
 });
 
 test('a missing, oversized, wrong-type or wrong-size picture is explained, not sent to LINE', () => {
@@ -158,7 +179,7 @@ test('admin commands: "ติดตั้งเมนู" / "ลบเมนู"
 });
 
 test('what a menu button or a topic chip sends is recognised as a tap', () => {
-  for (const t of ['สั่งของ', 'ติดต่อแอดมิน', 'เวลาเปิด - ปิด', 'ที่ตั้งร้าน', 'สั่งของค่ะ']) assert.equal(isMenuTap(t, shop), true, t);
+  for (const t of ['คุยกับแอดมิน', 'ส่งเอกสารโครงการ', 'ติดต่อแอดมิน', 'เวลาเปิด - ปิด', 'ที่ตั้งร้าน', 'คุยกับแอดมินค่ะ']) assert.equal(isMenuTap(t, shop), true, t);
   for (const t of ['xyz', 'สั่งของ 3 กล่อง', '', 'ขอถามหน่อย']) assert.equal(isMenuTap(t, shop), false, t);
 });
 

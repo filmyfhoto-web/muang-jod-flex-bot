@@ -411,8 +411,9 @@
     "image": "assets/richmenu.png",
     "top": 150,
     "areas": [
-      { "label": "สั่งซื้อสินค้า", "text": "สั่งของ" },
-      { "label": "คุยกับแอดมิน", "text": "ติดต่อแอดมิน" }
+      { "label": "คุยกับแอดมิน", "text": "คุยกับแอดมิน" },
+      { "label": "สั่งสินค้าจัดของ", "uri": "https://www.nattagroup.com" },
+      { "label": "สั่งสินค้าออกเอกสาร", "text": "ส่งเอกสารโครงการ" }
     ]
   },
   "adminPauseHours": 4
