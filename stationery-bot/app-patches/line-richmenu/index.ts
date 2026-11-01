@@ -1,0 +1,119 @@
+import { createClient } from 'npm:@supabase/supabase-js@2'
+
+// ตั้งเมนูด่วน (rich menu) LINE OA — เรียกจาก SQL เท่านั้น (ต้องมี push_hook_key) · token อ่านในฟังก์ชันนี้เท่านั้น
+const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false, autoRefreshToken: false } })
+const sec = async (k: string) => { const { data } = await db.from('app_secrets').select('value').eq('key', k).maybeSingle(); return data?.value ? String(data.value).trim() : '' }
+const json = (o: unknown, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { 'Content-Type': 'application/json' } })
+const hex = (b: ArrayBuffer) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join('')
+// รูปเมนู v1 เก็บใน app_config.rm_menu_img.b64 (ใส่ทีละท่อนผ่าน SQL + ตรวจ md5) — ใช้เมื่อไม่ส่ง image_url
+async function bytes() {
+  const { data } = await db.from('app_config').select('value').eq('key', 'rm_menu_img').maybeSingle()
+  const s = atob(String((data?.value as any)?.b64 || ''))
+  const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i)
+  return u
+}
+// รูปเมนู v2 ดึงจากเว็บของบอท (เฉพาะ https://nattagroup-y.onrender.com/assets/… เท่านั้น ไม่ตาม redirect) แล้วบอก SHA-256 ให้ตรวจก่อนอัปโหลดขึ้น LINE
+const IMG_HOST = 'https://nattagroup-y.onrender.com'
+async function remote(raw: unknown): Promise<any> {
+  let u: URL
+  try { u = new URL(String(raw || '')) } catch (_e) { return { error: 'image_url' } }
+  if (u.origin !== IMG_HOST || !u.pathname.startsWith('/assets/') || u.pathname.includes('..') || u.search || u.hash || u.username || u.password) return { error: 'image_url' }
+  let r: Response
+  try { r = await fetch(u.href, { redirect: 'error', signal: AbortSignal.timeout(45000) }) } catch (_e) { return { error: 'fetch' } } // เว็บบอทอาจต้องปลุกก่อน (ช้าได้เป็นสิบวินาที)
+  if (r.status !== 200) return { error: 'fetch', status: r.status }
+  const img = new Uint8Array(await r.arrayBuffer())
+  if (img.length > 1_000_000) return { error: 'too_big', n: img.length }
+  const png = img.length > 24 && img[0] === 0x89 && img[1] === 0x50 && img[2] === 0x4e && img[3] === 0x47
+  const dv = new DataView(img.buffer, img.byteOffset, img.byteLength)
+  return { img, n: img.length, png, w: png ? dv.getUint32(16) : 0, h: png ? dv.getUint32(20) : 0, sha: hex(await crypto.subtle.digest('SHA-256', img)) }
+}
+// v1 = เมนูเดิม 1600×540 (3 ช่อง) — เก็บไว้ให้สร้างกลับได้
+const MENU1 = {
+  size: { width: 1600, height: 540 }, selected: true, name: 'NATTA เมนูหลัก v1', chatBarText: 'เมนูร้าน',
+  areas: [
+    { bounds: { x: 0, y: 0, width: 533, height: 540 }, action: { type: 'uri', label: 'สั่งซื้อสินค้า', uri: 'https://www.nattagroup.com' } },
+    { bounds: { x: 533, y: 0, width: 534, height: 540 }, action: { type: 'message', label: 'ส่งเอกสารโครงการ', text: 'ส่งเอกสารโครงการ' } },
+    { bounds: { x: 1067, y: 0, width: 533, height: 540 }, action: { type: 'message', label: 'คุยกับแอดมิน', text: 'คุยกับแอดมิน' } },
+  ],
+}
+// v2 = 2500×843 · แถบหัวบนสุด 150px ไม่ใช่ปุ่ม · 3 ช่องเท่ากัน:
+//   1 ต้องการพิมพ์คุย กดเลย → ข้อความ "คุยกับแอดมิน" (บอทถามว่าคุยกับแอดมินคนไหน แล้วโชว์ชื่อ)
+//   2 กดสั่งสินค้าเพื่อจัดของ → เปิดเว็บร้าน
+//   3 กดสั่งสินค้าเพื่อออกเอกสาร → ข้อความ "ส่งเอกสารโครงการ"
+const MENU2 = {
+  size: { width: 2500, height: 843 }, selected: true, name: 'NATTA เมนูหลัก v2', chatBarText: 'เมนูร้าน',
+  areas: [
+    { bounds: { x: 0, y: 150, width: 833, height: 693 }, action: { type: 'message', label: 'คุยกับแอดมิน', text: 'คุยกับแอดมิน' } },
+    { bounds: { x: 833, y: 150, width: 833, height: 693 }, action: { type: 'uri', label: 'สั่งสินค้าจัดของ', uri: 'https://www.nattagroup.com' } },
+    { bounds: { x: 1666, y: 150, width: 834, height: 693 }, action: { type: 'message', label: 'สั่งสินค้าออกเอกสาร', text: 'ส่งเอกสารโครงการ' } },
+  ],
+}
+
+Deno.serve(async (req) => {
+  let b: any = {}
+  try { b = await req.json() } catch (_e) { b = {} }
+  const key = await sec('push_hook_key')
+  if (!key || b.key !== key) return json({ error: 'auth' }, 401)
+  // ดูรูป v2 ที่เว็บบอทให้ไว้ (ไม่แตะ LINE): ขนาด · PNG หรือไม่ · SHA-256
+  if (b.action === 'fetch_check') {
+    const r = await remote(b.image_url)
+    if (!r.img) return json(r, 400)
+    return json({ n: r.n, png: r.png, w: r.w, h: r.h, sha: r.sha })
+  }
+  const img = await bytes()
+  const sha = img.length ? hex(await crypto.subtle.digest('SHA-256', img)) : ''
+  if (b.action === 'check') {
+    const parts: string[] = []
+    for (let i = 0; i < img.length; i += 2048) parts.push(hex(await crypto.subtle.digest('SHA-256', img.slice(i, i + 2048))).slice(0, 8))
+    return json({ n: img.length, sha, parts })
+  }
+  const tok = await sec('line_channel_token')
+  if (!tok) return json({ error: 'no_token' }, 400)
+  const H = { Authorization: 'Bearer ' + tok }
+  if (b.action === 'status') {
+    const r1 = await fetch('https://api.line.me/v2/bot/richmenu/list', { headers: H })
+    const r2 = await fetch('https://api.line.me/v2/bot/user/all/richmenu', { headers: H })
+    return json({ list: await r1.json().catch(() => null), def: await r2.json().catch(() => null) })
+  }
+  if (b.action === 'webhook') {
+    // อ่านอย่างเดียว: ที่อยู่ webhook ของ OA + ข้อมูลบัญชี · ใส่ test:true = ให้ LINE ลองยิงไปที่ webhook (ส่ง events ว่าง ไม่มีข้อความถึงลูกค้า)
+    const e: any = await (await fetch('https://api.line.me/v2/bot/channel/webhook/endpoint', { headers: H })).json().catch(() => null)
+    let test: any = null
+    if (b.test) test = await (await fetch('https://api.line.me/v2/bot/channel/webhook/test', { method: 'POST', headers: { ...H, 'Content-Type': 'application/json' }, body: '{}' })).json().catch(() => null)
+    const i: any = await (await fetch('https://api.line.me/v2/bot/info', { headers: H })).json().catch(() => null)
+    return json({ endpoint: e, test, info: i && { displayName: i.displayName, basicId: i.basicId, chatMode: i.chatMode, markAsReadMode: i.markAsReadMode } })
+  }
+  if (b.action === 'off') {
+    // เลิกแสดงเมนูด่วนเริ่มต้น (ตัวเมนูยังเก็บไว้ · เปิดใหม่ได้ด้วย on + id)
+    const r = await fetch('https://api.line.me/v2/bot/user/all/richmenu', { method: 'DELETE', headers: H })
+    return json({ ok: r.status === 200, status: r.status, detail: (await r.text()).slice(0, 300) })
+  }
+  if (b.action === 'on' && /^richmenu-[0-9a-f]{32}$/.test(String(b.id || ''))) {
+    const r = await fetch('https://api.line.me/v2/bot/user/all/richmenu/' + b.id, { method: 'POST', headers: H })
+    return json({ ok: r.status === 200, status: r.status, detail: (await r.text()).slice(0, 300) })
+  }
+  if (b.action === 'apply') {
+    // ไม่ส่ง image_url = เมนู v1 กับรูปใน DB (เหมือนเดิม) · ส่ง image_url = เมนู v2 กับรูปจากเว็บบอท (ต้อง PNG 2500×843)
+    let menu: any = MENU1, pic: Uint8Array = img, picSha = sha
+    if (b.image_url) {
+      const r = await remote(b.image_url)
+      if (!r.img) return json(r, 400)
+      if (!r.png || r.w !== 2500 || r.h !== 843) return json({ error: 'size', png: r.png, w: r.w, h: r.h }, 400)
+      menu = MENU2; pic = r.img; picSha = r.sha
+    }
+    if (!picSha || b.sha !== picSha) return json({ error: 'sha', sha: picSha }, 400)
+    const rp = await fetch('https://api.line.me/v2/bot/user/all/richmenu', { headers: H }) // เมนูที่ทุกคนเห็นอยู่ตอนนี้ (ไว้ย้อนกลับ)
+    const prev: any = await rp.json().catch(() => null)
+    const r1 = await fetch('https://api.line.me/v2/bot/richmenu', { method: 'POST', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify(menu) })
+    const j1: any = await r1.json().catch(() => ({}))
+    if (r1.status !== 200 || !j1.richMenuId) return json({ error: 'create', status: r1.status, detail: j1 }, 502)
+    const id = j1.richMenuId
+    const r2 = await fetch('https://api-data.line.me/v2/bot/richmenu/' + id + '/content', { method: 'POST', headers: { ...H, 'Content-Type': 'image/png' }, body: pic })
+    const t2 = await r2.text()
+    if (r2.status !== 200) return json({ error: 'upload', status: r2.status, detail: t2.slice(0, 300), id }, 502)
+    const r3 = await fetch('https://api.line.me/v2/bot/user/all/richmenu/' + id, { method: 'POST', headers: H })
+    const t3 = await r3.text()
+    return json({ ok: r3.status === 200, id, prev: prev?.richMenuId || null, status: r3.status, detail: t3.slice(0, 300) })
+  }
+  return json({ error: 'bad_request' }, 400)
+})
