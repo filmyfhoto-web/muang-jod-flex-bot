@@ -27,6 +27,15 @@ async function remote(raw: unknown): Promise<any> {
   const dv = new DataView(img.buffer, img.byteOffset, img.byteLength)
   return { img, n: img.length, png, w: png ? dv.getUint32(16) : 0, h: png ? dv.getUint32(20) : 0, sha: hex(await crypto.subtle.digest('SHA-256', img)) }
 }
+// ที่อยู่ webhook ที่อนุญาตให้ตั้ง/ทดสอบ: https เท่านั้น และต้องอยู่บน host เหล่านี้ (บอท Render หรือ Botcake) — ถ้ากุญแจหลุดก็ตั้งไปที่อื่นไม่ได้
+const WEBHOOK_HOSTS = new Set(['nattagroup-y.onrender.com', 'wa.botcake.io'])
+const LINE_WEBHOOK = 'https://api.line.me/v2/bot/channel/webhook'
+function webhookUrl(raw: unknown): string | null {
+  let u: URL
+  try { u = new URL(String(raw || '')) } catch (_e) { return null }
+  if (u.protocol !== 'https:' || !WEBHOOK_HOSTS.has(u.hostname) || u.port || u.username || u.password || u.search || u.hash) return null
+  return u.href
+}
 // v1 = เมนูเดิม 1600×540 (3 ช่อง) — เก็บไว้ให้สร้างกลับได้
 const MENU1 = {
   size: { width: 1600, height: 540 }, selected: true, name: 'NATTA เมนูหลัก v1', chatBarText: 'เมนูร้าน',
@@ -87,11 +96,30 @@ Deno.serve(async (req) => {
   }
   if (b.action === 'webhook') {
     // อ่านอย่างเดียว: ที่อยู่ webhook ของ OA + ข้อมูลบัญชี · ใส่ test:true = ให้ LINE ลองยิงไปที่ webhook (ส่ง events ว่าง ไม่มีข้อความถึงลูกค้า)
-    const e: any = await (await fetch('https://api.line.me/v2/bot/channel/webhook/endpoint', { headers: H })).json().catch(() => null)
+    // ใส่ url ด้วย = ลองยิงไปที่ที่อยู่นั้นแทน (ใช้ลองก่อนตั้งจริง · ไม่เปลี่ยนค่าที่ตั้งไว้) — ต้องเป็น host ที่อนุญาต
+    const e: any = await (await fetch(LINE_WEBHOOK + '/endpoint', { headers: H })).json().catch(() => null)
     let test: any = null
-    if (b.test) test = await (await fetch('https://api.line.me/v2/bot/channel/webhook/test', { method: 'POST', headers: { ...H, 'Content-Type': 'application/json' }, body: '{}' })).json().catch(() => null)
+    let tested: string | null = null
+    if (b.test) {
+      tested = b.url ? webhookUrl(b.url) : null
+      if (b.url && !tested) return json({ error: 'webhook_url' }, 400)
+      test = await (await fetch(LINE_WEBHOOK + '/test', { method: 'POST', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify(tested ? { endpoint: tested } : {}) })).json().catch(() => null)
+    }
     const i: any = await (await fetch('https://api.line.me/v2/bot/info', { headers: H })).json().catch(() => null)
-    return json({ endpoint: e, test, info: i && { displayName: i.displayName, basicId: i.basicId, chatMode: i.chatMode, markAsReadMode: i.markAsReadMode } })
+    return json({ endpoint: e, test, tested, info: i && { displayName: i.displayName, basicId: i.basicId, chatMode: i.chatMode, markAsReadMode: i.markAsReadMode } })
+  }
+  if (b.action === 'set_webhook') {
+    // ตั้งที่อยู่ webhook ของ OA (LINE ตั้งได้ที่เดียว) — ให้ LINE ลองยิงที่อยู่ใหม่ก่อน ถ้าไม่ผ่านจะไม่เปลี่ยน (force:true = ข้ามการทดสอบ)
+    // คืน prev = ที่อยู่เดิม ไว้ย้อนกลับ (เรียก set_webhook อีกครั้งด้วย url เดิม) · เปลี่ยนเฉพาะที่อยู่ ไม่แตะสวิตช์ "ใช้ webhook"
+    const u = webhookUrl(b.url)
+    if (!u) return json({ error: 'webhook_url' }, 400)
+    const cur: any = await (await fetch(LINE_WEBHOOK + '/endpoint', { headers: H })).json().catch(() => null)
+    const t: any = await (await fetch(LINE_WEBHOOK + '/test', { method: 'POST', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: u }) })).json().catch(() => null)
+    if (t?.success !== true && b.force !== true) return json({ error: 'test_failed', test: t, prev: cur?.endpoint || null }, 409)
+    const r = await fetch(LINE_WEBHOOK + '/endpoint', { method: 'PUT', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: u }) })
+    const detail = (await r.text()).slice(0, 300)
+    const now: any = await (await fetch(LINE_WEBHOOK + '/endpoint', { headers: H })).json().catch(() => null)
+    return json({ ok: r.status === 200, status: r.status, detail, prev: cur?.endpoint || null, now, test: t })
   }
   if (b.action === 'validate') {
     // ให้ LINE ตรวจรูปแบบเมนู (ไม่สร้างอะไร): ส่ง menu เอง หรือ layout:'v3' / 'v2'
