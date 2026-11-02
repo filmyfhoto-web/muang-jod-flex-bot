@@ -77,12 +77,19 @@ test('the five buttons: talk to an admin (keyboard opens, the bot asks who) · o
   assert.equal(chat.inputOption, 'openKeyboard');
   assert.equal(chat.displayText, 'ต้องการคุยกับแอดมิน');
   assert.deepEqual([order.type, order.uri], ['uri', 'https://www.nattagroup.com']);
-  assert.equal(docs.type, 'message');
-  assert.equal(docs.text, 'ส่งเอกสารโครงการ');
-  // …and the words the first and third buttons stand for really do bring up the "who do you want to talk to?" card
+  // the third one opens the shop's "order with documents" page (the owner's link, 2 Nov) instead of sending "ส่งเอกสารโครงการ" and
+  // being asked which admin: the site answers #order-docs itself (po.js) — the bot is not involved
+  assert.deepEqual([docs.type, docs.label, docs.uri], ['uri', 'สั่งสินค้าออกเอกสาร', 'https://www.nattagroup.com/#order-docs']);
+  assert.equal('text' in docs, false);
+  // …but the words it used to send stay in its `text` setting: the older menu (v2, what customers still have until the new one is switched on)
+  // sends them, and a customer typing them gets the "who do you want to talk to?" card — so they must still count as a menu tap
+  const docsWords = shop.richMenu.areas[2].text;
+  assert.equal(docsWords, 'ส่งเอกสารโครงการ');
+  assert.equal(isMenuTap(docsWords, shop), true);
+  // …and the words the first button and the old third button stand for really do bring up the "who do you want to talk to?" card
   assert.equal(buildReply(shop.richMenu.areas[0].text, shop, {}).needsPhotos, true);
-  assert.equal(buildReply(docs.text, shop, {}).needsPhotos, true);
-  assert.equal(buildReply(docs.text, shop, {}).askText, shop.contact.documentAsk);
+  assert.equal(buildReply(docsWords, shop, {}).needsPhotos, true);
+  assert.equal(buildReply(docsWords, shop, {}).askText, shop.contact.documentAsk);
   // the two web pages of the shop's site: the school-supplies page (the owner's link /อุปกรณ์, percent-encoded as LINE wants) and the print services
   assert.deepEqual([gear.type, gear.label], ['uri', 'อุปกรณ์การเรียน']);
   assert.equal(new URL(gear.uri).origin, 'https://www.nattagroup.com');
