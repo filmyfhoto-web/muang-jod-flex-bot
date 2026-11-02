@@ -68,6 +68,20 @@ const MENU3 = {
   ],
 }
 
+// v4 = 5 ปุ่ม 2 แถว (รูป 2500×1301): แถวบน = 3 ปุ่มเดิม (ปุ่มแรกเป็น postback เหมือน v3) · แถวล่าง = "อุปกรณ์" (หน้าสินค้าของเว็บ) + "บริการงานพิมพ์" (#services)
+//   ตรงกับ shop.json richMenu ของบอท (tests/richmenu.test.js เทียบลิงก์ ขนาด และขอบของแต่ละปุ่มให้)
+const MENU4 = {
+  size: { width: 2500, height: 1301 }, selected: true, name: 'NATTA เมนูหลัก v4', chatBarText: 'เมนูร้าน',
+  areas: [
+    { bounds: { x: 0, y: 150, width: 833, height: 654 }, action: MENU3.areas[0].action },
+    { bounds: { x: 833, y: 150, width: 833, height: 654 }, action: MENU2.areas[1].action },
+    { bounds: { x: 1666, y: 150, width: 834, height: 654 }, action: MENU2.areas[2].action },
+    { bounds: { x: 0, y: 804, width: 1250, height: 497 }, action: { type: 'uri', label: 'อุปกรณ์', uri: 'https://www.nattagroup.com/%E0%B8%AD%E0%B8%B8%E0%B8%9B%E0%B8%81%E0%B8%A3%E0%B8%93%E0%B9%8C' } },
+    { bounds: { x: 1250, y: 804, width: 1250, height: 497 }, action: { type: 'uri', label: 'บริการงานพิมพ์', uri: 'https://www.nattagroup.com/#services' } },
+  ],
+}
+const LAYOUTS: Record<string, any> = { v2: MENU2, v3: MENU3, v4: MENU4 }
+
 Deno.serve(async (req) => {
   let b: any = {}
   try { b = await req.json() } catch (_e) { b = {} }
@@ -122,8 +136,8 @@ Deno.serve(async (req) => {
     return json({ ok: r.status === 200, status: r.status, detail, prev: cur?.endpoint || null, now, test: t })
   }
   if (b.action === 'validate') {
-    // ให้ LINE ตรวจรูปแบบเมนู (ไม่สร้างอะไร): ส่ง menu เอง หรือ layout:'v3' / 'v2'
-    const m = b.menu && typeof b.menu === 'object' ? b.menu : b.layout === 'v3' ? MENU3 : MENU2
+    // ให้ LINE ตรวจรูปแบบเมนู (ไม่สร้างอะไร): ส่ง menu เอง หรือ layout:'v4' / 'v3' / 'v2'
+    const m = b.menu && typeof b.menu === 'object' ? b.menu : LAYOUTS[b.layout] ?? MENU2
     const r = await fetch('https://api.line.me/v2/bot/richmenu/validate', { method: 'POST', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify(m) })
     return json({ ok: r.status === 200, status: r.status, detail: (await r.text()).slice(0, 600) })
   }
@@ -153,13 +167,14 @@ Deno.serve(async (req) => {
     return json({ ok: r.status === 200, status: r.status, detail: (await r.text()).slice(0, 300) })
   }
   if (b.action === 'apply') {
-    // ไม่ส่ง image_url = เมนู v1 กับรูปใน DB (เหมือนเดิม) · ส่ง image_url = เมนู v2 (หรือ layout:'v3') กับรูปจากเว็บบอท (ต้อง PNG 2500×843) · default:false = ไม่ตั้งเป็นของทุกคน
+    // ไม่ส่ง image_url = เมนู v1 กับรูปใน DB (เหมือนเดิม) · ส่ง image_url = เมนู v2 (หรือ layout:'v3' / 'v4') กับรูปจากเว็บบอท (ต้อง PNG ขนาดเท่าเมนู: v2/v3 = 2500×843, v4 = 2500×1301) · default:false = ไม่ตั้งเป็นของทุกคน
     let menu: any = MENU1, pic: Uint8Array = img, picSha = sha
     if (b.image_url) {
       const r = await remote(b.image_url)
       if (!r.img) return json(r, 400)
-      if (!r.png || r.w !== 2500 || r.h !== 843) return json({ error: 'size', png: r.png, w: r.w, h: r.h }, 400)
-      menu = b.layout === 'v3' ? MENU3 : MENU2; pic = r.img; picSha = r.sha
+      menu = LAYOUTS[b.layout] ?? MENU2
+      if (!r.png || r.w !== menu.size.width || r.h !== menu.size.height) return json({ error: 'size', png: r.png, w: r.w, h: r.h, want: menu.size }, 400)
+      pic = r.img; picSha = r.sha
     }
     if (!picSha || b.sha !== picSha) return json({ error: 'sha', sha: picSha }, 400)
     const rp = await fetch('https://api.line.me/v2/bot/user/all/richmenu', { headers: H }) // เมนูที่ทุกคนเห็นอยู่ตอนนี้ (ไว้ย้อนกลับ)

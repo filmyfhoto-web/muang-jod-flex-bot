@@ -30,28 +30,47 @@ const fakeLine = ({ menus = [], defaultId = null, failOn = null } = {}) => {
   return { fetchImpl, calls, seen: () => calls.map((c) => `${c.method} ${c.url}`) };
 };
 
-test('the menu is one row of equal tappable columns, open by default, inside LINE\'s limits', () => {
+test('the shop menu is two rows of equal tappable buttons (3 above, 2 below), open by default, inside LINE\'s limits', () => {
   const m = buildRichMenu(shop);
-  assert.deepEqual(m.size, { width: 2500, height: 843 });
+  assert.deepEqual(m.size, { width: 2500, height: 1301 });
+  assert.ok(m.size.height >= 250 && m.size.width / m.size.height >= 1.45); // LINE's rule for the size of a menu
   assert.equal(m.selected, true);
   assert.ok([...m.chatBarText].length <= 14);
-  assert.equal(m.areas.length, 3);
-  let x = 0;
-  for (const a of m.areas) {
-    assert.equal(a.bounds.x, x); // no gaps, no overlap
-    assert.ok(a.bounds.y >= 0 && a.bounds.y + a.bounds.height <= HEIGHT);
-    assert.ok(a.bounds.width > 0);
-    x += a.bounds.width;
-    assert.ok(['message', 'uri', 'postback'].includes(a.action.type));
-    assert.ok([...a.action.label].length <= 20);
+  assert.equal(m.areas.length, 5);
+  const rows = [m.areas.slice(0, 3), m.areas.slice(3)];
+  for (const row of rows) {
+    let x = 0;
+    for (const a of row) {
+      assert.equal(a.bounds.x, x); // no gaps, no overlap
+      assert.equal(a.bounds.y, row[0].bounds.y); // a row's buttons are equally tall and start at the same height
+      assert.equal(a.bounds.height, row[0].bounds.height);
+      assert.ok(a.bounds.width > 0 && a.bounds.y >= 0 && a.bounds.y + a.bounds.height <= m.size.height);
+      x += a.bounds.width;
+      assert.ok(['message', 'uri', 'postback'].includes(a.action.type));
+      assert.ok([...a.action.label].length <= 20);
+    }
+    assert.equal(x, WIDTH); // each row covers the whole width
   }
-  assert.equal(x, WIDTH); // the columns cover the whole width
-  assert.deepEqual(m.areas.map((a) => a.bounds.width), [833, 833, 834]);
-  assert.equal(m.areas[0].bounds.y, 150); // the title strip is not tappable
+  assert.deepEqual(rows[0].map((a) => a.bounds.width), [833, 833, 834]);
+  assert.deepEqual(rows[1].map((a) => a.bounds.width), [1250, 1250]);
+  assert.equal(rows[0][0].bounds.y, 150); // the title strip is not tappable
+  assert.equal(rows[1][0].bounds.y, rows[0][0].bounds.y + rows[0][0].bounds.height); // the second row starts where the first ends …
+  assert.equal(rows[1][0].bounds.y + rows[1][0].bounds.height, m.size.height); // … and runs to the bottom of the picture
 });
 
-test('the three buttons: talk to an admin (keyboard opens, the bot asks who) · order for picking (the shop site) · order with documents', () => {
-  const [chat, order, docs] = buildRichMenu(shop).areas.map((a) => a.action);
+test('without `rows` the menu is still one row of equal columns under a title strip (the first menus)', () => {
+  const one = { richMenu: { ...shop.richMenu, rows: undefined, height: undefined, top: 150, areas: shop.richMenu.areas.slice(0, 3) } };
+  const m = buildRichMenu(one);
+  assert.deepEqual(m.size, { width: WIDTH, height: HEIGHT });
+  assert.deepEqual(m.areas.map((a) => a.bounds), [
+    { x: 0, y: 150, width: 833, height: 693 },
+    { x: 833, y: 150, width: 833, height: 693 },
+    { x: 1666, y: 150, width: 834, height: 693 },
+  ]);
+});
+
+test('the five buttons: talk to an admin (keyboard opens, the bot asks who) · order for picking · order with documents · equipment page · print-service page', () => {
+  const [chat, order, docs, gear, print] = buildRichMenu(shop).areas.map((a) => a.action);
   // the first one sends no message of its own: LINE opens the keyboard and shows "ต้องการคุยกับแอดมิน" as the customer's bubble;
   // the bot gets a postback and answers it as the words "คุยกับแอดมิน" (tests/menu-postback-e2e.test.js runs that on the real server)
   assert.equal(chat.type, 'postback');
@@ -64,6 +83,27 @@ test('the three buttons: talk to an admin (keyboard opens, the bot asks who) · 
   assert.equal(buildReply(shop.richMenu.areas[0].text, shop, {}).needsPhotos, true);
   assert.equal(buildReply(docs.text, shop, {}).needsPhotos, true);
   assert.equal(buildReply(docs.text, shop, {}).askText, shop.contact.documentAsk);
+  // the two web pages of the shop's site: the products page (the owner's link /อุปกรณ์, percent-encoded as LINE wants) and the print services
+  assert.deepEqual([gear.type, gear.label], ['uri', 'อุปกรณ์']);
+  assert.equal(new URL(gear.uri).origin, 'https://www.nattagroup.com');
+  assert.equal(decodeURIComponent(new URL(gear.uri).pathname), '/อุปกรณ์');
+  assert.ok(/^[\x20-\x7e]+$/.test(gear.uri)); // plain ASCII: nothing for LINE to mis-encode
+  assert.deepEqual([print.type, print.label, print.uri], ['uri', 'บริการงานพิมพ์', 'https://www.nattagroup.com/#services']);
+});
+
+test('a broken rows setting is rejected with a clear message', () => {
+  const m = (rm) => buildRichMenu({ richMenu: { height: 1301, areas: [{ text: 'a' }, { text: 'b' }, { text: 'c' }], ...rm } });
+  assert.doesNotThrow(() => m({ rows: [{ top: 100, columns: 3 }] }));
+  assert.doesNotThrow(() => m({ rows: [{ top: 100, columns: 2 }, { top: 700, columns: 1 }] }));
+  assert.throws(() => m({ rows: [{ top: 100, columns: 2 }] }), /รวม 2 ช่อง แต่ richMenu\.areas มี 3/);
+  assert.throws(() => m({ rows: [{ top: 100, columns: 3 }, { top: 100, columns: 1 }] }), /แถวที่ 2/); // rows must go down the picture
+  assert.throws(() => m({ rows: [{ top: 800, columns: 3 }, { top: 300, columns: 1 }] }), /แถวที่ 2/);
+  assert.throws(() => m({ rows: [{ top: 1250, columns: 3 }] }), /แถวที่ 1/); // no room left for a button
+  assert.throws(() => m({ rows: [{ top: 100, columns: 0 }] }), /แถวที่ 1 ต้องมี/);
+  assert.throws(() => m({ rows: [{ top: 100, columns: 7 }] }), /แถวที่ 1 ต้องมี/);
+  assert.throws(() => m({ rows: [] }), /richMenu\.rows/);
+  for (const bad of [200, 2000, 'x']) assert.throws(() => m({ height: bad, rows: [{ top: 0, columns: 3 }] }), /richMenu\.height/, String(bad));
+  assert.throws(() => buildRichMenu({ richMenu: { rows: [{ top: 0, columns: 6 }], areas: Array.from({ length: 21 }, (_, i) => ({ text: `t${i}` })) } }), /ไม่เกิน 20/);
 });
 
 test('a column can open a web page; only https links are accepted', () => {
@@ -84,20 +124,35 @@ test('a broken menu setting is rejected with a clear message', () => {
   assert.throws(() => buildRichMenu({ richMenu: { areas: [{ label: 'x', text: ' ' }] } }), /ไม่มี text/);
 });
 
-test('the menu picture in the project is exactly what LINE accepts: PNG, 2500×843, under 1 MB', () => {
-  const img = loadMenuImage(IMAGE);
+test('the menu picture in the project is exactly what LINE accepts: PNG, 2500 wide and as high as the menu (richMenu.height), under 1 MB', () => {
+  const img = loadMenuImage(IMAGE, shop.richMenu.height);
   assert.equal(img.mime, 'image/png');
   assert.ok(img.bytes.length < MAX_BYTES);
   assert.equal(img.bytes.readUInt32BE(16), 2500);
-  assert.equal(img.bytes.readUInt32BE(20), 843);
+  assert.equal(img.bytes.readUInt32BE(20), 1301);
+  assert.equal(shop.richMenu.height, 1301);
+  assert.throws(() => loadMenuImage(IMAGE), /2500×843.*2500×1301/); // it is checked against the menu's own height, not a fixed one
 });
 
-test('the copy served to the shop app (public/richmenu-v2.png) is the very same picture', () => {
-  // The app's `line-richmenu` function downloads the picture from <host>/assets/richmenu-v2.png and checks its
+test('the copy served to the shop app (public/richmenu-v4.png) is the very same picture', () => {
+  // The app's `line-richmenu` function downloads the picture from <host>/assets/richmenu-v4.png and checks its
   // SHA-256 before uploading it to LINE — so the two files must never drift apart.
-  const served = readFileSync(new URL('../public/richmenu-v2.png', import.meta.url));
+  const served = readFileSync(new URL('../public/richmenu-v4.png', import.meta.url));
   assert.equal(served.length, readFileSync(IMAGE).length);
   assert.ok(served.equals(readFileSync(IMAGE)));
+});
+
+test('the shop app\'s line-richmenu function (app-patches/line-richmenu/index.ts) builds the same v4 menu: same links, same picture height, same edges', () => {
+  const src = readFileSync(new URL('../app-patches/line-richmenu/index.ts', import.meta.url), 'utf8');
+  const start = src.indexOf('const MENU4');
+  assert.ok(start > 0, 'MENU4 is defined');
+  const block = src.slice(start, src.indexOf('Deno.serve'));
+  const m = buildRichMenu(shop);
+  assert.ok(block.includes(`size: { width: 2500, height: ${m.size.height} }`));
+  for (const a of m.areas) {
+    assert.ok(block.includes(`bounds: { x: ${a.bounds.x}, y: ${a.bounds.y}, width: ${a.bounds.width}, height: ${a.bounds.height} }`), JSON.stringify(a.bounds));
+    if (a.action.type === 'uri' && a.action.uri !== 'https://www.nattagroup.com') assert.ok(block.includes(a.action.uri), a.action.uri);
+  }
 });
 
 test('a missing, oversized, wrong-type or wrong-size picture is explained, not sent to LINE', () => {
