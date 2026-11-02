@@ -69,7 +69,7 @@ test('without `rows` the menu is still one row of equal columns under a title st
   ]);
 });
 
-test('the five buttons: talk to an admin (keyboard opens, the bot asks who) · order for picking · order with documents · equipment page · print-service page', () => {
+test('the five buttons: talk to an admin (keyboard opens, the bot asks who) · order for picking · order with documents · school-supplies page · print-service page', () => {
   const [chat, order, docs, gear, print] = buildRichMenu(shop).areas.map((a) => a.action);
   // the first one sends no message of its own: LINE opens the keyboard and shows "ต้องการคุยกับแอดมิน" as the customer's bubble;
   // the bot gets a postback and answers it as the words "คุยกับแอดมิน" (tests/menu-postback-e2e.test.js runs that on the real server)
@@ -83,8 +83,8 @@ test('the five buttons: talk to an admin (keyboard opens, the bot asks who) · o
   assert.equal(buildReply(shop.richMenu.areas[0].text, shop, {}).needsPhotos, true);
   assert.equal(buildReply(docs.text, shop, {}).needsPhotos, true);
   assert.equal(buildReply(docs.text, shop, {}).askText, shop.contact.documentAsk);
-  // the two web pages of the shop's site: the products page (the owner's link /อุปกรณ์, percent-encoded as LINE wants) and the print services
-  assert.deepEqual([gear.type, gear.label], ['uri', 'อุปกรณ์']);
+  // the two web pages of the shop's site: the school-supplies page (the owner's link /อุปกรณ์, percent-encoded as LINE wants) and the print services
+  assert.deepEqual([gear.type, gear.label], ['uri', 'อุปกรณ์การเรียน']);
   assert.equal(new URL(gear.uri).origin, 'https://www.nattagroup.com');
   assert.equal(decodeURIComponent(new URL(gear.uri).pathname), '/อุปกรณ์');
   assert.ok(/^[\x20-\x7e]+$/.test(gear.uri)); // plain ASCII: nothing for LINE to mis-encode
@@ -152,6 +152,7 @@ test('the shop app\'s line-richmenu function (app-patches/line-richmenu/index.ts
   for (const a of m.areas) {
     assert.ok(block.includes(`bounds: { x: ${a.bounds.x}, y: ${a.bounds.y}, width: ${a.bounds.width}, height: ${a.bounds.height} }`), JSON.stringify(a.bounds));
     if (a.action.type === 'uri' && a.action.uri !== 'https://www.nattagroup.com') assert.ok(block.includes(a.action.uri), a.action.uri);
+    if (a.action.type === 'uri') assert.ok(src.includes(`label: '${a.action.label}'`), a.action.label); // the same button names (the first three come from v2/v3 above)
   }
 });
 

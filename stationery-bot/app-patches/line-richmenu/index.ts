@@ -68,7 +68,7 @@ const MENU3 = {
   ],
 }
 
-// v4 = 5 ปุ่ม 2 แถว (รูป 2500×1301): แถวบน = 3 ปุ่มเดิม (ปุ่มแรกเป็น postback เหมือน v3) · แถวล่าง = "อุปกรณ์" (หน้าสินค้าของเว็บ) + "บริการงานพิมพ์" (#services)
+// v4 = 5 ปุ่ม 2 แถว (รูป 2500×1301): แถวบน = 3 ปุ่มเดิม (ปุ่มแรกเป็น postback เหมือน v3) · แถวล่าง = "อุปกรณ์การเรียน" (/อุปกรณ์ ของเว็บ) + "บริการงานพิมพ์" (#services)
 //   ตรงกับ shop.json richMenu ของบอท (tests/richmenu.test.js เทียบลิงก์ ขนาด และขอบของแต่ละปุ่มให้)
 const MENU4 = {
   size: { width: 2500, height: 1301 }, selected: true, name: 'NATTA เมนูหลัก v4', chatBarText: 'เมนูร้าน',
@@ -76,7 +76,7 @@ const MENU4 = {
     { bounds: { x: 0, y: 150, width: 833, height: 654 }, action: MENU3.areas[0].action },
     { bounds: { x: 833, y: 150, width: 833, height: 654 }, action: MENU2.areas[1].action },
     { bounds: { x: 1666, y: 150, width: 834, height: 654 }, action: MENU2.areas[2].action },
-    { bounds: { x: 0, y: 804, width: 1250, height: 497 }, action: { type: 'uri', label: 'อุปกรณ์', uri: 'https://www.nattagroup.com/%E0%B8%AD%E0%B8%B8%E0%B8%9B%E0%B8%81%E0%B8%A3%E0%B8%93%E0%B9%8C' } },
+    { bounds: { x: 0, y: 804, width: 1250, height: 497 }, action: { type: 'uri', label: 'อุปกรณ์การเรียน', uri: 'https://www.nattagroup.com/%E0%B8%AD%E0%B8%B8%E0%B8%9B%E0%B8%81%E0%B8%A3%E0%B8%93%E0%B9%8C' } },
     { bounds: { x: 1250, y: 804, width: 1250, height: 497 }, action: { type: 'uri', label: 'บริการงานพิมพ์', uri: 'https://www.nattagroup.com/#services' } },
   ],
 }

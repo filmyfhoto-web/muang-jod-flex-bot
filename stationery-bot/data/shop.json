@@ -415,7 +415,7 @@
       { "label": "คุยกับแอดมิน", "postback": "talk-admin", "text": "คุยกับแอดมิน", "displayText": "ต้องการคุยกับแอดมิน", "openKeyboard": true },
       { "label": "สั่งสินค้าจัดของ", "uri": "https://www.nattagroup.com" },
       { "label": "สั่งสินค้าออกเอกสาร", "text": "ส่งเอกสารโครงการ" },
-      { "label": "อุปกรณ์", "uri": "https://www.nattagroup.com/%E0%B8%AD%E0%B8%B8%E0%B8%9B%E0%B8%81%E0%B8%A3%E0%B8%93%E0%B9%8C" },
+      { "label": "อุปกรณ์การเรียน", "uri": "https://www.nattagroup.com/%E0%B8%AD%E0%B8%B8%E0%B8%9B%E0%B8%81%E0%B8%A3%E0%B8%93%E0%B9%8C" },
       { "label": "บริการงานพิมพ์", "uri": "https://www.nattagroup.com/#services" }
     ]
   },
