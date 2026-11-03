@@ -1,7 +1,7 @@
 // A PostgREST-compatible HTTP server backed by the PGlite database (a real PostgreSQL), so the bot's own Supabase client
 // (@supabase/supabase-js, the same one production uses) talks to real SQL: constraints, the partial unique index, RLS and the
 // functions all run for real. Only the subset the bot and the back office use is implemented:
-//   select (columns, eq/neq/gt/gte/lt/lte/is/in/not, order, limit, offset) · insert (one or many, DEFAULT for missing keys,
+//   select (columns, eq/neq/gt/gte/lt/lte/is/in/like/ilike/not/or, order, limit, offset) · insert (one or many, DEFAULT for missing keys,
 //   on_conflict with ignore-duplicates / merge-duplicates) · update · delete · rpc/<fn> (named arguments) ·
 //   storage upload/download · functions/v1/* (recorded, answered 200 — the push-notify edge function is not reimplemented).
 // Service-key requests run as the service_role role, a user JWT runs as the authenticated role with request.jwt.claims set —
@@ -40,9 +40,26 @@ function decodeJwt(token) {
   }
 }
 
+// or=(a.op.v,b.op.v) — the pieces are split on top-level commas (the values the screens send carry no commas or brackets)
+function orSql(raw, values) {
+  const inner = String(raw).replace(/^\(|\)$/g, '');
+  const pieces = inner.split(',').filter((x) => x !== '');
+  if (!pieces.length) throw new HttpError(400, 'empty or filter');
+  const sqls = pieces.map((piece) => {
+    const dot = piece.indexOf('.');
+    if (dot < 0) throw new HttpError(400, `bad or filter: ${piece}`);
+    return whereSql([[piece.slice(0, dot), piece.slice(dot + 1)]], values).replace(/^ where /, '');
+  });
+  return `(${sqls.join(' or ')})`;
+}
+
 function whereSql(params, values) {
   const parts = [];
   for (const [col, raw] of params) {
+    if (col === 'or') {
+      parts.push(orSql(raw, values));
+      continue;
+    }
     if (RESERVED.has(col)) continue;
     let expr = raw;
     let neg = false;
@@ -75,6 +92,11 @@ function whereSql(params, values) {
       }
       case 'is':
         sql = val === 'null' ? `${c} is null` : `${c} is ${val === 'true' ? 'true' : 'false'}`;
+        break;
+      case 'like':
+      case 'ilike':
+        values.push(val.replace(/\*/g, '%'));
+        sql = `${c}::text ${op} $${values.length}`;
         break;
       case 'in': {
         const list = val
