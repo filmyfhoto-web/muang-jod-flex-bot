@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 export const PAYMENT_STATUSES = ['pending', 'paid', 'partial'];
 export const JOB_STATUSES = ['active', 'completed', 'cancelled'];
+export const FULFILLMENTS = ['pickup', 'delivery'];
+export const CHAT_DIRECTIONS = ['in', 'out'];
 
 // Known postback actions. Kept in sync with postbackHandler's router.
 export const POSTBACK_ACTIONS = [
@@ -100,6 +102,12 @@ export const jobCreateSchema = z.object({
   // เดินทางผ่านฟอร์มกลับมาเฉย ๆ ร้านไม่ได้กรอกใหม่ เซิร์ฟเวอร์เป็นคนแสตมป์
   // pay_method / booked_at / paid_at จากค่านี้แบบเดียวกับทางแชตเป๊ะ
   payMethod: z.enum(['cash', 'transfer', 'account']).nullable().optional(),
+  // ข้อมูลออเดอร์จากหน้าแชต (migration 022) — ว่างได้ทั้งหมด
+  customerPhone: z.string().trim().max(30).nullable().optional(),
+  fulfillment: z.enum(FULFILLMENTS).nullable().optional(),
+  handlerName: z.string().trim().max(100).nullable().optional(),
+  // รหัสอ้างอิงจากฟอร์ม กันการบันทึกซ้ำ — ส่งซ้ำด้วยรหัสเดิมจะได้งานเดิมกลับไป
+  clientRef: z.string().trim().min(8).max(64).nullable().optional(),
   note: z.string().trim().max(500).nullable().optional(),
 });
 
@@ -120,6 +128,10 @@ export const jobPatchSchema = z
       .nullable(),
     category: z.string().trim().max(40).nullable(),
     category_type: z.string().trim().max(40).nullable(),
+    // ข้อมูลติดต่อและการรับของ (migration 022) — ว่างได้ทุกช่อง
+    customer_phone: z.string().trim().max(30).nullable(),
+    fulfillment: z.enum(FULFILLMENTS).nullable(),
+    handler_name: z.string().trim().max(100).nullable(),
     note: z.string().trim().max(500).nullable(),
     // The lines inside the job. Sent whole or not at all: a job of two items
     // edited down to one is expressed by sending the one that is left, so
@@ -130,6 +142,17 @@ export const jobPatchSchema = z
   .partial()
   .strict()
   .refine((p) => Object.keys(p).length > 0, { message: 'ไม่มีข้อมูลที่จะแก้ไข' });
+
+// A chat entry saved from the chat page. Customer name is required because it
+// is the key the entry is filed under; a message needs text or a picture.
+export const chatMessageSchema = z
+  .object({
+    customerName: z.string().trim().min(1, 'ต้องบอกชื่อลูกค้าก่อนค่ะ').max(200),
+    direction: z.enum(CHAT_DIRECTIONS),
+    body: z.string().trim().max(2000, 'ข้อความยาวเกินไป (ไม่เกิน 2000 ตัวอักษร)').default(''),
+    image: z.string().nullable().optional(),
+  })
+  .refine((v) => v.body.length > 0 || Boolean(v.image), { message: 'ต้องมีข้อความหรือรูปค่ะ' });
 
 // A payment amount entered by the user.
 export const paymentAmountSchema = z.coerce
