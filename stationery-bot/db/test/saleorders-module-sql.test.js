@@ -1,21 +1,25 @@
-// The back-office page "แชตและออเดอร์" (module saleorders) goes into app_modules through apply.sql and comes out through
-// reverse.sql; the version installed on 4 Nov 2569 (v1, without LINE) is replaced by the current one through upgrade.sql and put back
-// byte for byte through downgrade.sql. Run on PostgreSQL (PGlite) with app_modules shaped like production (name, code, seq, enabled,
-// updated_at), next to the live chat page "salechat" that must stay exactly as it is.
+// The back-office page "แชตและออเดอร์" (module saleorders) goes into app_modules through apply.sql and comes out through reverse.sql.
+// Its versions: v1 (installed on 4 Nov 2569 in the morning) → v2 (upgrade-v1-to-v2.sql, run on 4 Nov at the owner's request) →
+// v3 (upgrade.sql: the page refreshes every 2 seconds). Each step runs on PostgreSQL (PGlite) with app_modules shaped like production,
+// next to the live chat page "salechat" that must stay exactly as it is.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import { PGlite } from '@electric-sql/pglite';
-import { buildSql } from '../../app-patches/sale-orders-page/make-sql.mjs';
+import { buildSql, md5Of } from '../../app-patches/sale-orders-page/make-sql.mjs';
 import { parseOrderText } from '../../src/picklist.js';
 
 const DIR = fileURLToPath(new URL('../../app-patches/sale-orders-page/', import.meta.url));
-const code = readFileSync(DIR + 'saleorders.module.js', 'utf8');
-const previous = readFileSync(DIR + 'saleorders.module.v1.js', 'utf8'); // the version installed in the live back office on 4 Nov 2569
-const built = buildSql(code, previous);
-const PREVIOUS_MD5 = '9559832beab918cf7261079338771178'; // what the live row's code hashes to (checked against production when it was installed)
+const read = (f) => readFileSync(DIR + f, 'utf8');
+const code = read('saleorders.module.js');
+const v2 = read('saleorders.module.v2.js');
+const v1 = read('saleorders.module.v1.js');
+const built = buildSql(code, { v2, v1 });
+const V1_MD5 = '9559832beab918cf7261079338771178'; // what the first installed version hashes to (checked against production on 4 Nov 2569)
+const V2_MD5 = '021d0e36d3e31cb66c46c58e62a7ea7e'; // what the version on the live back office hashes to (checked against production)
+const FROZEN_V1_TO_V2_MD5 = 'd0be45e0a86f17d62229ac898a4e5645'; // the exact script that ran on production on 4 Nov 2569
 
 const SEED = `
   create table app_modules (name text primary key, code text not null, seq integer not null default 100, enabled boolean not null default true, updated_at timestamptz default now());
@@ -28,15 +32,26 @@ before(async () => {
 });
 after(() => db.close());
 
-const row = async () => (await db.query("select name, code, seq, enabled from app_modules where name = 'saleorders'")).rows[0];
-const others = async () => (await db.query("select name, code, seq, enabled, updated_at from app_modules where name <> 'saleorders' order by name")).rows;
+const rowOf = async (d) => (await d.query("select name, code, seq, enabled from app_modules where name = 'saleorders'")).rows[0];
+const othersOf = async (d) => (await d.query("select name, code, seq, enabled, updated_at from app_modules where name <> 'saleorders' order by name")).rows;
+const md5In = async (d, text) => (await d.query('select md5($1::text) as m', [text])).rows[0].m;
+const installed = async (text, enabled = true) => {
+  const d = new PGlite();
+  await d.exec(SEED);
+  await d.query("insert into app_modules (name, code, seq, enabled) values ('saleorders', $1, 66, $2)", [text, enabled]);
+  return d;
+};
+const row = () => rowOf(db);
+const others = () => othersOf(db);
 
-test('the committed scripts are the ones these module files give (regenerate with make-sql.mjs after any change), and v1 is the very code that is live', () => {
+test('the committed scripts are the ones these files give, and the three versions are the ones named here', () => {
   for (const f of ['apply', 'reverse', 'upgrade', 'downgrade']) {
-    assert.equal(readFileSync(DIR + `${f}.sql`, 'utf8'), built[f], `${f}.sql is stale: run node app-patches/sale-orders-page/make-sql.mjs`);
+    assert.equal(read(`${f}.sql`), built[f], `${f}.sql is stale: run node app-patches/sale-orders-page/make-sql.mjs`);
   }
-  assert.equal(built.prevMd5, PREVIOUS_MD5, 'saleorders.module.v1.js must stay byte for byte what was installed (it is what downgrade.sql gives back)');
-  assert.notEqual(built.md5, built.prevMd5, 'the current version differs from the installed one');
+  assert.equal(built.md5v1, V1_MD5, 'saleorders.module.v1.js is byte for byte the first installed version');
+  assert.equal(built.md5v2, V2_MD5, 'saleorders.module.v2.js is byte for byte the version on the live back office');
+  assert.equal(new Set([built.md5, built.md5v2, built.md5v1]).size, 3, 'the current version differs from both earlier ones');
+  assert.equal(md5Of(read('upgrade-v1-to-v2.sql')), FROZEN_V1_TO_V2_MD5, 'upgrade-v1-to-v2.sql is the script that ran on production, unchanged');
 });
 
 test('the module code is valid JavaScript (compiled, not run) and names no other page as its own', () => {
@@ -58,7 +73,7 @@ test('"สร้างรายการจากแชต" reads a chat list ex
   vm.runInContext(code, ctx);
   assert.equal(ctx.ROUTES, undefined, 'the stand-in really behaves like the live shell: window.ROUTES is not there');
   assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(ROUTES.map(r => r.id))', ctx)), ['home', 'salechat', 'saleorders', 'weborders'], 'the page puts itself in the menu right after the old chat page');
-  assert.equal(vm.runInContext("typeof VIEWS.saleorders", ctx), 'function', 'and registers its screen');
+  assert.equal(vm.runInContext('typeof VIEWS.saleorders', ctx), 'function', 'and registers its screen');
   assert.equal(ctx.navBuilt, 1, 'and asks the shell to rebuild the menu once');
   vm.runInContext(code, ctx);
   assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(ROUTES.map(r => r.id))', ctx)), ['home', 'salechat', 'saleorders', 'weborders'], 'loaded twice, it is still one menu entry');
@@ -91,49 +106,46 @@ test('apply.sql run again changes nothing', async () => {
   assert.equal((await db.query("select count(*)::int as n from app_modules where name = 'saleorders'")).rows[0].n, 1);
 });
 
-test('reverse.sql refuses to remove the page once its code was edited after install, and removes the installed one', async () => {
-  await db.exec("update app_modules set code = code || E'\\n// a later edit' where name = 'saleorders'");
-  await assert.rejects(db.exec(built.reverse), /the code was changed after it was installed; not removed/);
-  await db.query("update app_modules set code = $1 where name = 'saleorders'", [code]);
-  const before = await others();
-  await db.exec(built.reverse);
-  assert.equal(await row(), undefined);
-  assert.deepEqual(await others(), before);
-  await db.exec(built.reverse);
-  assert.equal(await row(), undefined, 'running it again is harmless');
+test('reverse.sql removes the page while its code is v1, v2 or v3, and refuses an edited one', async () => {
+  for (const [label, text] of [['v1', v1], ['v2', v2], ['v3', code]]) {
+    const d = await installed(text);
+    try {
+      const others0 = await othersOf(d);
+      await d.exec(built.reverse);
+      assert.equal(await rowOf(d), undefined, `${label} removed`);
+      assert.deepEqual(await othersOf(d), others0, 'the other modules are as they were');
+    } finally {
+      await d.close();
+    }
+  }
+  const edited = await installed(code + '\n// a later edit');
+  try {
+    await assert.rejects(edited.exec(built.reverse), /changed after it was installed; not removed/);
+    assert.ok(await rowOf(edited), 'the edited page is still there');
+  } finally {
+    await edited.close();
+  }
 });
 
-test('the install can be put back after a removal, and the stored code matches the md5 in both scripts', async () => {
+test('apply.sql can be run again after a removal, and the stored code matches the md5 in the scripts', async () => {
   await db.exec(built.apply);
   const r = await row();
-  assert.equal((await db.query('select md5($1::text) as m', [r.code])).rows[0].m, built.md5);
+  assert.equal(await md5In(db, r.code), built.md5);
   assert.match(built.apply, new RegExp(built.md5));
   assert.match(built.reverse, new RegExp(built.md5));
 });
 
-// ---- the page is already installed (v1, enabled): upgrade to the LINE version, and back ------------------------------------------------
-
-async function installedDb({ enabled = true } = {}) {
-  const d = new PGlite();
-  await d.exec(SEED);
-  await d.query("insert into app_modules (name, code, seq, enabled) values ('saleorders', $1, 66, $2)", [previous, enabled]);
-  return d;
-}
-const rowOf = async (d) => (await d.query("select name, code, seq, enabled from app_modules where name = 'saleorders'")).rows[0];
-const othersOf = async (d) => (await d.query("select name, code, seq, enabled, updated_at from app_modules where name <> 'saleorders' order by name")).rows;
-const md5 = async (d, text) => (await d.query('select md5($1::text) as m', [text])).rows[0].m;
-
-test('upgrade.sql turns the installed page into the LINE version: only its code changes (enabled and seq stay), no other module is touched, and running it again does nothing', async () => {
+test('upgrade.sql moves the page from v2 to v3: only its code changes (enabled and seq stay), no other module is touched, and running it again does nothing', async () => {
   for (const enabled of [true, false]) {
-    const d = await installedDb({ enabled });
+    const d = await installed(v2, enabled);
     try {
-      const others = await othersOf(d);
+      const others0 = await othersOf(d);
       await d.exec(built.upgrade);
       const r = await rowOf(d);
       assert.equal(r.code, code, 'the stored code is exactly the file');
-      assert.equal(await md5(d, r.code), built.md5);
+      assert.equal(await md5In(d, r.code), built.md5);
       assert.deepEqual([r.enabled, r.seq], [enabled, 66], 'switched on stays on, switched off stays off');
-      assert.deepEqual(await othersOf(d), others, 'salechat and the other modules are exactly as they were');
+      assert.deepEqual(await othersOf(d), others0, 'salechat and the other modules are exactly as they were');
       await d.exec(built.upgrade);
       assert.deepEqual(await rowOf(d), r, 'run twice: nothing more changes');
     } finally {
@@ -143,12 +155,11 @@ test('upgrade.sql turns the installed page into the LINE version: only its code 
 });
 
 test('upgrade.sql never overwrites an edited page and never invents one: it stops and says why', async () => {
-  const edited = await installedDb();
+  const edited = await installed(v2 + '\n// a later edit');
   try {
-    await edited.query("update app_modules set code = code || E'\\n// a later edit' where name = 'saleorders'");
-    const mine = (await rowOf(edited)).code;
-    await assert.rejects(edited.exec(built.upgrade), /neither the installed version nor this one/);
-    assert.equal((await rowOf(edited)).code, mine, 'the edited code is still there');
+    const kept = (await rowOf(edited)).code;
+    await assert.rejects(edited.exec(built.upgrade), /neither v2 nor v3/);
+    assert.equal((await rowOf(edited)).code, kept, 'the edited code is still there');
   } finally {
     await edited.close();
   }
@@ -162,56 +173,41 @@ test('upgrade.sql never overwrites an edited page and never invents one: it stop
   }
 });
 
-test('downgrade.sql gives the installed version back byte for byte, keeps enabled and seq, refuses an edited page, and is harmless twice', async () => {
-  const d = await installedDb();
+test('downgrade.sql puts v2 back byte for byte, keeps enabled and seq, refuses an edited v3, and is harmless twice', async () => {
+  const d = await installed(v2);
   try {
     await d.exec(built.upgrade);
-    const others = await othersOf(d);
+    const others0 = await othersOf(d);
     await d.exec(built.downgrade);
     const r = await rowOf(d);
-    assert.equal(r.code, previous);
-    assert.equal(await md5(d, r.code), PREVIOUS_MD5, 'the md5 production had before the upgrade');
+    assert.equal(r.code, v2);
+    assert.equal(await md5In(d, r.code), V2_MD5, 'the md5 the live page had before the upgrade');
     assert.deepEqual([r.enabled, r.seq], [true, 66]);
-    assert.deepEqual(await othersOf(d), others);
+    assert.deepEqual(await othersOf(d), others0);
     await d.exec(built.downgrade);
-    assert.equal((await rowOf(d)).code, previous, 'run twice: still the earlier version');
-
+    assert.equal((await rowOf(d)).code, v2, 'run twice: still v2');
     await d.exec(built.upgrade);
     await d.query("update app_modules set code = code || E'\\n// edited' where name = 'saleorders'");
-    await assert.rejects(d.exec(built.downgrade), /neither the LINE version nor the earlier one/);
+    await assert.rejects(d.exec(built.downgrade), /neither v3 nor v2/);
   } finally {
     await d.close();
   }
 });
 
-test('reverse.sql removes the page while its code is the installed version or the LINE version, and still refuses an edited one', async () => {
-  for (const which of ['earlier', 'LINE']) {
-    const d = await installedDb();
-    try {
-      if (which === 'LINE') await d.exec(built.upgrade);
-      const others = await othersOf(d);
-      await d.exec(built.reverse);
-      assert.equal(await rowOf(d), undefined, `${which} version removed`);
-      assert.deepEqual(await othersOf(d), others);
-    } finally {
-      await d.close();
-    }
-  }
-  const d = await installedDb();
+test('upgrade-v1-to-v2.sql (the step run on 4 Nov) still moves the first version to v2 — the record is frozen', async () => {
+  const d = await installed(v1);
   try {
-    await d.query("update app_modules set code = code || E'\\n// edited' where name = 'saleorders'");
-    await assert.rejects(d.exec(built.reverse), /changed after it was installed; not removed/);
+    await d.exec(read('upgrade-v1-to-v2.sql'));
+    assert.equal(await md5In(d, (await rowOf(d)).code), V2_MD5);
   } finally {
     await d.close();
   }
 });
 
-test('the LINE version of the page does not assume the bridge exists, and sends only through the two database functions', () => {
-  // the page never assumes the bridge exists: a missing table is "not connected", not an error banner
+test('the page does not assume the bridge exists, and sends only through the two database functions', () => {
   assert.match(code, /errMsg\(r\)\)\{S\.line=null/, 'a failing status read is “not connected”');
   assert.match(code, /statusOffUntil/, 'and is not asked again every few seconds');
   assert.match(code, /linksOffUntil/);
-  // it can only send through the two database functions (never a direct insert for a LINE reply) and never marks anything sent itself
   assert.match(code, /sb\.rpc\('sale_line_send'/);
   assert.match(code, /sb\.rpc\('sale_line_retry'/);
   assert.doesNotMatch(code, /from\('sale_line_(out|msgs)'\)\.(insert|update|upsert|delete)/, 'no direct write to the send queue');

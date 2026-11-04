@@ -1,4 +1,4 @@
--- ย้อนกลับ apply.sql: ลบแถว saleorders ออกจาก app_modules · ลบเฉพาะเมื่อโค้ดยังเป็นรุ่นที่ติดตั้งไว้ (รุ่นปัจจุบัน md5 021d0e36d3e31cb66c46c58e62a7ea7e หรือรุ่นก่อนหน้า md5 9559832beab918cf7261079338771178)
+-- ย้อนกลับ apply.sql: ลบแถว saleorders ออกจาก app_modules · ลบเฉพาะเมื่อโค้ดยังเป็นรุ่นที่รู้จัก (md5 9f5e3e414a69ce2f89c2ab0e135af1a1 · 021d0e36d3e31cb66c46c58e62a7ea7e · 9559832beab918cf7261079338771178)
 -- ถ้ามีคนแก้โค้ดหลังติดตั้ง จะไม่ลบและแจ้งเตือน (ให้ตรวจก่อนว่าจะลบหรือไม่)
 do $do$
 declare c text;
@@ -8,7 +8,7 @@ begin
     raise notice 'saleorders: not installed, nothing to remove';
     return;
   end if;
-  if md5(c) not in ('021d0e36d3e31cb66c46c58e62a7ea7e', '9559832beab918cf7261079338771178') then
+  if md5(c) not in ('9f5e3e414a69ce2f89c2ab0e135af1a1', '021d0e36d3e31cb66c46c58e62a7ea7e', '9559832beab918cf7261079338771178') then
     raise exception 'saleorders: the code was changed after it was installed; not removed';
   end if;
   delete from app_modules where name = 'saleorders';

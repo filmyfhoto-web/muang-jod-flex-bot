@@ -1,10 +1,10 @@
 -- ติดตั้งหน้า "แชตและออเดอร์" (โมดูล saleorders) ในแอปหลังร้าน: แถวใหม่ในตาราง app_modules เท่านั้น
--- · ไม่แก้โมดูลเดิมแม้แต่บรรทัดเดียว · ติดตั้งซ้ำได้ (ถ้ามีแถวนี้อยู่แล้วจะไม่ทำอะไร — ถ้าติดตั้งรุ่นเก่าไว้แล้ว ให้ใช้ upgrade.sql)
+-- · ไม่แก้โมดูลเดิมแม้แต่บรรทัดเดียว · ติดตั้งซ้ำได้ (ถ้ามีแถวนี้อยู่แล้วจะไม่ทำอะไร — ถ้าเป็นรุ่นเก่าให้ใช้ upgrade.sql)
 -- · ติดตั้งแบบปิดไว้ (enabled = false): เปิดหลังตรวจแล้วด้วย update app_modules set enabled = true where name = 'saleorders';
 -- · ต้องติดตั้ง migration db/migrations/002_sale_orders.sql ก่อน (หน้านี้เรียก sale_order_save / sale_order_log_send)
 -- · ส่วน LINE ใช้ได้ต่อเมื่อติดตั้ง db/migrations/003_sale_line_bridge.sql และเปิดสะพานที่บอท — ถ้ายังไม่ติดตั้ง หน้าแสดง "LINE OA: ยังไม่ได้เชื่อมต่อ"
 -- · ย้อนกลับ: reverse.sql
--- md5 ของโค้ดที่ติดตั้ง: 021d0e36d3e31cb66c46c58e62a7ea7e
+-- md5 ของโค้ดที่ติดตั้ง: 9f5e3e414a69ce2f89c2ab0e135af1a1
 do $do$
 begin
   if exists (select 1 from app_modules where name = 'saleorders') then
@@ -1306,7 +1306,7 @@ begin
   }
 
   // ---------- รีเฟรชอัตโนมัติ: ข้อความใหม่ สถานะการส่ง และสถานะบอท ----------
-  const POLL_MS=8000,POLL_FAST_MS=2500
+  const POLL_MS=2000,POLL_FAST_MS=1000
   const isPendingDelivery=d=>d==='queued'||d==='sending'
   const pendingOut=()=>S.msgs.some(m=>m.dir==='out'&&m.meta&&isPendingDelivery(m.meta.delivery))||!!(S.modal&&S.modal.lineOut&&isPendingDelivery(lineDelivery(S.modal)))
   const msgSig=a=>a.map(m=>[m.id,m.dir,m.kind,(m.meta&&m.meta.delivery)||'',(m.meta&&m.meta.error)||''].join('|')).join(';')

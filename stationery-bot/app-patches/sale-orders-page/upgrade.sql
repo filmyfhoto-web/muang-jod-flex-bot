@@ -1,8 +1,6 @@
--- อัปเกรดหน้า "แชตและออเดอร์" ที่ติดตั้งไว้แล้ว (รุ่นเดิม md5 9559832beab918cf7261079338771178) เป็นรุ่นที่ต่อ LINE OA ได้ (md5 021d0e36d3e31cb66c46c58e62a7ea7e)
+-- อัปเกรดหน้า v2 (รุ่นบนหลังร้านตั้งแต่ 4 พ.ย.) เป็น v3 (รีเฟรชทุก 2 วินาที พร้อมสะพาน LINE)
 -- · เปลี่ยนเฉพาะคอลัมน์ code (กับ updated_at) ของแถว saleorders · enabled และ seq ไม่เปลี่ยน · โมดูลอื่นไม่ถูกแตะ
--- · ทำเฉพาะเมื่อโค้ดที่เก็บอยู่ตรงกับรุ่นเดิมทุกไบต์ (md5) — ถ้ามีคนแก้ไว้ จะไม่ทับและแจ้งเตือน · รันซ้ำได้ (ถ้าเป็นรุ่นใหม่แล้วจะไม่ทำอะไร)
--- · หน้ารุ่นใหม่ทำงานได้ทั้งก่อนและหลังติดตั้ง 003_sale_line_bridge.sql (ก่อนติดตั้งแสดง "LINE OA: ยังไม่ได้เชื่อมต่อ" เหมือนเดิม)
--- · ย้อนกลับ: downgrade.sql (ได้โค้ดรุ่นเดิมกลับมาตรงทุกไบต์)
+-- · ทำเฉพาะเมื่อโค้ดที่เก็บอยู่ตรงกับ v2 ทุกไบต์ (md5 021d0e36d3e31cb66c46c58e62a7ea7e) — ถ้ามีคนแก้ไว้ จะไม่ทับและแจ้งเตือน · รันซ้ำได้
 do $do$
 declare c text;
 begin
@@ -10,12 +8,12 @@ begin
   if c is null then
     raise exception 'saleorders: not installed; use apply.sql';
   end if;
-  if md5(c) = '021d0e36d3e31cb66c46c58e62a7ea7e' then
-    raise notice 'saleorders: already up to date, nothing changed';
+  if md5(c) = '9f5e3e414a69ce2f89c2ab0e135af1a1' then
+    raise notice 'saleorders: already v3, nothing changed';
     return;
   end if;
-  if md5(c) <> '9559832beab918cf7261079338771178' then
-    raise exception 'saleorders: the stored code is neither the installed version nor this one (it was changed); not overwritten';
+  if md5(c) <> '021d0e36d3e31cb66c46c58e62a7ea7e' then
+    raise exception 'saleorders: the stored code is neither v2 nor v3 (it was changed); not overwritten';
   end if;
   update app_modules set code = $so$/* NATTA GROUP · แชตและออเดอร์ (โมดูล saleorders · ตามภาพตัวอย่างของเจ้าของ 3 พ.ย. 2569)
    ซ้าย: แชตลูกค้า (sale_threads) · กลาง: ห้องแชต (sale_msgs + ไฟล์ใน bucket sale-order-files) · ขวา: ใบสั่งงาน/คำสั่งซื้อ (sale_orders)
@@ -1311,7 +1309,7 @@ begin
   }
 
   // ---------- รีเฟรชอัตโนมัติ: ข้อความใหม่ สถานะการส่ง และสถานะบอท ----------
-  const POLL_MS=8000,POLL_FAST_MS=2500
+  const POLL_MS=2000,POLL_FAST_MS=1000
   const isPendingDelivery=d=>d==='queued'||d==='sending'
   const pendingOut=()=>S.msgs.some(m=>m.dir==='out'&&m.meta&&isPendingDelivery(m.meta.delivery))||!!(S.modal&&S.modal.lineOut&&isPendingDelivery(lineDelivery(S.modal)))
   const msgSig=a=>a.map(m=>[m.id,m.dir,m.kind,(m.meta&&m.meta.delivery)||'',(m.meta&&m.meta.error)||''].join('|')).join(';')
@@ -1576,6 +1574,6 @@ begin
   window.NattaSaleOrders={open:openThread,reload:loadList,parseOrderText,tick:pollTick,line:()=>loadLine(true)}
 })()
 $so$, updated_at = now() where name = 'saleorders';
-  raise notice 'saleorders: upgraded (enabled and seq unchanged)';
+  raise notice 'saleorders: now v3 (enabled and seq unchanged)';
 end
 $do$;

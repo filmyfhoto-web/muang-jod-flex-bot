@@ -1292,7 +1292,7 @@
   }
 
   // ---------- รีเฟรชอัตโนมัติ: ข้อความใหม่ สถานะการส่ง และสถานะบอท ----------
-  const POLL_MS=8000,POLL_FAST_MS=2500
+  const POLL_MS=2000,POLL_FAST_MS=1000
   const isPendingDelivery=d=>d==='queued'||d==='sending'
   const pendingOut=()=>S.msgs.some(m=>m.dir==='out'&&m.meta&&isPendingDelivery(m.meta.delivery))||!!(S.modal&&S.modal.lineOut&&isPendingDelivery(lineDelivery(S.modal)))
   const msgSig=a=>a.map(m=>[m.id,m.dir,m.kind,(m.meta&&m.meta.delivery)||'',(m.meta&&m.meta.error)||''].join('|')).join(';')
