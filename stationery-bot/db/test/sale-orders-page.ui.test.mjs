@@ -63,6 +63,7 @@ const shot = (p, name) => p.screenshot({ path: `${SHOTS}/${name}.png` });
 const chatTitle = () => page.locator('#so_chat .so-chn h2').innerText();
 const openRow = (name) => page.locator('#so_items .so-row', { hasText: name }).click();
 const ordRows = () => page.locator('#so_ord tbody tr:has([data-f="iname"])');
+const openMore = async () => { const d = page.locator('#so_ord details.so-more').first(); if ((await d.count()) && !(await d.evaluate((el) => el.open))) await d.locator('summary').click(); };
 
 // two product photos for the chat, drawn in the browser (the PostgREST stand-in keeps the files in memory)
 async function drawPhotos(b) {
@@ -103,7 +104,7 @@ async function newContext(extra = {}, { signedIn = true } = {}) {
 before(async () => {
   if (!CHROMIUM) return;
   mkdirSync(SHOTS, { recursive: true });
-  db = await openSaleDb();
+  db = await openSaleDb({ cards: true });
   await db.query(`insert into stores (id, name, vat_rate, doc_prefix) values ($1, 'นัฐภรณ์ คัลเลอร์แล็ป', 7, 'RC-CL'), ($2, 'นัฐภรณ์ การพิมพ์', 0, 'RC-PR')`, [CL, PR]);
   await db.query(
     `insert into products (id, code, name, unit, price, stock_qty, tier_prices) values
@@ -184,6 +185,7 @@ test('opening a chat shows its messages and photos, clears its unread count, and
   assert.equal(await page.locator('#so_ord input[data-f="phone"]').inputValue(), '053-000000');
   assert.match(await page.locator('#so_ord .so-ohd').innerText(), /ใบใหม่ ยังไม่บันทึก/);
   assert.equal(await page.locator('#so_ord [data-a="summary"]').isDisabled(), true, 'nothing to send before it is saved');
+  await openMore();
   assert.equal(await page.locator('#so_ord .so-seg button.on').innerText(), 'สั่งเพื่อจัดสินค้า');
   assert.equal(await page.locator('#so_ord .so-dirty').count(), 0, 'a fresh order is not "unsaved changes"');
 });
@@ -329,6 +331,7 @@ test('a slip attached to an order does not change its payment state, and a file 
   await page.locator('#so_pres .pr', { hasText: 'สีน้ำเงิน' }).click();
   await until(async () => (await ordRows().count()) === 1, 'one line');
   assert.equal(await page.locator('#so_ord input[data-f="iprice"]').inputValue(), '120.00');
+  await openMore();
   let [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('#so_ord [data-a="ordattach"]').click()]);
   await chooser.setFiles({ name: 'page.html', mimeType: 'text/html', buffer: Buffer.from('<b>no</b>') });
   await flashSays(/รับเฉพาะรูป/);
@@ -349,6 +352,7 @@ test('a slip attached to an order does not change its payment state, and a file 
 });
 
 test('school prices: choosing the school re-prices linked lines with the shop’s formula; the search shows both prices', skipIt, async () => {
+  await openMore();
   await page.locator('#so_ord select[data-f="price_school"]').selectOption(S2);
   await page.waitForSelector('#so_modal');
   assert.match(await page.locator('#so_modal').innerText(), /ราคาโรงเรียน \(โรงเรียนวัดใหม่\)/);

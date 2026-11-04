@@ -782,6 +782,8 @@ if (saleDb) {
       build: String(process.env.RENDER_GIT_COMMIT ?? '').trim().slice(0, 7),
       tickMs: Number(process.env.SALECHAT_TICK_MS) > 0 ? Number(process.env.SALECHAT_TICK_MS) : 1000, // the queue is looked at every second (SALECHAT_TICK_MS overrides)
       beatMs: Number(process.env.SALECHAT_BEAT_MS) > 0 ? Number(process.env.SALECHAT_BEAT_MS) : 60_000,
+      shopName: () => String(loadShop().name ?? '').trim(), // the header of the order cards
+      teamIds: () => (loadShop().contact?.people ?? []).map((p) => p.userId).filter(Boolean), // who gets the team's card (the contact list)
       // staff just answered this customer from the page: a person is with them, so the bot's own answers stay quiet for them
       // (the customer can type "เมนู" to bring the bot back) — shop.json saleChat.quietAfterReply / SALECHAT_QUIET=off turns it off
       onSent: (job) => {

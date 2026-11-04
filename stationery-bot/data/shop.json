@@ -378,7 +378,9 @@
     "mode": "off",
     "channelKey": "main",
     "quietAfterReply": true,
-    "pilotUserIds": ["U4f9825c8c6430b03ed959b81ebb9f07e"]
+    "pilotUserIds": ["U4f9825c8c6430b03ed959b81ebb9f07e"],
+    "teamCard": { "mode": "off" },
+    "card": { "mode": "off", "payNote": "" }
   },
   "chatDrafts": {
     "mode": "off",

@@ -22,6 +22,12 @@ export function saleChatFromEnv(cfg, env = {}) {
     .map((x) => x.trim())
     .filter((x) => /^U[0-9a-f]{32}$/.test(x));
   if (ids.length) out.pilotUserIds = ids;
+  // the team's card for each new order: off · on (the people on the shop's contact list get it)
+  const tc = t(env.SALECHAT_TEAMCARD);
+  if (tc === 'on' || tc === 'off') out.teamCard = { ...(out.teamCard ?? {}), mode: tc };
+  // the order card sent to the customer with "ส่งสรุปให้ลูกค้า": off (the plain text goes, as before) · on
+  const cc = t(env.SALECHAT_CARD);
+  if (cc === 'on' || cc === 'off') out.card = { ...(out.card ?? {}), mode: cc };
   return out;
 }
 

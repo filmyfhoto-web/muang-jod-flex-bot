@@ -2,6 +2,7 @@
 // sends it to LINE (a push, which uses one message of the plan's monthly quota) and tells the database what LINE answered. The page shows
 // "sent" only after this has reported LINE's acceptance — never before.
 import { enabledFor } from '../chatorders.js';
+import { buildCustomerCard } from './card.js';
 
 // LINE's answer → what to tell the database.
 //   sent   LINE accepted it (200), or accepted it earlier and now says so (409 with the first request's id)
@@ -26,8 +27,24 @@ export function classifyPush(r) {
 
 // push(to, messages, token, retryKey) → LINE's answer (line.js pushWithRetryKey) · tokenFor(channelKey) → that OA's access token or ''
 // onSent(job) runs after LINE accepted a message (the bot uses it to stay quiet for that customer while staff are talking to them)
-export function createSaleOutbox({ store, push, tokenFor, getConfig, onSent = () => {}, log = console, limit = 5 }) {
+export function createSaleOutbox({ store, push, tokenFor, getConfig, onSent = () => {}, log = console, limit = 5, shopName = () => '' }) {
   let running = false;
+
+  // a reply that belongs to an order goes as that order's card (built from the database rows, so the totals are the server's);
+  // any other reply, or a card that cannot be built right now, goes as the plain text the staff wrote: the customer gets something either way
+  async function messagesFor(job, cfg) {
+    try {
+      if (cfg.card?.mode !== 'on') return [{ type: 'text', text: job.body }]; // the card is switched off: the text goes as before
+      const orderId = await store.outboxOrderId(job.id);
+      if (orderId) {
+        const data = await store.orderCard(orderId);
+        if (data) return [buildCustomerCard(data, { shopName: shopName(), payNote: cfg.card?.payNote ?? '' })];
+      }
+    } catch (e) {
+      log.error?.('[salechat] card for', job.id, 'not built, the text is sent:', e.message);
+    }
+    return [{ type: 'text', text: job.body }];
+  }
 
   // one pass: take what is waiting, send it, report. Several passes never overlap.
   async function tick() {
@@ -50,7 +67,7 @@ export function createSaleOutbox({ store, push, tokenFor, getConfig, onSent = ()
             await store.finish(job.id, 'failed', 'ไม่พบโทเคนของช่อง LINE นี้ จึงไม่ได้ส่ง');
             continue;
           }
-          const c = classifyPush(await push(job.line_user_id, [{ type: 'text', text: job.body }], token, job.retry_key));
+          const c = classifyPush(await push(job.line_user_id, await messagesFor(job, cfg), token, job.retry_key));
           await store.finish(job.id, c.result, c.error ?? null, c.requestId ?? null);
           if (c.result === 'sent') {
             sent++;

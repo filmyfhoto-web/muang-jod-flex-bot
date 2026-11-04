@@ -13,6 +13,8 @@ export const migration002 = () => file('migrations/002_sale_orders.sql');
 export const reverse002 = () => file('migrations/002_sale_orders.reverse.sql');
 export const migration003 = () => file('migrations/003_sale_line_bridge.sql');
 export const reverse003 = () => file('migrations/003_sale_line_bridge.reverse.sql');
+export const migration004 = () => file('migrations/004_sale_order_cards.sql');
+export const reverse004 = () => file('migrations/004_sale_order_cards.reverse.sql');
 
 export const PRODUCTION_EXTRAS = `
 alter table public.schools add column if not exists price_special boolean not null default false;
@@ -91,13 +93,14 @@ alter default privileges in schema public grant execute on functions to anon, au
 `;
 
 // The production-shaped database. migrate: false leaves 002 out (to test it being applied and taken back).
-// line: true also applies 003 (the LINE bridge) on top of 002.
-export async function openSaleDb({ migrate = true, line = false } = {}) {
+// line: true also applies 003 (the LINE bridge) on top of 002 · cards: true also applies 004 (customer accounts and order cards) on top of 003.
+export async function openSaleDb({ migrate = true, line = false, cards = false } = {}) {
   const db = new PGlite();
   await db.exec(file('fixtures/shop-schema.sql'));
   await db.exec(PRODUCTION_EXTRAS);
   if (migrate) await db.exec(migration002());
   if (migrate && line) await db.exec(migration003());
+  if (migrate && cards) await db.exec(migration004());
   return db;
 }
 

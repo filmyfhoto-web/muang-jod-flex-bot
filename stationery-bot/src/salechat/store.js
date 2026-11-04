@@ -35,5 +35,35 @@ export function createSaleChatStore({ url, key, fetch: doFetch = fetch, bucket =
     async beat(channel, mode, build, detail = {}) {
       must(await db.rpc('sale_line_beat', { p_channel: channel, p_mode: mode, p_build: build ?? '', p_detail: detail }), 'beat');
     },
+    // the order a queued reply belongs to (sale_line_out.order_id, set when the page sends an order summary) → id or null
+    async outboxOrderId(outId) {
+      const r = await db.from('sale_line_out').select('order_id').eq('id', outId).maybeSingle();
+      if (r.error) throw new Error(`order of the reply: ${r.error.message}`);
+      return r.data?.order_id ?? null;
+    },
+    // → { order, items } for a card, or null when the order is gone
+    async orderCard(orderId) {
+      const o = await db
+        .from('sale_orders')
+        .select('id, order_no, order_type, order_date, customer_name, phone, subtotal, vat_rate, vat_amount, total, note, fulfil, need_date, created_at')
+        .eq('id', orderId)
+        .maybeSingle();
+      if (o.error) throw new Error(`order card: ${o.error.message}`);
+      if (!o.data) return null;
+      const it = await db.from('sale_order_items').select('seq, name, qty, unit, unit_price, line_total').eq('order_id', orderId).order('seq');
+      if (it.error) throw new Error(`order items: ${it.error.message}`);
+      return { order: o.data, items: it.data ?? [] };
+    },
+    // orders saved since `sinceIso` that the team has not been sent a card for yet → [{ id }]
+    async teamPending(sinceIso, limit = 5) {
+      const r = await db.from('sale_orders').select('id').is('team_card_at', null).gte('created_at', sinceIso).order('created_at').limit(limit);
+      if (r.error) throw new Error(`team cards: ${r.error.message}`);
+      return r.data ?? [];
+    },
+    // marks the team card as sent (only the first time: a second call changes nothing)
+    async markTeamSent(orderId, atIso) {
+      const r = await db.from('sale_orders').update({ team_card_at: atIso }).eq('id', orderId).is('team_card_at', null);
+      if (r.error) throw new Error(`team card mark: ${r.error.message}`);
+    },
   };
 }

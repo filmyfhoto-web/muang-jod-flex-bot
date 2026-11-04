@@ -1,10 +1,11 @@
 -- ติดตั้งหน้า "แชตและออเดอร์" (โมดูล saleorders) ในแอปหลังร้าน: แถวใหม่ในตาราง app_modules เท่านั้น
--- · ไม่แก้โมดูลเดิมแม้แต่บรรทัดเดียว · ติดตั้งซ้ำได้ (ถ้ามีแถวนี้อยู่แล้วจะไม่ทำอะไร — ถ้าเป็นรุ่นเก่าให้ใช้ upgrade.sql)
+-- · ไม่แก้โมดูลเดิมแม้แต่บรรทัดเดียว · ติดตั้งซ้ำได้ (ถ้ามีแถวนี้อยู่แล้วจะไม่ทำอะไร — ถ้าเป็นรุ่นเก่าให้ใช้ upgrade-v3-to-v4.sql หรือ upgrade.sql)
 -- · ติดตั้งแบบปิดไว้ (enabled = false): เปิดหลังตรวจแล้วด้วย update app_modules set enabled = true where name = 'saleorders';
 -- · ต้องติดตั้ง migration db/migrations/002_sale_orders.sql ก่อน (หน้านี้เรียก sale_order_save / sale_order_log_send)
 -- · ส่วน LINE ใช้ได้ต่อเมื่อติดตั้ง db/migrations/003_sale_line_bridge.sql และเปิดสะพานที่บอท — ถ้ายังไม่ติดตั้ง หน้าแสดง "LINE OA: ยังไม่ได้เชื่อมต่อ"
+-- · ลูกค้าลงบัญชีและการ์ดคำสั่งงานต้องติดตั้ง db/migrations/004_sale_order_cards.sql ด้วย
 -- · ย้อนกลับ: reverse.sql
--- md5 ของโค้ดที่ติดตั้ง: 9f5e3e414a69ce2f89c2ab0e135af1a1
+-- md5 ของโค้ดที่ติดตั้ง: 144675bed448432bea634bd6abbc8223
 do $do$
 begin
   if exists (select 1 from app_modules where name = 'saleorders') then
@@ -234,6 +235,11 @@ begin
 #so_root .so-prodbox .pr{border:1px solid var(--so-line);background:#fff;border-radius:10px;padding:7px 10px;text-align:left;font:inherit;font-size:13px;cursor:pointer;color:var(--so-fg)}
 #so_root .so-picker{padding:8px 12px;border-bottom:1px solid var(--so-line);background:#FAFBFD;display:flex;flex-direction:column;gap:6px}
 #so_root .so-picker .pk{border:1px solid var(--so-line);background:#fff;border-radius:10px;padding:7px 10px;text-align:left;font:inherit;font-size:13px;cursor:pointer;color:var(--so-fg)}
+#so_root .so-more{border:1px solid var(--so-line);border-radius:12px;background:#fff;margin-top:2px}
+#so_root .so-more>summary{cursor:pointer;padding:10px 12px;font-weight:600;color:var(--so-ink);font-size:13.5px;list-style:none}
+#so_root .so-more>summary::-webkit-details-marker{display:none}
+#so_root .so-more[open]>summary{border-bottom:1px solid var(--so-line)}
+#so_root .so-morebody{padding:10px 12px;display:flex;flex-direction:column;gap:10px}
 #so_modalwrap{position:fixed;inset:0;z-index:95;display:grid;place-items:center;background:rgba(10,24,44,.45);padding:14px}
 #so_modal{background:#fff;border-radius:16px;max-width:600px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 18px 60px rgba(0,0,0,.3);color:#1B2433;font-size:14px}
 #so_modal .mh{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 16px;border-bottom:1px solid #E3E9F1}
@@ -849,7 +855,24 @@ begin
           <button type="button" class="so-btn sky" data-a="summary" ${!o.id||dirty||S.busySave?'disabled':''} title="${!o.id||dirty?'บันทึกออเดอร์ก่อน แล้วค่อยส่งสรุป':'ตรวจสรุปและผู้รับก่อนส่ง'}">${ic('send')} ส่งสรุปให้ลูกค้า</button>
         </div>
       </div>`
+    wrapMore(box)
     paintFlash()
+  }
+
+  // v4: ช่องที่ใช้ไม่บ่อยไปไว้ใต้ "เพิ่มเติม" — ข้อมูลไม่หาย แค่ซ่อนไว้จนกดเปิด (จำสถานะเปิด/ปิดไว้ตอนหน้าวาดใหม่)
+  function wrapMore(box){
+    const ob=box.querySelector('.so-ob');if(!ob||ob.querySelector('.so-more'))return
+    const moved=[...ob.querySelectorAll('.so-seg,.so-grid3,.so-att')]
+    const basis=ob.querySelector('select[data-f="price_school"]')
+    const basisRow=basis&&basis.closest('.so-frow')
+    if(basisRow)moved.unshift(basisRow)
+    if(!moved.length)return
+    const d=document.createElement('details');d.className='so-more';d.open=!!S.moreOpen
+    d.innerHTML='<summary>เพิ่มเติม · ประเภท ราคา การส่งมอบ ผู้รับผิดชอบ ไฟล์แนบ</summary><div class="so-morebody"></div>'
+    d.addEventListener('toggle',()=>{S.moreOpen=d.open})
+    const body=d.querySelector('.so-morebody')
+    moved.forEach(el=>body.appendChild(el))
+    ob.insertBefore(d,ob.querySelector('.so-act2')||null)
   }
 
   function updateTotals(){
@@ -1062,6 +1085,14 @@ begin
     }
     S.busySave=true;paintOrd()
     if(!o.token)o.token=uuid()
+    // v4: ลูกค้าลงบัญชี — ยังไม่มีบัญชีลูกค้าของแชตนี้ ก็เก็บชื่อกับเบอร์ลงรายชื่อลูกค้า (เบอร์ที่มีอยู่แล้วผูกกับบัญชีเดิม ไม่สร้างซ้ำ)
+    if(!o.customer_id&&(o.customer_name.trim()||o.phone.trim())){
+      const cu=await q(()=>sb.rpc('sale_customer_upsert',{p_thread:t.id,p_name:o.customer_name.trim(),p_phone:o.phone.trim(),p_source:isLine(t)?'สั่งผ่าน LINE':'หน้าร้าน/โทร'}))
+      // ยังไม่ได้ติดตั้ง 004 (ไม่มีฟังก์ชันนี้): บันทึกใบต่อได้ตามปกติ เพียงยังไม่เปิดบัญชีลูกค้าอัตโนมัติ
+      if(errMsg(cu)&&/could not find the function|does not exist|schema cache/i.test(errMsg(cu))){o.customer_id=null}
+      else if(errMsg(cu)){S.busySave=false;paintOrd();flash('บันทึกบัญชีลูกค้าไม่สำเร็จ ('+niceErr(errMsg(cu))+') ยังไม่ได้บันทึกใบนี้',true,'ord');return}
+      else o.customer_id=cu.data||null
+    }
     const payload={id:o.id,version:o.version,thread_id:t.id,client_token:o.token,order_type:o.order_type,customer_id:o.customer_id,
       customer_name:o.customer_name.trim(),phone:o.phone.trim(),order_date:o.order_date||null,note:o.note,fulfil:o.fulfil,
       need_date:o.need_date||null,assignee:o.assignee.trim(),price_school_id:o.price_school_id||null,

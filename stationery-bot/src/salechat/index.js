@@ -9,16 +9,18 @@ import { createSerial } from '../serial.js';
 import { createSaleChatStore } from './store.js';
 import { createSaleChatIngest } from './ingest.js';
 import { createSaleOutbox } from './outbox.js';
+import { createTeamCards } from './team.js';
 
 const QUOTA_EVERY_MS = 30 * 60_000;
 
 // db → { url, key } · getConfig() → the current saleChat settings (read each time, so a change on Render applies at once)
 // lineApi → { profile, content, quota } · push(to, messages, token, retryKey) → LINE's answer · tokenFor(channelKey) → access token
-export function createSaleChat({ db, store = createSaleChatStore({ url: db.url, key: db.key }), getConfig, lineApi, push, tokenFor, build = '', onSent, log = console, tickMs = 5000, beatMs = 60_000, now = () => Date.now(), retries }) {
+export function createSaleChat({ db, store = createSaleChatStore({ url: db.url, key: db.key }), getConfig, lineApi, push, tokenFor, build = '', onSent, log = console, tickMs = 5000, beatMs = 60_000, teamTickMs = 10_000, teamIds = () => [], shopName = () => '', now = () => Date.now(), retries }) {
   const cfg = () => getConfig() ?? {};
   const serial = createSerial(); // this bridge's own queue: one customer's messages in order, apart from the bot's answers
   const ingest = createSaleChatIngest({ store, lineApi, getConfig: cfg, log, ...(retries ? { retries } : {}) });
-  const outbox = createSaleOutbox({ store, push, tokenFor, getConfig: cfg, onSent, log });
+  const outbox = createSaleOutbox({ store, push, tokenFor, getConfig: cfg, onSent, log, shopName });
+  const team = createTeamCards({ store, push, tokenFor, getConfig: cfg, teamIds, shopName, log, now });
   let quota = null;
   let quotaAt = 0;
   let timers = [];
@@ -61,7 +63,8 @@ export function createSaleChat({ db, store = createSaleChatStore({ url: db.url, 
     stop();
     const pass = () => outbox.tick().then((r) => (r?.skipped ? undefined : worked('send pass')), (e) => failed('send pass', e));
     const pulse = () => beat().then(() => worked('heartbeat'), (e) => failed('heartbeat', e));
-    timers = [setInterval(pass, tickMs), setInterval(pulse, beatMs)];
+    const teamPass = () => team.tick().then((r) => (r?.skipped ? undefined : worked('team cards')), (e) => failed('team cards', e));
+    timers = [setInterval(pass, tickMs), setInterval(pulse, beatMs), setInterval(teamPass, teamTickMs)];
     for (const t of timers) t.unref?.();
     pulse();
   }
@@ -70,5 +73,5 @@ export function createSaleChat({ db, store = createSaleChatStore({ url: db.url, 
     timers = [];
   }
 
-  return { record, tick: outbox.tick, beat, start, stop, mode: () => cfg().mode ?? 'off' };
+  return { record, tick: outbox.tick, teamTick: team.tick, beat, start, stop, mode: () => cfg().mode ?? 'off' };
 }
