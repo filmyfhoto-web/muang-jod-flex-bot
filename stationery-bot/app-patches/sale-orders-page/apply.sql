@@ -3,7 +3,7 @@
 -- · ติดตั้งแบบปิดไว้ (enabled = false): เปิดหลังตรวจแล้วด้วย update app_modules set enabled = true where name = 'saleorders';
 -- · ต้องติดตั้ง migration db/migrations/002_sale_orders.sql ก่อน (หน้านี้เรียก sale_order_save / sale_order_log_send)
 -- · ย้อนกลับ: reverse.sql
--- md5 ของโค้ดที่ติดตั้ง: 987528e44507025fe016c9863b6f663c
+-- md5 ของโค้ดที่ติดตั้ง: 9559832beab918cf7261079338771178
 do $do$
 begin
   if exists (select 1 from app_modules where name = 'saleorders') then
@@ -12,16 +12,20 @@ begin
   end if;
   insert into app_modules (name, code, seq, enabled)
   values ('saleorders', $so$/* NATTA GROUP · แชตและออเดอร์ (โมดูล saleorders · ตามภาพตัวอย่างของเจ้าของ 3 พ.ย. 2569)
-   ซ้าย: แชตลูกค้า (sale_threads) · กลาง: ห้องแชต (sale_msgs + ไฟล์ใน bucket sale-files) · ขวา: ใบสั่งงาน/คำสั่งซื้อ (sale_orders)
+   ซ้าย: แชตลูกค้า (sale_threads) · กลาง: ห้องแชต (sale_msgs + ไฟล์ใน bucket sale-order-files) · ขวา: ใบสั่งงาน/คำสั่งซื้อ (sale_orders)
    ต้องติดตั้ง db/migrations/002_sale_orders.sql ก่อน (sale_order_save ตรวจยอด สถานะ และสิทธิ์ฝั่งเซิร์ฟเวอร์)
    หลัก: ใบจากแชทเป็นระบบของตัวเอง ไม่แตะคำสั่งซื้อจัดสินค้า (orders) หรือคำสั่งซื้อจัดทำเอกสาร (doc_orders/project_docs)
          ไม่ตัดสต็อก ไม่ออกเอกสาร · หน้านี้ยังไม่มีทางส่งข้อความถึงลูกค้า (LINE OA / Facebook ยังไม่ได้เชื่อมต่อ)
          ทุกข้อความ "บันทึกในระบบ" และหน้าจอไม่แสดงว่าส่งสำเร็จถ้ายังไม่ได้ส่งจริง */
 (function(){
-  if(!window.ROUTES||!window.VIEWS)return
-  if(!ROUTES.some(r=>r.id==='saleorders')){
-    const i=ROUTES.findIndex(r=>r.id==='salechat')
-    ROUTES.splice(i<0?ROUTES.length:i+1,0,{id:'saleorders',ic:'inbox',name:'แชตและออเดอร์'})
+  // เชลล์หลังร้านประกาศ ROUTES / VIEWS / sb ด้วย const ในสคริปต์ธรรมดา จึงไม่เป็นคุณสมบัติของ window (window.ROUTES = undefined)
+  // อ่านผ่านชื่อตรง ๆ ก่อน แล้วค่อยลอง window — แบบเดียวกับโมดูล iosnav · ห้ามใช้ window.ROUTES เป็นเงื่อนไขเดี่ยว ๆ เพราะหน้าจะไม่ขึ้นเงียบ ๆ
+  const R=typeof ROUTES!=='undefined'?ROUTES:window.ROUTES
+  const V=typeof VIEWS!=='undefined'?VIEWS:window.VIEWS
+  if(!R||!V)return
+  if(!R.some(r=>r.id==='saleorders')){
+    const i=R.findIndex(r=>r.id==='salechat')
+    R.splice(i<0?R.length:i+1,0,{id:'saleorders',ic:'inbox',name:'แชตและออเดอร์'})
   }
   try{if(typeof buildNav==='function')buildNav()}catch(e){}
 
@@ -76,8 +80,8 @@ begin
   const isOpenJob=s=>!['closed','canceled'].includes(s)
   const UNIT_LIST='รีม โหล แพ็ค แพค กล่อง เล่ม ด้าม แท่ง อัน ชิ้น ขวด ชุด ใบ ม้วน คู่ ห่อ ถุง ตัว แผ่น เมตร งาน หลอด ก้อน แผง ลัง'.split(' ')
   const TPL=[['ทักทาย','สวัสดีค่ะ ขอบคุณที่ติดต่อ NATTA GROUP ค่ะ มีอะไรให้ช่วยดูแลไหมคะ'],['รับรายการ','รับรายการแล้วนะคะ เดี๋ยวแอดมินสรุปราคาและแจ้งกลับค่ะ'],['กำหนดส่ง','สินค้าจัดเตรียมแล้วค่ะ จะแจ้งวันจัดส่งให้ทราบอีกครั้งนะคะ']]
-  const BUCKET='sale-files'
-  const MAXF=5*1024*1024
+  const BUCKET='sale-order-files'
+  const MAXF=10*1024*1024
   const OKTYPE=/^(image\/(png|jpeg|webp|gif)|application\/pdf)$/
   const ordsOf=t=>S.idx[t.id]||[]
   const hasOpen=t=>ordsOf(t).some(o=>isOpenJob(o.job_status))
@@ -326,7 +330,7 @@ begin
 
   async function loadStaff(){
     try{
-      if(!(window.sb&&sb.auth&&sb.auth.getUser))return
+      if(typeof sb==='undefined'||!(sb&&sb.auth&&sb.auth.getUser))return
       const r=await sb.auth.getUser()
       const u=r&&r.data&&r.data.user
       if(!u)return
@@ -462,7 +466,7 @@ begin
       <div class="so-honest">${S.note?'โหมดโน้ตภายใน — ลูกค้าไม่เห็นข้อความนี้':'ข้อความบันทึกในระบบเท่านั้น ยังไม่ถูกส่งถึงลูกค้า (LINE OA ยังไม่ได้เชื่อมต่อกับหน้านี้)'}</div>
       <div class="so-comp">
         <button type="button" class="so-mode${S.note?' on':''}" data-a="note" aria-pressed="${S.note}" title="สลับเป็นโน้ตภายใน">${S.note?'โน้ต':'ข้อความ'}</button>
-        <button type="button" class="so-ic" data-a="chatattach" title="แนบรูปหรือ PDF (ไม่เกิน 5 MB)" aria-label="แนบไฟล์" ${S.chatAttachBusy?'disabled':''}>${ic('clip')}</button>
+        <button type="button" class="so-ic" data-a="chatattach" title="แนบรูปหรือ PDF (ไม่เกิน 10 MB)" aria-label="แนบไฟล์" ${S.chatAttachBusy?'disabled':''}>${ic('clip')}</button>
         <textarea id="so_txt" data-id="${E(t.id)}" rows="1" placeholder="พิมพ์ข้อความ…" title="Enter บันทึก · Shift+Enter ขึ้นบรรทัดใหม่" aria-label="ข้อความ">${E(S.drafts[t.id]||'')}</textarea>
         <button type="button" class="so-send" data-a="send" aria-label="บันทึกข้อความ" ${S.busySend?'disabled':''}>${ic('send')}</button>
       </div>`
@@ -1010,7 +1014,7 @@ begin
   function checkFile(f){
     if(!OKTYPE.test(f.type||''))return 'รับเฉพาะรูป (PNG/JPG/WebP/GIF) หรือ PDF'
     if(!(f.size>0))return 'ไฟล์ว่าง'
-    if(f.size>MAXF)return 'ไฟล์ใหญ่เกิน 5 MB'
+    if(f.size>MAXF)return 'ไฟล์ใหญ่เกิน 10 MB'
     return ''
   }
   const safeName=n=>{const s=String(n||'file').normalize('NFC').replace(/[^\w.ก-๙-]+/g,'_').replace(/_{2,}/g,'_');return s.slice(-80)||'file'}
@@ -1021,7 +1025,7 @@ begin
     const id=S.sel;if(!id)return
     const bad=checkFile(f);if(bad){flash(bad,true,'chat');return}
     S.chatAttachBusy=true;paintChat()
-    const path='sale-chat/'+id+'/'+Date.now()+'-'+safeName(f.name)
+    const path='chat/'+id+'/'+Date.now()+'-'+safeName(f.name)
     const up=await q(()=>upload(path,f))
     if(errMsg(up)){S.chatAttachBusy=false;paintChat();flash('อัปโหลดไม่สำเร็จ: '+errMsg(up),true,'chat');return}
     const kind=/^image\//.test(f.type)?'image':'file'
@@ -1040,7 +1044,7 @@ begin
     const bad=checkFile(f);if(bad){flash(bad,true,'ord');return}
     if(o.attach.length>=30){flash('ใบหนึ่งแนบได้ไม่เกิน 30 ไฟล์',true,'ord');return}
     S.attachBusy=true;paintOrd()
-    const path='sale-orders/'+S.sel+'/'+Date.now()+'-'+safeName(f.name)
+    const path='order/'+S.sel+'/'+Date.now()+'-'+safeName(f.name)
     const up=await q(()=>upload(path,f))
     S.attachBusy=false
     if(errMsg(up)){paintOrd();flash('อัปโหลดไม่สำเร็จ: '+errMsg(up),true,'ord');return}
@@ -1292,7 +1296,7 @@ begin
 
   window.addEventListener('beforeunload',e=>{if(S.ord&&isDirty()){e.preventDefault();e.returnValue=''}})
 
-  VIEWS.saleorders=function(){
+  V.saleorders=function(){
     css()
     mount()
     S.mode=S.sel?(S.mode==='list'?'chat':S.mode):'list'

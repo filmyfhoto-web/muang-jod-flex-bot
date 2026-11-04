@@ -2,7 +2,7 @@
 // (fixtures/shop-schema.sql) plus what this page touches that the fixture does not have, copied from production on 3 Nov 2569:
 // the chat tables sale_threads / sale_msgs (columns, defaults and checks as in information_schema / pg_constraint), the
 // school columns price_special / short_code, the shop's own price function _school_item_price (both overloads, verbatim from
-// pg_get_functiondef), the private bucket sale-files, and RLS with the one policy production has on every back-office table
+// pg_get_functiondef), the private bucket sale-files with its storage policies, and RLS with the one policy production has on every back-office table
 // ("staff_all", for authenticated). Supabase's default privileges (anon/authenticated get everything new in public) are switched
 // on before the migration, so the tests prove that 002 itself takes anon's access away.
 import { PGlite } from '@electric-sql/pglite';
@@ -65,7 +65,14 @@ AS $function$
     end
 $function$;
 
+-- as in Supabase: every API role may reach the storage schema and tables; row level security decides what is seen
+grant usage on schema storage to anon, authenticated, service_role;
+grant select, insert, update, delete on storage.objects, storage.buckets to anon;
 insert into storage.buckets (id, name, public) values ('sale-files', 'sale-files', false) on conflict (id) do nothing;
+-- the three policies production has on the sale-files bucket (the POS bill attachments): read, upload, delete for signed-in staff
+create policy "staff read sale-files" on storage.objects for select to authenticated using (bucket_id = 'sale-files');
+create policy "staff upload sale-files" on storage.objects for insert to authenticated with check (bucket_id = 'sale-files');
+create policy "staff delete sale-files" on storage.objects for delete to authenticated using (bucket_id = 'sale-files');
 
 do $$
 declare t text;

@@ -1,7 +1,9 @@
 // A stand-in for the back-office shell (admin.nattagroup.com), for browser tests of a module when no copy of the live shell is at
-// hand (NATTA_LIVE_DIR). It gives the module exactly what the live shell gives every module — the contract the live "salechat"
-// module relies on: window.ROUTES / window.VIEWS / buildNav(), the supabase-js client as the global sb, a #view element, and hash
-// routing that calls VIEWS[id]() — and runs the module code as one string, the way it is stored in app_modules.
+// hand (NATTA_LIVE_DIR). It copies the live shell's scope rules, read from the live files on 4 Nov 2569:
+//   · admin1.js declares `const sb`, `const S`, `const ROUTES`, `const MOB`, `const VIEWS` and `function buildNav / router / go` at the
+//     top level of a classic script — so ROUTES, VIEWS and sb are NOT properties of window (window.ROUTES is undefined);
+//   · admin3.js `loadModules()` reads app_modules and adds each module's code as `<script>` with textContent, in global scope;
+//   · the module must call buildNav() itself; the shell's router() draws the page for the hash.
 // The page is served on 127.0.0.1; the Supabase host and the CDN script are answered locally (routeOffline in back-office.js).
 import { createServer } from 'node:http';
 import { SUPABASE_HOST } from './back-office.js';
@@ -23,14 +25,33 @@ export async function serveMiniShell({ moduleCode, anonKey = 'anon-test-key' }) 
 <div id="top"><b>NATTA GROUP</b><nav id="nav"></nav></div>
 <main id="view"></main>
 <script>
-window.ROUTES=[{id:'dash',ic:'dash',name:'หน้าหลัก'},{id:'salechat',ic:'cart',name:'แชทขายสินค้า'},{id:'weborders',ic:'list',name:'ออเดอร์ทั้งหมด'}]
-window.VIEWS={dash:function(){document.getElementById('view').innerHTML='<p style="padding:20px">หน้าหลัก</p>'}}
-window.sb=supabase.createClient(${JSON.stringify(SUPABASE_HOST)},${JSON.stringify(anonKey)})
-function buildNav(){document.getElementById('nav').innerHTML=ROUTES.map(function(r){return '<a href="#'+r.id+'" data-r="'+r.id+'">'+r.name+'</a>'}).join('')}
-function go(){var id=(location.hash||'#dash').slice(1);document.querySelectorAll('#nav a').forEach(function(a){a.classList.toggle('on',a.dataset.r===id)});(VIEWS[id]||VIEWS.dash)()}
-window.addEventListener('hashchange',go)
+const { createClient } = window.supabase
+const sb = createClient(${JSON.stringify(SUPABASE_HOST)}, ${JSON.stringify(anonKey)})
+const S = { loaded: true }
+const $ = s => document.querySelector(s)
+const num = n => Number(n || 0).toLocaleString('th-TH')
+const ROUTES = [{ id: 'home', ic: 'home', name: 'หน้าหลัก' }, { id: 'salechat', ic: 'cart', name: 'แชทขายสินค้า' }, { id: 'weborders', ic: 'list', name: 'ออเดอร์ทั้งหมด' }]
+const MOB = ['home']
+const VIEWS = {}
+VIEWS.home = function () { document.getElementById('view').innerHTML = '<p style="padding:20px">หน้าหลัก</p>' }
+function buildNav() { document.getElementById('nav').innerHTML = ROUTES.map(function (r) { return '<a href="#' + r.id + '" data-r="' + r.id + '">' + r.name + '</a>' }).join('') }
+function setActive(id) { document.querySelectorAll('#nav a').forEach(function (a) { a.classList.toggle('on', a.dataset.r === id) }) }
+function router() {
+  const id = location.hash.replace('#', '') || 'home'
+  const r = ROUTES.find(function (x) { return x.id === id }) ? id : 'home'
+  setActive(r)
+  VIEWS[r]()
+}
+window.addEventListener('hashchange', router)
 buildNav()
-fetch('/module.js').then(function(r){return r.text()}).then(function(code){new Function(code)();window.__moduleLoaded=true;go()})
+async function loadModules() {
+  const r = await fetch('/module.js')
+  const code = await r.text()
+  const s = document.createElement('script')
+  s.textContent = code
+  document.body.appendChild(s)
+}
+loadModules().then(function () { window.__moduleLoaded = true; router() })
 </script></body></html>`;
   const srv = createServer((req, res) => {
     const p = new URL(req.url, 'http://x').pathname;

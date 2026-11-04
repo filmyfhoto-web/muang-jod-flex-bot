@@ -179,26 +179,26 @@ test('payment: paid means the whole total, unpaid means nothing, a deposit must 
 });
 
 test('attaching a slip alone never marks the order paid: the payment state is only what the staff chose', async () => {
-  const slip = { path: `sale-orders/${T1}/1730000000000-slip.jpg`, name: 'slip.jpg', type: 'image/jpeg', size: 95578 };
+  const slip = { path: `order/${T1}/1730000000000-slip.jpg`, name: 'slip.jpg', type: 'image/jpeg', size: 95578 };
   const a = await save(base({ attach: [slip] }));
   assert.equal(a.order.pay_status, 'unpaid');
   assert.equal(a.order.paid_amount, 0);
   assert.deepEqual(a.order.attach, [slip]);
   const d = await save({ ...base(), id: a.order.id, version: 1, pay_status: 'deposit', paid_amount: 500 });
-  const more = await save({ ...base(), id: a.order.id, version: d.order.version, pay_status: 'deposit', paid_amount: 500, attach: [slip, { ...slip, path: `sale-orders/${T1}/1730000000001-slip2.jpg`, name: 'slip2.jpg' }] });
+  const more = await save({ ...base(), id: a.order.id, version: d.order.version, pay_status: 'deposit', paid_amount: 500, attach: [slip, { ...slip, path: `order/${T1}/1730000000001-slip2.jpg`, name: 'slip2.jpg' }] });
   assert.equal(more.order.pay_status, 'deposit');
   assert.equal(more.order.paid_amount, 500);
   assert.equal(more.order.attach.length, 2);
 });
 
-test('attachments are checked on the server: only images/PDF up to 5 MB, only under this chat’s folder of sale-files', async () => {
-  const ok = { path: `sale-orders/${T1}/1-a.pdf`, name: 'a.pdf', type: 'application/pdf', size: 1000 };
-  await fails(base({ attach: [{ ...ok, path: `sale-orders/${T2}/1-a.pdf` }] }), /ไฟล์แนบไม่ถูกต้อง/);
-  await fails(base({ attach: [{ ...ok, path: `sale-orders/${T1}/../x.pdf` }] }), /ไฟล์แนบไม่ถูกต้อง/);
-  await fails(base({ attach: [{ ...ok, path: `pick-slips/${T1}/1-a.pdf` }] }), /ไฟล์แนบไม่ถูกต้อง/);
+test('attachments are checked on the server: only images/PDF up to 10 MB, only under this chat’s folder of sale-order-files', async () => {
+  const ok = { path: `order/${T1}/1-a.pdf`, name: 'a.pdf', type: 'application/pdf', size: 1000 };
+  await fails(base({ attach: [{ ...ok, path: `order/${T2}/1-a.pdf` }] }), /ไฟล์แนบไม่ถูกต้อง/);
+  await fails(base({ attach: [{ ...ok, path: `order/${T1}/../x.pdf` }] }), /ไฟล์แนบไม่ถูกต้อง/);
+  await fails(base({ attach: [{ ...ok, path: `sale-files/${T1}/1-a.pdf` }] }), /ไฟล์แนบไม่ถูกต้อง/);
   await fails(base({ attach: [{ ...ok, type: 'text/html' }] }), /ไฟล์แนบไม่ถูกต้อง/);
-  await fails(base({ attach: [{ ...ok, size: 6 * 1024 * 1024 }] }), /ไฟล์แนบไม่ถูกต้อง/);
-  await fails(base({ attach: Array.from({ length: 31 }, (_, i) => ({ ...ok, path: `sale-orders/${T1}/${i}-a.pdf` })) }), /ไม่เกิน 30 ไฟล์/);
+  await fails(base({ attach: [{ ...ok, size: 11 * 1024 * 1024 }] }), /ไฟล์แนบไม่ถูกต้อง/);
+  await fails(base({ attach: Array.from({ length: 31 }, (_, i) => ({ ...ok, path: `order/${T1}/${i}-a.pdf` })) }), /ไม่เกิน 30 ไฟล์/);
   const r = await save(base({ attach: [ok] }));
   assert.equal(r.order.attach.length, 1);
 });
@@ -294,6 +294,23 @@ test('only signed-in staff: a visitor without a login cannot read, save, price o
   assert.equal(svc.rows[0].n, staff.rows[0].n);
 });
 
+test('files: signed-in staff can add and read files in sale-order-files but cannot delete or change them; a visitor cannot touch the bucket', async () => {
+  const path = `order/${T1}/1730000000000-slip.pdf`;
+  await asStaff(db, (tx) => tx.query(`insert into storage.objects (bucket_id, name) values ('sale-order-files', $1)`, [path]));
+  const read = await asStaff(db, (tx) => tx.query(`select name from storage.objects where bucket_id = 'sale-order-files'`));
+  assert.deepEqual(read.rows.map((r) => r.name), [path]);
+  const del = await asStaff(db, (tx) => tx.query(`delete from storage.objects where bucket_id = 'sale-order-files'`));
+  assert.equal(del.affectedRows, 0, 'no policy lets staff delete: nothing is removed');
+  const upd = await asStaff(db, (tx) => tx.query(`update storage.objects set name = 'order/x' where bucket_id = 'sale-order-files'`));
+  assert.equal(upd.affectedRows, 0, 'no policy lets staff change a file');
+  assert.equal((await rows(`select count(*)::int n from storage.objects where bucket_id = 'sale-order-files'`))[0].n, 1, 'the file is still there');
+  assert.equal((await asAnon(db, (tx) => tx.query(`select name from storage.objects`))).rows.length, 0, 'a visitor sees no files');
+  await assert.rejects(asAnon(db, (tx) => tx.query(`insert into storage.objects (bucket_id, name) values ('sale-order-files', 'x')`)), /row-level security/);
+  const other = await asStaff(db, (tx) => tx.query(`select name from storage.objects where bucket_id = 'sale-files'`));
+  assert.equal(other.rows.length, 0, 'the policies of the new bucket do not open the POS bucket (its own policies decide that)');
+  await db.query(`delete from storage.objects where bucket_id = 'sale-order-files'`);
+});
+
 test('saving orders cuts no stock and writes nothing into the other systems (web orders, POS, stock moves)', async () => {
   const snap = () => one(`select (select json_agg(json_build_object('id', id, 'q', stock_qty) order by id) from products) stock,
     (select count(*)::int from stock_moves) moves, (select count(*)::int from orders) orders, (select count(*)::int from order_items) oitems,
@@ -314,7 +331,9 @@ test('the migration changes nothing that was there before, runs twice safely, an
     const grants = () => fresh.query(`select table_name, grantee, privilege_type from information_schema.role_table_grants where table_schema = 'public' order by 1, 2, 3`).then((r) => r.rows);
     await fresh.query(`insert into sale_threads (title) values ('ก่อนติดตั้ง')`);
     await fresh.query(`insert into sale_msgs (thread_id, dir, body) select id, 'in', 'ข้อความเดิม' from sale_threads`);
-    const [f0, c0, p0, g0] = [await fns(), await cols(), await pols(), await grants()];
+    const buckets = () => fresh.query(`select id, public, file_size_limit, allowed_mime_types from storage.buckets order by id`).then((r) => r.rows);
+    const spols = () => fresh.query(`select policyname, cmd, roles::text r from pg_policies where schemaname = 'storage' and tablename = 'objects' order by 1`).then((r) => r.rows);
+    const [f0, c0, p0, g0, b0, sp0] = [await fns(), await cols(), await pols(), await grants(), await buckets(), await spols()];
 
     await fresh.exec(migration002());
     await fresh.exec(migration002());
@@ -331,15 +350,22 @@ test('the migration changes nothing that was there before, runs twice safely, an
     const g1 = await grants();
     assert.deepEqual(g1.filter((x) => !x.table_name.startsWith('sale_order')), g0, 'no grant on an existing table changed');
     assert.equal(g1.filter((x) => x.table_name.startsWith('sale_order') && x.grantee === 'anon').length, 0, 'anon has no grant on the new tables');
-    assert.deepEqual((await fresh.query(`select file_size_limit, allowed_mime_types from storage.buckets where id = 'sale-files'`)).rows[0],
-      { file_size_limit: 5242880, allowed_mime_types: ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf'] });
+    const b1 = await buckets();
+    assert.deepEqual(b1.filter((b) => b0.some((x) => x.id === b.id)), b0, 'every bucket that was there is exactly as it was — sale-files (the POS attachments) keeps its no-limit setting');
+    assert.deepEqual(b1.filter((b) => !b0.some((x) => x.id === b.id)),
+      [{ id: 'sale-order-files', public: false, file_size_limit: 10485760, allowed_mime_types: ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf'] }]);
+    const sp1 = await spols();
+    assert.deepEqual(sp1.filter((x) => sp0.some((y) => y.policyname === x.policyname)), sp0, 'the storage policies that were there are the same');
+    assert.deepEqual(sp1.filter((x) => !sp0.some((y) => y.policyname === x.policyname)).map((x) => `${x.policyname}:${x.cmd}:${x.r}`),
+      ['staff read sale-order-files:SELECT:{authenticated}', 'staff upload sale-order-files:INSERT:{authenticated}'], 'the new bucket gets read and upload for signed-in staff only: no delete, no change');
 
     await fresh.exec(reverse002());
     assert.deepEqual(await fns(), f0, 'the functions are as before');
     assert.deepEqual(await cols(), c0, 'the tables are as before');
     assert.deepEqual(await pols(), p0);
     assert.deepEqual(await grants(), g0);
-    assert.deepEqual((await fresh.query(`select file_size_limit, allowed_mime_types from storage.buckets where id = 'sale-files'`)).rows[0], { file_size_limit: null, allowed_mime_types: null });
+    assert.deepEqual(await spols(), sp0, 'the storage policies are as before');
+    assert.deepEqual(await buckets(), b1, 'the new (empty) bucket is left for the owner to delete in the Dashboard: SQL cannot remove storage rows');
     assert.equal((await fresh.query('select count(*)::int n from sale_msgs')).rows[0].n, 1, 'the chats and messages are kept');
     await fresh.exec(reverse002());
     await fresh.exec(migration002());

@@ -34,18 +34,27 @@ test('the committed apply.sql and reverse.sql are the ones this module code give
 
 test('the module code is valid JavaScript (compiled, not run) and names no other page as its own', () => {
   assert.doesNotThrow(() => new Function(code));
-  assert.match(code, /VIEWS\.saleorders=/);
-  assert.doesNotMatch(code, /VIEWS\.(salechat|weborders|docorders|projdocs|jobs)\s*=/, 'it does not replace another page');
+  assert.match(code, /V\.saleorders=/);
+  assert.doesNotMatch(code, /(?:VIEWS|V)\.(salechat|weborders|docorders|projdocs|jobs)\s*=/, 'it does not replace another page');
+  assert.doesNotMatch(code, /!\s*window\.(?:ROUTES|VIEWS|sb)\b/, 'it never tests window.ROUTES / window.VIEWS / window.sb on their own (undefined in the live shell, which declares them with const)');
   assert.doesNotMatch(code, /from\('(orders|order_items|doc_orders|doc_order_items|project_docs|sales|sale_items|stock_moves)'\)/, 'it reads or writes none of the other order systems');
   assert.doesNotMatch(code, /from\('(products|stores|schools|customers)'\)\.(update|insert|upsert|delete)/, 'it never changes products (no stock cut), stores, schools or customers');
 });
 
 test('"สร้างรายการจากแชต" reads a chat list exactly as the bot does (its copy of src/picklist.js gives the same lines)', () => {
-  // the module is run on its own (no page, no shell): it only registers itself, and hands out its reader
-  const ctx = { ROUTES: [], VIEWS: {}, addEventListener() {}, console };
+  // the module is run the way the live back office runs it: the shell's script declares ROUTES / VIEWS / sb with const (so they
+  // are NOT properties of window), then the module's code is added as another classic script in the same global scope
+  const ctx = { addEventListener() {}, console };
   ctx.window = ctx;
   vm.createContext(ctx);
+  vm.runInContext("const ROUTES=[{id:'home'},{id:'salechat'},{id:'weborders'}]; const VIEWS={}; const sb={}; function buildNav(){ globalThis.navBuilt=(globalThis.navBuilt||0)+1 }", ctx);
   vm.runInContext(code, ctx);
+  assert.equal(ctx.ROUTES, undefined, 'the stand-in really behaves like the live shell: window.ROUTES is not there');
+  assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(ROUTES.map(r => r.id))', ctx)), ['home', 'salechat', 'saleorders', 'weborders'], 'the page puts itself in the menu right after the old chat page');
+  assert.equal(vm.runInContext("typeof VIEWS.saleorders", ctx), 'function', 'and registers its screen');
+  assert.equal(ctx.navBuilt, 1, 'and asks the shell to rebuild the menu once');
+  vm.runInContext(code, ctx);
+  assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(ROUTES.map(r => r.id))', ctx)), ['home', 'salechat', 'saleorders', 'weborders'], 'loaded twice, it is still one menu entry');
   const mine = ctx.NattaSaleOrders.parseOrderText;
   const samples = [
     'ไม้กวาดทางมะพร้าว=10\nไม้ถูพื้น=10\nน้ำยาล้างห้องน้ำ=2แพค',

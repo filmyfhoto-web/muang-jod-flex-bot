@@ -129,8 +129,8 @@ before(async () => {
       [T(n), dir, kind, body, meta && JSON.stringify(meta), by, Math.round(minsAgo * 60)]);
   await msg(1, 'in', 'สวัสดีค่ะ ทางโรงเรียนต้องการสั่งซื้อเครื่องเขียนสำหรับใช้ในภาคเรียนใหม่ค่ะ', 25);
   await msg(1, 'in', 'รายการที่ต้องการมีดังนี้ค่ะ\n• กระดาษถ่ายเอกสาร A4 80 แกรม 10 รีม\n• กระดาษ A4 คละสี 5 รีม\n• ปากกาเจล สีน้ำเงิน 3 โหล\n• ปากกาเจล สีแดง 2 โหล\nไม่ทราบว่ามีของพร้อมส่งไหมคะ และขอใบเสนอราคาด้วยได้ไหมคะ', 24);
-  await msg(1, 'in', 'a4.png', 23.5, 'image', { path: `sale-chat/${T(1)}/a4.png`, name: 'a4.png', type: 'image/png' });
-  await msg(1, 'in', 'pens.png', 23.4, 'image', { path: `sale-chat/${T(1)}/pens.png`, name: 'pens.png', type: 'image/png' });
+  await msg(1, 'in', 'a4.png', 23.5, 'image', { path: `chat/${T(1)}/a4.png`, name: 'a4.png', type: 'image/png' });
+  await msg(1, 'in', 'pens.png', 23.4, 'image', { path: `chat/${T(1)}/pens.png`, name: 'pens.png', type: 'image/png' });
   await msg(1, 'out', 'สวัสดีค่ะ ขอบคุณที่ติดต่อ NATTA GROUP นะคะ สินค้าที่แจ้งมามีพร้อมส่งค่ะ เดี๋ยวแอดมินจัดทำใบเสนอราคาให้เลยนะคะ', 15, 'text', null, 'หญิง');
   await msg(1, 'in', 'ขอใบเสนอราคาด้วยนะคะ ขอบคุณค่ะ', 6);
   await msg(2, 'in', 'สั่งพิมพ์เอกสารเพิ่มเติมค่ะ', 30);
@@ -140,8 +140,8 @@ before(async () => {
   shell = await serveMiniShell({ moduleCode: readFileSync(MODULE, 'utf8') });
   browser = await playwright().chromium.launch();
   const photos = await drawPhotos(browser);
-  pg.storage.set(`sale-files/sale-chat/${T(1)}/a4.png`, { bytes: photos.a4, contentType: 'image/png' });
-  pg.storage.set(`sale-files/sale-chat/${T(1)}/pens.png`, { bytes: photos.pens, contentType: 'image/png' });
+  pg.storage.set(`sale-order-files/chat/${T(1)}/a4.png`, { bytes: photos.a4, contentType: 'image/png' });
+  pg.storage.set(`sale-order-files/chat/${T(1)}/pens.png`, { bytes: photos.pens, contentType: 'image/png' });
   context = await newContext();
   page = await context.newPage();
   page.on('pageerror', (e) => pageErrors.push(String(e.message || e)));
@@ -158,6 +158,7 @@ after(async () => {
 test('the list shows the chats from the database with real counts, the menu entry, and the honest channel state', skipIt, async () => {
   await page.goto(`${shell.url}/#saleorders`);
   await page.waitForSelector('#so_items .so-row');
+  assert.deepEqual(await page.evaluate(() => [typeof window.ROUTES, typeof window.VIEWS, typeof window.sb]), ['undefined', 'undefined', 'undefined'], 'as in the live shell, ROUTES / VIEWS / sb are const (not window properties) — and the page still works');
   assert.equal(await page.locator('#so_items .so-row').count(), 6);
   const tabs = await page.locator('#so_tabs .so-tab').allInnerTexts();
   assert.deepEqual(tabs, ['ทั้งหมด (6)', 'รอตอบ (3)', 'กำลังสั่งงาน (1)', 'เสร็จแล้ว (1)']);
@@ -342,8 +343,8 @@ test('a slip attached to an order does not change its payment state, and a file 
   assert.equal(o.pay_status, 'unpaid');
   assert.equal(Number(o.paid_amount), 0);
   assert.equal(o.attach.length, 1);
-  assert.ok(o.attach[0].path.startsWith(`sale-orders/${T(2)}/`));
-  const stored = pg.storage.get(`sale-files/${o.attach[0].path}`);
+  assert.ok(o.attach[0].path.startsWith(`order/${T(2)}/`));
+  const stored = pg.storage.get(`sale-order-files/${o.attach[0].path}`);
   assert.ok(stored && Buffer.compare(Buffer.from(stored.bytes), png) === 0, 'the file stored is the slip itself');
 });
 

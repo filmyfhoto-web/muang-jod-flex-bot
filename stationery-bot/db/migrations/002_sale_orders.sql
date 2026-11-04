@@ -1,7 +1,7 @@
 -- หน้า "แชตและออเดอร์" · ชั้นฐานข้อมูล: ใบสั่งงาน/คำสั่งซื้อที่เปิดจากแชท (sale_threads)
 --
--- เพิ่มอย่างเดียว: ตารางใหม่ 4 ตาราง ฟังก์ชันใหม่ 4 ตัว · ไม่แก้ตาราง ฟังก์ชัน หรือข้อมูลเดิมแม้แต่แถวเดียว
---   (ข้อ 5 ตั้งขนาด/ชนิดไฟล์ของ bucket sale-files ที่มีอยู่แล้ว — มีผลกับไฟล์ที่อัปโหลดใหม่เท่านั้น)
+-- เพิ่มอย่างเดียว: ตารางใหม่ 4 ตาราง ฟังก์ชันใหม่ 4 ตัว ที่เก็บไฟล์ส่วนตัวใหม่ 1 อัน (bucket sale-order-files) กับนโยบายของมัน
+--   · ไม่แก้ตาราง ฟังก์ชัน นโยบาย หรือข้อมูลเดิมแม้แต่แถวเดียว · ไม่แตะ bucket sale-files ที่หน้า POS ใช้แนบไฟล์อยู่ (รับไฟล์ได้ทุกชนิด)
 -- ใช้กับโปรเจกต์ Supabase ของร้าน (mamlmgixovlwnjstetkj) หลังเจ้าของอนุมัติเท่านั้น · ย้อนกลับ: 002_sale_orders.reverse.sql
 -- ทดสอบบน PostgreSQL จริง (PGlite): db/test/sale-orders.test.js
 --
@@ -219,18 +219,18 @@ begin
   v_force := coalesce((p->>'force')::boolean, false);
   v_reason := left(btrim(coalesce(p->>'reason', '')), 500);
 
-  -- ไฟล์แนบ: เฉพาะไฟล์ใน bucket sale-files ใต้โฟลเดอร์ของแชทนี้ · ชนิด/ขนาดตามที่หน้าจออนุญาต
+  -- ไฟล์แนบ: เฉพาะไฟล์ใน bucket sale-order-files ใต้โฟลเดอร์ order/<แชทนี้>/ · ชนิด/ขนาดตรงกับเพดานของ bucket (ข้อ 6)
   v_attach := coalesce(p->'attach', '[]'::jsonb);
   if jsonb_typeof(v_attach) <> 'array' or jsonb_array_length(v_attach) > 30 then
     raise exception 'saleorders: ไฟล์แนบไม่ถูกต้อง (ไม่เกิน 30 ไฟล์)';
   end if;
   for f in select * from jsonb_array_elements(v_attach) loop
     if jsonb_typeof(f) <> 'object'
-       or coalesce(f->>'path', '') !~ ('^sale-orders/' || v_thread::text || '/[^/]{1,120}$')
+       or coalesce(f->>'path', '') !~ ('^order/' || v_thread::text || '/[^/]{1,120}$')
        or position('..' in coalesce(f->>'path', '')) > 0
        or length(coalesce(f->>'name', '')) > 200
        or coalesce(f->>'type', '') !~ '^(image/(png|jpeg|webp|gif)|application/pdf)$'
-       or coalesce(nullif(f->>'size', '')::numeric, 0) > 5242880 then
+       or coalesce(nullif(f->>'size', '')::numeric, 0) > 10485760 then
       raise exception 'saleorders: ไฟล์แนบไม่ถูกต้อง (%)', left(coalesce(f->>'name', f->>'path', '?'), 80);
     end if;
   end loop;
@@ -428,10 +428,20 @@ end $$;
 revoke all on function public.sale_order_log_send(uuid, text, boolean, text, text) from public, anon;
 grant execute on function public.sale_order_log_send(uuid, text, boolean, text, text) to authenticated, service_role;
 
--- 6) ไฟล์แนบของหน้านี้อยู่ใน bucket sale-files (มีอยู่แล้ว · ส่วนตัว · พนักงานอัป/อ่าน/ลบได้ตามนโยบายเดิม)
--- ตั้งเพดานฝั่งเซิร์ฟเวอร์: ไม่เกิน 5 MB และเฉพาะรูป/PDF — มีผลกับไฟล์ที่อัปโหลดใหม่เท่านั้น (ไฟล์เดิม 1 ไฟล์เป็น JPEG 95 KB)
--- ย้อนกลับใน reverse: คืนเป็นไม่จำกัด (ค่าเดิม null)
-update storage.buckets
-   set file_size_limit = 5242880,
-       allowed_mime_types = array['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf']
- where id = 'sale-files' and file_size_limit is null and allowed_mime_types is null;
+-- 6) ที่เก็บไฟล์แนบของหน้านี้: bucket ส่วนตัวใหม่ sale-order-files (รูปแชต chat/<แชท>/… และไฟล์แนบใบ order/<แชท>/…)
+-- เพดานฝั่งเซิร์ฟเวอร์ของ Storage เอง: ไม่เกิน 10 MB · เฉพาะ PNG/JPEG/WebP/GIF/PDF — ไม่ใช่การเชื่อใจหน้าจออย่างเดียว
+-- ไม่แตะ bucket sale-files (หน้า POS แนบ .doc .xls .ai .psd .zip และรูปใหญ่ที่นั่น — ตั้งเพดานทับจะทำให้ POS แนบไม่ได้)
+-- นโยบาย: พนักงานที่ล็อกอิน อ่านและอัปโหลดได้เท่านั้น · ไม่มีนโยบายลบ/แก้ไฟล์ (เก็บหลักฐาน: ใบที่ตัดไฟล์ออกจากรายการแล้ว ไฟล์ยังอยู่)
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('sale-order-files', 'sale-order-files', false, 10485760,
+        array['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf'])
+on conflict (id) do nothing;
+
+do $$ begin
+  if not exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'staff read sale-order-files') then
+    create policy "staff read sale-order-files" on storage.objects for select to authenticated using (bucket_id = 'sale-order-files');
+  end if;
+  if not exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'staff upload sale-order-files') then
+    create policy "staff upload sale-order-files" on storage.objects for insert to authenticated with check (bucket_id = 'sale-order-files');
+  end if;
+end $$;
