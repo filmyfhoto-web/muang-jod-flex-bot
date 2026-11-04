@@ -275,7 +275,7 @@ test('the summary shows the receiver and only channels that really exist; copyin
   await page.waitForSelector('#so_modal #so_sumtxt');
   const text = await page.locator('#so_modal').innerText();
   assert.match(text, /ผู้รับ: โรงเรียนบ้านตัวอย่าง · โทร 053-000000/);
-  assert.match(text, /ส่งทาง LINE OA\s*ยังไม่ได้เชื่อมต่อ/);
+  assert.match(text, /ส่งทาง LINE OA\s*แชตนี้ไม่ได้มาจาก LINE OA/, 'an in-shop chat is not a LINE chat: the page says so instead of offering a send that cannot happen');
   assert.match(text, /ส่งทาง Facebook\s*ยังไม่ได้เชื่อมต่อ/);
   const summary = await page.locator('#so_sumtxt').inputValue();
   assert.match(summary, /ORD-\d{4}-00001/);

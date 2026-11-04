@@ -115,6 +115,8 @@ begin
      set meta = coalesce(m.meta, '{}'::jsonb)
                 || jsonb_build_object('delivery', o.status, 'out_id', o.id, 'error', o.error, 'delivery_at', o.finished_at)
    where m.id = o.msg_id;
+  -- แตะ updated_at ของแชต (ไม่แตะ last_at จึงไม่เปลี่ยนลำดับรายชื่อ): หน้าจอถามแบบเบา ๆ ว่า "แชตนี้เปลี่ยนไหม" จากเวลานี้ และเห็นผลการส่งที่เพิ่งมา
+  update public.sale_threads set updated_at = now() where id = o.thread_id;
   -- สรุปของใบ: บันทึกผลลงประวัติของใบเฉพาะเมื่อได้ผลสุดท้ายแล้ว และสถานะละครั้งเดียว (ส่งซ้ำแล้วผลใหม่จึงบันทึกอีก)
   if o.order_id is not null and o.status in ('sent', 'failed', 'expired', 'unknown')
      and not exists (select 1 from public.sale_order_events e

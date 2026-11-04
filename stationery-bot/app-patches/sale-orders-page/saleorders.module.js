@@ -2,8 +2,11 @@
    ซ้าย: แชตลูกค้า (sale_threads) · กลาง: ห้องแชต (sale_msgs + ไฟล์ใน bucket sale-order-files) · ขวา: ใบสั่งงาน/คำสั่งซื้อ (sale_orders)
    ต้องติดตั้ง db/migrations/002_sale_orders.sql ก่อน (sale_order_save ตรวจยอด สถานะ และสิทธิ์ฝั่งเซิร์ฟเวอร์)
    หลัก: ใบจากแชทเป็นระบบของตัวเอง ไม่แตะคำสั่งซื้อจัดสินค้า (orders) หรือคำสั่งซื้อจัดทำเอกสาร (doc_orders/project_docs)
-         ไม่ตัดสต็อก ไม่ออกเอกสาร · หน้านี้ยังไม่มีทางส่งข้อความถึงลูกค้า (LINE OA / Facebook ยังไม่ได้เชื่อมต่อ)
-         ทุกข้อความ "บันทึกในระบบ" และหน้าจอไม่แสดงว่าส่งสำเร็จถ้ายังไม่ได้ส่งจริง */
+         ไม่ตัดสต็อก ไม่ออกเอกสาร · Facebook ยังไม่ได้เชื่อมต่อ
+   LINE OA (ต้องติดตั้ง db/migrations/003_sale_line_bridge.sql และเปิดสะพานที่บอท): ข้อความลูกค้าเข้าแชตเอง และพนักงานตอบจากหน้านี้ได้
+         สถานะ "LINE OA: เชื่อมต่อแล้ว" มาจากสัญญาณชีพที่บอทเขียนเองทุกนาที (sale_line_status) ไม่ใช่การสมมติ · ไม่มีสัญญาณ = "ยังไม่ได้เชื่อมต่อ"
+         ข้อความที่ตอบทาง LINE ขึ้น "ส่งถึง LINE แล้ว" ได้ทางเดียวคือบอทแจ้งว่า LINE รับแล้ว · นอกนั้นเป็น รอส่ง / ส่งไม่สำเร็จ / ไม่ได้ส่ง
+         แชตที่ไม่ได้มาจาก LINE และโน้ตภายใน "บันทึกในระบบ" เท่านั้น และหน้าจอไม่แสดงว่าส่งสำเร็จถ้ายังไม่ได้ส่งจริง */
 (function(){
   // เชลล์หลังร้านประกาศ ROUTES / VIEWS / sb ด้วย const ในสคริปต์ธรรมดา จึงไม่เป็นคุณสมบัติของ window (window.ROUTES = undefined)
   // อ่านผ่านชื่อตรง ๆ ก่อน แล้วค่อยลอง window — แบบเดียวกับโมดูล iosnav · ห้ามใช้ window.ROUTES เป็นเงื่อนไขเดี่ยว ๆ เพราะหน้าจะไม่ขึ้นเงียบ ๆ
@@ -78,7 +81,8 @@
     listLoading:false,msgsLoading:false,ordLoading:false,errList:'',errMsgs:'',errOrd:'',
     flash:'',flashErr:false,flashTok:0,busySend:false,busySave:false,attachBusy:false,chatAttachBusy:false,
     drafts:{},odrafts:{},urls:{},tok:0,ctok:0,ptok:0,picker:false,pick:[],pickQ:'',creating:false,note:false,
-    prodOpen:false,prodQ:'',prodRows:[],prodPrice:{},prodBusy:false,modal:null,staff:'ทีมขาย',conflict:false,stageMenu:false}
+    prodOpen:false,prodQ:'',prodRows:[],prodPrice:{},prodBusy:false,modal:null,staff:'ทีมขาย',conflict:false,stageMenu:false,
+    line:null,links:{},sendTok:{},busyRetry:{},poll:null,pollN:0,sig:'',probe:'',openStamp:'',linksOffUntil:0,statusOffUntil:0}
 
   // ---------- หน้าตา ----------
   const CSS=`
@@ -240,6 +244,24 @@
 #so_modal .chan .c.off{background:#F7FAFD}
 #so_modal .chan .c b{flex:1;font-weight:600}
 #so_modal .bound{color:#0F6B3A;font-size:11px}
+#so_root .so-av{position:relative;overflow:hidden}
+#so_root .so-av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#so_root .so-src{display:inline-block;margin-right:6px;padding:0 6px;border-radius:6px;background:#E3F6EA;color:#0F6B3A;font-size:10.5px;font-weight:700;letter-spacing:.2px;vertical-align:1px}
+#so_root .so-chip.ok{background:#1F9D55;color:#fff}
+#so_root .so-chip.warn{background:#E8832A;color:#fff}
+#so_root .so-lnote{font-size:11.5px;color:var(--so-mut);padding:6px 14px;background:#F2F6FB;border-bottom:1px solid var(--so-line)}
+#so_root .so-m.in .so-bub.ph{background:#F2F6FB;color:var(--so-mut);font-style:italic}
+#so_root .so-dl{font-size:11.5px;padding:0 4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+#so_root .so-dl.wait{color:#B5862A}
+#so_root .so-dl.ok{color:#0F6B3A}
+#so_root .so-dl.bad{color:var(--so-bad)}
+#so_root .so-dl.off{color:var(--so-mut)}
+#so_root .so-dl button{border:1px solid currentColor;background:#fff;color:inherit;border-radius:999px;padding:1px 10px;font:inherit;font-size:11.5px;cursor:pointer}
+#so_root .so-dl button:disabled{opacity:.5;cursor:default}
+#so_modal .lstat{margin-top:8px;padding:8px 12px;border-radius:10px;font-size:13px}
+#so_modal .lstat.wait{background:#FFF4CC;color:#7A5A00}
+#so_modal .lstat.ok{background:#E7F7EE;color:#0F6B3A}
+#so_modal .lstat.bad{background:#FDECEC;color:#B42318}
 @media (max-width:900px){
   #so_root{height:auto;min-height:0;display:block}
   #so_root .so-cols{display:flex;flex-direction:column;padding:0;gap:0}
@@ -285,7 +307,7 @@
         <nav class="so-mtabs" id="so_mtabs" aria-label="สลับส่วนของหน้า"></nav>
         <aside class="so-col so-list" aria-label="แชตลูกค้า">
           <div class="so-lhd"><span class="ttl">${ic('chat',22)} แชตลูกค้า</span><button type="button" class="so-btn sm pri" data-a="picker">${ic('plus',14)} แชตใหม่</button></div>
-          <div class="so-chan" title="หน้านี้ยังไม่มีการเชื่อมต่อกับช่องทางแชตภายนอก ข้อความทั้งหมดบันทึกในระบบเท่านั้น"><span class="so-chip lite">LINE OA: ยังไม่ได้เชื่อมต่อ</span><span class="so-chip lite">Facebook: ยังไม่ได้เชื่อมต่อ</span></div>
+          <div class="so-chan" id="so_chan"></div>
           <label class="so-srch">${ic('search',16)}<input id="so_q" type="search" placeholder="ค้นหาชื่อลูกค้า ข้อความ หรือเลขออเดอร์…" aria-label="ค้นหาแชต" autocomplete="off" value="${E(S.q)}"></label>
           <div class="so-tabs" id="so_tabs" role="tablist"></div>
           <div id="so_picker"></div>
@@ -302,6 +324,8 @@
     root.addEventListener('input',onInput)
     root.addEventListener('change',onChange)
     root.addEventListener('keydown',onKey)
+    // รูปโปรไฟล์ LINE โหลดไม่ได้ (ลิงก์หมดอายุ/ถูกบล็อก): เอารูปออก ตัวอักษรย่อด้านล่างยังอยู่ (error ไม่ bubble จึงดักตอน capture)
+    root.addEventListener('error',e=>{const el=e.target;if(el&&el.tagName==='IMG'&&el.closest&&el.closest('.so-av'))el.remove()},true)
   }
 
   function applyMode(){const r=$('so_root');if(r)r.className='m-'+S.mode;paintMTabs()}
@@ -313,7 +337,7 @@
   }
   async function q(fn){try{const r=await fn();return r&&typeof r==='object'?r:{data:null,error:null}}catch(e){return {data:null,error:{message:String((e&&e.message)||e||'เกิดข้อผิดพลาด')}}}}
   const errMsg=r=>(r&&r.error&&(r.error.message||r.error.msg||String(r.error)))||''
-  const niceErr=m=>String(m||'').replace(/^saleorders:\s*/,'')
+  const niceErr=m=>String(m||'').replace(/^(saleorders|saleline):\s*/,'')
 
   async function loadStaff(){
     try{
@@ -335,7 +359,50 @@
   }
   const vatStores=()=>S.stores.filter(s=>num(s.vat_rate)>0)
 
-  function paintAll(){paintTabs();paintList();paintPicker();paintChat();paintOrd();applyMode()}
+  function paintAll(){paintChan();paintTabs();paintList();paintPicker();paintChat();paintOrd();applyMode()}
+
+  // ---------- สถานะช่องทาง LINE: มาจากสัญญาณชีพที่บอทเขียนเอง ไม่ใช่การสมมติ ----------
+  const LINE_FRESH_MS=3*60*1000 // บอทรายงานตัวทุกนาที: เงียบเกิน 3 นาที = ขาดการติดต่อ
+  function quotaInfo(){
+    const q=S.line&&S.line.detail&&S.line.detail.quota
+    if(!q)return null
+    if(q.type==='limited'&&q.limit!=null&&q.used!=null)return {left:Math.max(0,num(q.limit)-num(q.used)),limit:num(q.limit),at:q.at}
+    return {left:null,limit:null,at:q.at}
+  }
+  // → { k: none|stale|off|pilot|on, t: ข้อความป้าย, tip, ok: ส่งผ่านบอทได้ตอนนี้ }
+  function lineState(){
+    const s=S.line
+    if(!s)return {k:'none',t:'LINE OA: ยังไม่ได้เชื่อมต่อ',tip:'บอท LINE ยังไม่เคยรายงานตัวเข้าหน้านี้ ข้อความจาก LINE จะไม่เข้ามาและส่งตอบจากหน้านี้ไม่ได้',ok:false}
+    const age=Date.now()-tms(s.last_seen_at)
+    if(!(age<LINE_FRESH_MS))return {k:'stale',t:'LINE OA: ขาดการติดต่อ',tip:'บอทรายงานตัวล่าสุด '+tFull(s.last_seen_at)+' — อาจกำลังพักหรือหยุดทำงาน ข้อความที่ส่งจากหน้านี้จะรอส่งได้ไม่เกิน 30 นาที',ok:false}
+    if(s.mode==='off')return {k:'off',t:'LINE OA: ปิดการรับ-ส่ง',tip:'บอทเชื่อมฐานข้อมูลแล้ว แต่ยังปิดสวิตช์ข้อความจากหน้านี้ (SALECHAT_MODE=off)',ok:false}
+    const qi=quotaInfo()
+    const qt=qi&&qi.left!=null?' · โควตาข้อความ LINE เหลือประมาณ '+qi.left+' จาก '+qi.limit+(qi.at?' (ตรวจ '+tFull(qi.at)+')':''):''
+    if(s.mode==='pilot')return {k:'pilot',t:'LINE OA: ทดลอง',tip:'เปิดทดลอง — รับและส่งเฉพาะลูกค้าที่อยู่ในรายชื่อทดสอบ'+qt,ok:true}
+    return {k:'on',t:'LINE OA: เชื่อมต่อแล้ว',tip:'บอทรายงานตัวล่าสุด '+tFull(s.last_seen_at)+qt,ok:true}
+  }
+  function chanChip(){
+    const st=lineState()
+    const cls=st.k==='on'?'ok':st.k==='pilot'?'warn':'lite'
+    return `<span class="so-chip ${cls}" title="${E(st.tip)}">${E(st.t)}</span>`
+  }
+  function paintChan(){
+    const b=$('so_chan');if(!b)return
+    const html=chanChip()+'<span class="so-chip lite" title="ยังไม่ได้เชื่อมต่อ Facebook">Facebook: ยังไม่ได้เชื่อมต่อ</span>'
+    if(b.dataset.html!==html){b.innerHTML=html;b.dataset.html=html}
+  }
+  async function loadLine(force){
+    // ตารางยังไม่มี (ยังไม่ได้ติดตั้ง 003) หรืออ่านไม่ได้ = "ยังไม่ได้เชื่อมต่อ" ไม่ใช่ข้อผิดพลาดที่ต้องขึ้นเตือน
+    // และไม่ถามซ้ำทุกไม่กี่วินาที (เว้น 2 นาที) · force = ถามเดี๋ยวนี้
+    if(!force&&Date.now()<S.statusOffUntil)return
+    const r=await q(()=>sb.from('sale_line_status').select('*').eq('channel_key','main').limit(1))
+    if(errMsg(r)){S.line=null;S.statusOffUntil=Date.now()+120000}
+    else{S.line=(r.data&&r.data[0])||null;S.statusOffUntil=0}
+    paintChan();paintLineBits()
+  }
+  const isLine=t=>!!t&&t.source==='line'
+  // รูปโปรไฟล์ LINE ของลูกค้า (ถ้าโหลดไม่ได้ ตัวอักษรย่อด้านล่างยังอยู่ — ดู capture ของ error ใน mount)
+  const avImg=t=>{const l=S.links[t&&t.id];return l&&/^https:\/\//.test(l.picture_url||'')?`<img src="${E(l.picture_url)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:''}
 
   function keepDraft(){const old=$('so_txt');if(old&&old.dataset.id)S.drafts[old.dataset.id]=old.value}
   function setDraft(id,v){S.drafts[id]=v;const ta=$('so_txt');if(ta&&ta.dataset.id===id)ta.value=v}
@@ -372,12 +439,12 @@
     const qq=S.q.trim().toLowerCase()
     const rows=S.list.filter(f).filter(t=>!qq||`${t.title||''} ${t.phone||''} ${t.last_text||''} ${ordsOf(t).map(o=>o.order_no).join(' ')}`.toLowerCase().includes(qq))
     const errHtml=S.errList?`<div class="so-err">${E(S.errList)} <button type="button" class="so-btn sm" data-a="retrylist">ลองใหม่</button></div>`:''
-    if(!rows.length){box.innerHTML=errHtml+`<div class="so-empty">${S.list.length?'ไม่มีแชตในแท็บนี้':'ยังไม่มีแชตในระบบ — กด "แชตใหม่" เพื่อเปิดแชตจากรายชื่อลูกค้า (เมื่อเชื่อม LINE OA แล้ว ข้อความลูกค้าจะเข้ามาที่นี่เอง)'}</div>`;return}
+    if(!rows.length){box.innerHTML=errHtml+`<div class="so-empty">${S.list.length?'ไม่มีแชตในแท็บนี้':(lineState().ok?'ยังไม่มีแชตในระบบ — ข้อความจากลูกค้าทาง LINE จะเข้ามาที่นี่เอง หรือกด "แชตใหม่" เพื่อเปิดแชตจากรายชื่อลูกค้า':'ยังไม่มีแชตในระบบ — กด "แชตใหม่" เพื่อเปิดแชตจากรายชื่อลูกค้า (LINE OA ยังไม่ได้เชื่อมต่อ ข้อความลูกค้าจึงยังไม่เข้ามาที่นี่)')}</div>`;return}
     box.innerHTML=errHtml+rows.map(t=>`
       <button type="button" class="so-row${S.sel===t.id?' on':''}" data-a="open" data-id="${E(t.id)}">
-        <span class="so-av" style="background:${colorOf(t)}">${E(initial(t.title))}</span>
+        <span class="so-av" style="background:${colorOf(t)}">${E(initial(t.title))}${avImg(t)}</span>
         <span class="so-rw">
-          <span class="so-r1"><span class="so-nm">${E(t.title||'ไม่มีชื่อ')}</span><span class="so-tm">${E(tShort(t.last_at))}</span></span>
+          <span class="so-r1"><span class="so-nm">${isLine(t)?'<span class="so-src">LINE</span>':''}${E(t.title||'ไม่มีชื่อ')}</span><span class="so-tm">${E(tShort(t.last_at))}</span></span>
           <span class="so-r1"><span class="so-pv">${E(t.last_text||'ยังไม่มีข้อความ')}</span>${t.unread>0?`<span class="so-unread" aria-label="ยังไม่ได้อ่าน ${E(t.unread)} ข้อความ">${E(t.unread)}</span>`:rowChip(t)}</span>
         </span>
       </button>`).join('')
@@ -409,9 +476,23 @@
   }
 
   // ---------- ห้องแชต ----------
+  // สถานะการส่งของข้อความที่ตอบทาง LINE — มาจากคิวส่ง (บอทแจ้งผลหลัง LINE ตอบ) ไม่ใช่จากหน้าจอ
+  function deliveryHtml(m,t){
+    if(m.dir!=='out')return ''
+    const meta=m.meta||{}
+    const d=meta.delivery
+    if(!d)return isLine(t)?'<div class="so-dl off">บันทึกในระบบ · ไม่ได้ส่งถึงลูกค้า</div>':''
+    const again=`<button type="button" data-a="resend" data-o="${E(meta.out_id||'')}"${S.busyRetry[meta.out_id]?' disabled':''}>ส่งใหม่</button>`
+    if(d==='sent')return '<div class="so-dl ok">ส่งถึง LINE แล้ว (LINE รับข้อความแล้ว)</div>'
+    if(d==='queued'||d==='sending')return `<div class="so-dl wait">${meta.error?'รอส่งทาง LINE · ครั้งก่อนไม่สำเร็จ ('+E(meta.error)+') กำลังลองใหม่':'รอส่งทาง LINE… ยังไม่ถือว่าส่งถึงลูกค้า'}</div>`
+    if(d==='expired')return `<div class="so-dl bad">ไม่ได้ส่ง: รอเกิน 30 นาทีโดยบอทไม่ได้เริ่มส่ง ${again}</div>`
+    if(d==='unknown')return `<div class="so-dl bad">ไม่ทราบว่าถึงลูกค้าหรือไม่ (บอทหยุดกลางคัน) · ตรวจใน LINE OA Manager ก่อน กด "ส่งใหม่" ได้ LINE กันไม่ให้ส่งซ้ำ ${again}</div>`
+    return `<div class="so-dl bad">ส่งไม่สำเร็จ: ${E(meta.error||'ไม่ทราบสาเหตุ')} ${again}</div>`
+  }
+
   function msgHtml(m,t){
     const cls=m.kind==='system'?'sys':(m.dir==='note'?'note':(m.dir==='out'?'out':'in'))
-    const who=cls==='sys'?'ระบบ':(m.dir==='note'?'โน้ตภายใน · '+(m.by_name||S.staff):(m.dir==='out'?(m.by_name||S.staff)+' · บันทึกในระบบ':(t.title||'ลูกค้า')))
+    const who=cls==='sys'?'ระบบ':(m.dir==='note'?'โน้ตภายใน · '+(m.by_name||S.staff):(m.dir==='out'?(m.by_name||S.staff)+(isLine(t)?'':' · บันทึกในระบบ'):(t.title||'ลูกค้า')))
     const meta=m.meta||{}
     let body
     if((m.kind==='image'||m.kind==='file')&&meta.path){
@@ -419,9 +500,50 @@
       body=m.kind==='image'&&u?`<img class="so-img" src="${E(u)}" alt="${E(meta.name||'รูป')}" data-a="openfile" data-p="${E(meta.path)}">`
         :`<button type="button" class="so-file" data-a="openfile" data-p="${E(meta.path)}">${ic(m.kind==='image'?'file':'clip',16)} ${E(meta.name||'ไฟล์แนบ')}${meta.size?` <small>(${Math.max(1,Math.round(meta.size/1024))} KB)</small>`:''}</button>`
     }else{
-      body=`<div class="so-bub">${E(m.body)}</div>`
+      // ข้อความของลูกค้าที่ไม่ใช่ตัวอักษร (สติกเกอร์ ไฟล์ เสียง ตำแหน่ง) บอทบันทึกเป็นโน้ตสั้น ๆ — แสดงเป็นป้ายจาง ไม่ให้ปะปนกับข้อความจริง
+      const ph=m.dir==='in'&&['sticker','video','audio','location','other','file','image'].includes(m.kind)
+      body=`<div class="so-bub${ph?' ph':''}">${E(m.body)}</div>`
+      const la=Number(meta.latitude),lo=Number(meta.longitude)
+      if(m.kind==='location'&&meta.latitude!=null&&meta.longitude!=null&&Number.isFinite(la)&&Number.isFinite(lo)&&Math.abs(la)<=90&&Math.abs(lo)<=180)
+        body+=`<a class="so-file" href="https://www.google.com/maps?q=${la},${lo}" target="_blank" rel="noopener noreferrer">เปิดแผนที่</a>`
     }
-    return `<div class="so-m ${cls}">${body}<div class="so-meta">${E(who)} · ${E(tFull(m.created_at))}</div></div>`
+    return `<div class="so-m ${cls}">${body}<div class="so-meta">${E(who)} · ${E(tFull(m.created_at))}</div>${deliveryHtml(m,t)}</div>`
+  }
+
+  // ข้อความใต้ช่องพิมพ์: บอกตรง ๆ ว่าข้อความที่พิมพ์จะไปไหน
+  function honestText(t){
+    if(S.note)return 'โหมดโน้ตภายใน — ลูกค้าไม่เห็นข้อความนี้'
+    if(!isLine(t))return 'ข้อความบันทึกในระบบเท่านั้น ยังไม่ถูกส่งถึงลูกค้า (แชตนี้ไม่ได้มาจาก LINE OA)'
+    const st=lineState(),qi=quotaInfo()
+    const q=qi&&qi.left!=null?(qi.left<=0?' (โควตาเดือนนี้น่าจะเต็มแล้ว ส่งอาจไม่สำเร็จ)':' (เหลือประมาณ '+qi.left+' ข้อความ)'):''
+    if(st.ok)return 'ข้อความนี้จะถูกส่งถึงลูกค้าทาง LINE OA และนับเป็น 1 ข้อความจากโควตา'+q+' · ขึ้นว่า "ส่งถึง LINE แล้ว" ก็ต่อเมื่อ LINE รับข้อความแล้วเท่านั้น'
+    return st.t+' — ข้อความจะรอส่งได้ไม่เกิน 30 นาที ถ้าบอทไม่มาหยิบทันจะไม่ถูกส่งและแจ้งไว้ที่ข้อความนั้น'
+  }
+  function lineChip(t){
+    return isLine(t)?chanChip():'<span class="so-chip lite" title="แชตนี้เปิดในหลังร้าน ไม่ได้มาจาก LINE OA จึงส่งถึงลูกค้าจากหน้านี้ไม่ได้">บันทึกในระบบเท่านั้น</span>'
+  }
+  // อัปเดตเฉพาะป้ายสถานะกับข้อความใต้ช่องพิมพ์ (ไม่แตะช่องพิมพ์ ไม่ให้เคอร์เซอร์หลุดระหว่างพนักงานกำลังพิมพ์)
+  function paintLineBits(){
+    const t=S.list.find(x=>x.id===S.sel);if(!t)return
+    const c=$('so_lchip');if(c){const h=lineChip(t);if(c.dataset.html!==h){c.innerHTML=h;c.dataset.html=h}}
+    const h=$('so_honest');if(h){const x=honestText(t);if(h.textContent!==x)h.textContent=x}
+  }
+
+  function msgsInner(t){
+    if(S.msgsLoading)return '<div class="so-empty">กำลังโหลดข้อความ…</div>'
+    if(S.errMsgs)return `<div class="so-empty"><b>โหลดข้อความไม่สำเร็จ</b><p>${E(S.errMsgs)}</p><button type="button" class="so-btn" data-a="retrythread">ลองใหม่</button></div>`
+    if(!S.msgs.length)return `<div class="so-empty"><b>ยังไม่มีข้อความในแชตนี้</b><p>${isLine(t)?'ข้อความจากลูกค้าทาง LINE จะเข้ามาที่นี่เอง · ':''}บันทึกการคุยด้านล่าง หรือกด "สร้างรายการจากแชต" ในใบสั่งงาน แล้ววางข้อความรายการจากลูกค้า</p></div>`
+    let last=''
+    return S.msgs.map(m=>{const d=dSep(m.created_at);const sep=d&&d!==last?`<div class="so-day">${E(d)}</div>`:'';if(d)last=d;return sep+msgHtml(m,t)}).join('')
+  }
+  // วาดเฉพาะรายการข้อความ (ตอนรีเฟรชอัตโนมัติ): ไม่แตะช่องพิมพ์ และไม่ดึงหน้าลงล่างถ้าพนักงานกำลังเลื่อนอ่านข้อความเก่า
+  function paintMsgs(){
+    const t=S.list.find(x=>x.id===S.sel),ms=$('so_msgs')
+    if(!t||!ms||ms.dataset.id!==t.id){paintChat();return}
+    const stick=ms.scrollHeight-ms.scrollTop-ms.clientHeight<80,top=ms.scrollTop
+    ms.innerHTML=msgsInner(t)
+    ms.scrollTop=stick?ms.scrollHeight:top
+    paintLineBits()
   }
 
   function paintChat(){
@@ -429,36 +551,34 @@
     keepDraft()
     const t=S.list.find(x=>x.id===S.sel)
     if(!t){box.innerHTML=`<div class="so-empty"><b>เลือกแชตทางซ้ายเพื่อเริ่มงาน</b><p>ข้อความ ใบสั่งงาน และสถานะของลูกค้าแต่ละรายจะอยู่ด้วยกันในหน้านี้</p></div>`;return}
-    let inner
-    if(S.msgsLoading)inner='<div class="so-empty">กำลังโหลดข้อความ…</div>'
-    else if(S.errMsgs)inner=`<div class="so-empty"><b>โหลดข้อความไม่สำเร็จ</b><p>${E(S.errMsgs)}</p><button type="button" class="so-btn" data-a="retrythread">ลองใหม่</button></div>`
-    else if(!S.msgs.length)inner=`<div class="so-empty"><b>ยังไม่มีข้อความในแชตนี้</b><p>บันทึกการคุยด้านล่าง หรือกด "สร้างรายการจากแชต" ในใบสั่งงาน แล้ววางข้อความรายการจากลูกค้า</p></div>`
-    else{
-      let last=''
-      inner=S.msgs.map(m=>{const d=dSep(m.created_at);const sep=d&&d!==last?`<div class="so-day">${E(d)}</div>`:'';if(d)last=d;return sep+msgHtml(m,t)}).join('')
-    }
+    const old=$('so_msgs')
+    const keep=old&&old.dataset.id===t.id?{top:old.scrollTop,stick:old.scrollHeight-old.scrollTop-old.clientHeight<80}:null
+    const inner=msgsInner(t)
     const st=STG[t.stage]||STG.talk
     const src=t.source==='line'?'LINE':t.source==='web'?'หน้าเว็บ':'เปิดในหลังร้าน'
+    const line=isLine(t)
     box.innerHTML=`
       <div class="so-ch">
-        <span class="so-av sm" style="background:${colorOf(t)}">${E(initial(t.title))}</span>
+        <span class="so-av sm" style="background:${colorOf(t)}">${E(initial(t.title))}${avImg(t)}</span>
         <div class="so-chn"><h2>${E(t.title||'ไม่มีชื่อ')}</h2><small>${E(t.phone||'ยังไม่มีเบอร์')} · ${E(src)}</small></div>
-        <span class="so-chip lite" title="หน้านี้ยังส่งข้อความถึงลูกค้าไม่ได้">ยังไม่เชื่อม LINE</span>
+        <span id="so_lchip">${lineChip(t)}</span>
         <button type="button" class="so-stgbtn" style="--c:${st.c}" data-a="stagemenu" aria-haspopup="true" aria-expanded="${S.stageMenu}">${st.t} ▾</button>
         ${S.stageMenu?`<div class="so-stgmenu" role="menu">${Object.entries(STG).map(([k,v])=>`<button type="button" role="menuitem" data-a="stage" data-k="${k}">${t.stage===k?'✓ ':''}${v.t}</button>`).join('')}</div>`:''}
       </div>
+      ${line?'<div class="so-lnote">แชตจาก LINE OA · หน้านี้แสดงข้อความของลูกค้าและข้อความที่ส่งจากหน้านี้ — คำตอบที่พิมพ์ใน LINE OA Manager และคำตอบอัตโนมัติของบอทจะไม่แสดงที่นี่</div>':''}
       <div class="so-flashbox" data-where="chat"></div>
-      <div class="so-msgs" id="so_msgs">${inner}</div>
+      <div class="so-msgs" id="so_msgs" data-id="${E(t.id)}">${inner}</div>
       <div class="so-qa">${TPL.map((x,i)=>`<button type="button" class="so-tplb" data-a="tplpick" data-k="${i}">${E(x[0])}</button>`).join('')}</div>
-      <div class="so-honest">${S.note?'โหมดโน้ตภายใน — ลูกค้าไม่เห็นข้อความนี้':'ข้อความบันทึกในระบบเท่านั้น ยังไม่ถูกส่งถึงลูกค้า (LINE OA ยังไม่ได้เชื่อมต่อกับหน้านี้)'}</div>
+      <div class="so-honest" id="so_honest">${E(honestText(t))}</div>
       <div class="so-comp">
         <button type="button" class="so-mode${S.note?' on':''}" data-a="note" aria-pressed="${S.note}" title="สลับเป็นโน้ตภายใน">${S.note?'โน้ต':'ข้อความ'}</button>
-        <button type="button" class="so-ic" data-a="chatattach" title="แนบรูปหรือ PDF (ไม่เกิน 10 MB)" aria-label="แนบไฟล์" ${S.chatAttachBusy?'disabled':''}>${ic('clip')}</button>
-        <textarea id="so_txt" data-id="${E(t.id)}" rows="1" placeholder="พิมพ์ข้อความ…" title="Enter บันทึก · Shift+Enter ขึ้นบรรทัดใหม่" aria-label="ข้อความ">${E(S.drafts[t.id]||'')}</textarea>
-        <button type="button" class="so-send" data-a="send" aria-label="บันทึกข้อความ" ${S.busySend?'disabled':''}>${ic('send')}</button>
+        <button type="button" class="so-ic" data-a="chatattach" title="${line?'แนบรูปหรือ PDF เป็นโน้ตภายใน (ยังส่งรูปถึงลูกค้าทาง LINE จากหน้านี้ไม่ได้) · ไม่เกิน 10 MB':'แนบรูปหรือ PDF (ไม่เกิน 10 MB)'}" aria-label="แนบไฟล์" ${S.chatAttachBusy?'disabled':''}>${ic('clip')}</button>
+        <textarea id="so_txt" data-id="${E(t.id)}" rows="1" placeholder="พิมพ์ข้อความ…" title="Enter ${line&&!S.note?'ส่ง':'บันทึก'} · Shift+Enter ขึ้นบรรทัดใหม่" aria-label="ข้อความ">${E(S.drafts[t.id]||'')}</textarea>
+        <button type="button" class="so-send" data-a="send" aria-label="${line&&!S.note?'ส่งข้อความทาง LINE':'บันทึกข้อความ'}" ${S.busySend?'disabled':''}>${ic('send')}</button>
       </div>`
     paintFlash()
-    const ms=$('so_msgs');if(ms)ms.scrollTop=ms.scrollHeight
+    const ms=$('so_msgs')
+    if(ms)ms.scrollTop=!keep||keep.stick?ms.scrollHeight:keep.top
     paintMTabs()
   }
 
@@ -479,20 +599,32 @@
   }
 
   // ---------- โหลดข้อมูล ----------
-  async function loadList(){
-    S.listLoading=!S.list.length
-    paintList()
-    const [r,o]=await Promise.all([
+  // quiet = การรีเฟรชอัตโนมัติ: ไม่ขึ้นข้อความกำลังโหลด ไม่ขึ้นแถบผิดพลาดซ้ำ ๆ และไม่วาดทับถ้าไม่มีอะไรเปลี่ยน (ไม่ให้คลิกพลาดหรือรายการกระตุก)
+  async function loadList(quiet){
+    if(!quiet){S.listLoading=!S.list.length;paintList()}
+    const [r,o,k]=await Promise.all([
       q(()=>sb.from('sale_threads').select('*').order('last_at',{ascending:false}).limit(300)),
-      q(()=>sb.from('sale_orders').select('id,thread_id,order_no,job_status,pay_status,updated_at').order('updated_at',{ascending:false}).limit(1000))])
+      q(()=>sb.from('sale_orders').select('id,thread_id,order_no,job_status,pay_status,updated_at').order('updated_at',{ascending:false}).limit(1000)),
+      // ตัวผูก LINE (รูปโปรไฟล์): ตารางยังไม่มีหรืออ่านไม่ได้ = ไม่มีรูป ไม่ขึ้นเตือน และไม่ถามซ้ำทุกไม่กี่วินาที (เว้น 2 นาที)
+      Date.now()<S.linksOffUntil?Promise.resolve({data:null,error:{message:'skipped'}}):q(()=>sb.from('sale_line_links').select('thread_id,picture_url,line_name,last_in_at').limit(1000))])
     S.listLoading=false
-    if(errMsg(r)){S.errList='โหลดแชตไม่ได้: '+errMsg(r)}else{S.errList='';S.list=Array.isArray(r.data)?r.data:[]}
+    if(errMsg(r)){if(!quiet||!S.list.length)S.errList='โหลดแชตไม่ได้: '+errMsg(r)}else{S.errList='';S.list=Array.isArray(r.data)?r.data:[]}
     if(!errMsg(o)){
       const idx={}
       ;(o.data||[]).forEach(x=>{(idx[x.thread_id]=idx[x.thread_id]||[]).push(x)})
       S.idx=idx
     }
+    if(Date.now()>=S.linksOffUntil){
+      if(errMsg(k))S.linksOffUntil=Date.now()+120000
+      else{const links={};(k.data||[]).forEach(x=>{links[x.thread_id]=x});S.links=links}
+    }
+    const sig=S.errList+'#'+S.list.map(t=>[t.id,t.last_at,t.unread,t.stage,t.title,t.last_text].join('|')).join(';')+'#'+Object.keys(S.idx).map(i=>S.idx[i].map(x=>[x.id,x.job_status,x.pay_status].join('|')).join(',')).join(';')+'#'+Object.keys(S.links).length
+    const top=S.list.reduce((a,t)=>!a||tms(t.updated_at)>tms(a.updated_at)?t:a,null)
+    S.probe=top?top.id+'|'+top.updated_at:'none'
+    if(quiet&&sig===S.sig)return false
+    S.sig=sig
     paintList();paintMTabs()
+    return true
   }
 
   async function reloadMsgs(id){
@@ -514,7 +646,7 @@
     const tok=++S.tok
     if(S.sel&&S.ord&&S.ord.thread_id===S.sel&&isDirty())S.odrafts[S.sel]=S.ord
     if(id!==S.sel){S.msgs=[];S.cust=null;S.note=false;S.stageMenu=false;S.prodOpen=false}
-    S.sel=id;S.ord=null;S.ords=[];S.errMsgs='';S.errOrd='';S.conflict=false
+    S.sel=id;S.ord=null;S.ords=[];S.errMsgs='';S.errOrd='';S.conflict=false;S.openStamp=''
     S.msgsLoading=true;S.ordLoading=true
     if(S.mode==='list')S.mode='chat'
     paintAll()
@@ -1017,13 +1149,15 @@
     if(errMsg(up)){S.chatAttachBusy=false;paintChat();flash('อัปโหลดไม่สำเร็จ: '+errMsg(up),true,'chat');return}
     const kind=/^image\//.test(f.type)?'image':'file'
     const now=new Date().toISOString()
-    const r=await q(()=>sb.from('sale_msgs').insert({thread_id:id,dir:'out',kind,body:f.name,by_name:S.staff,meta:{path,name:f.name,size:f.size,type:f.type}}))
-    if(!errMsg(r))await q(()=>sb.from('sale_threads').update({last_text:(kind==='image'?'[รูป] ':'[ไฟล์] ')+f.name,last_at:now,updated_at:now}).eq('id',id))
+    // แชตจาก LINE: ส่งรูป/ไฟล์ถึงลูกค้าจากหน้านี้ยังไม่รองรับ จึงเก็บเป็นโน้ตภายใน (ไม่ทำให้ดูเหมือนส่งไปแล้ว)
+    const asNote=isLine(S.list.find(x=>x.id===id))
+    const r=await q(()=>sb.from('sale_msgs').insert({thread_id:id,dir:asNote?'note':'out',kind,body:f.name,by_name:S.staff,meta:{path,name:f.name,size:f.size,type:f.type}}))
+    if(!errMsg(r))await q(()=>sb.from('sale_threads').update({last_text:(asNote?'[โน้ต] ':'')+(kind==='image'?'[รูป] ':'[ไฟล์] ')+f.name,last_at:now,updated_at:now}).eq('id',id))
     S.chatAttachBusy=false
     if(errMsg(r)){paintChat();flash('บันทึกไฟล์ลงแชตไม่สำเร็จ: '+errMsg(r),true,'chat');return}
     loadList()
     await reloadMsgs(id)
-    flash((kind==='image'?'แนบรูปแล้ว':'แนบไฟล์แล้ว')+' (บันทึกในระบบ ยังไม่ถึงลูกค้า)',false,'chat')
+    flash((kind==='image'?'แนบรูปแล้ว':'แนบไฟล์แล้ว')+(asNote?' เป็นโน้ตภายใน — ไม่ได้ส่งถึงลูกค้า (ส่งรูปทาง LINE จากหน้านี้ยังไม่รองรับ)':' (บันทึกในระบบ ยังไม่ถึงลูกค้า)'),false,'chat')
   }
 
   async function ordAttach(f){
@@ -1049,6 +1183,8 @@
     const body=String((ta&&ta.dataset.id===id?ta.value:S.drafts[id])||'').trim()
     if(!body){flash('พิมพ์ข้อความก่อน',true,'chat');return}
     const note=S.note,now=new Date().toISOString()
+    // แชตที่มาจาก LINE: ข้อความธรรมดาไปทางคิวส่ง LINE (โน้ตภายในยังบันทึกในระบบเฉย ๆ)
+    if(!note&&isLine(S.list.find(x=>x.id===id))){await sendLine(id,body);return}
     S.busySend=true;paintChat()
     const r1=await q(()=>sb.from('sale_msgs').insert({thread_id:id,dir:note?'note':'out',kind:'text',body:body.slice(0,4000),by_name:S.staff}))
     if(!errMsg(r1))await q(()=>sb.from('sale_threads').update({last_text:(note?'[โน้ต] ':'')+body.slice(0,120),last_at:now,updated_at:now}).eq('id',id))
@@ -1091,6 +1227,127 @@
     await loadList()
     const id=r.data&&r.data.id
     if(id)await openThread(id)
+  }
+
+  // ---------- ตอบลูกค้าทาง LINE (เข้าคิว → บอทส่ง → บอทแจ้งผล) ----------
+  // หน้านี้ไม่เคยเขียนว่า "ส่งแล้ว" เอง: ข้อความเข้าคิวในสถานะ "รอส่ง" และเปลี่ยนเป็น "ส่งถึง LINE แล้ว" ได้ทางเดียวคือบอทแจ้งว่า LINE รับแล้ว
+  async function sendLine(id,body){
+    // รหัสกันส่งซ้ำผูกกับข้อความที่พิมพ์: กดซ้ำ/ส่งซ้ำหลังเน็ตหลุด = ข้อความเดิมข้อความเดียว · แก้ข้อความแล้วส่งใหม่ = รหัสใหม่
+    const cur=S.sendTok[id]
+    const tok=cur&&cur.text===body?cur.tok:uuid()
+    S.sendTok[id]={text:body,tok}
+    S.busySend=true;paintChat()
+    const r=await q(()=>sb.rpc('sale_line_send',{p_thread:id,p_text:body,p_token:tok,p_by:S.staff,p_order:null}))
+    S.busySend=false
+    if(errMsg(r)){paintChat();flash('ส่งไม่สำเร็จ ข้อความยังอยู่ในช่องพิมพ์ ('+niceErr(errMsg(r))+')',true,'chat');return}
+    delete S.sendTok[id]
+    setDraft(id,'')
+    loadList(true)
+    await reloadMsgs(id)
+    flash('เข้าคิวส่งทาง LINE แล้ว — ยังไม่ถือว่าส่งถึงลูกค้า จนกว่า LINE จะรับข้อความ (ผลจะขึ้นที่ข้อความนั้น)',false,'chat')
+    schedulePoll(true)
+  }
+  async function resend(outId){
+    if(!outId||S.busyRetry[outId])return
+    S.busyRetry[outId]=true;paintMsgs()
+    const r=await q(()=>sb.rpc('sale_line_retry',{p_out:outId,p_by:S.staff}))
+    delete S.busyRetry[outId]
+    if(errMsg(r)){paintMsgs();flash('ส่งใหม่ไม่สำเร็จ: '+niceErr(errMsg(r)),true,'chat');return}
+    await reloadMsgs(S.sel)
+    flash(r.data&&r.data.changed===false?'ข้อความนี้ไม่อยู่ในสถานะที่ส่งใหม่ได้ ('+r.data.status+')':'เข้าคิวส่งใหม่แล้ว — รอ LINE รับข้อความ',false,'chat')
+    schedulePoll(true)
+  }
+  const outMsg=m=>m&&m.lineOut?S.msgs.find(x=>x.meta&&x.meta.out_id===m.lineOut):null
+  const lineDelivery=m=>{const x=outMsg(m);return (x&&x.meta.delivery)||(m&&m.lineStatus)||'queued'}
+  // ส่งสรุปใบทาง LINE: ผลการส่งบันทึกลงประวัติของใบโดยฐานข้อมูลเองตอนที่ได้ผลสุดท้าย (ไม่ขึ้นกับว่าหน้านี้ยังเปิดอยู่)
+  async function lineSummary(){
+    const m=S.modal;if(!m||m.busy||m.lineOut)return
+    const t=S.list.find(x=>x.id===S.sel);if(!isLine(t)||!S.ord||!S.ord.id)return
+    m.busy=true;m.lineErr='';paintModal()
+    const r=await q(()=>sb.rpc('sale_line_send',{p_thread:S.sel,p_text:m.text.slice(0,5000),p_token:m.tok||(m.tok=uuid()),p_by:S.staff,p_order:S.ord.id}))
+    m.busy=false
+    if(S.modal!==m)return
+    if(errMsg(r)){m.lineErr=niceErr(errMsg(r));paintModal();return}
+    m.lineOut=r.data&&r.data.out_id;m.lineStatus=(r.data&&r.data.status)||'queued'
+    paintModal()
+    loadList(true)
+    await reloadMsgs(S.sel)
+    if(S.modal===m)paintModal()
+    schedulePoll(true)
+  }
+  function lineRow(m){
+    const t=S.list.find(x=>x.id===S.sel),st=lineState()
+    if(!isLine(t))return '<div class="c off"><b>ส่งทาง LINE OA</b><span class="mut">แชตนี้ไม่ได้มาจาก LINE OA</span></div>'
+    if(!st.ok)return `<div class="c off"><b>ส่งทาง LINE OA</b><span class="mut">${E(st.t.replace('LINE OA: ',''))}</span></div>`
+    if(m.lineOut)return '<div class="c"><b>ส่งทาง LINE OA</b><span class="mut">เข้าคิวแล้ว · ดูสถานะด้านล่าง</span></div>'
+    return `<div class="c"><b>ส่งทาง LINE OA</b><button type="button" class="so-btn pri" data-a="sumline" ${m.busy?'disabled':''}>${m.busy?'กำลังเข้าคิว…':'ส่ง'}</button></div>`
+  }
+  function lineStatBox(m){
+    if(m.lineErr)return `<div class="lstat bad">เข้าคิวส่งทาง LINE ไม่สำเร็จ: ${E(m.lineErr)}</div>`
+    if(!m.lineOut)return ''
+    const d=lineDelivery(m),x=outMsg(m)
+    if(d==='sent')return '<div class="lstat ok">ส่งถึง LINE แล้ว (LINE รับข้อความแล้ว) · บันทึกผลในประวัติของใบแล้ว</div>'
+    if(d==='queued'||d==='sending')return '<div class="lstat wait">เข้าคิวส่งทาง LINE แล้ว — รอ LINE รับข้อความ (ยังไม่ถือว่าส่งถึงลูกค้า)</div>'
+    return `<div class="lstat bad">${d==='expired'?'ไม่ได้ส่ง: รอเกิน 30 นาทีโดยบอทไม่ได้เริ่มส่ง':d==='unknown'?'ไม่ทราบว่าถึงลูกค้าหรือไม่ (บอทหยุดกลางคัน) ตรวจใน LINE OA Manager ก่อน':'ส่งไม่สำเร็จ: '+E((x&&x.meta.error)||'ไม่ทราบสาเหตุ')} · กด "ส่งใหม่" ได้ที่ข้อความนั้นในแชต</div>`
+  }
+
+  // ---------- รีเฟรชอัตโนมัติ: ข้อความใหม่ สถานะการส่ง และสถานะบอท ----------
+  const POLL_MS=8000,POLL_FAST_MS=2500
+  const isPendingDelivery=d=>d==='queued'||d==='sending'
+  const pendingOut=()=>S.msgs.some(m=>m.dir==='out'&&m.meta&&isPendingDelivery(m.meta.delivery))||!!(S.modal&&S.modal.lineOut&&isPendingDelivery(lineDelivery(S.modal)))
+  const msgSig=a=>a.map(m=>[m.id,m.dir,m.kind,(m.meta&&m.meta.delivery)||'',(m.meta&&m.meta.error)||''].join('|')).join(';')
+  function schedulePoll(soon){
+    if(S.poll)clearTimeout(S.poll)
+    S.poll=setTimeout(pollTick,soon||pendingOut()?POLL_FAST_MS:POLL_MS)
+  }
+  async function pollTick(){
+    S.poll=null
+    if(!$('so_root'))return // ออกจากหน้านี้แล้ว: หยุด (เมื่อกลับมา V.saleorders เริ่มใหม่)
+    if(document.hidden){schedulePoll();return}
+    try{
+      S.pollN++
+      if(S.pollN%4===0)await loadLine() // สัญญาณชีพของบอท: ทุก ~30 วินาที
+      // ถามแบบเบา ๆ ก่อน (แชตที่อัปเดตล่าสุดเปลี่ยนไหม — ไม่กี่ร้อยไบต์) แล้วค่อยดึงรายชื่อทั้งหมดเมื่อมีอะไรเปลี่ยน · ทุก ~48 วินาทีดึงเต็มเพื่อกันพลาด
+      // (ตัวเลข "ยังไม่อ่าน" ที่พนักงานคนอื่นเคลียร์ และสถานะใบ ไม่ขยับเวลาอัปเดตของแชต) — ไม่ดึงทั้งรายชื่อทุก 8 วินาที เพราะข้อมูลโตแล้วจะกินโควตาข้อมูลของ Supabase
+      if((await probeList())||S.pollN%6===0)await loadList(true)
+      await refreshOpen()
+      // อ่านแล้วเมื่อห้องแชตอยู่บนจอจริง (มือถือที่ยังอยู่หน้ารายชื่อ = ยังไม่ได้อ่าน)
+      const wide=!(window.matchMedia&&window.matchMedia('(max-width:900px)').matches)
+      const t=S.list.find(x=>x.id===S.sel)
+      if(t&&t.unread>0&&S.msgs.length&&!S.msgsLoading&&(wide||S.mode!=='list'))markRead(t)
+    }catch(e){}
+    schedulePoll()
+  }
+  async function markRead(t){
+    const r=await q(()=>sb.from('sale_threads').update({unread:0}).eq('id',t.id))
+    if(!errMsg(r)){t.unread=0;paintList();paintMTabs()}
+  }
+  // แชตที่อัปเดตล่าสุดเปลี่ยนไหม (แชตใหม่ ข้อความใหม่ ผลการส่ง — ฐานข้อมูลแตะเวลาอัปเดตของแชตทุกครั้งที่ข้อความเข้า/ออก/ผลการส่งมา)
+  async function probeList(){
+    const r=await q(()=>sb.from('sale_threads').select('id,updated_at').order('updated_at',{ascending:false}).limit(1))
+    if(errMsg(r))return false
+    const row=r.data&&r.data[0]
+    const sig=row?row.id+'|'+row.updated_at:'none'
+    const changed=sig!==S.probe
+    S.probe=sig
+    return changed
+  }
+  // แชตที่เปิดอยู่: ถามเวลาอัปเดตของแชตนี้ (~100 ไบต์) ถ้าเปลี่ยนค่อยโหลดข้อความ และวาดเฉพาะรายการข้อความเมื่อมีอะไรต่างจริง
+  async function refreshOpen(){
+    const id=S.sel;if(!id||S.msgsLoading)return
+    const r=await q(()=>sb.from('sale_threads').select('updated_at').eq('id',id).limit(1))
+    if(errMsg(r)||S.sel!==id)return
+    const stamp=id+'|'+((r.data&&r.data[0]&&r.data[0].updated_at)||'')
+    if(S.openStamp===stamp)return
+    const m=await q(()=>sb.from('sale_msgs').select('*').eq('thread_id',id).order('created_at',{ascending:true}).limit(400))
+    if(errMsg(m)||S.sel!==id)return
+    S.openStamp=stamp
+    const rows=m.data||[]
+    if(rows.length===S.msgs.length&&msgSig(rows)===msgSig(S.msgs))return // เวลาอัปเดตขยับเพราะเหตุที่ไม่เห็นในห้องแชต (ขั้น ยังไม่อ่าน)
+    S.msgs=rows;S.errMsgs=''
+    paintMsgs()
+    loadImages()
+    if(S.modal&&S.modal.kind==='summary'&&S.modal.lineOut)paintModal()
   }
 
   // ---------- หน้าต่างยืนยัน / ตรวจ ----------
@@ -1136,13 +1393,14 @@
         ${m.logErr?`<div class="warn">บันทึกประวัติการส่งไม่สำเร็จ: ${E(m.logErr)}</div>`:''}
         <textarea id="so_sumtxt" rows="12" readonly aria-label="ข้อความสรุป">${E(m.text)}</textarea>
         <div class="chan">
-          <div class="c off"><b>ส่งทาง LINE OA</b><span class="mut">ยังไม่ได้เชื่อมต่อ</span></div>
+          ${lineRow(m)}
           <div class="c off"><b>ส่งทาง Facebook</b><span class="mut">ยังไม่ได้เชื่อมต่อ</span></div>
           <div class="c"><b>คัดลอกข้อความไปส่งเอง</b><button type="button" class="so-btn pri" data-a="sumcopy">คัดลอก</button></div>
           <div class="c"><b>บันทึกสรุปลงแชตในระบบ</b><button type="button" class="so-btn" data-a="sumchat" ${m.busy?'disabled':''}>${m.busy?'กำลังบันทึก…':'บันทึก'}</button></div>
         </div>
-        ${m.copied&&o.job_status==='pending'?'<div style="margin-top:10px;display:flex;justify-content:flex-end"><button type="button" class="so-btn" data-a="setawait">ตั้งสถานะงานเป็น "รอลูกค้ายืนยัน" แล้วบันทึก</button></div>':''}
-        <div class="mut" style="margin-top:8px">ระบบจะไม่แสดงว่า "ส่งสำเร็จ" จนกว่าจะส่งถึงลูกค้าจริง — ตอนนี้ช่องทางที่ใช้ได้คือคัดลอกไปส่งเอง</div>`
+        ${lineStatBox(m)}
+        ${(m.copied||(m.lineOut&&lineDelivery(m)==='sent'))&&o.job_status==='pending'?'<div style="margin-top:10px;display:flex;justify-content:flex-end"><button type="button" class="so-btn" data-a="setawait">ตั้งสถานะงานเป็น "รอลูกค้ายืนยัน" แล้วบันทึก</button></div>':''}
+        <div class="mut" style="margin-top:8px">ระบบจะไม่แสดงว่า "ส่งสำเร็จ" จนกว่าจะส่งถึงลูกค้าจริง — ช่องทางที่ใช้ได้ตอนนี้: ${isLine(S.list.find(x=>x.id===S.sel))&&lineState().ok?'ส่งทาง LINE OA · ':''}คัดลอกไปส่งเอง</div>`
       foot=`<button type="button" class="so-btn" data-a="mclose">ปิด</button>`
     }
     host.innerHTML=`<div id="so_modalwrap" data-a="mwrap"><div id="so_modal" role="dialog" aria-modal="true" aria-label="${E((m.title||m.kind))}"><div class="mh">${head}<button type="button" class="so-del" data-a="mclose" aria-label="ปิด" style="font-size:20px">×</button></div><div class="mb">${body}</div><div class="mf">${foot}</div></div></div>`
@@ -1278,6 +1536,8 @@
     if(a==='summary'){if(!S.ord||!S.ord.id||isDirty())return;openModal({kind:'summary',text:summaryText()});return}
     if(a==='sumcopy'){copySummary();return}
     if(a==='sumchat'){chatSummary();return}
+    if(a==='sumline'){lineSummary();return}
+    if(a==='resend'){resend(el.dataset.o);return}
     if(a==='setawait'){closeModal();if(S.ord&&S.ord.job_status==='pending'){S.ord.job_status='awaiting';paintOrd();save()}return}
   }
 
@@ -1290,7 +1550,9 @@
     paintAll()
     loadStaff()
     loadRefs().then(()=>{if(S.ord)paintOrd()})
+    loadLine()
     loadList().then(()=>{if(S.sel)openThread(S.sel,true)})
+    schedulePoll() // ข้อความใหม่ สถานะการส่ง และสถานะบอท มาเองโดยไม่ต้องรีเฟรชหน้า (หยุดเองเมื่อออกจากหน้านี้)
   }
-  window.NattaSaleOrders={open:openThread,reload:loadList,parseOrderText}
+  window.NattaSaleOrders={open:openThread,reload:loadList,parseOrderText,tick:pollTick,line:()=>loadLine(true)}
 })()

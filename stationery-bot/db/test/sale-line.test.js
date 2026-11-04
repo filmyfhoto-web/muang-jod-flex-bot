@@ -233,8 +233,13 @@ test('delivery: the bot takes the message, LINE accepts it, and only then it is 
   assert.equal((await msgOf(r.msg_id)).meta.delivery, 'queued', 'while LINE has not answered the chat still says it is waiting, never “sent”');
   assert.deepEqual((await claim()).filter((x) => x.id === r.out_id), [], 'a second bot does not get a message that is already being sent');
 
+  const stamp = await one('select last_at, updated_at from sale_threads where id = $1', [t]);
+  await db.query(`select pg_sleep(0.02)`);
   const f = await finish(r.out_id, 'sent', null, 'line-req-123');
   assert.deepEqual([f.changed, f.status], [true, 'sent']);
+  const after = await one('select last_at, updated_at from sale_threads where id = $1', [t]);
+  assert.equal(after.last_at.getTime(), stamp.last_at.getTime(), 'the order of the chat list does not move');
+  assert.ok(after.updated_at.getTime() > stamp.updated_at.getTime(), 'but the chat is marked changed, so the screen notices the result');
   const o = await out(r.out_id);
   assert.deepEqual([o.status, o.line_request_id, o.error, o.ambiguous], ['sent', 'line-req-123', null, false]);
   assert.ok(o.finished_at);
