@@ -864,7 +864,7 @@ async function save() {
      * หน้าต่างกลับไปแชตเหมือนเดิม เพราะการ์ดในแชต/หน้าจัดการงานมีปุ่มพวกนี้อยู่แล้ว
      */
     if (!editingJobId && !quick && body.job?.id) {
-      showDone(body.job);
+      showDone(body.job, body.receipt);
     } else {
       // ปิดหน้าต่างให้เอง เพื่อให้กลับไปเห็นการ์ดในแชตต่อ
       setTimeout(() => {
@@ -1290,10 +1290,15 @@ $('#paychips').onclick = (e) => {
 
 /* หลังบันทึก: ใบแจ้งยอด / ใบเสร็จ / จดใบต่อไป — อยู่ตรงหน้า ไม่ต้องกลับไปหาในแชต */
 let doneJob = null;
+// บิลที่เซิร์ฟเวอร์เปิดไว้ให้ตั้งแต่ตอนบันทึก ("จดแล้วออกเอกบิลให้เลย") —
+// มีลิงก์อยู่ในมือ ปุ่มใบเสร็จก็เปิดทันที ไม่ต้องยิงขอออกใบอีกรอบ
+let doneReceipt = null;
 
-function showDone(job) {
+function showDone(job, receipt) {
   doneJob = job;
-  $('#d-no').textContent = job.job_number || '';
+  doneReceipt = receipt || null;
+  $('#d-no').textContent = [job.job_number, doneReceipt?.billNumber ? 'บิล ' + doneReceipt.billNumber : '']
+    .filter(Boolean).join(' · ');
   $('#d-line').textContent = [job.customer_name, baht(num(job.total))].filter(Boolean).join(' · ');
   // ใบแจ้งยอดคือสมุดของ "เจ้านี้" — ไม่มีชื่อลูกค้าก็ไม่มีเจ้าให้เปิด
   $('#d-bill').hidden = !String(job.customer_name || '').trim();
@@ -1304,6 +1309,13 @@ function showDone(job) {
 
 $('#d-receipt').onclick = async () => {
   if (!doneJob?.id || !token) return;
+  // บิลพร้อมอยู่แล้วจากตอนบันทึก — เปิดเลย ไม่ต้องรอเซิร์ฟเวอร์ออกใบซ้ำ
+  const ready = doneReceipt && (doneReceipt.shopUrl || doneReceipt.url);
+  if (ready) {
+    if (window.liff && liff.isInClient && liff.isInClient()) liff.openWindow({ url: ready, external: false });
+    else location.href = ready;
+    return;
+  }
   const btn = $('#d-receipt');
   btn.disabled = true;
   try {
@@ -1331,6 +1343,7 @@ $('#d-bill').onclick = () => {
 
 $('#d-again').onclick = () => {
   doneJob = null;
+  doneReceipt = null;
   $('#done').hidden = true;
   $('#quickbar').hidden = false;
   scrollTo({ top: 0, behavior: 'smooth' });

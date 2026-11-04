@@ -253,6 +253,9 @@ export function receiptFlex(job, opts = {}) {
             action: addMoreAction,
           },
           // A bill needs a saved job to point at, so a draft has nothing here.
+          // บิลที่ถูกเปิดไว้ตั้งแต่ตอนจด ("จดแล้วออกเอกบิลให้เลยไม่ต้องหลาย
+          // ขั้นตอน") ปุ่มพาเข้าใบตรง ๆ แตะเดียวเปิด — ไม่มีลิงก์ค่อยถอยไป
+          // postback แบบเดิม (ออกใบตอนกด แล้วรอการ์ดลิงก์อีกข้อความ)
           ...(job.id
             ? [
                 {
@@ -260,12 +263,14 @@ export function receiptFlex(job, opts = {}) {
                   style: 'primary',
                   color: COLORS.accent,
                   height: 'sm',
-                  action: {
-                    type: 'postback',
-                    label: '🧾 ใบเสร็จ',
-                    data: `action=bill_job&jobId=${encodeURIComponent(job.id)}`,
-                    displayText: 'ออกใบเสร็จงานนี้',
-                  },
+                  action: opts.billUrl
+                    ? { type: 'uri', label: '🧾 เปิดบิล', uri: opts.billUrl }
+                    : {
+                        type: 'postback',
+                        label: '🧾 ใบเสร็จ',
+                        data: `action=bill_job&jobId=${encodeURIComponent(job.id)}`,
+                        displayText: 'ออกใบเสร็จงานนี้',
+                      },
                 },
               ]
             : []),
@@ -337,5 +342,39 @@ export function receiptFlex(job, opts = {}) {
     type: 'flex',
     altText: `บันทึกสำเร็จ ${job.job_name || ''} ${formatBaht(Number(job.total) || 0)}`.trim(),
     contents: bubble,
+  };
+}
+
+/* "จดแล้วออกเอกบิลให้เลย" ตอนจดทีเดียวหลายงาน — ใบของแต่ละงานถูกเปิดไว้แล้ว
+ * การ์ดนี้คือกองปุ่มพาเข้าใบ แตะเดียวเปิด ไม่ต้องไปตามหาในคิวงานทีละใบ
+ * ปุ่มมีเพดานห้าใบ (การ์ดยาวกว่านั้นอ่านยากกว่าเปิดจากการ์ดลูกค้า) */
+export function billsReadyFlex(bills = []) {
+  const rows = bills.slice(0, 5).map((b) => ({
+    type: 'button',
+    style: 'secondary',
+    height: 'sm',
+    // เพดานป้ายปุ่มของ LINE คือ 20 ตัวอักษร — เลขงานสั้นพออยู่แล้ว
+    action: { type: 'uri', label: ('🧾 ' + (b.label || 'เปิดบิล')).slice(0, 20), uri: b.url },
+  }));
+  return {
+    type: 'flex',
+    altText: `บิลพร้อมแล้ว ${bills.length} ใบ`,
+    contents: {
+      type: 'bubble',
+      size: 'kilo',
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        paddingAll: 'lg',
+        contents: [
+          { type: 'text', text: '🧾 บิลพร้อมแล้ว — แตะเปิดได้เลยค่ะ', weight: 'bold', size: 'sm', color: COLORS.title, wrap: true },
+          ...rows,
+          ...(bills.length > 5
+            ? [{ type: 'text', text: `และอีก ${bills.length - 5} ใบ แตะชื่อลูกค้าเพื่อเปิดจากการ์ดได้ค่ะ`, size: 'xxs', color: COLORS.grey, wrap: true }]
+            : []),
+        ],
+      },
+    },
   };
 }

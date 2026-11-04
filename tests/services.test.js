@@ -176,3 +176,23 @@ test('add job: ลูกค้าโรงเรียน/หน่วยงา�
   assert.ok(cashedRow.booked_at);
   assert.equal(cashedRow.pay_method, 'cash');
 });
+
+/* ร้านขอ "จดแล้วออกเอกบิลให้เลยไม่ต้องหลายขั้นตอน" — ensureJobBill คือตัวเปิดใบ
+ * ตอนจด: งานใหม่ได้ใบใหม่ งานที่มีใบแล้วได้ใบเดิม และพังก็เงียบ ไม่พาการจดล่ม */
+test('จดแล้วบิลพร้อมเลย: เปิดใบให้งานใหม่ งานเดิมได้ใบเดิม', async () => {
+  const db = createMockSupabase();
+  const { ensureJobBill } = await import('../src/services/billService.js');
+
+  const job = await createJob('userA', newJobPayload(500, { customerName: 'โรงเรียนวัดดอนตัน' }), db);
+  const bill = await ensureJobBill('userA', job, db);
+  assert.ok(bill?.id && bill.share_token, 'ต้องได้ใบพร้อมโทเคนลิงก์');
+  assert.equal(bill.jobs?.length, 1);
+
+  const saved = await getJobById('userA', job.id, db);
+  assert.equal(saved.bill_id, bill.id, 'งานต้องผูกกับใบที่เปิด');
+
+  const again = await ensureJobBill('userA', saved, db);
+  assert.equal(again?.id, bill.id, 'งานที่มีใบแล้วต้องได้ใบเดิม ไม่เปิดซ้ำ');
+
+  assert.equal(await ensureJobBill('userA', null, db), null, 'ไม่มีงานต้องเงียบ ๆ ไม่พัง');
+});

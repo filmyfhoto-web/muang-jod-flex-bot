@@ -202,3 +202,31 @@ test('the card is squeezed from the top and the bottom too', () => {
   assert.equal(msg.contents.body.contents[0].paddingAll, 'sm');
   assert.equal(msg.contents.body.contents[3].paddingAll, 'sm');
 });
+
+import { billsReadyFlex } from '../src/flex/receiptFlex.js';
+import { readFileSync } from 'node:fs';
+
+/* ร้านขอ "จดแล้วออกเอกบิลให้เลยไม่ต้องหลายขั้นตอน" — บิลถูกเปิดตั้งแต่ตอนจد
+ * ปุ่ม 🧾 บนการ์ดจึงพาเข้าใบตรง ๆ ไม่ใช่ postback ที่ต้องรอการ์ดลิงก์อีกข้อความ */
+test('มีลิงก์บิล = ปุ่ม 🧾 เปิดบิล พาเข้าใบตรง ๆ · ไม่มี = postback แบบเดิม', () => {
+  const job = { id: 'job-9', job_name: 'ป้าย', total: 700, items: [] };
+  const withBill = JSON.stringify(receiptFlex(job, { billUrl: 'https://shop.example.com/r/tok?k=x', mascotImageUrl: null }));
+  assert.ok(withBill.includes('🧾 เปิดบิล'));
+  assert.ok(withBill.includes('https://shop.example.com/r/tok?k=x'));
+  assert.ok(!withBill.includes('action=bill_job'), 'มีลิงก์แล้วต้องไม่เหลือทางอ้อม');
+  const without = JSON.stringify(receiptFlex(job, { mascotImageUrl: null }));
+  assert.ok(without.includes('action=bill_job&jobId=job-9'), 'ไม่มีลิงก์ต้องถอยไปทางเดิม');
+});
+
+test('จดรวดเดียวหลายงาน: การ์ดกองบิล ปุ่มละใบ เพดานห้าใบ ที่เหลือบอกไว้', () => {
+  const many = Array.from({ length: 7 }, (_, i) => ({ label: `MJ-SGN-000${i + 1}`, url: `https://s.example/r/t${i}` }));
+  const json = JSON.stringify(billsReadyFlex(many));
+  assert.equal((json.match(/"type":"button"/g) || []).length, 5, 'ปุ่มเกินห้าใบการ์ดยาวเกินอ่าน');
+  assert.ok(json.includes('และอีก 2 ใบ'));
+  assert.ok(json.includes('🧾 MJ-SGN-0001'));
+  assert.ok(!json.includes('postback'), 'ทุกปุ่มต้องเปิดใบได้เลย ไม่รออีกข้อความ');
+
+  // ฝั่งจดรวดเดียว (saveDump) เปิดใบให้ทุกงานแล้วต่อการ์ดนี้ท้ายสรุปจริง
+  const dump = readFileSync(new URL('../src/actions/saveDump.js', import.meta.url), 'utf8');
+  assert.ok(dump.includes('ensureJobBill(') && dump.includes('billsReadyFlex('), 'จดรวดเดียวยังไม่ได้แนบบิล');
+});

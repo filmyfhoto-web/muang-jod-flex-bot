@@ -123,3 +123,13 @@ test('ชื่อหน่วยงานติดชิปลงบัญช�
   const guards = js.match(/payTouched = payTouched \|\| Boolean\(state\.payMethod\) \|\| Number\(state\.paid\) > 0;/g) || [];
   assert.ok(guards.length >= 2, 'ร่างจากแชต/ร่างค้าง ต้องปักว่าร้านตัดสินใจแล้ว');
 });
+
+/* "จดแล้วออกเอกบิลให้เลย" ฝั่งฟอร์ม: ลิงก์ใบมากับคำตอบของการบันทึกแล้ว
+ * ปุ่มใบเสร็จบนการ์ดจบงานจึงเปิดทันที — ไม่มีลิงก์ค่อยถอยไปขอออกใบแบบเดิม */
+test('ฟอร์มรับลิงก์บิลมากับการบันทึก — ปุ่มใบเสร็จเปิดทันที ไม่ยิงซ้ำ', () => {
+  const js = read('jot/script.js');
+  assert.match(js, /showDone\(body\.job, body\.receipt\)/);
+  assert.match(js, /const ready = doneReceipt && \(doneReceipt\.shopUrl \|\| doneReceipt\.url\)/);
+  assert.match(js, /\/api\/jobs\/' \+ encodeURIComponent\(doneJob\.id\) \+ '\/receipt'/, 'ทางถอยแบบเดิมต้องยังอยู่');
+  assert.match(js, /doneReceipt = null/, 'จดใบต่อไปต้องล้างลิงก์ใบเก่า');
+});

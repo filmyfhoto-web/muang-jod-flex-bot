@@ -1,6 +1,10 @@
 import { reply } from '../services/lineService.js';
 import { getState, setState, clearState, STATES } from '../services/stateService.js';
 import { createJob } from '../services/jobService.js';
+import { ensureJobBill } from '../services/billService.js';
+import { receiptUrl } from '../flex/billFlex.js';
+import { withShopKey } from '../utils/receiptLink.js';
+import { billsReadyFlex } from '../flex/receiptFlex.js';
 import { makeDraft } from '../utils/jobDraft.js';
 import { todayISO } from '../utils/dates.js';
 import { formatBaht } from '../utils/currency.js';
@@ -54,8 +58,9 @@ export async function confirmSaveDump({ replyToken, profile }) {
   for (const job of jobs) {
     try {
       const [draft] = draftsFrom([job], jobDate);
-      await createJob(profile.id, draft);
-      saved.push(job);
+      // เก็บแถวที่บันทึกจริง (มี id/เลขงาน) ไว้เปิดบิลต่อท้าย — ไม่ใช่ฉบับร่าง
+      const row = await createJob(profile.id, draft);
+      saved.push(row || job);
     } catch (err) {
       logger.error('dump.save_failed', { no: job.no, message: err?.message });
       failed.push(job);
@@ -87,12 +92,26 @@ export async function confirmSaveDump({ replyToken, profile }) {
   }
 
   await clearState(profile.id);
-  return reply(replyToken, {
-    type: 'text',
-    text:
-      `บันทึกให้แล้ว ${saved.length} งาน รวม ${formatBaht(total)} ค่ะ 💜\n` +
-      'ดูทั้งหมดได้ที่เมนู "คิวงาน" หรือพิมพ์ "งานวันนี้" ได้เลยนะคะ',
-  });
+
+  /* จดแล้วบิลพร้อมเลย (ร้านขอ "จดแล้วออกเอกบิลให้เลยไม่ต้องหลายขั้นตอน")
+   * — เปิดใบให้ทุกงานที่เพิ่งลง แล้วแนบกองปุ่มเปิดบิลมากับคำตอบเดียวกัน
+   * ใบไหนเปิดไม่สำเร็จก็ข้ามเงียบ ๆ งานบันทึกแล้วคือเรื่องหลัก */
+  const bills = [];
+  for (const row of saved) {
+    const bill = await ensureJobBill(profile.id, row);
+    const page = bill ? receiptUrl(bill) : null;
+    if (page) bills.push({ label: row.job_number || row.job_name || row.customer_name, url: withShopKey(page, bill.share_token) });
+  }
+
+  return reply(replyToken, [
+    {
+      type: 'text',
+      text:
+        `บันทึกให้แล้ว ${saved.length} งาน รวม ${formatBaht(total)} ค่ะ 💜\n` +
+        'ดูทั้งหมดได้ที่เมนู "คิวงาน" หรือพิมพ์ "งานวันนี้" ได้เลยนะคะ',
+    },
+    ...(bills.length ? [billsReadyFlex(bills)] : []),
+  ]);
 }
 
 export async function cancelSaveDump({ replyToken, profile }) {
