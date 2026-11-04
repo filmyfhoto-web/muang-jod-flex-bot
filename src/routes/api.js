@@ -39,7 +39,7 @@ import { buildLedger } from '../utils/ledger.js';
 import { deriveJobName } from '../utils/category.js';
 import { getState as readState, clearState as dropState, STATES } from '../services/stateService.js';
 import { todayISO } from '../utils/dates.js';
-import { safe, jobPatchSchema, jobCreateSchema, paymentAmountSchema } from '../utils/validation.js';
+import { safe, jobPatchSchema, jobCreateSchema, paymentAmountSchema, chatMessageSchema } from '../utils/validation.js';
 import { liffId, liffChannelId } from '../utils/liff.js';
 import { CATEGORY_GROUPS, OTHER_GROUP, BASE_TAXONOMY, findGroup } from '../utils/category.js';
 import { logger, maskUserId } from '../services/logger.js';
@@ -48,6 +48,16 @@ import { getCheckinSettings, saveCheckinSettings } from '../services/checkinServ
 import { normalizeSettings, toMinutes, toHHMM, DEFAULT_TZ } from '../utils/checkinSchedule.js';
 import { isAllowed } from '../utils/access.js';
 import { listBranches, setJobBranch } from '../services/branchService.js';
+import {
+  listChatCustomers,
+  listChatMessages,
+  listCustomerJobs,
+  addChatMessage,
+  markChatRead,
+  saveChatImage,
+  findJobByClientRef,
+  ORDER_COLUMNS,
+} from '../services/chatService.js';
 
 // JSON API behind the LIFF dashboard. Every request carries the LIFF access
 // token; LINE tells us which channel issued it and whose it is, and from that
@@ -121,6 +131,18 @@ export function decodeDataUrl(value) {
   return { buffer, fileType };
 }
 
+/* ข้อมูลออเดอร์ที่มาจากหน้าแชต (เบอร์ / วิธีรับ / ผู้รับผิดชอบ / รหัสกันซ้ำ)
+ * เฉพาะช่องที่ส่งมาจริง — ค่าว่างไม่เขียนทับของเดิม
+ */
+export function orderFieldsOf(draft = {}) {
+  const out = {};
+  if (draft.customerPhone) out.customer_phone = draft.customerPhone;
+  if (draft.fulfillment) out.fulfillment = draft.fulfillment;
+  if (draft.handlerName) out.handler_name = draft.handlerName;
+  if (draft.clientRef) out.client_ref = draft.clientRef;
+  return out;
+}
+
 export function createApiRouter(deps = {}) {
   const verify = deps.verify || verifyLineAccessToken;
   const resolveProfile = deps.resolveProfile || getOrCreateProfile;
@@ -146,6 +168,14 @@ export function createApiRouter(deps = {}) {
   const readCheckin = deps.getCheckinSettings || getCheckinSettings;
   const branchesOf = deps.listBranches || listBranches;
   const moveToBranch = deps.setJobBranch || setJobBranch;
+  const chatCustomersOf = deps.listChatCustomers || listChatCustomers;
+  const chatMessagesOf = deps.listChatMessages || listChatMessages;
+  const customerJobsOf = deps.listCustomerJobs || listCustomerJobs;
+  const writeChatMessage = deps.addChatMessage || addChatMessage;
+  const readChat = deps.markChatRead || markChatRead;
+  const uploadChatImage = deps.saveChatImage || saveChatImage;
+  const findRef = deps.findJobByClientRef || findJobByClientRef;
+  const dropJob = deps.cancelJob || cancelJob;
   const writeCheckin = deps.saveCheckinSettings || saveCheckinSettings;
   // Tell the chat about a job saved from the form. Never throws: the job is
   // already saved, and a chat that missed the news must not turn into a failed
@@ -165,10 +195,27 @@ export function createApiRouter(deps = {}) {
     }
   }
 
+  // ลงข้อมูลออเดอร์หลังสร้างงาน — เหมือนวันนัดรับ: ฐานข้อมูลที่ยังไม่รัน migration 022
+  // ต้องยังจดงานได้ จึงไม่ทำให้งานที่บันทึกไปแล้วหายไป แค่บอกกลับว่าเบอร์/ผู้รับผิดชอบยังไม่ถูกเก็บ
+  async function stampOrder(userId, job, fields) {
+    if (!Object.keys(fields).length) return { saved: true };
+    try {
+      await saveJob(userId, job.id, fields);
+      return { saved: true };
+    } catch (err) {
+      if (fields.client_ref && err?.code === '23505') return { duplicate: true };
+      if (missingColumn(err, ...ORDER_COLUMNS)) {
+        logger.warn('api.order_fields_no_column', { jobId: job.id });
+        return { saved: false };
+      }
+      throw err;
+    }
+  }
+
   const router = express.Router();
   // Everything is small JSON except the one route that carries a photo.
   router.use((req, res, next) =>
-    (req.method === 'POST' && req.path === '/jobs'
+    (req.method === 'POST' && (req.path === '/jobs' || req.path === '/chat/messages')
       ? express.json({ limit: '8mb' })
       : req.method === 'PUT' && req.path === '/categories'
         ? express.json({ limit: '256kb' })
@@ -650,6 +697,16 @@ export function createApiRouter(deps = {}) {
       }
 
       const draft = check.data;
+
+      // กันบันทึกซ้ำ: ส่งรหัสเดิมมาอีกครั้ง = ได้งานเดิมกลับไป ไม่สร้างใบที่สอง
+      const orderFields = orderFieldsOf(draft);
+      if (orderFields.client_ref) {
+        const same = await findRef(req.profile.id, orderFields.client_ref);
+        if (same) {
+          const existing = await findJob(req.profile.id, same.id);
+          return res.status(200).json({ job: existing, attached: 0, attachmentsFailed: 0, duplicate: true });
+        }
+      }
       const items = draft.items.map((it) => ({
         ...it,
         total: round2(it.total ?? Number(it.unit_price) * Number(it.quantity)),
@@ -668,7 +725,7 @@ export function createApiRouter(deps = {}) {
           : round2(asked);
       const discount = round2(subtotal - total);
 
-      const job = await create(req.profile.id, {
+      let job = await create(req.profile.id, {
         jobName: draft.jobName?.trim() || deriveJobName(items, req.profile.id),
         customerName: draft.customerName || null,
         jobDate: draft.jobDate || todayISO(),
@@ -684,6 +741,21 @@ export function createApiRouter(deps = {}) {
         payMethod: draft.payMethod || null,
         note: draft.note || null,
       });
+
+      // ข้อมูลออเดอร์ (เบอร์ วิธีรับ ผู้รับผิดชอบ รหัสกันซ้ำ) ลงหลังสร้างงาน
+      // ถ้าสองคำขอแข่งกันด้วยรหัสเดียวกัน ใบที่เพิ่งสร้างจะถูกยกเลิกแล้วคืนใบแรกแทน
+      let orderSaved = true;
+      if (Object.keys(orderFields).length) {
+        const stamp = await stampOrder(req.profile.id, job, orderFields);
+        if (stamp.duplicate) {
+          await dropJob(req.profile.id, job.id);
+          const same = await findRef(req.profile.id, orderFields.client_ref);
+          const existing = same ? await findJob(req.profile.id, same.id) : null;
+          return res.status(200).json({ job: existing, attached: 0, attachmentsFailed: 0, duplicate: true });
+        }
+        orderSaved = stamp.saved;
+        if (orderSaved) job = (await findJob(req.profile.id, job.id)) || job;
+      }
 
       // The job is saved by now. A failed upload must not throw that away, so
       // it is reported alongside the job rather than as an error.
@@ -717,7 +789,13 @@ export function createApiRouter(deps = {}) {
       await announce(req.profile, job, failed, receipt?.shopUrl || null);
 
       logger.info('api.job_created', { user: maskUserId(req.profile.line_user_id), jobId: job.id });
-      res.status(201).json({ job, attached, attachmentsFailed: failed, ...(receipt ? { receipt } : {}) });
+      res.status(201).json({
+        job,
+        attached,
+        attachmentsFailed: failed,
+        ...(receipt ? { receipt } : {}),
+        ...(Object.keys(orderFields).length ? { orderFieldsSaved: orderSaved } : {}),
+      });
     } catch (err) {
       next(err);
     }
@@ -786,7 +864,18 @@ export function createApiRouter(deps = {}) {
       // แก้กลับเป็นค้างก็ล้างทิ้ง (กติกาเดียวกับปุ่มสถานะและทางแชต)
       Object.assign(patch, paidAtPatch(current, patch));
 
-      await saveJob(req.profile.id, req.params.id, patch);
+      try {
+        await saveJob(req.profile.id, req.params.id, patch);
+      } catch (err) {
+        const orderKeys = ['customer_phone', 'fulfillment', 'handler_name'];
+        if (missingColumn(err, ...orderKeys) && Object.keys(patch).some((k) => orderKeys.includes(k))) {
+          return res.status(503).json({
+            error: 'not_ready',
+            message: 'ยังบันทึกเบอร์ / วิธีรับ / ผู้รับผิดชอบไม่ได้ค่ะ — ต้องรัน migration 022_chat_orders.sql ใน Supabase ก่อน',
+          });
+        }
+        throw err;
+      }
       const job = await findJob(req.profile.id, req.params.id);
       logger.info('api.job_updated', { user: maskUserId(req.profile.line_user_id), jobId: req.params.id });
       res.json({ job });
@@ -1000,6 +1089,83 @@ export function createApiRouter(deps = {}) {
       }
 
       res.json({ job });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /* ---- หน้าแชตและออเดอร์ ----
+   * ข้อความที่บันทึกที่นี่เป็นบันทึกภายในเท่านั้น ยังไม่มีช่องทางส่งถึงลูกค้า
+   * (ดู chatService.CHAT_CHANNELS) จึงไม่มีเส้นทางไหนที่ตอบ "ส่งสำเร็จ" ให้ลูกค้า
+   */
+  router.get('/chat/customers', async (req, res, next) => {
+    try {
+      res.json(await chatCustomersOf(req.profile.id));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.get('/chat/messages', async (req, res, next) => {
+    try {
+      const key = String(req.query.key || '').trim().slice(0, 200);
+      if (!key) return res.status(400).json({ error: 'invalid', message: 'ยังไม่ได้เลือกลูกค้าค่ะ' });
+      res.json({ messages: await chatMessagesOf(req.profile.id, key) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // งานทั้งหมดของลูกค้าคนนี้ — ไว้เลือกออเดอร์ในหน้า
+  router.get('/chat/orders', async (req, res, next) => {
+    try {
+      const key = String(req.query.key || '').trim().slice(0, 200);
+      if (!key) return res.status(400).json({ error: 'invalid', message: 'ยังไม่ได้เลือกลูกค้าค่ะ' });
+      res.json({ jobs: await customerJobsOf(req.profile.id, key) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post('/chat/messages', async (req, res, next) => {
+    try {
+      const check = safe(chatMessageSchema, req.body || {});
+      if (!check.ok) return res.status(400).json({ error: 'invalid', message: check.error });
+      const { image, ...fields } = check.data;
+
+      let file = { fileUrl: null, fileType: null };
+      if (image) {
+        const decoded = decodeDataUrl(image);
+        if (decoded.error) return res.status(400).json({ error: 'invalid', message: decoded.error });
+        try {
+          file = await uploadChatImage(req.profile.id, decoded.buffer, decoded.fileType);
+        } catch (err) {
+          logger.warn('api.chat_image_failed', { message: err?.message });
+          return res.status(502).json({
+            error: 'upload_failed',
+            message: 'แนบรูปไม่สำเร็จ ยังไม่ได้บันทึกข้อความค่ะ ลองส่งใหม่อีกครั้ง',
+          });
+        }
+      }
+
+      const message = await writeChatMessage(req.profile.id, {
+        customerName: fields.customerName,
+        direction: fields.direction,
+        body: fields.body,
+        fileUrl: file.fileUrl,
+        fileType: file.fileType,
+      });
+      res.status(201).json({ message });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post('/chat/read', async (req, res, next) => {
+    try {
+      const key = String(req.body?.customerKey || '').trim().slice(0, 200);
+      if (!key) return res.status(400).json({ error: 'invalid' });
+      res.json(await readChat(req.profile.id, key));
     } catch (err) {
       next(err);
     }

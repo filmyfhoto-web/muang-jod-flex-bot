@@ -450,6 +450,11 @@ export async function updateJob(userId, jobId, patch, client = supabase) {
     'booked_at',
     'pay_method',
     'paid_at',
+    // ข้อมูลติดต่อ/การรับของ/ผู้รับผิดชอบ (migration 022)
+    'customer_phone',
+    'fulfillment',
+    'handler_name',
+    'client_ref',
   ];
   for (const f of fields) {
     if (patch[f] !== undefined) allowed[f] = patch[f];
