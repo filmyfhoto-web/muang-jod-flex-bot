@@ -4,7 +4,7 @@
 //   · beat()        "I am here" every minute — the only thing the page's "LINE OA: connected" is based on
 // Nothing in here can stop the bot from answering customers: every call is caught, the database has timeouts, and the work for one
 // customer is queued apart from the bot's own per-customer queue, so a slow database never delays an answer.
-// It does nothing unless saleChat.mode (shop.json / SALECHAT_MODE) is pilot or on.
+// It records and sends nothing unless saleChat.mode (shop.json / SALECHAT_MODE) is pilot or on; with a database key present it reports the mode (off included) once a minute.
 import { createSerial } from '../serial.js';
 import { createSaleChatStore } from './store.js';
 import { createSaleChatIngest } from './ingest.js';

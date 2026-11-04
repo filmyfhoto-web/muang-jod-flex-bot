@@ -53,7 +53,7 @@ let draftAck = null;
 let draftStore = null; // the drafts' own database connection (CHATDRAFTS_SUPABASE_URL); independent of the app's
 let channelRegistry = null;
 // the LINE bridge of the back office's "แชตและออเดอร์" page (salechat/): customer messages → its chats, staff replies → LINE.
-// null = off (no database key) · it only does anything while shop.json saleChat.mode / SALECHAT_MODE is pilot or on
+// null = no database key · it records and sends nothing unless shop.json saleChat.mode / SALECHAT_MODE is pilot or on
 let saleChat = null;
 const appMenuOn = () => Boolean(appFlow?.status().menu); // the app's menu card greets every first message of a visit
 
