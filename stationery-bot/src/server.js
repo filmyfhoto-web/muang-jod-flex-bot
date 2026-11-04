@@ -780,7 +780,7 @@ if (saleDb) {
       push: pushWithRetryKey,
       tokenFor: (channelKey) => (channelKey === 'main' ? token : ''),
       build: String(process.env.RENDER_GIT_COMMIT ?? '').trim().slice(0, 7),
-      tickMs: Number(process.env.SALECHAT_TICK_MS) > 0 ? Number(process.env.SALECHAT_TICK_MS) : 5000,
+      tickMs: Number(process.env.SALECHAT_TICK_MS) > 0 ? Number(process.env.SALECHAT_TICK_MS) : 1000, // the queue is looked at every second (SALECHAT_TICK_MS overrides)
       beatMs: Number(process.env.SALECHAT_BEAT_MS) > 0 ? Number(process.env.SALECHAT_BEAT_MS) : 60_000,
       // staff just answered this customer from the page: a person is with them, so the bot's own answers stay quiet for them
       // (the customer can type "เมนู" to bring the bot back) — shop.json saleChat.quietAfterReply / SALECHAT_QUIET=off turns it off
