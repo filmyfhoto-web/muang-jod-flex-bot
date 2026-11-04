@@ -24,11 +24,18 @@ function listen(handler) {
 }
 
 // LINE as a stand-in: a profile per user id, a picture for any content request, and every call the bot makes is recorded in calls
-export async function startLine({ names = {} } = {}) {
+// respond(call) may answer a call itself: { status, headers, body } (a refusal, a 500, "already accepted"…); anything it returns nothing for gets the usual answer
+export async function startLine({ names = {}, respond } = {}) {
   const calls = [];
   const s = await listen(async (req, res) => {
     const { json } = await readBody(req);
-    calls.push({ method: req.method, path: req.url, auth: String(req.headers.authorization || ''), body: json });
+    const call = { method: req.method, path: req.url, auth: String(req.headers.authorization || ''), body: json, ...(req.headers['x-line-retry-key'] ? { retryKey: String(req.headers['x-line-retry-key']) } : {}) };
+    calls.push(call);
+    const scripted = respond ? respond(call) : null;
+    if (scripted) {
+      res.writeHead(scripted.status ?? 200, { 'content-type': 'application/json', ...(scripted.headers ?? {}) });
+      return res.end(JSON.stringify(scripted.body ?? {}));
+    }
     if (req.url.includes('/content')) {
       res.writeHead(200, { 'content-type': 'image/jpeg' });
       return res.end(JPEG);
@@ -63,7 +70,7 @@ export async function startBot({ env = {} }) {
   const port = probe.port;
   await probe.close();
   const base = { ...process.env };
-  for (const k of Object.keys(base)) if (/^(GEMINI_|ANTHROPIC_|CHATDRAFTS_|CHATORDERS_|LINE_|SUPABASE_|TEST_)/.test(k)) delete base[k];
+  for (const k of Object.keys(base)) if (/^(GEMINI_|ANTHROPIC_|CHATDRAFTS_|CHATORDERS_|SALECHAT_|LINE_|SUPABASE_|TEST_)/.test(k)) delete base[k];
   let out = '';
   const child = spawn(process.execPath, ['src/server.js'], {
     cwd: ROOT,

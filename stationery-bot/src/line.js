@@ -27,6 +27,33 @@ export async function pushMessage(to, messages, token) {
   if (!res.ok) throw Object.assign(new Error(`LINE push failed: ${res.status} ${await res.text()}`), { status: res.status });
 }
 
+// A push that can be repeated safely: LINE's own retry key (a UUID) makes the same request count once for 24 hours — if the first
+// try was accepted but the answer was lost, trying again with the same key returns 409 and the first request's id (x-line-accepted-request-id)
+// instead of sending the message a second time. Never throws: { ok, status, requestId, accepted, error, network }.
+export async function pushWithRetryKey(to, messages, token, retryKey, { timeoutMs = 15_000 } = {}) {
+  try {
+    const res = await fetch('https://api.line.me/v2/bot/message/push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'X-Line-Retry-Key': retryKey },
+      body: JSON.stringify({ to, messages }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    const requestId = res.headers.get('x-line-request-id') || '';
+    if (res.ok) return { ok: true, status: res.status, requestId };
+    const accepted = res.headers.get('x-line-accepted-request-id') || '';
+    const text = await res.text().catch(() => '');
+    let message = text;
+    try {
+      message = JSON.parse(text).message || text;
+    } catch {
+      /* not JSON: keep the text */
+    }
+    return { ok: false, status: res.status, requestId, accepted, error: String(message).slice(0, 200) };
+  } catch (e) {
+    return { ok: false, status: 0, network: true, error: String(e?.message || e).slice(0, 200) };
+  }
+}
+
 // One log line per webhook event — what kind it is, never what anyone wrote. Used to
 // see whether LINE reports anything when an admin answers from OA Manager.
 export function describeEvent(ev) {

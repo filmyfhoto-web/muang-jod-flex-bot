@@ -2,7 +2,7 @@ import 'node:process';
 import express from 'express';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { verifySignature, replyMessage, pushMessage, getProfile, getProfileCached, getBotUserId, getMessageContent, getQuota, quotaText, chatLink, describeEvent } from './line.js';
+import { verifySignature, replyMessage, pushMessage, pushWithRetryKey, getProfile, getProfileCached, getBotUserId, getMessageContent, getQuota, quotaText, chatLink, describeEvent } from './line.js';
 import { buildReply, welcomeMessage, withSender, iconUrlFor, thanksReply, quick } from './replies.js';
 import { contactCard, pickListCard } from './flex.js';
 import { isThanksSticker, isThanks, isMenuTap, normalize, matchIntent } from './matcher.js';
@@ -29,8 +29,10 @@ import { summarize } from './orders/draft.js';
 import { createAppFlow } from './app/flow.js';
 import { sameAdmin } from './app/names.js';
 import { createAssistStage } from './assist-stage.js';
+import { createSaleChat } from './salechat/index.js';
+import { saleChatFromEnv, saleChatDb } from './salechat/config.js';
 
-const token = (process.env.LINE_CHANNEL_ACCESS_TOKEN ?? '').trim();
+const token =(process.env.LINE_CHANNEL_ACCESS_TOKEN ?? '').trim();
 const secret = (process.env.LINE_CHANNEL_SECRET ?? '').trim();
 if (!token || !secret) {
   console.error('Set LINE_CHANNEL_ACCESS_TOKEN and LINE_CHANNEL_SECRET (see .env.example)');
@@ -50,6 +52,9 @@ let orderIngest = null;
 let draftAck = null;
 let draftStore = null; // the drafts' own database connection (CHATDRAFTS_SUPABASE_URL); independent of the app's
 let channelRegistry = null;
+// the LINE bridge of the back office's "แชตและออเดอร์" page (salechat/): customer messages → its chats, staff replies → LINE.
+// null = off (no database key) · it only does anything while shop.json saleChat.mode / SALECHAT_MODE is pilot or on
+let saleChat = null;
 const appMenuOn = () => Boolean(appFlow?.status().menu); // the app's menu card greets every first message of a visit
 
 const shopFile = process.env.SHOP_FILE || fileURLToPath(new URL('../data/shop.json', import.meta.url)); // SHOP_FILE: tests point it at their own copy
@@ -62,6 +67,7 @@ const loadShop = () => {
   };
   shop.chatOrders = chatOrdersFromEnv(shop.chatOrders ?? {}, process.env);
   shop.chatDrafts = chatDraftsFromEnv(shop.chatDrafts ?? {}, process.env);
+  shop.saleChat = saleChatFromEnv(shop.saleChat ?? {}, process.env);
   // While the app's menu card is on, this bot does not also ask "who do you want to talk to?" on a first hello
   // (two menus in a row).
   if (appMenuOn()) shop.contact = { ...(shop.contact ?? {}), sessionAsk: false };
@@ -105,7 +111,15 @@ app.get('/health', async (_req, res) => {
   } catch {
     /* reported by the message handler */
   }
-  res.json({ ok: true, app: state, assist: assist ? 'ready' : 'off', orders, drafts, ...(build ? { build } : {}) });
+  // "salechat": the page's LINE bridge — shown only when it is switched on (pilot · on · no-db = on, but no database key); absent = off
+  let salechat = 'off';
+  try {
+    const sm = loadShop().saleChat?.mode;
+    if (sm === 'pilot' || sm === 'on') salechat = saleChat ? sm : 'no-db';
+  } catch {
+    /* reported by the message handler */
+  }
+  res.json({ ok: true, app: state, assist: assist ? 'ready' : 'off', orders, drafts, ...(salechat !== 'off' ? { salechat } : {}), ...(build ? { build } : {}) });
 });
 
 app.post('/webhook', express.raw({ type: '*/*' }), (req, res) => {
@@ -118,6 +132,7 @@ app.post('/webhook', express.raw({ type: '*/*' }), (req, res) => {
     return;
   }
   for (const ev of events) recordChatEvent('main', ev); // the order drafts take the shop's own OA's messages (silently)
+  for (const ev of events) recordSaleChat('main', ev); // …and so does the back office's chat page (silently, in its own queue)
   if (appFlow) {
     // The app's features answer first; what they do not answer comes back to runOthers (below) one event at a time.
     for (const ev of events) console.log(describeEvent(ev));
@@ -267,6 +282,17 @@ function recordChatEvent(channelKey, ev, { label, token: channelToken } = {}) {
   serial
     .run(who, () => orderIngest.handle({ channelKey, label: useLabel, token: useToken, ev }))
     .catch((e) => console.error('[orders]', e.message));
+}
+
+// ---- the back office's "แชตและออเดอร์" page (salechat/) ---------------------------------------------------------------------
+// One message → that customer's chat in the page. Never answered, never awaited, never throws: a failure here is a log line.
+function recordSaleChat(channelKey, ev) {
+  if (!saleChat) return;
+  try {
+    saleChat.record(channelKey, ev, token);
+  } catch (e) {
+    console.error('[salechat]', e.message);
+  }
 }
 
 // add a query value to an address, keeping its #hash (…/#chatorders → …/?chat=CH-0001#chatorders)
@@ -740,6 +766,35 @@ if (draftDbUrl && draftDbKey) {
     busy: draftAckBusy,
   });
   setInterval(() => void draftAckTick(), Number(process.env.CHATDRAFTS_ACK_TICK_MS) > 0 ? Number(process.env.CHATDRAFTS_ACK_TICK_MS) : 60_000).unref();
+}
+
+// The page's LINE bridge has its own database connection too (SALECHAT_SUPABASE_URL + SALECHAT_SERVICE_ROLE_KEY, or the drafts' pair, or
+// the app's pair). Having one only lets the bridge report that it is alive; it records and sends nothing until saleChat.mode is pilot/on.
+const saleDb = saleChatDb(process.env);
+if (saleDb) {
+  try {
+    saleChat = createSaleChat({
+      db: saleDb,
+      getConfig: () => loadShop().saleChat,
+      lineApi: { profile: (uid, tok) => getProfileCached(uid, tok), content: (mid, tok) => getMessageContent(mid, tok), quota: (tok) => getQuota(tok) },
+      push: pushWithRetryKey,
+      tokenFor: (channelKey) => (channelKey === 'main' ? token : ''),
+      build: String(process.env.RENDER_GIT_COMMIT ?? '').trim().slice(0, 7),
+      tickMs: Number(process.env.SALECHAT_TICK_MS) > 0 ? Number(process.env.SALECHAT_TICK_MS) : 5000,
+      beatMs: Number(process.env.SALECHAT_BEAT_MS) > 0 ? Number(process.env.SALECHAT_BEAT_MS) : 60_000,
+      // staff just answered this customer from the page: a person is with them, so the bot's own answers stay quiet for them
+      // (the customer can type "เมนู" to bring the bot back) — shop.json saleChat.quietAfterReply / SALECHAT_QUIET=off turns it off
+      onSent: (job) => {
+        if (loadShop().saleChat?.quietAfterReply === false || !job.line_user_id) return;
+        contacts.choose(job.line_user_id);
+        visits.done(job.line_user_id);
+      },
+    });
+    saleChat.start();
+  } catch (e) {
+    console.error('[salechat] failed to start, the page gets nothing from LINE:', e.message); // never stops the bot itself from starting
+    saleChat = null;
+  }
 }
 
 // the drafts' own "we have the order" pass (shop.json chatDrafts.ack, off by default)

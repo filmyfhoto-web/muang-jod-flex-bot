@@ -374,6 +374,12 @@
     "followMinutes": 10,
     "remarkEveryMinutes": 60
   },
+  "saleChat": {
+    "mode": "off",
+    "channelKey": "main",
+    "quietAfterReply": true,
+    "pilotUserIds": ["U4f9825c8c6430b03ed959b81ebb9f07e"]
+  },
   "chatDrafts": {
     "mode": "off",
     "mainLabel": "นัฐภรณ์ เชียงกลาง",
