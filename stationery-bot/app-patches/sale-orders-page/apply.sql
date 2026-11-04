@@ -1,11 +1,11 @@
 -- ติดตั้งหน้า "แชตและออเดอร์" (โมดูล saleorders) ในแอปหลังร้าน: แถวใหม่ในตาราง app_modules เท่านั้น
--- · ไม่แก้โมดูลเดิมแม้แต่บรรทัดเดียว · ติดตั้งซ้ำได้ (ถ้ามีแถวนี้อยู่แล้วจะไม่ทำอะไร — ถ้าเป็นรุ่นเก่าให้ใช้ upgrade-v3-to-v4.sql หรือ upgrade.sql)
+-- · ไม่แก้โมดูลเดิมแม้แต่บรรทัดเดียว · ติดตั้งซ้ำได้ (ถ้ามีแถวนี้อยู่แล้วจะไม่ทำอะไร — ถ้าเป็นรุ่นเก่าให้ใช้ upgrade-v4-to-v5.sql หรือ upgrade-v3-to-v4.sql)
 -- · ติดตั้งแบบปิดไว้ (enabled = false): เปิดหลังตรวจแล้วด้วย update app_modules set enabled = true where name = 'saleorders';
 -- · ต้องติดตั้ง migration db/migrations/002_sale_orders.sql ก่อน (หน้านี้เรียก sale_order_save / sale_order_log_send)
 -- · ส่วน LINE ใช้ได้ต่อเมื่อติดตั้ง db/migrations/003_sale_line_bridge.sql และเปิดสะพานที่บอท — ถ้ายังไม่ติดตั้ง หน้าแสดง "LINE OA: ยังไม่ได้เชื่อมต่อ"
--- · ลูกค้าลงบัญชีและการ์ดคำสั่งงานต้องติดตั้ง db/migrations/004_sale_order_cards.sql ด้วย
+-- · ลูกค้าลงบัญชี การ์ด และสถานะ "ลงบัญชี" ต้องติดตั้ง db/migrations/004_sale_order_cards.sql และ 005_sale_order_account.sql ด้วย
 -- · ย้อนกลับ: reverse.sql
--- md5 ของโค้ดที่ติดตั้ง: 144675bed448432bea634bd6abbc8223
+-- md5 ของโค้ดที่ติดตั้ง: 6a717aff8d51c2574f0f3f964450b673
 do $do$
 begin
   if exists (select 1 from app_modules where name = 'saleorders') then
@@ -78,7 +78,7 @@ begin
   // ---------- ค่าคงที่ของงาน ----------
   const STG={talk:{t:'พูดคุย',c:'#7A8394'},quote:{t:'รอเสนอราคา',c:'#E8832A'},confirm:{t:'รอยืนยัน',c:'#1F9D55'},work:{t:'กำลังทำงาน',c:'#2F6FE4'},done:{t:'ปิดการขาย',c:'#0F7B45'},closed:{t:'จบการสนทนา',c:'#9AA3B2'}}
   const JOB=[['pending','รอดำเนินการ','#E8832A'],['awaiting','รอลูกค้ายืนยัน','#B5862A'],['working','กำลังทำ/จัดสินค้า','#2F6FE4'],['ready','พร้อมส่ง/พร้อมรับ','#8A5CC2'],['delivered','ส่งมอบแล้ว','#1F9D55'],['closed','ปิดออเดอร์','#0F7B45'],['canceled','ยกเลิก','#B42318']]
-  const PAY=[['unpaid','ยังไม่ชำระ','#B42318'],['deposit','มัดจำแล้ว','#E8832A'],['partial','ชำระบางส่วน','#B5862A'],['paid','ชำระครบ','#0F7B45']]
+  const PAY=[['unpaid','ยังไม่ชำระ','#B42318'],['deposit','มัดจำแล้ว','#E8832A'],['partial','ชำระบางส่วน','#B5862A'],['paid','ชำระครบ','#0F7B45'],['account','ลงบัญชี','#5B4BC2']]
   const JN=Object.fromEntries(JOB.map(([k,t,c])=>[k,{t,c}]))
   const PN=Object.fromEntries(PAY.map(([k,t,c])=>[k,{t,c}]))
   const OTYPE={goods:'สั่งเพื่อจัดสินค้า',docs:'สั่งเพื่อจัดทำเอกสาร'}
@@ -1141,7 +1141,8 @@ begin
     L.push('')
     L.push('รวมเป็นเงิน '+money(sv.subtotal)+' บาท'+(num(sv.vat_rate)>0?' · VAT '+num(sv.vat_rate)+'% '+money(sv.vat_amount)+' บาท':''))
     L.push('ยอดรวมทั้งสิ้น '+money(sv.total)+' บาท')
-    if(o.pay_status!=='unpaid')L.push('รับชำระแล้ว '+money(o.pay_status==='paid'?sv.total:o.paid_amount)+' บาท ('+(PN[o.pay_status]||{}).t+')'+(o.pay_status!=='paid'?' · คงเหลือ '+money(r2(num(sv.total)-num(o.paid_amount)))+' บาท':''))
+    if(o.pay_status==='account')L.push('ลงบัญชี · ลูกค้าชำระทีหลัง (ยังไม่ได้รับเงิน)')
+    else if(o.pay_status!=='unpaid')L.push('รับชำระแล้ว '+money(o.pay_status==='paid'?sv.total:o.paid_amount)+' บาท ('+(PN[o.pay_status]||{}).t+')'+(o.pay_status!=='paid'?' · คงเหลือ '+money(r2(num(sv.total)-num(o.paid_amount)))+' บาท':''))
     L.push((o.fulfil==='delivery'?'จัดส่ง':'รับที่ร้าน')+(o.need_date?' · กำหนด '+dTH(o.need_date):''))
     if(o.note)L.push('หมายเหตุ: '+o.note)
     L.push('')

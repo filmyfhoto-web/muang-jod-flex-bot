@@ -1,15 +1,16 @@
 // Writes the SQL that puts the back-office page "แชตและออเดอร์" (module saleorders, table app_modules) in place.
 // Run: node app-patches/sale-orders-page/make-sql.mjs   (from stationery-bot/)
-//   saleorders.module.js      the current version (v4: a shorter order panel, customer accounts, order cards for customer and team)
-//   saleorders.module.v3.js   the version on the live back office since the LINE bridge (md5 9f5e3e41…)
+//   saleorders.module.js      the current version (v5: the payment status "ลงบัญชี")
+//   saleorders.module.v4.js   the version on the live back office since the customer accounts and order cards (md5 144675be…)
+//   saleorders.module.v3.js   the version on the live back office before v4, since the LINE bridge (md5 9f5e3e41…)
 //   saleorders.module.v2.js   the version on the live back office since 4 Nov 2569 before v3 (md5 021d0e36…)
 //   saleorders.module.v1.js   the version installed on 4 Nov 2569 before the LINE version (md5 9559832b…)
 // apply.sql             installs the current version DISABLED, only when the module is not there yet
 // upgrade.sql           v2 → v3: replaces the stored code only while it is exactly v2 (md5); enabled and seq stay
 // downgrade.sql         v3 → v2: puts v2 back only while the stored code is exactly v3 (md5)
-// upgrade-v3-to-v4.sql  v3 → v4: replaces the stored code only while it is exactly v3 (md5); enabled and seq stay
-// downgrade-v4-to-v3.sql v4 → v3: puts v3 back only while the stored code is exactly v4 (md5)
-// reverse.sql           removes the module while its code is v1, v2, v3 or v4 (md5); an edited page is never removed
+// upgrade-v3-to-v4.sql  v3 → v4 (the step run on the live back office) · downgrade-v4-to-v3.sql v4 → v3
+// upgrade-v4-to-v5.sql  v4 → v5 · downgrade-v5-to-v4.sql v5 → v4 (each only while the stored code is exactly the version it expects)
+// reverse.sql           removes the module while its code is v1, v2, v3, v4 or v5 (md5); an edited page is never removed
 // upgrade-v1-to-v2.sql  the step run on 4 Nov 2569 — written once and frozen (this script does not regenerate it)
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
@@ -21,23 +22,24 @@ const SEQ = 66; // ข้าง ๆ salechat (66) — หน้าเดิม�
 
 export const md5Of = (text) => createHash('md5').update(text, 'utf8').digest('hex');
 
-// code = the current version (v4) · v3 / v2 / v1 = the earlier versions (optional). Returns every script as text.
-export function buildSql(code, { v3 = null, v2 = null, v1 = null } = {}) {
-  for (const [name, text] of [['module code', code], ['v3', v3], ['v2', v2], ['v1', v1]]) {
+// code = the current version (v5) · v4 / v3 / v2 / v1 = the earlier versions (optional). Returns every script as text.
+export function buildSql(code, { v4 = null, v3 = null, v2 = null, v1 = null } = {}) {
+  for (const [name, text] of [['module code', code], ['v4', v4], ['v3', v3], ['v2', v2], ['v1', v1]]) {
     if (text && text.includes(TAG)) throw new Error(`the ${name} contains ${TAG}; pick another tag`);
   }
   const md5 = md5Of(code);
+  const md5v4 = v4 ? md5Of(v4) : null;
   const md5v3 = v3 ? md5Of(v3) : null;
   const md5v2 = v2 ? md5Of(v2) : null;
   const md5v1 = v1 ? md5Of(v1) : null;
-  const known = [md5, md5v3, md5v2, md5v1].filter(Boolean).map((x) => `'${x}'`).join(', ');
+  const known = [md5, md5v4, md5v3, md5v2, md5v1].filter(Boolean).map((x) => `'${x}'`).join(', ');
 
   const apply = `-- ติดตั้งหน้า "แชตและออเดอร์" (โมดูล saleorders) ในแอปหลังร้าน: แถวใหม่ในตาราง app_modules เท่านั้น
--- · ไม่แก้โมดูลเดิมแม้แต่บรรทัดเดียว · ติดตั้งซ้ำได้ (ถ้ามีแถวนี้อยู่แล้วจะไม่ทำอะไร — ถ้าเป็นรุ่นเก่าให้ใช้ upgrade-v3-to-v4.sql หรือ upgrade.sql)
+-- · ไม่แก้โมดูลเดิมแม้แต่บรรทัดเดียว · ติดตั้งซ้ำได้ (ถ้ามีแถวนี้อยู่แล้วจะไม่ทำอะไร — ถ้าเป็นรุ่นเก่าให้ใช้ upgrade-v4-to-v5.sql หรือ upgrade-v3-to-v4.sql)
 -- · ติดตั้งแบบปิดไว้ (enabled = false): เปิดหลังตรวจแล้วด้วย update app_modules set enabled = true where name = 'saleorders';
 -- · ต้องติดตั้ง migration db/migrations/002_sale_orders.sql ก่อน (หน้านี้เรียก sale_order_save / sale_order_log_send)
 -- · ส่วน LINE ใช้ได้ต่อเมื่อติดตั้ง db/migrations/003_sale_line_bridge.sql และเปิดสะพานที่บอท — ถ้ายังไม่ติดตั้ง หน้าแสดง "LINE OA: ยังไม่ได้เชื่อมต่อ"
--- · ลูกค้าลงบัญชีและการ์ดคำสั่งงานต้องติดตั้ง db/migrations/004_sale_order_cards.sql ด้วย
+-- · ลูกค้าลงบัญชี การ์ด และสถานะ "ลงบัญชี" ต้องติดตั้ง db/migrations/004_sale_order_cards.sql และ 005_sale_order_account.sql ด้วย
 -- · ย้อนกลับ: reverse.sql
 -- md5 ของโค้ดที่ติดตั้ง: ${md5}
 do $do$
@@ -53,7 +55,7 @@ end
 $do$;
 `;
 
-  const reverse = `-- ย้อนกลับ apply.sql: ลบแถว saleorders ออกจาก app_modules · ลบเฉพาะเมื่อโค้ดยังเป็นรุ่นที่รู้จัก (md5 ${[md5, md5v3, md5v2, md5v1].filter(Boolean).join(' · ')})
+  const reverse = `-- ย้อนกลับ apply.sql: ลบแถว saleorders ออกจาก app_modules · ลบเฉพาะเมื่อโค้ดยังเป็นรุ่นที่รู้จัก (md5 ${[md5, md5v4, md5v3, md5v2, md5v1].filter(Boolean).join(' · ')})
 -- ถ้ามีคนแก้โค้ดหลังติดตั้ง จะไม่ลบและแจ้งเตือน (ให้ตรวจก่อนว่าจะลบหรือไม่)
 do $do$
 declare c text;
@@ -72,16 +74,28 @@ end
 $do$;
 `;
 
-  const out = { md5, md5v3, md5v2, md5v1, apply, reverse };
-  if (v3) {
+  const out = { md5, md5v4, md5v3, md5v2, md5v1, apply, reverse };
+  if (v4) {
+    out.upgrade45 = replaceScript({
+      note: 'อัปเกรดหน้าเป็นรุ่น 5: สถานะการชำระ "ลงบัญชี" (ลูกค้าชำระทีหลัง)',
+      from: { label: 'v4', md5: md5v4 },
+      to: { label: 'v5', md5, code },
+    });
+    out.downgrade54 = replaceScript({
+      note: `ย้อนหน้า v5 กลับเป็น v4 ตรงทุกไบต์ (md5 ${md5v4})`,
+      from: { label: 'v5', md5 },
+      to: { label: 'v4', md5: md5v4, code: v4 },
+    });
+  }
+  if (v3 && v4) {
     out.upgrade34 = replaceScript({
       note: 'อัปเกรดหน้าเป็นรุ่น 4: เมนูกระชับ (ช่องที่ใช้ไม่บ่อยไว้ใต้ "เพิ่มเติม") · ลูกค้าลงบัญชีอัตโนมัติ · การ์ดคำสั่งงานให้ลูกค้าและทีมงาน',
       from: { label: 'v3', md5: md5v3 },
-      to: { label: 'v4', md5, code },
+      to: { label: 'v4', md5: md5v4, code: v4 },
     });
     out.downgrade43 = replaceScript({
       note: `ย้อนหน้า v4 กลับเป็น v3 ตรงทุกไบต์ (md5 ${md5v3})`,
-      from: { label: 'v4', md5 },
+      from: { label: 'v4', md5: md5v4 },
       to: { label: 'v3', md5: md5v3, code: v3 },
     });
   }
@@ -129,12 +143,19 @@ $do$;
 // the command line: writes the scripts next to this file (upgrade-v1-to-v2.sql is the frozen record and is not written here)
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const file = (name) => (existsSync(DIR + name) ? readFileSync(DIR + name, 'utf8') : null);
-  const b = buildSql(file('saleorders.module.js'), { v3: file('saleorders.module.v3.js'), v2: file('saleorders.module.v2.js'), v1: file('saleorders.module.v1.js') });
+  const b = buildSql(file('saleorders.module.js'), {
+    v4: file('saleorders.module.v4.js'),
+    v3: file('saleorders.module.v3.js'),
+    v2: file('saleorders.module.v2.js'),
+    v1: file('saleorders.module.v1.js'),
+  });
   writeFileSync(DIR + 'apply.sql', b.apply);
   writeFileSync(DIR + 'reverse.sql', b.reverse);
   writeFileSync(DIR + 'upgrade.sql', b.upgrade);
   writeFileSync(DIR + 'downgrade.sql', b.downgrade);
   writeFileSync(DIR + 'upgrade-v3-to-v4.sql', b.upgrade34);
   writeFileSync(DIR + 'downgrade-v4-to-v3.sql', b.downgrade43);
-  console.log(`wrote apply, reverse, upgrade, downgrade, upgrade-v3-to-v4 and downgrade-v4-to-v3 (current md5 ${b.md5}; v3 ${b.md5v3}; v2 ${b.md5v2}; v1 ${b.md5v1})`);
+  writeFileSync(DIR + 'upgrade-v4-to-v5.sql', b.upgrade45);
+  writeFileSync(DIR + 'downgrade-v5-to-v4.sql', b.downgrade54);
+  console.log(`wrote the scripts (current md5 ${b.md5}; v4 ${b.md5v4}; v3 ${b.md5v3}; v2 ${b.md5v2}; v1 ${b.md5v1})`);
 }

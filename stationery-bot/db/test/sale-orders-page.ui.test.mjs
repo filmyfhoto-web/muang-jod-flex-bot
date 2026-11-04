@@ -427,3 +427,14 @@ test('on a phone: three tabs (รายชื่อแชต / แชต / อ�
   }
   assert.deepEqual(pageErrors, [], 'no page errors anywhere');
 });
+
+test('the payment status list offers ลงบัญชี next to the others, and choosing it is allowed like any other status', skipIt, async () => {
+  await openRow('โรงเรียนบ้านตัวอย่าง');
+  await page.waitForSelector('#so_ord select[data-f="pay_status"]');
+  const opts = await page.locator('#so_ord select[data-f="pay_status"] option').allInnerTexts();
+  assert.deepEqual(opts, ['ยังไม่ชำระ', 'มัดจำแล้ว', 'ชำระบางส่วน', 'ชำระครบ', 'ลงบัญชี']);
+  await page.locator('#so_ord select[data-f="pay_status"]').selectOption('account');
+  assert.equal(await page.locator('#so_ord select[data-f="pay_status"]').inputValue(), 'account');
+  assert.equal(await page.locator('#so_ord input[data-f="paid_amount"]').count(), 0, 'no amount is asked for: nothing has been received');
+  await page.locator('#so_ord select[data-f="pay_status"]').selectOption('unpaid');
+});

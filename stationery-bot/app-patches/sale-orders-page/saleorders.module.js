@@ -63,7 +63,7 @@
   // ---------- ค่าคงที่ของงาน ----------
   const STG={talk:{t:'พูดคุย',c:'#7A8394'},quote:{t:'รอเสนอราคา',c:'#E8832A'},confirm:{t:'รอยืนยัน',c:'#1F9D55'},work:{t:'กำลังทำงาน',c:'#2F6FE4'},done:{t:'ปิดการขาย',c:'#0F7B45'},closed:{t:'จบการสนทนา',c:'#9AA3B2'}}
   const JOB=[['pending','รอดำเนินการ','#E8832A'],['awaiting','รอลูกค้ายืนยัน','#B5862A'],['working','กำลังทำ/จัดสินค้า','#2F6FE4'],['ready','พร้อมส่ง/พร้อมรับ','#8A5CC2'],['delivered','ส่งมอบแล้ว','#1F9D55'],['closed','ปิดออเดอร์','#0F7B45'],['canceled','ยกเลิก','#B42318']]
-  const PAY=[['unpaid','ยังไม่ชำระ','#B42318'],['deposit','มัดจำแล้ว','#E8832A'],['partial','ชำระบางส่วน','#B5862A'],['paid','ชำระครบ','#0F7B45']]
+  const PAY=[['unpaid','ยังไม่ชำระ','#B42318'],['deposit','มัดจำแล้ว','#E8832A'],['partial','ชำระบางส่วน','#B5862A'],['paid','ชำระครบ','#0F7B45'],['account','ลงบัญชี','#5B4BC2']]
   const JN=Object.fromEntries(JOB.map(([k,t,c])=>[k,{t,c}]))
   const PN=Object.fromEntries(PAY.map(([k,t,c])=>[k,{t,c}]))
   const OTYPE={goods:'สั่งเพื่อจัดสินค้า',docs:'สั่งเพื่อจัดทำเอกสาร'}
@@ -1126,7 +1126,8 @@
     L.push('')
     L.push('รวมเป็นเงิน '+money(sv.subtotal)+' บาท'+(num(sv.vat_rate)>0?' · VAT '+num(sv.vat_rate)+'% '+money(sv.vat_amount)+' บาท':''))
     L.push('ยอดรวมทั้งสิ้น '+money(sv.total)+' บาท')
-    if(o.pay_status!=='unpaid')L.push('รับชำระแล้ว '+money(o.pay_status==='paid'?sv.total:o.paid_amount)+' บาท ('+(PN[o.pay_status]||{}).t+')'+(o.pay_status!=='paid'?' · คงเหลือ '+money(r2(num(sv.total)-num(o.paid_amount)))+' บาท':''))
+    if(o.pay_status==='account')L.push('ลงบัญชี · ลูกค้าชำระทีหลัง (ยังไม่ได้รับเงิน)')
+    else if(o.pay_status!=='unpaid')L.push('รับชำระแล้ว '+money(o.pay_status==='paid'?sv.total:o.paid_amount)+' บาท ('+(PN[o.pay_status]||{}).t+')'+(o.pay_status!=='paid'?' · คงเหลือ '+money(r2(num(sv.total)-num(o.paid_amount)))+' บาท':''))
     L.push((o.fulfil==='delivery'?'จัดส่ง':'รับที่ร้าน')+(o.need_date?' · กำหนด '+dTH(o.need_date):''))
     if(o.note)L.push('หมายเหตุ: '+o.note)
     L.push('')
