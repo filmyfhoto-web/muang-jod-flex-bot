@@ -194,6 +194,20 @@ export async function createBill(userId, jobIds = [], opts = {}, client = supaba
   return { ...bill, jobs: attached };
 }
 
+/* จดแล้วบิลพร้อมเลย — เปิดใบให้ตั้งแต่ตอนจด (ร้านขอ "จดแล้วออกเอกบิลให้เลย
+ * ไม่ต้องหลายขั้นตอน") งานที่เคยมีใบใช้ใบเดิม ไม่เคยก็เปิดใบของงานนั้นใบเดียว
+ * ล้มเหลวคืน null เงียบ ๆ: บิลเป็นของแถมของการจด ห้ามพาการจดล่ม */
+export async function ensureJobBill(userId, job, client = supabase) {
+  try {
+    if (!job?.id) return null;
+    if (job.bill_id) return await getBillById(userId, job.bill_id, client);
+    return await createBill(userId, [job.id], { customerName: job.customer_name ?? null }, client);
+  } catch (err) {
+    logger.warn('bill.ensure_failed', { jobId: job?.id, message: err?.message });
+    return null;
+  }
+}
+
 // แยกบิลที่รวมกันไปแล้ว ออกเป็นคนละใบ — วิธีจัดกลุ่มอยู่ที่ utils/billSplit.js
 // ที่เดียว เพื่อให้ปุ่มบนการ์ดกับการแยกจริงตัดสินใจเหมือนกันเป๊ะเสมอ
 export async function splitBill(userId, billId, client = supabase) {

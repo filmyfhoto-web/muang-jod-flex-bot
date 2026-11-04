@@ -6,6 +6,9 @@ import { receiptFlex } from '../flex/receiptFlex.js';
 import { formCardsMessage, greetingTexts } from '../flex/formCardFlex.js';
 import { quickFormUrl, liffUrl } from '../utils/liff.js';
 import { listBranches, pickBranch } from '../services/branchService.js';
+import { ensureJobBill } from '../services/billService.js';
+import { receiptUrl } from '../flex/billFlex.js';
+import { withShopKey } from '../utils/receiptLink.js';
 import { logger } from '../services/logger.js';
 
 // Triggered by postback action=add_job: the greeting and the cards.
@@ -164,6 +167,12 @@ async function saveDraft({ replyToken, profile }, st, branch) {
   const attached = await attachHeldPicture(profile.id, job, held);
   await clearState(profile.id);
 
+  // จดแล้วบิลพร้อมเลย (ร้านขอ "จดแล้วออกเอกบิลให้เลยไม่ต้องหลายขั้นตอน")
+  // — ปุ่ม 🧾 บนการ์ดกลายเป็นลิงก์เข้าใบตรง ๆ เปิดไม่สำเร็จก็ได้ปุ่มแบบเดิม
+  const bill = await ensureJobBill(profile.id, job);
+  const billPage = bill ? receiptUrl(bill) : null;
+  const billUrl = billPage ? withShopKey(billPage, bill.share_token) : null;
+
   // Receipt-style "บันทึกสำเร็จ" card. ไม่มีแถบนับยอดของวันแล้ว — ร้านบอกว่า
   // "จำนวนจดรวมไม่ต้องนับ" ยอดรวมของวันดูได้จากปุ่มสรุปที่อยู่บนการ์ดอยู่แล้ว
   //
@@ -171,7 +180,7 @@ async function saveDraft({ replyToken, profile }, st, branch) {
   // ไม่ใช่ตอนปิดบัญชีสิ้นเดือน
   return reply(replyToken, [
     ...(branch ? [{ type: 'text', text: `ลงบัญชีร้าน "${branch.name}" ให้แล้วนะคะ 💜` }] : []),
-    receiptFlex(job),
+    receiptFlex(job, { billUrl }),
     ...(attached
       ? []
       : [{ type: 'text', text: 'บันทึกงานแล้วค่ะ แต่แนบรูปเอกสารไม่สำเร็จ ส่งรูปเข้ามาใหม่อีกครั้งได้นะคะ 💜' }]),

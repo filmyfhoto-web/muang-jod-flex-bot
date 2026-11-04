@@ -29,6 +29,7 @@ async function serve(deps = {}) {
         calls.created.push({ userId, draft });
         return { id: 'job-1', job_number: 'MJ-0001', ...draft };
       },
+      createBill: async () => null,
       saveAttachment: async (userId, job, file) => {
         calls.attached.push({ userId, jobId: job.id, fileType: file.fileType, bytes: file.buffer.length });
         return { id: 'att-1' };
@@ -211,4 +212,51 @@ test('the pickup date the form sends reaches createJob', async (t) => {
   // No pickup date is a normal job, not a broken one.
   await s.post({ items: [{ item_name: 'ป้าย', quantity: 1, unit_price: 150 }] });
   assert.equal(s.calls.created[1].draft.dueDate, null);
+});
+
+/* ร้านขอ "จดแล้วออกเอกบิลให้เลยไม่ต้องหลายขั้นตอน" — บันทึกจากฟอร์มปุ๊บ
+ * บิลถูกเปิดทันที: คำตอบพกลิงก์ใบไปให้หน้าฟอร์ม และการ์ดที่เด้งเข้าแชต
+ * ได้ปุ่มพาเข้าใบตรง ๆ · บิลพังต้องไม่พาการจดล่ม */
+test('POST /jobs เปิดบิลให้เลย: response มี receipt และการ์ดแชตมีลิงก์ใบ', async () => {
+  process.env.PUBLIC_BASE_URL = 'https://shop.example.com';
+  const srv = await serve({
+    createBill: async (userId, jobIds) => {
+      assert.deepEqual(jobIds, ['job-1']);
+      return { id: 'bill-1', share_token: 'tok123', bill_number: 'B6-001', jobs: [] };
+    },
+  });
+  try {
+    const { status, body } = await srv.post({
+      jobName: 'ป้ายไวนิล',
+      customerName: 'โรงเรียนวัดดอนตัน',
+      items: [{ item_name: 'ป้ายไวนิล', quantity: 1, unit_price: 700, total: 700 }],
+    });
+    assert.equal(status, 201);
+    assert.equal(body.receipt.url, 'https://shop.example.com/r/tok123');
+    assert.match(body.receipt.shopUrl, /^https:\/\/shop\.example\.com\/r\/tok123\?k=/);
+    assert.equal(body.receipt.billNumber, 'B6-001');
+    const pushed = JSON.stringify(srv.calls.pushed);
+    assert.ok(pushed.includes('🧾 เปิดบิล'), 'การ์ดในแชตต้องมีปุ่มเปิดบิล');
+    assert.ok(pushed.includes('/r/tok123'), 'ปุ่มต้องชี้เข้าใบจริง');
+  } finally {
+    delete process.env.PUBLIC_BASE_URL;
+    await srv.close();
+  }
+});
+
+test('บิลเปิดไม่สำเร็จ: งานยังบันทึกปกติ แค่ไม่มีลิงก์แนบ', async () => {
+  process.env.PUBLIC_BASE_URL = 'https://shop.example.com';
+  const srv = await serve({ createBill: async () => { throw new Error('bills down'); } });
+  try {
+    const { status, body } = await srv.post({
+      jobName: 'ตรายาง',
+      items: [{ item_name: 'ตรายาง', quantity: 1, unit_price: 120, total: 120 }],
+    });
+    assert.equal(status, 201);
+    assert.ok(body.job, 'งานต้องถูกบันทึก');
+    assert.ok(!body.receipt, 'ไม่มีใบก็ไม่ต้องมีช่อง receipt');
+  } finally {
+    delete process.env.PUBLIC_BASE_URL;
+    await srv.close();
+  }
 });

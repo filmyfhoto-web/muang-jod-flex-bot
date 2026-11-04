@@ -180,12 +180,12 @@ export function createApiRouter(deps = {}) {
   // Tell the chat about a job saved from the form. Never throws: the job is
   // already saved, and a chat that missed the news must not turn into a failed
   // save the user then repeats.
-  async function announce(profile, job, attachmentsFailed) {
+  async function announce(profile, job, attachmentsFailed, billUrl = null) {
     const to = profile?.line_user_id;
     if (!to) return;
     try {
       await send(to, [
-        receiptFlex(job),
+        receiptFlex(job, { billUrl }),
         ...(attachmentsFailed > 0
           ? [{ type: 'text', text: `บันทึกงานแล้วค่ะ แต่แนบรูปไม่สำเร็จ ${attachmentsFailed} รูป ลองส่งรูปเข้าแชตอีกครั้งได้นะคะ 💜` }]
           : []),
@@ -769,18 +769,31 @@ export function createApiRouter(deps = {}) {
         }
       }
 
+      /* จดแล้วบิลพร้อมเลย (ร้านขอ "จดแล้วออกเอกบิลให้เลยไม่ต้องหลายขั้นตอน")
+       * — เปิดใบตั้งแต่ตอนจด หน้าฟอร์มกับการ์ดในแชตได้ลิงก์ไปทันที ไม่ต้องกด
+       * ออกบิลอีกขั้น บิลพังไม่พาการจดล่ม: งานบันทึกแล้ว แค่ไม่มีลิงก์แนบ */
+      let receipt = null;
+      try {
+        const bill = await openBill(req.profile.id, [job.id], { customerName: job.customer_name ?? null });
+        const url = bill ? receiptUrl(bill) : null;
+        if (url) receipt = { url, shopUrl: withShopKey(url, bill.share_token), billNumber: bill.bill_number || null };
+      } catch (err) {
+        logger.warn('api.autobill_failed', { jobId: job.id, message: err?.message });
+      }
+
       // Saving from the form is a web request, not a chat message, so there is
       // no reply token and nothing lands in the chat by itself — the job just
       // silently exists. Push the same receipt the chat flow shows, so a job
       // looks the same wherever it was jotted, and the chat stays the record.
       const failed = files.length - attached;
-      await announce(req.profile, job, failed);
+      await announce(req.profile, job, failed, receipt?.shopUrl || null);
 
       logger.info('api.job_created', { user: maskUserId(req.profile.line_user_id), jobId: job.id });
       res.status(201).json({
         job,
         attached,
         attachmentsFailed: failed,
+        ...(receipt ? { receipt } : {}),
         ...(Object.keys(orderFields).length ? { orderFieldsSaved: orderSaved } : {}),
       });
     } catch (err) {
