@@ -136,6 +136,7 @@
 #so_root .so-m{max-width:78%;display:flex;flex-direction:column;gap:3px}
 #so_root .so-m.in{align-self:flex-start}
 #so_root .so-m.out{align-self:flex-end;align-items:flex-end}
+#so_root .so-bub a{color:inherit;text-decoration:underline}
 #so_root .so-bub{padding:10px 13px;border-radius:16px;white-space:pre-wrap;word-break:break-word;background:#fff;color:var(--so-fg);box-shadow:0 1px 1px rgba(16,42,67,.05)}
 #so_root .so-m.in .so-bub{border-top-left-radius:5px}
 #so_root .so-m.out .so-bub{background:var(--so-sky);color:var(--so-ink);border-top-right-radius:5px}
@@ -521,6 +522,18 @@
     return `<div class="so-dl bad">ส่งไม่สำเร็จ: ${E(meta.error||'ไม่ทราบสาเหตุ')} ${again}</div>`
   }
 
+  // a link in a text message (http or https only) opens in a new tab; everything else stays the plain text it is (escaped)
+  function linkHtml(s){
+    const t=String(s==null?'':s);const re=/https?:\/\/[^\s<>"']+/g;let out='',last=0,mm;
+    while((mm=re.exec(t))){
+      const url=mm[0].replace(/[.,;:!?)\]]+$/,'');
+      if(!url.replace(/^https?:\/\//,''))continue;
+      out+=E(t.slice(last,mm.index))+`<a href="${E(url)}" target="_blank" rel="noopener noreferrer">${E(url)}</a>`;
+      last=mm.index+url.length;re.lastIndex=last
+    }
+    return out+E(t.slice(last))
+  }
+
   function msgHtml(m,t){
     const cls=m.kind==='system'?'sys':(m.dir==='note'?'note':(m.dir==='out'?'out':'in'))
     const who=cls==='sys'?'ระบบ':(m.dir==='note'?'โน้ตภายใน · '+(m.by_name||S.staff):(m.dir==='out'?(m.by_name||S.staff)+(isLine(t)?'':' · บันทึกในระบบ'):(t.title||'ลูกค้า')))
@@ -533,7 +546,7 @@
     }else{
       // ข้อความของลูกค้าที่ไม่ใช่ตัวอักษร (สติกเกอร์ ไฟล์ เสียง ตำแหน่ง) บอทบันทึกเป็นโน้ตสั้น ๆ — แสดงเป็นป้ายจาง ไม่ให้ปะปนกับข้อความจริง
       const ph=m.dir==='in'&&['sticker','video','audio','location','other','file','image'].includes(m.kind)
-      body=`<div class="so-bub${ph?' ph':''}">${E(m.body)}</div>`
+      body=`<div class="so-bub${ph?' ph':''}">${m.kind==='text'?linkHtml(m.body):E(m.body)}</div>`
       const la=Number(meta.latitude),lo=Number(meta.longitude)
       if(m.kind==='location'&&meta.latitude!=null&&meta.longitude!=null&&Number.isFinite(la)&&Number.isFinite(lo)&&Math.abs(la)<=90&&Math.abs(lo)<=180)
         body+=`<a class="so-file" href="https://www.google.com/maps?q=${la},${lo}" target="_blank" rel="noopener noreferrer">เปิดแผนที่</a>`

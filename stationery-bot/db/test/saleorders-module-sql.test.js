@@ -16,18 +16,21 @@ import { parseOrderText } from '../../src/picklist.js';
 const DIR = fileURLToPath(new URL('../../app-patches/sale-orders-page/', import.meta.url));
 const read = (f) => readFileSync(DIR + f, 'utf8');
 const code = read('saleorders.module.js');
+const v6 = read('saleorders.module.v6.js');
 const v5 = read('saleorders.module.v5.js');
 const v4 = read('saleorders.module.v4.js');
 const v3 = read('saleorders.module.v3.js');
 const v2 = read('saleorders.module.v2.js');
 const v1 = read('saleorders.module.v1.js');
-const built = buildSql(code, { v5, v4, v3, v2, v1 });
+const built = buildSql(code, { v6, v5, v4, v3, v2, v1 });
 const V1_MD5 = '9559832beab918cf7261079338771178'; // what the first installed version hashes to (checked against production on 4 Nov 2569)
 const V2_MD5 = '021d0e36d3e31cb66c46c58e62a7ea7e'; // what the version the back office had before v3 hashes to (checked against production)
 const V3_MD5 = '9f5e3e414a69ce2f89c2ab0e135af1a1'; // what the v3 version (live since the LINE bridge) hashes to
 const V4_MD5 = '144675bed448432bea634bd6abbc8223'; // what the v4 version (live since the customer accounts and order cards) hashes to
 const V5_MD5 = '6bdd44fa4e6cdd40fffbeb1a5b6bdc3c'; // what the v5 version (live since the payment status ลงบัญชี) hashes to
 const RAN_V4_TO_V5_MD5 = '0496091cc7837c66a0ca834362b61b52'; // the exact script that ran on production when v5 was installed
+const V6_MD5 = 'b78b1655aaa4eccd9bc97f9f92ee5ff1'; // what the v6 version (live since the bot's answers show in the chat) hashes to
+const RAN_V5_TO_V6_MD5 = '077596e0f3046397fc89e45f7df27df2'; // the exact script that ran on production when v6 was installed
 const FROZEN_V1_TO_V2_MD5 = 'd0be45e0a86f17d62229ac898a4e5645'; // the exact script that ran on production on 4 Nov 2569
 const RAN_V3_TO_V4_MD5 = '02861dcf8aaa83d7ac8a2875be68029b'; // the exact script that ran on production when v4 was installed
 
@@ -54,7 +57,7 @@ const installed = async (text, enabled = true) => {
 const row = () => rowOf(db);
 const others = () => othersOf(db);
 
-test('the committed scripts are the ones these files give, and the six versions are the ones named here', () => {
+test('the committed scripts are the ones these files give, and the seven versions are the ones named here', () => {
   for (const [key, file] of [
     ['apply', 'apply.sql'],
     ['reverse', 'reverse.sql'],
@@ -66,6 +69,8 @@ test('the committed scripts are the ones these files give, and the six versions 
     ['downgrade54', 'downgrade-v5-to-v4.sql'],
     ['upgrade56', 'upgrade-v5-to-v6.sql'],
     ['downgrade65', 'downgrade-v6-to-v5.sql'],
+    ['upgrade67', 'upgrade-v6-to-v7.sql'],
+    ['downgrade76', 'downgrade-v7-to-v6.sql'],
   ]) {
     assert.equal(read(file), built[key], `${file} is stale: run node app-patches/sale-orders-page/make-sql.mjs`);
   }
@@ -73,11 +78,13 @@ test('the committed scripts are the ones these files give, and the six versions 
   assert.equal(built.md5v2, V2_MD5, 'saleorders.module.v2.js is byte for byte the version the back office had before v3');
   assert.equal(built.md5v3, V3_MD5, 'saleorders.module.v3.js is byte for byte the version live since the LINE bridge');
   assert.equal(built.md5v4, V4_MD5, 'saleorders.module.v4.js is byte for byte the version live since v4');
+  assert.equal(built.md5v6, V6_MD5, 'saleorders.module.v6.js is byte for byte the version live since the bot’s answers show in the chat');
   assert.equal(built.md5v5, V5_MD5, 'saleorders.module.v5.js is byte for byte the version live since ลงบัญชี');
-  assert.equal(new Set([built.md5, built.md5v5, built.md5v4, built.md5v3, built.md5v2, built.md5v1]).size, 6, 'the current version differs from each earlier one');
+  assert.equal(new Set([built.md5, built.md5v6, built.md5v5, built.md5v4, built.md5v3, built.md5v2, built.md5v1]).size, 7, 'the current version differs from each earlier one');
   assert.equal(md5Of(read('upgrade-v1-to-v2.sql')), FROZEN_V1_TO_V2_MD5, 'upgrade-v1-to-v2.sql is the script that ran on production, unchanged');
   assert.equal(md5Of(read('upgrade-v3-to-v4.sql')), RAN_V3_TO_V4_MD5, 'upgrade-v3-to-v4.sql is the script that ran on production when v4 was installed');
   assert.equal(md5Of(read('upgrade-v4-to-v5.sql')), RAN_V4_TO_V5_MD5, 'upgrade-v4-to-v5.sql is the script that ran on production when v5 was installed');
+  assert.equal(md5Of(read('upgrade-v5-to-v6.sql')), RAN_V5_TO_V6_MD5, 'upgrade-v5-to-v6.sql is the script that ran on production when v6 was installed');
 });
 
 test('the module code is valid JavaScript (compiled, not run) and names no other page as its own', () => {
@@ -143,8 +150,8 @@ test('apply.sql run again changes nothing', async () => {
   assert.equal((await db.query("select count(*)::int as n from app_modules where name = 'saleorders'")).rows[0].n, 1);
 });
 
-test('reverse.sql removes the page while its code is v1, v2, v3, v4, v5 or v6, and refuses an edited one', async () => {
-  for (const [label, text] of [['v1', v1], ['v2', v2], ['v3', v3], ['v4', v4], ['v5', v5], ['v6', code]]) {
+test('reverse.sql removes the page while its code is v1, v2, v3, v4, v5, v6 or v7, and refuses an edited one', async () => {
+  for (const [label, text] of [['v1', v1], ['v2', v2], ['v3', v3], ['v4', v4], ['v5', v5], ['v6', v6], ['v7', code]]) {
     const d = await installed(text);
     try {
       const others0 = await othersOf(d);
@@ -352,8 +359,8 @@ test('upgrade-v5-to-v6.sql moves the page from v5 to v6: only its code changes (
       const others0 = await othersOf(d);
       await d.exec(built.upgrade56);
       const r = await rowOf(d);
-      assert.equal(r.code, code, 'the stored code is exactly the v6 file');
-      assert.equal(await md5In(d, r.code), built.md5);
+      assert.equal(r.code, v6, 'the stored code is exactly the v6 file');
+      assert.equal(await md5In(d, r.code), V6_MD5);
       assert.deepEqual([r.enabled, r.seq], [enabled, 66], 'switched on stays on, switched off stays off');
       assert.deepEqual(await othersOf(d), others0, 'salechat and the other modules are exactly as they were');
       await d.exec(built.upgrade56);
@@ -401,6 +408,71 @@ test('downgrade-v6-to-v5.sql puts v5 back byte for byte, keeps enabled and seq, 
   } finally {
     await d.close();
   }
+});
+
+test('upgrade-v6-to-v7.sql moves the page from v6 to v7: only its code changes (enabled and seq stay), and running it again does nothing', async () => {
+  for (const enabled of [true, false]) {
+    const d = await installed(v6, enabled);
+    try {
+      const others0 = await othersOf(d);
+      await d.exec(built.upgrade67);
+      const r = await rowOf(d);
+      assert.equal(r.code, code, 'the stored code is exactly the v7 file');
+      assert.equal(await md5In(d, r.code), built.md5);
+      assert.deepEqual([r.enabled, r.seq], [enabled, 66], 'switched on stays on, switched off stays off');
+      assert.deepEqual(await othersOf(d), others0, 'salechat and the other modules are exactly as they were');
+      await d.exec(built.upgrade67);
+      assert.deepEqual(await rowOf(d), r, 'run twice: nothing more changes');
+    } finally {
+      await d.close();
+    }
+  }
+});
+
+test('upgrade-v6-to-v7.sql refuses a page that is neither v6 nor v7, and never overwrites an edited one', async () => {
+  const edited = await installed(v6 + '\n// a later edit');
+  try {
+    const kept = (await rowOf(edited)).code;
+    await assert.rejects(edited.exec(built.upgrade67), /neither v6 nor v7/);
+    assert.equal((await rowOf(edited)).code, kept, 'the edited code is still there');
+  } finally {
+    await edited.close();
+  }
+  const old = await installed(v5);
+  try {
+    await assert.rejects(old.exec(built.upgrade67), /neither v6 nor v7/);
+    assert.equal((await rowOf(old)).code, v5, 'the v5 page is still there, untouched');
+  } finally {
+    await old.close();
+  }
+});
+
+test('downgrade-v7-to-v6.sql puts v6 back byte for byte, keeps enabled and seq, refuses an edited v7, and is harmless twice', async () => {
+  const d = await installed(v6);
+  try {
+    await d.exec(built.upgrade67);
+    const others0 = await othersOf(d);
+    await d.exec(built.downgrade76);
+    const r = await rowOf(d);
+    assert.equal(r.code, v6);
+    assert.equal(await md5In(d, r.code), V6_MD5, 'the md5 the v6 page had before the upgrade');
+    assert.deepEqual([r.enabled, r.seq], [true, 66]);
+    assert.deepEqual(await othersOf(d), others0);
+    await d.exec(built.downgrade76);
+    assert.equal((await rowOf(d)).code, v6, 'run twice: still v6');
+    await d.exec(built.upgrade67);
+    await d.query("update app_modules set code = code || E'\\n// edited' where name = 'saleorders'");
+    await assert.rejects(d.exec(built.downgrade76), /neither v7 nor v6/);
+  } finally {
+    await d.close();
+  }
+});
+
+test('a link in a LINE text message opens in a new tab; only http and https links are made, and the rest stays escaped', () => {
+  assert.ok(code.includes('function linkHtml(s){'));
+  assert.ok(code.includes("/https?:\\/\\/[^\\s<>\"']+/g"), 'only http and https');
+  assert.ok(code.includes('target="_blank" rel="noopener noreferrer"'));
+  assert.ok(code.includes("${m.kind==='text'?linkHtml(m.body):E(m.body)}"), 'a text message goes through the link check; other kinds stay escaped');
 });
 
 test('upgrade-v1-to-v2.sql (the step run on 4 Nov) still moves the first version to v2 — the record is frozen', async () => {

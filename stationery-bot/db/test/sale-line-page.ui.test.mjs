@@ -112,6 +112,11 @@ before(async () => {
   await customer(UA, 'คุณปู', { kind: 'image', body: '[รูปภาพ]', meta: { path: 'line/main/IMG-A1.png', name: 'รูปจากลูกค้า', size: PNG.length, type: 'image/png' } });
   await customer(UA, 'คุณปู', { kind: 'sticker', body: '[สติกเกอร์]', meta: { package_id: '1', sticker_id: '2' } });
   await customer(UA, 'คุณปู', { kind: 'location', body: '[ตำแหน่งที่ตั้ง] ร้านนัฐภรณ์ · เชียงกลาง', meta: { latitude: 19.3, longitude: 100.9 } });
+  // a link with a full stop after it, and an HTML fragment that must stay plain text; a PDF the bot saved
+  await customer(UA, 'คุณปู', { body: 'ดูที่ https://example.test/quote?id=7. และ <b>ตัวหนา</b> ค่ะ' });
+  const PDF_BYTES = Buffer.from('%PDF-1.4\n% test\n', 'latin1');
+  pg.storage.set('sale-order-files/line/main/PDF-A2.pdf', { bytes: PDF_BYTES, contentType: 'application/pdf' });
+  await customer(UA, 'คุณปู', { kind: 'file', body: '[ไฟล์] ไวนิล.pdf', meta: { path: 'line/main/PDF-A2.pdf', name: 'ไวนิล.pdf', size: PDF_BYTES.length, type: 'application/pdf' } });
   await customer(UB, 'ครูสมศรี', { body: 'ขอใบเสนอราคาด้วยค่ะ' });
   shell = await serveMiniShell({ moduleCode: readFileSync(MODULE, 'utf8') });
   browser = await playwright().chromium.launch();
@@ -145,6 +150,14 @@ test('no heartbeat from the bot: the page says LINE is not connected, shows the 
   await page.waitForFunction(() => [...document.querySelectorAll('#so_msgs img.so-img')].some((i) => i.complete && i.naturalWidth > 0), null, { timeout: 10000 });
   assert.equal(await page.locator('#so_msgs .so-bub.ph', { hasText: '[สติกเกอร์]' }).count(), 1, 'a sticker is a faint note, not a message');
   assert.equal(await page.locator('#so_msgs a.so-file[href*="google.com/maps?q=19.3,100.9"]').count(), 1);
+  // the link opens in a new tab and stops before the full stop; the HTML fragment is shown as typed, not as bold text
+  const quote = page.locator('#so_msgs .so-bub a[href="https://example.test/quote?id=7"]');
+  assert.equal(await quote.count(), 1, 'the link is clickable, without the full stop');
+  assert.equal(await quote.getAttribute('target'), '_blank');
+  assert.equal(await page.locator('#so_msgs .so-bub b').count(), 0, 'HTML in a message is never rendered');
+  assert.match(await msgsText(), /<b>ตัวหนา<\/b>/);
+  // a PDF from the customer is a button that opens it
+  assert.equal(await page.locator('#so_msgs button.so-file', { hasText: 'ไวนิล.pdf' }).count(), 1, 'a PDF is a button to open it');
   assert.match(await page.locator('#so_chat .so-lnote').innerText(), /คำตอบของบอท.*LINE OA Manager.*ไม่แสดงในหน้านี้/);
   assert.equal(await page.locator('#so_lchip').innerText(), 'LINE OA: ยังไม่ได้เชื่อมต่อ');
   assert.match(await page.locator('#so_honest').innerText(), /ข้อความจะรอส่งได้ไม่เกิน 30 นาที/);
