@@ -6,7 +6,9 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '3.0.0';
+  var APP_VERSION = '3.1.0';
+  // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) และตราสัญลักษณ์ NTP (แถบใต้ภาพ/เสื้อตัวการ์ตูน)
+  var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png' });
 
   var UNIT_WORD = { vinyl: 'ผืน', frame: 'ผืน', foam: 'แผ่น', sticker: 'แผ่น', acrylic: 'แผ่น', lightbox: 'ป้าย', rollup: 'ชุด', xstand: 'ชุด' };
 
@@ -34,7 +36,8 @@
     rates: {},
     shopName: 'นัดพอน',
     shopPhone: '',
-    logo: '',
+    logo: '', // โลโก้ที่อัปโหลดเอง (แทนโลโก้ร้าน)
+    brandLogo: true, // ไม่ได้อัปโหลด = ใช้โลโก้ NATTAPRON
     text: { title: 'ก๋วยเตี๋ยวเรือ\nสูตรเจ้าเก่า', sub: 'เปิดทุกวัน 07:00 – 15:00', phone: '08X-XXX-XXXX', theme: 'brand' },
   };
 
@@ -44,7 +47,8 @@
   var imgDesign = null; // งานจากไฟล์ { src, w, h, bg, id, blob, name, thumb, px } (ไฟล์เก็บใน IndexedDB)
   var textCache = { key: '', design: null };
   var photo = null; // { id, img, w, h, quad, touched, blob }
-  var logoImg = null;
+  var logoImg = null; // โลโก้ที่อัปโหลดเอง
+  var brandImg = { full: null, mark: null };
   var customer = '';
   var curJob = null; // งานที่เปิด/บันทึกล่าสุด { id, name }
   var lastOut = null;
@@ -104,7 +108,7 @@
   }
 
   /* ---------- ย้อนกลับ / ทำซ้ำ (Ctrl+Z / Ctrl+Y) ---------- */
-  var NOHIST = { panel: 1, view: 1, fmt: 1, logo: 1 };
+  var NOHIST = { panel: 1, view: 1, fmt: 1, logo: 1, brandLogo: 1 };
   var hist = { list: [], i: -1, lock: false };
   function copyQuad(q) {
     return q
@@ -217,7 +221,7 @@
       line3: line3.join(' · '),
       price: q.has ? C.baht(q.total) + ' บาท' : '',
       priceNote: q.has ? (q.qty > 1 ? 'ราคารวม (' + unit + 'ละ ' + C.baht(q.per) + ' บาท)' : 'ราคา') : '',
-      logo: logoImg,
+      logo: logoImg || (st.brandLogo ? brandImg.mark : null),
     };
   }
 
@@ -363,6 +367,10 @@
     var sz = fitSize(view.width / view.height);
     view.style.width = sz.w + 'px';
     view.style.height = sz.h + 'px';
+    // กล่องขนาดอยู่มุมซ้ายล่าง เหนือแถบรายละเอียด (ไม่บังป้าย/เส้นบอกขนาดที่มักอยู่ด้านบน)
+    var o = L3 || lastOut;
+    var fr = o && o.F ? o.F / (o.H + o.F) : 0;
+    $('infoBox').style.bottom = Math.round(sz.h * fr + 10) + 'px';
   }
   var resizeTimer = 0;
   window.addEventListener('resize', function () {
@@ -1034,25 +1042,43 @@
     });
   });
 
+  // แถวโลโก้: โลโก้ที่อัปโหลด > โลโก้ร้าน NATTAPRON > ไม่มีโลโก้
+  function syncLogoRow() {
+    var brand = !logoImg && st.brandLogo;
+    var any = !!logoImg || brand;
+    $('logoThumb').hidden = !any;
+    if (logoImg) $('logoThumb').src = st.logo;
+    else if (brand) $('logoThumb').src = BRAND.mark;
+    $('logoClear').hidden = !any;
+    $('logoBrand').hidden = any;
+    $('logoBtnText').textContent = any ? 'เปลี่ยนโลโก้' : 'ใส่โลโก้ร้าน';
+  }
   function setLogo(dataUrl) {
     if (!dataUrl) {
       logoImg = null;
-      $('logoThumb').hidden = true;
-      $('logoClear').hidden = true;
-      $('logoBtnText').textContent = 'ใส่โลโก้ร้าน';
+      syncLogoRow();
       draw();
       return;
     }
     var img = new Image();
     img.onload = function () {
       logoImg = img;
-      $('logoThumb').src = dataUrl;
-      $('logoThumb').hidden = false;
-      $('logoClear').hidden = false;
-      $('logoBtnText').textContent = 'เปลี่ยนโลโก้';
+      syncLogoRow();
       draw();
     };
     img.src = dataUrl;
+  }
+  function loadBrand() {
+    ['full', 'mark'].forEach(function (k) {
+      var img = new Image();
+      img.onload = function () {
+        brandImg[k] = img;
+        if (k === 'mark' && R.setMascotLogo) R.setMascotLogo(img);
+        footCache = null;
+        draw();
+      };
+      img.src = BRAND[k];
+    });
   }
   $('logoFile').addEventListener('change', function (e) {
     var f = e.target.files[0];
@@ -1076,6 +1102,13 @@
   });
   $('logoClear').addEventListener('click', function () {
     st.logo = '';
+    st.brandLogo = false;
+    save();
+    setLogo('');
+  });
+  $('logoBrand').addEventListener('click', function () {
+    st.logo = '';
+    st.brandLogo = true;
     save();
     setLogo('');
   });
@@ -1181,37 +1214,41 @@
     x.fillStyle = '#ffffff';
     x.fillRect(0, 0, W, H);
 
-    // หัวกระดาษ
-    x.fillStyle = NAVY;
-    x.fillRect(0, 0, W, 200);
-    x.fillStyle = ORANGE;
-    x.fillRect(0, 200, W, 8);
-    var lx = M;
-    if (logoImg) {
-      var lh = 104;
-      var lw = Math.min(240, (lh * (logoImg.naturalWidth || logoImg.width)) / (logoImg.naturalHeight || logoImg.height));
-      x.fillStyle = '#ffffff';
-      rrect(x, M - 10, 38, lw + 20, lh + 20, 14);
-      x.fill();
-      x.drawImage(logoImg, M, 48, lw, lh);
-      lx = M + lw + 34;
-    }
+    // หัวกระดาษ: โลโก้ร้าน (ซ้าย) · ใบเสนอราคา (ขวา) · เส้นกรมท่า-ส้ม
+    var qLogo = logoImg || (st.brandLogo ? brandImg.full : null);
     x.textBaseline = 'alphabetic';
     x.textAlign = 'left';
-    x.fillStyle = '#ffffff';
-    fitText(x, st.shopName.trim() || 'ร้านป้าย', lx, 104, W / 2 + 40 - lx, 600, 46, DISP);
-    x.fillStyle = '#aeb8d4';
-    if (st.shopPhone.trim()) fitText(x, C.phoneText(st.shopPhone), lx, 148, W / 2 + 40 - lx, 400, 26, BODY);
+    var shopLine = [st.shopName.trim(), st.shopPhone.trim() ? C.phoneText(st.shopPhone) : ''].filter(Boolean).join('  ·  ');
+    if (qLogo) {
+      var lh = 116;
+      var lw = (lh * (qLogo.naturalWidth || qLogo.width)) / (qLogo.naturalHeight || qLogo.height);
+      if (lw > 600) {
+        lh = (lh * 600) / lw;
+        lw = 600;
+      }
+      x.drawImage(qLogo, M - 6, 40 + (116 - lh) / 2, lw, lh);
+      x.fillStyle = INK2;
+      if (shopLine) fitText(x, shopLine, M, 192, 640, 400, 22, BODY);
+    } else {
+      x.fillStyle = NAVY;
+      fitText(x, st.shopName.trim() || 'ร้านป้าย', M, 112, 620, 600, 50, DISP);
+      x.fillStyle = INK2;
+      if (st.shopPhone.trim()) fitText(x, C.phoneText(st.shopPhone), M, 156, 620, 400, 26, BODY);
+    }
     x.textAlign = 'right';
-    x.fillStyle = '#ffffff';
+    x.fillStyle = NAVY;
     font(x, 600, 56, DISP);
     x.fillText('ใบเสนอราคา', W - M, 106);
-    x.fillStyle = '#aeb8d4';
+    x.fillStyle = INK3;
     font(x, 500, 22, BODY);
     x.fillText('QUOTATION', W - M, 144);
+    x.fillStyle = NAVY;
+    x.fillRect(M, 210, CW, 5);
+    x.fillStyle = ORANGE;
+    x.fillRect(M, 210, 150, 5);
 
     // ลูกค้า / เลขที่ / วันที่
-    var y = 268;
+    var y = 272;
     x.textAlign = 'left';
     x.fillStyle = INK3;
     font(x, 500, 22, BODY);
@@ -2063,7 +2100,9 @@
   buildTypes();
   buildThemes();
   buildScenes();
+  loadBrand();
   if (st.logo) setLogo(st.logo);
+  else syncLogoRow();
   go(1);
   sync();
   restoreCurrent();

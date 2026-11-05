@@ -320,7 +320,6 @@ function mats() {
   MAT.eyeHole = std({ color: 0x1b1b1b, roughness: 0.9 });
   MAT.back = std({ color: 0xe4e3df, roughness: 0.92 });
   MAT.foamEdge = std({ color: 0xf4f3ef, roughness: 0.85 });
-  MAT.person = std({ color: 0xa3abbb, roughness: 0.62 });
   MAT.tie = std({ color: 0x151618, roughness: 0.6 });
   return MAT;
 }
@@ -1550,50 +1549,325 @@ function buildXstand(w, h, map) {
 }
 
 // หุ่นคนสเกลแบบโมเดลสถาปัตย์ สูง 170 ซม. — ไว้เทียบขนาดป้าย
+/* ---------------- คนเทียบขนาด: การ์ตูนเจ้าของร้าน สูง 170 ซม. ----------------
+ * ผมดำยุ่ง แว่นกลม เสื้อแขนยาวสีดำสกรีนโลโก้ร้าน NTP กางเกงสีเบจ รองเท้าผ้าใบ + เส้นขอบดำแบบลายเส้นการ์ตูน
+ * แขนข้างที่อยู่ใกล้ป้ายผายมือนำเสนอป้าย (สลับข้างตามตำแหน่งที่ยืน) */
+// เส้นขอบ: ดันผิวออกตามแนวตั้งฉาก หนาคงที่บนจอ (~2 px) แล้ววาดด้านหลัง
+const INK = new THREE.ShaderMaterial({
+  uniforms: { k: { value: 0.0022 }, color: { value: new THREE.Color(0x16181e) } },
+  vertexShader: [
+    'uniform float k;',
+    'void main() {',
+    '  vec4 mv = modelViewMatrix * vec4(position, 1.0);',
+    '  vec3 n = normalize(normalMatrix * normal);',
+    '  mv.xyz += n * k * max(0.6, -mv.z);',
+    '  gl_Position = projectionMatrix * mv;',
+    '}',
+  ].join('\n'),
+  fragmentShader: 'uniform vec3 color;\nvoid main() { gl_FragColor = vec4(color, 1.0); }',
+  side: THREE.BackSide,
+});
+function inked(mesh) {
+  const o = new THREE.Mesh(mesh.geometry, INK);
+  o.userData.ink = true;
+  mesh.add(o);
+  return mesh;
+}
+
+// หน้าการ์ตูน (แผนที่รอบหัวแบบ equirect: กลางหน้าอยู่ที่ x = 1/4 ของภาพ)
+function faceTexture() {
+  const W = 1024;
+  const H = 512;
+  const c = mk(W, H);
+  const x = c.getContext('2d');
+  x.fillStyle = '#f2cfb6';
+  x.fillRect(0, 0, W, H);
+  const cx = 256;
+  // แก้มแดง
+  x.fillStyle = 'rgba(240,128,128,0.42)';
+  for (const s of [-1, 1]) {
+    x.beginPath();
+    x.ellipse(cx + s * 80, 292, 20, 11, 0, 0, Math.PI * 2);
+    x.fill();
+  }
+  // คิ้วหนา (โผล่ใต้ผมหน้าม้านิดหนึ่ง)
+  x.strokeStyle = '#1b1c22';
+  x.lineCap = 'round';
+  x.lineWidth = 7;
+  for (const s of [-1, 1]) {
+    x.beginPath();
+    x.moveTo(cx + s * 44, 214);
+    x.quadraticCurveTo(cx + s * 60, 206, cx + s * 76, 214);
+    x.stroke();
+  }
+  // ตาดำกลมมีประกาย
+  for (const s of [-1, 1]) {
+    x.fillStyle = '#1a1b22';
+    x.beginPath();
+    x.ellipse(cx + s * 60, 246, 10, 13, 0, 0, Math.PI * 2);
+    x.fill();
+    x.fillStyle = '#ffffff';
+    x.beginPath();
+    x.arc(cx + s * 60 - 3, 240, 3.6, 0, Math.PI * 2);
+    x.fill();
+  }
+  // จมูก
+  x.strokeStyle = '#d29a7e';
+  x.lineWidth = 4;
+  x.beginPath();
+  x.moveTo(cx - 5, 292);
+  x.quadraticCurveTo(cx, 297, cx + 5, 292);
+  x.stroke();
+  // ยิ้มกว้างอ้าปาก
+  x.fillStyle = '#7d2b2e';
+  x.beginPath();
+  x.moveTo(cx - 30, 318);
+  x.quadraticCurveTo(cx, 324, cx + 30, 318);
+  x.quadraticCurveTo(cx + 26, 352, cx, 354);
+  x.quadraticCurveTo(cx - 26, 352, cx - 30, 318);
+  x.fill();
+  x.save();
+  x.clip();
+  x.fillStyle = '#ffffff';
+  x.fillRect(cx - 34, 314, 68, 10);
+  x.fillStyle = '#e57b7d';
+  x.beginPath();
+  x.ellipse(cx, 356, 20, 13, 0, 0, Math.PI * 2);
+  x.fill();
+  x.restore();
+  x.strokeStyle = '#3a1a1c';
+  x.lineWidth = 3;
+  x.beginPath();
+  x.moveTo(cx - 30, 318);
+  x.quadraticCurveTo(cx, 324, cx + 30, 318);
+  x.quadraticCurveTo(cx + 26, 352, cx, 354);
+  x.quadraticCurveTo(cx - 26, 352, cx - 30, 318);
+  x.stroke();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = ANISO;
+  return t;
+}
+
 function buildPerson() {
   const g = new THREE.Group();
-  const m = mats().person;
-  const limb = (a, b, r0, r1) => {
-    const d = new THREE.Vector3().subVectors(b, a);
-    const len = d.length();
-    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, len, 18, 1), m);
-    mesh.position.copy(a).addScaledVector(d, 0.5);
-    mesh.quaternion.setFromUnitVectors(UP, d.normalize());
-    return mesh;
-  };
-  const ball = (x, y, z, r, sx = 1, sy = 1, sz = 1) => {
-    const b = new THREE.Mesh(new THREE.SphereGeometry(r, 20, 14), m);
-    b.position.set(x, y, z);
-    b.scale.set(sx, sy, sz);
-    return b;
+  const M = {
+    skin: std({ color: 0xf2cfb6, roughness: 0.6 }),
+    shirt: std({ color: 0x26292f, roughness: 0.92 }),
+    rib: std({ color: 0x1b1d22, roughness: 0.95 }),
+    pants: std({ color: 0xd8c4a2, roughness: 0.9 }),
+    shoe: std({ color: 0xf1f0ec, roughness: 0.55 }),
+    sole: std({ color: 0x3b3d44, roughness: 0.8 }),
+    hair: std({ color: 0x181a21, roughness: 0.5 }),
+    frame: std({ color: 0x121317, roughness: 0.3, metalness: 0.3 }),
   };
   const V = (x, y, z = 0) => new THREE.Vector3(x, y, z);
+  const limb = (a, b, r0, r1, mat, parent = g) => {
+    const d = new THREE.Vector3().subVectors(b, a);
+    const len = d.length();
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, len, 20, 1), mat);
+    mesh.position.copy(a).addScaledVector(d, 0.5);
+    mesh.quaternion.setFromUnitVectors(UP, d.normalize());
+    parent.add(inked(mesh));
+    return mesh;
+  };
+  const ball = (p, r, mat, sc = [1, 1, 1], parent = g, ink = true) => {
+    const b = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 16), mat);
+    b.position.copy(p);
+    b.scale.set(sc[0], sc[1], sc[2]);
+    parent.add(ink ? inked(b) : b);
+    return b;
+  };
+
+  // ขา (กางเกงขายาวสีเบจ) + รองเท้าผ้าใบ
+  ball(V(0, 0.9, 0), 0.16, M.pants, [1.05, 0.5, 0.7]);
   for (const s of [-1, 1]) {
-    // ขา: ต้นขา เข่า หน้าแข้ง ข้อเท้า เท้า
-    g.add(limb(V(s * 0.09, 0.9), V(s * 0.085, 0.49, 0.01), 0.078, 0.06));
-    g.add(ball(s * 0.085, 0.49, 0.01, 0.058));
-    g.add(limb(V(s * 0.085, 0.49, 0.01), V(s * 0.08, 0.08), 0.054, 0.04));
-    g.add(ball(s * 0.08, 0.075, 0, 0.042));
-    const foot = new THREE.Mesh(new RoundedBoxGeometry(0.09, 0.06, 0.25, 3, 0.025), m);
-    foot.position.set(s * 0.085, 0.03, 0.05);
-    g.add(foot);
-    // แขน: ไหล่ ต้นแขน ศอก แขนล่าง มือ
-    g.add(ball(s * 0.2, 1.405, 0, 0.058));
-    g.add(limb(V(s * 0.205, 1.4), V(s * 0.225, 1.12, 0.01), 0.048, 0.04));
-    g.add(ball(s * 0.225, 1.12, 0.01, 0.04));
-    g.add(limb(V(s * 0.225, 1.12, 0.01), V(s * 0.235, 0.86, 0.03), 0.038, 0.03));
-    g.add(ball(s * 0.237, 0.83, 0.035, 0.042, 0.8, 1.25, 0.6));
+    limb(V(s * 0.092, 0.93), V(s * 0.088, 0.5, 0.012), 0.084, 0.066, M.pants);
+    ball(V(s * 0.088, 0.5, 0.012), 0.064, M.pants);
+    limb(V(s * 0.088, 0.5, 0.012), V(s * 0.085, 0.09, 0), 0.062, 0.058, M.pants);
+    const shoe = new THREE.Mesh(new RoundedBoxGeometry(0.1, 0.075, 0.27, 3, 0.03), M.shoe);
+    shoe.position.set(s * 0.086, 0.046, 0.05);
+    g.add(inked(shoe));
+    const sole = new THREE.Mesh(new RoundedBoxGeometry(0.106, 0.024, 0.278, 2, 0.01), M.sole);
+    sole.position.set(s * 0.086, 0.012, 0.05);
+    g.add(sole);
   }
-  // ลำตัว: เอวคอด อกกว้าง (หมุนโปรไฟล์ แล้วบีบให้แบน)
+
+  // เสื้อแขนยาวสีดำ (ตัวหลวมนิด ๆ แบบสเวตเตอร์) + ขอบยางเอว/คอ
   const prof = [
-    [0.0, 0.84], [0.13, 0.85], [0.15, 0.9], [0.14, 0.98], [0.12, 1.06], [0.135, 1.16], [0.16, 1.28], [0.17, 1.36], [0.15, 1.42], [0.08, 1.46], [0.0, 1.47],
-  ].map(([r, y]) => new THREE.Vector2(r, y));
-  const torso = new THREE.Mesh(new THREE.LatheGeometry(prof, 32), m);
-  torso.scale.set(1.12, 1, 0.66);
-  g.add(torso);
-  g.add(limb(V(0, 1.44), V(0, 1.53), 0.05, 0.046));
-  g.add(ball(0, 1.6, 0.008, 0.1, 0.92, 1.14, 1.0));
-  return shadowy(g, true, true);
+    [0.0, 0.82], [0.156, 0.83], [0.17, 0.87], [0.165, 0.95], [0.156, 1.05], [0.161, 1.15], [0.173, 1.27], [0.178, 1.35], [0.16, 1.415], [0.09, 1.45], [0.0, 1.46],
+  ];
+  const SX = 1.1;
+  const SZ = 0.7;
+  const torso = new THREE.Mesh(new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), 40), M.shirt);
+  torso.scale.set(SX, 1, SZ);
+  g.add(inked(torso));
+  const ring = (y, r, tube, sx, sz, tilt = 0) => {
+    const m = new THREE.Mesh(new THREE.TorusGeometry(r, tube, 10, 40), M.rib);
+    m.rotation.x = Math.PI / 2 + tilt;
+    m.position.set(0, y, 0);
+    m.scale.set(sx, sz, 1);
+    g.add(m);
+    return m;
+  };
+  ring(0.842, 0.165, 0.015, SX, SZ);
+  ring(1.446, 0.06, 0.014, 1.08, 0.9, 0.12).position.z = 0.006;
+
+  // โลโก้ร้านสกรีนกลางอก (แผ่นโค้งตามลำตัว)
+  const rAt = (y) => {
+    for (let i = 1; i < prof.length; i++) {
+      const [r0, y0] = prof[i - 1];
+      const [r1, y1] = prof[i];
+      if (y <= y1) return r0 + ((r1 - r0) * (y - y0)) / (y1 - y0);
+    }
+    return prof[prof.length - 1][0];
+  };
+  const dw = 0.15;
+  const dh = 0.098;
+  const dy = 1.285;
+  const decalGeo = new THREE.PlaneGeometry(dw, dh, 16, 4);
+  const pos = decalGeo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const px = pos.getX(i);
+    const py = pos.getY(i) + dy;
+    const r = rAt(py);
+    const k = Math.min(1, Math.abs(px) / (r * SX));
+    pos.setXYZ(i, px, py, r * SZ * Math.sqrt(1 - k * k) + 0.0025);
+  }
+  decalGeo.computeVertexNormals();
+  const decalMat = std({ transparent: true, roughness: 0.75, polygonOffset: true, polygonOffsetFactor: -2, depthWrite: false });
+  decalMat.visible = false;
+  const decal = new THREE.Mesh(decalGeo, decalMat);
+  g.add(decal);
+  const src = (NS.BRAND && NS.BRAND.mark) || 'brand/ntp-mark.png';
+  new THREE.TextureLoader().load(src, (t) => {
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = ANISO;
+    decalMat.map = t;
+    decalMat.visible = true;
+    decalMat.needsUpdate = true;
+    if (NS.requestRender) NS.requestRender();
+  });
+
+  // แขน: ข้างหนึ่งปล่อยข้างตัว อีกข้างผายมือนำเสนอป้าย — สร้างทั้งสองแบบทั้งสองข้าง แล้วเลือกโชว์
+  const arms = {};
+  const arm = (s, present) => {
+    const a = new THREE.Group();
+    const sh = V(s * 0.197, 1.388, 0);
+    ball(sh, 0.056, M.shirt, [1, 1, 1], a);
+    let el;
+    let wr;
+    if (present) {
+      el = V(s * 0.3, 1.16, 0.085);
+      wr = V(s * 0.43, 1.205, 0.205);
+    } else {
+      el = V(s * 0.235, 1.115, 0.012);
+      wr = V(s * 0.245, 0.87, 0.035);
+    }
+    limb(V(s * 0.205, 1.38), el, 0.052, 0.047, M.shirt, a);
+    ball(el, 0.047, M.shirt, [1, 1, 1], a);
+    const fd = new THREE.Vector3().subVectors(wr, el).normalize();
+    const cuffA = wr.clone().addScaledVector(fd, -0.03);
+    limb(el, cuffA, 0.046, 0.041, M.shirt, a);
+    limb(cuffA, wr, 0.043, 0.043, M.rib, a);
+    if (present) {
+      // มือแบหงาย นิ้วชี้ไปทางป้าย
+      const hand = ball(wr.clone().add(V(s * 0.045, 0.004, 0.025)), 0.046, M.skin, [1.25, 0.42, 0.9], a);
+      hand.rotation.y = -s * 0.55;
+      ball(wr.clone().add(V(s * 0.012, 0.02, 0.045)), 0.016, M.skin, [1, 0.8, 1.5], a);
+    } else ball(wr.clone().add(V(s * 0.002, -0.045, 0.004)), 0.043, M.skin, [0.78, 1.25, 0.62], a);
+    a.visible = false;
+    g.add(a);
+    arms[s + (present ? 'p' : 'r')] = a;
+  };
+  for (const s of [-1, 1]) {
+    arm(s, false);
+    arm(s, true);
+  }
+  // s = ฝั่งที่ป้ายอยู่ (+1 = ป้ายอยู่ทางขวาของภาพ)
+  g.userData.side = (s) => {
+    for (const k in arms) arms[k].visible = false;
+    arms[s + 'p'].visible = true;
+    arms[-s + 'r'].visible = true;
+  };
+  g.userData.side(-1);
+
+  // คอ หัว หู หน้า
+  limb(V(0, 1.42), V(0, 1.53), 0.05, 0.047, M.skin);
+  const headFrom = g.children.length;
+  const HC = V(0, 1.585, 0.012);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.1, 48, 32), std({ map: faceTexture(), roughness: 0.6 }));
+  head.position.copy(HC);
+  head.scale.set(0.92, 1.08, 0.98);
+  g.add(inked(head));
+  for (const s of [-1, 1]) ball(V(s * 0.097, 1.578, 0.006), 0.026, M.skin, [0.5, 1, 0.75]);
+
+  // แว่นกรอบกลม
+  for (const s of [-1, 1]) {
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.0235, 0.0028, 8, 36), M.frame);
+    rim.position.set(s * 0.035, 1.594, 0.111);
+    rim.rotation.y = s * 0.22;
+    g.add(rim);
+    g.add(rod(V(s * 0.058, 1.598, 0.104), V(s * 0.088, 1.6, 0.0), 0.0022, M.frame, 6));
+  }
+  const bridge = new THREE.Mesh(new THREE.TorusGeometry(0.012, 0.0024, 6, 16, Math.PI), M.frame);
+  bridge.position.set(0, 1.594, 0.116);
+  g.add(bridge);
+
+  // ผมดำยุ่ง: ครอบหัว + ท้ายทอย + ปอยผมรอบหัว + หน้าม้า + ผมชี้
+  const hairAt = (geo, sc) => {
+    const m = new THREE.Mesh(geo, M.hair);
+    m.position.set(0, 1.597, 0.006);
+    m.scale.set(sc[0], sc[1], sc[2]);
+    g.add(inked(m));
+    return m;
+  };
+  hairAt(new THREE.SphereGeometry(0.106, 40, 20, 0, Math.PI * 2, 0, 1.42), [0.98, 1.06, 1.03]);
+  hairAt(new THREE.SphereGeometry(0.105, 36, 14, Math.PI - 0.08, Math.PI + 0.16, 1.1, 1.0), [0.99, 1.08, 1.03]);
+  const tufts = [
+    [0, 0.09, -0.005, 0.045], [0.045, 0.09, 0.035, 0.038], [-0.047, 0.1, 0.03, 0.042], [0.064, 0.078, -0.03, 0.04], [-0.066, 0.076, -0.034, 0.04],
+    [0.0, 0.085, -0.07, 0.046], [0.04, 0.05, -0.085, 0.04], [-0.04, 0.05, -0.085, 0.04], [0.088, 0.035, 0.012, 0.032], [-0.088, 0.035, 0.012, 0.032],
+    [0.084, 0.012, -0.045, 0.034], [-0.084, 0.012, -0.045, 0.034], [0.02, 0.095, 0.06, 0.038], [-0.025, 0.093, 0.062, 0.036],
+    // ผมข้างหู/จอน ปิดขอบผมด้านข้างให้กลมนุ่ม
+    [0.094, -0.008, 0.03, 0.026], [-0.094, -0.008, 0.03, 0.026], [0.096, -0.028, -0.012, 0.03], [-0.096, -0.028, -0.012, 0.03], [0.07, -0.045, -0.06, 0.032], [-0.07, -0.045, -0.06, 0.032],
+  ];
+  // ปอยผมชี้ออกจากหัว (รีตามแนวรัศมี เอียงขึ้นนิด ๆ) ดูยุ่งแบบการ์ตูน
+  for (const [tx, ty, tz, r] of tufts) {
+    const dir = new THREE.Vector3(tx, ty + 0.035, tz).normalize();
+    const t = ball(V(tx, 1.597 + ty, 0.006 + tz).addScaledVector(dir, -0.3 * r), r, M.hair, [0.8, 1.3, 0.8]);
+    t.quaternion.setFromUnitVectors(UP, dir);
+  }
+  // หน้าม้ายาวถึงขอบแว่น
+  for (let i = 0; i < 6; i++) {
+    const bx = -0.065 + i * 0.026;
+    const b = ball(V(bx, 1.646 - Math.abs(bx) * 0.15, 0.093 - Math.abs(bx) * 0.32), 0.026, M.hair, [0.95, 1.55, 0.6]);
+    b.rotation.z = -bx * 4.2;
+    b.rotation.x = -0.38;
+  }
+  // ผมชี้บนหัว
+  for (const [cx, cz, rz, rx] of [[0.012, -0.02, -0.5, -0.4], [-0.02, -0.035, 0.6, -0.5]]) {
+    const c = new THREE.Mesh(new THREE.ConeGeometry(0.013, 0.05, 8), M.hair);
+    c.position.set(cx, 1.698, cz);
+    c.rotation.set(rx, 0, rz);
+    g.add(inked(c));
+  }
+
+  // หัวการ์ตูนใหญ่กว่าคนจริงนิดหนึ่ง (คางอยู่ที่คอเสื้อเท่าเดิม ผมสูงสุด ~172 ซม.)
+  const hg = new THREE.Group();
+  for (const part of g.children.slice(headFrom)) {
+    part.position.sub(HC);
+    hg.add(part);
+  }
+  hg.position.set(0, 1.578, HC.z);
+  hg.scale.setScalar(1.12);
+  g.add(hg);
+
+  shadowy(g, true, true);
+  g.traverse((m) => {
+    if (m.userData.ink) m.castShadow = m.receiveShadow = false;
+  });
+  decal.castShadow = false;
+  return g;
 }
 
 /* ---------------- เวที ---------------- */
@@ -1661,6 +1935,9 @@ export function createStage(opts) {
   let cur = { scene: 'studio', type: 'vinyl', w: 2, h: 1, person: true, night: false };
   let view = 'angle';
   let needs = true;
+  NS.requestRender = () => {
+    needs = true; // เท็กซ์เจอร์ที่โหลดตามมา (โลโก้บนเสื้อ)
+  };
   let show = null;
   let lastSize = [0, 0];
 
@@ -1758,6 +2035,7 @@ export function createStage(opts) {
     const pz = model.floor ? z + 0.05 : sceneKey === 'shop' ? 0.75 : sceneKey === 'fence' ? 0.5 : 0.45;
     person.position.set(px, 0, pz);
     person.rotation.y = left ? 0.38 : -0.38;
+    person.userData.side(left ? 1 : -1); // ผายมือไปทางป้าย
     // เคเบิลไทร์ตาไก่บนรั้ว / หมุดยึดบนผนัง
     ties.clear();
     if (model.eyelets) {

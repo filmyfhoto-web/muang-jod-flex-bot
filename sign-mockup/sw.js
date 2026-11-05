@@ -1,8 +1,8 @@
 /* นัดพอน Sign Mockup — ใช้ได้แม้ไม่มีเน็ต + อัปเดตทันทีที่มีรุ่นใหม่
  * ไฟล์แอป: ขอจากเซิร์ฟเวอร์ก่อน (ได้รุ่นล่าสุดเสมอ) เน็ตหลุดค่อยใช้ของในเครื่อง
- * three.js / ไอคอน: ใช้ของในเครื่องก่อน (ไม่เปลี่ยนบ่อย เปิดเร็ว)
+ * three.js / ไอคอน / โลโก้: ใช้ของในเครื่องก่อน (ไม่เปลี่ยนบ่อย เปิดเร็ว)
  * เปลี่ยนไฟล์แอปเมื่อไหร่ ให้เลื่อน VERSION ให้ตรงกับ APP_VERSION ใน app.js (มีเทสต์เช็ก) */
-var VERSION = 'sign-mockup-3.0.0';
+var VERSION = 'sign-mockup-3.1.0';
 var APP = [
   './',
   'index.html',
@@ -18,6 +18,8 @@ var APP = [
   'vendor/addons/geometries/RoundedBoxGeometry.js',
   'vendor/addons/exporters/GLTFExporter.js',
   'vendor/addons/utils/TextureUtils.js',
+  'brand/ntp-logo.png',
+  'brand/ntp-mark.png',
   'manifest.webmanifest',
   'icons/icon.svg',
   'icons/icon-192.png',
@@ -26,7 +28,7 @@ var APP = [
   'icons/apple-touch-icon.png'
 ];
 var FONTS = 'sign-mockup-fonts';
-var STATIC = /\/(vendor|icons)\//;
+var STATIC = /\/(vendor|icons|brand)\//;
 
 self.addEventListener('install', function (e) {
   e.waitUntil(

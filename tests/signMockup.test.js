@@ -341,3 +341,25 @@ test('ทุกชนิดป้ายมีไอคอนบนการ์�
   const block = app.slice(app.indexOf('var TYPE_ICON = {'), app.indexOf('function buildTypes'));
   for (const k of C.TYPE_ORDER) assert.match(block, new RegExp(`\\n\\s+${k}:\\s*\\n?\\s*'<svg`), k);
 });
+
+test('โลโก้ร้าน NATTAPRON: ไฟล์มีจริง ใช้ที่แถบบน/ใบเสนอราคา/เสื้อตัวการ์ตูน และเก็บไว้ใช้ออฟไลน์', () => {
+  const html = readFileSync(new URL('../sign-mockup/index.html', import.meta.url), 'utf8');
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  const sw = readFileSync(new URL('../sign-mockup/sw.js', import.meta.url), 'utf8');
+  const s3 = readFileSync(new URL('../sign-mockup/scene3d.js', import.meta.url), 'utf8');
+  for (const f of ['brand/ntp-logo.png', 'brand/ntp-mark.png']) {
+    assert.ok(existsSync(new URL('../sign-mockup/' + f, import.meta.url)), f);
+    assert.ok(html.includes(f), 'index.html ' + f);
+    assert.ok(app.includes(`'${f}'`), 'app.js ' + f);
+    assert.ok(sw.includes(`'${f}'`), 'sw.js ' + f);
+  }
+  // PNG จริง (ไม่ใช่ไฟล์เสีย) และเล็กพอโหลดเร็ว
+  for (const f of ['brand/ntp-logo.png', 'brand/ntp-mark.png', 'icons/icon-512.png']) {
+    const b = readFileSync(new URL('../sign-mockup/' + f, import.meta.url));
+    assert.deepEqual([...b.slice(0, 4)], [0x89, 0x50, 0x4e, 0x47], f);
+    assert.ok(b.length < 80 * 1024, f + ' ' + b.length);
+  }
+  // ตัวการ์ตูนใส่เสื้อสกรีนโลโก้ร้าน (ทั้ง 3 มิติ และ 2 มิติ)
+  assert.match(s3, /NS\.BRAND && NS\.BRAND\.mark/);
+  assert.match(app, /R\.setMascotLogo\(img\)/);
+});
