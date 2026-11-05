@@ -1513,6 +1513,78 @@ function buildRollup(w, h, map) {
   return { group: g, face, front: 0.002, faceY: [y0, top] };
 }
 
+/* ป้ายโครงการ CNC: แผ่นอะลูมิเนียมคอมโพสิตบนโครงเหล็ก (หนา 5 ซม.) ขอบอะลูมิเนียม ตั้งเสาเหล็กกล่องคู่บนฐานปูน
+ * ตัวอักษร/โลโก้ (ส่วนที่สีต่างจากพื้นงาน) ตัด CNC ยกนูน 1.5 ซม. — ซ้อนแผ่นตัดรูปหลายชั้นให้เห็นความหนาเวลามองเฉียง
+ * แผ่นหน้าเป็นสีพื้นของงาน · ตัวนูนทอดเงาลงบนแผ่นจริง */
+function buildCnc(w, h, map, edge) {
+  const g = new THREE.Group();
+  const G = C.geometry('cnc', w * 100, h * 100);
+  const lift = G.lift / 100;
+  const post = G.post / 100;
+  const cap = G.cap / 100;
+  const relief = G.relief / 100;
+  const T = G.depth / 100;
+  const cy = lift + h / 2;
+  const bgCol = (e) => new THREE.Color().setRGB(e[0] / 255, e[1] / 255, e[2] / 255, THREE.SRGBColorSpace);
+  const plate = std({ color: bgCol(edge), roughness: 0.38, metalness: 0.12 });
+  const back = std({ color: 0x8e9299, roughness: 0.6, metalness: 0.3 });
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(w, h, T), [MAT.alu, MAT.alu, MAT.alu, MAT.alu, plate, back]);
+  panel.position.set(0, cy, -T / 2);
+  g.add(panel);
+  // ตัวนูน: ชั้นหน้าเป็นสีงานจริง ชั้นในมืดลง (ด้านข้างตัวอักษร)
+  const front = std({ alphaTest: 0.5, roughness: 0.3, metalness: 0.04 });
+  const side = std({ alphaTest: 0.5, roughness: 0.5, color: 0x6a6a6a });
+  const depthMat = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, alphaTest: 0.5 });
+  const geo = new THREE.PlaneGeometry(w, h);
+  const N = 7;
+  for (let i = 0; i < N; i++) {
+    const m = new THREE.Mesh(geo, i === N - 1 ? front : side);
+    m.position.set(0, cy, 0.0015 + ((relief - 0.0015) * i) / (N - 1));
+    m.customDepthMaterial = depthMat;
+    g.add(m);
+  }
+  let tex = null;
+  const setFace = (faceTex, e) => {
+    const src = faceTex && faceTex.image;
+    if (!src || !NS.render || !NS.render.letterMask) return;
+    if (e) plate.color.copy(bgCol(e));
+    const t = new THREE.CanvasTexture(NS.render.letterMask(src, e || edge));
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = ANISO;
+    for (const m of [front, side, depthMat]) {
+      m.map = t;
+      m.needsUpdate = true;
+    }
+    if (tex) tex.dispose();
+    tex = t;
+  };
+  setFace(map, edge);
+  // เสาเหล็กกล่องคู่ + ฝาปิดหัวเสา + ฐานปูน + ขายึดแผ่น
+  const steel = std({ color: 0x3c4047, roughness: 0.5, metalness: 0.4 });
+  const concrete = std({ color: 0xa8a59e, roughness: 0.95 });
+  const ph = lift + h + cap;
+  for (const s of [-1, 1]) {
+    const x = s * (w / 2 + post / 2);
+    const p = box(post, ph, post, steel);
+    p.position.set(x, ph / 2, -T / 2);
+    const top = box(post + 0.014, 0.012, post + 0.014, steel);
+    top.position.set(x, ph + 0.006, -T / 2);
+    const foot = box(post + 0.16, 0.07, post + 0.16, concrete);
+    foot.position.set(x, 0.035, -T / 2);
+    g.add(p, top, foot);
+    for (const y of [lift + 0.08, lift + h - 0.08]) {
+      const br = box(0.05, 0.035, T + 0.012, MAT.darkAlu);
+      br.position.set(s * (w / 2 + 0.012), y, -T / 2);
+      g.add(br);
+    }
+  }
+  const dispose = () => {
+    if (tex) tex.dispose();
+    depthMat.dispose();
+  };
+  return { group: g, face: null, front: 0, faceY: [lift, lift + h], setFace, dispose };
+}
+
 function buildXstand(w, h, map) {
   const g = new THREE.Group();
   const face = faceMat('xstand', map);
@@ -1713,6 +1785,7 @@ export function createStage(opts) {
   function rebuildSign(s) {
     if (model) {
       signRoot.remove(model.group);
+      if (model.dispose) model.dispose();
       disposeGroup(model.group);
     }
     const w = s.w / 100;
@@ -1721,6 +1794,7 @@ export function createStage(opts) {
     if (s.type === 'vinyl') model = buildVinyl(w, h, map);
     else if (s.type === 'rollup') model = buildRollup(w, h, map);
     else if (s.type === 'xstand') model = buildXstand(w, h, map);
+    else if (s.type === 'cnc') model = buildCnc(w, h, map, s.edge || [31, 42, 77]);
     else model = buildBoard(s.type, w, h, map, s.edge || [120, 120, 120]);
     model.type = s.type;
     model.w = w;
@@ -1997,6 +2071,7 @@ export function createStage(opts) {
         if (model.face.emissiveMap) model.face.emissiveMap = faceTex;
         model.face.needsUpdate = true;
       }
+      if (model && model.setFace) model.setFace(faceTex, st.edge);
       if (old) old.dispose();
     }
     const sk = [st.type, st.w, st.h, (st.edge || []).map(Math.round).join(',')].join('|');

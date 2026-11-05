@@ -369,3 +369,22 @@ test('โลโก้ร้าน NATTAPRON: ไฟล์มีจริง ใ�
   assert.match(s3, /NS\.BRAND && NS\.BRAND\.mascot/);
   assert.match(app, /R\.setMascot\(img\)/);
 });
+
+test('ป้ายโครงการ CNC: ตั้งเสาคู่ แผ่นลอยจากพื้น 80 ซม. อักษรนูน 1.5 ซม. คิดราคาต่อป้าย', () => {
+  assert.ok(C.TYPE_ORDER.includes('cnc'));
+  const g = C.geometry('cnc', 240, 120);
+  assert.equal(g.mount, 'floor');
+  assert.equal(g.lift, 80);
+  assert.equal(g.relief, 1.5);
+  assert.equal(g.fx, g.post); // แผ่นอยู่ระหว่างเสา
+  assert.equal(g.bw, 240 + 2 * g.post + g.ex);
+  assert.equal(g.bh, g.cap + 120 + 80 + g.ex);
+  assert.equal(C.mountBottom('shop', g, 'auto'), 0);
+  const q = C.quote({ type: 'cnc', w: 240, h: 120, qty: 2, rate: 8500 });
+  assert.equal(q.unit, 'set');
+  assert.equal(q.total, 17000);
+  assert.ok(C.DEPTH.cnc);
+  // คนสูง 170 ซม. ยืนข้างป้ายได้พอดีจอ
+  const cam = C.camera({ scene: 'studio', g, W: 1600, H: 1132, person: true, zoom: 1 });
+  assert.ok(cam.person);
+});

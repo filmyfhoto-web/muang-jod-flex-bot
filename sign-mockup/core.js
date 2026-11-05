@@ -56,6 +56,13 @@
       mount: 'wall',
       presets: [[60, 40], [100, 50], [120, 60], [200, 80], [300, 100]],
     },
+    cnc: {
+      name: 'ป้ายโครงการ CNC',
+      desc: 'อักษรนูนตัด CNC บนแผ่นอะลูมิเนียมคอมโพสิต ตั้งเสาคู่',
+      unit: 'set',
+      mount: 'floor',
+      presets: [[120, 80], [150, 100], [200, 100], [240, 120], [300, 150], [400, 200]],
+    },
     rollup: {
       name: 'โรลอัพ',
       desc: 'ขาตั้งม้วนเก็บได้ ตั้งพื้น',
@@ -71,7 +78,7 @@
       presets: [[60, 160], [80, 180]],
     },
   };
-  var TYPE_ORDER = ['vinyl', 'frame', 'foam', 'sticker', 'acrylic', 'lightbox', 'rollup', 'xstand'];
+  var TYPE_ORDER = ['vinyl', 'frame', 'foam', 'sticker', 'acrylic', 'lightbox', 'cnc', 'rollup', 'xstand'];
 
   var SCENES = {
     studio: { name: 'พื้นเรียบ', desc: 'โชว์งานชัด ๆ' },
@@ -231,6 +238,19 @@
       g.fy = g.rail;
       g.bw = w + 8;
       g.bh = g.rail + h - 1 + g.base + g.feet;
+    } else if (t === 'cnc') {
+      // แผ่น ACP บนโครงเหล็กหนา 5 ซม. อักษรนูน 1.5 ซม. — เสาเหล็กกล่อง 10 ซม. ซ้าย/ขวา ยื่นเหนือแผ่น 4 ซม.
+      // ขอบล่างแผ่นสูงจากพื้น 80 ซม.
+      g.depth = 5;
+      g.gap = 0;
+      g.relief = 1.5;
+      g.post = 10;
+      g.cap = 4;
+      g.lift = 80;
+      g.fx = g.post;
+      g.fy = g.cap;
+      g.bw = w + 2 * g.post;
+      g.bh = g.cap + h + g.lift;
     } else if (t === 'xstand') {
       // ป้ายลอยจากพื้น 18 ซม. ขาไขว้ต่อเลยมุมล่างลงพื้น เอียงตามแนวทแยงของป้าย
       g.lift = 18;
@@ -460,6 +480,7 @@
     sticker: 'แนบผิว',
     acrylic: 'แผ่น 8 มม. + หมุด 2.5 ซม.',
     lightbox: 'กล่องหนา 12 ซม.',
+    cnc: 'แผ่น 5 ซม. + อักษรนูน 1.5 ซม.',
     rollup: 'ฐานลึก 40 ซม.',
     xstand: 'ขากาง 45 ซม.',
   };
