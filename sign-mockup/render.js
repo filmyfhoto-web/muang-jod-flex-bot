@@ -948,6 +948,56 @@
     x.strokeRect(px + 0.5, py + 0.5, w - 1, h - 1);
   }
 
+  /* ป้ายขาตั้งโครงเหล็ก (มองหน้าตรง): เสา 2 ข้างต่อจากกรอบลงพื้น · ฐาน · หน้าป้ายติดหน้าโครง
+   * โชว์เฉพาะโครง = เห็นคร่าวนอน/คร่าวตั้งข้างใน */
+  var STEEL = '#25282e';
+  function standFrame(x, g, k, d, fit) {
+    var o = g.steel;
+    var T = Math.max(o.T * k, 1.5);
+    var w = g.w * k;
+    var h = g.h * k;
+    var total = g.total * k;
+    var bar = function (bx, by, bw, bh) {
+      x.fillRect(bx, by, bw, bh);
+    };
+    x.save();
+    // เสา + ฐาน (มองหน้าตรงเห็นคานฐานด้านหน้า)
+    var gr = x.createLinearGradient(0, 0, T, 0);
+    gr.addColorStop(0, '#454a52');
+    gr.addColorStop(1, STEEL);
+    x.fillStyle = gr;
+    bar(0, 0, T, total);
+    bar(w - T, 0, T, total);
+    x.fillStyle = STEEL;
+    if (o.base === 'rect') bar(0, total - T, w, T);
+    else {
+      x.fillStyle = '#1b1d21';
+      bar(-T * 0.2, total - T, T * 1.4, T);
+      bar(w - T * 1.2, total - T, T * 1.4, T);
+    }
+    if (o.frameOnly) {
+      x.fillStyle = STEEL;
+      bar(0, 0, w, T);
+      bar(0, h - T, w, T);
+      var innerH = h - 2 * T;
+      var innerW = w - 2 * T;
+      var segH = (innerH - o.nh * T) / (o.nh + 1);
+      x.fillStyle = '#2f9e62';
+      for (var i = 0; i < o.nh; i++) bar(T, T + (i + 1) * segH + i * T, innerW, T);
+      x.fillStyle = '#3a6fd8';
+      var segW = (innerW - o.nv * T) / (o.nv + 1);
+      for (var j = 0; j < o.nv; j++) bar(T + (j + 1) * segW + j * T, T, T, innerH);
+    } else {
+      extrusion(x, { type: 'lightbox' }, 0, 0, w, h, Math.max(g.ex * k, 1.5), d);
+      x.beginPath();
+      x.rect(0, 0, w, h);
+      x.clip();
+      paintDesign(x, d, 0, 0, w, h, fit);
+      faceShade(x, 0, 0, w, h);
+    }
+    x.restore();
+  }
+
   /* วาดชิ้นงานทั้งชิ้น (หน้าป้าย + ขาตั้ง/อุปกรณ์) ลงผืนแยก 1 ซม. = k พิกเซล */
   var PAD = 6;
   function objectCanvas(g, k, d, fit) {
@@ -958,6 +1008,10 @@
     var py = g.fy * k;
     var w = g.w * k;
     var h = g.h * k;
+    if (g.type === 'stand') {
+      standFrame(x, g, k, d, fit);
+      return c;
+    }
     if (g.type === 'cnc') {
       cncPosts(x, g, k);
       cncFace(x, g, k, d, fit);
@@ -1240,7 +1294,7 @@
   function render(canvas, st, opt) {
     opt = opt || {};
     var scale = opt.scale || 1;
-    var g = C.geometry(st.type, st.w, st.h);
+    var g = C.geometry(st.type, st.w, st.h, st.steel);
     var photo = st.scene === 'photo' && st.photo && st.photo.img ? st.photo : null;
     var size = C.canvasSize(st.aspect, g, photo);
     var W = size.W;
@@ -1524,7 +1578,27 @@
     var px = function (p) {
       return { x: ((p.x + 1) / 2) * W, y: ((1 - p.y) / 2) * H };
     };
-    if (opt.dims && pr.visible) dimsQuad(x, pr.face.map(px), g, U);
+    if (opt.dims && pr.visible) {
+      var q = pr.face.map(px);
+      dimsQuad(x, q, g, U);
+      // เส้นบอกขนาดเพิ่ม (เช่น ความสูงรวม ความลึกฐานของขาตั้ง) — เยื้องออกจากกลางป้าย
+      var mx = (q[0].x + q[1].x + q[2].x + q[3].x) / 4;
+      var my = (q[0].y + q[1].y + q[2].y + q[3].y) / 4;
+      (pr.extra || []).forEach(function (e) {
+        if (!(e.a.z < 1 && e.b.z < 1)) return;
+        var a = px(e.a);
+        var b = px(e.b);
+        var L = Math.hypot(b.x - a.x, b.y - a.y);
+        if (L < 24 * U) return;
+        var nx = -(b.y - a.y) / L;
+        var ny = (b.x - a.x) / L;
+        if (nx * ((a.x + b.x) / 2 - mx) + ny * ((a.y + b.y) / 2 - my) < 0) {
+          nx = -nx;
+          ny = -ny;
+        }
+        measure(x, a, b, nx, ny, (e.off || 26) * U, e.text, U);
+      });
+    }
     if (opt.person && pr.head) {
       var h = px(pr.head);
       var label = 'คนสูง 170 ซม.';

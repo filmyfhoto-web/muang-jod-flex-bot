@@ -1585,6 +1585,78 @@ function buildCnc(w, h, map, edge) {
   return { group: g, face: null, front: 0, faceY: [lift, lift + h], setFace, dispose };
 }
 
+/* ป้ายขาตั้งโครงเหล็ก: เหล็กกล่องเชื่อม (ทำสีดำ) — กรอบป้าย + คร่าว · เสา 2 ต้นคือด้านข้างกรอบต่อลงพื้น
+ * ฐานสี่เหลี่ยม (แนวลึก 2 + แนวขวาง 2) หรือขาตัว T · หน้าป้ายเป็นแผ่นบางติดหน้าโครง (ซ่อนได้ = โชว์เฉพาะโครง) */
+function buildStand(w, h, map, steel) {
+  const g = new THREE.Group();
+  const G = C.geometry('stand', w * 100, h * 100, steel);
+  const o = G.steel;
+  const T = o.T / 100;
+  const total = o.total / 100;
+  const D = o.depth / 100;
+  const lift = total - h;
+  const steelM = std({ color: 0x1f2125, roughness: 0.5, metalness: 0.35 });
+  const tube = (bw, bh, bd, x, y, z) => {
+    const m = box(bw, bh, bd, steelM);
+    m.position.set(x, y, z);
+    g.add(m);
+    return m;
+  };
+  const baseH = T;
+  // เสา/กรอบแนวตั้ง
+  for (const s of [-1, 1]) tube(T, total - baseH, T, s * (w / 2 - T / 2), baseH + (total - baseH) / 2, 0);
+  // กรอบบน กรอบล่าง
+  tube(w - 2 * T, T, T, 0, total - T / 2, 0);
+  tube(w - 2 * T, T, T, 0, lift + T / 2, 0);
+  // คร่าวนอน / คร่าวตั้ง
+  const innerW = w - 2 * T;
+  const innerH = h - 2 * T;
+  const segH = (innerH - o.nh * T) / (o.nh + 1);
+  const segW = (innerW - o.nv * T) / (o.nv + 1);
+  const ys = [];
+  for (let i = 0; i < o.nh; i++) {
+    const y = lift + T + (i + 1) * segH + i * T + T / 2;
+    ys.push(y);
+    tube(innerW, T, T, 0, y, 0);
+  }
+  for (let j = 0; j < o.nv; j++) {
+    const x = -w / 2 + T + (j + 1) * segW + j * T + T / 2;
+    for (let i = 0; i <= o.nh; i++) {
+      const y0 = lift + T + i * (segH + T);
+      tube(T, segH, T, x, y0 + segH / 2, 0);
+    }
+  }
+  // ฐาน
+  if (o.base === 'rect') {
+    for (const s of [-1, 1]) tube(T, T, D, s * (w / 2 - T / 2), T / 2, 0);
+    for (const s of [-1, 1]) tube(w - 2 * T, T, T, 0, T / 2, s * (D / 2 - T / 2));
+  } else {
+    const cap = std({ color: 0x0e0f11, roughness: 0.7 });
+    for (const s of [-1, 1]) {
+      tube(T, T, D, s * (w / 2 - T / 2), T / 2, 0);
+      for (const z of [-1, 1]) {
+        const c = box(T * 1.05, T * 1.05, 0.006, cap);
+        c.position.set(s * (w / 2 - T / 2), T / 2, z * (D / 2 + 0.003));
+        g.add(c);
+      }
+    }
+  }
+  // หน้าป้าย (แผ่นบาง 4 มม. ขอบขาว) ติดหน้าโครง
+  const face = faceMat('foam', map);
+  const edgeM = std({ color: 0xeceae5, roughness: 0.6 });
+  const back = std({ color: 0xdedcd6, roughness: 0.7 });
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.004), [edgeM, edgeM, edgeM, edgeM, face, back]);
+  panel.position.set(0, lift + h / 2, T / 2 + 0.002);
+  panel.visible = !o.frameOnly;
+  g.add(panel);
+  const front = o.frameOnly ? T / 2 : T / 2 + 0.004;
+  const dims = [
+    { a: new THREE.Vector3(-w / 2, 0, front), b: new THREE.Vector3(-w / 2, total, front), text: 'สูงรวม ' + C.fmtCm(o.total) + ' ซม.', off: 34 },
+    { a: new THREE.Vector3(w / 2, 0.002, -D / 2), b: new THREE.Vector3(w / 2, 0.002, D / 2), text: 'ฐานลึก ' + C.fmtCm(o.depth) + ' ซม.', off: 30 },
+  ];
+  return { group: g, face, front, faceY: [lift, total], dims };
+}
+
 function buildXstand(w, h, map) {
   const g = new THREE.Group();
   const face = faceMat('xstand', map);
@@ -1795,6 +1867,7 @@ export function createStage(opts) {
     else if (s.type === 'rollup') model = buildRollup(w, h, map);
     else if (s.type === 'xstand') model = buildXstand(w, h, map);
     else if (s.type === 'cnc') model = buildCnc(w, h, map, s.edge || [31, 42, 77]);
+    else if (s.type === 'stand') model = buildStand(w, h, map, s.steel);
     else model = buildBoard(s.type, w, h, map, s.edge || [120, 120, 120]);
     model.type = s.type;
     model.w = w;
@@ -1811,7 +1884,7 @@ export function createStage(opts) {
     const env = getEnv(sceneKey);
     for (const k in envs) envs[k].group.visible = k === sceneKey;
     envKey = sceneKey;
-    const g = C.geometry(cur.type, cur.w, cur.h);
+    const g = C.geometry(cur.type, cur.w, cur.h, cur.steel);
     const w = model.w;
     const h = model.h;
     const spot = C.resolveSpot(sceneKey, cur.spot, g);
@@ -2074,7 +2147,7 @@ export function createStage(opts) {
       if (model && model.setFace) model.setFace(faceTex, st.edge);
       if (old) old.dispose();
     }
-    const sk = [st.type, st.w, st.h, (st.edge || []).map(Math.round).join(',')].join('|');
+    const sk = [st.type, st.w, st.h, (st.edge || []).map(Math.round).join(','), st.type === 'stand' ? JSON.stringify(st.steel || {}) : ''].join('|');
     const geomChanged = sk !== signKey;
     const sceneChanged = st.scene !== cur.scene || !envKey;
     const personChanged = !!st.person !== !!cur.person || st.spot !== cur.spot || !!st.doorOpen !== !!cur.doorOpen;
@@ -2115,7 +2188,13 @@ export function createStage(opts) {
       const v = person.localToWorld(new THREE.Vector3(0, 1.78, 0)).project(camera);
       if (v.z < 1) head = { x: v.x, y: v.y };
     }
-    return { face, head, visible: face.every((p) => p.z < 1) };
+    // เส้นบอกขนาดเพิ่มของชิ้นงาน (ความสูงรวม / ความลึกฐาน)
+    const extra = (model.dims || []).map((d) => {
+      const a = signRoot.localToWorld(d.a.clone()).project(camera);
+      const b = signRoot.localToWorld(d.b.clone()).project(camera);
+      return { a: { x: a.x, y: a.y, z: a.z }, b: { x: b.x, y: b.y, z: b.z }, text: d.text, off: d.off };
+    });
+    return { face, head, extra, visible: face.every((p) => p.z < 1) };
   }
 
   // วาดภาพขนาดใดก็ได้ (ส่งออก) แล้วคืนขนาดพรีวิวเดิม
