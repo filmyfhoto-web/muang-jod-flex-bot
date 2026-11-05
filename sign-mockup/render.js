@@ -907,12 +907,15 @@
   function cncPosts(x, g, k) {
     var pw = g.post * k;
     var ph = (g.cap + g.h + g.lift) * k;
+    var col = g.steel ? g.steel.color : '';
     [0, (g.fx + g.w) * k].forEach(function (px) {
-      var gr = x.createLinearGradient(px, 0, px + pw, 0);
-      gr.addColorStop(0, '#5a5f68');
-      gr.addColorStop(0.35, '#474c54');
-      gr.addColorStop(1, '#2c3036');
-      x.fillStyle = gr;
+      x.fillStyle = col ? metalGrad(x, px, px + pw, col) : (function () {
+        var gr = x.createLinearGradient(px, 0, px + pw, 0);
+        gr.addColorStop(0, '#5a5f68');
+        gr.addColorStop(0.35, '#474c54');
+        gr.addColorStop(1, '#2c3036');
+        return gr;
+      })();
       x.fillRect(px, 0, pw, ph);
       x.fillStyle = '#23262b';
       x.fillRect(px - 0.6 * k, 0, pw + 1.2 * k, Math.max(1.2 * k, 1.5));
@@ -950,9 +953,26 @@
 
   /* ป้ายขาตั้งโครงเหล็ก (มองหน้าตรง): เสา 2 ข้างต่อจากกรอบลงพื้น · ฐาน · หน้าป้ายติดหน้าโครง
    * โชว์เฉพาะโครง = เห็นคร่าวนอน/คร่าวตั้งข้างใน */
-  var STEEL = '#25282e';
+  // สีโครงเหล็ก: เข้มขึ้น/สว่างขึ้นเป็นเงา · สแตนเลสไล่เงาโลหะ
+  function metalGrad(x, x0, x1, color) {
+    var gr = x.createLinearGradient(x0, 0, x1, 0);
+    if (color === 'inox') {
+      gr.addColorStop(0, '#f4f5f7');
+      gr.addColorStop(0.45, '#b9bec6');
+      gr.addColorStop(1, '#8a9099');
+    } else {
+      var c = hexRgb(color || '#1f2125');
+      gr.addColorStop(0, rgb(c, 1.35));
+      gr.addColorStop(1, rgb(c, 0.85));
+    }
+    return gr;
+  }
+  function metalFlat(color) {
+    return color === 'inox' ? '#a9aeb6' : color || '#25282e';
+  }
   function standFrame(x, g, k, d, fit) {
     var o = g.steel;
+    var STEEL = metalFlat(o.color);
     var T = Math.max(o.T * k, 1.5);
     var w = g.w * k;
     var h = g.h * k;
@@ -962,11 +982,9 @@
     };
     x.save();
     // เสา + ฐาน (มองหน้าตรงเห็นคานฐานด้านหน้า)
-    var gr = x.createLinearGradient(0, 0, T, 0);
-    gr.addColorStop(0, '#454a52');
-    gr.addColorStop(1, STEEL);
-    x.fillStyle = gr;
+    x.fillStyle = metalGrad(x, 0, T, o.color);
     bar(0, 0, T, total);
+    x.fillStyle = metalGrad(x, w - T, w, o.color);
     bar(w - T, 0, T, total);
     x.fillStyle = STEEL;
     if (o.base === 'rect') bar(0, total - T, w, T);
@@ -1433,13 +1451,30 @@
     fresh: { name: 'เขียว', bg: '#167244', bg2: '#0d5532', title: '#ffffff', sub: '#d9f2a6', pillBg: '#ffffff', pillFg: '#167244' },
   };
 
+  // ชุดสีของร้าน (ต่อท้ายชุดสีมาตรฐาน)
+  var ALL_THEMES = Object.assign({}, THEMES);
+  function setThemes(list) {
+    ALL_THEMES = Object.assign({}, THEMES);
+    (list || []).forEach(function (t) {
+      ALL_THEMES[t.id] = { name: t.name, bg: t.bg, bg2: t.bg2, title: t.title, sub: t.sub, pillBg: t.pillBg, pillFg: t.pillFg, mine: true };
+    });
+  }
+  function themes() {
+    return ALL_THEMES;
+  }
+  // ฟอนต์ที่เลือก ("" = Kanit ตามเดิม) — ใส่ฟอนต์สำรองต่อท้ายเสมอ
+  function fam(name) {
+    return name ? '"' + String(name).replace(/["\\]/g, '') + '", ' + DISPLAY : DISPLAY;
+  }
   function textDesign(t, wcm, hcm) {
     var long = 1500;
     var W = wcm >= hcm ? long : Math.round((long * wcm) / hcm);
     var H = wcm >= hcm ? Math.round((long * hcm) / wcm) : long;
     var c = mk(W, H);
     var x = ctx2d(c);
-    var th = THEMES[t.theme] || THEMES.brand;
+    var th = ALL_THEMES[t.theme] || THEMES.brand;
+    var F1 = fam(t.font);
+    var F2 = fam(t.font2);
     var bg = x.createLinearGradient(0, 0, W, H);
     bg.addColorStop(0, th.bg);
     bg.addColorStop(1, th.bg2);
@@ -1464,8 +1499,8 @@
       .slice(0, 3);
     var sub = String(t.sub || '').trim();
     var phone = C.phoneText(t.phone);
-    function fit(text, weight, maxW) {
-      x.font = weight + ' 100px ' + DISPLAY;
+    function fit(text, weight, maxW, F) {
+      x.font = weight + ' 100px ' + (F || F1);
       var w = x.measureText(text).width || 1;
       return (100 * maxW) / w;
     }
@@ -1475,29 +1510,29 @@
       ts = (ah * (sub || phone ? 0.56 : 0.86)) / (n * 1.25);
       for (var i = 0; i < n; i++) ts = Math.min(ts, fit(lines[i], 700, aw));
     }
-    var ss = sub ? Math.min(ah * 0.14, fit(sub, 500, aw), ts ? ts * 0.5 : 1e9) : 0;
-    var ps = phone ? Math.min(ah * 0.1, fit(phone, 600, aw * 0.78), ts ? ts * 0.4 : 1e9) : 0;
+    var ss = sub ? Math.min(ah * 0.14, fit(sub, 500, aw, F2), ts ? ts * 0.5 : 1e9) : 0;
+    var ps = phone ? Math.min(ah * 0.1, fit(phone, 600, aw * 0.78, F2), ts ? ts * 0.4 : 1e9) : 0;
     var gap = Math.max(ts, ss * 2, ps * 2.5) * 0.22;
     var total = n * ts * 1.25 + (ss ? gap + ss * 1.4 : 0) + (ps ? gap + ps * 2.1 : 0);
     var y = (H - total) / 2;
     x.textAlign = 'center';
     x.textBaseline = 'middle';
     for (var j = 0; j < n; j++) {
-      x.font = '700 ' + ts + 'px ' + DISPLAY;
+      x.font = '700 ' + ts + 'px ' + F1;
       x.fillStyle = th.title;
       x.fillText(lines[j], W / 2, y + ts * 0.66);
       y += ts * 1.25;
     }
     if (ss) {
       y += gap;
-      x.font = '500 ' + ss + 'px ' + DISPLAY;
+      x.font = '500 ' + ss + 'px ' + F2;
       x.fillStyle = th.sub;
       x.fillText(sub, W / 2, y + ss * 0.72);
       y += ss * 1.4;
     }
     if (ps) {
       y += gap;
-      x.font = '600 ' + ps + 'px ' + DISPLAY;
+      x.font = '600 ' + ps + 'px ' + F2;
       var pw = x.measureText(phone).width + ps * 1.6;
       var phh = ps * 2.1;
       x.beginPath();
@@ -1626,6 +1661,8 @@
     textDesign: textDesign,
     prepareImage: prepareImage,
     setMascot: setMascot,
+    setThemes: setThemes,
+    themes: themes,
     letterMask: letterMask,
     THEMES: THEMES,
     fonts: { display: DISPLAY, body: BODY },

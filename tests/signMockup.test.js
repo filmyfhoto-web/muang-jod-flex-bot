@@ -446,3 +446,44 @@ test('โครงเหล็ก: ตัดตรงชนคานอยู่
   assert.equal(g.lift, 60);
   assert.equal(g.total, 180);
 });
+
+test('ตัวเลือกของร้าน: ไฟล์นำเข้าถูกตรวจทุกช่อง (สี #rrggbb เท่านั้น ชื่อไม่มีแท็ก) สีผนังเพิ่ม/ลบได้', () => {
+  const o = C.normalizeOptions({
+    themes: [{ id: 'c-abc', name: '<img src=x onerror=1>แดง', bg: '#FF0000', bg2: 'red;background:url(x)', title: '#fff', pillBg: '#00ff00' }, 'x', null],
+    tones: [{ name: 'ฟ้า', upper: '#aaccee', lower: '#336699' }],
+    presets: { vinyl: [[150, 60], [150, 60], ['x', 1]], bogus: [[1, 1]] },
+    hideTypes: ['xstand', 'nope', 'xstand'],
+    hideScenes: ['brick'],
+  });
+  assert.equal(o.themes.length, 3);
+  assert.equal(o.themes[0].id, 'c-abc');
+  assert.equal(o.themes[0].bg, '#ff0000');
+  assert.equal(o.themes[0].bg2, '#2d3d6b'); // ค่าแปลก ๆ ใช้ค่าเริ่มต้น
+  assert.equal(o.themes[0].title, '#ffffff');
+  assert.ok(!/[<>]/.test(o.themes[0].name));
+  for (const t of o.themes) {
+    assert.match(t.id, /^c-[a-z0-9_-]+$/i);
+    for (const k of ['bg', 'bg2', 'title', 'sub', 'pillBg', 'pillFg']) assert.match(t[k], /^#[0-9a-f]{6}$/);
+  }
+  assert.deepEqual(o.presets, { vinyl: [[150, 60]] });
+  assert.deepEqual(o.hideTypes, ['xstand']);
+  assert.deepEqual(o.hideScenes, ['brick']);
+  // ซ่อนชนิดป้ายหมดไม่ได้
+  assert.equal(C.normalizeOptions({ hideTypes: C.TYPE_ORDER }).hideTypes.length, C.TYPE_ORDER.length - 1);
+  // สีผนังของร้านต่อท้ายสีมาตรฐาน แล้วลบออกได้
+  const before = C.TONE_ORDER.slice();
+  C.applyTones(o.tones);
+  const id = o.tones[0].id;
+  assert.equal(C.TONE_ORDER[C.TONE_ORDER.length - 1], id);
+  assert.equal(C.WALL_TONES[id].upper, '#aaccee');
+  C.applyTones([]);
+  assert.deepEqual(C.TONE_ORDER, before);
+  assert.equal(C.WALL_TONES[id], undefined);
+  // สีโครงเหล็ก / ฟอนต์
+  assert.equal(C.metalColor('inox'), 'inox');
+  assert.equal(C.metalColor('url(javascript:x)'), '#1f2125');
+  assert.equal(C.steelOpts(80, 120, { color: '#E9E8E4' }).color, '#e9e8e4');
+  assert.equal(C.fontCssUrl('Chakra Petch'), 'https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&display=swap');
+  assert.equal(C.fontCssUrl('Itim'), 'https://fonts.googleapis.com/css2?family=Itim&display=swap');
+  assert.equal(C.fontCssUrl('NotAFont'), '');
+});

@@ -1516,7 +1516,7 @@ function buildRollup(w, h, map) {
 /* ป้ายโครงการ CNC: แผ่นอะลูมิเนียมคอมโพสิตบนโครงเหล็ก (หนา 5 ซม.) ขอบอะลูมิเนียม ตั้งเสาเหล็กกล่องคู่บนฐานปูน
  * ตัวอักษร/โลโก้ (ส่วนที่สีต่างจากพื้นงาน) ตัด CNC ยกนูน 1.5 ซม. — ซ้อนแผ่นตัดรูปหลายชั้นให้เห็นความหนาเวลามองเฉียง
  * แผ่นหน้าเป็นสีพื้นของงาน · ตัวนูนทอดเงาลงบนแผ่นจริง */
-function buildCnc(w, h, map, edge) {
+function buildCnc(w, h, map, edge, steel) {
   const g = new THREE.Group();
   const G = C.geometry('cnc', w * 100, h * 100);
   const lift = G.lift / 100;
@@ -1560,14 +1560,14 @@ function buildCnc(w, h, map, edge) {
   };
   setFace(map, edge);
   // เสาเหล็กกล่องคู่ + ฝาปิดหัวเสา + ฐานปูน + ขายึดแผ่น
-  const steel = std({ color: 0x3c4047, roughness: 0.5, metalness: 0.4 });
+  const postM = steel && steel.color ? metalMat(C.metalColor(steel.color)) : std({ color: 0x3c4047, roughness: 0.5, metalness: 0.4 });
   const concrete = std({ color: 0xa8a59e, roughness: 0.95 });
   const ph = lift + h + cap;
   for (const s of [-1, 1]) {
     const x = s * (w / 2 + post / 2);
-    const p = box(post, ph, post, steel);
+    const p = box(post, ph, post, postM);
     p.position.set(x, ph / 2, -T / 2);
-    const top = box(post + 0.014, 0.012, post + 0.014, steel);
+    const top = box(post + 0.014, 0.012, post + 0.014, postM);
     top.position.set(x, ph + 0.006, -T / 2);
     const foot = box(post + 0.16, 0.07, post + 0.16, concrete);
     foot.position.set(x, 0.035, -T / 2);
@@ -1587,6 +1587,11 @@ function buildCnc(w, h, map, edge) {
 
 /* ป้ายขาตั้งโครงเหล็ก: เหล็กกล่องเชื่อม (ทำสีดำ) — กรอบป้าย + คร่าว · เสา 2 ต้นคือด้านข้างกรอบต่อลงพื้น
  * ฐานสี่เหลี่ยม (แนวลึก 2 + แนวขวาง 2) หรือขาตัว T · หน้าป้ายเป็นแผ่นบางติดหน้าโครง (ซ่อนได้ = โชว์เฉพาะโครง) */
+// วัสดุเหล็กตามสีที่เลือก ('inox' = สแตนเลสเงา)
+function metalMat(color, fallback) {
+  if (color === 'inox') return std({ color: 0xd5d8dd, roughness: 0.28, metalness: 0.85 });
+  return std({ color: new THREE.Color(color || fallback), roughness: 0.5, metalness: 0.25 });
+}
 function buildStand(w, h, map, steel) {
   const g = new THREE.Group();
   const G = C.geometry('stand', w * 100, h * 100, steel);
@@ -1595,7 +1600,7 @@ function buildStand(w, h, map, steel) {
   const total = o.total / 100;
   const D = o.depth / 100;
   const lift = total - h;
-  const steelM = std({ color: 0x1f2125, roughness: 0.5, metalness: 0.35 });
+  const steelM = metalMat(o.color, '#1f2125');
   const tube = (bw, bh, bd, x, y, z) => {
     const m = box(bw, bh, bd, steelM);
     m.position.set(x, y, z);
@@ -1866,7 +1871,7 @@ export function createStage(opts) {
     if (s.type === 'vinyl') model = buildVinyl(w, h, map);
     else if (s.type === 'rollup') model = buildRollup(w, h, map);
     else if (s.type === 'xstand') model = buildXstand(w, h, map);
-    else if (s.type === 'cnc') model = buildCnc(w, h, map, s.edge || [31, 42, 77]);
+    else if (s.type === 'cnc') model = buildCnc(w, h, map, s.edge || [31, 42, 77], s.steel);
     else if (s.type === 'stand') model = buildStand(w, h, map, s.steel);
     else model = buildBoard(s.type, w, h, map, s.edge || [120, 120, 120]);
     model.type = s.type;
@@ -2147,7 +2152,7 @@ export function createStage(opts) {
       if (model && model.setFace) model.setFace(faceTex, st.edge);
       if (old) old.dispose();
     }
-    const sk = [st.type, st.w, st.h, (st.edge || []).map(Math.round).join(','), st.type === 'stand' ? JSON.stringify(st.steel || {}) : ''].join('|');
+    const sk = [st.type, st.w, st.h, (st.edge || []).map(Math.round).join(','), st.type === 'stand' ? JSON.stringify(st.steel || {}) : st.type === 'cnc' ? (st.steel && st.steel.color) || '' : ''].join('|');
     const geomChanged = sk !== signKey;
     const sceneChanged = st.scene !== cur.scene || !envKey;
     const personChanged = !!st.person !== !!cur.person || st.spot !== cur.spot || !!st.doorOpen !== !!cur.doorOpen;
