@@ -115,13 +115,6 @@ svg {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.brand-mark,
-.brand-mark * {
-  stroke: none;
-}
-.brand-mark path {
-  stroke: #fff;
-}
 
 /* ---------- app frame ---------- */
 .app {
@@ -146,15 +139,28 @@ svg {
   gap: 10px;
   min-width: 0;
 }
-.brand-mark {
-  width: 36px;
-  height: 36px;
+/* shop logo on a white plate (the logo is navy on white) */
+.brand-logo {
+  display: inline-flex;
+  align-items: center;
   flex: none;
+  height: 46px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+.brand-logo img {
+  display: block;
+  height: 38px;
+  width: auto;
 }
 .brand-text {
   display: grid;
   min-width: 0;
   line-height: 1.2;
+  padding-left: 12px;
+  border-left: 1px solid rgba(255, 255, 255, 0.18);
 }
 .brand-text b {
   font: 600 18px/1.2 var(--font-display);
@@ -1053,7 +1059,7 @@ dialog[open] {
 }
 .infobox {
   position: absolute;
-  top: 10px;
+  bottom: 10px;
   left: 10px;
   display: grid;
   gap: 2px;
@@ -1307,7 +1313,8 @@ dialog.jobs-dlg {
   }
   .wide-tool,
   .infobox,
-  .tb.text span {
+  .tb.text span,
+  .brand-text {
     display: none;
   }
   .tb.text {
@@ -1389,6 +1396,20 @@ dialog.jobs-dlg {
   .pager {
     position: sticky;
     bottom: 0;
+  }
+}
+@media (max-width: 1100px) {
+  .brand-text small {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  .brand-logo {
+    height: 42px;
+    padding: 4px 6px;
+  }
+  .brand-logo img {
+    height: 34px;
   }
 }
 @media (max-width: 600px) {
