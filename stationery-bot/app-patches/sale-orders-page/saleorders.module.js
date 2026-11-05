@@ -596,7 +596,7 @@
         <button type="button" class="so-stgbtn" style="--c:${st.c}" data-a="stagemenu" aria-haspopup="true" aria-expanded="${S.stageMenu}">${st.t} ▾</button>
         ${S.stageMenu?`<div class="so-stgmenu" role="menu">${Object.entries(STG).map(([k,v])=>`<button type="button" role="menuitem" data-a="stage" data-k="${k}">${t.stage===k?'✓ ':''}${v.t}</button>`).join('')}</div>`:''}
       </div>
-      ${line?'<div class="so-lnote">แชตจาก LINE OA · หน้านี้แสดงข้อความของลูกค้าและข้อความที่ส่งจากหน้านี้ — คำตอบที่พิมพ์ใน LINE OA Manager และคำตอบอัตโนมัติของบอทจะไม่แสดงที่นี่</div>':''}
+      ${line?'<div class="so-lnote">แชตจาก LINE OA · หน้านี้แสดงข้อความของลูกค้า คำตอบของบอท และข้อความที่ส่งจากหน้านี้ — คำตอบที่พิมพ์ตรงใน LINE OA Manager ไม่แสดงในหน้านี้ จึงให้ตอบจากหน้านี้เพื่อให้ทุกคนเห็นครบ</div>':''}
       <div class="so-flashbox" data-where="chat"></div>
       <div class="so-msgs" id="so_msgs" data-id="${E(t.id)}">${inner}</div>
       <div class="so-qa">${TPL.map((x,i)=>`<button type="button" class="so-tplb" data-a="tplpick" data-k="${i}">${E(x[0])}</button>`).join('')}</div>

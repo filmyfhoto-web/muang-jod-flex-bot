@@ -145,7 +145,7 @@ test('no heartbeat from the bot: the page says LINE is not connected, shows the 
   await page.waitForFunction(() => [...document.querySelectorAll('#so_msgs img.so-img')].some((i) => i.complete && i.naturalWidth > 0), null, { timeout: 10000 });
   assert.equal(await page.locator('#so_msgs .so-bub.ph', { hasText: '[สติกเกอร์]' }).count(), 1, 'a sticker is a faint note, not a message');
   assert.equal(await page.locator('#so_msgs a.so-file[href*="google.com/maps?q=19.3,100.9"]').count(), 1);
-  assert.match(await page.locator('#so_chat .so-lnote').innerText(), /LINE OA Manager.*ไม่แสดงที่นี่/);
+  assert.match(await page.locator('#so_chat .so-lnote').innerText(), /คำตอบของบอท.*LINE OA Manager.*ไม่แสดงในหน้านี้/);
   assert.equal(await page.locator('#so_lchip').innerText(), 'LINE OA: ยังไม่ได้เชื่อมต่อ');
   assert.match(await page.locator('#so_honest').innerText(), /ข้อความจะรอส่งได้ไม่เกิน 30 นาที/);
   await shot('line-1-not-connected');
