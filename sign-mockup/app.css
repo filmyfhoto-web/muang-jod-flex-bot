@@ -208,6 +208,47 @@ svg {
   padding: 20px 24px 16px;
   background: radial-gradient(120% 90% at 50% 35%, var(--stage), var(--stage-2));
 }
+.viewbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.viewbar .seg {
+  flex: none;
+  background: var(--surface);
+}
+.viewbar .seg button {
+  padding: 6px 12px;
+  white-space: nowrap;
+}
+.tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 7px 12px;
+  font: 500 13.5px/1.2 var(--font-body);
+}
+.tool svg {
+  width: 17px;
+  height: 17px;
+}
+.tool[aria-pressed='true'] {
+  background: var(--active);
+  border-color: var(--active);
+  color: var(--active-ink);
+}
+.viewhint {
+  margin-left: auto;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
 .canvas-box {
   flex: 1;
   min-height: 0;
@@ -919,6 +960,23 @@ dialog[open] {
 
 /* ---------- phones & small tablets ---------- */
 @media (max-width: 900px) {
+  .viewbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    gap: 6px;
+  }
+  .viewbar::-webkit-scrollbar {
+    display: none;
+  }
+  .viewbar .seg button,
+  .tool {
+    padding: 5px 9px;
+    font-size: 12.5px;
+  }
+  .viewhint {
+    display: none;
+  }
   .app {
     display: block;
     height: auto;
@@ -999,6 +1057,9 @@ dialog[open] {
 }
 @media (max-width: 420px) {
   .brand-text small {
+    display: none;
+  }
+  .tool span {
     display: none;
   }
   .install span {

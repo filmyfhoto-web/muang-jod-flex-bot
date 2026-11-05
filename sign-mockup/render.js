@@ -595,6 +595,9 @@
     if (g.type === 'foam') {
       side = '#eeece6';
       bottom = '#d9d6ce';
+    } else if (g.type === 'lightbox') {
+      side = '#c3c8ce';
+      bottom = '#9da3aa';
     } else if (g.type === 'acrylic') {
       side = 'rgba(176,212,222,0.92)';
       bottom = 'rgba(146,188,202,0.92)';
@@ -770,6 +773,15 @@
     if (g.type === 'acrylic') gloss(x, px, py, w, h);
     faceShade(x, px, py, w, h);
     x.restore();
+    if (g.type === 'lightbox') {
+      var rim = Math.max(2, g.rim * k);
+      x.strokeStyle = '#cfd3d8';
+      x.lineWidth = rim;
+      x.strokeRect(px + rim / 2, py + rim / 2, w - rim, h - rim);
+      x.strokeStyle = 'rgba(0,0,0,0.18)';
+      x.lineWidth = 1;
+      x.strokeRect(px + rim, py + rim, w - rim * 2, h - rim * 2);
+    }
     if (g.type === 'foam') {
       x.strokeStyle = 'rgba(0,0,0,0.10)';
       x.lineWidth = 1;
@@ -1291,8 +1303,48 @@
     return { src: src, w: w, h: h, bg: borderColor(src, w, h) };
   }
 
+  /* ---------- ตัวช่วยของเวที 3 มิติ ---------- */
+  // หน้าป้าย: วาดงานลงผืนตามสัดส่วนป้ายจริง (เต็มป้าย / เห็นทั้งรูป) ใช้เป็นเท็กซ์เจอร์
+  function faceCanvas(d, wcm, hcm, fit, maxSide) {
+    var long = maxSide || 2048;
+    var W = wcm >= hcm ? long : Math.max(1, Math.round((long * wcm) / hcm));
+    var H = wcm >= hcm ? Math.max(1, Math.round((long * hcm) / wcm)) : long;
+    var c = mk(W, H);
+    paintDesign(ctx2d(c), d, 0, 0, W, H, fit);
+    return c;
+  }
+
+  // เส้นบอกขนาดและป้าย "คนสูง 170 ซม." จากจุดที่ฉาย (−1..1) ลงภาพขนาด W×H
+  function overlay3d(x, pr, g, W, H, U, opt) {
+    if (!pr) return;
+    var px = function (p) {
+      return { x: ((p.x + 1) / 2) * W, y: ((1 - p.y) / 2) * H };
+    };
+    if (opt.dims && pr.visible) dimsQuad(x, pr.face.map(px), g, U);
+    if (opt.person && pr.head) {
+      var h = px(pr.head);
+      var label = 'คนสูง 170 ซม.';
+      x.save();
+      x.font = '500 ' + Math.round(17 * U) + 'px ' + BODY;
+      var lw = x.measureText(label).width + 18 * U;
+      var lh = 26 * U;
+      x.beginPath();
+      rr(x, h.x - lw / 2, h.y - lh - 6 * U, lw, lh, lh / 2);
+      x.fillStyle = 'rgba(255,255,255,0.9)';
+      x.fill();
+      x.fillStyle = '#2e3954';
+      x.textAlign = 'center';
+      x.textBaseline = 'middle';
+      x.fillText(label, h.x, h.y - lh / 2 - 6 * U + U);
+      x.restore();
+    }
+  }
+
   NS.render = {
     render: render,
+    faceCanvas: faceCanvas,
+    overlay3d: overlay3d,
+    footer: footer,
     textDesign: textDesign,
     prepareImage: prepareImage,
     THEMES: THEMES,

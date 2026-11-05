@@ -5,7 +5,7 @@
   var R = window.SignMockup.render;
   var KEY = 'np-sign-mockup-v1';
 
-  var UNIT_WORD = { vinyl: 'ผืน', frame: 'ผืน', foam: 'แผ่น', acrylic: 'แผ่น', rollup: 'ชุด', xstand: 'ชุด' };
+  var UNIT_WORD = { vinyl: 'ผืน', frame: 'ผืน', foam: 'แผ่น', acrylic: 'แผ่น', lightbox: 'ป้าย', rollup: 'ชุด', xstand: 'ชุด' };
 
   var DEF = {
     mode: 'text',
@@ -20,6 +20,8 @@
     aspect: 'auto',
     brightness: 1,
     info: true,
+    night: false,
+    view: 'angle',
     qty: 1,
     rates: {},
     shopName: 'นัดพอน',
@@ -37,6 +39,10 @@
   var logoImg = null;
   var customer = '';
   var lastOut = null;
+  var stage = null; // เวที 3 มิติ (โหลดตามมาทีหลัง ถ้าเครื่องไม่รองรับใช้ภาพ 2 มิติแทน)
+  var L3 = null; // ขนาดภาพตอนเป็น 3 มิติ { W, H, F, U, f }
+  var faceCache = { key: '', canvas: null };
+  var footCache = null;
   var inFrame = false; // เปิดในกรอบของหน้าอื่น เช่น พรีวิว
   try {
     inFrame = window.top !== window.self;
@@ -138,38 +144,126 @@
   }
 
   /* ---------- วาด ---------- */
+  function is3d() {
+    return !!stage && !(st.scene === 'photo' && photo);
+  }
   var queued = false;
   function draw() {
     if (queued) return;
     queued = true;
     requestAnimationFrame(function () {
       queued = false;
-      lastOut = R.render(view, renderState(), { preview: true });
-      fitView();
+      if (is3d()) draw3d();
+      else {
+        if (stage) stage.setEnabled(false);
+        L3 = null;
+        lastOut = R.render(view, renderState(), { preview: true });
+        fitView();
+      }
       view.classList.toggle('editable', st.scene === 'photo' && !!photo);
+      syncViewbar();
       summary();
       thumbsSoon();
     });
   }
 
+  // หน้าป้าย (เท็กซ์เจอร์) ตามสัดส่วนจริง — กล่องไฟเว้นขอบอะลูมิเนียม 4 ซม.
+  function face3d() {
+    var d = currentDesign();
+    var lb = st.type === 'lightbox';
+    var fw = lb ? Math.max(1, st.w - 8) : st.w;
+    var fh = lb ? Math.max(1, st.h - 8) : st.h;
+    var key = [d.id || textCache.key, st.fit, fw, fh].join('|');
+    if (faceCache.key !== key) faceCache = { key: key, canvas: R.faceCanvas(d, fw, fh, st.fit, 2048), bg: d.bg };
+    return faceCache;
+  }
+
+  function draw3d() {
+    var g = C.geometry(st.type, st.w, st.h);
+    var size = C.canvasSize(st.aspect, g, null);
+    var U = C.unitScale(size.W, size.H);
+    var F = st.info ? Math.round(132 * U) : 0;
+    // ความละเอียดตามขนาดที่เห็นบนจอจริง (จอมือถือไม่ต้องวาดเต็ม 1600 จุด)
+    var css = fitSize(size.W / (size.H + F));
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var f = Math.max(0.35, Math.min(1, (css.w * dpr) / size.W));
+    L3 = { W: size.W, H: size.H, F: F, U: U, f: f, g: g };
+    var cw = Math.round(size.W * f);
+    var ch = Math.round((size.H + F) * f);
+    if (view.width !== cw) view.width = cw;
+    if (view.height !== ch) view.height = ch;
+    fitView();
+    stage.setEnabled(true);
+    stage.setSize(cw, Math.round(size.H * f));
+    var fc = face3d();
+    stage.update({
+      type: st.type,
+      w: st.w,
+      h: st.h,
+      scene: st.scene === 'photo' ? 'studio' : st.scene,
+      person: st.person,
+      night: st.night,
+      face: fc.canvas,
+      faceKey: fc.key,
+      edge: fc.bg,
+    });
+    footCache = null;
+    stage.requestRender();
+  }
+
+  function footerCanvas() {
+    if (!L3 || !L3.F) return null;
+    if (footCache) return footCache;
+    var c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(L3.W * L3.f));
+    c.height = Math.max(1, Math.round(L3.F * L3.f));
+    var x = c.getContext('2d');
+    x.setTransform(L3.f, 0, 0, L3.f, 0, 0);
+    R.footer(x, L3.W, 0, L3.F, L3.U, footerInfo());
+    footCache = c;
+    return c;
+  }
+
+  // ทุกเฟรมที่กล้องขยับ: ภาพ 3 มิติ + เส้นบอกขนาด + แถบรายละเอียด
+  function composite3d() {
+    if (!L3 || !is3d()) return;
+    var x = view.getContext('2d');
+    x.setTransform(L3.f, 0, 0, L3.f, 0, 0);
+    x.drawImage(stage.canvas, 0, 0, L3.W, L3.H);
+    R.overlay3d(x, stage.projected(), L3.g, L3.W, L3.H, L3.U, { dims: st.dims, person: st.person });
+    var fc = footerCanvas();
+    if (fc) {
+      x.setTransform(1, 0, 0, 1, 0, 0);
+      x.drawImage(fc, 0, Math.round(L3.H * L3.f));
+    }
+  }
+
   // ย่อภาพให้พอดีกรอบเสมอ (ภาพแนวตั้งไม่ล้นจอ) — มือถือสูงไม่เกิน 36% ของจอ
   var phone = window.matchMedia ? window.matchMedia('(max-width: 900px)') : { matches: false };
-  function fitView() {
+  function fitSize(a) {
     var box = $('canvasBox');
     var bw = box.clientWidth;
     var bh = phone.matches ? window.innerHeight * 0.36 : box.clientHeight;
-    if (!(bw > 0 && bh > 0)) return;
-    var a = view.width / view.height;
+    if (!(bw > 0 && bh > 0)) return { w: 800, h: 800 / a };
     var w = bw;
     var h = w / a;
     if (h > bh) {
       h = bh;
       w = h * a;
     }
-    view.style.width = Math.floor(w) + 'px';
-    view.style.height = Math.floor(h) + 'px';
+    return { w: Math.floor(w), h: Math.floor(h) };
   }
-  window.addEventListener('resize', fitView);
+  function fitView() {
+    var sz = fitSize(view.width / view.height);
+    view.style.width = sz.w + 'px';
+    view.style.height = sz.h + 'px';
+  }
+  var resizeTimer = 0;
+  window.addEventListener('resize', function () {
+    fitView();
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(draw, 150);
+  });
 
   function summary() {
     var t = C.TYPES[st.type];
@@ -334,10 +428,19 @@
   var thumbTimer = 0;
   function thumbsSoon() {
     clearTimeout(thumbTimer);
-    thumbTimer = setTimeout(drawThumbs, 450);
+    thumbTimer = setTimeout(drawThumbs, stage ? 900 : 450);
   }
   function drawThumbs() {
     document.querySelectorAll('.scene').forEach(function (b) {
+      if (stage && b.dataset.scene !== 'photo') {
+        var tc = b.querySelector('canvas');
+        if (tc.width !== 320) {
+          tc.width = 320;
+          tc.height = 200;
+        }
+        stage.thumb(b.dataset.scene, tc);
+        return;
+      }
       var k = b.dataset.scene;
       var c = b.querySelector('canvas');
       if (!c) {
@@ -347,6 +450,7 @@
           c = holder.querySelector('canvas');
         } else return;
       }
+      if (!c) return;
       var s = renderState({ scene: k, info: false, dims: false, aspect: 'landscape', zoom: 1 });
       if (k !== 'photo') s.photo = null;
       R.render(c, s, { scale: 0.16 });
@@ -390,7 +494,7 @@
     $('brightVal').textContent = Math.round(st.brightness * 100) + '%';
     var isPhoto = st.scene === 'photo';
     $('photoPane').hidden = !isPhoto;
-    $('zoomRow').hidden = isPhoto;
+    $('zoomRow').hidden = isPhoto || !!stage;
     $('aspectField').hidden = isPhoto; // รูปลูกค้าใช้สัดส่วนของรูปเอง
     $('photoDropText').textContent = photo ? 'เปลี่ยนรูปหน้าร้าน' : 'เลือกรูปหน้าร้านลูกค้า';
     $('fileCard').hidden = !imgDesign;
@@ -446,6 +550,7 @@
     loadImage(file)
       .then(function (img) {
         imgDesign = R.prepareImage(img, 3000);
+        imgDesign.id = 'img' + Date.now();
         $('fileThumb').src = img.src;
         $('fileName').textContent = file.name || 'รูปที่วาง';
         $('fileInfo').textContent = (img.naturalWidth || img.width) + ' × ' + (img.naturalHeight || img.height) + ' px';
@@ -781,7 +886,19 @@
       return;
     }
     var c = document.createElement('canvas');
-    R.render(c, renderState(), { scale: 1.5, preview: false });
+    if (is3d() && L3) {
+      // ภาพ 3 มิติจากมุมกล้องที่เห็นอยู่ ความละเอียด 1.5 เท่า + เส้นบอกขนาด + แถบรายละเอียด
+      var k = 1.5;
+      c.width = Math.round(L3.W * k);
+      c.height = Math.round((L3.H + L3.F) * k);
+      var cx = c.getContext('2d');
+      stage.renderAt(c.width, Math.round(L3.H * k), function (gl, pr) {
+        cx.drawImage(gl, 0, 0, c.width, Math.round(L3.H * k));
+        cx.setTransform(k, 0, 0, k, 0, 0);
+        R.overlay3d(cx, pr, L3.g, L3.W, L3.H, L3.U, { dims: st.dims, person: st.person });
+        if (L3.F) R.footer(cx, L3.W, L3.H, L3.F, L3.U, footerInfo());
+      });
+    } else R.render(c, renderState(), { scale: 1.5, preview: false });
     lastCanvas = c;
     c.toBlob(
       function (blob) {
@@ -916,7 +1033,72 @@
       setTimeout(r, 3000);
     })]).then(function () {
       textCache = { key: '', design: null };
+      faceCache = { key: '', canvas: null };
+      footCache = null;
       draw();
     });
   }
+
+  /* ---------- 3 มิติ ---------- */
+  function syncViewbar() {
+    var on = is3d();
+    $('viewbar').hidden = !on;
+    if (!on) return;
+    pressed('#viewSeg button', 'view', stage.view);
+    $('showBtn').setAttribute('aria-pressed', String(stage.showing));
+    $('nightBtn').setAttribute('aria-pressed', String(!!st.night));
+  }
+  document.querySelectorAll('#viewSeg button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (!stage) return;
+      stage.setView(b.dataset.view);
+      st.view = b.dataset.view;
+      save();
+      syncViewbar();
+    });
+  });
+  $('showBtn').addEventListener('click', function () {
+    if (!stage) return;
+    if (stage.showing) stage.stopShow();
+    else stage.startShow();
+    syncViewbar();
+  });
+  $('nightBtn').addEventListener('click', function () {
+    st.night = !st.night;
+    save();
+    draw();
+  });
+  // แตะภาพระหว่างหมุนโชว์ = หยุดหมุน แล้วหมุนเองต่อได้เลย
+  view.addEventListener(
+    'pointerdown',
+    function () {
+      if (stage && stage.showing) {
+        stage.stopShow();
+        syncViewbar();
+      }
+    },
+    true
+  );
+
+  function init3d() {
+    if (stage || !window.SignMockup.createStage3d) return;
+    try {
+      stage = window.SignMockup.createStage3d({ eventsEl: view, onFrame: composite3d });
+      if (st.view && st.view !== 'angle') stage.setView(st.view);
+      window.SignMockup.stage = stage; // ใช้ทดสอบ/ปรับแสง
+      window.SignMockup.faceTexture = function () {
+        return faceCache.canvas;
+      };
+    } catch (e) {
+      stage = null; // เครื่องนี้ใช้ 3 มิติไม่ได้ → ใช้ภาพ 2 มิติต่อ
+      return;
+    }
+    $('zoomRow').hidden = true;
+    draw();
+  }
+  window.addEventListener('signmockup-3d', function () {
+    // ฟอนต์ต้องพร้อมก่อน ไม่งั้นหน้าป้ายในเท็กซ์เจอร์ใช้ฟอนต์สำรอง
+    setTimeout(init3d, 0);
+  });
+  init3d();
 })();

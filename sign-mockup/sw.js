@@ -1,6 +1,6 @@
 /* นัดพอน Sign Mockup — เก็บไฟล์แอปไว้ในเครื่อง เปิดได้แม้ไม่มีเน็ต
  * เปลี่ยนไฟล์แอปเมื่อไหร่ ให้เลื่อนเลข VERSION (มีเทสต์เช็กว่ารายการไฟล์ครบ) */
-var VERSION = 'sign-mockup-1.0.0';
+var VERSION = 'sign-mockup-2.0.0';
 var APP = [
   './',
   'index.html',
@@ -8,6 +8,11 @@ var APP = [
   'core.js',
   'render.js',
   'app.js',
+  'scene3d.js',
+  'vendor/three.module.min.js',
+  'vendor/addons/controls/OrbitControls.js',
+  'vendor/addons/environments/RoomEnvironment.js',
+  'vendor/addons/geometries/RoundedBoxGeometry.js',
   'manifest.webmanifest',
   'icons/icon.svg',
   'icons/icon-192.png',

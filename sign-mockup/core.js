@@ -42,6 +42,13 @@
       mount: 'wall',
       presets: [[30, 20], [40, 30], [60, 40], [90, 60], [120, 60]],
     },
+    lightbox: {
+      name: 'ป้ายกล่องไฟ',
+      desc: 'กล่องอะลูมิเนียม หนา 12 ซม. มีไฟในตัว',
+      unit: 'sqm',
+      mount: 'wall',
+      presets: [[60, 40], [100, 50], [120, 60], [200, 80], [300, 100]],
+    },
     rollup: {
       name: 'โรลอัพ',
       desc: 'ขาตั้งม้วนเก็บได้ ตั้งพื้น',
@@ -57,7 +64,7 @@
       presets: [[60, 160], [80, 180]],
     },
   };
-  var TYPE_ORDER = ['vinyl', 'frame', 'foam', 'acrylic', 'rollup', 'xstand'];
+  var TYPE_ORDER = ['vinyl', 'frame', 'foam', 'acrylic', 'lightbox', 'rollup', 'xstand'];
 
   var SCENES = {
     studio: { name: 'พื้นเรียบ', desc: 'โชว์งานชัด ๆ' },
@@ -180,6 +187,10 @@
     } else if (t === 'acrylic') {
       g.depth = 0.8;
       g.gap = 2.5;
+    } else if (t === 'lightbox') {
+      g.depth = 12;
+      g.gap = 12;
+      g.rim = 4; // ขอบอะลูมิเนียมรอบหน้าป้าย
     } else if (t === 'rollup') {
       // ราวบน 1.5 ซม. — หน้าป้าย — ฐานม้วนสูง 9 ซม. (ป้ายจมลงฐาน 1 ซม.) — ขารอง 1.5 ซม.
       g.rail = 1.5;
@@ -197,7 +208,7 @@
       g.bw = w + 2 * g.spread;
       g.bh = h + g.lift;
     }
-    g.ex = g.depth * 0.5; // ความหนาเห็นเฉียงขวาล่าง
+    g.ex = Math.min(g.depth * 0.5, 3); // ความหนาเห็นเฉียงขวาล่าง (ภาพ 2 มิติ)
     g.bw += g.ex;
     g.bh += g.ex;
     return g;

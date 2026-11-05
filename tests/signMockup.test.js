@@ -193,3 +193,31 @@ test('เซิร์ฟเวอร์บอตเสิร์ฟแอปท�
   const server = readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
   assert.match(server, /app\.use\(\s*'\/sign',\s*express\.static\('sign-mockup'/);
 });
+
+test('ป้ายกล่องไฟ: หนา 12 ซม. ขอบอะลูมิเนียม 4 ซม. คิดราคาต่อ ตร.ม. ติดผนัง', () => {
+  assert.ok(C.TYPE_ORDER.includes('lightbox'));
+  const g = C.geometry('lightbox', 120, 60);
+  assert.equal(g.depth, 12);
+  assert.equal(g.rim, 4);
+  assert.equal(g.mount, 'wall');
+  assert.ok(g.ex <= 3, 'ภาพ 2 มิติโชว์ความหนาเฉียงไม่เกิน 3 ซม.');
+  assert.equal(C.quote({ type: 'lightbox', w: 120, h: 60, qty: 1, rate: 3500 }).per, 2520);
+  for (const k of C.TYPE_ORDER) assert.ok(C.TYPES[k].presets.length >= 2, `${k} ต้องมีขนาดสำเร็จรูป`);
+});
+
+test('3 มิติ: import map ชี้ three.js ในเครื่อง และไฟล์ที่ scene3d.js ใช้มีครบ (ใช้ออฟไลน์ได้)', () => {
+  const html = readFileSync(app('index.html'), 'utf8');
+  const map = JSON.parse(html.match(/<script type="importmap">([\s\S]*?)<\/script>/)[1]).imports;
+  assert.equal(map.three, './vendor/three.module.min.js');
+  assert.ok(existsSync(app(map.three.slice(2))));
+  assert.ok(html.includes('<script type="module" src="scene3d.js"></script>'));
+  // module ต้องโหลดหลัง importmap
+  assert.ok(html.indexOf('type="importmap"') < html.indexOf('type="module"'));
+  const src = readFileSync(app('scene3d.js'), 'utf8');
+  const addons = [...src.matchAll(/from 'three\/addons\/([^']+)'/g)].map((m) => m[1]);
+  assert.ok(addons.length >= 3);
+  for (const a of addons) assert.ok(existsSync(app('vendor/addons/' + a)), `ไม่มี vendor/addons/${a}`);
+  const sw = readFileSync(app('sw.js'), 'utf8');
+  for (const a of addons) assert.ok(sw.includes(`'vendor/addons/${a}'`), `sw.js ไม่ได้เก็บ ${a} ไว้ใช้ออฟไลน์`);
+  assert.ok(sw.includes("'scene3d.js'") && sw.includes("'vendor/three.module.min.js'"));
+});
