@@ -221,3 +221,32 @@ test('3 มิติ: import map ชี้ three.js ในเครื่อง 
   for (const a of addons) assert.ok(sw.includes(`'vendor/addons/${a}'`), `sw.js ไม่ได้เก็บ ${a} ไว้ใช้ออฟไลน์`);
   assert.ok(sw.includes("'scene3d.js'") && sw.includes("'vendor/three.module.min.js'"));
 });
+
+test('ฉากประตู/ห้องเรียน: ป้ายเล็กติดบนบานระดับสายตา ป้ายใหญ่ติดเหนือวงกบ', () => {
+  for (const k of ['classDoor', 'officeDoor', 'classroom']) assert.ok(C.SCENE_ORDER.includes(k), k);
+  assert.equal(C.SCENE_ORDER[C.SCENE_ORDER.length - 1], 'photo');
+  const plate = C.geometry('acrylic', 30, 10);
+  assert.equal(C.resolveSpot('classDoor', 'auto', plate), 'door');
+  assert.equal(C.mountBottom('classDoor', plate, 'auto'), 145); // กลางป้าย 150 ซม.
+  const big = C.geometry('vinyl', 150, 40);
+  assert.equal(C.resolveSpot('officeDoor', 'auto', big), 'above');
+  assert.equal(C.mountBottom('officeDoor', big, 'auto'), 222); // เหนือประตู 210 + วงกบ
+  // ป้ายสูงบนบานประตูไม่ทะลุขอบบนประตู
+  const tall = C.geometry('foam', 60, 90);
+  assert.ok(C.mountBottom('classDoor', tall, 'door') + 90 <= C.DOOR.h - 8);
+  assert.equal(C.mountBottom('classDoor', C.geometry('vinyl', 60, 40), 'beside'), 130);
+  // ห้องเรียน: เหนือกระดาน (ขอบบนกระดาน 210 + 15) และไม่มี "บนประตู"
+  assert.equal(C.resolveSpot('classroom', 'door', big), 'above');
+  assert.equal(C.mountBottom('classroom', big, 'above'), 225);
+  // ฉากเดิมไม่สนตำแหน่ง
+  assert.equal(C.resolveSpot('wall', 'door', big), null);
+  assert.equal(C.mountBottom('shop', big, 'door'), 290);
+});
+
+test('สติ๊กเกอร์: แนบผิว ไม่มีความหนา ไม่มีระยะห่างจากผนัง คิดราคาต่อ ตร.ม.', () => {
+  const g = C.geometry('sticker', 60, 20);
+  assert.equal(g.depth, 0);
+  assert.equal(g.gap, 0);
+  assert.equal(g.mount, 'wall');
+  assert.equal(C.quote({ type: 'sticker', w: 60, h: 20, qty: 10, rate: 400 }).total, 480);
+});

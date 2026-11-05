@@ -601,13 +601,521 @@ function buildFence() {
   return env;
 }
 
-const BUILD = { studio: buildStudio, wall: buildWall, brick: buildBrick, shop: buildShop, fence: buildFence };
+/* ---------------- ฉากในอาคาร: ประตู ห้องเรียน ---------------- */
+// ลายไม้: สักบานลูกฟัก (ประตูห้องเรียน) / โอ๊คบานเรียบ (ห้องทำงาน) — ผืนเดียวคลุมทั้งบาน
+function woodTex(kind) {
+  return once('wood' + kind, () => {
+    const W = 512;
+    const H = 1024;
+    const c = mk(W, H);
+    const x = c.getContext('2d');
+    const b = mk(W, H);
+    const y = b.getContext('2d');
+    const base = kind === 'teak' ? [136, 86, 50] : [198, 164, 122];
+    x.fillStyle = `rgb(${base.join(',')})`;
+    x.fillRect(0, 0, W, H);
+    y.fillStyle = '#909090';
+    y.fillRect(0, 0, W, H);
+    const r = rng(kind === 'teak' ? 91 : 92);
+    for (let i = 0; i < 280; i++) {
+      const gx = r() * W;
+      const dark = r() < 0.62;
+      const a = 0.05 + r() * 0.12;
+      x.strokeStyle = dark ? `rgba(60,30,10,${a})` : `rgba(255,232,196,${a * 0.6})`;
+      x.lineWidth = 0.6 + r() * 2.2;
+      const amp = 2 + r() * 6;
+      const fr = 0.003 + r() * 0.01;
+      const ph = r() * 6;
+      x.beginPath();
+      x.moveTo(gx, 0);
+      for (let yy = 0; yy <= H; yy += 16) x.lineTo(gx + Math.sin(yy * fr + ph) * amp, yy);
+      x.stroke();
+    }
+    speckle(x, W, H, 8, 93);
+    if (kind === 'teak') {
+      for (const [px, py, pw, ph] of [[0.16, 0.07, 0.68, 0.37], [0.16, 0.53, 0.68, 0.39]]) {
+        const X0 = px * W;
+        const Y0 = py * H;
+        const PW = pw * W;
+        const PH = ph * H;
+        const bev = 20;
+        x.strokeStyle = 'rgba(40,20,8,0.6)';
+        x.lineWidth = 4;
+        x.strokeRect(X0, Y0, PW, PH);
+        x.strokeStyle = 'rgba(255,220,180,0.28)';
+        x.lineWidth = 2;
+        x.strokeRect(X0 + bev, Y0 + bev, PW - 2 * bev, PH - 2 * bev);
+        y.fillStyle = '#404040';
+        y.fillRect(X0, Y0, PW, PH);
+        y.fillStyle = '#b4b4b4';
+        y.fillRect(X0 + bev, Y0 + bev, PW - 2 * bev, PH - 2 * bev);
+      }
+    }
+    return { map: tex(c), bump: tex(b, false) };
+  });
+}
+
+// พื้นหินขัด (ทางเดินอาคารเรียน) — ผืนครอบ 1.2 × 1.2 ม. เส้นทองเหลืองที่ขอบ
+function terrazzo() {
+  return once('terrazzo', () => {
+    const px = 1024;
+    const c = mk(px, px);
+    const x = c.getContext('2d');
+    x.fillStyle = '#b8b4ac';
+    x.fillRect(0, 0, px, px);
+    const r = rng(101);
+    const chips = ['#ecebe7', '#3e3c39', '#8f8b84', '#d6cab4', '#6e6a63', '#c9c6bf'];
+    for (let i = 0; i < 14000; i++) {
+      x.fillStyle = chips[(r() * chips.length) | 0];
+      const cx = r() * px;
+      const cy = r() * px;
+      const sz = 1.5 + r() * r() * 9;
+      x.beginPath();
+      x.moveTo(cx + sz, cy);
+      for (let k = 1; k < 5; k++) {
+        const a = (k / 5) * Math.PI * 2 + r();
+        x.lineTo(cx + Math.cos(a) * sz * (0.6 + r() * 0.5), cy + Math.sin(a) * sz * (0.6 + r() * 0.5));
+      }
+      x.fill();
+    }
+    x.fillStyle = '#a08a55';
+    x.fillRect(0, 0, px, 3);
+    x.fillRect(0, 0, 3, px);
+    return { map: tex(c) };
+  });
+}
+
+// พื้นไม้ลามิเนต: แผ่นกว้าง 20 ซม. ยาว 1.2 ม. วางสลับรอยต่อ — ผืนครอบ 1.2 × 1.2 ม.
+function laminate() {
+  return once('laminate', () => {
+    const px = 1024;
+    const c = mk(px, px);
+    const x = c.getContext('2d');
+    const rows = 6;
+    const rh = px / rows;
+    const r = rng(111);
+    for (let i = 0; i < rows; i++) {
+      const off = ((i * 0.37) % 1) * px;
+      for (const ox of [off - px, off]) {
+        const v = (r() - 0.5) * 26;
+        x.fillStyle = `rgb(${178 + v},${138 + v},${98 + v * 0.8})`;
+        x.fillRect(ox, i * rh, px, rh);
+        for (let k = 0; k < 40; k++) {
+          x.strokeStyle = `rgba(80,45,20,${0.04 + r() * 0.08})`;
+          x.lineWidth = 0.6 + r() * 1.6;
+          const yy = i * rh + r() * rh;
+          x.beginPath();
+          x.moveTo(ox, yy);
+          for (let xx = 0; xx <= px; xx += 32) x.lineTo(ox + xx, yy + Math.sin(xx * 0.01 + k) * 2);
+          x.stroke();
+        }
+        x.fillStyle = 'rgba(40,24,10,0.45)';
+        x.fillRect(ox + px - 2, i * rh, 2, rh);
+      }
+      x.fillStyle = 'rgba(40,24,10,0.4)';
+      x.fillRect(0, i * rh, px, 2);
+    }
+    speckle(x, px, px, 8, 112);
+    return { map: tex(c) };
+  });
+}
+
+// บอร์ดไม้ก๊อกติดกระดาษสี (บอร์ดนิเทศ)
+function corkTex() {
+  return once('cork', () => {
+    const c = mk(640, 360);
+    const x = c.getContext('2d');
+    x.fillStyle = '#b78656';
+    x.fillRect(0, 0, 640, 360);
+    speckle(x, 640, 360, 70, 121);
+    const r = rng(122);
+    const papers = ['#fff6a8', '#ffd1dc', '#c9ecff', '#d6f5c7', '#ffffff', '#ffe1b3'];
+    for (let i = 0; i < 9; i++) {
+      const w = 90 + r() * 80;
+      const h = 60 + r() * 70;
+      const px = 20 + (i % 3) * 205 + r() * 30;
+      const py = 20 + Math.floor(i / 3) * 112 + r() * 15;
+      x.save();
+      x.translate(px + w / 2, py + h / 2);
+      x.rotate((r() - 0.5) * 0.12);
+      x.fillStyle = 'rgba(0,0,0,0.18)';
+      x.fillRect(-w / 2 + 3, -h / 2 + 4, w, h);
+      x.fillStyle = papers[i % papers.length];
+      x.fillRect(-w / 2, -h / 2, w, h);
+      x.fillStyle = 'rgba(40,50,70,0.35)';
+      for (let l = 0; l < 4; l++) x.fillRect(-w / 2 + 10, -h / 2 + 14 + l * 12, w * (0.4 + r() * 0.45), 4);
+      x.fillStyle = ['#d33', '#36c', '#2a2'][i % 3];
+      x.beginPath();
+      x.arc(0, -h / 2 + 6, 5, 0, Math.PI * 2);
+      x.fill();
+      x.restore();
+    }
+    return { map: tex(c) };
+  });
+}
+
+// ผนังทาสีสองสี (ล่างเข้ม บนอ่อน) แบบอาคารเรียน — ระนาบที่ z=0 หันหน้า +z
+function paintedWall(w, h, lower, upper, split) {
+  const g = new THREE.Group();
+  const p = plaster('#f3efe7', 131);
+  const lo = plane(w, split, std({ map: repeatOf(p.map, w / 1.5, split / 1.5), bumpMap: repeatOf(p.bump, w / 1.5, split / 1.5), bumpScale: 0.5, color: lower, roughness: 0.9 }));
+  lo.position.set(0, split / 2, 0);
+  const up = plane(w, h - split, std({ map: repeatOf(p.map, w / 1.5, (h - split) / 1.5), bumpMap: repeatOf(p.bump, w / 1.5, (h - split) / 1.5), bumpScale: 0.5, color: upper, roughness: 0.92 }));
+  up.position.set(0, split + (h - split) / 2, 0);
+  const stripe = box(w, 0.035, 0.006, std({ color: 0x5f7f68, roughness: 0.6 }));
+  stripe.position.set(0, split, 0.003);
+  g.add(lo, up, stripe);
+  g.traverse((m) => {
+    if (m.isMesh) m.receiveShadow = true;
+  });
+  return g;
+}
+
+// ประตูบานเดี่ยว 90 × 210 ซม. พร้อมวงกบ มือจับก้านโยก — จุดเริ่มคือกึ่งกลางพื้นหน้าผนัง
+function makeDoor(style) {
+  const g = new THREE.Group();
+  const W = C.DOOR.w / 100;
+  const H = C.DOOR.h / 100;
+  const fw = 0.07;
+  const fd = 0.03;
+  const ld = 0.04;
+  const wood = woodTex(style === 'panel' ? 'teak' : 'oak');
+  const leafMat = std({ map: wood.map, bumpMap: wood.bump, bumpScale: 2.5, roughness: style === 'panel' ? 0.55 : 0.42 });
+  const edgeMat = std({ color: style === 'panel' ? 0x6a4226 : 0xb38c60, roughness: 0.6 });
+  const leaf = box(W - 0.01, H - 0.005, ld, [edgeMat, edgeMat, edgeMat, edgeMat, leafMat, edgeMat]);
+  leaf.position.set(0, H / 2, ld / 2 + 0.004);
+  g.add(leaf);
+  const frameMat = style === 'panel' ? std({ color: 0x5c3920, roughness: 0.6 }) : std({ color: 0xf1eee8, roughness: 0.45 });
+  for (const sx of [-1, 1]) {
+    const f = box(fw, H + fw, fd, frameMat);
+    f.position.set(sx * (W / 2 + fw / 2), (H + fw) / 2, fd / 2);
+    g.add(f);
+  }
+  const top = box(W + 2 * fw, fw, fd, frameMat);
+  top.position.set(0, H + fw / 2, fd / 2);
+  g.add(top);
+  const hx = W / 2 - 0.08;
+  const fz = ld + 0.004;
+  const rose = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.01, 24), MAT.chrome);
+  rose.rotation.x = Math.PI / 2;
+  rose.position.set(hx, 1.0, fz + 0.005);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.045, 12), MAT.chrome);
+  neck.rotation.x = Math.PI / 2;
+  neck.position.set(hx, 1.0, fz + 0.03);
+  const lever = new THREE.Mesh(new RoundedBoxGeometry(0.13, 0.02, 0.018, 2, 0.008), MAT.chrome);
+  lever.position.set(hx - 0.055, 1.0, fz + 0.05);
+  const key = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.008, 20), MAT.chrome);
+  key.rotation.x = Math.PI / 2;
+  key.position.set(hx, 0.9, fz + 0.004);
+  g.add(rose, neck, lever, key);
+  g.userData.face = fz;
+  return shadowy(g, true, true);
+}
+
+// หน้าต่างบานเกล็ด + เหล็กดัด (มีแสงสว่างข้างนอกหลังกระจก) — วางชิดผนังที่ z=0
+function louverWindow(w, h) {
+  const g = new THREE.Group();
+  const outside = plane(w, h, new THREE.MeshBasicMaterial({ color: 0xe6f1f5 }));
+  outside.position.z = 0.004;
+  g.add(outside);
+  const fr = MAT.darkAlu;
+  for (const [bw, bh, x, y] of [[w, 0.04, 0, h / 2], [w, 0.04, 0, -h / 2], [0.04, h, -w / 2, 0], [0.04, h, w / 2, 0], [0.03, h, 0, 0]]) {
+    const b = box(bw, bh, 0.05, fr);
+    b.position.set(x, y, 0.025);
+    g.add(b);
+  }
+  const glass = std({ color: 0xc3d8de, roughness: 0.06, metalness: 0.25, transparent: true, opacity: 0.5 });
+  const n = Math.floor((h - 0.06) / 0.095);
+  for (let i = 0; i < n; i++) {
+    for (const sx of [-1, 1]) {
+      const sl = box(w / 2 - 0.05, 0.1, 0.005, glass);
+      sl.rotation.x = -0.5;
+      sl.position.set((sx * w) / 4, -h / 2 + 0.07 + i * 0.095, 0.03);
+      g.add(sl);
+    }
+  }
+  const bar = std({ color: 0x2f3338, metalness: 0.6, roughness: 0.45 });
+  for (let x = -w / 2 + 0.1; x < w / 2 - 0.05; x += 0.12) {
+    const b = box(0.012, h - 0.04, 0.012, bar);
+    b.position.set(x, 0, 0.06);
+    g.add(b);
+  }
+  g.traverse((m) => {
+    if (m.isMesh) m.castShadow = false;
+  });
+  return g;
+}
+
+function ceiling(w, d, y, z0, color) {
+  const c = plane(w, d, std({ color, roughness: 0.95 }));
+  c.rotation.x = Math.PI / 2;
+  c.position.set(0, y, z0 + d / 2);
+  c.receiveShadow = true;
+  return c;
+}
+
+function noCast(g) {
+  g.traverse((m) => {
+    if (m.isMesh) m.castShadow = false;
+  });
+  return g;
+}
+
+// ตำแหน่งป้ายรอบประตู (เมตร): บนบาน / เหนือวงกบ / ข้างประตู
+function doorSpots(env, faceZ) {
+  const half = C.DOOR.w / 200 + 0.07;
+  env.spotX = (spot, w) => (spot === 'beside' ? half + 0.2 + w / 2 : 0);
+  env.spotZ = (spot) => (spot === 'door' ? faceZ + 0.002 : 0.002);
+  env.floorX = (w) => half + 0.45 + w / 2;
+  env.focus = () => new THREE.Box3(new THREE.Vector3(-half, 0, 0), new THREE.Vector3(half, C.DOOR.h / 100 + 0.1, 0.06));
+  return env;
+}
+
+// ทางเดินหน้าห้องเรียน: ผนังสองสี ประตูไม้สักบานลูกฟัก หน้าต่างบานเกล็ด พื้นหินขัด
+function buildClassDoor() {
+  const g = new THREE.Group();
+  g.add(paintedWall(20, 3.2, 0x9fc4a8, 0xf7f1df, 1.0));
+  const door = makeDoor('panel');
+  g.add(door);
+  for (const x of [-3.9, -2.3, 2.3, 3.9]) {
+    const wdw = louverWindow(1.2, 1.1);
+    wdw.position.set(x, 1.62, 0);
+    g.add(wdw);
+  }
+  const f = floorMesh(20, 3.3, terrazzo(), { tile: 1.2, roughness: 0.32 });
+  f.position.set(0, 0, 1.65);
+  g.add(f);
+  const parapet = box(20, 1.0, 0.15, std({ color: 0xefe9d6, roughness: 0.9 }));
+  parapet.position.set(0, 0.5, 3.37);
+  g.add(noCast(parapet));
+  g.add(noCast(ceiling(20, 3.45, 3.2, 0, 0xf5f3ee)));
+  const yard = floorMesh(60, 40, grassTex(), { tile: 1.6 });
+  yard.position.set(0, -0.9, 23.5);
+  g.add(yard);
+  return doorSpots({ group: g, bg: new THREE.Color(0xd8e7ee), floorZ: 0.8, wallZ: 0, kind: 'indoor' }, door.userData.face);
+}
+
+// ประตูห้องทำงาน/ห้องประชุม: ผนังเทาอ่อน ประตูไม้โอ๊คบานเรียบ พื้นไม้ ต้นไม้ในกระถาง รูปติดผนัง
+function buildOfficeDoor() {
+  const g = new THREE.Group();
+  const p = plaster('#e6e4df', 141);
+  const wall = plane(14, 2.8, std({ map: repeatOf(p.map, 14 / 1.5, 2.8 / 1.5), bumpMap: repeatOf(p.bump, 14 / 1.5, 2.8 / 1.5), bumpScale: 0.4, roughness: 0.92 }));
+  wall.position.set(0, 1.4, 0);
+  wall.receiveShadow = true;
+  g.add(wall);
+  const base = box(14, 0.08, 0.012, std({ color: 0xf4f2ee, roughness: 0.5 }));
+  base.position.set(0, 0.04, 0.006);
+  g.add(base);
+  const door = makeDoor('flush');
+  g.add(door);
+  const f = floorMesh(14, 8, laminate(), { tile: 1.2, roughness: 0.55 });
+  f.position.set(0, 0, 4);
+  g.add(f);
+  g.add(noCast(ceiling(14, 8, 2.8, 0, 0xf7f6f3)));
+  for (const sx of [-1, 1]) {
+    const side = plane(8, 2.8, std({ color: 0xe2e0db, roughness: 0.95 }));
+    side.rotation.y = -sx * Math.PI / 2;
+    side.position.set(sx * 7, 1.4, 4);
+    g.add(noCast(side));
+  }
+  // ไฟดาวน์ไลท์
+  const lamp = std({ color: 0xffffff, emissive: 0xfff6e6, emissiveIntensity: 1.4 });
+  for (const x of [-2.5, 0, 2.5]) {
+    for (const z of [1.2, 3.5]) {
+      const d = new THREE.Mesh(new THREE.CircleGeometry(0.07, 24), lamp);
+      d.rotation.x = Math.PI / 2;
+      d.position.set(x, 2.795, z);
+      g.add(d);
+    }
+  }
+  // ต้นไม้ในกระถาง
+  const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.13, 0.36, 28), std({ color: 0xf2f0ec, roughness: 0.35 }));
+  pot.position.set(-1.25, 0.18, 0.35);
+  g.add(pot);
+  // ลิ้นมังกร: ใบแบนยาวตั้งตรง ปลายแหลม
+  const leafM = [0x2f6b3a, 0x3d7d45, 0x4a8a4e, 0x6b9b4f].map((c) => std({ color: c, roughness: 0.55, side: THREE.DoubleSide }));
+  const r = rng(151);
+  const blade = new THREE.ConeGeometry(0.04, 1, 4, 1);
+  blade.translate(0, 0.5, 0);
+  for (let i = 0; i < 14; i++) {
+    const l = new THREE.Mesh(blade, leafM[i % leafM.length]);
+    const a = r() * Math.PI * 2;
+    const rr = 0.02 + r() * 0.09;
+    const hh = 0.45 + r() * 0.45;
+    l.scale.set(0.8 + r() * 0.6, hh, 0.22);
+    l.position.set(-1.25 + Math.cos(a) * rr, 0.34, 0.35 + Math.sin(a) * rr);
+    l.rotation.set(Math.sin(a) * 0.18 * (0.5 + r()), r() * Math.PI, Math.cos(a) * 0.18 * (0.5 + r()));
+    g.add(l);
+  }
+  const soil = new THREE.Mesh(new THREE.CircleGeometry(0.155, 24), std({ color: 0x3b2b20, roughness: 1 }));
+  soil.rotation.x = -Math.PI / 2;
+  soil.position.set(-1.25, 0.34, 0.35);
+  g.add(soil);
+  // รูปติดผนัง
+  const art = mk(300, 200);
+  const ax = art.getContext('2d');
+  const ag = ax.createLinearGradient(0, 0, 300, 200);
+  ag.addColorStop(0, '#d9c7a8');
+  ag.addColorStop(1, '#8aa1b1');
+  ax.fillStyle = ag;
+  ax.fillRect(0, 0, 300, 200);
+  ax.fillStyle = 'rgba(255,255,255,0.35)';
+  ax.beginPath();
+  ax.arc(200, 80, 50, 0, Math.PI * 2);
+  ax.fill();
+  ax.fillStyle = 'rgba(40,60,80,0.45)';
+  ax.fillRect(0, 140, 300, 60);
+  const frame = box(0.92, 0.62, 0.03, std({ color: 0x2a2a2a, roughness: 0.4 }));
+  frame.position.set(-2.6, 1.55, 0.015);
+  const pic = plane(0.84, 0.54, std({ map: tex(art), roughness: 0.6 }));
+  pic.position.set(-2.6, 1.55, 0.031);
+  g.add(frame, pic);
+  shadowy(g, true, true);
+  g.children.forEach((m) => {
+    if (m === wall || m === f) m.castShadow = false;
+  });
+  return doorSpots({ group: g, bg: new THREE.Color(0xe8e6e2), floorZ: 0.8, wallZ: 0, kind: 'indoor' }, door.userData.face);
+}
+
+function studentSet(x, z, wood, metal) {
+  const g = new THREE.Group();
+  const top = box(0.6, 0.025, 0.42, wood);
+  top.position.set(0, 0.72, 0);
+  g.add(top);
+  for (const [lx, lz] of [[-0.27, -0.18], [0.27, -0.18], [-0.27, 0.18], [0.27, 0.18]]) {
+    const l = box(0.025, 0.71, 0.025, metal);
+    l.position.set(lx, 0.355, lz);
+    g.add(l);
+  }
+  const seat = box(0.38, 0.02, 0.36, wood);
+  seat.position.set(0, 0.44, 0.42);
+  const back = box(0.38, 0.26, 0.02, wood);
+  back.position.set(0, 0.68, 0.6);
+  g.add(seat, back);
+  for (const [lx, lz] of [[-0.17, 0.27], [0.17, 0.27], [-0.17, 0.58], [0.17, 0.58]]) {
+    const l = box(0.02, 0.44, 0.02, metal);
+    l.position.set(lx, 0.22, lz);
+    g.add(l);
+  }
+  g.position.set(x, 0, z);
+  return g;
+}
+
+// ในห้องเรียน: ไวท์บอร์ด โต๊ะครู โต๊ะนักเรียน หน้าต่างบานเกล็ด บอร์ดนิเทศ นาฬิกา ไฟเพดาน
+function buildClassroom() {
+  const g = new THREE.Group();
+  const RW = 8;
+  const RD = 10;
+  const RH = 3.2;
+  g.add(paintedWall(RW, RH, 0x9fc4a8, 0xf7f1df, 1.0));
+  for (const sx of [-1, 1]) {
+    const side = paintedWall(RD, RH, 0x9fc4a8, 0xf7f1df, 1.0);
+    side.rotation.y = -sx * Math.PI / 2;
+    side.position.set((sx * RW) / 2, 0, RD / 2);
+    g.add(noCast(side));
+  }
+  const t = tiles('tiles60', 2, 1024, [212, 205, 194], '#a29a8e', 12, 7);
+  const f = floorMesh(RW, RD, t, { tile: 1.2, roughness: 1, bumpScale: 0.8 });
+  f.position.set(0, 0, RD / 2);
+  g.add(f);
+  g.add(noCast(ceiling(RW, RD, RH, 0, 0xf6f5f1)));
+  // ไวท์บอร์ด 240 × 120 ซม.
+  const bw = C.BOARD.w / 100;
+  const bh = C.BOARD.h / 100;
+  const by = C.BOARD.y0 / 100 + bh / 2;
+  const board = box(bw, bh, 0.02, std({ color: 0xf8f9f9, roughness: 0.14 }));
+  board.position.set(0, by, 0.012);
+  g.add(board);
+  for (const [w, h, x, y] of [[bw + 0.04, 0.025, 0, by + bh / 2], [bw + 0.04, 0.025, 0, by - bh / 2], [0.025, bh, -bw / 2, by], [0.025, bh, bw / 2, by]]) {
+    const b = box(w, h, 0.03, MAT.alu);
+    b.position.set(x, y, 0.015);
+    g.add(b);
+  }
+  const tray = box(bw * 0.8, 0.025, 0.07, MAT.alu);
+  tray.position.set(0, by - bh / 2 - 0.02, 0.04);
+  g.add(tray);
+  // หน้าต่างผนังซ้าย ประตู + บอร์ดนิเทศ + นาฬิกา ผนังขวา
+  for (const z of [2.2, 4.6, 7.0]) {
+    const wdw = louverWindow(1.7, 1.25);
+    wdw.rotation.y = Math.PI / 2;
+    wdw.position.set(-RW / 2, 1.65, z);
+    g.add(wdw);
+  }
+  const door = makeDoor('panel');
+  door.rotation.y = -Math.PI / 2;
+  door.position.set(RW / 2, 0, 1.3);
+  g.add(door);
+  const cork = box(1.8, 1.0, 0.02, [MAT.darkAlu, MAT.darkAlu, MAT.darkAlu, MAT.darkAlu, std({ map: corkTex().map, roughness: 0.85 }), MAT.darkAlu]);
+  cork.rotation.y = -Math.PI / 2;
+  cork.position.set(RW / 2 - 0.012, 1.55, 3.7);
+  g.add(cork);
+  const clockFace = mk(256, 256);
+  const cx = clockFace.getContext('2d');
+  cx.fillStyle = '#ffffff';
+  cx.beginPath();
+  cx.arc(128, 128, 126, 0, Math.PI * 2);
+  cx.fill();
+  cx.strokeStyle = '#222';
+  cx.lineWidth = 10;
+  cx.stroke();
+  cx.lineCap = 'round';
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    cx.lineWidth = i % 3 ? 4 : 8;
+    cx.beginPath();
+    cx.moveTo(128 + Math.sin(a) * 100, 128 - Math.cos(a) * 100);
+    cx.lineTo(128 + Math.sin(a) * 114, 128 - Math.cos(a) * 114);
+    cx.stroke();
+  }
+  cx.lineWidth = 9;
+  cx.beginPath();
+  cx.moveTo(128, 128);
+  cx.lineTo(128 + 52, 128 - 30);
+  cx.stroke();
+  cx.lineWidth = 6;
+  cx.beginPath();
+  cx.moveTo(128, 128);
+  cx.lineTo(128 - 18, 128 - 88);
+  cx.stroke();
+  const clock = new THREE.Mesh(new THREE.CircleGeometry(0.16, 40), std({ map: tex(clockFace), roughness: 0.4 }));
+  clock.rotation.y = -Math.PI / 2;
+  clock.position.set(RW / 2 - 0.02, 2.45, 5.6);
+  g.add(clock);
+  // โต๊ะครู + โต๊ะนักเรียน 3 แถว
+  const wood = std({ color: 0xc9a274, roughness: 0.55 });
+  const metal = std({ color: 0x55606e, metalness: 0.5, roughness: 0.45 });
+  const desk = box(1.2, 0.72, 0.6, std({ color: 0xd9dcdf, metalness: 0.2, roughness: 0.5 }));
+  desk.position.set(-2.4, 0.36, 1.0);
+  const deskTop = box(1.24, 0.03, 0.64, wood);
+  deskTop.position.set(-2.4, 0.735, 1.0);
+  g.add(desk, deskTop);
+  for (const z of [3.2, 4.5, 5.8]) for (const x of [-2.6, -1.3, 0, 1.3, 2.6]) g.add(studentSet(x, z, wood, metal));
+  // ไฟเพดาน
+  const tube = std({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1.3 });
+  for (const x of [-2, 0, 2]) {
+    for (const z of [1.8, 4.6, 7.4]) {
+      const l = box(0.14, 0.04, 1.22, tube);
+      l.position.set(x, RH - 0.03, z);
+      g.add(noCast(l));
+    }
+  }
+  shadowy(g, true, true);
+  f.castShadow = false;
+  const env = { group: g, bg: new THREE.Color(0xeeece6), floorZ: 0.6, wallZ: 0, kind: 'indoor' };
+  env.spotX = (spot, w) => (spot === 'beside' ? bw / 2 + 0.35 + w / 2 : 0);
+  env.spotZ = () => 0.002;
+  env.floorX = (w) => bw / 2 + 0.5 + w / 2;
+  env.focus = () => new THREE.Box3(new THREE.Vector3(-bw / 2 - 0.05, C.BOARD.y0 / 100 - 0.05, 0), new THREE.Vector3(bw / 2 + 0.05, (C.BOARD.y0 + C.BOARD.h) / 100 + 0.05, 0.05));
+  return env;
+}
+
+const BUILD = { studio: buildStudio, wall: buildWall, brick: buildBrick, shop: buildShop, fence: buildFence, classDoor: buildClassDoor, officeDoor: buildOfficeDoor, classroom: buildClassroom };
 
 /* ---------------- ตัวป้าย ---------------- */
 // หน้าป้าย: วัสดุแต่ละชนิดผิวไม่เหมือนกัน
 function faceMat(type, map) {
   if (type === 'lightbox') return std({ map, emissiveMap: map, emissive: 0xffffff, emissiveIntensity: 0.18, roughness: 0.42 });
-  const rough = { vinyl: 0.72, frame: 0.7, foam: 0.5, acrylic: 0.6, rollup: 0.5, xstand: 0.55 }[type] || 0.7;
+  const rough = { vinyl: 0.72, frame: 0.7, foam: 0.5, sticker: 0.36, acrylic: 0.6, rollup: 0.5, xstand: 0.55 }[type] || 0.7;
   return std({ map, roughness: rough, metalness: 0 });
 }
 
@@ -666,6 +1174,15 @@ function buildBoard(type, w, h, map, edge) {
     b.position.z = z0 + d / 2;
     g.add(b);
     front = z0 + d;
+  } else if (type === 'sticker') {
+    // สติ๊กเกอร์แนบผิว (ผนัง/บานประตู) เคลือบเงานิด ๆ
+    face.polygonOffset = true;
+    face.polygonOffsetFactor = -2;
+    face.polygonOffsetUnits = -2;
+    const st = plane(w, h, face);
+    st.position.z = 0.0008;
+    g.add(st);
+    front = 0.001;
   } else if (type === 'acrylic') {
     // พิมพ์หลังแผ่นใสหนา 8 มม. ลอยจากผนัง 2.5 ซม. ด้วยหมุดสแตนเลส 4 มุม
     const gap = 0.025;
@@ -899,6 +1416,7 @@ export function createStage(opts) {
   let glow = null;
 
   let model = null;
+  let curSpot = null;
   let signKey = '';
   let faceTex = null;
   let faceKey = '';
@@ -962,6 +1480,7 @@ export function createStage(opts) {
     model.floor = C.TYPES[s.type].mount === 'floor';
     shadowy(model.group, true, true);
     if (s.type === 'vinyl') model.group.children.slice(0, 2).forEach((m) => (m.receiveShadow = false));
+    if (s.type === 'sticker') model.group.traverse((m) => (m.castShadow = m.receiveShadow = false));
     signRoot.add(model.group);
   }
 
@@ -973,23 +1492,25 @@ export function createStage(opts) {
     const g = C.geometry(cur.type, cur.w, cur.h);
     const w = model.w;
     const h = model.h;
+    const spot = C.resolveSpot(sceneKey, cur.spot, g);
+    curSpot = spot;
     let baseY;
     let z;
     if (model.floor) {
       baseY = 0;
       z = env.floorZ;
-      signRoot.position.set(0, 0, z);
+      signRoot.position.set(env.floorX ? env.floorX(w) : 0, 0, z);
     } else {
-      baseY = C.mountBottom(sceneKey, g) / 100;
+      baseY = C.mountBottom(sceneKey, g, spot) / 100;
       // ป้ายกว้างเกินช่วงเสา (3.6 ม.) ต้องยึดหน้าเสา
-      z = sceneKey === 'shop' && w > 3.6 ? 0.15 : env.wallZ;
-      signRoot.position.set(0, baseY + h / 2, z);
+      z = env.spotZ ? env.spotZ(spot) : sceneKey === 'shop' && w > 3.6 ? 0.15 : env.wallZ;
+      signRoot.position.set(env.spotX ? env.spotX(spot, w) : 0, baseY + h / 2, z);
     }
     const top = model.floor ? (model.faceY ? model.faceY[1] : h) : baseY + h;
     if (env.fit) env.fit(top);
     // คนยืนเทียบ ข้างขวาของป้าย หันเข้าหาป้ายนิดหนึ่ง
     person.visible = !!cur.person;
-    const px = w / 2 + 0.55 + (model.type === 'xstand' ? 0.15 : 0);
+    const px = signRoot.position.x + w / 2 + 0.55 + (model.type === 'xstand' ? 0.15 : 0);
     const pz = model.floor ? z + 0.05 : sceneKey === 'shop' ? 0.75 : sceneKey === 'fence' ? 0.5 : 0.45;
     person.position.set(px, 0, pz);
     person.rotation.y = -0.38;
@@ -1021,6 +1542,9 @@ export function createStage(opts) {
   function bounds(withPerson) {
     const b = new THREE.Box3().setFromObject(signRoot);
     if (withPerson && person.visible) b.union(new THREE.Box3().setFromObject(person));
+    // ฉากประตู/ห้องเรียน: ให้เห็นประตูหรือกระดานทั้งบานด้วย
+    const env = envs[envKey];
+    if (withPerson && env && env.focus) b.union(env.focus(curSpot));
     return b;
   }
 
@@ -1116,16 +1640,17 @@ export function createStage(opts) {
     angle: { az: -0.42, el: 0.1 },
     eye: { az: -0.18, eye: 1.6 },
     side: { az: -1.0, el: 0.08 },
+    close: { az: -0.22, el: 0.04, tight: true }, // ใกล้ป้าย: เห็นงานชัด ไม่เอาคน/ประตูมาคิดระยะ
   };
   function aimFor(name, aspect) {
     const v = VIEWS[name] || VIEWS.angle;
-    const b = bounds(true);
+    const b = bounds(!v.tight);
     const c = b.getCenter(new THREE.Vector3());
     const size = b.getSize(new THREE.Vector3());
     const vf = THREE.MathUtils.degToRad(camera.fov);
     const hf = 2 * Math.atan(Math.tan(vf / 2) * aspect);
     const span = Math.abs(Math.cos(v.az)) * size.x + Math.abs(Math.sin(v.az)) * size.z;
-    const dist = Math.max(size.y / 2 / Math.tan(vf / 2), span / 2 / Math.tan(hf / 2)) * 1.22 + size.z / 2;
+    const dist = Math.max(size.y / 2 / Math.tan(vf / 2), span / 2 / Math.tan(hf / 2)) * (v.tight ? 1.55 : 1.22) + size.z / 2;
     const target = c.clone();
     const pos = new THREE.Vector3();
     if (v.eye != null) {
@@ -1222,7 +1747,7 @@ export function createStage(opts) {
     const sk = [st.type, st.w, st.h, (st.edge || []).map(Math.round).join(',')].join('|');
     const geomChanged = sk !== signKey;
     const sceneChanged = st.scene !== cur.scene || !envKey;
-    const personChanged = !!st.person !== !!cur.person;
+    const personChanged = !!st.person !== !!cur.person || st.spot !== cur.spot;
     cur = Object.assign({}, cur, st);
     if (geomChanged) {
       rebuildSign(st);

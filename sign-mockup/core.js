@@ -35,6 +35,13 @@
       mount: 'wall',
       presets: [[29.7, 42, 'A3'], [42, 59.4, 'A2'], [59.4, 84.1, 'A1'], [84.1, 118.9, 'A0'], [60, 90], [120, 240]],
     },
+    sticker: {
+      name: 'สติ๊กเกอร์',
+      desc: 'พิมพ์ติดประตู ผนัง กระจก แนบเรียบ',
+      unit: 'sqm',
+      mount: 'wall',
+      presets: [[30, 10], [40, 15], [60, 20], [60, 90], [100, 50]],
+    },
     acrylic: {
       name: 'ป้ายอะคริลิค',
       desc: 'แผ่นใสเงา ยึดหมุดสแตนเลส 4 มุม',
@@ -64,7 +71,7 @@
       presets: [[60, 160], [80, 180]],
     },
   };
-  var TYPE_ORDER = ['vinyl', 'frame', 'foam', 'acrylic', 'lightbox', 'rollup', 'xstand'];
+  var TYPE_ORDER = ['vinyl', 'frame', 'foam', 'sticker', 'acrylic', 'lightbox', 'rollup', 'xstand'];
 
   var SCENES = {
     studio: { name: 'พื้นเรียบ', desc: 'โชว์งานชัด ๆ' },
@@ -72,9 +79,16 @@
     brick: { name: 'ผนังอิฐ', desc: 'ร้านกาแฟ / ร้านอาหาร' },
     shop: { name: 'หน้าร้าน', desc: 'ตึกแถว ประตูม้วน' },
     fence: { name: 'รั้วกลางแจ้ง', desc: 'ป้ายประกาศ / ขายที่' },
+    classDoor: { name: 'ประตูห้องเรียน', desc: 'ทางเดินอาคารเรียน', spots: [['door', 'บนประตู'], ['above', 'เหนือประตู'], ['beside', 'ข้างประตู']] },
+    officeDoor: { name: 'ประตูห้อง', desc: 'ห้องทำงาน / ห้องประชุม', spots: [['door', 'บนประตู'], ['above', 'เหนือประตู'], ['beside', 'ข้างประตู']] },
+    classroom: { name: 'ในห้องเรียน', desc: 'เหนือกระดาน / ผนังห้อง', spots: [['above', 'เหนือกระดาน'], ['beside', 'ข้างกระดาน']] },
     photo: { name: 'รูปหน้าร้านลูกค้า', desc: 'อัปโหลดรูป แล้วลากมุมป้าย' },
   };
-  var SCENE_ORDER = ['studio', 'wall', 'brick', 'shop', 'fence', 'photo'];
+  var SCENE_ORDER = ['studio', 'wall', 'brick', 'shop', 'fence', 'classDoor', 'officeDoor', 'classroom', 'photo'];
+
+  // ประตูมาตรฐาน 90 × 210 ซม. / กระดานไวท์บอร์ด 240 × 120 ซม. (ขอบล่างสูง 90)
+  var DOOR = { w: 90, h: 210 };
+  var BOARD = { w: 240, h: 120, y0: 90 };
 
   // คนยืนเทียบขนาด
   var PERSON = { h: 170, w: 50, gap: 45 };
@@ -187,6 +201,8 @@
     } else if (t === 'acrylic') {
       g.depth = 0.8;
       g.gap = 2.5;
+    } else if (t === 'sticker') {
+      g.gap = 0; // แนบผิว ไม่มีเงา ไม่มีความหนา
     } else if (t === 'lightbox') {
       g.depth = 12;
       g.gap = 12;
@@ -215,8 +231,21 @@
   }
 
   /* ความสูงจากพื้นถึงขอบล่างของชิ้นงาน (ซม.) ตามฉาก */
-  function mountBottom(scene, g) {
+  /* ตำแหน่งติดป้ายในฉากที่มีประตู/กระดาน — ไม่เลือก (auto) ป้ายเล็กติดบนประตู ป้ายใหญ่ติดเหนือประตู */
+  function resolveSpot(scene, spot, g) {
+    var sc = SCENES[scene];
+    if (!sc || !sc.spots) return null;
+    for (var i = 0; i < sc.spots.length; i++) if (sc.spots[i][0] === spot) return spot;
+    if (scene === 'classroom') return 'above';
+    return g && g.w <= 90 && g.h <= 60 ? 'door' : 'above';
+  }
+
+  function mountBottom(scene, g, spot) {
     if (g.mount === 'floor') return 0;
+    var sp = resolveSpot(scene, spot, g);
+    if (sp === 'door') return Math.max(20, Math.min(150 - g.h / 2, DOOR.h - 8 - g.h)); // ระดับสายตาบนบานประตู
+    if (sp === 'above') return scene === 'classroom' ? BOARD.y0 + BOARD.h + 15 : DOOR.h + 12; // เหนือวงกบ
+    if (sp === 'beside') return Math.max(40, 150 - g.bh / 2);
     if (scene === 'shop') return 290; // เหนือประตูม้วน (สูง 270)
     if (scene === 'fence') return Math.max(25, 110 - g.bh / 2);
     return Math.max(40, 150 - g.bh / 2); // กลางป้ายระดับสายตา 150 ซม.
@@ -229,7 +258,7 @@
     var W = o.W;
     var H = o.H;
     var zoom = o.zoom > 0 ? o.zoom : 1;
-    var bottom = mountBottom(o.scene, g);
+    var bottom = mountBottom(o.scene, g, o.spot);
     var top = bottom + g.bh;
     var wantPerson = !!o.person;
     var span = wantPerson ? PERSON.gap + PERSON.w : 0;
@@ -424,6 +453,9 @@
     eyelets: eyelets,
     geometry: geometry,
     mountBottom: mountBottom,
+    resolveSpot: resolveSpot,
+    DOOR: DOOR,
+    BOARD: BOARD,
     camera: camera,
     canvasSize: canvasSize,
     unitScale: unitScale,
