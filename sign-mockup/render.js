@@ -874,6 +874,80 @@
     x.restore();
   }
 
+  /* ป้าย CNC: แยกส่วนที่สีต่างจากพื้นงาน (ตัวอักษร โลโก้ กรอบ) ออกเป็นตัวนูน — พื้นที่สีใกล้พื้นงานโปร่งใส
+   * (ไล่ความต่างสี 85–135 ให้ขอบตัวอักษรนุ่ม และไม่นับสีไล่เฉดของพื้นหลังเป็นตัวนูน) */
+  function letterMask(src, bg) {
+    var w = src.width;
+    var h = src.height;
+    var c = mk(w, h);
+    var x = c.getContext('2d', { willReadFrequently: true });
+    x.drawImage(src, 0, 0, w, h);
+    var img = x.getImageData(0, 0, w, h);
+    var d = img.data;
+    var r = bg[0];
+    var g = bg[1];
+    var b = bg[2];
+    for (var i = 0; i < d.length; i += 4) {
+      var dist = Math.abs(d[i] - r) + Math.abs(d[i + 1] - g) + Math.abs(d[i + 2] - b);
+      var a = (dist - 85) / 50;
+      d[i + 3] = a <= 0 ? 0 : a >= 1 ? 255 : Math.round(a * 255);
+    }
+    x.putImageData(img, 0, 0);
+    return c;
+  }
+  function tinted(src, color) {
+    var c = mk(src.width, src.height);
+    var x = ctx2d(c);
+    x.drawImage(src, 0, 0);
+    x.globalCompositeOperation = 'source-atop';
+    x.fillStyle = color;
+    x.fillRect(0, 0, c.width, c.height);
+    return c;
+  }
+  function cncPosts(x, g, k) {
+    var pw = g.post * k;
+    var ph = (g.cap + g.h + g.lift) * k;
+    [0, (g.fx + g.w) * k].forEach(function (px) {
+      var gr = x.createLinearGradient(px, 0, px + pw, 0);
+      gr.addColorStop(0, '#5a5f68');
+      gr.addColorStop(0.35, '#474c54');
+      gr.addColorStop(1, '#2c3036');
+      x.fillStyle = gr;
+      x.fillRect(px, 0, pw, ph);
+      x.fillStyle = '#23262b';
+      x.fillRect(px - 0.6 * k, 0, pw + 1.2 * k, Math.max(1.2 * k, 1.5));
+    });
+  }
+  function cncFace(x, g, k, d, fit) {
+    var px = g.fx * k;
+    var py = g.fy * k;
+    var w = Math.round(g.w * k);
+    var h = Math.round(g.h * k);
+    var bg = (d && d.bg) || [31, 42, 77];
+    extrusion(x, { type: 'lightbox' }, px, py, w, h, Math.max(g.ex * k, 2.5), d);
+    x.fillStyle = rgb(bg);
+    x.fillRect(px, py, w, h);
+    var art = mk(w, h);
+    paintDesign(ctx2d(art), d, 0, 0, w, h, fit);
+    var L = letterMask(art, bg);
+    var rel = g.relief * k;
+    x.save();
+    x.beginPath();
+    x.rect(px, py, w, h);
+    x.clip();
+    x.globalAlpha = 0.45;
+    x.drawImage(tinted(L, '#000000'), px + rel * 0.7, py + rel * 1.1);
+    x.globalAlpha = 1;
+    var side = tinted(L, 'rgba(0,0,0,0.42)');
+    for (var i = 3; i >= 1; i--) x.drawImage(side, px + (rel * 0.35 * i) / 3, py + (rel * 0.5 * i) / 3);
+    x.drawImage(L, px, py);
+    faceShade(x, px, py, w, h);
+    x.restore();
+    x.strokeStyle = 'rgba(255,255,255,0.35)';
+    x.lineWidth = 1;
+    x.strokeRect(px + 0.5, py + 0.5, w - 1, h - 1);
+  }
+
   /* วาดชิ้นงานทั้งชิ้น (หน้าป้าย + ขาตั้ง/อุปกรณ์) ลงผืนแยก 1 ซม. = k พิกเซล */
   var PAD = 6;
   function objectCanvas(g, k, d, fit) {
@@ -884,6 +958,11 @@
     var py = g.fy * k;
     var w = g.w * k;
     var h = g.h * k;
+    if (g.type === 'cnc') {
+      cncPosts(x, g, k);
+      cncFace(x, g, k, d, fit);
+      return c;
+    }
     if (g.depth) extrusion(x, g, px, py, w, h, Math.max(g.ex * k, 2.5), d);
     x.save();
     x.beginPath();
@@ -1473,6 +1552,7 @@
     textDesign: textDesign,
     prepareImage: prepareImage,
     setMascot: setMascot,
+    letterMask: letterMask,
     THEMES: THEMES,
     fonts: { display: DISPLAY, body: BODY },
   };

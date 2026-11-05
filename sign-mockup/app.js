@@ -6,11 +6,11 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '3.2.1';
+  var APP_VERSION = '3.3.0';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp' });
 
-  var UNIT_WORD = { vinyl: 'ผืน', frame: 'ผืน', foam: 'แผ่น', sticker: 'แผ่น', acrylic: 'แผ่น', lightbox: 'ป้าย', rollup: 'ชุด', xstand: 'ชุด' };
+  var UNIT_WORD = { vinyl: 'ผืน', frame: 'ผืน', foam: 'แผ่น', sticker: 'แผ่น', acrylic: 'แผ่น', lightbox: 'ป้าย', cnc: 'ป้าย', rollup: 'ชุด', xstand: 'ชุด' };
 
   var DEF = {
     mode: 'text',
@@ -396,13 +396,13 @@
     $('sizeReadout').textContent = C.sizeText(st.w, st.h) + (t.unit === 'sqm' ? ' · พื้นที่ ' + C.fmtArea(st.w, st.h) : '');
     var unit = UNIT_WORD[st.type];
     $('qtyUnit').textContent = unit;
-    $('rateLabel').textContent = t.unit === 'sqm' ? 'ราคาต่อ ตร.ม.' : 'ราคาต่อชุด';
+    $('rateLabel').textContent = t.unit === 'sqm' ? 'ราคาต่อ ตร.ม.' : st.type === 'cnc' ? 'ราคาต่อป้าย (รวมเสา)' : 'ราคาต่อชุด';
     var pr = $('priceReadout');
     if (q.has) {
       var how =
         t.unit === 'sqm'
           ? C.fmtAreaExact(st.w, st.h) + ' × ' + C.baht(q.rate) + ' บาท = ' + unit + 'ละ ' + C.baht(q.per) + ' บาท' + (Math.abs(q.area * q.rate - q.per) > 1e-6 ? ' (ปัดเศษขึ้น)' : '')
-          : 'ชุดละ ' + C.baht(q.per) + ' บาท';
+          : unit + 'ละ ' + C.baht(q.per) + ' บาท';
       pr.innerHTML = '<b>' + esc(C.baht(q.total)) + ' บาท</b><small>' + esc(how + (q.qty > 1 ? ' × ' + q.qty + ' ' + unit : '')) + '</small>';
     } else {
       pr.innerHTML = '<small>ใส่ราคาแล้วจะคิดยอดให้ และพิมพ์ราคาไว้ใต้ภาพ (ไม่ใส่ = ไม่โชว์ราคา)</small>';
@@ -467,6 +467,7 @@
     acrylic:
       '<svg viewBox="0 0 44 34"><rect x="5" y="5" width="34" height="24" rx="2"/><circle cx="9" cy="9" r="1.6"/><circle cx="35" cy="9" r="1.6"/><circle cx="9" cy="25" r="1.6"/><circle cx="35" cy="25" r="1.6"/><path d="M16 26l9-18M21 26l6-12"/></svg>',
     lightbox: '<svg viewBox="0 0 44 34"><rect x="4" y="8" width="36" height="20" rx="2"/><rect x="8" y="12" width="28" height="12" rx="1"/><path d="M13 2.5l1.6 2.8M22 1.5v3.4M31 2.5l-1.6 2.8"/></svg>',
+    cnc: '<svg viewBox="0 0 44 34"><path d="M6 3v29M38 3v29"/><rect x="8" y="6" width="28" height="16" rx="1"/><path d="M12 11h7M12 16h12M23 11h9"/><path d="M3.5 32h5M35.5 32h5"/></svg>',
     rollup: '<svg viewBox="0 0 44 34"><path d="M15 2h14"/><rect x="15.5" y="3" width="13" height="25"/><rect x="12" y="27" width="20" height="4" rx="1.5"/></svg>',
     xstand: '<svg viewBox="0 0 44 34"><rect x="15" y="2" width="14" height="24"/><path d="M15 26l-4 6M29 26l4 6"/></svg>',
   };
@@ -1306,7 +1307,7 @@
     x.textAlign = 'center';
     x.fillText('จำนวน', col.qty, ty + 37);
     x.textAlign = 'right';
-    x.fillText(t.unit === 'sqm' ? 'ราคา/' + unit : 'ราคา/ชุด', col.per, ty + 37);
+    x.fillText('ราคา/' + unit, col.per, ty + 37);
     x.fillText('รวม (บาท)', col.total, ty + 37);
     var ry = ty + 56;
     var rh = 132;
@@ -1325,7 +1326,7 @@
     x.fillStyle = INK2;
     font(x, 400, 20, BODY);
     if (t.unit === 'sqm') x.fillText('พื้นที่ ' + C.fmtArea(st.w, st.h), col.size, ry + 82);
-    else x.fillText('รวมขาตั้ง + กระเป๋า', col.size, ry + 82);
+    else x.fillText(st.type === 'cnc' ? 'รวมเสาเหล็ก 2 ต้น' : 'รวมขาตั้ง + กระเป๋า', col.size, ry + 82);
     x.textAlign = 'center';
     x.fillStyle = INK;
     font(x, 600, 26, BODY);
@@ -1569,6 +1570,7 @@
     sticker: 'sticker สติกเกอร์ สติ้กเกอร์ ติดกระจก ฟิล์ม ประตู',
     acrylic: 'acrylic อะคริลิก อคริลิค ใส หมุด',
     lightbox: 'lightbox กล่องไฟ ไฟ led กลางคืน',
+    cnc: 'cnc ซีเอ็นซี ป้ายโครงการ โครงการ หมู่บ้าน ป้ายหน้าโครงการ อักษรนูน ตัวนูน ตัวอักษร อะลูมิเนียม คอมโพสิต acp ตั้งเสา เสาคู่',
     rollup: 'roll up rollup โรลอัพ ขาตั้ง',
     xstand: 'x-stand xstand เอ็กซ์สแตนด์ ขาตั้ง',
     studio: 'studio สตูดิโอ พื้นหลัง',
