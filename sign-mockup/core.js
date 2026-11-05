@@ -226,7 +226,7 @@
     [50, '2 นิ้ว'],
   ];
   var WALLS = [1, 1.2, 1.5, 2, 2.3];
-  var STEEL_DEF = { total: 0, depth: 0, tube: 25, wall: 1.2, nh: -1, nv: -1, cut: 'miter', base: 'rect', price: 0, frameOnly: false };
+  var STEEL_DEF = { total: 0, depth: 0, tube: 25, wall: 1.2, nh: -1, nv: -1, cut: 'miter', base: 'rect', price: 0, frameOnly: false, color: '#1f2125' };
   var STOCK = 600; // เหล็กเส้นยาว 6 ม.
   var KERF = 0.3; // คมเลื่อย 3 มม.
 
@@ -258,6 +258,7 @@
     r.base = r.base === 'feet' ? 'feet' : 'rect';
     r.price = Math.max(0, num(r.price) || 0);
     r.frameOnly = !!r.frameOnly;
+    r.color = metalColor(r.color);
     // ช่องโครงใหญ่สุด (ภายในกรอบ หักคร่าว)
     r.bayW = Math.round(((w - 2 * T - r.nv * T) / (r.nv + 1)) * 10) / 10;
     r.bayH = Math.round(((h - 2 * T - r.nh * T) / (r.nh + 1)) * 10) / 10;
@@ -403,6 +404,7 @@
       g.gap = 0;
       g.bh = so.total;
     } else if (t === 'cnc') {
+      g.steel = { color: steel && steel.color ? metalColor(steel.color) : '' };
       // แผ่น ACP บนโครงเหล็กหนา 5 ซม. อักษรนูน 1.5 ซม. — เสาเหล็กกล่อง 10 ซม. ซ้าย/ขวา ยื่นเหนือแผ่น 4 ซม.
       // ขอบล่างแผ่นสูงจากพื้น 80 ซม.
       g.depth = 5;
@@ -736,6 +738,122 @@
     return (b ? readNumber(b) + 'บาท' : '') + (s ? readNumber(s) + 'สตางค์' : 'ถ้วน');
   }
 
+  /* ---------- ตัวเลือกของร้าน (ชุดสี สีผนัง ขนาดประจำ ชนิด/ฉากที่ใช้) ----------
+   * เก็บในเครื่อง + ส่งออก/นำเข้าเป็นไฟล์ — ไฟล์ที่นำเข้าตรวจทุกช่อง (สีต้องเป็น #rrggbb เท่านั้น) */
+  var HEX = /^#[0-9a-fA-F]{6}$/;
+  function cleanHex(c, d) {
+    return typeof c === 'string' && HEX.test(c) ? c.toLowerCase() : d;
+  }
+  function cleanName(s, d) {
+    var t = String(s == null ? '' : s)
+      .replace(/[\u0000-\u001f\u007f<>]/g, '')
+      .trim()
+      .slice(0, 40);
+    return t || d;
+  }
+  function cleanId(s, prefix) {
+    s = String(s || '');
+    return s.indexOf(prefix) === 0 && /^[a-z0-9_-]{3,40}$/i.test(s) ? s : prefix + Math.random().toString(36).slice(2, 10);
+  }
+  function normalizeOptions(o) {
+    o = o && typeof o === 'object' ? o : {};
+    var themes = (Array.isArray(o.themes) ? o.themes : []).slice(0, 40).map(function (t) {
+      t = t || {};
+      return {
+        id: cleanId(t.id, 'c-'),
+        name: cleanName(t.name, 'ชุดสีของร้าน'),
+        bg: cleanHex(t.bg, '#1f2a4d'),
+        bg2: cleanHex(t.bg2, '#2d3d6b'),
+        title: cleanHex(t.title, '#ffffff'),
+        sub: cleanHex(t.sub, '#f4a46e'),
+        pillBg: cleanHex(t.pillBg, '#d9622b'),
+        pillFg: cleanHex(t.pillFg, '#ffffff'),
+      };
+    });
+    var tones = (Array.isArray(o.tones) ? o.tones : []).slice(0, 40).map(function (t) {
+      t = t || {};
+      return { id: cleanId(t.id, 't-'), name: cleanName(t.name, 'สีผนังของร้าน'), upper: cleanHex(t.upper, '#f3f2ef'), lower: cleanHex(t.lower, '#b9bec4') };
+    });
+    var presets = {};
+    var src = o.presets && typeof o.presets === 'object' ? o.presets : {};
+    Object.keys(TYPES).forEach(function (k) {
+      if (!Array.isArray(src[k])) return;
+      var list = [];
+      src[k].slice(0, 12).forEach(function (p) {
+        if (!Array.isArray(p)) return;
+        var w = clampCm(p[0], 0);
+        var h = clampCm(p[1], 0);
+        if (w > 0 && h > 0 && !list.some(function (q) { return q[0] === w && q[1] === h; })) list.push([w, h]);
+      });
+      if (list.length) presets[k] = list;
+    });
+    var pick = function (arr, table) {
+      return (Array.isArray(arr) ? arr : []).filter(function (k, i, a) {
+        return typeof k === 'string' && Object.prototype.hasOwnProperty.call(table, k) && a.indexOf(k) === i;
+      });
+    };
+    var hideTypes = pick(o.hideTypes, TYPES);
+    if (hideTypes.length >= TYPE_ORDER.length) hideTypes = hideTypes.slice(0, TYPE_ORDER.length - 1); // ต้องเหลืออย่างน้อย 1 ชนิด
+    return { v: 1, themes: themes, tones: tones, presets: presets, hideTypes: hideTypes, hideScenes: pick(o.hideScenes, SCENES) };
+  }
+  // ใส่สีผนังของร้านต่อท้ายสีมาตรฐาน (ลบชุดเก่าของร้านออกก่อน)
+  var BASE_TONES = TONE_ORDER.slice();
+  function applyTones(list) {
+    Object.keys(WALL_TONES).forEach(function (k) {
+      if (BASE_TONES.indexOf(k) < 0) delete WALL_TONES[k];
+    });
+    TONE_ORDER.length = 0;
+    BASE_TONES.forEach(function (k) {
+      TONE_ORDER.push(k);
+    });
+    (list || []).forEach(function (t) {
+      WALL_TONES[t.id] = { name: t.name, upper: t.upper, lower: t.lower, mine: true };
+      TONE_ORDER.push(t.id);
+    });
+  }
+
+  // สีโครงเหล็ก/เสา: 'inox' = สแตนเลส (โลหะเงา)
+  var METALS = [
+    ['#1f2125', 'ดำ'],
+    ['#4b5058', 'เทาเข้ม'],
+    ['#e9e8e4', 'ขาว'],
+    ['inox', 'สแตนเลส'],
+    ['#4a3426', 'น้ำตาล'],
+  ];
+  function metalColor(c) {
+    return c === 'inox' ? 'inox' : cleanHex(c, '#1f2125');
+  }
+
+  // ฟอนต์ไทยจาก Google Fonts (w = น้ำหนักที่มีจริง ถ้าขอเกินจะโหลดไม่ขึ้น)
+  var FONTS = [
+    ['Kanit', '400;500;600;700'],
+    ['Prompt', '400;500;600;700'],
+    ['Mitr', '400;500;600;700'],
+    ['Sarabun', '400;500;600;700'],
+    ['Chakra Petch', '400;500;600;700'],
+    ['Bai Jamjuree', '400;500;600;700'],
+    ['K2D', '400;500;600;700'],
+    ['Athiti', '400;500;600;700'],
+    ['Niramit', '400;500;600;700'],
+    ['Krub', '400;500;600;700'],
+    ['Mali', '400;500;600;700'],
+    ['Pridi', '400;500;600;700'],
+    ['Taviraj', '400;500;600;700'],
+    ['Charm', '400;700'],
+    ['Itim', ''],
+    ['Sriracha', ''],
+    ['Chonburi', ''],
+    ['Pattaya', ''],
+  ];
+  function fontCssUrl(name) {
+    for (var i = 0; i < FONTS.length; i++) {
+      if (FONTS[i][0] === name) {
+        return 'https://fonts.googleapis.com/css2?family=' + name.replace(/ /g, '+') + (FONTS[i][1] ? ':wght@' + FONTS[i][1] : '') + '&display=swap';
+      }
+    }
+    return '';
+  }
+
   function thaiDate(d) {
     var months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
     return d.getDate() + ' ' + months[d.getMonth()] + ' ' + (d.getFullYear() + 543);
@@ -795,5 +913,11 @@
     packBars: packBars,
     tubeKgPerM: tubeKgPerM,
     tubeText: tubeText,
+    normalizeOptions: normalizeOptions,
+    applyTones: applyTones,
+    METALS: METALS,
+    metalColor: metalColor,
+    FONTS: FONTS,
+    fontCssUrl: fontCssUrl,
   };
 });

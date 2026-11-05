@@ -52,6 +52,10 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7.5A1.5 1.5 0 0 1 5 6h4.2l2 2.2H19a1.5 1.5 0 0 1 1.5 1.5v8.3A1.5 1.5 0 0 1 19 19.5H5A1.5 1.5 0 0 1 3.5 18z" /></svg>
             <span>งานของฉัน</span>
           </button>
+          <button class="tb text" id="optBtn" type="button" title="ตัวเลือกของร้าน: ชุดสี สีผนัง ฟอนต์ ขนาดประจำ ชนิดป้าย/ฉากที่ใช้">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></svg>
+            <span>ตัวเลือกของร้าน</span>
+          </button>
           <button class="tb wide-tool" id="sideBtn" type="button" title="ย้ายแผงตั้งค่าไปอีกฝั่ง" aria-label="ย้ายแผงตั้งค่าไปอีกฝั่ง">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M14.5 4.5v15" /><path d="m7.5 10.5-1.8 1.5 1.8 1.5M10.5 10.5l1.8 1.5-1.8 1.5" /></svg>
           </button>
@@ -177,8 +181,19 @@
                   <input id="tPhone" type="text" inputmode="tel" />
                 </label>
                 <div class="field">
-                  <span class="label">ชุดสี</span>
+                  <span class="label">ชุดสี <em>กด + สร้างชุดสีของร้านเอง</em></span>
                   <div class="swatches" id="themes"></div>
+                  <div class="row"><button type="button" class="btn-ghost small" id="themeEdit" hidden>แก้ไขชุดสีนี้</button></div>
+                </div>
+                <div class="grid2">
+                  <label class="field">
+                    <span class="label">ฟอนต์ข้อความหลัก</span>
+                    <select id="fontTitle"></select>
+                  </label>
+                  <label class="field">
+                    <span class="label">ฟอนต์ข้อความรอง/เบอร์</span>
+                    <select id="fontSub"></select>
+                  </label>
                 </div>
               </div>
             </section>
@@ -210,6 +225,10 @@
               </div>
               <div class="chips" id="presets"></div>
               <p class="readout" id="sizeReadout"></p>
+              <div class="field" id="metalField" hidden>
+                <span class="label" id="metalLabel">สีโครงเหล็ก</span>
+                <div class="swatches" id="metals"></div>
+              </div>
 
               <div class="steel stack" id="steelPane" hidden>
                 <h3>โครงเหล็ก <small id="steelKind"></small></h3>
@@ -440,6 +459,99 @@
       </label>
       <div class="jobs" id="jobList"></div>
       <p class="hint">งานเก็บไว้ในเครื่องนี้เท่านั้น (รวมไฟล์งานและรูปหน้าร้าน) ล้างข้อมูลเบราว์เซอร์แล้วงานจะหาย</p>
+    </dialog>
+
+    <dialog id="optDlg" class="opt-dlg" aria-labelledby="optTitle">
+      <div class="dlg-head">
+        <h2 id="optTitle">ตัวเลือกของร้าน</h2>
+        <button type="button" class="btn-ghost small" data-close>ปิด</button>
+      </div>
+      <div class="opt-body">
+        <section class="opt-sec">
+          <h3>ชุดสีของร้าน <small>ใช้กับ "พิมพ์ข้อความเร็ว"</small></h3>
+          <div class="opt-list" id="optThemes"></div>
+          <button type="button" class="btn-ghost small" id="optAddTheme">+ เพิ่มชุดสี</button>
+        </section>
+        <section class="opt-sec">
+          <h3>สีผนังของร้าน <small>ฉากประตูห้องเรียน / ในห้องเรียน</small></h3>
+          <div class="opt-list" id="optTones"></div>
+          <button type="button" class="btn-ghost small" id="optAddTone">+ เพิ่มสีผนัง</button>
+        </section>
+        <section class="opt-sec">
+          <h3>ฟอนต์ของร้าน <small>ไฟล์ .ttf .otf .woff .woff2</small></h3>
+          <div class="opt-list" id="optFonts"></div>
+          <label class="btn-ghost small file-btn">
+            <input type="file" id="fontFile" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2" />
+            <span>+ อัปโหลดฟอนต์</span>
+          </label>
+        </section>
+        <section class="opt-sec">
+          <h3>ขนาดประจำร้าน <small>บันทึกได้จากขั้น 2 (ปุ่ม + บันทึกขนาดนี้)</small></h3>
+          <div class="opt-list" id="optPresets"></div>
+        </section>
+        <section class="opt-sec">
+          <h3>ชนิดป้ายที่ใช้ <small>เอาเครื่องหมายออก = ซ่อน</small></h3>
+          <div class="checks" id="optTypes"></div>
+        </section>
+        <section class="opt-sec">
+          <h3>ฉากที่ใช้</h3>
+          <div class="checks" id="optScenes"></div>
+        </section>
+        <section class="opt-sec">
+          <h3>สำรอง / ย้ายไปเครื่องอื่น <small>รวมชุดสี สีผนัง ฟอนต์ ขนาด ชื่อร้าน โลโก้ ราคา</small></h3>
+          <div class="row">
+            <button type="button" class="btn-ghost small" id="optExport">ส่งออกไฟล์ตัวเลือก (.json)</button>
+            <label class="btn-ghost small file-btn">
+              <input type="file" id="optImport" accept=".json,application/json" />
+              <span>นำเข้าไฟล์ตัวเลือก</span>
+            </label>
+          </div>
+          <p class="status" id="optStatus" role="status" aria-live="polite"></p>
+        </section>
+      </div>
+    </dialog>
+
+    <dialog id="themeDlg" class="theme-dlg" aria-labelledby="themeTitle">
+      <div class="dlg-head">
+        <h2 id="themeTitle">ชุดสีของร้าน</h2>
+        <button type="button" class="btn-ghost small" data-close>ปิด</button>
+      </div>
+      <canvas id="thPreview" width="480" height="240" aria-label="ตัวอย่างชุดสี"></canvas>
+      <label class="field">
+        <span class="label">ชื่อชุดสี</span>
+        <input id="thName" type="text" maxlength="40" />
+      </label>
+      <div class="colors">
+        <label><input type="color" id="thBg" /><span>สีพื้น</span></label>
+        <label><input type="color" id="thBg2" /><span>สีพื้นไล่เฉด</span></label>
+        <label><input type="color" id="thTitle" /><span>ข้อความหลัก</span></label>
+        <label><input type="color" id="thSub" /><span>ข้อความรอง</span></label>
+        <label><input type="color" id="thPill" /><span>ป้ายเบอร์ (พื้น)</span></label>
+        <label><input type="color" id="thPillFg" /><span>ป้ายเบอร์ (ตัวหนังสือ)</span></label>
+      </div>
+      <div class="dlg-actions">
+        <button type="button" class="btn-ghost danger" id="thDelete" hidden>ลบชุดสีนี้</button>
+        <button type="button" class="btn-primary" id="thSave">บันทึกชุดสี</button>
+      </div>
+    </dialog>
+
+    <dialog id="toneDlg" class="tone-dlg" aria-labelledby="toneTitle">
+      <div class="dlg-head">
+        <h2 id="toneTitle">สีผนังของร้าน</h2>
+        <button type="button" class="btn-ghost small" data-close>ปิด</button>
+      </div>
+      <div class="tone-preview" id="toPreview"></div>
+      <label class="field">
+        <span class="label">ชื่อสีผนัง</span>
+        <input id="toName" type="text" maxlength="40" />
+      </label>
+      <div class="colors">
+        <label><input type="color" id="toUpper" value="#f3f2ef" /><span>ผนังส่วนบน</span></label>
+        <label><input type="color" id="toLower" value="#b9bec4" /><span>ผนังส่วนล่าง</span></label>
+      </div>
+      <div class="dlg-actions">
+        <button type="button" class="btn-primary" id="toSave">บันทึกสีผนัง</button>
+      </div>
     </dialog>
 
     <dialog id="cutDlg" aria-labelledby="cutTitle">

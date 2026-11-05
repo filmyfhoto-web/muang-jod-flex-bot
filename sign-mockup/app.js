@@ -6,7 +6,7 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '3.4.0';
+  var APP_VERSION = '3.5.0';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp' });
 
@@ -30,7 +30,7 @@
     spot: 'auto',
     doorOpen: true, // ประตูห้องเรียนเปิดพับชิดผนัง (แบบที่ร้านส่งรูปมา)
     tone: 'pink',
-    steel: { total: 0, depth: 0, tube: 25, wall: 1.2, nh: -1, nv: -1, cut: 'miter', base: 'rect', price: 0, frameOnly: false }, // โครงเหล็ก (0 / -1 = อัตโนมัติ)
+    steel: { total: 0, depth: 0, tube: 25, wall: 1.2, nh: -1, nv: -1, cut: 'miter', base: 'rect', price: 0, frameOnly: false, color: '#1f2125' }, // โครงเหล็ก (0 / -1 = อัตโนมัติ)
     panel: 'right', // แผงตั้งค่าอยู่ขวา/ซ้าย
     fmt: 'jpg', // ชนิดรูปที่ส่งออกล่าสุด (jpg / png)
     qty: 1,
@@ -39,7 +39,7 @@
     shopPhone: '',
     logo: '', // โลโก้ที่อัปโหลดเอง (แทนโลโก้ร้าน)
     brandLogo: true, // ไม่ได้อัปโหลด = ใช้โลโก้ NATTAPRON
-    text: { title: 'ก๋วยเตี๋ยวเรือ\nสูตรเจ้าเก่า', sub: 'เปิดทุกวัน 07:00 – 15:00', phone: '08X-XXX-XXXX', theme: 'brand' },
+    text: { title: 'ก๋วยเตี๋ยวเรือ\nสูตรเจ้าเก่า', sub: 'เปิดทุกวัน 07:00 – 15:00', phone: '08X-XXX-XXXX', theme: 'brand', font: '', font2: '' },
   };
 
   /* ---------- สถานะ ---------- */
@@ -195,7 +195,8 @@
   function currentDesign() {
     if (st.mode === 'image' && imgDesign) return imgDesign;
     var t = st.text;
-    var key = [t.title, t.sub, t.phone, t.theme, st.w, st.h].join('|');
+    var th = R.themes()[t.theme];
+    var key = [t.title, t.sub, t.phone, t.theme, th ? [th.bg, th.bg2, th.title, th.sub, th.pillBg, th.pillFg].join(',') : '', t.font || '', t.font2 || '', st.w, st.h].join('|');
     if (textCache.key !== key) textCache = { key: key, design: R.textDesign(t, st.w, st.h) };
     return textCache.design;
   }
@@ -486,6 +487,7 @@
     var box = $('types');
     box.innerHTML = '';
     C.TYPE_ORDER.forEach(function (k) {
+      if (opts.hideTypes.indexOf(k) >= 0 && k !== st.type) return; // ร้านซ่อนไว้
       var t = C.TYPES[k];
       var b = document.createElement('button');
       b.type = 'button';
@@ -521,6 +523,45 @@
   function buildPresets() {
     var box = $('presets');
     box.innerHTML = '';
+    var same = function (p) {
+      return Math.abs(p[0] - st.w) < 0.05 && Math.abs(p[1] - st.h) < 0.05;
+    };
+    var mine = opts.presets[st.type] || [];
+    var exists = C.TYPES[st.type].presets.some(same) || mine.some(same);
+    mine.forEach(function (p, i) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip mine';
+      b.title = 'ขนาดประจำร้าน — กด × เพื่อลบ';
+      b.innerHTML = esc(C.fmtCm(p[0]) + '×' + C.fmtCm(p[1])) + '<span class="x" aria-label="ลบ">×</span>';
+      b.setAttribute('aria-pressed', String(same(p)));
+      b.addEventListener('click', function (e) {
+        if (e.target.classList.contains('x')) {
+          opts.presets[st.type].splice(i, 1);
+          if (!opts.presets[st.type].length) delete opts.presets[st.type];
+          optsChanged();
+          return;
+        }
+        st.w = p[0];
+        st.h = p[1];
+        refreshPhotoQuad();
+        sync();
+      });
+      box.appendChild(b);
+    });
+    if (!exists) {
+      var add = document.createElement('button');
+      add.type = 'button';
+      add.className = 'chip add';
+      add.textContent = '+ บันทึกขนาดนี้';
+      add.title = 'เก็บ ' + C.sizeText(st.w, st.h) + ' เป็นขนาดประจำร้าน';
+      add.addEventListener('click', function () {
+        opts.presets[st.type] = (opts.presets[st.type] || []).concat([[st.w, st.h]]);
+        optsChanged();
+        toast('บันทึกขนาด ' + C.fmtCm(st.w) + '×' + C.fmtCm(st.h) + ' ซม. เป็นขนาดประจำร้านแล้ว');
+      });
+      box.appendChild(add);
+    }
     C.TYPES[st.type].presets.forEach(function (p) {
       var b = document.createElement('button');
       b.type = 'button';
@@ -545,6 +586,7 @@
     var box = $('scenes');
     box.innerHTML = '';
     C.SCENE_ORDER.forEach(function (k) {
+      if (opts.hideScenes.indexOf(k) >= 0 && k !== st.scene) return;
       var sc = C.SCENES[k];
       var b = document.createElement('button');
       b.type = 'button';
@@ -651,6 +693,13 @@
         });
         box.appendChild(b);
       });
+      var add = document.createElement('button');
+      add.type = 'button';
+      add.className = 'swatch add';
+      add.title = 'เพิ่มสีผนังของร้านเอง';
+      add.innerHTML = '<i>+</i>สีผนังใหม่';
+      add.addEventListener('click', openToneEditor);
+      box.appendChild(add);
     }
     pressed('#tones .swatch', 'tone', st.tone);
   }
@@ -706,7 +755,10 @@
     buildPresets();
     buildSpots();
     buildTones();
+    buildMetals();
     steelSync();
+    $('themeEdit').hidden = !(R.themes()[st.text.theme] || {}).mine;
+    syncFontSelects();
     save();
     draw();
   }
@@ -860,11 +912,12 @@
   function buildThemes() {
     var box = $('themes');
     box.innerHTML = '';
-    Object.keys(R.THEMES).forEach(function (k) {
-      var th = R.THEMES[k];
+    var all = R.themes();
+    Object.keys(all).forEach(function (k) {
+      var th = all[k];
       var b = document.createElement('button');
       b.type = 'button';
-      b.className = 'swatch';
+      b.className = 'swatch' + (th.mine ? ' mine' : '');
       b.dataset.theme = k;
       b.innerHTML =
         '<i style="background:linear-gradient(135deg,' + th.bg + ' 0 62%,' + th.pillBg + ' 62% 100%);box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)"></i>' + esc(th.name);
@@ -875,6 +928,15 @@
       });
       box.appendChild(b);
     });
+    var add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'swatch add';
+    add.title = 'สร้างชุดสีของร้านเอง';
+    add.innerHTML = '<i>+</i>ชุดสีใหม่';
+    add.addEventListener('click', function () {
+      openThemeEditor(null);
+    });
+    box.appendChild(add);
   }
 
   /* ---------- ขั้น 2: ขนาด ---------- */
@@ -2035,6 +2097,528 @@
   $('undoBtn').addEventListener('click', undo);
   $('redoBtn').addEventListener('click', redo);
 
+  /* ---------- ตัวเลือกของร้าน: ชุดสี สีผนัง ฟอนต์ ขนาดประจำ ชนิด/ฉากที่ใช้ สำรอง/ย้ายเครื่อง ---------- */
+  var OPT_KEY = 'np-sign-options-v1';
+  var opts = C.normalizeOptions(null);
+  var shopFonts = []; // ฟอนต์ที่อัปโหลด { id, name, family, face }
+  function loadOpts() {
+    try {
+      opts = C.normalizeOptions(JSON.parse(localStorage.getItem(OPT_KEY) || 'null'));
+    } catch (e) {
+      opts = C.normalizeOptions(null);
+    }
+    applyOpts();
+  }
+  function applyOpts() {
+    R.setThemes(opts.themes);
+    C.applyTones(opts.tones);
+  }
+  function optsChanged() {
+    opts = C.normalizeOptions(opts);
+    try {
+      localStorage.setItem(OPT_KEY, JSON.stringify(opts));
+    } catch (e) {}
+    applyOpts();
+    if (!R.themes()[st.text.theme]) st.text.theme = 'brand';
+    if (!C.WALL_TONES[st.tone]) st.tone = 'pink';
+    textCache = { key: '', design: null };
+    buildThemes();
+    $('tones').innerHTML = '';
+    buildTypes();
+    buildScenes();
+    buildFontSelects();
+    sync();
+    if ($('optDlg').open) renderOptDlg();
+  }
+  function uid2(p) {
+    return p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+
+  // ---- ชุดสีของร้าน ----
+  var themeEditing = null;
+  var TH_FIELDS = [['thBg', 'bg'], ['thBg2', 'bg2'], ['thTitle', 'title'], ['thSub', 'sub'], ['thPill', 'pillBg'], ['thPillFg', 'pillFg']];
+  function themeFromForm() {
+    var t = { id: themeEditing || 'c-new', name: $('thName').value.trim() || 'ชุดสีของร้าน' };
+    TH_FIELDS.forEach(function (f) {
+      t[f[1]] = $(f[0]).value;
+    });
+    return t;
+  }
+  function themePreview() {
+    var t = themeFromForm();
+    R.setThemes(opts.themes.filter(function (x) { return x.id !== t.id; }).concat([t]));
+    var d = R.textDesign(Object.assign({}, st.text, { theme: t.id }), 200, 100);
+    R.setThemes(opts.themes);
+    var c = $('thPreview');
+    var x = c.getContext('2d');
+    x.clearRect(0, 0, c.width, c.height);
+    x.drawImage(d.src, 0, 0, c.width, c.height);
+  }
+  function openThemeEditor(id) {
+    var all = R.themes();
+    var mine = opts.themes.filter(function (t) { return t.id === id; })[0];
+    var base = mine || all[st.text.theme] || all.brand;
+    themeEditing = mine ? mine.id : null;
+    $('themeTitle').textContent = mine ? 'แก้ไขชุดสี' : 'ชุดสีใหม่ของร้าน';
+    $('thName').value = mine ? mine.name : 'ชุดสีของร้าน ' + (opts.themes.length + 1);
+    TH_FIELDS.forEach(function (f) {
+      $(f[0]).value = base[f[1]];
+    });
+    $('thDelete').hidden = !mine;
+    themePreview();
+    openDialog($('themeDlg'));
+  }
+  TH_FIELDS.forEach(function (f) {
+    $(f[0]).addEventListener('input', themePreview);
+  });
+  $('thName').addEventListener('input', themePreview);
+  $('thSave').addEventListener('click', function () {
+    var t = themeFromForm();
+    if (themeEditing) {
+      opts.themes = opts.themes.map(function (x) {
+        return x.id === themeEditing ? t : x;
+      });
+    } else {
+      t.id = uid2('c-');
+      opts.themes.push(t);
+    }
+    st.text.theme = t.id;
+    st.mode = 'text';
+    closeDialog($('themeDlg'));
+    optsChanged();
+    toast('บันทึกชุดสี “' + t.name + '” แล้ว');
+  });
+  $('thDelete').addEventListener('click', function () {
+    if (!themeEditing) return;
+    removeTheme(themeEditing);
+    closeDialog($('themeDlg'));
+  });
+  function removeTheme(id) {
+    opts.themes = opts.themes.filter(function (t) {
+      return t.id !== id;
+    });
+    if (st.text.theme === id) st.text.theme = 'brand';
+    optsChanged();
+  }
+  $('themeEdit').addEventListener('click', function () {
+    openThemeEditor(st.text.theme);
+  });
+
+  // ---- สีผนังของร้าน ----
+  function tonePreview() {
+    $('toPreview').style.background = 'linear-gradient(180deg,' + $('toUpper').value + ' 0 58%,' + $('toLower').value + ' 58% 100%)';
+  }
+  function openToneEditor() {
+    $('toName').value = 'สีผนังของร้าน ' + (opts.tones.length + 1);
+    tonePreview();
+    openDialog($('toneDlg'));
+  }
+  $('toUpper').addEventListener('input', tonePreview);
+  $('toLower').addEventListener('input', tonePreview);
+  $('toSave').addEventListener('click', function () {
+    var t = { id: uid2('t-'), name: $('toName').value.trim() || 'สีผนังของร้าน', upper: $('toUpper').value, lower: $('toLower').value };
+    opts.tones.push(t);
+    st.tone = t.id;
+    closeDialog($('toneDlg'));
+    optsChanged();
+    toast('บันทึกสีผนัง “' + t.name + '” แล้ว');
+  });
+
+  // ---- ฟอนต์ ----
+  var fontReady = {};
+  function ensureFont(name) {
+    if (!name || fontReady[name] || !document.fonts) return Promise.resolve();
+    var url = C.fontCssUrl(name);
+    // ไฟล์ CSS ของฟอนต์ต้องโหลดเสร็จก่อน เบราว์เซอร์ถึงจะรู้จักชื่อฟอนต์
+    var css = Promise.resolve();
+    if (url && !document.querySelector('link[data-font="' + name + '"]')) {
+      var l = document.createElement('link');
+      l.rel = 'stylesheet';
+      l.href = url;
+      l.dataset.font = name;
+      css = new Promise(function (ok) {
+        l.onload = ok;
+        l.onerror = ok;
+        setTimeout(ok, 4000);
+      });
+      document.head.appendChild(l);
+    }
+    var sample = 'กขคง ABC 0123';
+    return Promise.race([
+      css
+        .then(function () {
+          return Promise.all([document.fonts.load('700 40px "' + name + '"', sample), document.fonts.load('500 40px "' + name + '"', sample)]);
+        })
+        .then(function () {
+          fontReady[name] = true;
+        }),
+      new Promise(function (ok) {
+        setTimeout(ok, 6000);
+      }),
+    ]).then(function () {
+      textCache = { key: '', design: null };
+      faceCache = { key: '', canvas: null };
+      draw();
+    });
+  }
+  function buildFontSelects() {
+    ['fontTitle', 'fontSub'].forEach(function (id) {
+      var sel = $(id);
+      var html = '<option value="">Kanit (ค่าเริ่มต้น)</option>';
+      if (shopFonts.length) {
+        html += '<optgroup label="ฟอนต์ของร้าน">' + shopFonts.map(function (f) {
+          return '<option value="' + esc(f.family) + '">' + esc(f.name) + '</option>';
+        }).join('') + '</optgroup>';
+      }
+      html += '<optgroup label="ฟอนต์ไทย (Google Fonts)">' + C.FONTS.filter(function (f) {
+        return f[0] !== 'Kanit';
+      }).map(function (f) {
+        return '<option value="' + esc(f[0]) + '">' + esc(f[0]) + '</option>';
+      }).join('') + '</optgroup>';
+      sel.innerHTML = html;
+    });
+    syncFontSelects();
+  }
+  function syncFontSelects() {
+    var known = function (v) {
+      return !v || shopFonts.some(function (f) { return f.family === v; }) || C.FONTS.some(function (f) { return f[0] === v; });
+    };
+    $('fontTitle').value = known(st.text.font) ? st.text.font || '' : '';
+    $('fontSub').value = known(st.text.font2) ? st.text.font2 || '' : '';
+  }
+  [['fontTitle', 'font'], ['fontSub', 'font2']].forEach(function (f) {
+    $(f[0]).addEventListener('change', function (e) {
+      st.text[f[1]] = e.target.value;
+      st.mode = 'text';
+      ensureFont(e.target.value);
+      sync();
+    });
+  });
+  function registerFont(rec) {
+    var buf = rec.blob.arrayBuffer ? rec.blob.arrayBuffer() : new Response(rec.blob).arrayBuffer();
+    return buf.then(function (ab) {
+      var ff = new FontFace(rec.family, ab);
+      return ff.load().then(function () {
+        document.fonts.add(ff);
+        fontReady[rec.family] = true;
+        shopFonts = shopFonts.filter(function (f) { return f.id !== rec.id; }).concat([{ id: rec.id, name: rec.name, family: rec.family, face: ff }]);
+      });
+    });
+  }
+  function loadShopFonts() {
+    if (!NS.jobs || !window.FontFace || !document.fonts) return;
+    NS.jobs
+      .byPrefix('opt-font-')
+      .then(function (list) {
+        return Promise.all(list.map(function (r) {
+          return registerFont(r).catch(function () {});
+        }));
+      })
+      .then(function () {
+        buildFontSelects();
+        textCache = { key: '', design: null };
+        faceCache = { key: '', canvas: null };
+        draw();
+      })
+      .catch(function () {});
+  }
+  function addFontFile(file, quiet) {
+    if (!file) return Promise.resolve();
+    if (!window.FontFace || !NS.jobs) {
+      toast('เบราว์เซอร์นี้ใส่ฟอนต์เองไม่ได้');
+      return Promise.resolve();
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast('ไฟล์ฟอนต์ใหญ่เกิน 8 MB');
+      return Promise.resolve();
+    }
+    var id = uid2('opt-font-');
+    var name = String(file.name || 'ฟอนต์ของร้าน').replace(/\.(ttf|otf|woff2?)$/i, '').slice(0, 40) || 'ฟอนต์ของร้าน';
+    var rec = { id: id, name: name, family: 'NPShop-' + id.slice(9), blob: file };
+    return registerFont(rec)
+      .then(function () {
+        return NS.jobs.put(rec);
+      })
+      .then(function () {
+        if (!quiet) {
+          st.text.font = rec.family;
+          st.mode = 'text';
+          toast('เพิ่มฟอนต์ “' + name + '” แล้ว ตั้งเป็นฟอนต์ข้อความหลักให้');
+        }
+        textCache = { key: '', design: null };
+        buildFontSelects();
+        sync();
+        if ($('optDlg').open) renderOptDlg();
+      })
+      .catch(function () {
+        toast('อ่านไฟล์ฟอนต์นี้ไม่ได้ ใช้ไฟล์ .ttf .otf หรือ .woff');
+      });
+  }
+  $('fontFile').addEventListener('change', function (e) {
+    addFontFile(e.target.files[0]);
+    e.target.value = '';
+  });
+  function removeFont(id) {
+    var f = shopFonts.filter(function (x) { return x.id === id; })[0];
+    if (!f) return;
+    if (f.face && document.fonts.delete) document.fonts.delete(f.face);
+    shopFonts = shopFonts.filter(function (x) { return x.id !== id; });
+    if (st.text.font === f.family) st.text.font = '';
+    if (st.text.font2 === f.family) st.text.font2 = '';
+    NS.jobs.del(id).catch(function () {});
+    textCache = { key: '', design: null };
+    buildFontSelects();
+    sync();
+    renderOptDlg();
+  }
+
+  // ---- หน้าต่างตัวเลือกของร้าน ----
+  function row(swatch, name, buttons, style) {
+    var d = document.createElement('div');
+    d.className = 'opt-row';
+    if (swatch) {
+      var i = document.createElement('i');
+      i.className = 'sw';
+      i.style.background = swatch;
+      d.appendChild(i);
+    }
+    var n = document.createElement('span');
+    n.className = 'nm';
+    n.textContent = name;
+    if (style) n.style.fontFamily = style;
+    d.appendChild(n);
+    buttons.forEach(function (b) {
+      var bt = document.createElement('button');
+      bt.type = 'button';
+      bt.className = 'btn-ghost small' + (b[2] ? ' danger' : '');
+      bt.textContent = b[0];
+      bt.addEventListener('click', b[1]);
+      d.appendChild(bt);
+    });
+    return d;
+  }
+  function renderOptDlg() {
+    var box = $('optThemes');
+    box.innerHTML = '';
+    opts.themes.forEach(function (t) {
+      box.appendChild(row('linear-gradient(135deg,' + t.bg + ' 0 62%,' + t.pillBg + ' 62% 100%)', t.name, [
+        ['แก้ไข', function () { openThemeEditor(t.id); }],
+        ['ลบ', function () { removeTheme(t.id); }, true],
+      ]));
+    });
+    box = $('optTones');
+    box.innerHTML = '';
+    opts.tones.forEach(function (t) {
+      box.appendChild(row('linear-gradient(180deg,' + t.upper + ' 0 55%,' + t.lower + ' 55% 100%)', t.name, [
+        ['ลบ', function () {
+          opts.tones = opts.tones.filter(function (x) { return x.id !== t.id; });
+          optsChanged();
+        }, true],
+      ]));
+    });
+    box = $('optFonts');
+    box.innerHTML = '';
+    shopFonts.forEach(function (f) {
+      box.appendChild(row('', f.name + ' — กขค ป้ายสวย 0123', [['ลบ', function () { removeFont(f.id); }, true]], '"' + f.family + '"'));
+    });
+    box = $('optPresets');
+    box.innerHTML = '';
+    Object.keys(opts.presets).forEach(function (k) {
+      var d = row('', C.TYPES[k].name + ': ' + opts.presets[k].map(function (p) { return C.fmtCm(p[0]) + '×' + C.fmtCm(p[1]); }).join(', '), [
+        ['ล้าง', function () {
+          delete opts.presets[k];
+          optsChanged();
+        }, true],
+      ]);
+      box.appendChild(d);
+    });
+    var checks = function (id, order, table, hidden) {
+      var el = $(id);
+      el.innerHTML = '';
+      order.forEach(function (k) {
+        var l = document.createElement('label');
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = hidden.indexOf(k) < 0;
+        cb.addEventListener('change', function () {
+          var list = id === 'optTypes' ? opts.hideTypes : opts.hideScenes;
+          var i = list.indexOf(k);
+          if (cb.checked && i >= 0) list.splice(i, 1);
+          if (!cb.checked && i < 0) list.push(k);
+          if (id === 'optTypes' && list.length >= C.TYPE_ORDER.length) {
+            list.splice(list.indexOf(k), 1);
+            cb.checked = true;
+            toast('ต้องเหลือชนิดป้ายอย่างน้อย 1 ชนิด');
+            return;
+          }
+          optsChanged();
+        });
+        l.appendChild(cb);
+        l.appendChild(document.createTextNode(table[k].name));
+        el.appendChild(l);
+      });
+    };
+    checks('optTypes', C.TYPE_ORDER, C.TYPES, opts.hideTypes);
+    checks('optScenes', C.SCENE_ORDER, C.SCENES, opts.hideScenes);
+    $('optExport').hidden = inFrame;
+  }
+  $('optBtn').addEventListener('click', function () {
+    $('optStatus').textContent = '';
+    renderOptDlg();
+    openDialog($('optDlg'));
+  });
+  $('optAddTheme').addEventListener('click', function () {
+    openThemeEditor(null);
+  });
+  $('optAddTone').addEventListener('click', openToneEditor);
+
+  // ---- สำรอง / นำเข้า ----
+  function blobToDataUrl(b) {
+    return new Promise(function (ok, bad) {
+      var r = new FileReader();
+      r.onload = function () {
+        ok(r.result);
+      };
+      r.onerror = bad;
+      r.readAsDataURL(b);
+    });
+  }
+  $('optExport').addEventListener('click', function () {
+    var fontsP = NS.jobs ? NS.jobs.byPrefix('opt-font-').catch(function () { return []; }) : Promise.resolve([]);
+    fontsP
+      .then(function (list) {
+        return Promise.all(list.map(function (r) {
+          return blobToDataUrl(r.blob).then(function (data) {
+            return { name: r.name, data: data };
+          });
+        }));
+      })
+      .then(function (fonts) {
+        var out = {
+          app: 'np-sign-mockup',
+          kind: 'options',
+          v: 1,
+          saved: new Date().toISOString(),
+          options: opts,
+          shop: { shopName: st.shopName, shopPhone: st.shopPhone, logo: st.logo, brandLogo: st.brandLogo, rates: st.rates },
+          fonts: fonts,
+        };
+        var blob = new Blob([JSON.stringify(out)], { type: 'application/json' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'np-sign-options-' + stamp().slice(0, 8) + '.json';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function () {
+          URL.revokeObjectURL(a.href);
+        }, 4000);
+        $('optStatus').textContent = 'บันทึกไฟล์ ' + a.download + ' แล้ว — เปิดแอปในเครื่องอื่นแล้วกด “นำเข้าไฟล์ตัวเลือก”';
+      });
+  });
+  $('optImport').addEventListener('change', function (e) {
+    var f = e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    if (f.size > 40 * 1024 * 1024) {
+      $('optStatus').textContent = 'ไฟล์ใหญ่เกินไป';
+      return;
+    }
+    new Response(f)
+      .text()
+      .then(function (txt) {
+        var data = JSON.parse(txt);
+        if (!data || data.app !== 'np-sign-mockup' || data.kind !== 'options') throw new Error('not options');
+        var inc = C.normalizeOptions(data.options);
+        // รวมกับของเดิม (id ซ้ำ = ใช้ของที่นำเข้า)
+        var merge = function (a, b) {
+          var ids = b.map(function (x) { return x.id; });
+          return a.filter(function (x) { return ids.indexOf(x.id) < 0; }).concat(b);
+        };
+        opts.themes = merge(opts.themes, inc.themes);
+        opts.tones = merge(opts.tones, inc.tones);
+        Object.keys(inc.presets).forEach(function (k) {
+          opts.presets[k] = (opts.presets[k] || []).concat(inc.presets[k]);
+        });
+        opts.hideTypes = inc.hideTypes;
+        opts.hideScenes = inc.hideScenes;
+        var sh = data.shop || {};
+        if (typeof sh.shopName === 'string') st.shopName = sh.shopName.slice(0, 80);
+        if (typeof sh.shopPhone === 'string') st.shopPhone = sh.shopPhone.slice(0, 40);
+        if (typeof sh.logo === 'string' && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(sh.logo) && sh.logo.length < 3e6) st.logo = sh.logo;
+        if (typeof sh.brandLogo === 'boolean') st.brandLogo = sh.brandLogo;
+        if (sh.rates && typeof sh.rates === 'object') {
+          Object.keys(C.TYPES).forEach(function (k) {
+            var v = C.num(sh.rates[k]);
+            if (v > 0) st.rates[k] = v;
+          });
+        }
+        setLogo(st.logo || '');
+        optsChanged();
+        var fonts = Array.isArray(data.fonts) ? data.fonts.slice(0, 20) : [];
+        return fonts
+          .reduce(function (p, fo) {
+            return p.then(function () {
+              if (!fo || typeof fo.data !== 'string' || fo.data.indexOf('data:') !== 0) return;
+              return fetch(fo.data)
+                .then(function (r) {
+                  return r.blob();
+                })
+                .then(function (b) {
+                  var name = String(fo.name || 'ฟอนต์ของร้าน').slice(0, 40);
+                  if (shopFonts.some(function (x) { return x.name === name; })) return;
+                  return addFontFile(new File([b], name + '.ttf'), true);
+                })
+                .catch(function () {});
+            });
+          }, Promise.resolve())
+          .then(function () {
+            $('optStatus').textContent = 'นำเข้าตัวเลือกแล้ว: ชุดสี ' + opts.themes.length + ' · สีผนัง ' + opts.tones.length + ' · ฟอนต์ ' + shopFonts.length;
+          });
+      })
+      .catch(function () {
+        $('optStatus').textContent = 'ไฟล์นี้ไม่ใช่ไฟล์ตัวเลือกของแอปนี้';
+      });
+  });
+
+  // ---- สีโครงเหล็ก / เสา ----
+  var metalInput = null;
+  function buildMetals() {
+    var show = st.type === 'stand' || st.type === 'cnc';
+    $('metalField').hidden = !show;
+    if (!show) return;
+    $('metalLabel').textContent = st.type === 'cnc' ? 'สีเสา' : 'สีโครงเหล็ก';
+    var box = $('metals');
+    if (!box.children.length) {
+      C.METALS.forEach(function (m) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'swatch';
+        b.dataset.metal = m[0];
+        var bg = m[0] === 'inox' ? 'linear-gradient(90deg,#f4f5f7,#aeb4bc 55%,#8a9099)' : m[0];
+        b.innerHTML = '<i style="background:' + bg + ';box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)"></i>' + esc(m[1]);
+        b.addEventListener('click', function () {
+          setSteel('color', m[0]);
+        });
+        box.appendChild(b);
+      });
+      var l = document.createElement('label');
+      l.className = 'metal-custom';
+      metalInput = document.createElement('input');
+      metalInput.type = 'color';
+      metalInput.setAttribute('aria-label', 'เลือกสีเอง');
+      metalInput.addEventListener('input', function (e) {
+        setSteel('color', e.target.value);
+      });
+      l.appendChild(metalInput);
+      l.appendChild(document.createElement('span')).textContent = 'สีอื่น';
+      box.appendChild(l);
+    }
+    var cur = C.metalColor((st.steel && st.steel.color) || '#1f2125');
+    pressed('#metals .swatch', 'metal', cur);
+    if (cur !== 'inox' && document.activeElement !== metalInput) metalInput.value = cur;
+  }
+
   /* ---------- ติดตั้งเป็นแอป ---------- */
   var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
   var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2118,6 +2702,13 @@
   }
   applySide();
   $('verLabel').textContent = 'v' + APP_VERSION;
+  loadOpts();
+  if (!R.themes()[st.text.theme]) st.text.theme = 'brand';
+  if (!C.WALL_TONES[st.tone]) st.tone = 'pink';
+  buildFontSelects();
+  ensureFont(st.text.font);
+  ensureFont(st.text.font2);
+  loadShopFonts();
   buildTypes();
   buildThemes();
   buildScenes();
@@ -2278,6 +2869,7 @@
     st.steel = Object.assign({}, st.steel);
     st.steel[k] = v;
     save();
+    buildMetals();
     steelSync();
     summary();
     draw();

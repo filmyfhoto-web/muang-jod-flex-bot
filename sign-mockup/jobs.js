@@ -67,6 +67,16 @@
         return s.delete(id);
       });
     },
+    // ของที่ร้านอัปโหลดไว้ (เช่น ฟอนต์ 'opt-font-…') — ไม่ปนกับรายการงาน
+    byPrefix: function (prefix) {
+      return run('readonly', function (s) {
+        return s.getAll();
+      }).then(function (all) {
+        return (all || []).filter(function (j) {
+          return j && String(j.id).indexOf(prefix) === 0;
+        });
+      });
+    },
     // งานที่ตั้งชื่อบันทึกไว้ ใหม่สุดก่อน (ไม่รวมงานปัจจุบันที่บันทึกอัตโนมัติ)
     list: function () {
       return run('readonly', function (s) {
@@ -74,7 +84,7 @@
       }).then(function (all) {
         return (all || [])
           .filter(function (j) {
-            return j && j.id.indexOf('current') !== 0;
+            return j && j.id.indexOf('current') !== 0 && j.id.indexOf('opt-') !== 0;
           })
           .sort(function (a, b) {
             return (b.updated || 0) - (a.updated || 0);
