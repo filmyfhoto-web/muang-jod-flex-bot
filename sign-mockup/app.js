@@ -6,9 +6,9 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '3.1.0';
-  // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) และตราสัญลักษณ์ NTP (แถบใต้ภาพ/เสื้อตัวการ์ตูน)
-  var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png' });
+  var APP_VERSION = '3.2.0';
+  // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
+  var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp' });
 
   var UNIT_WORD = { vinyl: 'ผืน', frame: 'ผืน', foam: 'แผ่น', sticker: 'แผ่น', acrylic: 'แผ่น', lightbox: 'ป้าย', rollup: 'ชุด', xstand: 'ชุด' };
 
@@ -48,7 +48,7 @@
   var textCache = { key: '', design: null };
   var photo = null; // { id, img, w, h, quad, touched, blob }
   var logoImg = null; // โลโก้ที่อัปโหลดเอง
-  var brandImg = { full: null, mark: null };
+  var brandImg = { full: null, mark: null, mascot: null };
   var customer = '';
   var curJob = null; // งานที่เปิด/บันทึกล่าสุด { id, name }
   var lastOut = null;
@@ -1069,11 +1069,11 @@
     img.src = dataUrl;
   }
   function loadBrand() {
-    ['full', 'mark'].forEach(function (k) {
+    ['full', 'mark', 'mascot'].forEach(function (k) {
       var img = new Image();
       img.onload = function () {
         brandImg[k] = img;
-        if (k === 'mark' && R.setMascotLogo) R.setMascotLogo(img);
+        if (k === 'mascot') R.setMascot(img);
         footCache = null;
         draw();
       };
