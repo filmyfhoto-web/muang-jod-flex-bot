@@ -268,3 +268,76 @@ test('ป้ายเต็มบานประตูห้องเรีย�
   for (const k of C.TONE_ORDER) assert.match(C.WALL_TONES[k].lower, /^#[0-9a-f]{6}$/);
   assert.ok(C.SCENES.classDoor.canOpen);
 });
+
+test('ใบเสนอราคา: เลขที่ตามวันเวลา (ปี พ.ศ.) และยอดเงินเป็นตัวหนังสือ', () => {
+  assert.equal(C.quoteNo(new Date(2026, 10, 5, 14, 3)), 'Q691105-1403');
+  assert.equal(C.bahtText(0), 'ศูนย์บาทถ้วน');
+  assert.equal(C.bahtText(11), 'สิบเอ็ดบาทถ้วน');
+  assert.equal(C.bahtText(21), 'ยี่สิบเอ็ดบาทถ้วน');
+  assert.equal(C.bahtText(101), 'หนึ่งร้อยเอ็ดบาทถ้วน');
+  assert.equal(C.bahtText(1520), 'หนึ่งพันห้าร้อยยี่สิบบาทถ้วน');
+  assert.equal(C.bahtText('2,021'), 'สองพันยี่สิบเอ็ดบาทถ้วน');
+  assert.equal(C.bahtText(1000000), 'หนึ่งล้านบาทถ้วน');
+  assert.equal(C.bahtText(11000000), 'สิบเอ็ดล้านบาทถ้วน');
+  assert.equal(C.bahtText(12.5), 'สิบสองบาทห้าสิบสตางค์');
+  // ความหนาแกน Z มีครบทุกชนิดป้าย (โชว์ในกล่องขนาด)
+  for (const k of C.TYPE_ORDER) assert.ok(C.DEPTH[k], k);
+});
+
+test('PDF ใบเสนอราคา: ไฟล์ถูกโครงสร้าง (xref ชี้ตำแหน่ง obj ถูกทุกตัว) ฝังรูป JPEG เต็มหน้า A4', () => {
+  const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4, 0xff, 0xd9]);
+  const pdf = C.pdfFromJpeg(jpeg, 1240, 1754);
+  const s = Buffer.from(pdf).toString('latin1');
+  assert.ok(s.startsWith('%PDF-1.4'));
+  assert.ok(s.trimEnd().endsWith('%%EOF'));
+  assert.match(s, /\/MediaBox \[0 0 595\.28 841\.89\]/);
+  assert.match(s, /\/Width 1240 \/Height 1754 .*\/Filter \/DCTDecode \/Length 10/);
+  // รูปฝังทั้งไฟล์ไม่เพี้ยน
+  const at = s.indexOf('stream\n') + 7;
+  assert.deepEqual([...pdf.slice(at, at + jpeg.length)], [...jpeg]);
+  // xref: ตำแหน่งของ obj 1..5 ตรงจริง และ startxref ชี้ตาราง xref
+  const startxref = +s.match(/startxref\n(\d+)/)[1];
+  assert.equal(s.slice(startxref, startxref + 4), 'xref');
+  const rows = s.slice(startxref).split('\n').slice(3, 8);
+  rows.forEach((r, i) => {
+    const off = +r.slice(0, 10);
+    assert.equal(s.slice(off, off + `${i + 1} 0 obj`.length), `${i + 1} 0 obj`);
+  });
+  // ความยาว content stream ตรงกับที่ประกาศ
+  const m = s.match(/5 0 obj\n<< \/Length (\d+) >>\nstream\n([^\n]*)\nendstream/);
+  assert.equal(+m[1], m[2].length);
+});
+
+test('อัปเดตอัตโนมัติ: รุ่นใน app.js ตรงกับ service worker และไฟล์ใหม่ (งานของฉัน / ส่งออก 3 มิติ) เก็บออฟไลน์ครบ', () => {
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  const sw = readFileSync(new URL('../sign-mockup/sw.js', import.meta.url), 'utf8');
+  const html = readFileSync(new URL('../sign-mockup/index.html', import.meta.url), 'utf8');
+  const appVer = app.match(/APP_VERSION = '([\d.]+)'/)[1];
+  const swVer = sw.match(/VERSION = 'sign-mockup-([\d.]+)'/)[1];
+  assert.equal(appVer, swVer, 'เลื่อนรุ่นใน app.js กับ sw.js ให้ตรงกัน ไม่งั้นแอปที่ติดตั้งไว้ไม่อัปเดต');
+  for (const f of ['jobs.js', 'vendor/addons/exporters/GLTFExporter.js', 'vendor/addons/utils/TextureUtils.js']) {
+    assert.ok(sw.includes(`'${f}'`), f);
+    assert.ok(existsSync(new URL('../sign-mockup/' + f, import.meta.url)), f);
+  }
+  // jobs.js ต้องโหลดก่อน app.js
+  assert.ok(html.indexOf('src="jobs.js"') > 0 && html.indexOf('src="jobs.js"') < html.indexOf('src="app.js"'));
+  assert.match(app, /reg\.update\(\)/);
+  assert.match(app, /controllerchange/);
+  // ตัวส่งออก glb import แบบ dynamic ผ่าน import map
+  const s3 = readFileSync(new URL('../sign-mockup/scene3d.js', import.meta.url), 'utf8');
+  assert.match(s3, /import\('three\/addons\/exporters\/GLTFExporter\.js'\)/);
+});
+
+test('ทุก id ที่ app.js เรียกด้วย $(...) มีอยู่จริงใน index.html', () => {
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  const html = readFileSync(new URL('../sign-mockup/index.html', import.meta.url), 'utf8');
+  const ids = new Set([...app.matchAll(/\$\('([A-Za-z0-9_-]+)'\)/g)].map((m) => m[1]));
+  const missing = [...ids].filter((id) => !html.includes(`id="${id}"`));
+  assert.deepEqual(missing, []);
+});
+
+test('ทุกชนิดป้ายมีไอคอนบนการ์ด (ไม่โชว์คำว่า undefined)', () => {
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  const block = app.slice(app.indexOf('var TYPE_ICON = {'), app.indexOf('function buildTypes'));
+  for (const k of C.TYPE_ORDER) assert.match(block, new RegExp(`\\n\\s+${k}:\\s*\\n?\\s*'<svg`), k);
+});
