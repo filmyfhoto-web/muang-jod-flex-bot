@@ -1,0 +1,7 @@
+{
+  "name": "nattapron-sign-mockup",
+  "version": "1.0.0",
+  "private": true,
+  "description": "นัดพอน Sign Mockup — จำลองป้ายไวนิล โฟมบอร์ด ให้ลูกค้าดูก่อนสั่งผลิต (PWA ไฟล์นิ่ง ไม่ต้อง build)",
+  "type": "commonjs"
+}

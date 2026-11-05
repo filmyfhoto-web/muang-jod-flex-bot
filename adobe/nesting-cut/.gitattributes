@@ -1,0 +1,4 @@
+*.cmd text eol=crlf
+*.command text eol=lf
+*.jsx text eol=lf
+*.png binary

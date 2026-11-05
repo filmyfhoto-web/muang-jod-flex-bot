@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="photoshop/style.css" />
+  </head>
+  <body>
+    <div class="brand"><img src="assets/logo-panel.png" alt="นัดพอน Nesting Cut" /></div>
+
+    <div class="card">
+      <div class="title"><span class="num">1</span> เลเยอร์ที่เลือก = ชิ้นงาน</div>
+      <p class="hint">เลือกเลเยอร์สติ๊กเกอร์ (พื้นใส) ใน Layers panel — 1 เลเยอร์/กลุ่ม = 1 แบบ ตั้งจำนวนในชื่อได้ เช่น “โลโก้ x20”</p>
+      <button id="btnRefresh" class="ghost">ดึงเลเยอร์ที่เลือก</button>
+      <div id="layerList" class="list"></div>
+      <div id="layerTotal" class="hint right"></div>
+    </div>
+
+    <div class="card">
+      <div class="title"><span class="num">2</span> เส้นตัด (Cut-Line)</div>
+      <div class="grid">
+        <label>ห่างขอบงาน (มม.)<input id="offset" type="number" min="0" step="0.5" /></label>
+        <label>ความนุ่มขอบ (px)<input id="smooth" type="number" min="0" step="1" /></label>
+        <label>ความละเอียดเส้น (px)<input id="tolerance" type="number" min="0.5" step="0.5" /></label>
+      </div>
+      <p class="hint">ความละเอียดเส้น: น้อย = ตามขอบเป๊ะ (จุดเยอะ) · มาก = เส้นเรียบ</p>
+    </div>
+
+    <div class="card">
+      <div class="title"><span class="num">3</span> ส่งไป Illustrator</div>
+      <div class="row">
+        <span id="folderName" class="path">ยังไม่ได้เลือกโฟลเดอร์</span>
+        <button id="btnFolder" class="ghost">เลือกโฟลเดอร์</button>
+      </div>
+      <button id="btnGo" class="go">เจ๊หญิงสั่งลุย! ✂️ ส่งไป Illustrator</button>
+      <div id="status" class="status">พร้อมลุย</div>
+      <p class="hint">
+        เสร็จแล้วไปที่ Illustrator → แผงนัดพอน → “นำเข้าจาก Photoshop” → เลือกไฟล์ nestingcut-pack.json ในโฟลเดอร์นี้
+      </p>
+    </div>
+
+    <script src="core/geometry.js"></script>
+    <script src="core/pack.js"></script>
+    <script src="photoshop/main.js"></script>
+  </body>
+</html>

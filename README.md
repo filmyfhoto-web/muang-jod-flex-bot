@@ -52,6 +52,7 @@ supabase/
   migrations/001_initial_schema.sql
 scripts/
   create-rich-menu.js
+sign-mockup/                # นัดพอน Sign Mockup — จำลองป้ายให้ลูกค้าดู เปิดที่ /sign/ (ดู sign-mockup/README.md)
 .env.example  .gitignore  package.json  README.md
 ```
 
@@ -434,6 +435,14 @@ npm start          # แล้วเปิด http://localhost:3000/app/jot
 - ตรวจ `X-Line-Signature` ทุกคำขอที่ `/webhook`
 - ใช้ค่าลับผ่าน environment variables เท่านั้น ไม่ hardcode
 - เปิด RLS ทุกตาราง และใช้ service-role key เฉพาะฝั่ง server
+
+---
+
+## ✂️ ปลั๊กอิน Adobe: นัดพอน Nesting Cut
+
+ปลั๊กอิน Illustrator + Photoshop สำหรับงานสติ๊กเกอร์และป้าย มี 8 เครื่องมือ: **จัดวางดวง** ตามเส้นไดคัทจริง · **ไดคัทต่อเนื่อง** · **ไดคัทตามรูป** (รูป JPG-PNG/เวกเตอร์) · **ทำมุมโค้ง** ตามดอกกัด CNC · **หาเส้นกลาง** วางไฟ LED · **เส้นบอกขนาด** ตามสเกล · **รันนัมเบอร์** · **ปุ่มลัด** จัดวางในปุ่มเดียว — สร้างชีตบนอาร์ตบอร์ดใหม่ แยกเลเยอร์งานพิมพ์/เส้นไดคัท ใส่มาร์กและหัวงาน
+แล้วส่งออก PDF / PLT / DXF / SVG ไปเครื่องตัดในปุ่มเดียว อยู่ในโฟลเดอร์ [`adobe/nesting-cut`](adobe/nesting-cut/README.md)
+(แยกจากตัวบอต ไม่ต้อง deploy)
 
 ---
 

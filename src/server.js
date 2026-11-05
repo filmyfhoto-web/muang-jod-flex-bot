@@ -48,6 +48,15 @@ app.use(
 );
 app.use('/api', apiRouter);
 
+/* นัดพอน Sign Mockup — จำลองป้ายไวนิล/โฟมบอร์ด/โรลอัพให้ลูกค้าดูก่อนสั่ง
+ * ไฟล์นิ่งล้วนใน sign-mockup/ ติดตั้งเป็นแอปแยกจากม่วงจดได้ (scope /sign/) */
+app.use(
+  '/sign',
+  express.static('sign-mockup', {
+    setHeaders: (res) => res.set('Cache-Control', 'no-cache'),
+  })
+);
+
 // Printable receipt, readable by anyone holding the bill's share token.
 app.use('/r', receiptRouter);
 

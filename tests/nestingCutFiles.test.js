@@ -1,0 +1,308 @@
+// เส้นตัดจากภาพ, มาร์ก/หัวงาน, ไฟล์สั่งเครื่องตัด, แพ็ก Photoshop → Illustrator
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const G = require('../adobe/nesting-cut/core/geometry.js');
+const C = require('../adobe/nesting-cut/core/contour.js');
+const L = require('../adobe/nesting-cut/core/layout.js');
+const F = require('../adobe/nesting-cut/core/cutfile.js');
+const P = require('../adobe/nesting-cut/core/pack.js');
+
+// วงกลม anti-alias ในภาพขนาด w×h (ค่า alpha 0–255)
+function disk(w, h, cx, cy, r, holeR = 0) {
+  const a = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
+      let v = Math.max(0, Math.min(1, r + 0.5 - d));
+      if (holeR) v -= Math.max(0, Math.min(1, holeR + 0.5 - d));
+      a[y * w + x] = Math.round(v * 255);
+    }
+  }
+  return a;
+}
+
+const radii = (pts, cx, cy) => pts.map((p) => Math.hypot(p[0] - cx, p[1] - cy));
+
+test('contour: ขอบวงกลมตรงเป๊ะระดับเศษพิกเซล', () => {
+  const loops = C.traceAlpha({ width: 200, height: 200, alpha: disk(200, 200, 100, 100, 60) });
+  assert.equal(loops.length, 1);
+  for (const r of radii(loops[0].points, 100, 100)) assert.ok(Math.abs(r - 60) < 0.5, `r=${r}`);
+});
+
+test('contour: เว้นระยะเส้นตัดออกจากขอบเท่ากันรอบตัว', () => {
+  const loops = C.traceAlpha({ width: 200, height: 200, alpha: disk(200, 200, 100, 100, 50) }, { offsetPx: 12 });
+  assert.equal(loops.length, 1);
+  for (const r of radii(loops[0].points, 100, 100)) assert.ok(Math.abs(r - 62) < 1, `r=${r}`);
+});
+
+test('contour: รูตรงกลางถูกถม (ตัดแค่ขอบนอก) เว้นแต่สั่งไม่ถม', () => {
+  const alpha = disk(200, 200, 100, 100, 60, 30);
+  assert.equal(C.traceAlpha({ width: 200, height: 200, alpha }).length, 1);
+  assert.equal(C.traceAlpha({ width: 200, height: 200, alpha }, { fillHoles: false }).length, 2);
+});
+
+test('contour: ฝุ่นจุดเล็กถูกทิ้ง ชิ้นใกล้กันรวมเป็นเส้นเดียวเมื่อเว้นขอบกว้างพอ', () => {
+  const w = 300;
+  const h = 120;
+  const a = new Uint8Array(w * h);
+  const b1 = disk(w, h, 80, 60, 40);
+  const b2 = disk(w, h, 200, 60, 40);
+  for (let i = 0; i < a.length; i++) a[i] = Math.max(b1[i], b2[i]);
+  a[5 * w + 290] = 255; // ฝุ่น
+  assert.equal(C.traceAlpha({ width: w, height: h, alpha: a }, { offsetPx: 3 }).length, 2);
+  assert.equal(C.traceAlpha({ width: w, height: h, alpha: a }, { offsetPx: 25 }).length, 1);
+});
+
+test('contour: รับภาพ RGBA จาก canvas ได้', () => {
+  const alpha = disk(40, 40, 20, 20, 12);
+  const data = new Uint8ClampedArray(40 * 40 * 4);
+  alpha.forEach((v, i) => (data[i * 4 + 3] = v));
+  assert.equal(C.traceAlpha({ width: 40, height: 40, data }).length, 1);
+});
+
+test('layout: มาร์กวงกลม 4 มุม อยู่ในแผ่น และห่างขอบตามตั้ง', () => {
+  const m = { type: 'circle', size: 5, inset: 10 };
+  const shapes = L.markShapes(600, 800, m);
+  assert.equal(shapes.length, 4);
+  const centers = shapes.map((g) => [g.parts[0].cx, g.parts[0].cy]);
+  assert.deepEqual(centers, [[12.5, 12.5], [587.5, 12.5], [12.5, 787.5], [587.5, 787.5]]);
+});
+
+test('layout: มาร์ก L หันมุมออกนอกแผ่น, Silhouette มี 3 มุม, มาร์กกลางตามระยะ', () => {
+  const Ls = L.markShapes(300, 400, { type: 'L', size: 20, thick: 0.5, inset: 10 });
+  assert.equal(Ls.length, 4);
+  assert.deepEqual(Ls[3].bbox, { x: 270, y: 370, w: 20, h: 20 });
+  assert.equal(L.markShapes(210, 297, { type: 'silhouette', size: 20, thick: 0.5, inset: 10, square: 5 }).length, 3);
+  const mid = L.markShapes(600, 2000, { type: 'circle', size: 5, inset: 10, every: 500 });
+  assert.equal(mid.length, 4 + 2 * 3);
+});
+
+test('layout: ม้วน — หัวงานอยู่ระหว่างมาร์กบน, ความยาวจริงตัดตามงาน + ที่ให้มาร์กล่าง', () => {
+  const plan = L.planSheet({
+    width: 600,
+    length: null,
+    margin: 5,
+    marks: { type: 'circle', size: 5, inset: 10, clearance: 4 },
+    header: { enabled: true, height: 18, gap: 3 },
+  });
+  assert.equal(plan.roll, true);
+  assert.deepEqual(plan.headerBox, { x: 19, y: 5, w: 562, h: 18 });
+  assert.equal(plan.area.y, 26);
+  assert.equal(plan.obstacles.length, 2, 'ม้วนยังไม่รู้ความยาว — กันแค่มาร์กบน');
+  assert.equal(L.finalLength(plan, 300.2), Math.ceil(300.2 + 19));
+});
+
+test('layout: แผ่นขนาดคงที่ — กันมาร์กทั้ง 4 มุม ความยาวเท่าแผ่น', () => {
+  const plan = L.planSheet({ width: 297, length: 420, margin: 5, marks: { type: 'square', size: 5, inset: 10, clearance: 3 } });
+  assert.equal(plan.obstacles.length, 4);
+  assert.equal(L.finalLength(plan, 100), 420);
+  assert.ok(plan.area.h < 420);
+});
+
+test('cutfile: เส้นข้างในตัดก่อนเส้นที่ล้อม และเริ่มจากจุดใกล้หัวมีด', () => {
+  const outer = { closed: true, points: [[0, 0], [100, 0], [100, 100], [0, 100]] };
+  const inner = { closed: true, points: [[40, 40], [60, 40], [60, 60], [40, 60]] };
+  const far = { closed: true, points: [[300, 300], [310, 300], [310, 310], [300, 310]] };
+  const order = F.orderPaths([outer, far, inner], [0, 0]);
+  assert.deepEqual(order.map((p) => p.points.length && p.points[0]), [[40, 40], [0, 0], [300, 300]]);
+});
+
+test('cutfile: PLT หมุนงาน 90° แต่ไม่กลับด้าน (ทิศการวนเหมือน DXF)', () => {
+  const tri = { closed: true, points: [[10, 10], [50, 10], [10, 30]] };
+  const size = { width: 600, length: 400 };
+  const plt = F.toHPGL([tri], size, { feed: 'x' });
+  assert.equal(plt, 'IN;\nPA;\nSP1;\nPU400,400;\nPD400,2000,1200,400,400,400;\nPU0,0;\nSP0;\n');
+  const signed = (pts) => G.signedArea(pts);
+  const pltPts = tri.points.map((p) => F.mapPlt(p, size, 'x'));
+  const dxfPts = tri.points.map((p) => [p[0], size.length - p[1]]);
+  assert.equal(Math.sign(signed(pltPts)), Math.sign(signed(dxfPts)));
+  assert.equal(Math.sign(signed(tri.points.map((p) => F.mapPlt(p, size, 'y')))), Math.sign(signed(dxfPts)));
+});
+
+test('cutfile: overcut ตัดเลยจุดเริ่มตามระยะที่ขอ', () => {
+  const sq = { closed: true, points: [[0, 0], [10, 0], [10, 10], [0, 10]] };
+  const plt = F.toHPGL([sq], { width: 100, length: 100 }, { feed: 'y', overcut: 2 });
+  assert.match(plt, /PD400,4000,400,3600,0,3600,0,4000,80,4000;/);
+});
+
+test('cutfile: SVG และ DXF มีครบทุกเส้น หน่วย mm', () => {
+  const paths = [
+    { closed: true, points: [[1, 2], [3, 2], [3, 4]] },
+    { closed: false, points: [[5, 5], [6, 6]] },
+  ];
+  const svg = F.toSVG(paths, { width: 600, length: 250.5 }, { title: 'งาน <ทดสอบ>' });
+  assert.match(svg, /width="600mm" height="250.5mm" viewBox="0 0 600 250.5"/);
+  assert.equal((svg.match(/<path /g) || []).length, 2);
+  assert.match(svg, /M1 2L3 2L3 4Z/);
+  assert.match(svg, /งาน &lt;ทดสอบ&gt;/);
+  const dxf = F.toDXF(paths, { width: 600, length: 250.5 });
+  assert.equal((dxf.match(/\r\nPOLYLINE\r\n/g) || []).length, 2);
+  assert.match(dxf, /\r\n20\r\n248.5\r\n/); // y กลับขึ้น: 250.5 − 2
+  assert.ok(dxf.endsWith('EOF\r\n'));
+});
+
+test('pack: อ่านจำนวนจากชื่อเลเยอร์', () => {
+  assert.equal(P.parseQty('โลโก้ร้าน x20'), 20);
+  assert.equal(P.parseQty('logo ×5'), 5);
+  assert.equal(P.parseQty('ป้าย*3'), 3);
+  assert.equal(P.parseQty('สติ๊กเกอร์ 50 ดวง'), 50);
+  assert.equal(P.parseQty('box'), null);
+  assert.equal(P.parseQty('max'), null);
+});
+
+const psContents = (unit, k) => ({
+  pathComponents: [
+    {
+      subpathListKey: [
+        {
+          closedSubpath: true,
+          points: [
+            [10, 10],
+            [110, 10],
+            [110, 60],
+          ].map(([x, y]) => ({
+            anchor: { horizontal: { _unit: unit, _value: x * k }, vertical: { _unit: unit, _value: y * k } },
+            forward: { horizontal: { _unit: unit, _value: (x + 5) * k }, vertical: { _unit: unit, _value: y * k } },
+          })),
+        },
+      ],
+    },
+  ],
+});
+
+test('pack: path ของ Photoshop → พิกเซล (รองรับทั้ง pixelsUnit และ distanceUnit)', () => {
+  const px = P.psPathToSubpaths(psContents('pixelsUnit', 1), { ppi: 300 });
+  assert.deepEqual(px[0].points[1], { a: [110, 10], l: [110, 10], r: [115, 10] });
+  const pt = P.psPathToSubpaths(psContents('distanceUnit', 72 / 300), { ppi: 300, width: 200, height: 100 });
+  assert.deepEqual(pt[0].points[2].a.map((v) => +v.toFixed(6)), [110, 60]);
+  // บางรุ่นติดป้าย distanceUnit แต่ส่งค่าเป็นพิกเซล — ดูจากขนาดเอกสารแล้วเลือกแบบที่ลงตัว
+  const mislabeled = P.psPathToSubpaths(psContents('distanceUnit', 1), { ppi: 300, width: 200, height: 100 });
+  assert.deepEqual(mislabeled[0].points[2].a, [110, 60]);
+});
+
+test('pack: ตรวจแพ็กแล้วแปลงเป็นพิกัด Illustrator', () => {
+  const pack = P.makePack({
+    document: 'a.psd',
+    ppi: 144,
+    items: [{ name: 'ดาว', image: '01-ดาว.png', widthPx: 288, heightPx: 144, quantity: 3, cut: psContents('pixelsUnit', 1).pathComponents[0].subpathListKey.map((s) => ({ closed: true, points: s.points.map((p) => ({ a: [p.anchor.horizontal._value, p.anchor.vertical._value] })) })) }],
+  });
+  assert.equal(P.validatePack(JSON.parse(JSON.stringify(pack))).items.length, 1);
+  const ai = P.itemToIllustrator(pack.items[0], 144, [100, 500]);
+  assert.equal(ai.widthPt, 144);
+  assert.deepEqual(ai.cut[0].points[1].a, [155, 495]);
+  assert.throws(() => P.validatePack({ format: 'x' }), /ไม่ใช่แพ็ก/);
+  assert.throws(() => P.validatePack({ ...pack, items: [{ name: 'a', image: 'a.png', widthPx: 1, heightPx: 1 }] }), /ไม่มีเส้นตัด/);
+});
+
+test('pack: ชื่อไฟล์ปลอดภัย ภาษาไทยยังอยู่', () => {
+  assert.equal(P.safeFileName('โลโก้/ร้าน: "ใหม่"?'), 'โลโก้ ร้าน ใหม่');
+  assert.equal(P.safeFileName('   ', 'x'), 'x');
+});
+
+test('layout: ระยะขอบแยก บน/ล่าง/ซ้าย/ขวา — ดวงไม่ล้ำเข้าไปในขอบ', () => {
+  assert.deepEqual(L.normMargin(undefined), { top: 20, right: 20, bottom: 20, left: 20 });
+  assert.deepEqual(L.normMargin(7), { top: 7, right: 7, bottom: 7, left: 7 });
+  const plan = L.planSheet({ width: 297, length: 420, margin: { top: 10, right: 15, bottom: 25, left: 30 } });
+  assert.equal(plan.area.x, 30);
+  assert.equal(plan.area.y, 10);
+  assert.equal(plan.area.w, 297 - 30 - 15);
+  assert.equal(plan.area.h, 420 - 10 - 25);
+  const media = (id) => L.MEDIA.find((m) => m.id === id);
+  assert.equal(media('a3').width, 297);
+  assert.ok(Math.abs(media('in125x18').width - 12.5 * 25.4) < 1e-6);
+});
+
+test('layout: เส้นตัดตารางลากยาวทั้งแถว และเว้นช่วงที่จะผ่านกลางดวงอื่น', () => {
+  const box = (x, y, w, h) => ({ minX: x, minY: y, maxX: x + w, maxY: y + h });
+  // ตาราง 2×2 ขนาดเท่ากัน → เส้นนอนเส้นเดียวต่อขอบ ยาวคลุมทั้งแถว
+  const even = L.gridSegments([box(0, 0, 10, 10), box(13, 0, 10, 10), box(0, 13, 10, 10), box(13, 13, 10, 10)]);
+  const top = even.filter((s) => s.points[0][1] === 0 && s.points[1][1] === 0);
+  assert.equal(top.length, 1);
+  assert.deepEqual(top[0].points, [[0, 0], [23, 0]]);
+  assert.equal(even.length, 8);
+  // ดวงสูง (0..30) อยู่ข้างดวงเตี้ย: เส้น y=10 ต้องไม่ลากผ่านดวงสูง
+  const mixed = L.gridSegments([box(0, 0, 10, 10), box(13, 0, 10, 30)]);
+  for (const s of mixed) {
+    const [[x0, y0], [x1, y1]] = s.points;
+    if (y0 === y1 && y0 > 0 && y0 < 30) assert.ok(x1 <= 13 + 1e-9, 'ไม่ผ่านดวงสูง');
+    if (x0 === x1 && x0 > 13 && x0 < 23) assert.fail('เส้นตั้งผ่านกลางดวง');
+  }
+});
+
+test('layout: ขนาดของร้าน — เทมเพลตที่เปิดอยู่, งานสีดำ 12.6×19 และหน้าร้าน 13×19 นิ้ว ล็อกขนาด, เลเยอร์แบบ Cutting Master', () => {
+  const tpl = L.media('artboard');
+  assert.equal(tpl.template, true);
+  assert.equal(L.MEDIA[0].id, 'artboard', 'เทมเพลตอยู่บนสุดของรายการ');
+  const black = L.media('gt_black');
+  assert.equal(black.label, 'ขนาดตัดสติ๊กเกอร์งานสีดำ');
+  assert.ok(Math.abs(black.width - 12.6 * 25.4) < 1e-9 && Math.abs(black.length - 19 * 25.4) < 1e-9);
+  assert.equal(black.fixed, true);
+  assert.equal(black.cutter, 'graphtec');
+  const shop = L.media('gt_shop');
+  assert.equal(shop.label, 'ขนาดงานตัดหน้าร้าน');
+  assert.ok(Math.abs(shop.width - 13 * 25.4) < 1e-9 && Math.abs(shop.length - 19 * 25.4) < 1e-9);
+  assert.equal(shop.fixed, true);
+  assert.equal(L.cutter('graphtec').marks.type, 'graphtec');
+  assert.deepEqual(L.GRAPHTEC_LAYERS, [
+    'margin 0.000000 0.000000 0.000000 0.000000',
+    'color 0 0 0 255 0 0 0 0 255 17.007874',
+    'reg_2 0.00 0.00 0.00 0.00 25.00 25.00 25.00 25.00',
+    'reg_1 1 1 1.00 1.00 8.00 100.00 1 0 0 0 0.00',
+  ]);
+});
+
+test('layout: มาร์ก Graphtec แบบไฟล์ CM5 ของร้าน (ตัดงานสีดำ 12.6×19) — L ┘└┐┌ ทึบ ยื่น 8.5 หนา 1 มม. ห่างงาน 1 มม.', () => {
+  const m = { type: 'graphtec', size: 8, thick: 1, inset: 10, clearance: 1 };
+  const g = L.cutter('graphtec').marks;
+  assert.deepEqual([g.size, g.thick, g.clearance, g.color], [8, 1, 1, [75, 68, 67, 90]]);
+  // กรอบงานจากไฟล์จริง: ป้าย 6 × 20 ดวง เริ่ม (24.4, 49.91) กว้าง 269.87 สูง 401.31 มม.
+  const marks = L.markShapes(320.04, 482.6, m, { x: 24.4, y: 49.91, w: 269.87, h: 401.31 });
+  const r2 = (b) => Object.fromEntries(Object.entries(b).map(([k, v]) => [k, typeof v === 'number' ? Math.round(v * 100) / 100 : v]));
+  assert.equal(marks.length, 4);
+  // ซ้ายบน ┘: แขนนอนซ้าย แขนตั้งขึ้น — ขนาด 8.5 × 8.5 แบบในไฟล์ (ไฟล์: x 15.4 y 40.41)
+  assert.deepEqual(marks[0].parts.map(r2), [
+    { kind: 'rect', x: 14.9, y: 47.91, w: 8.5, h: 1 },
+    { kind: 'rect', x: 22.4, y: 40.41, w: 1, h: 8.5 },
+  ]);
+  assert.deepEqual(r2(marks[0].bbox), { x: 14.9, y: 40.41, w: 8.5, h: 8.5 });
+  // ขวาบน └ · ซ้ายล่าง ┐ · ขวาล่าง ┌
+  assert.deepEqual(r2(marks[1].bbox), { x: 295.27, y: 40.41, w: 8.5, h: 8.5 });
+  assert.deepEqual(r2(marks[2].bbox), { x: 14.9, y: 452.22, w: 8.5, h: 8.5 });
+  assert.deepEqual(marks[3].parts.map(r2), [
+    { kind: 'rect', x: 295.27, y: 452.22, w: 8.5, h: 1 },
+    { kind: 'rect', x: 295.27, y: 452.22, w: 1, h: 8.5 },
+  ]);
+  // พื้นที่วางเว้นที่ให้มาร์ก: ขอบ 10 + มาร์ก 8.5 + ห่างงาน 1 = 19.5 มม. ทุกด้าน, ไม่มีสิ่งกีดขวางที่มุม
+  const plan = L.planSheet({ width: 320.04, length: 482.6, margin: 5, marks: m });
+  assert.deepEqual([plan.area.x, plan.area.y], [19.5, 19.5]);
+  assert.ok(Math.abs(plan.area.x + plan.area.w - (320.04 - 19.5)) < 1e-9);
+  assert.equal(plan.obstacles.length, 0);
+  const withHeader = L.planSheet({ width: 320.04, length: 482.6, margin: 5, marks: m, header: { enabled: true, height: 18, gap: 3 } });
+  assert.equal(withHeader.area.y, 5 + 18 + 3 + 8.5 + 1);
+});
+
+test('layout: มาร์กจากไฟล์ต้นแบบยึดมุมที่ใกล้สุด — แผ่นเท่าต้นแบบตำแหน่งเดิม, แผ่นอื่นระยะจากมุมเท่าเดิม', () => {
+  const box = (x, y, w, h) => ({ box: { x, y, w, h }, poly: [[x, y], [x + w, y], [x + w, y + h], [x, y + h]], closed: true, fill: true, sw: 0 });
+  const custom = { w: 320, h: 480, items: [box(10, 10, 25, 25), box(285, 10, 25, 25), box(10, 445, 25, 25), box(285, 445, 25, 25)] };
+  const m = { type: 'graphtec', custom, clearance: 5 };
+  const same = L.markShapes(320, 480, m);
+  assert.deepEqual(same.map((g) => [g.bbox.x, g.bbox.y]), [[10, 10], [285, 10], [10, 445], [285, 445]]);
+  const big = L.markShapes(400, 600, m);
+  assert.deepEqual(big.map((g) => [g.bbox.x, g.bbox.y]), [[10, 10], [365, 10], [10, 565], [365, 565]]);
+  assert.deepEqual(big[3].parts[0].points[0], [365, 565]);
+  assert.equal(big[3].parts[0].dx, 80);
+  // พื้นที่วางกันมาร์ก: ล่างกันลึก 35 + ระยะปลอด 5
+  const plan = L.planSheet({ width: 320, length: 480, margin: 5, marks: m });
+  assert.equal(plan.obstacles.length, 4);
+  assert.equal(plan.markExtent, 35);
+  assert.equal(plan.area.y + plan.area.h, 480 - 40);
+});
+
+test('cutfile: SVG มีมาร์กจากไฟล์ต้นแบบเป็นเส้นจริง', () => {
+  const marks = [{ parts: [{ kind: 'poly', points: [[0, 0], [10, 0], [10, 1]], closed: true, fill: true, sw: 0 }] }];
+  const svg = F.toSVG([], { width: 100, length: 100 }, { marks });
+  assert.match(svg, /<path d="M0 0L10 0L10 1Z"\/>/);
+});

@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>นัดพอน Sign Mockup</title>
+    <meta name="description" content="จำลองป้ายไวนิล โฟมบอร์ด อะคริลิค โรลอัพ ให้ลูกค้าเห็นภาพจริงก่อนสั่งผลิต" />
+    <meta name="theme-color" content="#1f2a4d" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="ม็อคอัพป้าย" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Kanit:wght@400;500;600;700&display=swap" />
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="top">
+        <div class="brand">
+          <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+            <rect x="1" y="1" width="38" height="38" rx="9" fill="#d9622b" />
+            <rect x="7" y="11" width="26" height="15" rx="1.5" fill="#fff" />
+            <circle cx="9.6" cy="13.6" r="1.3" fill="#1f2a4d" />
+            <circle cx="30.4" cy="13.6" r="1.3" fill="#1f2a4d" />
+            <circle cx="9.6" cy="23.4" r="1.3" fill="#1f2a4d" />
+            <circle cx="30.4" cy="23.4" r="1.3" fill="#1f2a4d" />
+            <path d="M13 31h14" stroke="#fff" stroke-width="2.4" stroke-linecap="round" />
+          </svg>
+          <div class="brand-text">
+            <b>นัดพอน Sign Mockup</b>
+            <small>จำลองป้ายให้ลูกค้าเห็นก่อนสั่งผลิต</small>
+          </div>
+        </div>
+        <button class="install" id="installBtn" type="button" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg>
+          <span>ติดตั้งโปรแกรม</span>
+        </button>
+      </header>
+
+      <main class="work">
+        <section class="stage" aria-label="ภาพจำลอง">
+          <div class="viewbar" id="viewbar" hidden>
+            <div class="seg small" id="viewSeg" aria-label="มุมกล้อง">
+              <button type="button" data-view="front">หน้าตรง</button>
+              <button type="button" data-view="angle">มุมเฉียง</button>
+              <button type="button" data-view="eye">มุมคนมอง</button>
+              <button type="button" data-view="side">ด้านข้าง</button>
+            </div>
+            <button type="button" class="tool" id="showBtn" aria-pressed="false" title="หมุนกล้องโชว์ลูกค้าอัตโนมัติ">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v4.5h-4.5" /></svg>
+              <span>หมุนโชว์</span>
+            </button>
+            <button type="button" class="tool" id="nightBtn" aria-pressed="false" title="ดูป้ายตอนกลางคืน (กล่องไฟเปิดไฟ ป้ายอื่นมีสปอตไลท์)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" /></svg>
+              <span>กลางคืน</span>
+            </button>
+            <span class="viewhint">ลากเพื่อหมุน · เลื่อนล้อเมาส์หรือถ่างนิ้วเพื่อซูม</span>
+          </div>
+          <div class="canvas-box" id="canvasBox">
+            <canvas id="view" width="1600" height="1132" aria-label="ภาพจำลองป้าย"></canvas>
+          </div>
+          <div class="stage-bar">
+            <div class="summary" id="summary"></div>
+            <button class="btn-primary" id="exportBtn" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14" /></svg>
+              <span>บันทึกรูป<span class="wide-only">ส่งลูกค้า</span></span>
+            </button>
+          </div>
+          <p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
+        </section>
+
+        <aside class="panel" aria-label="ตั้งค่าป้าย">
+          <nav class="steps" aria-label="ขั้นตอน">
+            <button class="step" type="button" data-step="1"><b>1</b><span>งานออกแบบ</span></button>
+            <button class="step" type="button" data-step="2"><b>2</b><span>ชนิดและขนาด</span></button>
+            <button class="step" type="button" data-step="3"><b>3</b><span>ฉาก</span></button>
+            <button class="step" type="button" data-step="4"><b>4</b><span>ราคาและส่งออก</span></button>
+          </nav>
+
+          <div class="pages" id="pages">
+            <!-- 1 งานออกแบบ -->
+            <section class="page" data-page="1">
+              <h2>งานออกแบบ</h2>
+              <div class="seg" id="modeSeg">
+                <button type="button" data-mode="image">ใส่ไฟล์งาน</button>
+                <button type="button" data-mode="text">พิมพ์ข้อความเร็ว</button>
+              </div>
+
+              <div id="imagePane" class="stack">
+                <label class="drop" id="drop">
+                  <input type="file" id="designFile" accept="image/*" />
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16.5V18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1.5M12 15V4m0 0L7.5 8.5M12 4l4.5 4.5" /></svg>
+                  <b>เลือกไฟล์งาน</b>
+                  <small>JPG หรือ PNG · ลากไฟล์มาวาง หรือกด Ctrl+V วางรูปก็ได้</small>
+                </label>
+                <div class="file-card" id="fileCard" hidden>
+                  <img id="fileThumb" alt="" />
+                  <div class="file-meta">
+                    <b id="fileName"></b>
+                    <small id="fileInfo"></small>
+                  </div>
+                  <button type="button" class="btn-ghost small" id="fileClear">เอาออก</button>
+                </div>
+                <div class="note" id="ratioNote" hidden>
+                  <span id="ratioText"></span>
+                  <button type="button" class="btn-ghost small" id="matchRatio">ปรับความสูงป้ายตามรูป</button>
+                </div>
+                <div class="field">
+                  <span class="label">วางรูปบนป้าย</span>
+                  <div class="seg small" id="fitSeg">
+                    <button type="button" data-fit="cover">เต็มป้าย</button>
+                    <button type="button" data-fit="contain">เห็นทั้งรูป</button>
+                  </div>
+                </div>
+                <p class="hint">จาก Illustrator: File › Export › Export As… เลือก JPEG ความละเอียด 72–150 ppi ก็คมพอสำหรับภาพจำลอง</p>
+              </div>
+
+              <div id="textPane" class="stack" hidden>
+                <p class="hint">ยังไม่มีไฟล์งาน พิมพ์ข้อความคร่าว ๆ ให้ลูกค้าเห็นภาพก่อนได้ (ข้อความตัวอย่าง แก้ได้เลย)</p>
+                <label class="field">
+                  <span class="label">ข้อความหลัก <em>ขึ้นบรรทัดใหม่ได้</em></span>
+                  <textarea id="tTitle" rows="2"></textarea>
+                </label>
+                <label class="field">
+                  <span class="label">ข้อความรอง</span>
+                  <input id="tSub" type="text" />
+                </label>
+                <label class="field">
+                  <span class="label">เบอร์โทร</span>
+                  <input id="tPhone" type="text" inputmode="tel" />
+                </label>
+                <div class="field">
+                  <span class="label">ชุดสี</span>
+                  <div class="swatches" id="themes"></div>
+                </div>
+              </div>
+            </section>
+
+            <!-- 2 ชนิดและขนาด -->
+            <section class="page" data-page="2" hidden>
+              <h2>ชนิดป้าย</h2>
+              <div class="types" id="types"></div>
+              <h3>ขนาด</h3>
+              <div class="size-row">
+                <label class="field">
+                  <span class="label">กว้าง</span>
+                  <span class="affix"><input id="w" type="text" inputmode="decimal" /><i>ซม.</i></span>
+                </label>
+                <button type="button" class="swap" id="swap" aria-label="สลับกว้างกับสูง" title="สลับกว้างกับสูง">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h11m0 0-3-3m3 3-3 3M17 17H6m0 0 3-3m-3 3 3 3" /></svg>
+                </button>
+                <label class="field">
+                  <span class="label">สูง</span>
+                  <span class="affix"><input id="h" type="text" inputmode="decimal" /><i>ซม.</i></span>
+                </label>
+              </div>
+              <div class="chips" id="presets"></div>
+              <p class="readout" id="sizeReadout"></p>
+            </section>
+
+            <!-- 3 ฉาก -->
+            <section class="page" data-page="3" hidden>
+              <h2>ฉาก</h2>
+              <div class="scenes" id="scenes"></div>
+              <div id="photoPane" class="stack" hidden>
+                <label class="drop compact" id="photoDrop">
+                  <input type="file" id="photoFile" accept="image/*" />
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7H8l1.5-2h5L16 7h2.5A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z" /><circle cx="12" cy="13" r="3.2" /></svg>
+                  <b id="photoDropText">เลือกรูปหน้าร้านลูกค้า</b>
+                </label>
+                <p class="hint">ลากจุดส้มทั้ง 4 มุมไปวางตรงตำแหน่งที่จะติดป้ายในรูป ลากตรงกลางป้ายเพื่อย้ายทั้งแผ่น</p>
+                <div class="row">
+                  <button type="button" class="btn-ghost small" id="resetQuad">จัดมุมใหม่</button>
+                </div>
+                <label class="field range">
+                  <span class="label">ความสว่างป้าย <em id="brightVal"></em></span>
+                  <input type="range" id="bright" min="0.55" max="1.2" step="0.01" />
+                </label>
+              </div>
+              <div class="toggles">
+                <label class="toggle"><input type="checkbox" id="person" /><span>คนยืนเทียบขนาด (สูง 170 ซม.)</span></label>
+                <label class="toggle"><input type="checkbox" id="dims" /><span>เส้นบอกขนาด</span></label>
+              </div>
+              <label class="field range" id="zoomRow">
+                <span class="label">ระยะกล้อง <em id="zoomVal"></em></span>
+                <input type="range" id="zoom" min="0.6" max="2.5" step="0.05" />
+              </label>
+            </section>
+
+            <!-- 4 ราคาและส่งออก -->
+            <section class="page" data-page="4" hidden>
+              <h2>ราคา</h2>
+              <div class="grid2">
+                <label class="field">
+                  <span class="label" id="rateLabel">ราคาต่อ ตร.ม.</span>
+                  <span class="affix"><input id="rate" type="text" inputmode="decimal" placeholder="เช่น 150" /><i>บาท</i></span>
+                </label>
+                <label class="field">
+                  <span class="label">จำนวน</span>
+                  <span class="affix"><input id="qty" type="text" inputmode="numeric" /><i id="qtyUnit">ผืน</i></span>
+                </label>
+              </div>
+              <p class="readout price" id="priceReadout"></p>
+              <label class="field">
+                <span class="label">ชื่อลูกค้า <em>ไม่ใส่ก็ได้</em></span>
+                <input id="customer" type="text" />
+              </label>
+
+              <h3>แถบรายละเอียดใต้ภาพ</h3>
+              <label class="toggle"><input type="checkbox" id="info" /><span>ใส่ชื่อร้าน ขนาด และราคาไว้ใต้ภาพ</span></label>
+              <div class="grid2">
+                <label class="field">
+                  <span class="label">ชื่อร้าน</span>
+                  <input id="shopName" type="text" />
+                </label>
+                <label class="field">
+                  <span class="label">เบอร์ร้าน</span>
+                  <input id="shopPhone" type="text" inputmode="tel" />
+                </label>
+              </div>
+              <div class="logo-row">
+                <label class="btn-ghost small file-btn">
+                  <input type="file" id="logoFile" accept="image/*" />
+                  <span id="logoBtnText">ใส่โลโก้ร้าน</span>
+                </label>
+                <img id="logoThumb" alt="โลโก้ร้าน" hidden />
+                <button type="button" class="btn-ghost small" id="logoClear" hidden>เอาโลโก้ออก</button>
+              </div>
+
+              <div class="field" id="aspectField">
+                <span class="label">สัดส่วนรูป</span>
+                <div class="seg small" id="aspectSeg">
+                  <button type="button" data-aspect="auto">อัตโนมัติ</button>
+                  <button type="button" data-aspect="landscape">แนวนอน</button>
+                  <button type="button" data-aspect="portrait">แนวตั้ง</button>
+                  <button type="button" data-aspect="square">จัตุรัส</button>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div class="pager">
+            <button type="button" class="btn-ghost" id="prev">ย้อนกลับ</button>
+            <button type="button" class="btn-next" id="next">ถัดไป</button>
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    <dialog id="exportDlg" aria-labelledby="exportTitle">
+      <div class="dlg-head">
+        <h2 id="exportTitle">รูปพร้อมส่งลูกค้า</h2>
+        <button type="button" class="btn-ghost small" data-close>ปิด</button>
+      </div>
+      <div class="dlg-img"><img id="exportImg" alt="ภาพจำลองป้ายสำหรับส่งลูกค้า" /></div>
+      <p class="hint" id="dlHint">มือถือ: กดค้างที่รูปแล้วเลือก “บันทึกรูปภาพ” · คอมพิวเตอร์: คลิกขวาที่รูป หรือกดดาวน์โหลด</p>
+      <div class="dlg-actions">
+        <button type="button" class="btn-ghost" id="dlShare" hidden>แชร์ (LINE ฯลฯ)</button>
+        <button type="button" class="btn-ghost" id="dlCopy" hidden>คัดลอกรูป</button>
+        <button type="button" class="btn-primary" id="dlSave">ดาวน์โหลด</button>
+      </div>
+      <p class="status" id="dlStatus" role="status" aria-live="polite"></p>
+    </dialog>
+
+    <dialog id="installDlg" aria-labelledby="installTitle">
+      <div class="dlg-head">
+        <h2 id="installTitle">ติดตั้งบน iPhone / iPad</h2>
+      </div>
+      <ol class="steps-list">
+        <li>เปิดหน้านี้ใน <b>Safari</b> (ถ้าเปิดจาก LINE ให้กด ⋯ แล้วเลือก “เปิดในเบราว์เซอร์”)</li>
+        <li>กดปุ่ม <b>แชร์</b> (สี่เหลี่ยมมีลูกศรชี้ขึ้น)</li>
+        <li>เลือก <b>“เพิ่มไปยังหน้าจอโฮม”</b> แล้วกด <b>เพิ่ม</b></li>
+      </ol>
+      <p class="hint">ไอคอนจะอยู่บนหน้าจอเหมือนแอปทั่วไป เปิดได้แม้ไม่มีเน็ต</p>
+      <div class="dlg-actions">
+        <button type="button" class="btn-primary" data-close>เข้าใจแล้ว</button>
+      </div>
+    </dialog>
+
+    <script type="importmap">
+      { "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/" } }
+    </script>
+    <script src="core.js"></script>
+    <script src="render.js"></script>
+    <script src="app.js"></script>
+    <script type="module" src="scene3d.js"></script>
+  </body>
+</html>
