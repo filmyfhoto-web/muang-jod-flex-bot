@@ -989,6 +989,61 @@
     return out;
   }
 
+  /* ไฟล์ HTML พรีวิว 3 มิติ (ไฟล์เดียวจบ เปิดได้ทุกเครื่องโดยไม่ต้องใช้เน็ต)
+   * o: { title, size, customer, shop, phone, logo (data URL / ''), css, viewerJs (vendor/viewer3d.standalone.js),
+   *      glb (base64), poster (base64 JPEG / ''), name (ชื่อไฟล์ตอนบันทึกรูป) } */
+  function escHtml(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function viewerFile(o) {
+    var B64 = /^[A-Za-z0-9+/=]*$/;
+    var glb = String(o.glb || '');
+    var poster = String(o.poster || '');
+    if (!B64.test(glb) || !B64.test(poster)) throw new Error('bad base64');
+    var logo = /^data:image\/(png|jpeg|webp|svg\+xml);base64,[A-Za-z0-9+/=]+$/.test(o.logo || '') ? o.logo : '';
+    var title = [o.title, o.size].filter(Boolean).join(' ');
+    var phone = String(o.phone || '').replace(/^โทร\s*/, '');
+    var tel = phone.replace(/[^0-9+]/g, '');
+    var js = String(o.viewerJs || '').replace(/<\/(script)/gi, '<\\/$1');
+    var css = String(o.css || '').replace(/<\//g, '<\\/');
+    var name = JSON.stringify(String(o.name || 'sign-3d')).replace(/</g, '\\u003c');
+    return (
+      '<!doctype html>\n<html lang="th">\n<head>\n<meta charset="utf-8">\n' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n' +
+      '<title>' + escHtml(title || 'ป้าย') + ' — ภาพ 3 มิติ</title>\n' +
+      '<meta name="theme-color" content="#1f2a4d">\n' +
+      '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n' +
+      '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Kanit:wght@500;600&display=swap">\n' +
+      '<style>\n' + css + '\n</style>\n</head>\n<body>\n' +
+      '<header class="v-top">' +
+      (logo ? '<img src="' + logo + '" alt="" height="34">' : '') +
+      '<div class="v-shop"><b>' + escHtml(o.shop || 'NATTAPRON') + '</b><small>' + escHtml(phone ? 'โทร ' + phone : 'Color Lab & Printing') + '</small></div>' +
+      (tel ? '<a class="v-call" href="tel:' + escHtml(tel) + '">โทรสั่งทำ</a>' : '') +
+      '</header>\n' +
+      '<main class="v-stage" id="stage">' +
+      (poster ? '<img class="v-poster" id="poster" src="data:image/jpeg;base64,' + poster + '" alt="รูปตัวอย่างป้าย" hidden>' : '') +
+      '<canvas id="c" aria-label="ภาพ 3 มิติของป้าย หมุนดูได้"></canvas>' +
+      '<p class="v-load" id="load">กำลังเปิดภาพ 3 มิติ…</p>' +
+      '<p class="v-hint" id="hint">ลากเพื่อหมุน · ถ่างนิ้วหรือเลื่อนล้อเมาส์เพื่อซูม</p></main>\n' +
+      '<section class="v-info"><h1>' + escHtml(o.title || 'ป้าย') + '</h1><p>' + escHtml([o.size, o.customer ? 'ลูกค้า: ' + o.customer : ''].filter(Boolean).join(' · ')) + '</p></section>\n' +
+      '<nav class="v-bar"><button type="button" id="spin" aria-pressed="true">หมุนอัตโนมัติ</button>' +
+      '<button type="button" id="reset">มุมเริ่มต้น</button><button type="button" id="full">เต็มจอ</button>' +
+      '<button type="button" id="shot">บันทึกรูปมุมนี้</button></nav>\n' +
+      '<p class="v-foot">ภาพจำลอง 3 มิติจาก ' + escHtml(o.shop || 'NATTAPRON') + ' · เปิดได้โดยไม่ต้องต่อเน็ต · สีจริงอาจต่างจากหน้าจอเล็กน้อย</p>\n' +
+      '<script type="application/octet-stream" id="glb">' + glb + '</script>\n' +
+      '<script>\n' + js + '\n</script>\n' +
+      '<script>(function () {\n' +
+      "  try {\n    var s = atob(document.getElementById('glb').textContent.trim());\n" +
+      '    var u = new Uint8Array(s.length);\n    for (var i = 0; i < s.length; i++) u[i] = s.charCodeAt(i);\n' +
+      '    NTPViewer.mount({ glb: u.buffer, name: ' + name + ' });\n' +
+      "  } catch (e) {\n    var l = document.getElementById('load');\n    if (l) l.textContent = 'เปิดภาพ 3 มิติไม่ได้ — ดูรูปตัวอย่างแทน';\n" +
+      "    var p = document.getElementById('poster');\n    if (p) p.hidden = false;\n  }\n})();</script>\n" +
+      '</body>\n</html>\n'
+    );
+  }
+
   // จำนวนเงินเป็นตัวหนังสือ (แบบใบเสนอราคา/ใบเสร็จ): 1520 → "หนึ่งพันห้าร้อยยี่สิบบาทถ้วน"
   var DIGIT = ['ศูนย์', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'];
   var PLACE = ['', 'สิบ', 'ร้อย', 'พัน', 'หมื่น', 'แสน'];
@@ -1237,6 +1292,7 @@
     cropMarks: cropMarks,
     printPlan: printPlan,
     pdfRun: pdfRun,
+    viewerFile: viewerFile,
     TYPE_ORDER: TYPE_ORDER,
     SCENES: SCENES,
     SCENE_ORDER: SCENE_ORDER,

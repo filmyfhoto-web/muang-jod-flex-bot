@@ -215,3 +215,24 @@ test('ที่เก็บไฟล์จริง: สร้าง bucket "sig
   assert.match(sql, /'sign-share'/);
   assert.match(sql, /model\/gltf-binary/);
 });
+
+test('ตัวดู 3 มิติรวมไฟล์เดียว (ไฟล์ HTML พรีวิว) สร้างจาก viewer3d-core.js รุ่นปัจจุบัน และเก็บไว้ใช้ออฟไลน์', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { createHash } = await import('node:crypto');
+  const core = readFileSync(new URL('../sign-mockup/viewer3d-core.js', import.meta.url));
+  const hash = createHash('sha256').update(core).digest('hex').slice(0, 16);
+  const bundle = readFileSync(new URL('../sign-mockup/vendor/viewer3d.standalone.js', import.meta.url), 'utf8');
+  assert.ok(bundle.startsWith('/* NTP viewer3d standalone · viewer3d-core sha256:' + hash), 'แก้ viewer3d-core.js แล้วต้องรัน node sign-mockup/tools/build-viewer.mjs');
+  assert.match(bundle, /window\.NTPViewer/);
+  assert.match(bundle, /@license/); // ประกาศสิทธิ์ three.js (MIT) ติดไปด้วย
+  assert.ok(!/^\s*import\s/m.test(bundle), 'ต้องเป็นสคริปต์ธรรมดา เปิดจากไฟล์ในเครื่องได้');
+  const share = readFileSync(new URL('../sign-mockup/viewer3d.js', import.meta.url), 'utf8');
+  assert.match(share, /from '\.\/viewer3d-core\.js'/);
+  const sw = readFileSync(new URL('../sign-mockup/sw.js', import.meta.url), 'utf8');
+  assert.match(sw, /'vendor\/viewer3d\.standalone\.js'/);
+  assert.match(sw, /'viewer3d\.css'/);
+  // หน้าลิงก์มีรูปสำรอง + ปุ่มบันทึกรูป
+  const html = viewerHtml('AbCdEfGhIj', { poster: true, meta: { title: 'ป้าย' } }, 'https://x');
+  assert.match(html, /id="poster"[^>]*hidden/);
+  assert.match(html, /id="shot"/);
+});

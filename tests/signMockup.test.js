@@ -676,3 +676,33 @@ test('แอป: ช่องรันนัมเบอร์ / ไฟล์พ
   assert.match(s3, /const bt = C\.baseType\(s\.type\)/);
   assert.match(s3, /type === 'card'/);
 });
+
+test('ไฟล์ HTML พรีวิว 3 มิติ: ไฟล์เดียวจบ ฝังโมเดล/ตัวดู/รูปสำรอง · ข้อความลูกค้าไม่กลายเป็นโค้ด', async () => {
+  const html = C.viewerFile({
+    title: 'ป้ายขาตั้ง<img src=x onerror=alert(1)>',
+    size: '80 × 120 ซม.',
+    customer: 'โรงเรียน"บ้านนา',
+    shop: 'นัดพอน',
+    phone: 'โทร 081-234-5678',
+    logo: 'javascript:alert(1)',
+    css: 'body{color:red}</style><script>alert(1)</script>',
+    viewerJs: 'window.NTPViewer={mount:function(){}};var s="</script><b>";',
+    glb: 'Z2xURgIAAAA=',
+    poster: '/9j/4AAQ',
+    name: 'sign3d-"x</script>',
+  });
+  assert.ok(html.startsWith('<!doctype html>'));
+  assert.ok(!html.includes('<img src=x'));
+  assert.ok(!html.includes('javascript:'), 'โลโก้รับเฉพาะ data:image');
+  assert.equal((html.match(/<\/script>/g) || []).length, 3); // glb + ตัวดู + ตัวเริ่ม
+  assert.equal((html.match(/<\/style>/g) || []).length, 1);
+  assert.match(html, /href="tel:0812345678"/);
+  assert.match(html, /<script type="application\/octet-stream" id="glb">Z2xURgIAAAA=<\/script>/);
+  assert.match(html, /id="poster"[^>]*src="data:image\/jpeg;base64,\/9j\/4AAQ"[^>]*hidden/);
+  assert.match(html, /NTPViewer\.mount\(\{ glb: u\.buffer/);
+  assert.ok(!/https?:\/\/[^"]*\.js/.test(html), 'ไม่โหลดสคริปต์จากเน็ต');
+  assert.throws(() => C.viewerFile({ glb: '"><script>' }), /base64/);
+  const app = (await import('node:fs')).readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  assert.match(app, /if \(fmt === 'html'\) return buildHtml\(\);/);
+  assert.match(app, /fetchText\('vendor\/viewer3d\.standalone\.js'\)/);
+});
