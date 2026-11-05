@@ -104,6 +104,7 @@ ${og}
   ${m.phone ? `<a class="v-call" href="tel:${escapeHtml(m.phone.replace(/[^0-9+]/g, ''))}">โทรสั่งทำ</a>` : ''}
 </header>
 <main class="v-stage" id="stage">
+  ${rec.poster ? `<img class="v-poster" id="poster" src="/sign/v/${id}/poster.jpg" alt="รูปตัวอย่างป้าย" hidden>` : ''}
   <canvas id="c" aria-label="ภาพ 3 มิติของป้าย หมุนดูได้"></canvas>
   <p class="v-load" id="load">กำลังโหลดภาพ 3 มิติ…</p>
   <p class="v-hint" id="hint">ลากเพื่อหมุน · ถ่างนิ้วหรือเลื่อนล้อเมาส์เพื่อซูม</p>
@@ -116,6 +117,7 @@ ${og}
   <button type="button" id="spin" aria-pressed="true">หมุนอัตโนมัติ</button>
   <button type="button" id="reset">มุมเริ่มต้น</button>
   <button type="button" id="full">เต็มจอ</button>
+  <button type="button" id="shot">บันทึกรูป</button>
   <a id="dl" href="/sign/v/${id}/model.glb?dl=1" download>ไฟล์ .glb</a>
 </nav>
 <script type="application/json" id="data">${data}</script>

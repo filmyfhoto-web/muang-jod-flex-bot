@@ -18,7 +18,7 @@ body {
 }
 body {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-rows: auto minmax(0, 1fr) auto auto auto;
   background: radial-gradient(120% 80% at 50% 40%, #f8f6f2, var(--bg));
   color: var(--ink);
   font: 15px/1.5 var(--font-body);
@@ -72,6 +72,13 @@ body {
   width: 100%;
   height: 100%;
   touch-action: none;
+}
+.v-poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 .v-load,
 .v-hint {
@@ -130,6 +137,13 @@ body {
   background: var(--navy);
   border-color: var(--navy);
   color: #fff;
+}
+.v-foot {
+  margin: 0;
+  padding: 0 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  color: var(--ink-2);
+  font-size: 12px;
+  text-align: center;
 }
 /* หน้าแจ้ง "ไม่พบ / หมดอายุ" */
 .v-msg {

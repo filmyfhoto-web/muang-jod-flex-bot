@@ -6,7 +6,7 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '3.7.0';
+  var APP_VERSION = '3.8.0';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp' });
 
@@ -1586,8 +1586,68 @@
     });
   }
 
+  /* ไฟล์ HTML พรีวิว 3 มิติ: โมเดล .glb + ตัวดู (three.js) + รูปตัวอย่าง + โลโก้ ฝังในไฟล์เดียว
+   * ลูกค้าเปิดไฟล์ในเบราว์เซอร์ได้ทุกเครื่อง ไม่ต้องลงแอป ไม่ต้องต่อเน็ต */
+  function fetchText(path) {
+    return fetch(path).then(function (r) {
+      if (!r.ok) throw new Error(path);
+      return r.text();
+    });
+  }
+  function b64of(dataUrl) {
+    return String(dataUrl).slice(String(dataUrl).indexOf(',') + 1);
+  }
+  function logoDataUrl() {
+    if (st.logo && /^data:image\//.test(st.logo)) return Promise.resolve(st.logo);
+    if (!st.brandLogo) return Promise.resolve('');
+    return fetch(BRAND.mark)
+      .then(function (r) {
+        return r.blob();
+      })
+      .then(blobToDataUrl)
+      .catch(function () {
+        return '';
+      });
+  }
+  function buildHtml() {
+    var poster = mockupCanvas(0.6, false);
+    var title = C.TYPES[st.type].name;
+    return Promise.all([
+      stage.exportGLB().then(function (ab) {
+        return blobToDataUrl(new Blob([ab], { type: 'model/gltf-binary' }));
+      }),
+      fetchText('vendor/viewer3d.standalone.js'),
+      fetchText('viewer3d.css'),
+      toBlob(poster, 'image/jpeg', 0.82).then(blobToDataUrl),
+      logoDataUrl(),
+    ]).then(function (a) {
+      var html = C.viewerFile({
+        title: title,
+        size: C.sizeText(st.w, st.h),
+        customer: customer.trim(),
+        shop: st.shopName.trim(),
+        phone: st.shopPhone.trim(),
+        logo: a[4],
+        css: a[2],
+        viewerJs: a[1],
+        glb: b64of(a[0]),
+        poster: b64of(a[3]),
+        name: fileName('sign3d', 'png').replace(/\.png$/, ''),
+      });
+      var blob = new Blob([html], { type: 'text/html' });
+      return {
+        blob: blob,
+        name: fileName('sign3d', 'html'),
+        preview: null,
+        canvas: null,
+        info: 'ไฟล์ HTML พรีวิว 3 มิติ · ' + kb(blob.size) + ' · ' + title + ' ' + C.sizeText(st.w, st.h) + ' · เปิดในเบราว์เซอร์ได้ทุกเครื่อง',
+      };
+    });
+  }
+
   function buildExport(fmt) {
     if (fmt === 'print') return buildPrint();
+    if (fmt === 'html') return buildHtml();
     if (fmt === 'glb') {
       return stage.exportGLB().then(function (ab) {
         var blob = new Blob([ab], { type: 'model/gltf-binary' });
@@ -1623,6 +1683,7 @@
     pdf: 'ใบเสนอราคา A4 พร้อมภาพจำลอง ราคา และช่องเซ็นชื่อ ส่งทาง LINE หรือสั่งพิมพ์ได้เลย',
     glb: 'กด “สร้างลิงก์ดู 3 มิติ” ส่งลิงก์ให้ลูกค้าเปิดหมุนดูในมือถือได้เลย (ไม่ต้องลงแอป) · หรือดาวน์โหลดไฟล์ .glb เปิดใน 3D Viewer / ส่งทีมออกแบบ',
     print: 'ไฟล์ PDF ส่งโรงพิมพ์/เครื่องพิมพ์: จัดบัตรเต็มแผ่น เผื่อตัดตก 2 มม. มีเส้นตัด เลขรันเรียงทุกใบ',
+    html: 'ไฟล์เดียวจบ: ส่งทาง LINE / อีเมล / แฟลชไดรฟ์ ลูกค้าแตะหรือดับเบิลคลิกเปิดในเบราว์เซอร์ (Chrome / Safari / Edge) หมุนดูป้าย 3 มิติได้เลย ไม่ต้องลงแอป ไม่ต้องต่อเน็ต · มีปุ่มบันทึกรูปมุมที่ดู',
   };
   function planText(p) {
     var t = p.perSheet + ' ใบ/แผ่น ' + p.sheet.name + (p.layout.rot ? ' (หมุนบัตร)' : '') + ' · ใช้ ' + p.sheets + ' แผ่น';
@@ -1635,7 +1696,7 @@
       toast('มุมป้ายไขว้กันอยู่ จัดมุมให้เป็นสี่เหลี่ยมก่อนบันทึก');
       return;
     }
-    if (fmt === 'glb' && !is3d()) fmt = 'jpg';
+    if ((fmt === 'glb' || fmt === 'html') && !is3d()) fmt = 'jpg';
     if (fmt === 'print' && !isCard()) fmt = 'jpg';
     exp.fmt = fmt;
     if ((fmt === 'jpg' || fmt === 'png') && st.fmt !== fmt) {
@@ -1644,11 +1705,12 @@
     }
     pressed('#fmtSeg button', 'fmt', fmt);
     $('fmtGlb').hidden = !is3d();
+    $('fmtHtml').hidden = !is3d() || inFrame; // หน้าพรีวิวโหลดตัวดูมาฝังไม่ได้
     $('fmtPrint').hidden = !isCard();
     $('sheetBar').hidden = fmt !== 'print';
     pressed('#sheetSeg button', 'sheet', st.sheet);
-    $('exportTitle').textContent = fmt === 'pdf' ? 'ใบเสนอราคา' : fmt === 'glb' ? 'ไฟล์ 3 มิติ' : fmt === 'print' ? 'ไฟล์พิมพ์บัตร' : 'รูปพร้อมส่งลูกค้า';
-    $('dlHint').textContent = inFrame && fmt !== 'glb' ? 'มือถือ: กดค้างที่รูปแล้วเลือก “บันทึกรูปภาพ” · คอมพิวเตอร์: คลิกขวาที่รูป แล้วเลือกบันทึกรูป' : FMT_HINT[fmt];
+    $('exportTitle').textContent = fmt === 'pdf' ? 'ใบเสนอราคา' : fmt === 'glb' ? 'ไฟล์ 3 มิติ' : fmt === 'html' ? 'ไฟล์ HTML พรีวิว 3 มิติ' : fmt === 'print' ? 'ไฟล์พิมพ์บัตร' : 'รูปพร้อมส่งลูกค้า';
+    $('dlHint').textContent = inFrame && fmt !== 'glb' && fmt !== 'html' ? 'มือถือ: กดค้างที่รูปแล้วเลือก “บันทึกรูปภาพ” · คอมพิวเตอร์: คลิกขวาที่รูป แล้วเลือกบันทึกรูป' : FMT_HINT[fmt];
     $('dlStatus').textContent = 'กำลังเตรียมไฟล์…';
     ['dlShare', 'dlCopy', 'dlSave'].forEach(function (id) {
       $(id).disabled = true;
@@ -1662,7 +1724,7 @@
       .catch(function (e) {
         if (job !== exp.job) return;
         $('dlStatus').textContent =
-          fmt === 'glb' ? 'สร้างไฟล์ 3 มิติไม่สำเร็จ ลองใหม่อีกครั้ง' : fmt === 'print' && e && e.message === 'too_big' ? 'บัตรใหญ่เกินกระดาษนี้ ลองเลือกกระดาษใหญ่ขึ้น' : 'บันทึกไฟล์ไม่สำเร็จ ลองลดขนาดรูปที่ใส่แล้วลองใหม่';
+          fmt === 'glb' || fmt === 'html' ? 'สร้างไฟล์ 3 มิติไม่สำเร็จ ลองใหม่อีกครั้ง (ไฟล์ HTML ต้องเปิดแอปจากเซิร์ฟเวอร์ร้านอย่างน้อยครั้งแรก)' : fmt === 'print' && e && e.message === 'too_big' ? 'บัตรใหญ่เกินกระดาษนี้ ลองเลือกกระดาษใหญ่ขึ้น' : 'บันทึกไฟล์ไม่สำเร็จ ลองลดขนาดรูปที่ใส่แล้วลองใหม่';
       });
   }
   function showExport(r) {
@@ -1678,7 +1740,7 @@
     if (r.preview) $('exportImg').src = exp.purl || exp.url;
     else {
       $('dlgFileName').textContent = r.name;
-      $('dlgFileInfo').textContent = 'ไฟล์ 3 มิติ (glTF Binary) · ' + kb(r.blob.size) + ' · ' + C.TYPES[st.type].name + ' ' + C.sizeText(st.w, st.h);
+      $('dlgFileInfo').textContent = r.info || 'ไฟล์ 3 มิติ (glTF Binary) · ' + kb(r.blob.size) + ' · ' + C.TYPES[st.type].name + ' ' + C.sizeText(st.w, st.h);
     }
     var file = new File([r.blob], r.name, { type: r.blob.type });
     var canShare = false;
@@ -1694,7 +1756,7 @@
     ['dlShare', 'dlCopy', 'dlSave'].forEach(function (id) {
       $(id).disabled = false;
     });
-    $('dlStatus').textContent = inFrame && exp.fmt === 'glb' ? 'หน้าพรีวิวดาวน์โหลดไฟล์/สร้างลิงก์ไม่ได้ เปิดแอปจริงที่ /sign/ เพื่อใช้งาน' : '';
+    $('dlStatus').textContent = inFrame && (exp.fmt === 'glb' || exp.fmt === 'html') ? 'หน้าพรีวิวดาวน์โหลดไฟล์/สร้างลิงก์ไม่ได้ เปิดแอปจริงที่ /sign/ เพื่อใช้งาน' : '';
     $('share3d').hidden = exp.fmt !== 'glb' || inFrame;
     $('linkBox').hidden = true;
     $('mkLink').disabled = false;
