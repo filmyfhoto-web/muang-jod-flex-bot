@@ -158,7 +158,7 @@ test('no heartbeat from the bot: the page says LINE is not connected, shows the 
   assert.match(await msgsText(), /<b>ตัวหนา<\/b>/);
   // a PDF from the customer is a button that opens it
   assert.equal(await page.locator('#so_msgs button.so-file', { hasText: 'ไวนิล.pdf' }).count(), 1, 'a PDF is a button to open it');
-  assert.match(await page.locator('#so_chat .so-lnote').innerText(), /คำตอบของบอท.*LINE OA Manager.*ไม่แสดงในหน้านี้/);
+  assert.match(await page.locator('#so_chat .so-lnote').innerText(), /คำตอบของบอท.*LINE OA Manager.*ไม่ขึ้นเอง/);
   assert.equal(await page.locator('#so_lchip').innerText(), 'LINE OA: ยังไม่ได้เชื่อมต่อ');
   assert.match(await page.locator('#so_honest').innerText(), /ข้อความจะรอส่งได้ไม่เกิน 30 นาที/);
   await shot('line-1-not-connected');
@@ -375,4 +375,24 @@ test('on a phone: the LINE chat list and room fit the screen and nothing scrolls
   } finally {
     await ctx.close();
   }
+});
+
+test('a reply typed in LINE OA Manager is logged into the chat with one click: it shows as answered there, is not sent from the page and is not queued for LINE', skipIt, async () => {
+  const text = 'แผ่นละ 50 บาทค่ะ (ตอบใน OA Manager)';
+  await page.goto(`${shell.url}/#saleorders`);
+  await page.reload(); // the earlier tests leave an order open on this page; start from the list
+  await page.waitForSelector('#so_items .so-row');
+  await openRow('คุณปู');
+  await page.waitForSelector('#so_msgs .so-m');
+  await page.locator('#so_chat [data-a="oalog"]').click();
+  await page.locator('#so_txt').fill(text);
+  assert.match(await page.locator('#so_honest').innerText(), /ไม่ถูกส่งถึงลูกค้าจากหน้านี้/, 'the hint under the box says it is not sent');
+  await page.locator('#so_chat button.so-send').click();
+  await page.waitForFunction(() => /ตอบใน LINE OA Manager/.test(document.querySelector('#so_msgs')?.innerText || ''), null, { timeout: 10000 });
+  assert.match(await page.locator('#so_msgs').innerText(), /ไม่ได้ส่งจากหน้านี้/, 'the message says it was not sent from the page');
+  assert.equal(await page.locator('#so_msgs .so-m.out', { hasText: text }).count(), 1, 'it is one message in the chat');
+  const saved = await rows(`select meta->>'src' as src, meta->>'delivery' as d from sale_msgs where body = $1`, [text]);
+  assert.deepEqual(saved.map((r) => [r.src, r.d]), [['oa_manager', 'logged']]);
+  assert.equal((await rows(`select count(*)::int as n from sale_line_out where body = $1`, [text]))[0].n, 0, 'nothing is queued for LINE');
+  await shot('line-9-log-oa-manager');
 });

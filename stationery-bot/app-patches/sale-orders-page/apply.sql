@@ -1,11 +1,11 @@
 -- ติดตั้งหน้า "แชตและออเดอร์" (โมดูล saleorders) ในแอปหลังร้าน: แถวใหม่ในตาราง app_modules เท่านั้น
--- · ไม่แก้โมดูลเดิมแม้แต่บรรทัดเดียว · ติดตั้งซ้ำได้ (ถ้ามีแถวนี้อยู่แล้วจะไม่ทำอะไร — ถ้าเป็นรุ่นเก่าให้ใช้ upgrade-v6-to-v7.sql (หรือ upgrade-v5-to-v6.sql / upgrade-v4-to-v5.sql / upgrade-v3-to-v4.sql ตามรุ่นที่ติดตั้งอยู่))
+-- · ไม่แก้โมดูลเดิมแม้แต่บรรทัดเดียว · ติดตั้งซ้ำได้ (ถ้ามีแถวนี้อยู่แล้วจะไม่ทำอะไร — ถ้าเป็นรุ่นเก่าให้ใช้ upgrade-v7-to-v8.sql (หรือ upgrade-v6-to-v7.sql / upgrade-v5-to-v6.sql / upgrade-v4-to-v5.sql / upgrade-v3-to-v4.sql ตามรุ่นที่ติดตั้งอยู่))
 -- · ติดตั้งแบบปิดไว้ (enabled = false): เปิดหลังตรวจแล้วด้วย update app_modules set enabled = true where name = 'saleorders';
 -- · ต้องติดตั้ง migration db/migrations/002_sale_orders.sql ก่อน (หน้านี้เรียก sale_order_save / sale_order_log_send)
 -- · ส่วน LINE ใช้ได้ต่อเมื่อติดตั้ง db/migrations/003_sale_line_bridge.sql และเปิดสะพานที่บอท — ถ้ายังไม่ติดตั้ง หน้าแสดง "LINE OA: ยังไม่ได้เชื่อมต่อ"
 -- · ลูกค้าลงบัญชี การ์ด และสถานะ "ลงบัญชี" ต้องติดตั้ง db/migrations/004_sale_order_cards.sql และ 005_sale_order_account.sql ด้วย
 -- · ย้อนกลับ: reverse.sql
--- md5 ของโค้ดที่ติดตั้ง: 5a8b8f0730e5f4958c07e590e5df5545
+-- md5 ของโค้ดที่ติดตั้ง: 6750d33a90a9c62659d82deef4168205
 do $do$
 begin
   if exists (select 1 from app_modules where name = 'saleorders') then
@@ -95,7 +95,7 @@ begin
   const S={tab:'all',q:'',sel:'',mode:'list',list:[],idx:{},msgs:[],cust:null,ords:[],ord:null,stores:[],schools:[],
     listLoading:false,msgsLoading:false,ordLoading:false,errList:'',errMsgs:'',errOrd:'',
     flash:'',flashErr:false,flashTok:0,busySend:false,busySave:false,attachBusy:false,chatAttachBusy:false,
-    drafts:{},odrafts:{},urls:{},tok:0,ctok:0,ptok:0,picker:false,pick:[],pickQ:'',creating:false,note:false,
+    drafts:{},odrafts:{},urls:{},tok:0,ctok:0,ptok:0,picker:false,pick:[],pickQ:'',creating:false,note:false,oaLog:false,
     prodOpen:false,prodQ:'',prodRows:[],prodPrice:{},prodBusy:false,modal:null,staff:'ทีมขาย',conflict:false,stageMenu:false,
     line:null,links:{},sendTok:{},busyRetry:{},poll:null,pollN:0,sig:'',probe:'',openStamp:'',linksOffUntil:0,statusOffUntil:0}
 
@@ -527,6 +527,7 @@ begin
   function deliveryHtml(m,t){
     if(m.dir!=='out')return ''
     const meta=m.meta||{}
+    if(meta.src==='oa_manager')return '<div class="so-dl off">ตอบจาก LINE OA Manager · บันทึกไว้ในแชต (ไม่ได้ส่งจากหน้านี้)</div>'
     const d=meta.delivery
     if(!d)return isLine(t)?'<div class="so-dl off">บันทึกในระบบ · ไม่ได้ส่งถึงลูกค้า</div>':''
     const again=`<button type="button" data-a="resend" data-o="${E(meta.out_id||'')}"${S.busyRetry[meta.out_id]?' disabled':''}>ส่งใหม่</button>`
@@ -551,7 +552,7 @@ begin
 
   function msgHtml(m,t){
     const cls=m.kind==='system'?'sys':(m.dir==='note'?'note':(m.dir==='out'?'out':'in'))
-    const who=cls==='sys'?'ระบบ':(m.dir==='note'?'โน้ตภายใน · '+(m.by_name||S.staff):(m.dir==='out'?(m.by_name||S.staff)+(isLine(t)?'':' · บันทึกในระบบ'):(t.title||'ลูกค้า')))
+    const who=cls==='sys'?'ระบบ':(m.dir==='note'?'โน้ตภายใน · '+(m.by_name||S.staff):(m.dir==='out'?(m.by_name||S.staff)+(((m.meta||{}).src==='oa_manager')?' · ตอบใน LINE OA Manager':isLine(t)?'':' · บันทึกในระบบ'):(t.title||'ลูกค้า')))
     const meta=m.meta||{}
     let body
     if((m.kind==='image'||m.kind==='file')&&meta.path){
@@ -572,6 +573,7 @@ begin
   // ข้อความใต้ช่องพิมพ์: บอกตรง ๆ ว่าข้อความที่พิมพ์จะไปไหน
   function honestText(t){
     if(S.note)return 'โหมดโน้ตภายใน — ลูกค้าไม่เห็นข้อความนี้'
+    if(S.oaLog&&isLine(t))return 'โหมดบันทึกจาก LINE OA Manager — ข้อความนี้ไม่ถูกส่งถึงลูกค้าจากหน้านี้ (คุณตอบไปแล้วใน OA Manager) ไม่นับโควตา ใช้เพื่อให้ทุกคนเห็นคำตอบนั้น'
     if(!isLine(t))return 'ข้อความบันทึกในระบบเท่านั้น ยังไม่ถูกส่งถึงลูกค้า (แชตนี้ไม่ได้มาจาก LINE OA)'
     const st=lineState(),qi=quotaInfo()
     const q=qi&&qi.left!=null?(qi.left<=0?' (โควตาเดือนนี้น่าจะเต็มแล้ว ส่งอาจไม่สำเร็จ)':' (เหลือประมาณ '+qi.left+' ข้อความ)'):''
@@ -624,16 +626,17 @@ begin
         <button type="button" class="so-stgbtn" style="--c:${st.c}" data-a="stagemenu" aria-haspopup="true" aria-expanded="${S.stageMenu}">${st.t} ▾</button>
         ${S.stageMenu?`<div class="so-stgmenu" role="menu">${Object.entries(STG).map(([k,v])=>`<button type="button" role="menuitem" data-a="stage" data-k="${k}">${t.stage===k?'✓ ':''}${v.t}</button>`).join('')}</div>`:''}
       </div>
-      ${line?'<div class="so-lnote">แชตจาก LINE OA · หน้านี้แสดงข้อความของลูกค้า คำตอบของบอท และข้อความที่ส่งจากหน้านี้ — คำตอบที่พิมพ์ตรงใน LINE OA Manager ไม่แสดงในหน้านี้ จึงให้ตอบจากหน้านี้เพื่อให้ทุกคนเห็นครบ</div>':''}
+      ${line?'<div class="so-lnote">แชตจาก LINE OA · หน้านี้แสดงข้อความของลูกค้า คำตอบของบอท และข้อความที่ส่งจากหน้านี้ — คำตอบที่พิมพ์ตรงใน LINE OA Manager ไม่ขึ้นเอง — กดปุ่ม "จาก OA Manager" แล้ววางคำตอบนั้นเพื่อบันทึกให้ทุกคนเห็น หรือตอบจากหน้านี้เลย</div>':''}
       <div class="so-flashbox" data-where="chat"></div>
       <div class="so-msgs" id="so_msgs" data-id="${E(t.id)}">${inner}</div>
       <div class="so-qa">${TPL.map((x,i)=>`<button type="button" class="so-tplb" data-a="tplpick" data-k="${i}">${E(x[0])}</button>`).join('')}</div>
       <div class="so-honest" id="so_honest">${E(honestText(t))}</div>
       <div class="so-comp">
         <button type="button" class="so-mode${S.note?' on':''}" data-a="note" aria-pressed="${S.note}" title="สลับเป็นโน้ตภายใน">${S.note?'โน้ต':'ข้อความ'}</button>
+        ${line?`<button type="button" class="so-mode${S.oaLog?' on':''}" data-a="oalog" aria-pressed="${S.oaLog}" title="คำตอบที่คุณตอบไปแล้วใน LINE OA Manager — บันทึกเข้าแชตนี้ให้ทุกคนเห็น (ไม่ส่งถึงลูกค้าอีก ไม่นับโควตา)">${S.oaLog?'บันทึก OA Manager':'จาก OA Manager'}</button>`:''}
         <button type="button" class="so-ic" data-a="chatattach" title="${line?'แนบรูปหรือ PDF เป็นโน้ตภายใน (ยังส่งรูปถึงลูกค้าทาง LINE จากหน้านี้ไม่ได้) · ไม่เกิน 10 MB':'แนบรูปหรือ PDF (ไม่เกิน 10 MB)'}" aria-label="แนบไฟล์" ${S.chatAttachBusy?'disabled':''}>${ic('clip')}</button>
         <textarea id="so_txt" data-id="${E(t.id)}" rows="1" placeholder="พิมพ์ข้อความ…" title="Enter ${line&&!S.note?'ส่ง':'บันทึก'} · Shift+Enter ขึ้นบรรทัดใหม่" aria-label="ข้อความ">${E(S.drafts[t.id]||'')}</textarea>
-        <button type="button" class="so-send" data-a="send" aria-label="${line&&!S.note?'ส่งข้อความทาง LINE':'บันทึกข้อความ'}" ${S.busySend?'disabled':''}>${ic('send')}</button>
+        <button type="button" class="so-send" data-a="send" aria-label="${S.oaLog&&line&&!S.note?'บันทึกคำตอบจาก LINE OA Manager':line&&!S.note?'ส่งข้อความทาง LINE':'บันทึกข้อความ'}" ${S.busySend?'disabled':''}>${ic('send')}</button>
       </div>`
     paintFlash()
     const ms=$('so_msgs')
@@ -704,7 +707,7 @@ begin
     }
     const tok=++S.tok
     if(S.sel&&S.ord&&S.ord.thread_id===S.sel&&isDirty())S.odrafts[S.sel]=S.ord
-    if(id!==S.sel){S.msgs=[];S.cust=null;S.note=false;S.stageMenu=false;S.prodOpen=false}
+    if(id!==S.sel){S.msgs=[];S.cust=null;S.note=false;S.oaLog=false;S.stageMenu=false;S.prodOpen=false}
     S.sel=id;S.ord=null;S.ords=[];S.errMsgs='';S.errOrd='';S.conflict=false;S.openStamp=''
     S.msgsLoading=true;S.ordLoading=true
     if(S.mode==='list')S.mode='chat'
@@ -1269,17 +1272,21 @@ begin
     const body=String((ta&&ta.dataset.id===id?ta.value:S.drafts[id])||'').trim()
     if(!body){flash('พิมพ์ข้อความก่อน',true,'chat');return}
     const note=S.note,now=new Date().toISOString()
+    const viaOa=!note&&S.oaLog&&isLine(S.list.find(x=>x.id===id))
     // แชตที่มาจาก LINE: ข้อความธรรมดาไปทางคิวส่ง LINE (โน้ตภายในยังบันทึกในระบบเฉย ๆ)
-    if(!note&&isLine(S.list.find(x=>x.id===id))){await sendLine(id,body);return}
+    if(!note&&!viaOa&&isLine(S.list.find(x=>x.id===id))){await sendLine(id,body);return}
     S.busySend=true;paintChat()
-    const r1=await q(()=>sb.from('sale_msgs').insert({thread_id:id,dir:note?'note':'out',kind:'text',body:body.slice(0,4000),by_name:S.staff}))
-    if(!errMsg(r1))await q(()=>sb.from('sale_threads').update({last_text:(note?'[โน้ต] ':'')+body.slice(0,120),last_at:now,updated_at:now}).eq('id',id))
+    // คำตอบที่ตอบใน LINE OA Manager แล้ว: บันทึกเข้าแชตให้ทุกคนเห็น — ไม่เข้าคิวส่ง ไม่นับโควตา
+    const row={thread_id:id,dir:note?'note':'out',kind:'text',body:body.slice(0,4000),by_name:S.staff}
+    if(viaOa)row.meta={src:'oa_manager',delivery:'logged',delivery_at:now}
+    const r1=await q(()=>sb.from('sale_msgs').insert(row))
+    if(!errMsg(r1))await q(()=>sb.from('sale_threads').update({last_text:(note?'[โน้ต] ':viaOa?'[จาก OA Manager] ':'')+body.slice(0,120),last_at:now,updated_at:now}).eq('id',id))
     S.busySend=false
     if(errMsg(r1)){paintChat();flash('บันทึกไม่สำเร็จ ข้อความยังอยู่ในช่องพิมพ์ ลองอีกครั้ง ('+errMsg(r1)+')',true,'chat');return}
     setDraft(id,'')
     loadList()
     await reloadMsgs(id)
-    flash(note?'บันทึกโน้ตแล้ว':'บันทึกข้อความแล้ว — ยังไม่ถูกส่งถึงลูกค้า',false,'chat')
+    flash(note?'บันทึกโน้ตแล้ว':viaOa?'บันทึกคำตอบจาก LINE OA Manager แล้ว — ไม่ได้ส่งจากหน้านี้ ทุกคนในทีมเห็นแล้ว':'บันทึกข้อความแล้ว — ยังไม่ถูกส่งถึงลูกค้า',false,'chat')
   }
 
   async function setStage(k){
@@ -1577,7 +1584,8 @@ begin
     if(a==='retrylist'){S.errList='';loadList();return}
     if(a==='retrythread'){openThread(S.sel,true);return}
     if(a==='send'){send();return}
-    if(a==='note'){S.note=!S.note;paintChat();return}
+    if(a==='note'){S.note=!S.note;if(S.note)S.oaLog=false;paintChat();return}
+    if(a==='oalog'){S.oaLog=!S.oaLog;if(S.oaLog)S.note=false;paintChat();return}
     if(a==='tplpick'){
       const txt=(TPL[+el.dataset.k]||[])[1];if(!txt||!S.sel)return
       const id=S.sel

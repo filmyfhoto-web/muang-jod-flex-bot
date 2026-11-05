@@ -144,10 +144,14 @@ test('on: the customer’s text, picture and sticker become one chat, once each,
     assert.equal(JSON.stringify(customerReplies(me)[0].body.messages), baseline, 'the same answer as without the page');
 
     const thread = await wait(() => threadOf(me));
-    assert.deepEqual([thread.source, thread.title, thread.stage, thread.unread, thread.last_text, thread.customer_id], ['line', 'ปู่', 'talk', 1, 'สวัสดีค่ะ', null]);
+    assert.deepEqual([thread.source, thread.title, thread.stage, thread.unread, thread.customer_id], ['line', 'ปู่', 'talk', 1, null]);
+    // the bot's own answer is kept in the chat as the bot's (not as staff's), a moment after LINE accepted it; it is then the last line
+    const botLine = await wait(() => one("select * from sale_msgs where thread_id = $1 and by_name = 'บอท'", [thread.id]));
+    assert.deepEqual([botLine.dir, botLine.meta.src], ['out', 'bot']);
+    await wait(async () => (await one('select last_text from sale_threads where id = $1', [thread.id])).last_text === botLine.body.slice(0, 120));
     const link = await one('select * from sale_line_links where thread_id = $1', [thread.id]);
     assert.deepEqual([link.channel_key, link.line_user_id, link.line_name, link.picture_url], ['main', me, 'ปู่', 'https://example.com/p.png']);
-    const m = await one("select * from sale_msgs where thread_id = $1 and kind = 'text'", [thread.id]);
+    const m = await one("select * from sale_msgs where thread_id = $1 and kind = 'text' and dir = 'in'", [thread.id]);
     assert.deepEqual([m.dir, m.body, m.by_name, m.meta.line_message_id], ['in', 'สวัสดีค่ะ', 'ปู่', mid(me, 'on-1')]);
 
     // a picture: the very bytes LINE gave, in the page's private bucket; the chat shows kind=image with meta.path
