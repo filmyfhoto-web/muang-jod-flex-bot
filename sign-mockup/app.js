@@ -37,6 +37,12 @@
   var logoImg = null;
   var customer = '';
   var lastOut = null;
+  var inFrame = false; // เปิดในกรอบของหน้าอื่น เช่น พรีวิว
+  try {
+    inFrame = window.top !== window.self;
+  } catch (e) {
+    inFrame = true;
+  }
 
   function load() {
     var s = JSON.parse(JSON.stringify(DEF));
@@ -794,8 +800,11 @@
         try {
           canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
         } catch (e) {}
-        $('dlShare').hidden = !canShare;
-        $('dlCopy').hidden = !(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write);
+        // เปิดอยู่ในกรอบของเว็บอื่น (พรีวิว) ดาวน์โหลด/แชร์/คัดลอกถูกปิด เหลือกดค้าง/คลิกขวาที่รูป
+        $('dlShare').hidden = inFrame || !canShare;
+        $('dlCopy').hidden = inFrame || !(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write);
+        $('dlSave').hidden = inFrame;
+        if (inFrame) $('dlHint').textContent = 'มือถือ: กดค้างที่รูปแล้วเลือก “บันทึกรูปภาพ” · คอมพิวเตอร์: คลิกขวาที่รูป แล้วเลือกบันทึกรูป';
         openDialog($('exportDlg'));
       },
       'image/jpeg',
@@ -858,12 +867,6 @@
   });
 
   /* ---------- ติดตั้งเป็นแอป ---------- */
-  var inFrame = false;
-  try {
-    inFrame = window.top !== window.self;
-  } catch (e) {
-    inFrame = true;
-  }
   var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
   var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   var installPrompt = null;
