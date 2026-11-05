@@ -438,3 +438,16 @@ test('the payment status list offers ลงบัญชี next to the others, a
   assert.equal(await page.locator('#so_ord input[data-f="paid_amount"]').count(), 0, 'no amount is asked for: nothing has been received');
   await page.locator('#so_ord select[data-f="pay_status"]').selectOption('unpaid');
 });
+
+test('typing a customer name offers the customers that already exist; choosing one fills the name and the phone', skipIt, async () => {
+  await openRow('โรงเรียนบ้านตัวอย่าง');
+  await page.waitForSelector('#so_cn');
+  await page.locator('#so_cn').fill('โรงเรียนวัด');
+  await page.waitForSelector('#so_cnsug button');
+  const offered = await page.locator('#so_cnsug button').allInnerTexts();
+  assert.ok(offered.some((t) => t.includes('โรงเรียนวัดใหม่')), 'the existing customer is offered');
+  await page.locator('#so_cnsug button', { hasText: 'โรงเรียนวัดใหม่' }).click();
+  assert.equal(await page.locator('#so_cn').inputValue(), 'โรงเรียนวัดใหม่');
+  assert.equal(await page.locator('#so_ord input[data-f="phone"]').inputValue(), '053-111111');
+  assert.equal(await page.locator('#so_cnsug').isVisible(), false, 'the list closes after a choice');
+});

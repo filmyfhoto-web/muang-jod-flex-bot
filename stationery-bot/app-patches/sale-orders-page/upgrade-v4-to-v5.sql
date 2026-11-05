@@ -8,7 +8,7 @@ begin
   if c is null then
     raise exception 'saleorders: not installed; use apply.sql';
   end if;
-  if md5(c) = '6a717aff8d51c2574f0f3f964450b673' then
+  if md5(c) = '6bdd44fa4e6cdd40fffbeb1a5b6bdc3c' then
     raise notice 'saleorders: already v5, nothing changed';
     return;
   end if;
@@ -242,6 +242,9 @@ begin
 #so_root .so-more>summary::-webkit-details-marker{display:none}
 #so_root .so-more[open]>summary{border-bottom:1px solid var(--so-line)}
 #so_root .so-morebody{padding:10px 12px;display:flex;flex-direction:column;gap:10px}
+#so_root .so-sug{display:flex;flex-direction:column;gap:4px;background:#fff;border:1px solid var(--so-line);border-radius:12px;padding:6px;box-shadow:0 8px 24px rgba(15,42,79,.12)}
+#so_root .so-sug[hidden]{display:none}
+#so_root .so-sug .pk{border:1px solid var(--so-line);background:#fff;border-radius:10px;padding:8px 10px;text-align:left;font:inherit;font-size:13.5px;cursor:pointer;color:var(--so-fg)}
 #so_modalwrap{position:fixed;inset:0;z-index:95;display:grid;place-items:center;background:rgba(10,24,44,.45);padding:14px}
 #so_modal{background:#fff;border-radius:16px;max-width:600px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 18px 60px rgba(0,0,0,.3);color:#1B2433;font-size:14px}
 #so_modal .mh{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 16px;border-bottom:1px solid #E3E9F1}
@@ -495,6 +498,29 @@ begin
     const i=$('so_cq');const pos=i?i.selectionStart:null
     paintPicker()
     const j=$('so_cq');if(j){j.focus();if(pos!=null)j.setSelectionRange(pos,pos)}
+  }
+
+  // ลูกค้าในช่อง "ลูกค้า" ของใบสั่งงาน: พิมพ์ชื่อหรือเบอร์ (2 ตัวอักษรขึ้นไป) แล้วขึ้นรายชื่อลูกค้าที่มีอยู่ให้เลือก · พิมพ์ชื่อใหม่เองก็ได้
+  async function searchOrdCust(text){
+    const tk=S.octok=(S.octok||0)+1
+    const s=clean(text)
+    const b=$('so_cnsug');if(!b)return
+    if(s.length<2){b.hidden=true;b.innerHTML='';return}
+    const r=await q(()=>sb.from('customers').select('id,name,phone').or(`name.ilike.*${s}*,phone.ilike.*${s}*`).limit(6))
+    if(tk!==S.octok||!S.ord)return
+    const rows=errMsg(r)?[]:(r.data||[])
+    const box=$('so_cnsug');if(!box)return
+    if(!rows.length){box.hidden=true;box.innerHTML='';return}
+    box.hidden=false
+    box.innerHTML=rows.map(c=>`<button type="button" class="pk" data-a="pickordcust" data-id="${E(c.id)}" data-n="${E(c.name||'')}" data-p="${E(c.phone||'')}"><b>${E(c.name||'ไม่มีชื่อ')}</b> <small style="color:var(--so-mut)">${E(c.phone||'ไม่มีเบอร์')}</small></button>`).join('')
+  }
+  // เลือกลูกค้าที่มีอยู่: ผูกใบนี้กับบัญชีนั้น และเติมชื่อกับเบอร์ให้ (แก้ต่อได้)
+  function pickOrdCust(id,name,phone){
+    if(!S.ord)return
+    S.ord.customer_id=id||null;S.ord.linkedName=name||''
+    S.ord.customer_name=name||'';S.ord.phone=phone||''
+    const b=$('so_cnsug');if(b){b.hidden=true;b.innerHTML=''}
+    paintOrd()
   }
 
   // ---------- ห้องแชต ----------
@@ -813,6 +839,7 @@ begin
         ${o.id?`<div><span class="so-chip" style="--c:${o.order_type==='docs'?'#8A5CC2':'#2F6FE4'}">${E(OTYPE[o.order_type]||o.order_type)}</span> <span class="so-hint">ประเภทใบเปลี่ยนไม่ได้หลังบันทึก</span></div>`
           :`<div class="so-seg" role="radiogroup" aria-label="ประเภทคำสั่งซื้อ">${Object.entries(OTYPE).map(([k,lb])=>`<button type="button" role="radio" aria-checked="${o.order_type===k}" class="${o.order_type===k?'on':''}" data-a="otype" data-k="${k}">${lb}</button>`).join('')}</div>`}
         <div class="so-frow"><label for="so_cn">ลูกค้า</label><div style="display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:8px"><input id="so_cn" class="so-in" type="text" data-f="customer_name" value="${E(o.customer_name)}" placeholder="ชื่อลูกค้า/หน่วยงาน"><input class="so-in" type="tel" data-f="phone" value="${E(o.phone)}" placeholder="เบอร์โทร" aria-label="เบอร์โทร"></div></div>
+        <div class="so-frow"><span></span><div id="so_cnsug" class="so-sug" hidden></div></div>
         <div class="so-frow2"><label>อ้างอิง / เลขที่</label><input class="so-in" type="text" value="${E(o.order_no||'ออกเลขเมื่อบันทึก')}" disabled aria-label="เลขที่ใบ"><label for="so_od" style="font-size:13px;color:var(--so-mut)">วันที่สั่ง</label><input id="so_od" class="so-in" type="date" data-f="order_date" value="${E(o.order_date)}"></div>
         <div class="so-frow"><label>ราคา</label>${basisSel}</div>
         <div class="so-sech">
@@ -1484,6 +1511,10 @@ begin
       updateTotals()
       return
     }
+    if(f==='customer_name'){
+      if(S.ord.customer_id&&S.ord.linkedName!==t.value)S.ord.customer_id=null
+      S.ord.customer_name=t.value;paintDirtyBits();searchOrdCust(t.value);return
+    }
     if(['customer_name','phone','note','assignee'].includes(f)){S.ord[f]=t.value;paintDirtyBits();return}
     if(f==='paid_amount'){S.ord.paid_amount=t.value;paintDirtyBits();return}
   }
@@ -1580,6 +1611,7 @@ begin
     }
     if(a==='ordattach'){pickFile('so_ordfile',ordAttach);return}
     if(a==='delattach'){if(S.ord){S.ord.attach.splice(+el.dataset.i,1);paintOrd()}return}
+    if(a==='pickordcust'){pickOrdCust(el.dataset.id,el.dataset.n,el.dataset.p);return}
     if(a==='save'){save();return}
     if(a==='summary'){if(!S.ord||!S.ord.id||isDirty())return;openModal({kind:'summary',text:summaryText()});return}
     if(a==='sumcopy'){copySummary();return}
