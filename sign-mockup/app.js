@@ -6,7 +6,7 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '3.8.0';
+  var APP_VERSION = '3.9.0';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp' });
 
@@ -38,6 +38,8 @@
     steel: { total: 0, depth: 0, tube: 25, wall: 1.2, nh: -1, nv: -1, cut: 'miter', base: 'rect', price: 0, frameOnly: false, color: '#1f2125' }, // โครงเหล็ก (0 / -1 = อัตโนมัติ)
     run: { on: true, prefix: 'No.', start: 1, digits: 4, pos: 'tr', size: 'm', color: '#c8102e', stub: 0 }, // บัตร: เลขรัน
     sheet: 'a4', // บัตร: กระดาษที่จัดหน้าพิมพ์
+    paper: 'white', // บัตร: สีกระดาษรองในฉาก "บนกระดาษ"
+    cmpOut: 'jpg', // หน้าเทียบ 2 แบบ: รูป JPG / PDF
     panel: 'right', // แผงตั้งค่าอยู่ขวา/ซ้าย
     fmt: 'jpg', // ชนิดรูปที่ส่งออกล่าสุด (jpg / png)
     qty: 1,
@@ -83,8 +85,11 @@
     }
     s.run = C.normalizeRun(Object.assign({}, DEF.run, s.run));
     if (!C.SHEETS[s.sheet]) s.sheet = DEF.sheet;
+    if (!C.PAPERS[s.paper]) s.paper = DEF.paper;
+    if (s.cmpOut !== 'pdf') s.cmpOut = 'jpg';
     if (!C.TYPES[s.type]) s.type = DEF.type;
     if (!C.SCENES[s.scene]) s.scene = DEF.scene;
+    if (s.scene !== 'photo' && !C.sceneFits(s.scene, s.type)) s.scene = C.defaultScene(s.type);
     if (s.mode !== 'image') s.mode = 'text';
     s.w = C.clampCm(s.w, DEF.w);
     s.h = C.clampCm(s.h, DEF.h);
@@ -290,6 +295,7 @@
       scene: st.scene,
       spot: st.spot,
       tone: st.tone,
+      paper: st.paper,
       steel: st.steel,
       photo: photo,
       person: personNow(),
@@ -367,6 +373,7 @@
       spot: st.spot,
       doorOpen: st.doorOpen,
       tone: st.tone,
+      paper: st.paper,
       steel: st.steel,
       person: personNow(),
       night: st.night,
@@ -579,6 +586,11 @@
       st.h = q[1];
       if (st.mode === 'image' && imgDesign) st.h = C.heightForImage(st.w, imgDesign.w, imgDesign.h);
     }
+    // บัตร ↔ ป้าย: ฉากที่เหมาะต่างกัน (บัตรเริ่มที่ "บนกระดาษ")
+    if (!!t.small !== !!old.small) {
+      if (st.scene !== 'photo') st.scene = C.defaultScene(k);
+      buildScenes();
+    } else if (st.scene !== 'photo' && !C.sceneFits(st.scene, k)) st.scene = C.defaultScene(k);
     refreshPhotoQuad();
     sync();
   }
@@ -645,11 +657,15 @@
   /* ---------- ฉาก (ภาพย่อวาดจริงด้วยงานปัจจุบัน) ---------- */
   var CAMERA_ICON =
     '<svg viewBox="0 0 24 24"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7H8l1.5-2h5L16 7h2.5A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="13" r="3.2"/></svg>';
+  var scenesSmall = null; // รายการฉากตอนนี้ทำไว้ให้งานบัตร (true) หรือป้าย (false)
   function buildScenes() {
     var box = $('scenes');
     box.innerHTML = '';
+    scenesSmall = !!C.TYPES[st.type].small;
     C.SCENE_ORDER.forEach(function (k) {
       if (opts.hideScenes.indexOf(k) >= 0 && k !== st.scene) return;
+      if (k !== 'photo' && !C.sceneFits(k, st.type)) return; // ฉากบัตรโชว์เฉพาะงานบัตร
+
       var sc = C.SCENES[k];
       var b = document.createElement('button');
       b.type = 'button';
@@ -736,6 +752,29 @@
     $('doorField').hidden = !canOpen;
     pressed('#doorSeg button', 'open', String(!!st.doorOpen));
   }
+  // ฉาก "บนกระดาษ": สีกระดาษรองบัตร
+  function buildPapers() {
+    var field = $('paperField');
+    field.hidden = !(C.SCENES[st.scene] && C.SCENES[st.scene].papers);
+    if (field.hidden) return;
+    var box = $('papers');
+    if (!box.children.length) {
+      C.PAPER_ORDER.forEach(function (k) {
+        var pp = C.PAPERS[k];
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'swatch';
+        b.dataset.paper = k;
+        b.innerHTML = '<i style="background:' + pp.color + ';box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)"></i>' + esc(pp.name);
+        b.addEventListener('click', function () {
+          st.paper = k;
+          sync();
+        });
+        box.appendChild(b);
+      });
+    }
+    pressed('#papers .swatch', 'paper', st.paper);
+  }
   function buildTones() {
     var sc = C.SCENES[st.scene];
     var field = $('toneField');
@@ -783,6 +822,7 @@
     $('textPane').hidden = st.mode !== 'text';
     pressed('#fitSeg button', 'fit', st.fit);
     pressed('#types .card', 'type', st.type);
+    if (scenesSmall !== null && scenesSmall !== !!C.TYPES[st.type].small) buildScenes(); // ย้อนกลับ/เปิดงานเก่าข้ามบัตร ↔ ป้าย
     pressed('#scenes .scene', 'scene', st.scene);
     pressed('#themes .swatch', 'theme', st.text.theme);
     pressed('#aspectSeg button', 'aspect', st.aspect);
@@ -818,6 +858,7 @@
     buildPresets();
     buildSpots();
     buildTones();
+    buildPapers();
     buildMetals();
     steelSync();
     $('themeEdit').hidden = !(R.themes()[st.text.theme] || {}).mine;
@@ -1645,7 +1686,242 @@
     });
   }
 
+  /* ---------- แบบให้ลูกค้าเลือก: เก็บภาพจำลอง 2 แบบ แล้วทำหน้าเทียบ (A4 แนวตั้ง แบบละครึ่งหน้า) ----------
+   * ภาพที่เก็บไว้อยู่ใน IndexedDB ('opt-cmp-0/1') ปิดแอป/อัปเดตรุ่นแล้วยังอยู่ */
+  var cmp = [null, null]; // { img, blob, title, size, extra, price, scene }
+  function cmpMeta() {
+    var q = quoteNow();
+    var extra = [];
+    var sc = C.SCENES[st.scene];
+    if (sc && st.scene !== 'photo') extra.push('ฉาก' + sc.name);
+    if (st.mode === 'text' && R.themes()[st.text.theme]) extra.push('ชุดสี ' + R.themes()[st.text.theme].name);
+    if (q.qty > 1) extra.push(q.qty + ' ' + unitWord());
+    if (runNow()) extra.push('เลข ' + C.runText(st.run, 0) + (q.qty > 1 ? '–' + C.runText(st.run, q.qty - 1) : ''));
+    return {
+      title: C.TYPES[st.type].name,
+      size: C.sizeText(st.w, st.h),
+      extra: extra.join(' · '),
+      price: q.has ? C.baht(q.total) + ' บาท' : '',
+    };
+  }
+  function cmpShow(i) {
+    var c = cmp[i];
+    var th = $('cmpThumb' + i);
+    th.classList.toggle('has', !!c);
+    th.style.backgroundImage = c ? 'url(' + c.url + ')' : '';
+    $('cmpInfo' + i).textContent = c ? [c.title + ' ' + c.size, c.price].filter(Boolean).join(' · ') : 'ยังว่าง';
+    $('cmpSet' + i).textContent = (c ? 'เปลี่ยนเป็นภาพนี้' : 'เก็บภาพนี้เป็นแบบที่ ' + (i + 1));
+    $('cmpDel' + i).hidden = !c;
+    $('cmpMake').disabled = !(cmp[0] || cmp[1]);
+  }
+  function cmpLoadImg(blob) {
+    return new Promise(function (ok, bad) {
+      var im = new Image();
+      im.onload = function () {
+        ok(im);
+      };
+      im.onerror = bad;
+      im.src = URL.createObjectURL(blob);
+    });
+  }
+  function cmpPut(i, rec) {
+    if (cmp[i] && cmp[i].url) URL.revokeObjectURL(cmp[i].url);
+    cmp[i] = rec;
+    if (rec) rec.url = rec.img.src;
+    cmpShow(i);
+  }
+  [0, 1].forEach(function (i) {
+    $('cmpSet' + i).addEventListener('click', function () {
+      var c = mockupCanvas(1, false);
+      var meta = cmpMeta();
+      toBlob(c, 'image/jpeg', 0.9)
+        .then(function (blob) {
+          return cmpLoadImg(blob).then(function (img) {
+            cmpPut(i, Object.assign({ img: img, blob: blob }, meta));
+            toast('เก็บเป็นแบบที่ ' + (i + 1) + ' แล้ว' + (cmp[1 - i] ? ' — กด “ทำหน้าเทียบ 2 แบบ” ได้เลย' : ' — ปรับงานแล้วเก็บเป็นแบบที่ ' + (2 - i)));
+            if (NS.jobs) NS.jobs.put(Object.assign({ id: 'opt-cmp-' + i, at: Date.now(), blob: blob }, meta)).catch(function () {});
+          });
+        })
+        .catch(function () {
+          toast('เก็บภาพไม่สำเร็จ ลองใหม่อีกครั้ง');
+        });
+    });
+    $('cmpDel' + i).addEventListener('click', function () {
+      cmpPut(i, null);
+      if (NS.jobs) NS.jobs.del('opt-cmp-' + i).catch(function () {});
+    });
+  });
+  $('cmpMake').addEventListener('click', function () {
+    openExport('compare');
+  });
+  function loadCmp() {
+    cmpShow(0);
+    cmpShow(1);
+    if (!NS.jobs) return;
+    [0, 1].forEach(function (i) {
+      NS.jobs
+        .get('opt-cmp-' + i)
+        .then(function (r) {
+          if (!r || !r.blob) return;
+          return cmpLoadImg(r.blob).then(function (img) {
+            cmpPut(i, { img: img, blob: r.blob, title: r.title || '', size: r.size || '', extra: r.extra || '', price: r.price || '' });
+          });
+        })
+        .catch(function () {});
+    });
+  }
+  // หน้าเทียบ: หัวร้าน · "แบบให้เลือก" · แบบละครึ่งหน้า (ป้ายเลข 1/2 + ภาพ + ชนิด ขนาด ราคา) · ช่องให้ลูกค้าติ๊กเลือก
+  function comparePage() {
+    var W = 1240;
+    var H = 1754;
+    var M = 70;
+    var CW = W - M * 2;
+    var NAVY = '#1f2a4d';
+    var ORANGE = '#d9622b';
+    var INK = '#18203a';
+    var INK2 = '#565e75';
+    var INK3 = '#868c9e';
+    var LINE = '#e0dcd4';
+    var c = document.createElement('canvas');
+    c.width = W;
+    c.height = H;
+    var x = c.getContext('2d');
+    x.fillStyle = '#ffffff';
+    x.fillRect(0, 0, W, H);
+    // หัวกระดาษ
+    var qLogo = logoImg || (st.brandLogo ? brandImg.full : null);
+    var shopLine = [st.shopName.trim(), st.shopPhone.trim() ? C.phoneText(st.shopPhone) : ''].filter(Boolean).join('  ·  ');
+    x.textBaseline = 'alphabetic';
+    x.textAlign = 'left';
+    if (qLogo) {
+      var lh = 92;
+      var lw = (lh * (qLogo.naturalWidth || qLogo.width)) / (qLogo.naturalHeight || qLogo.height);
+      if (lw > 480) {
+        lh = (lh * 480) / lw;
+        lw = 480;
+      }
+      x.drawImage(qLogo, M - 4, 34 + (92 - lh) / 2, lw, lh);
+      x.fillStyle = INK2;
+      if (shopLine) fitText(x, shopLine, M, 156, 560, 400, 21, BODY);
+    } else {
+      x.fillStyle = NAVY;
+      fitText(x, st.shopName.trim() || 'ร้านป้าย', M, 96, 560, 600, 46, DISP);
+      x.fillStyle = INK2;
+      if (st.shopPhone.trim()) fitText(x, C.phoneText(st.shopPhone), M, 138, 560, 400, 24, BODY);
+    }
+    x.textAlign = 'right';
+    x.fillStyle = NAVY;
+    font(x, 600, 52, DISP);
+    x.fillText('แบบให้เลือก', W - M, 92);
+    x.fillStyle = INK2;
+    fitText(x, (customer.trim() ? 'ลูกค้า: ' + customer.trim() + ' · ' : '') + C.thaiDate(new Date()), W - M, 132, 560, 500, 22, BODY);
+    x.fillStyle = NAVY;
+    x.fillRect(M, 176, CW, 5);
+    x.fillStyle = ORANGE;
+    x.fillRect(M, 176, 150, 5);
+    // 2 แบบ
+    var top = 206;
+    var foot = 196;
+    var bh = (H - top - foot - 24) / 2;
+    [0, 1].forEach(function (i) {
+      var s = cmp[i];
+      var by = top + i * (bh + 24);
+      // กรอบ
+      x.fillStyle = '#f7f5f1';
+      roundRect(x, M, by, CW, bh, 22);
+      x.fill();
+      // ป้ายเลขแบบ
+      x.fillStyle = i ? ORANGE : NAVY;
+      x.beginPath();
+      x.arc(M + 46, by + 48, 28, 0, Math.PI * 2);
+      x.fill();
+      x.fillStyle = '#ffffff';
+      x.textAlign = 'center';
+      font(x, 600, 32, DISP);
+      x.fillText(String(i + 1), M + 46, by + 60);
+      x.textAlign = 'left';
+      x.fillStyle = INK;
+      font(x, 600, 32, DISP);
+      x.fillText('แบบที่ ' + (i + 1), M + 90, by + 60);
+      if (!s) {
+        x.fillStyle = INK3;
+        font(x, 400, 24, BODY);
+        x.textAlign = 'center';
+        x.fillText('— ยังไม่ได้เก็บแบบนี้ —', W / 2, by + bh / 2);
+        x.textAlign = 'left';
+        return;
+      }
+      if (s.price) {
+        x.textAlign = 'right';
+        x.fillStyle = ORANGE;
+        font(x, 600, 34, DISP);
+        x.fillText(s.price, M + CW - 28, by + 62);
+        x.textAlign = 'left';
+      }
+      // ภาพ (พอดีกรอบ ไม่ตัด)
+      var ix = M + 24;
+      var iy = by + 92;
+      var iw = CW - 48;
+      var ih = bh - 92 - 78;
+      var r = C.containRect(s.img.naturalWidth || s.img.width, s.img.naturalHeight || s.img.height, iw, ih);
+      x.save();
+      roundRect(x, ix + r.dx, iy + r.dy, r.dw, r.dh, 14);
+      x.clip();
+      x.drawImage(s.img, ix + r.dx, iy + r.dy, r.dw, r.dh);
+      x.restore();
+      x.fillStyle = INK;
+      fitText(x, s.title + '  ' + s.size, M + 28, by + bh - 42, CW - 56, 600, 27, DISP);
+      x.fillStyle = INK2;
+      if (s.extra) fitText(x, s.extra, M + 28, by + bh - 12, CW - 56, 400, 20, BODY);
+    });
+    // ให้ลูกค้าเลือก
+    var fy = H - foot + 34;
+    x.fillStyle = INK;
+    font(x, 600, 28, DISP);
+    x.fillText('ลูกค้าเลือก', M, fy + 6);
+    [0, 1].forEach(function (i) {
+      var bx = M + 190 + i * 230;
+      x.strokeStyle = INK2;
+      x.lineWidth = 2.5;
+      roundRect(x, bx, fy - 22, 32, 32, 6);
+      x.stroke();
+      x.fillStyle = INK;
+      font(x, 500, 26, BODY);
+      x.fillText('แบบที่ ' + (i + 1), bx + 46, fy + 4);
+    });
+    x.fillStyle = INK2;
+    font(x, 400, 21, BODY);
+    x.fillText('หรือพิมพ์ตอบ “แบบ 1” / “แบบ 2” ทาง LINE ได้เลย · อยากแก้ตรงไหนบอกร้านได้', M, fy + 54);
+    x.fillStyle = LINE;
+    x.fillRect(M, H - 82, CW, 2);
+    x.textAlign = 'center';
+    x.fillStyle = INK3;
+    font(x, 400, 18, BODY);
+    x.fillText([st.shopName.trim(), st.shopPhone.trim() ? C.phoneText(st.shopPhone) : '', 'ภาพจำลอง สีจริงอาจต่างจากหน้าจอเล็กน้อย'].filter(Boolean).join('  ·  '), W / 2, H - 46);
+    return c;
+  }
+  function roundRect(x, rx, ry, rw, rh, rr) {
+    x.beginPath();
+    x.moveTo(rx + rr, ry);
+    x.arcTo(rx + rw, ry, rx + rw, ry + rh, rr);
+    x.arcTo(rx + rw, ry + rh, rx, ry + rh, rr);
+    x.arcTo(rx, ry + rh, rx, ry, rr);
+    x.arcTo(rx, ry, rx + rw, ry, rr);
+    x.closePath();
+  }
+  function buildCompare() {
+    if (!cmp[0] && !cmp[1]) return Promise.reject(new Error('empty'));
+    var page = comparePage();
+    return toBlob(page, 'image/jpeg', 0.9).then(function (jpg) {
+      if (st.cmpOut !== 'pdf') return { blob: jpg, name: fileName('choose', 'jpg'), preview: jpg, canvas: page };
+      return blobBytes(jpg).then(function (bytes) {
+        return { blob: new Blob([C.pdfFromJpeg(bytes, page.width, page.height)], { type: 'application/pdf' }), name: fileName('choose', 'pdf'), preview: jpg, canvas: page };
+      });
+    });
+  }
+
   function buildExport(fmt) {
+    if (fmt === 'compare') return buildCompare();
     if (fmt === 'print') return buildPrint();
     if (fmt === 'html') return buildHtml();
     if (fmt === 'glb') {
@@ -1683,6 +1959,7 @@
     pdf: 'ใบเสนอราคา A4 พร้อมภาพจำลอง ราคา และช่องเซ็นชื่อ ส่งทาง LINE หรือสั่งพิมพ์ได้เลย',
     glb: 'กด “สร้างลิงก์ดู 3 มิติ” ส่งลิงก์ให้ลูกค้าเปิดหมุนดูในมือถือได้เลย (ไม่ต้องลงแอป) · หรือดาวน์โหลดไฟล์ .glb เปิดใน 3D Viewer / ส่งทีมออกแบบ',
     print: 'ไฟล์ PDF ส่งโรงพิมพ์/เครื่องพิมพ์: จัดบัตรเต็มแผ่น เผื่อตัดตก 2 มม. มีเส้นตัด เลขรันเรียงทุกใบ',
+    compare: 'แบบละครึ่งหน้า พร้อมชนิด ขนาด ราคา และช่องให้ลูกค้าติ๊กเลือก — ส่งเข้า LINE ให้ลูกค้าตอบ “แบบ 1” หรือ “แบบ 2”',
     html: 'ไฟล์เดียวจบ: ส่งทาง LINE / อีเมล / แฟลชไดรฟ์ ลูกค้าแตะหรือดับเบิลคลิกเปิดในเบราว์เซอร์ (Chrome / Safari / Edge) หมุนดูป้าย 3 มิติได้เลย ไม่ต้องลงแอป ไม่ต้องต่อเน็ต · มีปุ่มบันทึกรูปมุมที่ดู',
   };
   function planText(p) {
@@ -1708,8 +1985,10 @@
     $('fmtHtml').hidden = !is3d() || inFrame; // หน้าพรีวิวโหลดตัวดูมาฝังไม่ได้
     $('fmtPrint').hidden = !isCard();
     $('sheetBar').hidden = fmt !== 'print';
+    $('cmpBar').hidden = fmt !== 'compare';
+    pressed('#cmpOutSeg button', 'cout', st.cmpOut);
     pressed('#sheetSeg button', 'sheet', st.sheet);
-    $('exportTitle').textContent = fmt === 'pdf' ? 'ใบเสนอราคา' : fmt === 'glb' ? 'ไฟล์ 3 มิติ' : fmt === 'html' ? 'ไฟล์ HTML พรีวิว 3 มิติ' : fmt === 'print' ? 'ไฟล์พิมพ์บัตร' : 'รูปพร้อมส่งลูกค้า';
+    $('exportTitle').textContent = fmt === 'pdf' ? 'ใบเสนอราคา' : fmt === 'glb' ? 'ไฟล์ 3 มิติ' : fmt === 'html' ? 'ไฟล์ HTML พรีวิว 3 มิติ' : fmt === 'print' ? 'ไฟล์พิมพ์บัตร' : fmt === 'compare' ? 'แบบให้ลูกค้าเลือก' : 'รูปพร้อมส่งลูกค้า';
     $('dlHint').textContent = inFrame && fmt !== 'glb' && fmt !== 'html' ? 'มือถือ: กดค้างที่รูปแล้วเลือก “บันทึกรูปภาพ” · คอมพิวเตอร์: คลิกขวาที่รูป แล้วเลือกบันทึกรูป' : FMT_HINT[fmt];
     $('dlStatus').textContent = 'กำลังเตรียมไฟล์…';
     ['dlShare', 'dlCopy', 'dlSave'].forEach(function (id) {
@@ -1724,7 +2003,7 @@
       .catch(function (e) {
         if (job !== exp.job) return;
         $('dlStatus').textContent =
-          fmt === 'glb' || fmt === 'html' ? 'สร้างไฟล์ 3 มิติไม่สำเร็จ ลองใหม่อีกครั้ง (ไฟล์ HTML ต้องเปิดแอปจากเซิร์ฟเวอร์ร้านอย่างน้อยครั้งแรก)' : fmt === 'print' && e && e.message === 'too_big' ? 'บัตรใหญ่เกินกระดาษนี้ ลองเลือกกระดาษใหญ่ขึ้น' : 'บันทึกไฟล์ไม่สำเร็จ ลองลดขนาดรูปที่ใส่แล้วลองใหม่';
+          fmt === 'glb' || fmt === 'html' ? 'สร้างไฟล์ 3 มิติไม่สำเร็จ ลองใหม่อีกครั้ง (ไฟล์ HTML ต้องเปิดแอปจากเซิร์ฟเวอร์ร้านอย่างน้อยครั้งแรก)' : fmt === 'print' && e && e.message === 'too_big' ? 'บัตรใหญ่เกินกระดาษนี้ ลองเลือกกระดาษใหญ่ขึ้น' : fmt === 'compare' && e && e.message === 'empty' ? 'ยังไม่ได้เก็บแบบ — ไปขั้น 4 กด “เก็บภาพนี้เป็นแบบที่ 1” ก่อน' : 'บันทึกไฟล์ไม่สำเร็จ ลองลดขนาดรูปที่ใส่แล้วลองใหม่';
       });
   }
   function showExport(r) {
@@ -1828,6 +2107,14 @@
   $('quoteBtn').addEventListener('click', function () {
     openExport('pdf');
   });
+  document.querySelectorAll('#cmpOutSeg button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (st.cmpOut === b.dataset.cout && exp.blob) return;
+      st.cmpOut = b.dataset.cout;
+      save();
+      openExport('compare');
+    });
+  });
   document.querySelectorAll('#sheetSeg button').forEach(function (b) {
     b.addEventListener('click', function () {
       if (st.sheet === b.dataset.sheet && exp.blob) return;
@@ -1855,7 +2142,7 @@
     if (!exp.blob) return;
     var file = new File([exp.blob], exp.name, { type: exp.blob.type });
     navigator
-      .share({ files: [file], title: exp.fmt === 'pdf' ? 'ใบเสนอราคา' : 'ภาพจำลองป้าย' })
+      .share({ files: [file], title: exp.fmt === 'pdf' ? 'ใบเสนอราคา' : exp.fmt === 'compare' ? 'แบบให้เลือก' : 'ภาพจำลองป้าย' })
       .then(function () {
         $('dlStatus').textContent = 'เปิดหน้าแชร์แล้ว';
       })
@@ -2916,7 +3203,7 @@
     $('typeTitle').textContent = t ? 'แก้ไขชนิดงาน' : 'เพิ่มชนิดงานของร้าน';
     $('tyStatus').textContent = '';
     openDialog($('typeDlg'));
-    if (!t) setTimeout(function () { $('tyName').focus(); }, 50);
+    if (!t) $('tyName').focus();
   }
   $('tyBase').addEventListener('change', function () {
     if (tyEdit) return;
@@ -3157,6 +3444,7 @@
   go(1);
   sync();
   restoreCurrent();
+  loadCmp();
   try {
     if (sessionStorage.getItem(UPDATED_KEY)) {
       sessionStorage.removeItem(UPDATED_KEY);

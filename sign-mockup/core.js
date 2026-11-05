@@ -106,24 +106,49 @@
     return t.base && TYPES[t.base] ? t.base : type;
   }
 
+  /* ฉาก — small: เฉพาะงานชิ้นเล็ก (บัตร) · big: เฉพาะป้าย (บัตรไม่ต้องโชว์ฉากนี้) */
   var SCENES = {
+    paper: { name: 'บนกระดาษ', desc: 'วางบัตรบนกระดาษ ภาพสินค้า', small: true, papers: true },
+    hand: { name: 'มือถือบัตร', desc: 'ยื่นบัตรให้ลูกค้าดู', small: true },
     studio: { name: 'พื้นเรียบ', desc: 'โชว์งานชัด ๆ' },
     wall: { name: 'ผนังปูน', desc: 'ในร้าน / ในอาคาร' },
     brick: { name: 'ผนังอิฐ', desc: 'ร้านกาแฟ / ร้านอาหาร' },
-    shop: { name: 'หน้าร้าน', desc: 'ตึกแถว ประตูม้วน' },
-    fence: { name: 'รั้วกลางแจ้ง', desc: 'ป้ายประกาศ / ขายที่' },
+    shop: { name: 'หน้าร้าน', desc: 'ตึกแถว ประตูม้วน', big: true },
+    fence: { name: 'รั้วกลางแจ้ง', desc: 'ป้ายประกาศ / ขายที่', big: true },
     classDoor: {
       name: 'ประตูห้องเรียน',
       desc: 'ป้ายเต็มบาน / ป้ายชื่อห้อง',
       spots: [['full', 'เต็มบานประตู'], ['door', 'บนประตู'], ['above', 'เหนือประตู'], ['beside', 'ข้างประตู']],
       canOpen: true,
       tones: true,
+      big: true,
     },
-    officeDoor: { name: 'ประตูห้อง', desc: 'ห้องทำงาน / ห้องประชุม', spots: [['full', 'เต็มบานประตู'], ['door', 'บนประตู'], ['above', 'เหนือประตู'], ['beside', 'ข้างประตู']] },
-    classroom: { name: 'ในห้องเรียน', desc: 'เหนือกระดาน / ผนังห้อง', spots: [['above', 'เหนือกระดาน'], ['beside', 'ข้างกระดาน']], tones: true },
+    officeDoor: { name: 'ประตูห้อง', desc: 'ห้องทำงาน / ห้องประชุม', spots: [['full', 'เต็มบานประตู'], ['door', 'บนประตู'], ['above', 'เหนือประตู'], ['beside', 'ข้างประตู']], big: true },
+    classroom: { name: 'ในห้องเรียน', desc: 'เหนือกระดาน / ผนังห้อง', spots: [['above', 'เหนือกระดาน'], ['beside', 'ข้างกระดาน']], tones: true, big: true },
     photo: { name: 'รูปหน้าร้านลูกค้า', desc: 'อัปโหลดรูป แล้วลากมุมป้าย' },
   };
-  var SCENE_ORDER = ['studio', 'wall', 'brick', 'shop', 'fence', 'classDoor', 'officeDoor', 'classroom', 'photo'];
+  var SCENE_ORDER = ['paper', 'hand', 'studio', 'wall', 'brick', 'shop', 'fence', 'classDoor', 'officeDoor', 'classroom', 'photo'];
+  // ฉากนี้ใช้กับชนิดงานนี้ได้ไหม (บัตร ↔ ป้าย) · ฉากเริ่มต้นของชนิดงาน
+  function sceneFits(scene, type) {
+    var sc = SCENES[scene];
+    var t = TYPES[type];
+    if (!sc || !t) return false;
+    if (sc.small && !t.small) return false;
+    if (sc.big && t.small) return false;
+    return true;
+  }
+  function defaultScene(type) {
+    return TYPES[type] && TYPES[type].small ? 'paper' : 'shop';
+  }
+  // สีกระดาษรองบัตร (ฉาก "บนกระดาษ")
+  var PAPERS = {
+    white: { name: 'ขาว', color: '#f2f0ea' },
+    kraft: { name: 'คราฟท์', color: '#c9a476' },
+    black: { name: 'ดำ', color: '#2c2c30' },
+    pink: { name: 'ชมพู', color: '#f1d6d8' },
+    mint: { name: 'มิ้นท์', color: '#d3e8de' },
+  };
+  var PAPER_ORDER = ['white', 'kraft', 'black', 'pink', 'mint'];
 
   // ประตูมาตรฐาน 90 × 210 ซม. / กระดานไวท์บอร์ด 240 × 120 ซม. (ขอบล่างสูง 90)
   var DOOR = { w: 90, h: 210 };
@@ -1296,6 +1321,10 @@
     TYPE_ORDER: TYPE_ORDER,
     SCENES: SCENES,
     SCENE_ORDER: SCENE_ORDER,
+    sceneFits: sceneFits,
+    defaultScene: defaultScene,
+    PAPERS: PAPERS,
+    PAPER_ORDER: PAPER_ORDER,
     PERSON: PERSON,
     num: num,
     clampCm: clampCm,
