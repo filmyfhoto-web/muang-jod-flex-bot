@@ -10,6 +10,7 @@ import { createJob } from '../src/services/jobService.js';
 import { getDashboard } from '../src/services/dashboardService.js';
 import { dashboardFlex } from '../src/flex/dashboardFlex.js';
 import { round2 } from '../src/utils/currency.js';
+import { todayISO } from '../src/utils/dates.js';
 
 const BRANCHES = DEFAULT_BRANCHES.map((b, i) => ({ ...b, id: `b${i + 1}` }));
 const [PRINT, KLANG] = BRANCHES;
@@ -138,7 +139,7 @@ test('การ์ดรายร้าน: งานวันนี้ คิ�
 });
 
 test('สรุปงานวันนี้พกยอดแยกร้านไปด้วย และการ์ดวาดช่วง "แยกตามร้าน"', async () => {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO(); // วันตามเวลาไทยแบบเดียวกับ dashboard — วัน UTC เพี้ยนช่วง 17:00–24:00 UTC
   const db = createMockSupabase();
   const branches = await listBranches('user-1', db);
   await db.from('jobs').insert({
