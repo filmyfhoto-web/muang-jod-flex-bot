@@ -250,3 +250,21 @@ test('สติ๊กเกอร์: แนบผิว ไม่มีคว�
   assert.equal(g.mount, 'wall');
   assert.equal(C.quote({ type: 'sticker', w: 60, h: 20, qty: 10, rate: 400 }).total, 480);
 });
+
+test('ป้ายเต็มบานประตูห้องเรียน 80×200: ติดเต็มบานอัตโนมัติ บานประตูใหญ่กว่าป้ายขอบละ 1.5 ซม.', () => {
+  const g = C.geometry('vinyl', 80, 200);
+  assert.equal(C.resolveSpot('classDoor', 'auto', g), 'full');
+  assert.deepEqual(C.doorSize('classDoor', 'auto', g), { w: 83, h: 204 });
+  const bottom = C.mountBottom('classDoor', g, 'auto');
+  assert.equal(bottom, 2.5);
+  assert.ok(bottom + 200 <= 204, 'ป้ายต้องอยู่ในบานประตู');
+  // ป้ายเล็กยังติดบนบานขนาดมาตรฐาน
+  assert.deepEqual(C.doorSize('classDoor', 'auto', C.geometry('acrylic', 40, 15)), { w: 90, h: 210 });
+  // มีขนาดสำเร็จรูปประตูในไวนิลและสติ๊กเกอร์
+  assert.ok(C.TYPES.vinyl.presets.some((p) => p[0] === 80 && p[1] === 200));
+  assert.ok(C.TYPES.sticker.presets.some((p) => p[0] === 80 && p[1] === 200));
+  // สีผนังอาคารเรียน: ชมพู-ฟ้าแบบรูปที่ร้านส่งมา
+  assert.equal(C.TONE_ORDER[0], 'pink');
+  for (const k of C.TONE_ORDER) assert.match(C.WALL_TONES[k].lower, /^#[0-9a-f]{6}$/);
+  assert.ok(C.SCENES.classDoor.canOpen);
+});

@@ -19,7 +19,7 @@
       desc: 'เจาะตาไก่รอบป้าย ผูกเชือกหรือยิงตะปู',
       unit: 'sqm',
       mount: 'wall',
-      presets: [[100, 50], [150, 50], [200, 100], [300, 100], [240, 120], [400, 200]],
+      presets: [[100, 50], [150, 50], [200, 100], [300, 100], [240, 120], [400, 200], [80, 200, 'ประตู 80×200']],
     },
     frame: {
       name: 'ไวนิลขึงโครง',
@@ -40,7 +40,7 @@
       desc: 'พิมพ์ติดประตู ผนัง กระจก แนบเรียบ',
       unit: 'sqm',
       mount: 'wall',
-      presets: [[30, 10], [40, 15], [60, 20], [60, 90], [100, 50]],
+      presets: [[30, 10], [40, 15], [60, 20], [60, 90], [100, 50], [80, 200, 'ประตู 80×200']],
     },
     acrylic: {
       name: 'ป้ายอะคริลิค',
@@ -79,9 +79,15 @@
     brick: { name: 'ผนังอิฐ', desc: 'ร้านกาแฟ / ร้านอาหาร' },
     shop: { name: 'หน้าร้าน', desc: 'ตึกแถว ประตูม้วน' },
     fence: { name: 'รั้วกลางแจ้ง', desc: 'ป้ายประกาศ / ขายที่' },
-    classDoor: { name: 'ประตูห้องเรียน', desc: 'ทางเดินอาคารเรียน', spots: [['door', 'บนประตู'], ['above', 'เหนือประตู'], ['beside', 'ข้างประตู']] },
-    officeDoor: { name: 'ประตูห้อง', desc: 'ห้องทำงาน / ห้องประชุม', spots: [['door', 'บนประตู'], ['above', 'เหนือประตู'], ['beside', 'ข้างประตู']] },
-    classroom: { name: 'ในห้องเรียน', desc: 'เหนือกระดาน / ผนังห้อง', spots: [['above', 'เหนือกระดาน'], ['beside', 'ข้างกระดาน']] },
+    classDoor: {
+      name: 'ประตูห้องเรียน',
+      desc: 'ป้ายเต็มบาน / ป้ายชื่อห้อง',
+      spots: [['full', 'เต็มบานประตู'], ['door', 'บนประตู'], ['above', 'เหนือประตู'], ['beside', 'ข้างประตู']],
+      canOpen: true,
+      tones: true,
+    },
+    officeDoor: { name: 'ประตูห้อง', desc: 'ห้องทำงาน / ห้องประชุม', spots: [['full', 'เต็มบานประตู'], ['door', 'บนประตู'], ['above', 'เหนือประตู'], ['beside', 'ข้างประตู']] },
+    classroom: { name: 'ในห้องเรียน', desc: 'เหนือกระดาน / ผนังห้อง', spots: [['above', 'เหนือกระดาน'], ['beside', 'ข้างกระดาน']], tones: true },
     photo: { name: 'รูปหน้าร้านลูกค้า', desc: 'อัปโหลดรูป แล้วลากมุมป้าย' },
   };
   var SCENE_ORDER = ['studio', 'wall', 'brick', 'shop', 'fence', 'classDoor', 'officeDoor', 'classroom', 'photo'];
@@ -89,6 +95,15 @@
   // ประตูมาตรฐาน 90 × 210 ซม. / กระดานไวท์บอร์ด 240 × 120 ซม. (ขอบล่างสูง 90)
   var DOOR = { w: 90, h: 210 };
   var BOARD = { w: 240, h: 120, y0: 90 };
+
+  // สีผนังอาคารเรียน (ล่าง / บน) — ชมพู-ฟ้าตามรูปที่ร้านส่งมา
+  var WALL_TONES = {
+    pink: { name: 'ชมพู-ฟ้า', lower: '#b5d6cf', upper: '#f2bfd4' },
+    green: { name: 'ครีม-เขียว', lower: '#9fc4a8', upper: '#f7f1df' },
+    cream: { name: 'ครีม-น้ำตาล', lower: '#c9a27c', upper: '#f5ecd5' },
+    white: { name: 'ขาว-เทา', lower: '#b9bec4', upper: '#f3f2ef' },
+  };
+  var TONE_ORDER = ['pink', 'green', 'cream', 'white'];
 
   // คนยืนเทียบขนาด
   var PERSON = { h: 170, w: 50, gap: 45 };
@@ -237,12 +252,20 @@
     if (!sc || !sc.spots) return null;
     for (var i = 0; i < sc.spots.length; i++) if (sc.spots[i][0] === spot) return spot;
     if (scene === 'classroom') return 'above';
+    if (g && g.w >= 55 && g.w <= 110 && g.h >= 150 && g.h <= 230) return 'full'; // ขนาดเท่าบานประตู
     return g && g.w <= 90 && g.h <= 60 ? 'door' : 'above';
+  }
+
+  // ขนาดบานประตู: ป้ายเต็มบาน → บานใหญ่กว่าป้ายนิดหน่อย (ขอบละ 1.5 ซม.) ไม่งั้นใช้ 90 × 210
+  function doorSize(scene, spot, g) {
+    if (resolveSpot(scene, spot, g) === 'full') return { w: Math.round((g.w + 3) * 10) / 10, h: Math.round((g.h + 4) * 10) / 10 };
+    return { w: DOOR.w, h: DOOR.h };
   }
 
   function mountBottom(scene, g, spot) {
     if (g.mount === 'floor') return 0;
     var sp = resolveSpot(scene, spot, g);
+    if (sp === 'full') return 2.5; // บานลอยจากพื้น 1 ซม. + ขอบ 1.5 ซม.
     if (sp === 'door') return Math.max(20, Math.min(150 - g.h / 2, DOOR.h - 8 - g.h)); // ระดับสายตาบนบานประตู
     if (sp === 'above') return scene === 'classroom' ? BOARD.y0 + BOARD.h + 15 : DOOR.h + 12; // เหนือวงกบ
     if (sp === 'beside') return Math.max(40, 150 - g.bh / 2);
@@ -454,6 +477,9 @@
     geometry: geometry,
     mountBottom: mountBottom,
     resolveSpot: resolveSpot,
+    doorSize: doorSize,
+    WALL_TONES: WALL_TONES,
+    TONE_ORDER: TONE_ORDER,
     DOOR: DOOR,
     BOARD: BOARD,
     camera: camera,

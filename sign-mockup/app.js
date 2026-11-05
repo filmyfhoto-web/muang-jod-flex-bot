@@ -23,6 +23,8 @@
     night: false,
     view: 'angle',
     spot: 'auto',
+    doorOpen: true, // ประตูห้องเรียนเปิดพับชิดผนัง (แบบที่ร้านส่งรูปมา)
+    tone: 'pink',
     qty: 1,
     rates: {},
     shopName: 'นัดพอน',
@@ -130,6 +132,7 @@
       h: st.h,
       scene: st.scene,
       spot: st.spot,
+      tone: st.tone,
       photo: photo,
       person: st.person,
       dims: st.dims,
@@ -204,6 +207,8 @@
       h: st.h,
       scene: st.scene === 'photo' ? 'studio' : st.scene,
       spot: st.spot,
+      doorOpen: st.doorOpen,
+      tone: st.tone,
       person: st.person,
       night: st.night,
       face: fc.canvas,
@@ -468,6 +473,7 @@
     var box = $('spotSeg');
     if (!sc || !sc.spots || C.TYPES[st.type].mount === 'floor') {
       field.hidden = true;
+      $('doorField').hidden = true;
       return;
     }
     field.hidden = false;
@@ -491,7 +497,37 @@
     });
     pressed('#spotSeg button', 'spot', valid ? st.spot : 'auto');
     $('spotHint').textContent =
-      st.scene === 'classroom' ? 'อัตโนมัติ = ติดเหนือกระดาน' : 'อัตโนมัติ = ป้ายเล็ก (ไม่เกิน 90 × 60 ซม.) ติดบนบานประตู ป้ายใหญ่ติดเหนือประตู';
+      st.scene === 'classroom'
+        ? 'อัตโนมัติ = ติดเหนือกระดาน'
+        : 'อัตโนมัติ = ป้ายขนาดประตู (กว้าง 55–110 สูง 150–230 ซม.) ติดเต็มบาน · ป้ายเล็กติดบนบาน · ป้ายใหญ่ติดเหนือประตู';
+    // ประตูห้องเรียน: เปิดพับชิดผนัง / ปิด (เฉพาะป้ายที่ติดบนบาน)
+    var sp = C.resolveSpot(st.scene, st.spot, C.geometry(st.type, st.w, st.h));
+    var canOpen = !!sc.canOpen && (sp === 'full' || sp === 'door');
+    $('doorField').hidden = !canOpen;
+    pressed('#doorSeg button', 'open', String(!!st.doorOpen));
+  }
+  function buildTones() {
+    var sc = C.SCENES[st.scene];
+    var field = $('toneField');
+    field.hidden = !(sc && sc.tones);
+    if (field.hidden) return;
+    var box = $('tones');
+    if (!box.children.length) {
+      C.TONE_ORDER.forEach(function (k) {
+        var tn = C.WALL_TONES[k];
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'swatch';
+        b.dataset.tone = k;
+        b.innerHTML = '<i style="background:linear-gradient(180deg,' + tn.upper + ' 0 55%,' + tn.lower + ' 55% 100%);box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)"></i>' + esc(tn.name);
+        b.addEventListener('click', function () {
+          st.tone = k;
+          sync();
+        });
+        box.appendChild(b);
+      });
+    }
+    pressed('#tones .swatch', 'tone', st.tone);
   }
 
   /* ---------- ซิงก์หน้าจอกับสถานะ ---------- */
@@ -544,9 +580,16 @@
     }
     buildPresets();
     buildSpots();
+    buildTones();
     save();
     draw();
   }
+  document.querySelectorAll('#doorSeg button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      st.doorOpen = b.dataset.open === 'true';
+      sync();
+    });
+  });
 
   /* ---------- ขั้น 1: งานออกแบบ ---------- */
   document.querySelectorAll('#modeSeg button').forEach(function (b) {

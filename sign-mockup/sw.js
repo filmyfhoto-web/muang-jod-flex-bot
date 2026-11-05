@@ -1,6 +1,6 @@
 /* นัดพอน Sign Mockup — เก็บไฟล์แอปไว้ในเครื่อง เปิดได้แม้ไม่มีเน็ต
  * เปลี่ยนไฟล์แอปเมื่อไหร่ ให้เลื่อนเลข VERSION (มีเทสต์เช็กว่ารายการไฟล์ครบ) */
-var VERSION = 'sign-mockup-2.1.0';
+var VERSION = 'sign-mockup-2.2.0';
 var APP = [
   './',
   'index.html',

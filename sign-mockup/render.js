@@ -457,7 +457,7 @@
   /* ---------- ฉากในอาคาร (2 มิติ สำรอง) ---------- */
   // กึ่งกลางประตู/กระดาน (ซม. จากขอบซ้ายชิ้นงาน) ตามตำแหน่งติดป้าย — ตรงกับฉาก 3 มิติ
   function featureCx(scene, g, spot) {
-    var half = scene === 'classroom' ? C.BOARD.w / 2 : C.DOOR.w / 2 + 7;
+    var half = scene === 'classroom' ? C.BOARD.w / 2 : C.doorSize(scene, spot, g).w / 2 + 7;
     if (g.mount === 'floor') return -(half + (scene === 'classroom' ? 50 : 45));
     var sp = C.resolveSpot(scene, spot, g);
     if (sp === 'beside') return -(half + (scene === 'classroom' ? 35 : 20));
@@ -475,12 +475,13 @@
     x.fillRect(0, Y(cam, 100) - Math.max(1, 1.7 * cam.s), W, Math.max(2, 3.5 * cam.s));
     grain(x, 0, 0, W, fy, 0.08, 1.5);
   }
-  function door2d(x, cam, cx, style) {
+  function door2d(x, cam, cx, style, size) {
     var s = cam.s;
-    var L = X(cam, cx - C.DOOR.w / 2);
-    var T = Y(cam, C.DOOR.h);
-    var w = C.DOOR.w * s;
-    var h = C.DOOR.h * s;
+    var D = size || C.DOOR;
+    var L = X(cam, cx - D.w / 2);
+    var T = Y(cam, D.h);
+    var w = D.w * s;
+    var h = D.h * s;
     var fw = 7 * s;
     x.fillStyle = style === 'panel' ? '#5c3920' : '#efece6';
     x.fillRect(L - fw, T - fw, w + fw * 2, h + fw);
@@ -516,15 +517,19 @@
     x.lineTo(L + (w * s) / 2, T + h * s);
     x.stroke();
   }
-  function sceneClassDoor(x, cam, g, spot) {
-    twoTone(x, cam, '#9fc4a8', '#f7f1df');
+  function tone(st) {
+    return C.WALL_TONES[st && st.tone] || C.WALL_TONES.pink;
+  }
+  function sceneClassDoor(x, cam, g, spot, st) {
+    twoTone(x, cam, tone(st).lower, tone(st).upper);
     var cx = featureCx('classDoor', g, spot);
+    var D = C.doorSize('classDoor', spot, g);
     [-390, -230, 230, 390].forEach(function (o) {
-      louver2d(x, cam, cx + o, 162, 120, 110);
+      if (Math.abs(o) > D.w / 2 + 70) louver2d(x, cam, cx + o, 162, 120, 110);
     });
-    door2d(x, cam, cx, 'panel');
+    door2d(x, cam, cx, 'panel', D);
     topLight(x, cam.W, cam.H, X(cam, cx), 0.3);
-    if (cam.floorY < cam.H) floor(x, cam, '#b9b5ad', '#a09c94', 120, 0.08);
+    if (cam.floorY < cam.H) floor(x, cam, '#8f4430', '#6f3424', 30, 0.18);
     vignette(x, cam.W, cam.H, 0.22);
   }
   function sceneOfficeDoor(x, cam, g, spot) {
@@ -533,7 +538,7 @@
     x.fillRect(0, 0, cam.W, fy);
     grain(x, 0, 0, cam.W, fy, 0.08, 1.5);
     var cx = featureCx('officeDoor', g, spot);
-    door2d(x, cam, cx, 'flush');
+    door2d(x, cam, cx, 'flush', C.doorSize('officeDoor', spot, g));
     topLight(x, cam.W, cam.H, X(cam, cx), 0.35);
     if (cam.floorY < cam.H) {
       x.fillStyle = '#f2f0ec';
@@ -542,8 +547,8 @@
     }
     vignette(x, cam.W, cam.H, 0.22);
   }
-  function sceneClassroom(x, cam, g, spot) {
-    twoTone(x, cam, '#9fc4a8', '#f7f1df');
+  function sceneClassroom(x, cam, g, spot, st) {
+    twoTone(x, cam, tone(st).lower, tone(st).upper);
     var cx = featureCx('classroom', g, spot);
     var s = cam.s;
     var B = C.BOARD;
@@ -556,7 +561,7 @@
     x.fillStyle = '#c9cdd3';
     x.fillRect(L + B.w * 0.1 * s, Y(cam, B.y0) + s, B.w * 0.8 * s, Math.max(2, 3 * s));
     topLight(x, cam.W, cam.H, X(cam, cx), 0.3);
-    if (cam.floorY < cam.H) floor(x, cam, '#b4ab9e', '#958c7f', 60, 0.1);
+    if (cam.floorY < cam.H) floor(x, cam, '#8f4430', '#6f3424', 30, 0.18);
     vignette(x, cam.W, cam.H, 0.22);
   }
 
@@ -1176,7 +1181,7 @@
     var scene = SCENE_DRAW[st.scene] ? st.scene : 'studio';
     var cam = C.camera({ scene: scene, g: g, W: W, H: H, person: st.person, zoom: st.zoom, spot: st.spot });
     out.cam = cam;
-    SCENE_DRAW[scene](x, cam, g, st.spot);
+    SCENE_DRAW[scene](x, cam, g, st.spot, st);
     var s = cam.s;
     var oc = objectCanvas(g, s * scale, st.design, st.fit);
     var ox = cam.left;
