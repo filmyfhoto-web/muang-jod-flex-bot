@@ -225,6 +225,59 @@
               </div>
               <div class="chips" id="presets"></div>
               <p class="readout" id="sizeReadout"></p>
+              <div class="steel run stack" id="runPane" hidden>
+                <h3>รันนัมเบอร์ <small>เลขเรียงทีละใบ</small></h3>
+                <label class="toggle"><input type="checkbox" id="runOn" /><span>ใส่เลขรันบนบัตร</span></label>
+                <div class="run-opts stack" id="runOpts">
+                  <div class="grid3">
+                    <label class="field">
+                      <span class="label">คำนำหน้า</span>
+                      <input id="runPrefix" type="text" maxlength="12" placeholder="No." />
+                    </label>
+                    <label class="field">
+                      <span class="label">เริ่มที่เลข</span>
+                      <input id="runStart" type="text" inputmode="numeric" />
+                    </label>
+                    <label class="field">
+                      <span class="label">จำนวนหลัก</span>
+                      <input id="runDigits" type="text" inputmode="numeric" />
+                    </label>
+                  </div>
+                  <div class="field">
+                    <span class="label">ตำแหน่งเลข</span>
+                    <div class="seg small" id="runPos">
+                      <button type="button" data-pos="tl">ซ้ายบน</button>
+                      <button type="button" data-pos="tr">ขวาบน</button>
+                      <button type="button" data-pos="bl">ซ้ายล่าง</button>
+                      <button type="button" data-pos="br">ขวาล่าง</button>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <span class="label">ขนาดเลข</span>
+                    <div class="seg small" id="runSize">
+                      <button type="button" data-size="s">เล็ก 9 pt</button>
+                      <button type="button" data-size="m">กลาง 12 pt</button>
+                      <button type="button" data-size="l">ใหญ่ 16 pt</button>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <span class="label">สีเลข</span>
+                    <div class="swatches" id="runColors"></div>
+                  </div>
+                  <label class="field">
+                    <span class="label">ต้นขั้ว (ฉีกเก็บไว้ ฝั่งซ้าย) <small>ใส่ 0 = ไม่มี</small></span>
+                    <span class="affix"><input id="runStub" type="text" inputmode="decimal" /><i>ซม.</i></span>
+                  </label>
+                </div>
+                <p class="readout" id="runInfo"></p>
+              </div>
+              <div class="field" id="cncPostField" hidden>
+                <span class="label">เสา</span>
+                <div class="seg small" id="cncPostSeg">
+                  <button type="button" data-posts="1">มีเสา ตั้งพื้น</button>
+                  <button type="button" data-posts="0">ไม่มีเสา ติดผนัง</button>
+                </div>
+              </div>
               <div class="field" id="metalField" hidden>
                 <span class="label" id="metalLabel">สีโครงเหล็ก</span>
                 <div class="swatches" id="metals"></div>
@@ -429,6 +482,15 @@
         <button type="button" data-fmt="png">รูป PNG (คมสุด)</button>
         <button type="button" data-fmt="pdf">ใบเสนอราคา PDF</button>
         <button type="button" data-fmt="glb" id="fmtGlb">ไฟล์/ลิงก์ 3 มิติ</button>
+        <button type="button" data-fmt="print" id="fmtPrint" hidden>ไฟล์พิมพ์ (จัดหน้า)</button>
+      </div>
+      <div class="sheetbar" id="sheetBar" hidden>
+        <span class="label">กระดาษ</span>
+        <div class="seg small" id="sheetSeg">
+          <button type="button" data-sheet="a4">A4</button>
+          <button type="button" data-sheet="a3">A3</button>
+          <button type="button" data-sheet="s13">13×19 นิ้ว</button>
+        </div>
       </div>
       <div class="dlg-img" id="dlgImg"><img id="exportImg" alt="ภาพจำลองป้ายสำหรับส่งลูกค้า" /></div>
       <div class="dlg-file" id="dlgFile" hidden>
@@ -504,6 +566,11 @@
           <div class="opt-list" id="optPresets"></div>
         </section>
         <section class="opt-sec">
+          <h3>ชนิดงานของร้าน <small>เพิ่มงานที่ร้านทำเอง เช่น ป้ายพลาสวูด บัตรคิว ป้ายตั้งโต๊ะ</small></h3>
+          <div class="opt-list" id="optMyTypes"></div>
+          <button type="button" class="btn-ghost small" id="optAddType">+ เพิ่มชนิดงาน</button>
+        </section>
+        <section class="opt-sec">
           <h3>ชนิดป้ายที่ใช้ <small>เอาเครื่องหมายออก = ซ่อน</small></h3>
           <div class="checks" id="optTypes"></div>
         </section>
@@ -566,6 +633,48 @@
       <div class="dlg-actions">
         <button type="button" class="btn-primary" id="toSave">บันทึกสีผนัง</button>
       </div>
+    </dialog>
+
+    <dialog id="typeDlg" class="type-dlg" aria-labelledby="typeTitle">
+      <div class="dlg-head">
+        <h2 id="typeTitle">เพิ่มชนิดงานของร้าน</h2>
+        <button type="button" class="btn-ghost small" data-close>ปิด</button>
+      </div>
+      <div class="stack">
+        <label class="field">
+          <span class="label">ชื่อชนิดงาน</span>
+          <input id="tyName" type="text" maxlength="40" placeholder="เช่น ป้ายพลาสวูด · บัตรคิว · ป้ายตั้งโต๊ะ" />
+        </label>
+        <label class="field">
+          <span class="label">หน้าตา (ภาพจำลอง) เหมือน</span>
+          <select id="tyBase"></select>
+        </label>
+        <div class="field">
+          <span class="label">คิดราคา</span>
+          <div class="seg small" id="tyUnit">
+            <button type="button" data-unit="sqm">ต่อ ตร.ม.</button>
+            <button type="button" data-unit="pcs">ต่อชิ้น</button>
+            <button type="button" data-unit="set">ต่อชุด</button>
+          </div>
+        </div>
+        <label class="field">
+          <span class="label">หน่วยเรียก</span>
+          <input id="tyWord" type="text" maxlength="8" placeholder="แผ่น / ใบ / ชิ้น / ชุด" />
+        </label>
+        <label class="field">
+          <span class="label">ขนาดที่ใช้บ่อย (กว้าง x สูง ซม. คั่นด้วยจุลภาค)</span>
+          <input id="tySizes" type="text" placeholder="60x90, 120x240" />
+        </label>
+        <label class="field">
+          <span class="label">คำอธิบายสั้น ๆ</span>
+          <input id="tyDesc" type="text" maxlength="60" placeholder="เช่น พลาสวูดหนา 5 มม. ตัดตามรูป" />
+        </label>
+      </div>
+      <div class="dlg-actions">
+        <button type="button" class="btn-ghost danger" id="tyDelete" hidden>ลบชนิดนี้</button>
+        <button type="button" class="btn-primary" id="tySave">บันทึกชนิดงาน</button>
+      </div>
+      <p class="status" id="tyStatus" role="status" aria-live="polite"></p>
     </dialog>
 
     <dialog id="cutDlg" aria-labelledby="cutTitle">

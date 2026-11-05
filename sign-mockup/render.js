@@ -905,6 +905,7 @@
     return c;
   }
   function cncPosts(x, g, k) {
+    if (g.noPosts) return; // แบบติดผนัง ไม่มีเสา
     var pw = g.post * k;
     var ph = (g.cap + g.h + g.lift) * k;
     var col = g.steel ? g.steel.color : '';
@@ -1607,6 +1608,130 @@
     return c;
   }
 
+  /* บัตรรันนัมเบอร์: วาดงาน + เส้นปรุต้นขั้ว + เลขรัน
+   * o.k = พิกเซลต่อ ซม. · o.bleed = ตัดตก (ซม.) เติมด้วยสีพื้นงาน · o.digits = false → ใส่แค่คำนำหน้า (ตัวเลขไปใส่ใน PDF)
+   * คืน { canvas, labels: [{ digitsX, y, size }] } ตำแหน่งตัวเลขเป็น ซม. จากมุมซ้ายบนของบัตร */
+  function runFont(px) {
+    return '700 ' + px + 'px Arial, "Liberation Sans", Helvetica, "Noto Sans Thai", sans-serif';
+  }
+  // ช่องเขียนบนต้นขั้ว (ชื่อ ..... / โทร ..... / วันที่ .....) เว้นแถบเลขรัน
+  function stubLines(x, lay, run, bg, ox, oy, k, hcm) {
+    var lum = (0.299 * bg[0] + 0.587 * bg[1] + 0.114 * bg[2]) / 255;
+    var ink = lum < 0.55 ? 'rgba(255,255,255,0.78)' : 'rgba(0,0,0,0.62)';
+    var sl = lay.slots[0];
+    var top = run.pos.charAt(0) === 't';
+    var y0 = top ? sl.y + 0.45 : 0.45;
+    var y1 = top ? hcm - 0.4 : sl.y - sl.size - 0.35;
+    var fs = Math.min(0.34, lay.stub * 0.085);
+    var labels = ['ชื่อ', 'โทร', 'วันที่'];
+    var n = Math.min(3, Math.floor((y1 - y0) / (fs * 2.1)));
+    if (n < 1) return;
+    var step = (y1 - y0) / n;
+    x.save();
+    x.fillStyle = ink;
+    x.strokeStyle = ink;
+    x.font = '500 ' + fs * k + 'px ' + BODY;
+    x.textAlign = 'left';
+    x.textBaseline = 'alphabetic';
+    x.lineWidth = Math.max(1, 0.02 * k);
+    x.setLineDash([0.04 * k, 0.07 * k]);
+    for (var i = 0; i < n; i++) {
+      var y = oy + (y0 + step * (i + 0.5) + fs * 0.35) * k;
+      var x0 = ox + 0.35 * k;
+      x.fillText(labels[i], x0, y);
+      var tw = x.measureText(labels[i]).width;
+      x.beginPath();
+      x.moveTo(x0 + tw + 0.12 * k, y);
+      x.lineTo(ox + (lay.stub - 0.35) * k, y);
+      x.stroke();
+    }
+    x.restore();
+  }
+  function cardArt(d, wcm, hcm, fit, run, o) {
+    o = o || {};
+    var k = o.k || 100;
+    var b = o.bleed || 0;
+    var c = mk(Math.max(1, Math.round((wcm + 2 * b) * k)), Math.max(1, Math.round((hcm + 2 * b) * k)));
+    var x = ctx2d(c);
+    if (b) {
+      x.fillStyle = d && d.bg ? rgb(d.bg) : '#ffffff';
+      x.fillRect(0, 0, c.width, c.height);
+    }
+    var ox = b * k;
+    var oy = b * k;
+    var lay = run && run.on ? C.runSlots(run, wcm, hcm) : null;
+    if (lay && lay.stub && o.split) {
+      // งานพิมพ์ข้อความ: ต้นขั้วเป็นสีพื้นงาน มีช่องเขียน ชื่อ/โทร/วันที่ · งานจัดอยู่ฝั่งขวาของเส้นปรุ
+      var bg = d && d.bg ? d.bg : [255, 255, 255];
+      x.fillStyle = rgb(bg);
+      x.fillRect(ox, oy, wcm * k, hcm * k);
+      paintDesign(x, d, ox + lay.stub * k, oy, (wcm - lay.stub) * k, hcm * k, fit);
+      stubLines(x, lay, run, bg, ox, oy, k, hcm);
+    } else paintDesign(x, d, ox, oy, wcm * k, hcm * k, fit);
+    var labels = [];
+    if (lay) {
+      if (lay.stub) {
+        // เส้นปรุแบ่งต้นขั้ว
+        var sx = Math.round(ox + lay.stub * k) + 0.5;
+        x.save();
+        x.strokeStyle = 'rgba(0,0,0,0.45)';
+        x.lineWidth = Math.max(1, 0.025 * k);
+        x.setLineDash([0.18 * k, 0.12 * k]);
+        x.beginPath();
+        x.moveTo(sx, oy);
+        x.lineTo(sx, oy + hcm * k);
+        x.stroke();
+        x.restore();
+      }
+      lay.slots.forEach(function (sl) {
+        x.font = runFont(sl.size * k);
+        x.textAlign = 'left';
+        x.textBaseline = 'alphabetic';
+        x.fillStyle = run.color;
+        var pw = run.prefix ? x.measureText(run.prefix).width / k : 0;
+        var lab = C.runLabel(sl, pw, run.digits);
+        if (run.prefix) x.fillText(run.prefix, ox + lab.left * k, oy + sl.y * k);
+        if (o.digits !== false) x.fillText(C.runDigits(run, o.index || 0), ox + lab.digitsX * k, oy + sl.y * k);
+        labels.push({ digitsX: lab.digitsX, y: sl.y, size: sl.size });
+      });
+    }
+    return { canvas: c, labels: labels };
+  }
+
+  /* ตัวอย่างหน้ากระดาษพิมพ์แผ่นแรก (ย่อ): ช่องบัตร + เส้นตัด — ใช้โชว์ในหน้าต่างส่งออก
+   * art = รูปบัตรรวมตัดตก หรือฟังก์ชัน (ลำดับใบ) → รูปบัตร (ให้เลขรันต่างกันทุกช่อง) */
+  function sheetPreview(plan, art, maxW) {
+    var L = plan.layout;
+    var k = maxW / L.sw;
+    var c = mk(Math.round(L.sw * k), Math.round(L.sh * k));
+    var x = ctx2d(c);
+    x.fillStyle = '#ffffff';
+    x.fillRect(0, 0, c.width, c.height);
+    var b = L.bleed;
+    L.cells.forEach(function (cell, i) {
+      if (i >= plan.qty) return;
+      var img = typeof art === 'function' ? art(i) : art;
+      x.save();
+      if (L.rot) {
+        x.translate((cell.x - b) * k, (cell.y - b + L.h + 2 * b) * k);
+        x.rotate(-Math.PI / 2);
+      } else x.translate((cell.x - b) * k, (cell.y - b) * k);
+      var aw = (L.rot ? L.h : L.w) + 2 * b;
+      var ah = (L.rot ? L.w : L.h) + 2 * b;
+      x.drawImage(img, 0, 0, aw * k, ah * k);
+      x.restore();
+    });
+    x.strokeStyle = '#000';
+    x.lineWidth = 1;
+    C.cropMarks(L).forEach(function (m) {
+      x.beginPath();
+      x.moveTo(m[0] * k, m[1] * k);
+      x.lineTo(m[2] * k, m[3] * k);
+      x.stroke();
+    });
+    return c;
+  }
+
   // เส้นบอกขนาดและป้าย "คนสูง 170 ซม." จากจุดที่ฉาย (−1..1) ลงภาพขนาด W×H
   function overlay3d(x, pr, g, W, H, U, opt) {
     if (!pr) return;
@@ -1656,6 +1781,9 @@
   NS.render = {
     render: render,
     faceCanvas: faceCanvas,
+    cardArt: cardArt,
+    sheetPreview: sheetPreview,
+    runFont: runFont,
     overlay3d: overlay3d,
     footer: footer,
     textDesign: textDesign,

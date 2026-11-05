@@ -1352,7 +1352,7 @@ const BUILD = { studio: buildStudio, wall: buildWall, brick: buildBrick, shop: b
 // หน้าป้าย: วัสดุแต่ละชนิดผิวไม่เหมือนกัน
 function faceMat(type, map) {
   if (type === 'lightbox') return std({ map, emissiveMap: map, emissive: 0xffffff, emissiveIntensity: 0.18, roughness: 0.42 });
-  const rough = { vinyl: 0.72, frame: 0.7, foam: 0.5, sticker: 0.36, acrylic: 0.6, rollup: 0.5, xstand: 0.55 }[type] || 0.7;
+  const rough = { vinyl: 0.72, frame: 0.7, foam: 0.5, sticker: 0.36, acrylic: 0.6, rollup: 0.5, xstand: 0.55, card: 0.45 }[type] || 0.7;
   return std({ map, roughness: rough, metalness: 0 });
 }
 
@@ -1408,6 +1408,14 @@ function buildBoard(type, w, h, map, edge) {
       type === 'frame' ? std({ color: new THREE.Color().setRGB(edge[0] / 255, edge[1] / 255, edge[2] / 255, THREE.SRGBColorSpace), roughness: 0.7 }) : MAT.foamEdge;
     const b = box(w, h, d, [sideMat, sideMat, sideMat, sideMat, face, MAT.back]);
     const z0 = type === 'frame' ? 0 : 0.002; // โฟมบอร์ดติดเทปกาวสองหน้า
+    b.position.z = z0 + d / 2;
+    g.add(b);
+    front = z0 + d;
+  } else if (type === 'card') {
+    // บัตรอาร์ตการ์ด 0.4 มม. ขอบกระดาษขาว ลอยหน้าพื้นหลังนิดหน่อยให้มีเงา (ภาพโชว์สินค้า)
+    const d = 0.0004;
+    const z0 = 0.0025;
+    const b = box(w, h, d, [MAT.foamEdge, MAT.foamEdge, MAT.foamEdge, MAT.foamEdge, face, MAT.foamEdge]);
     b.position.z = z0 + d / 2;
     g.add(b);
     front = z0 + d;
@@ -1518,18 +1526,21 @@ function buildRollup(w, h, map) {
  * แผ่นหน้าเป็นสีพื้นของงาน · ตัวนูนทอดเงาลงบนแผ่นจริง */
 function buildCnc(w, h, map, edge, steel) {
   const g = new THREE.Group();
-  const G = C.geometry('cnc', w * 100, h * 100);
+  const G = C.geometry('cnc', w * 100, h * 100, steel);
+  const posts = !G.noPosts;
   const lift = G.lift / 100;
   const post = G.post / 100;
   const cap = G.cap / 100;
   const relief = G.relief / 100;
   const T = G.depth / 100;
-  const cy = lift + h / 2;
+  // มีเสา: จุดตั้งอยู่ที่พื้น หน้าแผ่นอยู่ที่ z = 0 · ไม่มีเสา: จุดตั้งอยู่กลางป้าย แผ่นลอยจากผนัง 1 ซม.
+  const cy = posts ? lift + h / 2 : 0;
+  const z0 = posts ? 0 : T + 0.01;
   const bgCol = (e) => new THREE.Color().setRGB(e[0] / 255, e[1] / 255, e[2] / 255, THREE.SRGBColorSpace);
   const plate = std({ color: bgCol(edge), roughness: 0.38, metalness: 0.12 });
   const back = std({ color: 0x8e9299, roughness: 0.6, metalness: 0.3 });
   const panel = new THREE.Mesh(new THREE.BoxGeometry(w, h, T), [MAT.alu, MAT.alu, MAT.alu, MAT.alu, plate, back]);
-  panel.position.set(0, cy, -T / 2);
+  panel.position.set(0, cy, z0 - T / 2);
   g.add(panel);
   // ตัวนูน: ชั้นหน้าเป็นสีงานจริง ชั้นในมืดลง (ด้านข้างตัวอักษร)
   const front = std({ alphaTest: 0.5, roughness: 0.3, metalness: 0.04 });
@@ -1539,7 +1550,7 @@ function buildCnc(w, h, map, edge, steel) {
   const N = 7;
   for (let i = 0; i < N; i++) {
     const m = new THREE.Mesh(geo, i === N - 1 ? front : side);
-    m.position.set(0, cy, 0.0015 + ((relief - 0.0015) * i) / (N - 1));
+    m.position.set(0, cy, z0 + 0.0015 + ((relief - 0.0015) * i) / (N - 1));
     m.customDepthMaterial = depthMat;
     g.add(m);
   }
@@ -1563,6 +1574,20 @@ function buildCnc(w, h, map, edge, steel) {
   const postM = steel && steel.color ? metalMat(C.metalColor(steel.color)) : std({ color: 0x3c4047, roughness: 0.5, metalness: 0.4 });
   const concrete = std({ color: 0xa8a59e, roughness: 0.95 });
   const ph = lift + h + cap;
+  if (!posts) {
+    // ขายึดหลังแผ่น (เห็นตอนมองด้านข้าง)
+    for (const s of [-1, 1])
+      for (const y of [h / 2 - 0.1, -h / 2 + 0.1]) {
+        const br = box(0.04, 0.03, 0.012, MAT.darkAlu);
+        br.position.set(s * (w / 2 - 0.12), y, 0.006);
+        g.add(br);
+      }
+    const dispose = () => {
+      if (tex) tex.dispose();
+      depthMat.dispose();
+    };
+    return { group: g, face: null, front: z0 + relief, setFace, dispose };
+  }
   for (const s of [-1, 1]) {
     const x = s * (w / 2 + post / 2);
     const p = box(post, ph, post, postM);
@@ -1869,19 +1894,21 @@ export function createStage(opts) {
     const w = s.w / 100;
     const h = s.h / 100;
     const map = faceTex;
-    if (s.type === 'vinyl') model = buildVinyl(w, h, map);
-    else if (s.type === 'rollup') model = buildRollup(w, h, map);
-    else if (s.type === 'xstand') model = buildXstand(w, h, map);
-    else if (s.type === 'cnc') model = buildCnc(w, h, map, s.edge || [31, 42, 77], s.steel);
-    else if (s.type === 'stand') model = buildStand(w, h, map, s.steel);
-    else model = buildBoard(s.type, w, h, map, s.edge || [120, 120, 120]);
-    model.type = s.type;
+    // ชนิดงานของร้านใช้หน้าตาของชนิดมาตรฐานที่เลือกไว้
+    const bt = C.baseType(s.type);
+    if (bt === 'vinyl') model = buildVinyl(w, h, map);
+    else if (bt === 'rollup') model = buildRollup(w, h, map);
+    else if (bt === 'xstand') model = buildXstand(w, h, map);
+    else if (bt === 'cnc') model = buildCnc(w, h, map, s.edge || [31, 42, 77], s.steel);
+    else if (bt === 'stand') model = buildStand(w, h, map, s.steel);
+    else model = buildBoard(bt, w, h, map, s.edge || [120, 120, 120]);
+    model.type = bt;
     model.w = w;
     model.h = h;
-    model.floor = C.TYPES[s.type].mount === 'floor';
+    model.floor = C.geometry(s.type, s.w, s.h, s.steel).mount === 'floor';
     shadowy(model.group, true, true);
-    if (s.type === 'vinyl') model.group.children.slice(0, 2).forEach((m) => (m.receiveShadow = false));
-    if (s.type === 'sticker') model.group.traverse((m) => (m.castShadow = m.receiveShadow = false));
+    if (bt === 'vinyl') model.group.children.slice(0, 2).forEach((m) => (m.receiveShadow = false));
+    if (bt === 'sticker') model.group.traverse((m) => (m.castShadow = m.receiveShadow = false));
     signRoot.add(model.group);
   }
 
@@ -2153,7 +2180,7 @@ export function createStage(opts) {
       if (model && model.setFace) model.setFace(faceTex, st.edge);
       if (old) old.dispose();
     }
-    const sk = [st.type, st.w, st.h, (st.edge || []).map(Math.round).join(','), st.type === 'stand' ? JSON.stringify(st.steel || {}) : st.type === 'cnc' ? (st.steel && st.steel.color) || '' : ''].join('|');
+    const sk = [st.type, st.w, st.h, (st.edge || []).map(Math.round).join(','), st.type === 'stand' ? JSON.stringify(st.steel || {}) : st.type === 'cnc' ? ((st.steel && st.steel.color) || '') + (C.cncPosts(st.steel) ? '' : '|wall') : ''].join('|');
     const geomChanged = sk !== signKey;
     const sceneChanged = st.scene !== cur.scene || !envKey;
     const personChanged = !!st.person !== !!cur.person || st.spot !== cur.spot || !!st.doorOpen !== !!cur.doorOpen;

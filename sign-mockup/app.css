@@ -1551,7 +1551,8 @@ dialog.opt-dlg {
   accent-color: var(--accent);
 }
 dialog.theme-dlg,
-dialog.tone-dlg {
+dialog.tone-dlg,
+dialog.type-dlg {
   width: min(520px, calc(100vw - 32px));
 }
 #thPreview {
@@ -1821,4 +1822,56 @@ dialog.tone-dlg {
   * {
     transition: none !important;
   }
+}
+
+/* บัตร: รันนัมเบอร์ */
+.grid3 {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr;
+  gap: 10px;
+}
+.run .label small {
+  margin-left: 4px;
+  color: var(--ink-3);
+  font-weight: 400;
+}
+.run .readout {
+  margin: 0;
+}
+/* ชนิดงานที่ร้านเพิ่มเอง */
+.card.mine {
+  position: relative;
+}
+.card.mine::after {
+  content: 'ของร้าน';
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: 500 10.5px/1.5 var(--font-body);
+}
+/* ส่งออกไฟล์พิมพ์: เลือกกระดาษ */
+.sheetbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.sheetbar .label {
+  margin: 0;
+}
+.sheetbar .seg {
+  flex: 1;
+  max-width: 340px;
+}
+.sheetbar .seg button {
+  flex: 1 0 auto;
+  white-space: nowrap;
+  padding-inline: 10px;
+}
+#tyBase {
+  width: 100%;
 }
