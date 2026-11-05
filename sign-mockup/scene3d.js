@@ -406,6 +406,65 @@ function buildStudio() {
   return { group: g, bg: new THREE.Color(0xe7e5e0), fog: [0xe7e5e0, 14, 34], floorZ: 1.2, wallZ: 0, kind: 'indoor' };
 }
 
+/* ฉากบัตร: "บนกระดาษ" — แผ่นกระดาษมีใย (เปลี่ยนสีได้) บัตรวางอยู่บนกระดาษ มองแบบภาพสินค้า */
+function buildPaper() {
+  const g = new THREE.Group();
+  const c = mk(512, 512);
+  const x = c.getContext('2d');
+  x.fillStyle = '#ffffff';
+  x.fillRect(0, 0, 512, 512);
+  let seed = 11;
+  const r = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < 2600; i++) {
+    const px = r() * 512;
+    const py = r() * 512;
+    const a = r() * Math.PI;
+    const l = 2 + r() * 10;
+    x.strokeStyle = r() < 0.6 ? 'rgba(255,255,255,0.32)' : 'rgba(0,0,0,0.028)';
+    x.lineWidth = 0.6 + r() * 0.7;
+    x.beginPath();
+    x.moveTo(px, py);
+    x.lineTo(px + Math.cos(a) * l, py + Math.sin(a) * l);
+    x.stroke();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.anisotropy = ANISO;
+  tex.repeat.set(16, 12);
+  const mat = std({ color: 0xf2f0ea, map: tex, roughness: 0.96 });
+  const sheet = plane(4, 3, mat);
+  sheet.position.set(0, 1.5, 0);
+  sheet.receiveShadow = true;
+  g.add(sheet);
+  const env = { group: g, bg: new THREE.Color(0xf2f0ea), floorZ: 0.5, wallZ: 0, kind: 'indoor', cfg: {} };
+  env.configure = (o) => {
+    const p = C.PAPERS[o.paper] || C.PAPERS.white;
+    mat.color.set(p.color);
+    env.bg.set(p.color);
+  };
+  return env;
+}
+
+/* ฉากบัตร: "มือถือบัตร" — พื้นหลังนุ่ม ๆ (มือวาดติดไปกับบัตรใน layout) */
+function buildHandScene() {
+  const g = new THREE.Group();
+  const c = mk(512, 512);
+  const x = c.getContext('2d');
+  const grd = x.createRadialGradient(256, 220, 0, 256, 256, 360);
+  grd.addColorStop(0, '#f7f4ef');
+  grd.addColorStop(0.6, '#e9e4dc');
+  grd.addColorStop(1, '#d6cfc4');
+  x.fillStyle = grd;
+  x.fillRect(0, 0, 512, 512);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const back = plane(3, 3, new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
+  back.position.set(0, 1.5, -0.7);
+  g.add(back);
+  return { group: g, bg: new THREE.Color(0xd6cfc4), floorZ: 0.5, wallZ: 0, kind: 'indoor' };
+}
+
 function buildWall() {
   const g = new THREE.Group();
   const p = plaster('#e9e4db', 3);
@@ -1346,7 +1405,7 @@ function buildClassroom() {
   return env;
 }
 
-const BUILD = { studio: buildStudio, wall: buildWall, brick: buildBrick, shop: buildShop, fence: buildFence, classDoor: buildClassDoor, officeDoor: buildOfficeDoor, classroom: buildClassroom };
+const BUILD = { paper: buildPaper, hand: buildHandScene, studio: buildStudio, wall: buildWall, brick: buildBrick, shop: buildShop, fence: buildFence, classDoor: buildClassDoor, officeDoor: buildOfficeDoor, classroom: buildClassroom };
 
 /* ---------------- ตัวป้าย ---------------- */
 // หน้าป้าย: วัสดุแต่ละชนิดผิวไม่เหมือนกัน
@@ -1832,6 +1891,69 @@ export function createStage(opts) {
   scene.add(person);
   const ties = new THREE.Group();
   scene.add(ties);
+  // ฉากบัตร: มือจับบัตร (ภาพวาด 2 ชั้น: หลังบัตร / ทับหน้าบัตร) · บัตรซ้อนใต้บัตรบนกระดาษ — ติดไปกับตัวบัตร
+  // (ใส่ใน signRoot เฉพาะตอนใช้ ไม่งั้นกรอบคำนวณมุมกล้องจะนับรวม)
+  const handG = new THREE.Group();
+  let handKey = '';
+  const stackG = new THREE.Group();
+  let stackKey = '';
+  function clearGroup(gr) {
+    gr.children.slice().forEach((m) => {
+      gr.remove(m);
+      m.geometry.dispose();
+      if (m.material.map) m.material.map.dispose();
+      if (m.material !== MAT.foamEdge) m.material.dispose();
+    });
+  }
+  function buildHandPlanes(w, h) {
+    clearGroup(handG);
+    if (!NS.render || !NS.render.handArt) return;
+    const art = NS.render.handArt(64, w * 100, h * 100);
+    const cx = -w / 2 + (art.x0 + art.wcm / 2) / 100;
+    const cy = -h / 2 + (art.y1 - art.hcm / 2) / 100;
+    const front = (model && model.front) || 0.003;
+    [[art.back, 0.0012], [art.front, front + 0.0015]].forEach(([cv, z]) => {
+      const t = new THREE.CanvasTexture(cv);
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = ANISO;
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(art.wcm / 100, art.hcm / 100), new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.03, toneMapped: false }));
+      m.position.set(cx, cy, z);
+      handG.add(m);
+    });
+  }
+  // เงานุ่มใต้กองบัตร (วาดเป็นภาพ ได้เงาสวยทุกเครื่อง ไม่ขึ้นกับความคมของแผนที่เงา)
+  let shadowTex = null;
+  function softShadow() {
+    if (shadowTex) return shadowTex;
+    const c = mk(256, 256);
+    const x = c.getContext('2d');
+    x.filter = 'blur(14px)';
+    x.fillStyle = 'rgba(0,0,0,0.55)';
+    x.fillRect(40, 40, 176, 176);
+    shadowTex = new THREE.CanvasTexture(c);
+    return shadowTex;
+  }
+  function buildStack(w, h) {
+    clearGroup(stackG);
+    const pad = 0.012;
+    const sm = new THREE.MeshBasicMaterial({ map: softShadow().clone(), transparent: true, depthWrite: false, opacity: 0.55, toneMapped: false });
+    sm.map.needsUpdate = true;
+    // ภาพเงา 256 จุด: ช่องทึบ 176 จุดตรงกลาง → ขยายให้ส่วนทึบเท่าบัตร
+    const sh = new THREE.Mesh(new THREE.PlaneGeometry((w + pad) * (256 / 176), (h + pad) * (256 / 176)), sm);
+    sh.position.set(0.0035, -0.005, 0.0002);
+    stackG.add(sh);
+    for (let i = 1; i <= 2; i++) {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.0004), MAT.foamEdge);
+      b.position.set(0.0012 * i, -0.0018 * i, 0.0025 - 0.0007 * i);
+      b.rotation.z = 0.004 * i;
+      b.castShadow = true;
+      b.receiveShadow = true;
+      stackG.add(b);
+    }
+  }
+  function smallNow() {
+    return !!(C.TYPES[cur.type] && C.TYPES[cur.type].small);
+  }
   let glow = null;
 
   let model = null;
@@ -1924,7 +2046,7 @@ export function createStage(opts) {
     curSpot = spot;
     if (env.configure) {
       const ds = C.doorSize(sceneKey, cur.spot, g);
-      env.configure({ spot, dw: ds.w / 100, dh: ds.h / 100, open: !!cur.doorOpen, tone: cur.tone || 'pink' });
+      env.configure({ spot, dw: ds.w / 100, dh: ds.h / 100, open: !!cur.doorOpen, tone: cur.tone || 'pink', paper: cur.paper || 'white' });
     }
     let baseY;
     let z;
@@ -1940,6 +2062,26 @@ export function createStage(opts) {
     }
     const top = model.floor ? (model.faceY ? model.faceY[1] : h) : baseY + h;
     if (env.fit) env.fit(top);
+    // ฉากบัตร: มือจับ (บัตรเอียงนิดหน่อยแบบถือจริง) · บัตรซ้อนบนกระดาษ
+    const handOn = sceneKey === 'hand';
+    signRoot.rotation.z = handOn ? -0.05 : 0;
+    if (handOn) {
+      const hk = w + '|' + h + '|' + model.type;
+      if (hk !== handKey || !handG.children.length) {
+        buildHandPlanes(w, h);
+        handKey = hk;
+      }
+      if (!handG.parent) signRoot.add(handG);
+    } else if (handG.parent) signRoot.remove(handG);
+    const stackOn = sceneKey === 'paper' && model.type === 'card';
+    if (stackOn) {
+      const sk2 = w + '|' + h;
+      if (sk2 !== stackKey) {
+        buildStack(w, h);
+        stackKey = sk2;
+      }
+      if (!stackG.parent) signRoot.add(stackG);
+    } else if (stackG.parent) signRoot.remove(stackG);
     // คนยืนเทียบ ข้างขวาของป้าย หันเข้าหาป้ายนิดหนึ่ง
     person.visible = !!cur.person;
     // ประตูเปิดอยู่ขวามือ → ให้คนยืนซ้ายแทน จะได้ไม่บังช่องประตู
@@ -1975,7 +2117,15 @@ export function createStage(opts) {
   }
 
   function bounds(withPerson) {
+    // ฉากมือถือบัตร: คิดกรอบจากบัตร + โคนนิ้ว/ฝ่ามือบางส่วน ให้แขนเสื้อล้นขอบภาพลงไปเหมือนรูปถ่ายจริง
+    const hand = !!handG.parent;
+    if (hand) signRoot.remove(handG);
     const b = new THREE.Box3().setFromObject(signRoot);
+    if (hand) {
+      signRoot.add(handG);
+      b.min.x -= 0.03;
+      b.min.y -= 0.05;
+    }
     if (withPerson && person.visible) b.union(new THREE.Box3().setFromObject(person));
     // ฉากประตู/ห้องเรียน: ให้เห็นประตูหรือกระดานทั้งบานด้วย
     const env = envs[envKey];
@@ -1989,7 +2139,10 @@ export function createStage(opts) {
     const b = bounds(true);
     const c = b.getCenter(new THREE.Vector3());
     const size = b.getSize(new THREE.Vector3());
-    const R = Math.max(size.x, size.y, 1.5) * 0.75 + 1;
+    // งานชิ้นเล็ก (บัตร): ไฟ/เงาบีบเข้าหาชิ้นงาน เงาจะได้คม
+    const R = smallNow() ? Math.max(size.x, size.y, 0.12) * 0.75 + 0.2 : Math.max(size.x, size.y, 1.5) * 0.75 + 1;
+    key.shadow.normalBias = smallNow() ? 0.0008 : 0.03; // ค่าเดิม 3 ซม. ทำให้เงาบัตร (ห่างกระดาษ 2.5 มม.) หายหมด
+    key.shadow.bias = smallNow() ? -0.00005 : -0.0005;
     // ไฟหลักจากซ้ายบนด้านหน้า
     key.position.set(c.x - R * 0.9, c.y + R * 1.6, c.z + R * 1.4);
     key.target.position.copy(c);
@@ -2088,7 +2241,7 @@ export function createStage(opts) {
     const dist = Math.max(size.y / 2 / Math.tan(vf / 2), span / 2 / Math.tan(hf / 2)) * (v.tight ? 1.55 : 1.22) + size.z / 2;
     const target = c.clone();
     const pos = new THREE.Vector3();
-    if (v.eye != null) {
+    if (v.eye != null && !smallNow()) {
       // มุมคนเดินผ่าน: กล้องสูงระดับสายตา 1.6 ม.
       const d = Math.max(dist, 2.2);
       pos.set(c.x + Math.sin(v.az) * d, v.eye, c.z + Math.cos(v.az) * d);
@@ -2104,8 +2257,10 @@ export function createStage(opts) {
     camera.position.copy(a.pos);
     controls.target.copy(a.target);
     const wallish = !(envKey === 'studio' && model && model.floor);
-    controls.minAzimuthAngle = wallish ? -1.35 : -Infinity;
-    controls.maxAzimuthAngle = wallish ? 1.35 : Infinity;
+    // มือถือบัตรเป็นภาพวาดแบน ไม่ให้หมุนไปด้านข้างมาก
+    const lim = envKey === 'hand' ? 0.6 : wallish ? 1.35 : Infinity;
+    controls.minAzimuthAngle = -lim;
+    controls.maxAzimuthAngle = lim;
     controls.update();
     needs = true;
   }

@@ -706,3 +706,45 @@ test('ไฟล์ HTML พรีวิว 3 มิติ: ไฟล์เดี
   assert.match(app, /if \(fmt === 'html'\) return buildHtml\(\);/);
   assert.match(app, /fetchText\('vendor\/viewer3d\.standalone\.js'\)/);
 });
+
+test('ฉากบัตร: "บนกระดาษ" (เลือกสีกระดาษ) + "มือถือบัตร" โชว์เฉพาะงานบัตร · ฉากหน้าร้าน/ประตูไม่โชว์กับบัตร', async () => {
+  assert.deepEqual(C.SCENE_ORDER.slice(0, 2), ['paper', 'hand']);
+  assert.equal(C.sceneFits('paper', 'card'), true);
+  assert.equal(C.sceneFits('hand', 'card'), true);
+  assert.equal(C.sceneFits('paper', 'vinyl'), false);
+  assert.equal(C.sceneFits('hand', 'stand'), false);
+  for (const k of ['shop', 'fence', 'classDoor', 'officeDoor', 'classroom']) assert.equal(C.sceneFits(k, 'card'), false, k);
+  for (const k of ['studio', 'wall', 'brick']) assert.equal(C.sceneFits(k, 'card') && C.sceneFits(k, 'vinyl'), true, k);
+  assert.equal(C.defaultScene('card'), 'paper');
+  assert.equal(C.defaultScene('vinyl'), 'shop');
+  for (const k of C.PAPER_ORDER) assert.match(C.PAPERS[k].color, /^#[0-9a-f]{6}$/);
+  // ชนิดของร้านที่ยืมหน้าตาบัตร ใช้ฉากบัตรได้
+  try {
+    C.applyTypes([{ id: 'u-queue1', name: 'บัตรคิว', base: 'card', unit: 'pcs', presets: [[7, 10]] }]);
+    assert.equal(C.sceneFits('hand', 'u-queue1'), true);
+    assert.equal(C.defaultScene('u-queue1'), 'paper');
+  } finally {
+    C.applyTypes([]);
+  }
+  const { readFileSync } = await import('node:fs');
+  const render = readFileSync(new URL('../sign-mockup/render.js', import.meta.url), 'utf8');
+  assert.match(render, /SCENE_DRAW = \{ paper: scenePaper, hand: sceneHand,/);
+  assert.match(render, /SCENE_AFTER = \{ hand: sceneHandAfter \}/);
+  const s3 = readFileSync(new URL('../sign-mockup/scene3d.js', import.meta.url), 'utf8');
+  assert.match(s3, /BUILD = \{ paper: buildPaper, hand: buildHandScene,/);
+  assert.match(s3, /if \(hand\) signRoot\.remove\(handG\)/); // มือไม่ถูกนับในกรอบกล้อง
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  assert.match(app, /if \(k !== 'photo' && !C\.sceneFits\(k, st\.type\)\) return;/);
+});
+
+test('แบบให้ลูกค้าเลือก 2 แบบในหน้าเดียว: เก็บภาพไว้ในเครื่อง · ส่งออก JPG/PDF', async () => {
+  const { readFileSync } = await import('node:fs');
+  const html = readFileSync(new URL('../sign-mockup/index.html', import.meta.url), 'utf8');
+  for (const id of ['cmpPane', 'cmpThumb0', 'cmpThumb1', 'cmpSet0', 'cmpSet1', 'cmpDel0', 'cmpDel1', 'cmpMake', 'fmtCompare', 'cmpOutSeg']) assert.match(html, new RegExp('id="' + id + '"'), id);
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  assert.match(app, /if \(fmt === 'compare'\) return buildCompare\(\);/);
+  assert.match(app, /NS\.jobs\.put\(Object\.assign\(\{ id: 'opt-cmp-' \+ i/);
+  // งานในรายการ "งานของฉัน" ไม่มีภาพเทียบแบบปน (id ขึ้นต้น opt-)
+  const jobs = readFileSync(new URL('../sign-mockup/jobs.js', import.meta.url), 'utf8');
+  assert.match(jobs, /j\.id\.indexOf\('opt-'\) !== 0/);
+});

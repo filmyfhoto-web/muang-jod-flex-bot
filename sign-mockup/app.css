@@ -1875,3 +1875,63 @@ dialog.type-dlg {
 #tyBase {
   width: 100%;
 }
+
+/* แบบให้ลูกค้าเลือก (เทียบ 2 แบบ) */
+.cmp {
+  margin: 6px 0 4px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+.cmp h3 {
+  margin: 0;
+}
+.cmp h3 small {
+  margin-left: 6px;
+  font: 500 13px/1 var(--font-body);
+  color: var(--ink-3);
+}
+.cmp-slots {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.cmp-slot {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.cmp-slot small {
+  color: var(--ink-2);
+  font-size: 12px;
+  line-height: 1.35;
+  min-height: 2.7em;
+}
+.cmp-thumb {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 10;
+  border: 1.5px dashed var(--line);
+  border-radius: 10px;
+  background: var(--surface) center / contain no-repeat;
+  color: var(--ink-3);
+  font: 500 13px/1 var(--font-body);
+  overflow: hidden;
+}
+.cmp-thumb.has {
+  border-style: solid;
+  border-color: var(--accent);
+}
+.cmp-thumb.has span {
+  display: none;
+}
+.cmp-slot .row {
+  display: flex;
+  gap: 6px;
+}
+.cmp-slot .row .btn-ghost:first-child {
+  flex: 1;
+  min-width: 0;
+  white-space: normal;
+}

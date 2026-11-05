@@ -565,7 +565,248 @@
     vignette(x, cam.W, cam.H, 0.22);
   }
 
-  var SCENE_DRAW = { studio: sceneStudio, wall: sceneWall, brick: sceneBrick, shop: sceneShop, fence: sceneFence, classDoor: sceneClassDoor, officeDoor: sceneOfficeDoor, classroom: sceneClassroom };
+  /* ---------- ฉาก "มือถือบัตร": มือ (ภาพวาด) จับมุมซ้ายล่างของบัตร ----------
+   * หน่วย ซม. จุดเริ่มที่มุมซ้ายล่างของบัตร แกน y ขึ้นบน · k = พิกเซลต่อ ซม. · cw/ch = ขนาดบัตร (ตัดเงานิ้วไม่ให้เลยบัตร)
+   * คืน { back, front, x0, y1, wcm, hcm }: back = แขนเสื้อร้าน/ฝ่ามือ/นิ้วชี้ (อยู่หลังบัตร) · front = นิ้วโป้ง (ทับหน้าบัตร)
+   * วาดแบบภาพเหมือน: ไม่มีเส้นขอบ ไล่แสงจากซ้ายบน เงาในขอบ ผิวละเอียด เล็บมีปลายขาว/จันทร์เสี้ยว เงานิ้วบนบัตร เงาบัตรบนฝ่ามือ */
+  var handCache = { key: '', art: null };
+  function handArt(k, cw, ch) {
+    var hk = [Math.round(k * 10), cw, ch].join('|');
+    if (handCache.key === hk) return handCache.art;
+    handCache = { key: hk, art: drawHand(k, cw, ch) };
+    return handCache.art;
+  }
+  function drawHand(k, cw, ch) {
+    var X0 = -7.5, X1 = 6.5, Y1 = 5.5, Y0 = -14;
+    var W = Math.ceil((X1 - X0) * k), H = Math.ceil((Y1 - Y0) * k);
+    var P = function (x, y) { return [(x - X0) * k, (Y1 - y) * k]; };
+    var mkc = function () { return mk(W, H); };
+    // เส้นโค้งปิดผ่านจุด (Catmull-Rom → Bezier)
+    function smooth(x, pts) {
+      var n = pts.length;
+      var q = pts.map(function (p) { return P(p[0], p[1]); });
+      x.beginPath();
+      x.moveTo(q[0][0], q[0][1]);
+      for (var i = 0; i < n; i++) {
+        var p0 = q[(i - 1 + n) % n], p1 = q[i], p2 = q[(i + 1) % n], p3 = q[(i + 2) % n];
+        x.bezierCurveTo(p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6, p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6, p2[0], p2[1]);
+      }
+      x.closePath();
+    }
+    // ผิว: ไล่แสงจากซ้ายบน + เงาในขอบ + แสงสะท้อน + ผิวละเอียด
+    var SK = { hi: '#f4cfb3', mid: '#e3ac87', lo: '#c0815e', deep: '#9c5f43', blush: 'rgba(214,96,74,0.18)' };
+    function skin(x, pts, a, b, opt) {
+      opt = opt || {};
+      x.save();
+      smooth(x, pts);
+      x.clip();
+      var A = P(a[0], a[1]), B = P(b[0], b[1]);
+      var g = x.createLinearGradient(A[0], A[1], B[0], B[1]);
+      g.addColorStop(0, SK.hi); g.addColorStop(0.45, SK.mid); g.addColorStop(1, SK.lo);
+      x.fillStyle = g; x.fillRect(0, 0, W, H);
+      // เงาในขอบ (ด้านขวาล่าง) — วาดกรอบใหญ่เจาะรูเป็นรูปทรง แล้วให้เงาตกเข้าข้างใน
+      x.shadowColor = 'rgba(110,52,30,0.55)';
+      x.shadowBlur = (opt.edge || 0.5) * k;
+      x.shadowOffsetX = -0.18 * k; x.shadowOffsetY = -0.22 * k;
+      x.beginPath(); x.rect(-W, -H, W * 3, H * 3);
+      smoothSub(x, pts);
+      x.fillStyle = '#000'; x.fill('evenodd');
+      x.shadowColor = 'rgba(255,236,220,0.55)';
+      x.shadowOffsetX = 0.12 * k; x.shadowOffsetY = 0.14 * k; x.shadowBlur = 0.35 * k;
+      x.beginPath(); x.rect(-W, -H, W * 3, H * 3); smoothSub(x, pts); x.fill('evenodd');
+      x.shadowColor = 'transparent';
+      // ผิวละเอียด
+      if (noisePat) { x.globalAlpha = 0.5; x.fillStyle = x.createPattern(noisePat, 'repeat'); x.fillRect(0, 0, W, H); x.globalAlpha = 1; }
+      x.restore();
+    }
+    function smoothSub(x, pts) {
+      var n = pts.length;
+      var q = pts.map(function (p) { return P(p[0], p[1]); });
+      x.moveTo(q[0][0], q[0][1]);
+      for (var i = 0; i < n; i++) {
+        var p0 = q[(i - 1 + n) % n], p1 = q[i], p2 = q[(i + 1) % n], p3 = q[(i + 2) % n];
+        x.bezierCurveTo(p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6, p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6, p2[0], p2[1]);
+      }
+      x.closePath();
+    }
+    function blob(x, cx, cy, rx, ry, color, rot) {
+      var c = P(cx, cy);
+      x.save(); x.translate(c[0], c[1]); x.rotate(rot || 0); x.scale(1, ry / rx);
+      var g = x.createRadialGradient(0, 0, 0, 0, 0, rx * k);
+      g.addColorStop(0, color); g.addColorStop(1, color.replace(/[\d.]+\)$/, '0)'));
+      x.fillStyle = g; x.beginPath(); x.arc(0, 0, rx * k, 0, Math.PI * 2); x.fill(); x.restore();
+    }
+    function crease(x, pts, alpha, wid) {
+      x.save();
+      x.strokeStyle = 'rgba(120,58,36,' + alpha + ')';
+      x.lineWidth = Math.max(1, (wid || 0.045) * k);
+      x.lineCap = 'round';
+      x.filter = 'blur(' + Math.max(0.5, 0.02 * k) + 'px)';
+      x.beginPath();
+      var a = P(pts[0][0], pts[0][1]); x.moveTo(a[0], a[1]);
+      for (var i = 1; i < pts.length; i += 2) { var c = P(pts[i][0], pts[i][1]), e = P(pts[i + 1][0], pts[i + 1][1]); x.quadraticCurveTo(c[0], c[1], e[0], e[1]); }
+      x.stroke(); x.restore();
+    }
+    var noisePat = (function () {
+      var c = document.createElement('canvas'); c.width = c.height = 64;
+      var x = c.getContext('2d'), d = x.createImageData(64, 64), s = 9;
+      for (var i = 0; i < d.data.length; i += 4) { s = (s * 16807) % 2147483647; var v = s % 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = v > 127 ? 255 : 90; d.data[i + 3] = 10; }
+      x.putImageData(d, 0, 0); return c;
+    })();
+
+    // ===== หลังบัตร =====
+    var back = mkc(), b = back.getContext('2d');
+    // แขนเสื้อ
+    var sleeve = [[-6.6, -14.5], [-5.3, -9.6], [-3.1, -9.0], [0.2, -9.3], [2.9, -10.1], [3.6, -14.5]];
+    b.save(); smooth(b, sleeve); b.clip();
+    var sg = b.createLinearGradient(P(-6, 0)[0], 0, P(3.6, 0)[0], 0);
+    sg.addColorStop(0, '#34437a'); sg.addColorStop(0.35, '#26325c'); sg.addColorStop(1, '#141b33');
+    b.fillStyle = sg; b.fillRect(0, 0, W, H);
+    // รอยยับผ้า
+    [[-3.4, -12.5, 0.5, 2.2, 'rgba(0,0,0,0.25)'], [-1.0, -11.8, 0.4, 1.8, 'rgba(255,255,255,0.08)'], [1.6, -12.8, 0.6, 2.4, 'rgba(0,0,0,0.22)']].forEach(function (f) { blob(b, f[0], f[1], f[2], f[3], f[4], 0.25); });
+    // ขอบแขนเสื้อ (ปลายแขนพับ)
+    b.fillStyle = 'rgba(0,0,0,0.25)';
+    var c1 = P(-6, -10.0), c2 = P(3.4, -10.9); b.fillRect(0, c1[1], W, 0.18 * k);
+    b.restore();
+    // ข้อมือ + ฝ่ามือ
+    var palm = [[-4.6, -9.4], [-4.3, -6.6], [-3.9, -3.6], [-3.3, -1.0], [-2.6, 1.5], [1.5, 2.6], [4.1, 1.4], [4.0, -1.6], [3.3, -4.8], [2.4, -7.6], [2.2, -9.6], [-1.2, -9.8]];
+    skin(b, palm, [-4, -2], [3.5, -6], { edge: 0.9 });
+    b.save(); smooth(b, palm); b.clip();
+    blob(b, -2.4, -3.8, 1.6, 2.6, 'rgba(255,225,205,0.35)', -0.3); // เนินโคนนิ้วโป้ง (แสง)
+    blob(b, 2.6, -2.2, 1.2, 2.4, 'rgba(150,70,45,0.25)', 0.2); // ข้างฝ่ามือ (เงา)
+    blob(b, -0.2, -8.6, 2.6, 0.8, 'rgba(150,70,45,0.28)', 0); // เงาข้อมือใต้แขนเสื้อ
+    // เงาของบัตรตกบนฝ่ามือ ใต้ขอบบัตร
+    b.save(); b.filter = 'blur(' + Math.max(1, 0.35 * k) + 'px)';
+    var s0 = P(0, -0.05), s1 = P(Math.min(cw, 7), -0.75);
+    b.fillStyle = 'rgba(70,30,15,0.45)'; b.fillRect(s0[0], s0[1], s1[0] - s0[0], s1[1] - s0[1]); b.restore();
+    b.restore();
+    // นิ้วชี้ งอรอบขอบบัตร (เห็นด้านข้าง)
+    var index = [[-2.9, -1.2], [-3.05, 0.6], [-2.85, 2.4], [-2.3, 3.75], [-1.3, 4.35], [-0.2, 4.2], [0.3, 3.0], [0.3, -0.6]];
+    skin(b, index, [-3, 3], [0.3, -0.5], { edge: 0.6 });
+    b.save(); smooth(b, index); b.clip();
+    blob(b, -2.2, 3.6, 0.8, 0.6, 'rgba(255,232,215,0.45)', 0);
+    blob(b, -2.6, 1.0, 0.5, 1.2, 'rgba(214,96,74,0.18)', 0);
+    b.restore();
+    crease(b, [[-2.95, 2.25], [-2.4, 2.05], [-1.7, 2.35]], 0.38);
+    crease(b, [[-2.95, 2.55], [-2.4, 2.4], [-1.8, 2.6]], 0.2, 0.03);
+    crease(b, [[-3.0, 0.2], [-2.3, -0.05], [-1.5, 0.25]], 0.3);
+    // ===== หน้าบัตร: นิ้วโป้ง =====
+    var front = mkc(), f = front.getContext('2d');
+    // แกนนิ้วโป้ง: โคน → ข้อ → ปลาย (งอเล็กน้อยที่ข้อ)
+    var thumb = [[-2.6, -5.2], [-3.1, -3.2], [-2.55, -1.1], [-1.45, 0.75], [-0.1, 2.2], [1.2, 3.35], [2.3, 3.95], [3.35, 3.88], [3.85, 3.15], [3.55, 2.2], [2.6, 1.25], [1.85, 0.2], [1.5, -0.9], [1.3, -2.6], [0.8, -4.6], [-0.6, -5.6]];
+    // เงานิ้วบนบัตร
+    f.save();
+    var q0 = P(0, ch), q1 = P(cw, 0);
+    f.beginPath(); f.rect(q0[0], q0[1], q1[0] - q0[0], q1[1] - q0[1]); f.clip();
+    f.filter = 'blur(' + Math.max(1, 0.25 * k) + 'px)';
+    f.translate(0.16 * k, 0.24 * k);
+    smooth(f, thumb); f.fillStyle = 'rgba(30,15,8,0.42)'; f.fill();
+    f.filter = 'blur(' + Math.max(1, 0.8 * k) + 'px)';
+    f.translate(0.25 * k, 0.35 * k);
+    smooth(f, thumb); f.fillStyle = 'rgba(30,15,8,0.18)'; f.fill();
+    f.restore();
+    skin(f, thumb, [-1.5, 2.2], [2.0, -0.6], { edge: 0.7 });
+    f.save(); smooth(f, thumb); f.clip();
+    blob(f, -0.3, 1.0, 0.9, 2.2, 'rgba(255,236,222,0.42)', -0.65); // แสงสันนิ้ว
+    blob(f, 2.6, 2.6, 1.2, 1.0, 'rgba(255,230,214,0.35)', -0.6); // ปลายนิ้ว
+    blob(f, 1.5, 0.6, 0.7, 1.4, 'rgba(214,96,74,0.2)', -0.6); // ข้อนิ้วอมแดง
+    blob(f, -1.4, -3.4, 1.4, 2.0, 'rgba(255,225,205,0.25)', -0.3);
+    f.restore();
+    // ข้อนิ้วโป้ง (รอยย่น)
+    crease(f, [[0.15, 1.05], [0.75, 0.75], [1.2, 0.35]], 0.42, 0.05);
+    crease(f, [[0.0, 1.35], [0.55, 1.15], [1.0, 0.85]], 0.22, 0.03);
+    crease(f, [[-0.9, -4.6], [0.55, -3.6], [1.2, -1.7]], 0.22, 0.05); // ร่องเนินโคนนิ้ว
+    // เล็บ
+    f.save();
+    var nc = P(2.95, 3.22); f.translate(nc[0], nc[1]); f.rotate(-0.6);
+    var nl = 1.6 * k, nw = 1.3 * k;
+    f.beginPath();
+    f.moveTo(-nl * 0.5, -nw * 0.42);
+    f.quadraticCurveTo(-nl * 0.62, 0, -nl * 0.5, nw * 0.42);
+    f.lineTo(nl * 0.3, nw * 0.5);
+    f.quadraticCurveTo(nl * 0.58, nw * 0.42, nl * 0.56, 0);
+    f.quadraticCurveTo(nl * 0.58, -nw * 0.42, nl * 0.3, -nw * 0.5);
+    f.closePath();
+    var ng = f.createLinearGradient(0, -nw / 2, 0, nw / 2);
+    ng.addColorStop(0, '#f6d3c6'); ng.addColorStop(0.5, '#eebfae'); ng.addColorStop(1, '#d99a87');
+    f.fillStyle = ng; f.fill();
+    f.save(); f.clip();
+    f.fillStyle = 'rgba(255,248,242,0.75)'; f.fillRect(nl * 0.36, -nw, nl, nw * 2); // ปลายเล็บขาว
+    var lg = f.createRadialGradient(-nl * 0.5, 0, 0, -nl * 0.5, 0, nw * 0.45);
+    lg.addColorStop(0, 'rgba(255,245,240,0.8)'); lg.addColorStop(1, 'rgba(255,245,240,0)');
+    f.fillStyle = lg; f.fillRect(-nl, -nw, nl, nw * 2); // จันทร์เสี้ยว
+    f.restore();
+    f.strokeStyle = 'rgba(150,80,60,0.45)'; f.lineWidth = Math.max(1, 0.035 * k); f.stroke();
+    f.restore();
+    // โคนนิ้วโป้งจางเข้าฝ่ามือ (ไม่เห็นรอยต่อ)
+    f.save();
+    f.globalCompositeOperation = 'destination-out';
+    var fg = f.createLinearGradient(0, P(0, -3.0)[1], 0, P(0, -5.4)[1]);
+    fg.addColorStop(0, 'rgba(0,0,0,0)'); fg.addColorStop(1, 'rgba(0,0,0,1)');
+    f.fillStyle = fg; f.fillRect(0, P(0, -3.0)[1], W, H);
+    f.restore();
+    // แขนเสื้อจางที่ขอบล่าง
+    b.save(); b.globalCompositeOperation = 'destination-out';
+    var bf = b.createLinearGradient(0, P(0, -12.2)[1], 0, H);
+    bf.addColorStop(0, 'rgba(0,0,0,0)'); bf.addColorStop(1, 'rgba(0,0,0,1)');
+    b.fillStyle = bf; b.fillRect(0, P(0, -12.2)[1], W, H); b.restore();
+    return { back: back, front: front, x0: X0, y1: Y1, wcm: X1 - X0, hcm: Y1 - Y0 };
+  }
+
+  /* ---------- ฉากบัตร (2 มิติ สำรอง) ---------- */
+  // ใยกระดาษ (สุ่มแบบคงที่ ภาพไม่กระพริบ)
+  var paperTexCache = {};
+  function paperTex(color) {
+    if (paperTexCache[color]) return paperTexCache[color];
+    var c = mk(256, 256);
+    var x = ctx2d(c);
+    x.fillStyle = color;
+    x.fillRect(0, 0, 256, 256);
+    var r = rng(7);
+    for (var i = 0; i < 900; i++) {
+      var px = r() * 256;
+      var py = r() * 256;
+      var a = r() * Math.PI;
+      var l = 2 + r() * 9;
+      x.strokeStyle = r() < 0.5 ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.05)';
+      x.lineWidth = 0.6 + r() * 0.6;
+      x.beginPath();
+      x.moveTo(px, py);
+      x.lineTo(px + Math.cos(a) * l, py + Math.sin(a) * l);
+      x.stroke();
+    }
+    paperTexCache[color] = c;
+    return c;
+  }
+  function scenePaper(x, cam, g, spot, st) {
+    var p = C.PAPERS[(st && st.paper) || 'white'] || C.PAPERS.white;
+    x.fillStyle = x.createPattern(paperTex(p.color), 'repeat');
+    x.fillRect(0, 0, cam.W, cam.H);
+    var v = x.createRadialGradient(cam.W * 0.45, cam.H * 0.35, 0, cam.W * 0.5, cam.H * 0.5, Math.hypot(cam.W, cam.H) * 0.62);
+    v.addColorStop(0, 'rgba(255,255,255,0.10)');
+    v.addColorStop(1, 'rgba(0,0,0,0.16)');
+    x.fillStyle = v;
+    x.fillRect(0, 0, cam.W, cam.H);
+  }
+  function handAt(cam, g) {
+    var s = cam.s;
+    var art = handArt(Math.max(4, s), g.w, g.h);
+    var ox = cam.left + g.fx * s;
+    var oy = cam.floorY - cam.top * s + (g.fy + g.h) * s; // มุมซ้ายล่างของบัตรบนจอ
+    return { art: art, x: ox + art.x0 * s, y: oy - art.y1 * s, w: art.wcm * s, h: art.hcm * s };
+  }
+  function sceneHand(x, cam, g) {
+    sceneStudio(x, cam);
+    var h = handAt(cam, g);
+    x.drawImage(h.art.back, h.x, h.y, h.w, h.h);
+  }
+  function sceneHandAfter(x, cam, g) {
+    var h = handAt(cam, g);
+    x.drawImage(h.art.front, h.x, h.y, h.w, h.h);
+  }
+
+  var SCENE_AFTER = { hand: sceneHandAfter }; // วาดทับหลังตัวงาน (นิ้วโป้งทับหน้าบัตร)
+  var SCENE_DRAW = { paper: scenePaper, hand: sceneHand, studio: sceneStudio, wall: sceneWall, brick: sceneBrick, shop: sceneShop, fence: sceneFence, classDoor: sceneClassDoor, officeDoor: sceneOfficeDoor, classroom: sceneClassroom };
 
   /* ---------- คนยืนเทียบขนาด 170 ซม. — รูปการ์ตูนเจ้าของร้าน (ยังโหลดรูปไม่เสร็จ ใช้เงาคนสีเทาแทน) ---------- */
   var mascot = null;
@@ -1375,6 +1616,7 @@
     x.drawImage(oc, ox - PAD / scale, oy - PAD / scale, oc.width / scale, oc.height / scale);
     x.restore();
     if (scene === 'fence' && g.type === 'vinyl') ties(x, g, s, ox, oy);
+    if (SCENE_AFTER[scene]) SCENE_AFTER[scene](x, cam, g, st);
     if (cam.person) person(x, cam, U);
     var fr = { x: ox + g.fx * s, y: oy + g.fy * s, w: g.w * s, h: g.h * s, ex: g.ex * s };
     out.face = fr;
@@ -1782,6 +2024,8 @@
     render: render,
     faceCanvas: faceCanvas,
     cardArt: cardArt,
+    handArt: handArt,
+    paperTex: paperTex,
     sheetPreview: sheetPreview,
     runFont: runFont,
     overlay3d: overlay3d,

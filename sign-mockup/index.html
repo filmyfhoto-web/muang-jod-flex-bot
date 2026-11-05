@@ -372,6 +372,10 @@
                   <button type="button" data-open="false">ปิด</button>
                 </div>
               </div>
+              <div class="field" id="paperField" hidden>
+                <span class="label">สีกระดาษรอง</span>
+                <div class="swatches" id="papers"></div>
+              </div>
               <div class="field" id="toneField" hidden>
                 <span class="label">สีผนัง</span>
                 <div class="swatches" id="tones"></div>
@@ -430,6 +434,30 @@
                 </button>
               </div>
 
+              <section class="cmp stack" id="cmpPane">
+                <h3>แบบให้ลูกค้าเลือก <small>2 แบบในหน้าเดียว</small></h3>
+                <div class="cmp-slots">
+                  <div class="cmp-slot" id="cmpSlot0">
+                    <div class="cmp-thumb" id="cmpThumb0"><span>แบบที่ 1</span></div>
+                    <small id="cmpInfo0">ยังว่าง</small>
+                    <div class="row">
+                      <button type="button" class="btn-ghost small" id="cmpSet0">เก็บภาพนี้เป็นแบบที่ 1</button>
+                      <button type="button" class="btn-ghost small" id="cmpDel0" aria-label="ล้างแบบที่ 1" hidden>×</button>
+                    </div>
+                  </div>
+                  <div class="cmp-slot" id="cmpSlot1">
+                    <div class="cmp-thumb" id="cmpThumb1"><span>แบบที่ 2</span></div>
+                    <small id="cmpInfo1">ยังว่าง</small>
+                    <div class="row">
+                      <button type="button" class="btn-ghost small" id="cmpSet1">เก็บภาพนี้เป็นแบบที่ 2</button>
+                      <button type="button" class="btn-ghost small" id="cmpDel1" aria-label="ล้างแบบที่ 2" hidden>×</button>
+                    </div>
+                  </div>
+                </div>
+                <button type="button" class="btn-primary" id="cmpMake">ทำหน้าเทียบ 2 แบบ ส่งลูกค้า</button>
+                <p class="hint">ทำแบบแรก → กด “เก็บภาพนี้เป็นแบบที่ 1” → เปลี่ยนสี ชนิด ขนาด หรือฉาก → กด “เก็บเป็นแบบที่ 2” → ทำหน้าเทียบ</p>
+              </section>
+
               <h3>แถบรายละเอียดใต้ภาพ</h3>
               <label class="toggle"><input type="checkbox" id="info" /><span>ใส่ชื่อร้าน ขนาด และราคาไว้ใต้ภาพ</span></label>
               <div class="grid2">
@@ -484,6 +512,14 @@
         <button type="button" data-fmt="glb" id="fmtGlb">ไฟล์/ลิงก์ 3 มิติ</button>
         <button type="button" data-fmt="html" id="fmtHtml">HTML พรีวิว 3 มิติ</button>
         <button type="button" data-fmt="print" id="fmtPrint" hidden>ไฟล์พิมพ์ (จัดหน้า)</button>
+        <button type="button" data-fmt="compare" id="fmtCompare">เทียบ 2 แบบ</button>
+      </div>
+      <div class="sheetbar" id="cmpBar" hidden>
+        <span class="label">ไฟล์</span>
+        <div class="seg small" id="cmpOutSeg">
+          <button type="button" data-cout="jpg">รูป JPG (ส่ง LINE)</button>
+          <button type="button" data-cout="pdf">PDF A4</button>
+        </div>
       </div>
       <div class="sheetbar" id="sheetBar" hidden>
         <span class="label">กระดาษ</span>
