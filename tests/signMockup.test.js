@@ -389,6 +389,30 @@ test('ป้ายโครงการ CNC: ตั้งเสาคู่ แ�
   assert.ok(cam.person);
 });
 
+test('ป้ายโครงการ CNC เลือก "ไม่มีเสา ติดผนัง" ได้: ไม่มีเสา/ฐาน ติดผนังตามฉาก · ค่าเริ่มต้นยังมีเสา', async () => {
+  assert.equal(C.cncPosts(undefined), true);
+  assert.equal(C.cncPosts({ color: '#1f2125' }), true);
+  assert.equal(C.cncPosts({ posts: false }), false);
+  const g = C.geometry('cnc', 240, 120, { posts: false });
+  assert.equal(g.mount, 'wall');
+  assert.equal(g.noPosts, true);
+  assert.equal(g.lift, 0);
+  assert.equal(g.fx, 0);
+  assert.equal(g.bw, 240 + g.ex);
+  assert.equal(g.bh, 120 + g.ex);
+  assert.equal(g.relief, 1.5);
+  assert.equal(C.mountBottom('shop', g, 'auto'), 290); // เหนือประตูม้วนหน้าร้าน
+  assert.ok(C.mountBottom('wall', g, 'auto') > 0);
+  const { readFileSync } = await import('node:fs');
+  const html = readFileSync(new URL('../sign-mockup/index.html', import.meta.url), 'utf8');
+  assert.match(html, /id="cncPostSeg"[\s\S]*data-posts="1"[\s\S]*data-posts="0"/);
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  assert.match(app, /setSteel\('posts', on\)/);
+  const s3 = readFileSync(new URL('../sign-mockup/scene3d.js', import.meta.url), 'utf8');
+  assert.match(s3, /C\.geometry\('cnc', w \* 100, h \* 100, steel\)/);
+  assert.match(s3, /model\.floor = C\.geometry\(s\.type/);
+});
+
 test('โครงเหล็กขาตั้ง 80×120 สูงรวม 150 ฐานลึก 60 เหล็ก 25 มม. เข้ามุม 45°: 9 ชิ้น รวม 805 ซม. (ตรงกับโปรแกรมช่าง)', () => {
   const r = C.steelCut('stand', 80, 120, {});
   assert.equal(r.opts.total, 150);
@@ -486,4 +510,169 @@ test('ตัวเลือกของร้าน: ไฟล์นำเข้
   assert.equal(C.fontCssUrl('Chakra Petch'), 'https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&display=swap');
   assert.equal(C.fontCssUrl('Itim'), 'https://fonts.googleapis.com/css2?family=Itim&display=swap');
   assert.equal(C.fontCssUrl('NotAFont'), '');
+});
+
+test('บัตร/บัตรสมนาคุณ: ชนิดใหม่ คิดราคาต่อใบ · เลขรันเติม 0 ครบหลัก · ตำแหน่งเลข + ต้นขั้ว', () => {
+  assert.ok(C.TYPE_ORDER.includes('card'));
+  assert.equal(C.TYPES.card.unit, 'pcs');
+  assert.equal(C.TYPES.card.small, true);
+  const g = C.geometry('card', 18, 7);
+  assert.equal(g.type, 'card');
+  assert.equal(g.mount, 'wall');
+  assert.ok(g.depth > 0 && g.depth < 0.1);
+  const q = C.quote({ type: 'card', w: 18, h: 7, qty: 500, rate: 2.5 });
+  assert.equal(q.unit, 'pcs');
+  assert.equal(q.total, 1500); // ราคาต่อใบปัดเป็นบาท (3) × 500
+  assert.ok(C.depthText('card'));
+
+  const r = C.normalizeRun({ prefix: 'No.', start: 95, digits: 4, pos: 'br', stub: 5, color: 'red', size: 'xl' });
+  assert.equal(r.color, '#c8102e'); // สีผิดรูปแบบ → ค่าเริ่มต้น
+  assert.equal(r.size, 'm');
+  assert.equal(C.runText(r, 0), 'No.0095');
+  assert.equal(C.runText(r, 10), 'No.0105');
+  assert.equal(C.runDigits(C.normalizeRun({ start: 12345, digits: 3 }), 0), '12345'); // เลขยาวกว่าหลักไม่ตัดทิ้ง
+  assert.equal(C.normalizeRun({ prefix: '<b>เลขที่ (A)' }).prefix, 'bเลขที่ A'); // ตัดอักขระที่ทำให้ PDF/HTML พัง
+  const lay = C.runSlots(r, 18, 7);
+  assert.equal(lay.stub, 5);
+  assert.equal(lay.slots.length, 2);
+  const main = lay.slots[0];
+  assert.equal(main.anchor, 'right');
+  assert.equal(main.x, 17.5);
+  assert.equal(main.y, 6.5); // ล่าง: ห่างขอบ 5 มม.
+  assert.equal(lay.slots[1].anchor, 'center');
+  assert.equal(lay.slots[1].x, 2.5);
+  // ต้นขั้วกว้างจนเหลือที่ไม่พอ → ไม่ทำต้นขั้ว
+  assert.equal(C.runSlots(C.normalizeRun({ stub: 17 }), 18, 7).stub, 0);
+  // ข้อความชิดขวา: ตัวเลขจบพอดีขอบขวา
+  const lab = C.runLabel(main, 0.6, 4);
+  assert.ok(Math.abs(lab.digitsX + 4 * C.DIGIT_EM * main.size - 17.5) < 1e-9);
+  assert.ok(Math.abs(lab.left - (lab.digitsX - 0.6)) < 1e-9);
+});
+
+test('จัดหน้าพิมพ์บัตร: เผื่อตัดตก 2 มม. ขอบกระดาษ 1.2 ซม. เลือกแนวที่ได้มากกว่า · เส้นตัดอยู่นอกบัตร', () => {
+  const a4 = C.impose(18, 7, 21, 29.7);
+  assert.equal(a4.rot, false);
+  assert.equal(a4.n, 3);
+  assert.equal(a4.gap, 0.4);
+  const a3 = C.impose(18, 7, 29.7, 42);
+  assert.equal(a3.rot, true); // หมุนบัตรได้ 6 ใบ (ไม่หมุนได้ 5)
+  assert.equal(a3.n, 6);
+  const nc = C.impose(9, 5.5, 21, 29.7);
+  assert.equal(nc.n, 8); // นามบัตร 9×5.5 บน A4 = 2 × 4
+  // ทุกใบ (รวมตัดตก) อยู่ในกระดาษ ห่างขอบอย่างน้อย 1.2 − 0.2 ซม. และไม่ทับกัน
+  for (const L of [a4, a3, nc]) {
+    for (const c of L.cells) {
+      assert.ok(c.x - L.bleed >= 1 - 1e-9 && c.y - L.bleed >= 1 - 1e-9);
+      assert.ok(c.x + L.w + L.bleed <= L.sw - 1 + 1e-9 && c.y + L.h + L.bleed <= L.sh - 1 + 1e-9);
+    }
+    const marks = C.cropMarks(L);
+    assert.equal(marks.length, (L.cols * 2 + L.rows * 2) * 2);
+    for (const m of marks) {
+      const inside = (x, y) => x > L.x0 - L.bleed && x < L.x0 + L.gw + L.bleed && y > L.y0 - L.bleed && y < L.y0 + L.gh + L.bleed;
+      assert.ok(!inside(m[0], m[1]) && !inside(m[2], m[3]), 'เส้นตัดต้องไม่ทับงาน');
+      assert.ok(Math.min(m[0], m[2]) >= 0 && Math.max(m[0], m[2]) <= L.sw && Math.min(m[1], m[3]) >= 0 && Math.max(m[1], m[3]) <= L.sh);
+    }
+  }
+  const plan = C.printPlan(18, 7, 100, 'a4', { prefix: 'No.', start: 1, digits: 4 });
+  assert.equal(plan.perSheet, 3);
+  assert.equal(plan.sheets, 34);
+  assert.equal(plan.spare, 2);
+  assert.equal(plan.first, 'No.0001');
+  assert.equal(plan.last, 'No.0100');
+  assert.equal(C.printPlan(40, 40, 10, 'a4').perSheet, 0); // ใหญ่เกินกระดาษ
+});
+
+test('PDF ไฟล์พิมพ์: หลายหน้า รูปบัตรฝังครั้งเดียว ตัวเลขรันเป็นตัวอักษรเรียงครบทุกใบ', () => {
+  const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46, 0xff, 0xd9]);
+  const run = C.normalizeRun({ prefix: 'No.', start: 1, digits: 4 });
+  const plan = C.printPlan(18, 7, 7, 'a4', run);
+  const pdf = C.pdfRun({
+    sheet: plan.sheet,
+    layout: plan.layout,
+    card: { w: 18, h: 7 },
+    art: { jpeg, pw: 10, ph: 4 },
+    qty: 7,
+    run,
+    labels: [{ digitsX: 15, y: 0.8, size: 0.42 }, { digitsX: 1.5, y: 0.8, size: 0.42, stub: true }],
+    color: '#c8102e',
+    note: '18 x 7 cm',
+  });
+  const txt = Buffer.from(pdf).toString('latin1');
+  assert.ok(txt.startsWith('%PDF-1.4'));
+  assert.match(txt, /\/Count 3 /); // 7 ใบ ÷ 3 ใบ/แผ่น = 3 แผ่น
+  assert.equal((txt.match(/\/Subtype \/Image/g) || []).length, 1);
+  assert.equal((txt.match(/\/Im0 Do/g) || []).length, 7);
+  for (let i = 1; i <= 7; i++) assert.equal((txt.match(new RegExp('\\(000' + i + '\\) Tj', 'g')) || []).length, 2, 'เลข ' + i + ' ต้องอยู่ทั้งตัวบัตรและต้นขั้ว');
+  assert.ok(!txt.includes('(0008)'));
+  assert.match(txt, /\/BaseFont \/Helvetica-Bold/);
+  assert.match(txt, /0\.784 0\.063 0\.18 rg/); // สีเลข #c8102e
+  // xref ชี้ตำแหน่งวัตถุถูกต้อง
+  const start = +txt.slice(txt.lastIndexOf('startxref') + 10).trim().split('\n')[0];
+  assert.equal(txt.slice(start, start + 4), 'xref');
+  const offs = txt.slice(start).split('\n').slice(3, 9).map((l) => +l.slice(0, 10));
+  offs.forEach((o, i) => assert.equal(txt.slice(o, o + String(i + 1).length + 6), i + 1 + ' 0 obj'));
+  // บัตรหมุนบนกระดาษ A3: ตัวเลขหมุนตาม
+  const p3 = C.printPlan(18, 7, 6, 'a3', run);
+  const rot = Buffer.from(C.pdfRun({ sheet: p3.sheet, layout: p3.layout, card: { w: 18, h: 7 }, art: { jpeg, pw: 10, ph: 4 }, qty: 6, run, labels: [{ digitsX: 15, y: 0.8, size: 0.42 }], color: '#000000' })).toString('latin1');
+  assert.match(rot, /BT \/F1 [\d.]+ Tf [\d. ]+ rg 0 1 -1 0 /);
+  // ไม่เปิดเลขรัน: ไม่มีตัวเลขบนบัตร มีแต่รูป + เส้นตัด
+  const plain = Buffer.from(C.pdfRun({ sheet: plan.sheet, layout: plan.layout, card: { w: 18, h: 7 }, art: { jpeg, pw: 10, ph: 4 }, qty: 3, run: null, labels: [], color: '#000' })).toString('latin1');
+  assert.ok(!/\/F1 [\d.]+ Tf/.test(plain));
+});
+
+test('ชนิดงานของร้าน: เพิ่มเองได้ ยืมหน้าตาชนิดมาตรฐาน · ข้อมูลถูกตรวจ · ลบแล้วหายจากรายการ', () => {
+  const o = C.normalizeOptions({
+    types: [
+      { id: 'u-plaswood1', name: 'ป้ายพลาสวูด<script>', base: 'foam', unit: 'sqm', word: 'แผ่น', presets: [[60, 90], ['x', 5], [120, 240]], desc: 'หนา 5 มม.' },
+      { id: 'u-queue', name: 'บัตรคิว', base: 'card', unit: 'pcs', presets: [] },
+      { id: 'u-hack', name: 'โครงเหล็กแอบ', base: 'stand' }, // ขาตั้งเหล็กยืมไม่ได้ → โฟมบอร์ด
+      { id: '../bad', name: '' },
+    ],
+    presets: { 'u-plaswood1': [[30, 45]], 'u-nope': [[10, 10]] },
+    hideTypes: ['u-queue', 'u-nope'],
+  });
+  assert.equal(o.types.length, 4);
+  assert.equal(o.types[0].name, 'ป้ายพลาสวูดscript');
+  assert.deepEqual(o.types[0].presets, [[60, 90], [120, 240]]);
+  assert.equal(o.types[2].base, 'foam');
+  assert.match(o.types[3].id, /^u-[a-z0-9]+$/);
+  assert.equal(o.types[3].name, 'งานของร้าน');
+  assert.deepEqual(Object.keys(o.presets), ['u-plaswood1']);
+  assert.deepEqual(o.hideTypes, ['u-queue']);
+  try {
+    C.applyTypes(o.types);
+    assert.ok(C.TYPE_ORDER.includes('u-plaswood1'));
+    assert.equal(C.baseType('u-plaswood1'), 'foam');
+    assert.equal(C.baseType('u-queue'), 'card');
+    const g = C.geometry('u-plaswood1', 60, 90);
+    assert.equal(g.type, 'foam');
+    assert.equal(g.kind, 'u-plaswood1');
+    assert.equal(g.depth, C.geometry('foam', 60, 90).depth);
+    assert.equal(C.TYPES['u-queue'].unit, 'pcs');
+    assert.ok(C.TYPES['u-queue'].presets.length > 0, 'ไม่ใส่ขนาด → ใช้ขนาดของหน้าตาที่ยืม');
+    assert.equal(C.quote({ type: 'u-plaswood1', w: 100, h: 100, qty: 1, rate: 450 }).total, 450);
+    assert.equal(C.depthText('u-plaswood1'), C.depthText('foam'));
+  } finally {
+    C.applyTypes([]);
+  }
+  assert.ok(!C.TYPES['u-plaswood1']);
+  assert.deepEqual(C.TYPE_ORDER, C.BASE_TYPES);
+  assert.equal(C.baseType('u-plaswood1'), 'vinyl');
+  assert.deepEqual(C.parseSizes('60x90, 120 × 240\n30*45; abc, 60x90'), [[60, 90], [120, 240], [30, 45]]);
+});
+
+test('แอป: ช่องรันนัมเบอร์ / ไฟล์พิมพ์ / ชนิดงานของร้าน ต่อสายครบ และงานชนิดของร้านไม่หายตอนเปิดแอปใหม่', async () => {
+  const { readFileSync } = await import('node:fs');
+  const html = readFileSync(new URL('../sign-mockup/index.html', import.meta.url), 'utf8');
+  for (const id of ['runPane', 'runOn', 'runPrefix', 'runStart', 'runDigits', 'runStub', 'runPos', 'runSize', 'runColors', 'fmtPrint', 'sheetSeg', 'optMyTypes', 'optAddType', 'typeDlg', 'tyBase', 'tyUnit', 'tySave']) {
+    assert.match(html, new RegExp('id="' + id + '"'), id);
+  }
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  // ลงทะเบียนชนิดของร้านก่อนโหลดสถานะ
+  assert.ok(app.indexOf('C.applyTypes(C.normalizeOptions(') < app.indexOf('var st = load();'));
+  assert.match(app, /if \(fmt === 'print'\) return buildPrint\(\);/);
+  assert.match(app, /C\.pdfRun\(/);
+  const s3 = readFileSync(new URL('../sign-mockup/scene3d.js', import.meta.url), 'utf8');
+  assert.match(s3, /const bt = C\.baseType\(s\.type\)/);
+  assert.match(s3, /type === 'card'/);
 });

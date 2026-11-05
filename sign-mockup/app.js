@@ -6,11 +6,16 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '3.6.0';
+  var APP_VERSION = '3.7.0';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp' });
 
-  var UNIT_WORD = { vinyl: 'ผืน', frame: 'ผืน', foam: 'แผ่น', sticker: 'แผ่น', acrylic: 'แผ่น', lightbox: 'ป้าย', stand: 'ชุด', cnc: 'ป้าย', rollup: 'ชุด', xstand: 'ชุด' };
+  var UNIT_WORD = { vinyl: 'ผืน', frame: 'ผืน', foam: 'แผ่น', sticker: 'แผ่น', acrylic: 'แผ่น', lightbox: 'ป้าย', stand: 'ชุด', cnc: 'ป้าย', rollup: 'ชุด', xstand: 'ชุด', card: 'ใบ' };
+  // ชนิดงานของร้าน (ตัวเลือกของร้าน) ต้องลงทะเบียนก่อนโหลดงานที่บันทึกไว้ ไม่งั้นงานชนิดนั้นจะกลายเป็นไวนิล
+  var OPT_KEY = 'np-sign-options-v1';
+  try {
+    C.applyTypes(C.normalizeOptions(JSON.parse(localStorage.getItem(OPT_KEY) || 'null')).types);
+  } catch (e) {}
 
   var DEF = {
     mode: 'text',
@@ -31,6 +36,8 @@
     doorOpen: true, // ประตูห้องเรียนเปิดพับชิดผนัง (แบบที่ร้านส่งรูปมา)
     tone: 'pink',
     steel: { total: 0, depth: 0, tube: 25, wall: 1.2, nh: -1, nv: -1, cut: 'miter', base: 'rect', price: 0, frameOnly: false, color: '#1f2125' }, // โครงเหล็ก (0 / -1 = อัตโนมัติ)
+    run: { on: true, prefix: 'No.', start: 1, digits: 4, pos: 'tr', size: 'm', color: '#c8102e', stub: 0 }, // บัตร: เลขรัน
+    sheet: 'a4', // บัตร: กระดาษที่จัดหน้าพิมพ์
     panel: 'right', // แผงตั้งค่าอยู่ขวา/ซ้าย
     fmt: 'jpg', // ชนิดรูปที่ส่งออกล่าสุด (jpg / png)
     qty: 1,
@@ -74,6 +81,8 @@
       s.text = Object.assign({}, DEF.text, saved.text || {});
       s.steel = Object.assign({}, DEF.steel, saved.steel && typeof saved.steel === 'object' ? saved.steel : {});
     }
+    s.run = C.normalizeRun(Object.assign({}, DEF.run, s.run));
+    if (!C.SHEETS[s.sheet]) s.sheet = DEF.sheet;
     if (!C.TYPES[s.type]) s.type = DEF.type;
     if (!C.SCENES[s.scene]) s.scene = DEF.scene;
     if (s.mode !== 'image') s.mode = 'text';
@@ -166,6 +175,7 @@
     }
     if (st.mode === 'image' && !imgDesign) st.mode = 'text';
     if (st.scene === 'photo' && !photo) st.scene = DEF.scene;
+    if (!C.TYPES[st.type]) st.type = DEF.type;
     showFileCard();
     sync();
     hist.lock = false;
@@ -196,9 +206,50 @@
     if (st.mode === 'image' && imgDesign) return imgDesign;
     var t = st.text;
     var th = R.themes()[t.theme];
-    var key = [t.title, t.sub, t.phone, t.theme, th ? [th.bg, th.bg2, th.title, th.sub, th.pillBg, th.pillFg].join(',') : '', t.font || '', t.font2 || '', st.w, st.h].join('|');
-    if (textCache.key !== key) textCache = { key: key, design: R.textDesign(t, st.w, st.h) };
+    // บัตรมีต้นขั้ว: จัดข้อความเฉพาะฝั่งขวาของเส้นปรุ
+    var sw = stubNow();
+    var key = [t.title, t.sub, t.phone, t.theme, th ? [th.bg, th.bg2, th.title, th.sub, th.pillBg, th.pillFg].join(',') : '', t.font || '', t.font2 || '', st.w, st.h, sw].join('|');
+    if (textCache.key !== key) textCache = { key: key, design: R.textDesign(t, st.w - sw, st.h) };
     return textCache.design;
+  }
+
+  // ชนิดหน้าตา (ชนิดของร้าน → ชนิดมาตรฐานที่ยืมมา) · หน่วยเรียก
+  function bt() {
+    return C.baseType(st.type);
+  }
+  function unitWord() {
+    var t = C.TYPES[st.type];
+    return (t && t.word) || UNIT_WORD[bt()] || 'ชิ้น';
+  }
+  function isCard() {
+    return bt() === 'card';
+  }
+  function runNow() {
+    return isCard() && st.run.on ? st.run : null;
+  }
+  function stubNow() {
+    var r = runNow();
+    return r ? C.runSlots(r, st.w, st.h).stub : 0;
+  }
+  // งานที่โชว์: บัตรที่เปิดเลขรัน = งาน + เลขใบแรก (+ เส้นปรุต้นขั้ว) รวมเป็นรูปเดียว ใช้ทั้ง 2 มิติ/3 มิติ
+  var runCache = { key: '', design: null };
+  function shownDesign() {
+    var d = currentDesign();
+    var r = runNow();
+    if (!r) return d;
+    var key = [d.id || textCache.key, st.fit, st.w, st.h, JSON.stringify(r)].join('|');
+    if (runCache.key !== key) {
+      var art = R.cardArt(d, st.w, st.h, st.fit, r, { k: 1600 / Math.max(st.w, st.h), split: st.mode !== 'image' });
+      runCache = { key: key, design: { src: art.canvas, w: art.canvas.width, h: art.canvas.height, bg: d.bg, id: 'run|' + key } };
+    }
+    return runCache.design;
+  }
+  function fitNow() {
+    return runNow() ? 'cover' : st.fit;
+  }
+  // งานชิ้นเล็ก (บัตร) ไม่เอาคนยืนเทียบ ไม่งั้นบัตรเหลือนิดเดียวในภาพ
+  function personNow() {
+    return !!st.person && !C.TYPES[st.type].small;
   }
 
   function quoteNow() {
@@ -208,10 +259,11 @@
   function footerInfo() {
     var t = C.TYPES[st.type];
     var q = quoteNow();
-    var unit = UNIT_WORD[st.type];
+    var unit = unitWord();
     var line2 = [];
     if (t.unit === 'sqm') line2.push('พื้นที่ ' + C.fmtArea(st.w, st.h));
     line2.push('จำนวน ' + q.qty + ' ' + unit);
+    if (runNow()) line2.push('เลข ' + C.runText(st.run, 0) + (q.qty > 1 ? '–' + C.runText(st.run, q.qty - 1) : ''));
     if (customer.trim()) line2.push('ลูกค้า: ' + customer.trim());
     var line3 = [];
     if (st.shopName.trim()) line3.push(st.shopName.trim());
@@ -230,8 +282,8 @@
 
   function renderState(over) {
     var s = {
-      design: currentDesign(),
-      fit: st.fit,
+      design: shownDesign(),
+      fit: fitNow(),
       type: st.type,
       w: st.w,
       h: st.h,
@@ -240,7 +292,7 @@
       tone: st.tone,
       steel: st.steel,
       photo: photo,
-      person: st.person,
+      person: personNow(),
       dims: st.dims,
       zoom: st.zoom,
       aspect: st.aspect,
@@ -280,12 +332,12 @@
 
   // หน้าป้าย (เท็กซ์เจอร์) ตามสัดส่วนจริง — กล่องไฟเว้นขอบอะลูมิเนียม 4 ซม.
   function face3d() {
-    var d = currentDesign();
-    var lb = st.type === 'lightbox';
+    var d = shownDesign();
+    var lb = bt() === 'lightbox';
     var fw = lb ? Math.max(1, st.w - 8) : st.w;
     var fh = lb ? Math.max(1, st.h - 8) : st.h;
-    var key = [d.id || textCache.key, st.fit, fw, fh].join('|');
-    if (faceCache.key !== key) faceCache = { key: key, canvas: R.faceCanvas(d, fw, fh, st.fit, 2048), bg: d.bg };
+    var key = [d.id || textCache.key, fitNow(), fw, fh].join('|');
+    if (faceCache.key !== key) faceCache = { key: key, canvas: R.faceCanvas(d, fw, fh, fitNow(), 2048), bg: d.bg };
     return faceCache;
   }
 
@@ -316,7 +368,7 @@
       doorOpen: st.doorOpen,
       tone: st.tone,
       steel: st.steel,
-      person: st.person,
+      person: personNow(),
       night: st.night,
       face: fc.canvas,
       faceKey: fc.key,
@@ -394,7 +446,7 @@
     // กล่องขนาดป้ายมุมภาพ: กว้าง (X) / สูง (Y) / หนา (Z)
     $('ibW').textContent = C.fmtCm(st.w) + ' ซม.';
     $('ibH').textContent = C.fmtCm(st.h) + ' ซม.';
-    $('ibD').textContent = C.DEPTH[st.type] || '';
+    $('ibD').textContent = C.depthText(st.type);
     if (st.type === 'stand') {
       var so = C.steelOpts(st.w, st.h, st.steel);
       $('ibH').textContent = C.fmtCm(st.h) + ' ซม. (รวมขา ' + C.fmtCm(so.total) + ')';
@@ -404,9 +456,10 @@
     $('ibA').textContent = C.fmtArea(st.w, st.h);
     $('infoBox').hidden = false;
     $('sizeReadout').textContent = C.sizeText(st.w, st.h) + (t.unit === 'sqm' ? ' · พื้นที่ ' + C.fmtArea(st.w, st.h) : '');
-    var unit = UNIT_WORD[st.type];
+    var unit = unitWord();
     $('qtyUnit').textContent = unit;
-    $('rateLabel').textContent = t.unit === 'sqm' ? 'ราคาต่อ ตร.ม.' : st.type === 'cnc' ? 'ราคาต่อป้าย (รวมเสา)' : st.type === 'stand' ? 'ราคาต่อชุด (รวมโครงเหล็ก)' : 'ราคาต่อชุด';
+    $('rateLabel').textContent = t.unit === 'sqm' ? 'ราคาต่อ ตร.ม.' : st.type === 'cnc' ? (C.cncPosts(st.steel) ? 'ราคาต่อป้าย (รวมเสา)' : 'ราคาต่อป้าย (ติดผนัง)') : st.type === 'stand' ? 'ราคาต่อชุด (รวมโครงเหล็ก)' : 'ราคาต่อ' + unit;
+    runSync();
     var pr = $('priceReadout');
     if (q.has) {
       var how =
@@ -481,6 +534,7 @@
     cnc: '<svg viewBox="0 0 44 34"><path d="M6 3v29M38 3v29"/><rect x="8" y="6" width="28" height="16" rx="1"/><path d="M12 11h7M12 16h12M23 11h9"/><path d="M3.5 32h5M35.5 32h5"/></svg>',
     rollup: '<svg viewBox="0 0 44 34"><path d="M15 2h14"/><rect x="15.5" y="3" width="13" height="25"/><rect x="12" y="27" width="20" height="4" rx="1.5"/></svg>',
     xstand: '<svg viewBox="0 0 44 34"><rect x="15" y="2" width="14" height="24"/><path d="M15 26l-4 6M29 26l4 6"/></svg>',
+    card: '<svg viewBox="0 0 44 34"><rect x="3" y="7" width="38" height="20" rx="2"/><path d="M13 7v20" stroke-dasharray="2 2"/><path d="M18 13h12M18 18h16"/><path d="M31 23.5h7"/></svg>',
   };
 
   function buildTypes() {
@@ -493,7 +547,8 @@
       b.type = 'button';
       b.className = 'card';
       b.dataset.type = k;
-      b.innerHTML = TYPE_ICON[k] + '<b>' + esc(t.name) + '</b><small>' + esc(t.desc) + '</small>';
+      b.innerHTML = (TYPE_ICON[k] || TYPE_ICON[C.baseType(k)]) + '<b>' + esc(t.name) + '</b><small>' + esc(t.desc) + '</small>';
+      if (t.mine) b.classList.add('mine');
       b.addEventListener('click', function () {
         setType(k);
       });
@@ -506,11 +561,19 @@
     st.type = k;
     var t = C.TYPES[k];
     // เปลี่ยนไปขาตั้ง (โรลอัพ / X-Stand) ใช้ขนาดมาตรฐานของขาตั้งนั้น
-    if (t.mount === 'floor' && (C.TYPES[was].mount !== 'floor' || was !== k)) {
+    var old = C.TYPES[was] || C.TYPES.vinyl;
+    if (!!t.small !== !!old.small) {
+      // บัตร ↔ ป้าย ขนาดต่างกันมาก ใช้ขนาดมาตรฐานของชนิดใหม่
+      var z = t.small || t.mine ? t.presets[0] : t.presets[2] || t.presets[0];
+      if (z) {
+        st.w = z[0];
+        st.h = z[1];
+      }
+    } else if (t.mount === 'floor' && (old.mount !== 'floor' || was !== k)) {
       var p = t.presets[t.presets.length > 1 ? 1 : 0];
       st.w = p[0];
       st.h = p[1];
-    } else if (t.mount === 'wall' && C.TYPES[was].mount === 'floor') {
+    } else if (t.mount === 'wall' && old.mount === 'floor') {
       var q = t.presets[2] || t.presets[0];
       st.w = q[0];
       st.h = q[1];
@@ -638,7 +701,7 @@
     var sc = C.SCENES[st.scene];
     var field = $('spotField');
     var box = $('spotSeg');
-    if (!sc || !sc.spots || C.TYPES[st.type].mount === 'floor') {
+    if (!sc || !sc.spots || C.geometry(st.type, st.w, st.h, st.steel).mount === 'floor') {
       field.hidden = true;
       $('doorField').hidden = true;
       return;
@@ -839,7 +902,7 @@
         imgDesign = d;
         showFileCard();
         st.mode = 'image';
-        if (C.TYPES[st.type].mount === 'wall' && C.ratioMismatch(st.w, st.h, imgDesign.w, imgDesign.h)) {
+        if (C.geometry(st.type, st.w, st.h, st.steel).mount === 'wall' && C.ratioMismatch(st.w, st.h, imgDesign.w, imgDesign.h)) {
           st.h = C.clampCm(C.heightForImage(st.w, imgDesign.w, imgDesign.h), st.h);
           toast('ปรับความสูงป้ายเป็น ' + C.fmtCm(st.h) + ' ซม. ให้ตรงกับสัดส่วนรูปแล้ว');
           refreshPhotoQuad();
@@ -1094,7 +1157,7 @@
   });
   $('qty').addEventListener('input', function (e) {
     var v = Math.floor(C.num(e.target.value));
-    st.qty = v >= 1 ? Math.min(v, 9999) : 1;
+    st.qty = v >= 1 ? Math.min(v, 99999) : 1;
     save();
     draw();
   });
@@ -1285,7 +1348,7 @@
     var now = new Date();
     var t = C.TYPES[st.type];
     var q = quoteNow();
-    var unit = UNIT_WORD[st.type];
+    var unit = unitWord();
     x.fillStyle = '#ffffff';
     x.fillRect(0, 0, W, H);
 
@@ -1400,7 +1463,11 @@
     x.fillStyle = INK2;
     font(x, 400, 20, BODY);
     if (t.unit === 'sqm') x.fillText('พื้นที่ ' + C.fmtArea(st.w, st.h), col.size, ry + 82);
-    else x.fillText(st.type === 'cnc' ? 'รวมเสาเหล็ก 2 ต้น' : st.type === 'stand' ? 'รวมโครงเหล็ก + ฐาน' : 'รวมขาตั้ง + กระเป๋า', col.size, ry + 82);
+    else {
+      var note = st.type === 'cnc' ? (C.cncPosts(st.steel) ? 'รวมเสาเหล็ก 2 ต้น' : 'ติดผนัง ไม่มีเสา') : st.type === 'stand' ? 'รวมโครงเหล็ก + ฐาน' : bt() === 'rollup' || bt() === 'xstand' ? 'รวมขาตั้ง + กระเป๋า' : '';
+      if (runNow()) note = 'เลข ' + C.runText(st.run, 0) + (q.qty > 1 ? '–' + C.runText(st.run, q.qty - 1) : '');
+      if (note) fitText(x, note, col.size, ry + 82, col.qty - col.size - 70, 400, 20, BODY);
+    }
     x.textAlign = 'center';
     x.fillStyle = INK;
     font(x, 600, 26, BODY);
@@ -1443,7 +1510,7 @@
     var notes = [
       'ภาพจำลองเพื่อประกอบการตัดสินใจ สีและรายละเอียดจริงอาจต่างจากหน้าจอเล็กน้อย',
       'กรุณาตรวจข้อความ ตัวสะกด เบอร์โทร และขนาด ก่อนยืนยันสั่งผลิต',
-      t.name + ': ' + (C.DEPTH[st.type] || ''),
+      t.name + ': ' + C.depthText(st.type),
     ];
     var sc = steelNow();
     if (sc) {
@@ -1484,7 +1551,43 @@
     return c;
   }
 
+  /* ไฟล์พิมพ์บัตร: PDF จัดเต็มแผ่น (เผื่อตัดตก 2 มม. + เส้นตัด) เลขรันเป็นตัวอักษรเวกเตอร์ทุกใบ */
+  function buildPrint() {
+    var plan = C.printPlan(st.w, st.h, quoteNow().qty, st.sheet, st.run);
+    if (!plan.perSheet) return Promise.reject(new Error('too_big'));
+    var d = currentDesign();
+    var r = runNow();
+    var L = plan.layout;
+    // รูปบัตร 300 dpi (ใหญ่สุด 4000 จุด) รวมตัดตก ใส่คำนำหน้าไว้ในรูป ตัวเลขไปใส่ใน PDF
+    var k = Math.min(300 / 2.54, 4000 / (Math.max(st.w, st.h) + 2 * L.bleed));
+    var split = st.mode !== 'image';
+    var art = R.cardArt(d, st.w, st.h, st.fit, r, { k: k, bleed: L.bleed, digits: false, split: split });
+    // ภาพตัวอย่างแผ่นแรก (ย่อ) มีเลขจริงทุกช่อง
+    var prev = R.sheetPreview(plan, function (i) {
+      return R.cardArt(d, st.w, st.h, st.fit, r, { k: (900 / L.sw) * 1.25, bleed: L.bleed, index: i, split: split }).canvas;
+    }, 900);
+    return toBlob(art.canvas, 'image/jpeg', 0.93).then(function (jpg) {
+      return blobBytes(jpg).then(function (bytes) {
+        var pdf = C.pdfRun({
+          sheet: plan.sheet,
+          layout: L,
+          card: { w: st.w, h: st.h },
+          art: { jpeg: bytes, pw: art.canvas.width, ph: art.canvas.height },
+          qty: plan.qty,
+          run: r,
+          labels: art.labels,
+          color: r ? r.color : '#000000',
+          note: C.fmtCm(st.w) + ' x ' + C.fmtCm(st.h) + ' cm  ' + plan.perSheet + '-up  bleed 2 mm',
+        });
+        return toBlob(prev, 'image/jpeg', 0.88).then(function (pj) {
+          return { blob: new Blob([pdf], { type: 'application/pdf' }), name: fileName('print', 'pdf'), preview: pj, canvas: prev, plan: plan };
+        });
+      });
+    });
+  }
+
   function buildExport(fmt) {
+    if (fmt === 'print') return buildPrint();
     if (fmt === 'glb') {
       return stage.exportGLB().then(function (ab) {
         var blob = new Blob([ab], { type: 'model/gltf-binary' });
@@ -1519,13 +1622,21 @@
     png: 'PNG คมชัดที่สุด ไม่มีรอยบีบอัด (ไฟล์ใหญ่กว่า JPG) เหมาะกับงานที่มีตัวหนังสือเล็ก',
     pdf: 'ใบเสนอราคา A4 พร้อมภาพจำลอง ราคา และช่องเซ็นชื่อ ส่งทาง LINE หรือสั่งพิมพ์ได้เลย',
     glb: 'กด “สร้างลิงก์ดู 3 มิติ” ส่งลิงก์ให้ลูกค้าเปิดหมุนดูในมือถือได้เลย (ไม่ต้องลงแอป) · หรือดาวน์โหลดไฟล์ .glb เปิดใน 3D Viewer / ส่งทีมออกแบบ',
+    print: 'ไฟล์ PDF ส่งโรงพิมพ์/เครื่องพิมพ์: จัดบัตรเต็มแผ่น เผื่อตัดตก 2 มม. มีเส้นตัด เลขรันเรียงทุกใบ',
   };
+  function planText(p) {
+    var t = p.perSheet + ' ใบ/แผ่น ' + p.sheet.name + (p.layout.rot ? ' (หมุนบัตร)' : '') + ' · ใช้ ' + p.sheets + ' แผ่น';
+    if (p.spare) t += ' (แผ่นสุดท้ายว่าง ' + p.spare + ' ช่อง)';
+    if (p.first) t += ' · ' + p.first + (p.qty > 1 ? ' – ' + p.last : '');
+    return t;
+  }
   function openExport(fmt) {
     if (st.scene === 'photo' && photo && !C.isConvex((lastOut && lastOut.quad) || [])) {
       toast('มุมป้ายไขว้กันอยู่ จัดมุมให้เป็นสี่เหลี่ยมก่อนบันทึก');
       return;
     }
     if (fmt === 'glb' && !is3d()) fmt = 'jpg';
+    if (fmt === 'print' && !isCard()) fmt = 'jpg';
     exp.fmt = fmt;
     if ((fmt === 'jpg' || fmt === 'png') && st.fmt !== fmt) {
       st.fmt = fmt;
@@ -1533,7 +1644,10 @@
     }
     pressed('#fmtSeg button', 'fmt', fmt);
     $('fmtGlb').hidden = !is3d();
-    $('exportTitle').textContent = fmt === 'pdf' ? 'ใบเสนอราคา' : fmt === 'glb' ? 'ไฟล์ 3 มิติ' : 'รูปพร้อมส่งลูกค้า';
+    $('fmtPrint').hidden = !isCard();
+    $('sheetBar').hidden = fmt !== 'print';
+    pressed('#sheetSeg button', 'sheet', st.sheet);
+    $('exportTitle').textContent = fmt === 'pdf' ? 'ใบเสนอราคา' : fmt === 'glb' ? 'ไฟล์ 3 มิติ' : fmt === 'print' ? 'ไฟล์พิมพ์บัตร' : 'รูปพร้อมส่งลูกค้า';
     $('dlHint').textContent = inFrame && fmt !== 'glb' ? 'มือถือ: กดค้างที่รูปแล้วเลือก “บันทึกรูปภาพ” · คอมพิวเตอร์: คลิกขวาที่รูป แล้วเลือกบันทึกรูป' : FMT_HINT[fmt];
     $('dlStatus').textContent = 'กำลังเตรียมไฟล์…';
     ['dlShare', 'dlCopy', 'dlSave'].forEach(function (id) {
@@ -1545,9 +1659,10 @@
       .then(function (r) {
         if (job === exp.job) showExport(r);
       })
-      .catch(function () {
+      .catch(function (e) {
         if (job !== exp.job) return;
-        $('dlStatus').textContent = fmt === 'glb' ? 'สร้างไฟล์ 3 มิติไม่สำเร็จ ลองใหม่อีกครั้ง' : 'บันทึกไฟล์ไม่สำเร็จ ลองลดขนาดรูปที่ใส่แล้วลองใหม่';
+        $('dlStatus').textContent =
+          fmt === 'glb' ? 'สร้างไฟล์ 3 มิติไม่สำเร็จ ลองใหม่อีกครั้ง' : fmt === 'print' && e && e.message === 'too_big' ? 'บัตรใหญ่เกินกระดาษนี้ ลองเลือกกระดาษใหญ่ขึ้น' : 'บันทึกไฟล์ไม่สำเร็จ ลองลดขนาดรูปที่ใส่แล้วลองใหม่';
       });
   }
   function showExport(r) {
@@ -1572,7 +1687,8 @@
     } catch (e) {}
     // เปิดอยู่ในกรอบของเว็บอื่น (พรีวิว) ดาวน์โหลด/แชร์/คัดลอกถูกปิด เหลือกดค้าง/คลิกขวาที่รูป
     $('dlShare').hidden = inFrame || !canShare;
-    $('dlCopy').hidden = inFrame || !r.canvas || !(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write);
+    $('dlCopy').hidden = inFrame || !r.canvas || exp.fmt === 'print' || !(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write);
+    if (r.plan) $('dlHint').textContent = planText(r.plan) + ' · ' + kb(r.blob.size) + ' — ' + FMT_HINT.print;
     $('dlSave').hidden = inFrame;
     $('dlCopy').textContent = exp.fmt === 'pdf' ? 'คัดลอกเป็นรูป' : 'คัดลอกรูป';
     ['dlShare', 'dlCopy', 'dlSave'].forEach(function (id) {
@@ -1650,6 +1766,14 @@
   $('quoteBtn').addEventListener('click', function () {
     openExport('pdf');
   });
+  document.querySelectorAll('#sheetSeg button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (st.sheet === b.dataset.sheet && exp.blob) return;
+      st.sheet = b.dataset.sheet;
+      save();
+      openExport('print');
+    });
+  });
   document.querySelectorAll('#fmtSeg button').forEach(function (b) {
     b.addEventListener('click', function () {
       if (b.dataset.fmt !== exp.fmt || !exp.blob) openExport(b.dataset.fmt);
@@ -1715,7 +1839,8 @@
     acrylic: 'acrylic อะคริลิก อคริลิค ใส หมุด',
     lightbox: 'lightbox กล่องไฟ ไฟ led กลางคืน',
     stand: 'stand ขาตั้ง โครงเหล็ก เหล็กกล่อง ป้ายตั้ง ตั้งพื้น รายการตัด ตัดเหล็ก โครง เชื่อม',
-    cnc: 'cnc ซีเอ็นซี ป้ายโครงการ โครงการ หมู่บ้าน ป้ายหน้าโครงการ อักษรนูน ตัวนูน ตัวอักษร อะลูมิเนียม คอมโพสิต acp ตั้งเสา เสาคู่',
+    cnc: 'cnc ซีเอ็นซี ป้ายโครงการ โครงการ หมู่บ้าน ป้ายหน้าโครงการ อักษรนูน ตัวนูน ตัวอักษร อะลูมิเนียม คอมโพสิต acp ตั้งเสา เสาคู่ ไม่มีเสา ติดผนัง ติดอาคาร',
+    card: 'card บัตร การ์ด คูปอง coupon voucher ticket บัตรสมนาคุณ บัตรกำนัล ส่วนลด นามบัตร รันนัมเบอร์ รันเบอร์ เลขรัน running number ต้นขั้ว บัตรคิว บัตรเชิญ สมาชิก',
     rollup: 'roll up rollup โรลอัพ ขาตั้ง',
     xstand: 'x-stand xstand เอ็กซ์สแตนด์ ขาตั้ง',
     studio: 'studio สตูดิโอ พื้นหลัง',
@@ -2162,7 +2287,6 @@
   $('redoBtn').addEventListener('click', redo);
 
   /* ---------- ตัวเลือกของร้าน: ชุดสี สีผนัง ฟอนต์ ขนาดประจำ ชนิด/ฉากที่ใช้ สำรอง/ย้ายเครื่อง ---------- */
-  var OPT_KEY = 'np-sign-options-v1';
   var opts = C.normalizeOptions(null);
   var shopFonts = []; // ฟอนต์ที่อัปโหลด { id, name, family, face }
   function loadOpts() {
@@ -2176,6 +2300,7 @@
   function applyOpts() {
     R.setThemes(opts.themes);
     C.applyTones(opts.tones);
+    C.applyTypes(opts.types);
   }
   function optsChanged() {
     opts = C.normalizeOptions(opts);
@@ -2183,6 +2308,13 @@
       localStorage.setItem(OPT_KEY, JSON.stringify(opts));
     } catch (e) {}
     applyOpts();
+    if (!C.TYPES[st.type]) {
+      // ชนิดงานของร้านที่ใช้อยู่ถูกลบ → กลับไปไวนิล ขนาดมาตรฐาน
+      st.type = DEF.type;
+      st.w = DEF.w;
+      st.h = DEF.h;
+      save();
+    }
     if (!R.themes()[st.text.theme]) st.text.theme = 'brand';
     if (!C.WALL_TONES[st.tone]) st.tone = 'pink';
     textCache = { key: '', design: null };
@@ -2485,6 +2617,15 @@
     shopFonts.forEach(function (f) {
       box.appendChild(row('', f.name + ' — กขค ป้ายสวย 0123', [['ลบ', function () { removeFont(f.id); }, true]], '"' + f.family + '"'));
     });
+    box = $('optMyTypes');
+    box.innerHTML = '';
+    opts.types.forEach(function (t) {
+      var u = t.unit === 'sqm' ? 'คิดต่อ ตร.ม.' : 'คิดต่อ' + t.word;
+      box.appendChild(row('', t.name + ' — แบบ' + C.TYPES[t.base].name + ' · ' + u, [
+        ['แก้ไข', function () { openTypeEditor(t.id); }],
+        ['ลบ', function () { removeType(t.id); }, true],
+      ]));
+    });
     box = $('optPresets');
     box.innerHTML = '';
     Object.keys(opts.presets).forEach(function (k) {
@@ -2648,10 +2789,14 @@
   // ---- สีโครงเหล็ก / เสา ----
   var metalInput = null;
   function buildMetals() {
-    var show = st.type === 'stand' || st.type === 'cnc';
+    var cnc = st.type === 'cnc';
+    $('cncPostField').hidden = !cnc;
+    if (cnc) pressed('#cncPostSeg button', 'posts', C.cncPosts(st.steel) ? '1' : '0');
+    // ป้าย CNC แบบไม่มีเสา ไม่ต้องเลือกสีเสา
+    var show = st.type === 'stand' || (cnc && C.cncPosts(st.steel));
     $('metalField').hidden = !show;
     if (!show) return;
-    $('metalLabel').textContent = st.type === 'cnc' ? 'สีเสา' : 'สีโครงเหล็ก';
+    $('metalLabel').textContent = cnc ? 'สีเสา' : 'สีโครงเหล็ก';
     var box = $('metals');
     if (!box.children.length) {
       C.METALS.forEach(function (m) {
@@ -2682,6 +2827,174 @@
     pressed('#metals .swatch', 'metal', cur);
     if (cur !== 'inox' && document.activeElement !== metalInput) metalInput.value = cur;
   }
+
+  // ---- ชนิดงานของร้าน: ชื่อ หน้าตา (ยืมชนิดมาตรฐาน) วิธีคิดราคา หน่วย ขนาดที่ใช้บ่อย ----
+  var tyEdit = null; // id ที่กำลังแก้ (null = เพิ่มใหม่)
+  var tyUnit = 'sqm';
+  function openTypeEditor(id) {
+    var t = id ? opts.types.filter(function (x) { return x.id === id; })[0] : null;
+    tyEdit = t ? t.id : null;
+    var sel = $('tyBase');
+    if (!sel.options.length) {
+      C.LOOK_TYPES.forEach(function (k) {
+        var o = document.createElement('option');
+        o.value = k;
+        o.textContent = C.TYPES[k].name;
+        sel.appendChild(o);
+      });
+    }
+    $('tyName').value = t ? t.name : '';
+    sel.value = t ? t.base : 'foam';
+    tyUnit = t ? t.unit : C.TYPES[sel.value].unit;
+    pressed('#tyUnit button', 'unit', tyUnit);
+    $('tyWord').value = t ? t.word : '';
+    $('tySizes').value = t ? t.presets.map(function (p) { return C.fmtCm(p[0]) + 'x' + C.fmtCm(p[1]); }).join(', ') : '';
+    $('tyDesc').value = t ? t.desc : '';
+    $('tyDelete').hidden = !t;
+    $('typeTitle').textContent = t ? 'แก้ไขชนิดงาน' : 'เพิ่มชนิดงานของร้าน';
+    $('tyStatus').textContent = '';
+    openDialog($('typeDlg'));
+    if (!t) setTimeout(function () { $('tyName').focus(); }, 50);
+  }
+  $('tyBase').addEventListener('change', function () {
+    if (tyEdit) return;
+    tyUnit = C.TYPES[$('tyBase').value].unit; // ชนิดใหม่: วิธีคิดราคาตามหน้าตาที่เลือก (แก้ได้)
+    pressed('#tyUnit button', 'unit', tyUnit);
+  });
+  document.querySelectorAll('#tyUnit button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      tyUnit = b.dataset.unit;
+      pressed('#tyUnit button', 'unit', tyUnit);
+    });
+  });
+  $('tySave').addEventListener('click', function () {
+    var name = $('tyName').value.trim();
+    if (!name) {
+      $('tyStatus').textContent = 'ใส่ชื่อชนิดงานก่อน';
+      $('tyName').focus();
+      return;
+    }
+    var base = $('tyBase').value;
+    var sizes = C.parseSizes($('tySizes').value);
+    if ($('tySizes').value.trim() && !sizes.length) {
+      $('tyStatus').textContent = 'อ่านขนาดไม่ออก พิมพ์แบบ 60x90, 120x240';
+      return;
+    }
+    // ไม่ใส่ขนาด = ใช้ขนาดมาตรฐานของหน้าตาที่เลือก
+    if (!sizes.length) sizes = C.TYPES[base].presets.slice(0, 4).map(function (p) { return [p[0], p[1]]; });
+    var def = { id: tyEdit || uid2('u-'), name: name, base: base, unit: tyUnit, word: $('tyWord').value.trim(), desc: $('tyDesc').value.trim(), presets: sizes };
+    var isNew = !tyEdit;
+    opts.types = isNew ? opts.types.concat([def]) : opts.types.map(function (x) { return x.id === def.id ? def : x; });
+    optsChanged();
+    closeDialog($('typeDlg'));
+    var saved = opts.types.filter(function (x) { return x.id === def.id; })[0];
+    if (isNew && saved) {
+      setType(saved.id);
+      toast('เพิ่มชนิดงาน “' + saved.name + '” แล้ว อยู่ท้ายรายการชนิดในขั้น 2');
+    } else toast('บันทึกชนิดงานแล้ว');
+  });
+  function removeType(id) {
+    opts.types = opts.types.filter(function (x) { return x.id !== id; });
+    delete opts.presets[id];
+    opts.hideTypes = opts.hideTypes.filter(function (k) { return k !== id; });
+    optsChanged();
+  }
+  $('tyDelete').addEventListener('click', function () {
+    if (!tyEdit) return;
+    removeType(tyEdit);
+    closeDialog($('typeDlg'));
+    toast('ลบชนิดงานแล้ว');
+  });
+  $('optAddType').addEventListener('click', function () {
+    openTypeEditor(null);
+  });
+
+  // ---- บัตร: รันนัมเบอร์ ----
+  var RUN_COLORS = [['#c8102e', 'แดง'], ['#1a1a1a', 'ดำ'], ['#1f2a4d', 'กรมท่า'], ['#ffffff', 'ขาว'], ['#b8862b', 'ทอง']];
+  var runColorInput = null;
+  function runSync() {
+    var card = isCard();
+    $('runPane').hidden = !card;
+    if (!card) return;
+    var r = st.run;
+    $('runOn').checked = r.on;
+    $('runOpts').hidden = !r.on;
+    setVal('runPrefix', r.prefix);
+    setVal('runStart', String(r.start));
+    setVal('runDigits', String(r.digits));
+    setVal('runStub', r.stub ? C.fmtCm(r.stub) : '0');
+    pressed('#runPos button', 'pos', r.pos);
+    pressed('#runSize button', 'size', r.size);
+    var box = $('runColors');
+    if (!box.children.length) {
+      RUN_COLORS.forEach(function (c) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'swatch';
+        b.dataset.color = c[0];
+        b.innerHTML = '<i style="background:' + c[0] + ';box-shadow:inset 0 0 0 1px rgba(0,0,0,.18)"></i>' + esc(c[1]);
+        b.addEventListener('click', function () {
+          setRun('color', c[0]);
+        });
+        box.appendChild(b);
+      });
+      var l = document.createElement('label');
+      l.className = 'metal-custom';
+      runColorInput = document.createElement('input');
+      runColorInput.type = 'color';
+      runColorInput.setAttribute('aria-label', 'เลือกสีเลขเอง');
+      runColorInput.addEventListener('input', function (e) {
+        setRun('color', e.target.value);
+      });
+      l.appendChild(runColorInput);
+      l.appendChild(document.createElement('span')).textContent = 'สีอื่น';
+      box.appendChild(l);
+    }
+    pressed('#runColors .swatch', 'color', r.color);
+    if (runColorInput && document.activeElement !== runColorInput) runColorInput.value = r.color;
+    var q = quoteNow();
+    $('runInfo').textContent = r.on
+      ? 'จำนวน ' + q.qty + ' ใบ (ขั้น 4) → ' + C.runText(r, 0) + (q.qty > 1 ? ' ถึง ' + C.runText(r, q.qty - 1) : '') + ' · ส่งออก "ไฟล์พิมพ์" ได้ PDF จัดเต็มแผ่นพร้อมเลขทุกใบ'
+      : 'ไม่ใส่เลข · ส่งออก "ไฟล์พิมพ์" ได้ PDF จัดเต็มแผ่นพร้อมเส้นตัด';
+  }
+  function setRun(k, v) {
+    var o = {};
+    o[k] = v;
+    st.run = C.normalizeRun(Object.assign({}, st.run, o));
+    save();
+    runSync();
+    draw();
+  }
+  $('runOn').addEventListener('change', function (e) {
+    setRun('on', e.target.checked);
+  });
+  [
+    ['runPrefix', 'prefix'],
+    ['runStart', 'start'],
+    ['runDigits', 'digits'],
+    ['runStub', 'stub'],
+  ].forEach(function (f) {
+    $(f[0]).addEventListener('input', function (e) {
+      var v = e.target.value;
+      if (f[1] !== 'prefix') {
+        if (String(v).trim() === '') return; // กำลังลบเพื่อพิมพ์ใหม่
+        v = C.num(v);
+        if (!isFinite(v)) return;
+      }
+      setRun(f[1], v);
+    });
+    $(f[0]).addEventListener('blur', runSync);
+  });
+  document.querySelectorAll('#runPos button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      setRun('pos', b.dataset.pos);
+    });
+  });
+  document.querySelectorAll('#runSize button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      setRun('size', b.dataset.size);
+    });
+  });
 
   /* ---------- ติดตั้งเป็นแอป ---------- */
   var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
@@ -2812,7 +3125,7 @@
 
   /* ---------- โครงเหล็ก + รายการตัดเหล็ก (ป้ายขาตั้งโครงเหล็ก / ไวนิลขึงโครง) ---------- */
   function steelKind() {
-    return st.type === 'stand' ? 'stand' : st.type === 'frame' ? 'wall' : null;
+    return st.type === 'stand' ? 'stand' : bt() === 'frame' ? 'wall' : null;
   }
   function steelNow() {
     var kind = steelKind();
@@ -2960,6 +3273,15 @@
   });
   $('stWall').addEventListener('change', function (e) {
     setSteel('wall', +e.target.value);
+  });
+  document.querySelectorAll('#cncPostSeg button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var on = b.dataset.posts === '1';
+      if (C.cncPosts(st.steel) === on) return;
+      setSteel('posts', on);
+      // ไม่มีเสา = ยึดผนัง ความสูงตามฉาก (ผนัง/หน้าร้าน/รั้ว)
+      toast(on ? 'ป้ายตั้งเสาคู่บนฐานปูน ขอบล่างสูงจากพื้น 80 ซม.' : 'ป้ายไม่มีเสา ยึดติดผนัง/รั้ว/อาคาร (ลองฉากผนัง หน้าร้าน หรือรั้ว)');
+    });
   });
   document.querySelectorAll('#stBase button').forEach(function (b) {
     b.addEventListener('click', function () {
