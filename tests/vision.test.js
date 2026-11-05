@@ -1,55 +1,46 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  normalizeSlip,
   normalizeJobSheet,
   readImage,
   READABLE_TYPES,
 } from '../src/services/visionService.js';
-import { slipReceiptFlex } from '../src/flex/slipFlex.js';
+import { readFileSync } from 'node:fs';
 import { makeDraft, priceDraft, parseBarePrice } from '../src/utils/jobDraft.js';
-import { todayISO, addDays } from '../src/utils/dates.js';
 
-test('normalizeSlip: keeps line items only when they add up to the slip total', () => {
-  const exact = normalizeSlip({
-    merchantName: 'ร้านข้าวกะเพรา',
-    date: '2026-09-07',
-    total: 50,
-    items: [{ item_name: 'กะเพราหมู', quantity: 1, unit_price: 50 }],
-  });
-  assert.equal(exact.items.length, 1);
-  assert.equal(exact.items[0].item_name, 'กะเพราหมู');
-  assert.equal(exact.total, 50);
 
-  // Items that disagree with the printed total are replaced by one line, so
-  // the card can never show money the slip does not.
-  const mismatch = normalizeSlip({
-    merchantName: 'ร้านข้าวกะเพรา',
-    total: 50,
-    items: [{ item_name: 'กะเพราหมู', quantity: 1, unit_price: 45 }],
-  });
-  assert.equal(mismatch.items.length, 1);
-  assert.equal(mismatch.items[0].total, 50);
-  assert.equal(mismatch.subtotal, 50);
-});
+/* ร้านสั่ง "เอาบอทอ่านออก ฉันจะย้าย การจ่ายเงินอ่านรูปภาพ ไปไว้บอทร้าน
+ * เครื่องเขียน" — ม่วงจดเลิกอ่านสลิปเป็นงาน/เงินแล้วทั้งตัว เหลือหน้าที่เดียว
+ * คือรู้ว่า "นี่คือสลิป" เพื่อบอกร้านตรง ๆ และแนบรูปเป็นหลักฐานตามปกติ
+ * ส่วนการอ่านใบสั่งงาน (job sheet) ยังอยู่ครบเหมือนเดิม
+ * (เส้นอ่านสลิปตัวเดิมอยู่ในประวัติ git เผื่อบอทร้านเครื่องเขียนยกไปใช้)
+ */
+test('readImage: สลิปไม่ถูกอ่านเป็นงาน/เงินอีกแล้ว — แค่บอกชนิดไว้ให้แนบเป็นหลักฐาน', async () => {
+  const buf = Buffer.from('x');
+  const seeing = (raw) => ({ visionExtract: async () => raw });
 
-test('normalizeSlip: rejects a slip with no usable total', () => {
-  assert.equal(normalizeSlip(null), null);
-  assert.equal(normalizeSlip({ total: 0 }), null);
-  assert.equal(normalizeSlip({ total: -5 }), null);
-  assert.equal(normalizeSlip({ total: 'ห้าสิบ' }), null);
-});
+  // สลิปชัด ๆ → ไม่สร้างอะไรจากรูป และ diag บอกว่าเป็นสลิป (คนตอบจะได้พูดถูก)
+  const diag = {};
+  assert.equal(
+    await readImage(buf, 'image/png', { ...seeing({ kind: 'slip', merchantName: 'ร้าน', total: 60 }), diag }),
+    null
+  );
+  assert.equal(diag.reason, 'slip');
 
-test('normalizeSlip: a missing or future date falls back to today', () => {
-  assert.equal(normalizeSlip({ total: 10 }).date, null);
-  assert.equal(normalizeSlip({ total: 10, date: '7/9/2026' }).date, null);
-  assert.equal(normalizeSlip({ total: 10, date: '2026-09-07' }).date, '2026-09-07');
-  assert.equal(normalizeSlip({ total: 10, date: addDays(todayISO(), 5) }).date, todayISO());
+  // คำตอบแบบเก่าที่ไม่มี kind (เคยถูกเดาเป็นสลิป) → ไม่ใช่งาน ไม่บันทึกอะไรทั้งนั้น
+  assert.equal(await readImage(buf, 'image/png', seeing({ merchantName: 'ร้าน', total: 60 })), null);
+
+  // และตัวโค้ดต้องไม่เหลือเส้นสร้างงานจากสลิปอยู่เลย
+  const handler = readFileSync(new URL('../src/handlers/imageHandler.js', import.meta.url), 'utf8');
+  assert.ok(!handler.includes("kind === 'slip'"), 'เส้นสลิปในตัวรับรูปต้องถูกถอดออก');
+  assert.ok(!handler.includes('slipReceiptFlex'), 'การ์ดสลิปต้องไม่ถูกใช้แล้ว');
+  assert.ok(handler.includes("diag.reason === 'slip'"), 'เจอสลิปต้องบอกร้านตรง ๆ แล้วแนบเป็นหลักฐานแทน');
+  const vision = readFileSync(new URL('../src/services/visionService.js', import.meta.url), 'utf8');
+  assert.ok(!vision.includes('normalizeSlip'), 'ตัวแปลงสลิปเป็นงานต้องถูกถอดออกทั้งตัว');
 });
 
 // A job sheet is a photographed work order: it says what to make, and often
-// says nothing at all about money. That is the case the slip rules reject, so
-// it needs its own reading.
+// says nothing at all about money, so it needs its own reading.
 test('normalizeJobSheet: keeps the lines even when the paper names no price', () => {
   const stamp = normalizeJobSheet({
     kind: 'job',
@@ -81,15 +72,11 @@ test('normalizeJobSheet: keeps the lines even when the paper names no price', ()
   assert.equal(normalizeJobSheet(null), null);
 });
 
-test('readImage: tells a slip from a work order, and a photo from both', async () => {
+test('readImage: reads a work order, and leaves a mere photo alone', async () => {
   const buf = Buffer.from('x');
   const seeing = (raw) => ({ visionExtract: async () => raw });
 
   assert.deepEqual(READABLE_TYPES, ['image/jpeg', 'image/png']);
-
-  const slip = await readImage(buf, 'image/png', seeing({ merchantName: 'ร้าน', total: 60 }));
-  assert.equal(slip.kind, 'slip');
-  assert.equal(slip.total, 60);
 
   const sheet = await readImage(
     buf,
@@ -162,26 +149,3 @@ test('priceDraft: a bare number prices a single-line draft and nothing else', ()
   );
 });
 
-test('slip card: shows the fields the mockup names, and the job actions', () => {
-  const job = {
-    id: 'job-1',
-    job_name: 'สลิป ร้านข้าวกะเพรา',
-    customer_name: 'ร้านข้าวกะเพรา',
-    job_date: '2026-09-07',
-    total: 50,
-    category: 'other',
-    category_type: null,
-    items: [],
-  };
-  const json = JSON.stringify(slipReceiptFlex(job));
-  assert.ok(json.includes('บันทึกจากหลักฐานสำเร็จ'));
-  assert.ok(json.includes('ร้านข้าวกะเพรา'));
-  assert.ok(json.includes('ยอดชำระ'));
-  assert.ok(json.includes('งานทั่วไป'));
-  assert.ok(json.includes('สลิป / ใบเสร็จ'));
-  assert.ok(json.includes('action=edit_job&jobId=job-1'));
-  assert.ok(json.includes('action=delete_job&jobId=job-1'));
-
-  // When storage failed the card says so instead of claiming a file is there.
-  assert.ok(JSON.stringify(slipReceiptFlex(job, { attached: false })).includes('ยังไม่ได้แนบ'));
-});

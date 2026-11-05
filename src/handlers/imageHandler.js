@@ -1,13 +1,12 @@
 import { reply, getMessageContentBuffer } from '../services/lineService.js';
 // อ่านสถานะผ่านตัวตรวจอายุ — รูปที่ส่งมาหลังสถานะค้างเกิน 6 ชม. เข้าเส้นอ่านรูปปกติ
 import { getFreshState as getState, setState, clearState, STATES } from '../services/stateService.js';
-import { getLatestJob, getJobById, createJob, getRecentCustomerNames } from '../services/jobService.js';
+import { getLatestJob, getJobById, getRecentCustomerNames } from '../services/jobService.js';
 import { saveAttachment } from '../services/attachmentService.js';
 import { addShopQr, listShopQrs } from '../services/shopService.js';
 import { readImage, visionEnabled } from '../services/visionService.js';
 import { recordAiUsage } from '../services/aiUsageService.js';
 import { withDraftGuide } from '../flex/draftGuide.js';
-import { slipReceiptFlex } from '../flex/slipFlex.js';
 import { jobPreviewMessage } from '../flex/jobCard.js';
 import { makeDraft, draftToBubble } from '../utils/jobDraft.js';
 import { deriveJobName } from '../utils/category.js';
@@ -154,9 +153,12 @@ export async function handleImageMessage(event, profile) {
     ]);
   }
 
-  // Unless the user explicitly asked to attach evidence to an existing job,
-  // try to read the paper: a slip becomes a job of its own, a job sheet
-  // becomes a draft to check first.
+  /* Unless the user explicitly asked to attach evidence to an existing job,
+   * try to read the paper: a job sheet becomes a draft to check first.
+   *
+   * สลิปโอนเงินไม่ถูกอ่านเป็นงาน/เงินอีกแล้ว — ร้านสั่ง "เอาบอทอ่านออก ฉันจะ
+   * ย้ายการจ่ายเงินอ่านรูปภาพไปไว้บอทร้านเครื่องเขียน" ที่นี่สลิปถูกแนบเป็น
+   * หลักฐานเฉย ๆ พร้อมบอกร้านตรง ๆ (เส้นอ่านสลิปตัวเดิมอยู่ในประวัติ git) */
   const diag = {};
   if (!attaching) {
     const read = await readImage(buffer, fileType, {
@@ -219,31 +221,6 @@ export async function handleImageMessage(event, profile) {
       );
     }
 
-    const slip = read?.kind === 'slip' ? read : null;
-    if (slip) {
-      const created = await createJob(profile.id, {
-        jobName: slip.merchantName ? `สลิป ${slip.merchantName}` : 'บันทึกจากสลิป',
-        customerName: slip.merchantName,
-        jobDate: slip.date || undefined,
-        items: slip.items,
-        subtotal: slip.subtotal,
-        discount: slip.discount,
-        total: slip.total,
-        paidAmount: slip.total, // a slip is proof the money moved
-        note: 'บันทึกจากสลิป/หลักฐาน',
-      });
-
-      let attached = true;
-      try {
-        await saveAttachment(profile.id, created, { messageId: message.id, buffer, fileType });
-      } catch (err) {
-        // The job is already saved; say so rather than losing it over a file.
-        attached = false;
-        logger.error('image.slip_attach_failed', { message: err?.message });
-      }
-
-      return reply(replyToken, slipReceiptFlex(created, { attached }));
-    }
   }
 
   /* ม่วงอ่านรูปไม่ออก — บอกออกมา อย่าแนบงานเก่าเงียบ ๆ
@@ -257,6 +234,10 @@ export async function handleImageMessage(event, profile) {
   const cantReadHint = !attaching
     ? (!visionEnabled()
       ? '\n\n(ม่วงยังอ่านรูปเป็นงานใหม่เองไม่ได้นะคะ ถ้ารูปนี้คือใบสั่งงาน พิมพ์งานมาได้เลยค่ะ เช่น "โฟมบอร์ด 120x70 ตรมละ 350")'
+      : diag.reason === 'slip'
+        // สลิปจ่ายเงิน: บอกตรง ๆ ว่าม่วงจดไม่บันทึกเงินจากรูปแล้ว (งานนั้นย้ายไป
+        // บอทร้านเครื่องเขียน) รูปถูกแนบเก็บเป็นหลักฐานให้ตามข้อความหลัก
+        ? '\n\n(รูปนี้เป็นสลิปโอนเงิน — ม่วงจดไม่บันทึกเงินจากรูปแล้วนะคะ ถ้ารับเงินงานไหน กดที่งานนั้นแล้วเลือก 🏦 รับโอนแล้ว ได้เลยค่ะ)'
       : diag.reason === 'api_error'
         // เรียก Claude ไม่สำเร็จ ≠ รูปไม่ใช่งาน — บอกเหตุจริงให้ร้านส่งต่อให้คนดูแลได้ (ไม่มีกุญแจในข้อความ)
         ? `\n\n(ม่วงเรียกตัวอ่านรูปไม่สำเร็จค่ะ 😔 สาเหตุ: ${diag.detail || 'ไม่ทราบ'}${diag.message ? ' — ' + diag.message : ''}\nระหว่างนี้พิมพ์งานมาได้เลยค่ะ เช่น "โฟมบอร์ด 120x70 ตรมละ 350")`
