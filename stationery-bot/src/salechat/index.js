@@ -10,8 +10,26 @@ import { createSaleChatStore } from './store.js';
 import { createSaleChatIngest } from './ingest.js';
 import { createSaleOutbox } from './outbox.js';
 import { createTeamCards } from './team.js';
+import { enabledFor } from '../chatorders.js';
 
 const QUOTA_EVERY_MS = 30 * 60_000;
+
+// what the customer saw, as text for the chat: the text itself; a card, a picture, a sticker… as a short note
+export function botText(messages = []) {
+  const parts = [];
+  for (const m of Array.isArray(messages) ? messages : []) {
+    if (!m || typeof m !== 'object') continue;
+    if (m.type === 'text') parts.push(String(m.text ?? ''));
+    else if (m.type === 'flex') parts.push(`[การ์ด] ${String(m.altText ?? '').slice(0, 200)}`.trim());
+    else if (m.type === 'image') parts.push('[รูปภาพ]');
+    else if (m.type === 'sticker') parts.push('[สติกเกอร์]');
+    else if (m.type === 'location') parts.push('[ตำแหน่งที่ตั้ง]');
+    else if (m.type === 'video') parts.push('[วิดีโอ]');
+    else if (m.type === 'audio') parts.push('[ข้อความเสียง]');
+    else parts.push('[ข้อความ]');
+  }
+  return parts.join('\n').slice(0, 4000);
+}
 
 // db → { url, key } · getConfig() → the current saleChat settings (read each time, so a change on Render applies at once)
 // lineApi → { profile, content, quota } · push(to, messages, token, retryKey) → LINE's answer · tokenFor(channelKey) → access token
@@ -56,7 +74,9 @@ export function createSaleChat({ db, store = createSaleChatStore({ url: db.url, 
       const q = await lineApi.quota(tokenFor(channel)).catch(() => null);
       if (q) quota = { ...q, at: new Date(now()).toISOString() };
     }
-    await store.beat(channel, c.mode, build, quota ? { quota } : {});
+    // which order cards are on (the page's "ดูที่ Render" check): customer card · team card
+    const cards = { card: c.card?.mode ?? 'off', teamCard: c.teamCard?.mode ?? 'off' };
+    await store.beat(channel, c.mode, build, { ...(quota ? { quota } : {}), cards });
   }
 
   function start() {
@@ -73,5 +93,17 @@ export function createSaleChat({ db, store = createSaleChatStore({ url: db.url, 
     timers = [];
   }
 
-  return { record, tick: outbox.tick, teamTick: team.tick, beat, start, stop, mode: () => cfg().mode ?? 'off' };
+  // the bot answered this customer (LINE accepted it): shown in their chat as the bot's answer, if the customer has a chat
+  // (the same customers the bridge takes: all in "on", the pilot list in "pilot"; a customer without a chat is simply not recorded)
+  function recordBot(userId, messages, channelKey = 'main') {
+    if (!userId || !enabledFor(cfg(), userId)) return Promise.resolve();
+    const body = botText(messages);
+    if (!body) return Promise.resolve();
+    const at = new Date(now()).toISOString();
+    return serial
+      .run(`${channelKey}:${userId}`, () => store.botOut(channelKey, userId, body, at))
+      .then(() => worked('the bot answers in the chat'), (e) => failed('the bot answers in the chat', e));
+  }
+
+  return { record, tick: outbox.tick, teamTick: team.tick, beat, start, stop, recordBot, mode: () => cfg().mode ?? 'off' };
 }

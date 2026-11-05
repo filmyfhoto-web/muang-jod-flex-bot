@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { noteBotSent } from './botcontext.js';
 
 export function verifySignature(rawBody, signature, secret) {
   if (!signature || !secret) return false;
@@ -14,6 +15,7 @@ export async function replyMessage(replyToken, messages, token) {
     body: JSON.stringify({ replyToken, messages }),
   });
   if (!res.ok) throw Object.assign(new Error(`LINE reply failed: ${res.status} ${await res.text()}`), { status: res.status });
+  noteBotSent(undefined, messages); // accepted: the customer whose event this answers gets it (recorded in their chat, if they have one)
 }
 
 // Push costs a message from the plan's monthly quota, unlike a reply — use it only when
@@ -25,6 +27,7 @@ export async function pushMessage(to, messages, token) {
     body: JSON.stringify({ to, messages }),
   });
   if (!res.ok) throw Object.assign(new Error(`LINE push failed: ${res.status} ${await res.text()}`), { status: res.status });
+  noteBotSent(to, messages);
 }
 
 // A push that can be repeated safely: LINE's own retry key (a UUID) makes the same request count once for 24 hours — if the first
@@ -39,7 +42,10 @@ export async function pushWithRetryKey(to, messages, token, retryKey, { timeoutM
       signal: AbortSignal.timeout(timeoutMs),
     });
     const requestId = res.headers.get('x-line-request-id') || '';
-    if (res.ok) return { ok: true, status: res.status, requestId };
+    if (res.ok) {
+      noteBotSent(to, messages);
+      return { ok: true, status: res.status, requestId };
+    }
     const accepted = res.headers.get('x-line-accepted-request-id') || '';
     const text = await res.text().catch(() => '');
     let message = text;

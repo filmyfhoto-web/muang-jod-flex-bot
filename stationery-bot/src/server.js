@@ -31,6 +31,7 @@ import { sameAdmin } from './app/names.js';
 import { createAssistStage } from './assist-stage.js';
 import { createSaleChat } from './salechat/index.js';
 import { saleChatFromEnv, saleChatDb } from './salechat/config.js';
+import { forCustomer, setBotSentHook } from './botcontext.js';
 
 const token =(process.env.LINE_CHANNEL_ACCESS_TOKEN ?? '').trim();
 const secret = (process.env.LINE_CHANNEL_SECRET ?? '').trim();
@@ -137,14 +138,14 @@ app.post('/webhook', express.raw({ type: '*/*' }), (req, res) => {
     // The app's features answer first; what they do not answer comes back to runOthers (below) one event at a time.
     for (const ev of events) console.log(describeEvent(ev));
     const who = events.find((e) => e.source?.userId)?.source.userId;
-    const job = () => appFlow.handle(req.body.toString('utf8'), req.get('x-line-signature'), events);
+    const job = () => forCustomer(events.length === 1 ? who : undefined, () => appFlow.handle(req.body.toString('utf8'), req.get('x-line-signature'), events));
     (who ? serial.run(who, job) : job()).catch((e) => console.error('[app]', e.message));
     return;
   }
   for (const ev of events) {
     console.log(describeEvent(ev)); // even while paused
     const who = ev.source?.userId;
-    const job = () => handleEvent(ev);
+    const job = () => forCustomer(who, () => handleEvent(ev)); // the bot's answers to this customer are reported to their chat
     (who ? serial.run(who, job) : job()).catch((e) => console.error('[event]', e.message));
   }
 });
@@ -798,6 +799,11 @@ if (saleDb) {
     saleChat = null;
   }
 }
+
+// the bot's own answers to a customer are shown in that customer's chat (the sale chat records them; it does nothing while the bridge is off)
+setBotSentHook((userId, messages) => {
+  if (saleChat) saleChat.recordBot(userId, messages);
+});
 
 // the drafts' own "we have the order" pass (shop.json chatDrafts.ack, off by default)
 let draftAcking = false;

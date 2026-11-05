@@ -365,18 +365,18 @@ test('the heartbeat tells the page the mode, the build and (at most every 30 min
   await h.b.beat();
   await h.b.beat();
   assert.equal(asked, 1, 'asked once');
-  assert.deepEqual(h.calls.beat[1], { channel: 'main', mode: 'on', build: 'abc1234', detail: { quota: { type: 'limited', limit: 300, used: 120, at: new Date(t).toISOString() } } });
+  assert.deepEqual(h.calls.beat[1], { channel: 'main', mode: 'on', build: 'abc1234', detail: { quota: { type: 'limited', limit: 300, used: 120, at: new Date(t).toISOString() }, cards: { card: 'off', teamCard: 'off' } } });
   t += 31 * 60_000;
   await h.b.beat();
   assert.equal(asked, 2);
 
   const off = bridge({ mode: 'off', api: lineApi({ quota: async () => { throw new Error('should not be asked while off'); } }) });
   await off.b.beat();
-  assert.deepEqual(off.calls.beat[0], { channel: 'main', mode: 'off', build: 'abc1234', detail: {} }, 'off still says “I am here, and I am off”');
+  assert.deepEqual(off.calls.beat[0], { channel: 'main', mode: 'off', build: 'abc1234', detail: { cards: { card: 'off', teamCard: 'off' } } }, 'off still says “I am here, and I am off”');
 
   const noQuota = bridge({ api: lineApi({ quota: async () => null }) });
   await noQuota.b.beat();
-  assert.deepEqual(noQuota.calls.beat[0].detail, {});
+  assert.deepEqual(noQuota.calls.beat[0].detail, { cards: { card: 'off', teamCard: 'off' } }, 'no quota: no quota key');
 });
 
 test('start() runs the send pass and the heartbeat on their own timers; stop() ends them', async () => {

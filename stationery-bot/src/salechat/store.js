@@ -60,6 +60,21 @@ export function createSaleChatStore({ url, key, fetch: doFetch = fetch, bucket =
       if (r.error) throw new Error(`team cards: ${r.error.message}`);
       return r.data ?? [];
     },
+    // the bot's own answer to a customer, kept in that customer's chat as the bot's (not as a message staff sent); nothing if no chat exists
+    async botOut(channelKey, lineUserId, body, atIso) {
+      const link = await db.from('sale_line_links').select('thread_id').eq('channel_key', channelKey).eq('line_user_id', lineUserId).maybeSingle();
+      if (link.error) throw new Error(`bot answer: ${link.error.message}`);
+      if (!link.data) return { skipped: 'no-chat' };
+      const threadId = link.data.thread_id;
+      const text = String(body).slice(0, 4000);
+      const ins = await db
+        .from('sale_msgs')
+        .insert({ thread_id: threadId, dir: 'out', kind: 'text', body: text, by_name: 'บอท', meta: { src: 'bot', delivery: 'sent', delivery_at: atIso } });
+      if (ins.error) throw new Error(`bot answer: ${ins.error.message}`);
+      const upd = await db.from('sale_threads').update({ last_text: text.slice(0, 120), last_at: atIso, updated_at: atIso }).eq('id', threadId);
+      if (upd.error) throw new Error(`bot answer thread: ${upd.error.message}`);
+      return { thread_id: threadId };
+    },
     // marks the team card as sent (only the first time: a second call changes nothing)
     async markTeamSent(orderId, atIso) {
       const r = await db.from('sale_orders').update({ team_card_at: atIso }).eq('id', orderId).is('team_card_at', null);

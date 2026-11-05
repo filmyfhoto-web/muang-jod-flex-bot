@@ -2,18 +2,12 @@
 // Only orders saved within the last two hours are sent (older ones were marked "sent" when migration 004 went in). A card LINE did not
 // answer for is tried again later with the same retry key, so nobody gets it twice; after three such tries it is given up on and logged.
 // Switched by SALECHAT_TEAMCARD (or shop.json saleChat.teamCard.mode): off · on. Nothing is sent while it is off.
-import { createHash } from 'node:crypto';
 import { buildTeamCard } from './card.js';
-import { classifyPush } from './outbox.js';
+import { classifyPush, pushWithTextFallback, retryKeyFor } from './outbox.js';
+export { retryKeyFor } from './outbox.js';
 
 export const TEAM_WINDOW_MS = 2 * 60 * 60_000;
 export const MAX_TRIES = 3;
-
-// LINE wants a UUID as the retry key: the same order and the same person always give the same key
-export function retryKeyFor(...parts) {
-  const h = createHash('sha1').update(parts.join('|')).digest('hex');
-  return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
-}
 
 // store · push(to, messages, token, retryKey) → LINE's answer · teamIds() → the LINE ids of the people on the contact list
 export function createTeamCards({ store, push, tokenFor, getConfig, teamIds = () => [], shopName = () => '', channelKey = 'main', log = console, now = () => Date.now(), windowMs = TEAM_WINDOW_MS, limit = 5 }) {
@@ -40,7 +34,11 @@ export function createTeamCards({ store, push, tokenFor, getConfig, teamIds = ()
         }
         const msg = buildTeamCard(card, { shopName: shopName() });
         const answers = [];
-        for (const to of ids) answers.push({ to, ...classifyPush(await push(to, [msg], token, retryKeyFor('team', id, to))) });
+        for (const to of ids) {
+          // the same order and the same person always give the same key; a card LINE refuses goes as its one-line text instead
+          const answer = await pushWithTextFallback(push, to, [msg], [{ type: 'text', text: msg.altText }], token, retryKeyFor('team', id, to), log);
+          answers.push({ to, ...classifyPush(answer) });
+        }
         if (answers.some((a) => a.result === 'retry')) {
           const n = (tries.get(id) || 0) + 1;
           tries.set(id, n);

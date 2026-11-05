@@ -1,6 +1,7 @@
 // Staff replies written in the "แชตและออเดอร์" page → the customer's LINE. The page only queues a reply; this takes it from the queue,
 // sends it to LINE (a push, which uses one message of the plan's monthly quota) and tells the database what LINE answered. The page shows
 // "sent" only after this has reported LINE's acceptance — never before.
+import { createHash } from 'node:crypto';
 import { enabledFor } from '../chatorders.js';
 import { buildCustomerCard } from './card.js';
 
@@ -23,6 +24,22 @@ export function classifyPush(r) {
       429: 'โควตาข้อความของ LINE เดือนนี้เต็ม หรือส่งถี่เกินไป',
     }[r.status] || `LINE ตอบ ${r.status}`;
   return { result: 'failed', error: `${hint}${why}` };
+}
+
+// LINE wants a UUID as the retry key: the same parts always give the same key
+export function retryKeyFor(...parts) {
+  const h = createHash('sha1').update(parts.join('|')).digest('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+
+// A card LINE refuses as malformed (400: the card's own layout is wrong, the customer is fine) is sent again as its plain text, under a
+// retry key of its own, so the answer still reaches the customer or the team. Any other answer (blocked, quota, a server error) is
+// returned as it is: the text would not help, and a retry is decided by classifyPush.
+export async function pushWithTextFallback(push, to, messages, fallback, token, retryKey, log = console) {
+  const first = await push(to, messages, token, retryKey);
+  if (first?.ok || first?.status !== 400 || messages[0]?.type !== 'flex') return first;
+  log.error?.(`[salechat] LINE refused a card to ${to} (${first.error || '400'}), the text is sent instead`);
+  return push(to, fallback, token, retryKeyFor('text', retryKey));
 }
 
 // push(to, messages, token, retryKey) → LINE's answer (line.js pushWithRetryKey) · tokenFor(channelKey) → that OA's access token or ''
@@ -67,7 +84,8 @@ export function createSaleOutbox({ store, push, tokenFor, getConfig, onSent = ()
             await store.finish(job.id, 'failed', 'ไม่พบโทเคนของช่อง LINE นี้ จึงไม่ได้ส่ง');
             continue;
           }
-          const c = classifyPush(await push(job.line_user_id, await messagesFor(job, cfg), token, job.retry_key));
+          const answer = await pushWithTextFallback(push, job.line_user_id, await messagesFor(job, cfg), [{ type: 'text', text: job.body }], token, job.retry_key, log);
+          const c = classifyPush(answer);
           await store.finish(job.id, c.result, c.error ?? null, c.requestId ?? null);
           if (c.result === 'sent') {
             sent++;
