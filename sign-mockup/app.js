@@ -5,7 +5,7 @@
   var R = window.SignMockup.render;
   var KEY = 'np-sign-mockup-v1';
 
-  var UNIT_WORD = { vinyl: 'ผืน', frame: 'ผืน', foam: 'แผ่น', acrylic: 'แผ่น', lightbox: 'ป้าย', rollup: 'ชุด', xstand: 'ชุด' };
+  var UNIT_WORD = { vinyl: 'ผืน', frame: 'ผืน', foam: 'แผ่น', sticker: 'แผ่น', acrylic: 'แผ่น', lightbox: 'ป้าย', rollup: 'ชุด', xstand: 'ชุด' };
 
   var DEF = {
     mode: 'text',
@@ -22,6 +22,9 @@
     info: true,
     night: false,
     view: 'angle',
+    spot: 'auto',
+    doorOpen: true, // ประตูห้องเรียนเปิดพับชิดผนัง (แบบที่ร้านส่งรูปมา)
+    tone: 'pink',
     qty: 1,
     rates: {},
     shopName: 'นัดพอน',
@@ -128,6 +131,8 @@
       w: st.w,
       h: st.h,
       scene: st.scene,
+      spot: st.spot,
+      tone: st.tone,
       photo: photo,
       person: st.person,
       dims: st.dims,
@@ -201,6 +206,9 @@
       w: st.w,
       h: st.h,
       scene: st.scene === 'photo' ? 'studio' : st.scene,
+      spot: st.spot,
+      doorOpen: st.doorOpen,
+      tone: st.tone,
       person: st.person,
       night: st.night,
       face: fc.canvas,
@@ -341,6 +349,7 @@
     vinyl:
       '<svg viewBox="0 0 44 34"><rect x="4" y="6" width="36" height="22" rx="1"/><circle cx="7" cy="9" r="1.3"/><circle cx="22" cy="9" r="1.3"/><circle cx="37" cy="9" r="1.3"/><circle cx="7" cy="25" r="1.3"/><circle cx="22" cy="25" r="1.3"/><circle cx="37" cy="25" r="1.3"/></svg>',
     frame: '<svg viewBox="0 0 44 34"><rect x="4" y="5" width="34" height="22" rx="1"/><path d="M38 5l3 3v22H7l-3-3"/></svg>',
+    sticker: '<svg viewBox="0 0 44 34"><path d="M5 5h34v24H12l-7-7z"/><path d="M5 22h7v7"/><path d="M12 12h18M12 17h22"/></svg>',
     foam: '<svg viewBox="0 0 44 34"><rect x="5" y="5" width="34" height="24" rx="1"/><path d="M39 6.5h1.5V30.5H6.5V29"/><path d="M11 12h16M11 17h22M11 22h12"/></svg>',
     acrylic:
       '<svg viewBox="0 0 44 34"><rect x="5" y="5" width="34" height="24" rx="2"/><circle cx="9" cy="9" r="1.6"/><circle cx="35" cy="9" r="1.6"/><circle cx="9" cy="25" r="1.6"/><circle cx="35" cy="25" r="1.6"/><path d="M16 26l9-18M21 26l6-12"/></svg>',
@@ -457,6 +466,70 @@
     });
   }
 
+  /* ---------- ตำแหน่งติดป้าย (ฉากประตู / ห้องเรียน) ---------- */
+  function buildSpots() {
+    var sc = C.SCENES[st.scene];
+    var field = $('spotField');
+    var box = $('spotSeg');
+    if (!sc || !sc.spots || C.TYPES[st.type].mount === 'floor') {
+      field.hidden = true;
+      $('doorField').hidden = true;
+      return;
+    }
+    field.hidden = false;
+    if (box.dataset.scene !== st.scene) {
+      box.innerHTML = '';
+      [['auto', 'อัตโนมัติ']].concat(sc.spots).forEach(function (o) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.dataset.spot = o[0];
+        b.textContent = o[1];
+        b.addEventListener('click', function () {
+          st.spot = o[0];
+          sync();
+        });
+        box.appendChild(b);
+      });
+      box.dataset.scene = st.scene;
+    }
+    var valid = sc.spots.some(function (o) {
+      return o[0] === st.spot;
+    });
+    pressed('#spotSeg button', 'spot', valid ? st.spot : 'auto');
+    $('spotHint').textContent =
+      st.scene === 'classroom'
+        ? 'อัตโนมัติ = ติดเหนือกระดาน'
+        : 'อัตโนมัติ = ป้ายขนาดประตู (กว้าง 55–110 สูง 150–230 ซม.) ติดเต็มบาน · ป้ายเล็กติดบนบาน · ป้ายใหญ่ติดเหนือประตู';
+    // ประตูห้องเรียน: เปิดพับชิดผนัง / ปิด (เฉพาะป้ายที่ติดบนบาน)
+    var sp = C.resolveSpot(st.scene, st.spot, C.geometry(st.type, st.w, st.h));
+    var canOpen = !!sc.canOpen && (sp === 'full' || sp === 'door');
+    $('doorField').hidden = !canOpen;
+    pressed('#doorSeg button', 'open', String(!!st.doorOpen));
+  }
+  function buildTones() {
+    var sc = C.SCENES[st.scene];
+    var field = $('toneField');
+    field.hidden = !(sc && sc.tones);
+    if (field.hidden) return;
+    var box = $('tones');
+    if (!box.children.length) {
+      C.TONE_ORDER.forEach(function (k) {
+        var tn = C.WALL_TONES[k];
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'swatch';
+        b.dataset.tone = k;
+        b.innerHTML = '<i style="background:linear-gradient(180deg,' + tn.upper + ' 0 55%,' + tn.lower + ' 55% 100%);box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)"></i>' + esc(tn.name);
+        b.addEventListener('click', function () {
+          st.tone = k;
+          sync();
+        });
+        box.appendChild(b);
+      });
+    }
+    pressed('#tones .swatch', 'tone', st.tone);
+  }
+
   /* ---------- ซิงก์หน้าจอกับสถานะ ---------- */
   function pressed(sel, attr, val) {
     document.querySelectorAll(sel).forEach(function (b) {
@@ -506,9 +579,17 @@
         st.fit === 'cover' ? 'สัดส่วนรูปไม่ตรงกับป้าย ขอบรูปบางส่วนจะถูกตัด' : 'สัดส่วนรูปไม่ตรงกับป้าย จะมีขอบว่างรอบรูป';
     }
     buildPresets();
+    buildSpots();
+    buildTones();
     save();
     draw();
   }
+  document.querySelectorAll('#doorSeg button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      st.doorOpen = b.dataset.open === 'true';
+      sync();
+    });
+  });
 
   /* ---------- ขั้น 1: งานออกแบบ ---------- */
   document.querySelectorAll('#modeSeg button').forEach(function (b) {

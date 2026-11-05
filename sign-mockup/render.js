@@ -454,7 +454,118 @@
     vignette(x, W, H, 0.18);
   }
 
-  var SCENE_DRAW = { studio: sceneStudio, wall: sceneWall, brick: sceneBrick, shop: sceneShop, fence: sceneFence };
+  /* ---------- ฉากในอาคาร (2 มิติ สำรอง) ---------- */
+  // กึ่งกลางประตู/กระดาน (ซม. จากขอบซ้ายชิ้นงาน) ตามตำแหน่งติดป้าย — ตรงกับฉาก 3 มิติ
+  function featureCx(scene, g, spot) {
+    var half = scene === 'classroom' ? C.BOARD.w / 2 : C.doorSize(scene, spot, g).w / 2 + 7;
+    if (g.mount === 'floor') return -(half + (scene === 'classroom' ? 50 : 45));
+    var sp = C.resolveSpot(scene, spot, g);
+    if (sp === 'beside') return -(half + (scene === 'classroom' ? 35 : 20));
+    return g.bw / 2;
+  }
+  function twoTone(x, cam, lower, upper) {
+    var W = cam.W;
+    var fy = Math.min(cam.floorY, cam.H);
+    var sy = Math.max(0, Math.min(fy, Y(cam, 100)));
+    x.fillStyle = upper;
+    x.fillRect(0, 0, W, sy);
+    x.fillStyle = lower;
+    x.fillRect(0, sy, W, fy - sy);
+    x.fillStyle = '#5f7f68';
+    x.fillRect(0, Y(cam, 100) - Math.max(1, 1.7 * cam.s), W, Math.max(2, 3.5 * cam.s));
+    grain(x, 0, 0, W, fy, 0.08, 1.5);
+  }
+  function door2d(x, cam, cx, style, size) {
+    var s = cam.s;
+    var D = size || C.DOOR;
+    var L = X(cam, cx - D.w / 2);
+    var T = Y(cam, D.h);
+    var w = D.w * s;
+    var h = D.h * s;
+    var fw = 7 * s;
+    x.fillStyle = style === 'panel' ? '#5c3920' : '#efece6';
+    x.fillRect(L - fw, T - fw, w + fw * 2, h + fw);
+    var gr = x.createLinearGradient(L, 0, L + w, 0);
+    gr.addColorStop(0, style === 'panel' ? '#7b4d2c' : '#c4a077');
+    gr.addColorStop(1, style === 'panel' ? '#8f5d37' : '#d6b68c');
+    x.fillStyle = gr;
+    x.fillRect(L, T, w, h);
+    if (style === 'panel') {
+      x.strokeStyle = 'rgba(40,20,8,0.55)';
+      x.lineWidth = Math.max(1, 0.6 * s);
+      x.strokeRect(L + w * 0.16, T + h * 0.07, w * 0.68, h * 0.37);
+      x.strokeRect(L + w * 0.16, T + h * 0.53, w * 0.68, h * 0.39);
+    }
+    x.fillStyle = '#d6d9dd';
+    x.fillRect(L + w - 15 * s, Y(cam, 101), 12 * s, Math.max(2, 2.2 * s));
+    circle(x, L + w - 8 * s, Y(cam, 100), Math.max(2, 2.8 * s));
+    x.fill();
+  }
+  function louver2d(x, cam, cx, cy, w, h) {
+    var s = cam.s;
+    var L = X(cam, cx - w / 2);
+    var T = Y(cam, cy + h / 2);
+    x.fillStyle = '#e3eef2';
+    x.fillRect(L, T, w * s, h * s);
+    x.fillStyle = 'rgba(80,110,125,0.25)';
+    for (var yy = 0; yy < h; yy += 9.5) x.fillRect(L, T + yy * s, w * s, Math.max(1, 1.2 * s));
+    x.strokeStyle = '#4a4f57';
+    x.lineWidth = Math.max(1.5, 3 * s);
+    x.strokeRect(L, T, w * s, h * s);
+    x.beginPath();
+    x.moveTo(L + (w * s) / 2, T);
+    x.lineTo(L + (w * s) / 2, T + h * s);
+    x.stroke();
+  }
+  function tone(st) {
+    return C.WALL_TONES[st && st.tone] || C.WALL_TONES.pink;
+  }
+  function sceneClassDoor(x, cam, g, spot, st) {
+    twoTone(x, cam, tone(st).lower, tone(st).upper);
+    var cx = featureCx('classDoor', g, spot);
+    var D = C.doorSize('classDoor', spot, g);
+    [-390, -230, 230, 390].forEach(function (o) {
+      if (Math.abs(o) > D.w / 2 + 70) louver2d(x, cam, cx + o, 162, 120, 110);
+    });
+    door2d(x, cam, cx, 'panel', D);
+    topLight(x, cam.W, cam.H, X(cam, cx), 0.3);
+    if (cam.floorY < cam.H) floor(x, cam, '#8f4430', '#6f3424', 30, 0.18);
+    vignette(x, cam.W, cam.H, 0.22);
+  }
+  function sceneOfficeDoor(x, cam, g, spot) {
+    var fy = Math.min(cam.floorY, cam.H);
+    x.fillStyle = '#e6e4df';
+    x.fillRect(0, 0, cam.W, fy);
+    grain(x, 0, 0, cam.W, fy, 0.08, 1.5);
+    var cx = featureCx('officeDoor', g, spot);
+    door2d(x, cam, cx, 'flush', C.doorSize('officeDoor', spot, g));
+    topLight(x, cam.W, cam.H, X(cam, cx), 0.35);
+    if (cam.floorY < cam.H) {
+      x.fillStyle = '#f2f0ec';
+      x.fillRect(0, Y(cam, 8), cam.W, 8 * cam.s);
+      floor(x, cam, '#b48c63', '#93704c', 20, 0.12);
+    }
+    vignette(x, cam.W, cam.H, 0.22);
+  }
+  function sceneClassroom(x, cam, g, spot, st) {
+    twoTone(x, cam, tone(st).lower, tone(st).upper);
+    var cx = featureCx('classroom', g, spot);
+    var s = cam.s;
+    var B = C.BOARD;
+    var L = X(cam, cx - B.w / 2);
+    var T = Y(cam, B.y0 + B.h);
+    x.fillStyle = '#c9cdd3';
+    x.fillRect(L - 2.5 * s, T - 2.5 * s, (B.w + 5) * s, (B.h + 5) * s);
+    x.fillStyle = '#f8f9f9';
+    x.fillRect(L, T, B.w * s, B.h * s);
+    x.fillStyle = '#c9cdd3';
+    x.fillRect(L + B.w * 0.1 * s, Y(cam, B.y0) + s, B.w * 0.8 * s, Math.max(2, 3 * s));
+    topLight(x, cam.W, cam.H, X(cam, cx), 0.3);
+    if (cam.floorY < cam.H) floor(x, cam, '#8f4430', '#6f3424', 30, 0.18);
+    vignette(x, cam.W, cam.H, 0.22);
+  }
+
+  var SCENE_DRAW = { studio: sceneStudio, wall: sceneWall, brick: sceneBrick, shop: sceneShop, fence: sceneFence, classDoor: sceneClassDoor, officeDoor: sceneOfficeDoor, classroom: sceneClassroom };
 
   /* ---------- คนยืนเทียบขนาด 170 ซม. ---------- */
   function person(x, cam, U) {
@@ -810,8 +921,11 @@
     x.fillText(text, cx, cy + U);
   }
 
-  // เส้นวัดจาก a ไป b เยื้องออกไปทางทิศ (nx,ny)
+  // เส้นวัดจาก a ไป b เยื้องออกไปทางทิศ (nx,ny) — เส้นสั้นกว่าป้ายตัวเลข ย้ายตัวเลขออกไปข้างนอกไม่ให้ทับป้าย
   function measure(x, a, b, nx, ny, off, text, U) {
+    x.font = '600 ' + Math.round(19 * U) + 'px ' + BODY;
+    var need = x.measureText(text).width + 24 * U + 26 * U;
+    var short = Math.hypot(b.x - a.x, b.y - a.y) < need;
     var ax = a.x + nx * off;
     var ay = a.y + ny * off;
     var bx = b.x + nx * off;
@@ -846,9 +960,10 @@
     x.lineTo(bx - ux * ah + nx * ah * 0.45, by - uy * ah + ny * ah * 0.45);
     x.lineTo(bx - ux * ah - nx * ah * 0.45, by - uy * ah - ny * ah * 0.45);
     x.closePath();
-    x.fill();
+    if (!short) x.fill();
     x.restore();
-    pill(x, text, (ax + bx) / 2, (ay + by) / 2, U);
+    if (short) pill(x, text, (ax + bx) / 2 + nx * 24 * U, (ay + by) / 2 + ny * 24 * U, U);
+    else pill(x, text, (ax + bx) / 2, (ay + by) / 2, U);
   }
 
   function dimsRect(x, fr, g, W, U) {
@@ -1064,9 +1179,9 @@
 
   function drawScene(x, st, g, W, H, U, scale, out) {
     var scene = SCENE_DRAW[st.scene] ? st.scene : 'studio';
-    var cam = C.camera({ scene: scene, g: g, W: W, H: H, person: st.person, zoom: st.zoom });
+    var cam = C.camera({ scene: scene, g: g, W: W, H: H, person: st.person, zoom: st.zoom, spot: st.spot });
     out.cam = cam;
-    SCENE_DRAW[scene](x, cam, g);
+    SCENE_DRAW[scene](x, cam, g, st.spot, st);
     var s = cam.s;
     var oc = objectCanvas(g, s * scale, st.design, st.fit);
     var ox = cam.left;
@@ -1090,7 +1205,7 @@
       x.shadowOffsetX = 12 * U * scale;
       x.shadowOffsetY = -2 * U * scale;
     } else {
-      x.shadowColor = 'rgba(0,0,0,0.32)';
+      x.shadowColor = g.type === 'sticker' ? 'rgba(0,0,0,0)' : 'rgba(0,0,0,0.32)';
       x.shadowBlur = clamp(3 + g.gap * s * 1.8, 3, 42) * scale;
       x.shadowOffsetX = clamp(1 + g.gap * s * 0.35, 1, 14) * scale;
       x.shadowOffsetY = clamp(2 + g.gap * s * 0.8, 2, 30) * scale;

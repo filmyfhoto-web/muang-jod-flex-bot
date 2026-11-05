@@ -49,6 +49,7 @@
               <button type="button" data-view="angle">มุมเฉียง</button>
               <button type="button" data-view="eye">มุมคนมอง</button>
               <button type="button" data-view="side">ด้านข้าง</button>
+              <button type="button" data-view="close">ใกล้ป้าย</button>
             </div>
             <button type="button" class="tool" id="showBtn" aria-pressed="false" title="หมุนกล้องโชว์ลูกค้าอัตโนมัติ">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v4.5h-4.5" /></svg>
@@ -166,6 +167,22 @@
             <section class="page" data-page="3" hidden>
               <h2>ฉาก</h2>
               <div class="scenes" id="scenes"></div>
+              <div class="field" id="spotField" hidden>
+                <span class="label">ตำแหน่งติดป้าย</span>
+                <div class="seg small" id="spotSeg"></div>
+                <p class="hint" id="spotHint"></p>
+              </div>
+              <div class="field" id="doorField" hidden>
+                <span class="label">ประตู</span>
+                <div class="seg small" id="doorSeg">
+                  <button type="button" data-open="true">เปิดพับชิดผนัง</button>
+                  <button type="button" data-open="false">ปิด</button>
+                </div>
+              </div>
+              <div class="field" id="toneField" hidden>
+                <span class="label">สีผนัง</span>
+                <div class="swatches" id="tones"></div>
+              </div>
               <div id="photoPane" class="stack" hidden>
                 <label class="drop compact" id="photoDrop">
                   <input type="file" id="photoFile" accept="image/*" />
