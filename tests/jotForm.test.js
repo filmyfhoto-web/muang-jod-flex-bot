@@ -117,32 +117,51 @@ test('the form page opens in the same colours as the card it came from', () => {
   }
 });
 
-/* ร้านบอกว่า "เพิ่มเป็นบรรทัดเหมือนใบเสร็จธรรมดาได้มั้ย ไม่ต้องข้ามหน้าอ้ะ"
+/* ร้านขอรอบสอง: "ปรับให้กรอกเป็นตารางก็ได้ค่ะ จะได้กรอกง่าย กดเป็นปุ่มมันยาก"
  *
- * ของเดิมหนึ่งรายการคือการ์ดเต็มจอที่ต้องปัดซ้าย-ขวาถึงจะเจอใบถัดไป (scroll-snap
- * + จุดบอกหน้า) งานที่มีสามรายการจึงไม่เคยเห็นพร้อมกันเลยสักครั้ง ทั้งที่ใบเสร็จ
- * จริงอ่านทีเดียวจบ
+ * รอบแรกรายการเป็นการ์ดยุบได้ ต้องแตะหัวบรรทัดเปิดทีละใบ — ร้านบอกตรง ๆ ว่า
+ * การกดคืออุปสรรค ตอนนี้ทุกแถวกางตลอด: ชื่อ/ขนาด/จำนวน/ราคา แก้ได้ตรงนั้นเลย
+ * ของนาน ๆ ใช้ (ตั้งราคาเอง รายละเอียด รูป) อยู่ใน .fold เปิดด้วยปุ่มเลขที่
  */
-test('รายการเรียงลงมาเป็นบรรทัด ไม่ใช่การ์ดที่ต้องปัดหา', () => {
+test('รายการเป็นตารางบรรทัดเดียว หัวคอลัมน์บนสุด ไม่ใช่การ์ดที่ต้องแตะเปิดทีละใบ', () => {
   assert.ok(html.includes('class="track"'), 'ไม่มีกล่องรายการ');
-  // ไม่มีการปัดแนวนอนแล้ว ทั้ง snap และจุดบอกหน้าต้องหายไปด้วย
   assert.ok(!/\.track\s*\{[^}]*scroll-snap-type/.test(css), 'ยังปัดทีละใบอยู่');
-  assert.ok(!/\.track\s*\{[^}]*overflow-x:\s*auto/.test(css), 'ยังเลื่อนแนวนอนได้');
   assert.ok(!html.includes('id="dots"'), 'ยังมีจุดบอกหน้าอยู่ ทั้งที่ไม่มีหน้าให้ข้าม');
-  assert.ok(!js.includes('function renderDots'), 'ยังสร้างจุดบอกหน้าอยู่');
 
-  // หนึ่งรายการ = หนึ่งบรรทัดที่ยุบได้ หัวบรรทัดบอก เลขที่ · ชื่อ · ยอด
-  assert.match(html, /<details class="card item">/, 'บรรทัดยุบไม่ได้');
-  assert.match(html, /<summary class="row-top">/, 'ไม่มีหัวบรรทัดให้แตะ');
-  for (const cls of ['row-no', 'row-title', 'row-amt']) {
-    assert.ok(html.includes(cls), `หัวบรรทัดไม่มี ${cls}`);
+  // หัวคอลัมน์หนึ่งแถวบนสุด ร่วมกริดเดียวกับแถวงาน — คอลัมน์จึงตรงกันทุกแถว
+  assert.ok(html.includes('class="thead"'), 'ไม่มีหัวคอลัมน์ของตาราง');
+  for (const col of ['รายการ', 'ขนาด', 'จำนวน', 'ราคา', 'รวม']) {
+    assert.ok(html.includes(`>${col}</span>`), `หัวคอลัมน์ไม่มี ${col}`);
   }
-  // หัวบรรทัดต้องอัปเดตตามที่พิมพ์ ไม่งั้นยุบแล้วอ่านไม่ออกว่าบรรทัดไหนคืออะไร
-  assert.match(js, /rowTitle\.textContent/, 'ชื่อบนหัวบรรทัดไม่ถูกอัปเดต');
-  assert.match(js, /rowAmt\.textContent/, 'ยอดบนหัวบรรทัดไม่ถูกอัปเดต');
+  assert.match(css, /\.thead,\s*\n\.track > \.item > \.row \{/, 'หัวคอลัมน์กับแถวใช้คนละกริด เสาจะเบี้ยว');
+  // จอแคบกว่าตาราง เลื่อนข้างในกรอบของมันเอง ไม่ใช่บีบช่องจนอ่านไม่ออก
+  assert.match(css, /\.tblwrap \{ overflow-x: auto; \}/);
 
-  // กางอันหนึ่งแล้วอันอื่นยุบ ไม่งั้นก็กลับไปเป็นกองยาวเหมือนเดิม
-  assert.match(js, /other\.open = false/, 'กางแล้วไม่ยุบอันอื่น');
+  // ตารางเส้นสี่เหลี่ยม ("ฉันเอาตารางแบบสี่เหลี่ยมได้มั้ย"): เส้นตั้งคั่นทุกช่อง
+  // หัวคอลัมน์พื้นเข้ม มีกรอบรอบตาราง และช่องกรอกกลืนเป็นช่องตาราง
+  assert.match(css, /\.thead > span \+ span,\s*\n\.row > \* \+ \* \{ border-left: 1px solid var\(--line\); \}/);
+  assert.match(css, /\.thead \{ background: var\(--accent-soft\); \}/);
+  assert.match(css, /\.tmin \{[^}]*border: 1\.5px solid var\(--line\)/);
+  assert.match(css, /\.row input \{[^}]*border: 0;[^}]*border-radius: 0;/);
+
+  // แถวไม่ใช่ details — ช่องหลักทุกช่อง (ชื่อ/กว้าง/ยาว/จำนวน/ราคา) อยู่บน
+  // บรรทัดเดียว แตะแก้ได้โดยไม่ต้องเปิดอะไรก่อน และยอด ฿ อยู่ท้ายแถว
+  assert.ok(!html.includes('<details class="card item">'), 'แถวยังเป็นการ์ดยุบได้');
+  const tpl = html.slice(html.indexOf('<template id="tpl-item">'), html.indexOf('</template>'));
+  const row = tpl.slice(tpl.indexOf('class="row"'), tpl.indexOf('class="fold"'));
+  for (const cls of ['i-name', 'i-w', 'i-h', 'i-qty', 'i-rate', 'row-amt']) {
+    assert.match(row, new RegExp(`class="[^"]*${cls}`), `${cls} ไม่อยู่บนแถว`);
+  }
+
+  // ยอดท้ายแถวอัปเดตตามที่พิมพ์ เหมือนคอลัมน์ "รวม" ของใบเสร็จ
+  assert.match(js, /rowAmt\.textContent = baht\(t\)/, 'ยอดของแถวไม่ถูกอัปเดต');
+
+  // ของนาน ๆ ใช้อยู่ใน fold แตะยอด ฿ เพื่อเปิด — แถวที่มีข้อมูลอยู่แล้วกางเอง
+  // ไม่มีข้อมูลซ่อนหาย (กติกาเดิมของ extra.open ขยายมาคลุมตั้งราคาเองด้วย)
+  assert.match(js, /fold\.hidden = !\(openId === item\.id \|\| autoOpen\)/);
+  assert.match(js, /rowAmt\.onclick/, 'ยอด ฿ ไม่ใช่ปุ่มเปิดของเพิ่มเติม');
+  assert.match(js, /openId = fold\.hidden \? item\.id : null/);
+  assert.match(js, /item\.detail \|\| item\.image \|\| item\.priceManual \|\| item\.totalManual/);
 });
 
 test('เพิ่มบรรทัดถัดไปได้โดยไม่ต้องเลื่อนผ่านช่องกรอกสิบช่อง', () => {
@@ -164,9 +183,11 @@ test('เพิ่มบรรทัดถัดไปได้โดยไม�
   assert.ok(track > 0 && add > track, 'ปุ่มเพิ่มไม่ได้อยู่ท้ายรายการ');
   assert.ok(add < tpl, 'ปุ่มเพิ่มไปอยู่ในแม่แบบการ์ด กลายเป็นปุ่มละใบอีกแล้ว');
 
-  // บรรทัดที่เพิ่งเพิ่มต้องกางเอง ไม่ใช่เพิ่มแล้วต้องไปแตะเปิดอีกที
-  assert.match(js, /openId = fresh\.id/, 'เพิ่มบรรทัดแล้วไม่กางให้');
-  assert.match(js, /openId = ship\.id/, 'เพิ่มค่าส่งแล้วไม่กางให้');
+  // แถวกางตลอดอยู่แล้ว เพิ่มบรรทัดจึงไม่เด้งของเพิ่มเติมขึ้นมาบังตาราง —
+  // พาไปที่ช่องที่ต้องพิมพ์ต่อแทน (ชื่อของแถวใหม่ / ช่องราคาของค่าส่ง)
+  assert.ok(!/openId = fresh\.id/.test(js), 'เพิ่มบรรทัดแล้วของเพิ่มเติมเด้งมาบัง');
+  assert.match(js, /\$\('\.i-name', itemsBox\.children\[state\.items\.length - 1\]\)\?\.focus\(\)/);
+  assert.match(js, /\$\('\.i-rate', itemsBox\.children\[index\]\)\?\.focus\(\)/);
 });
 
 test('both themes are one stylesheet, switched by a class', () => {
@@ -199,11 +220,12 @@ test('quick mode is a sheet: no chat, no summary card, a total bar that stays pu
 });
 
 test('the dashboard opens whichever tab the link asks for', () => {
-  // The rich menu links straight to ?tab=settings and ?tab=pending. The page
-  // used to accept only 'pending' and send everything else to งานวันนี้, so
-  // the ตั้งค่า button would have opened the wrong screen.
+  // The nav keeps a single in-page tab now (งาน & เงิน, the redesigned home),
+  // but the rich menu still links straight to ?tab=settings, ?tab=pending and
+  // friends — those names must stay reachable or a menu button opens the
+  // wrong screen.
   const tabs = [...new Set([...dashboard.matchAll(/data-tab="([a-z]+)"/g)].map((m) => m[1]))];
-  assert.deepEqual(tabs.sort(), ['pending', 'report', 'settings', 'today']);
+  assert.deepEqual(tabs.sort(), ['home']);
 
   const list = /const TABS = \[([^\]]+)\]/.exec(dashboard);
   assert.ok(list, 'no list of tabs the URL may name');
@@ -212,9 +234,13 @@ test('the dashboard opens whichever tab the link asks for', () => {
   // Every button in the nav has to be reachable by a link.
   for (const t of tabs) assert.ok(allowed.includes(t), `?tab=${t} cannot reach its own nav button`);
 
-  // The reverse does not hold: "category" is opened by a link from the chat
-  // and has no home in the nav, because it is "which category", not a place.
-  // But every name the URL may carry must still go somewhere real.
+  // หน้าเดิมไม่มีปุ่มบนแถบแล้ว แต่ริชเมนูกับลิงก์จากแชตยังพาเข้าตรง ๆ —
+  // ชื่อไหนหายจาก TABS เมื่อไหร่ ปุ่มบนเมนูจะพาไปผิดหน้า
+  for (const t of ['home', 'today', 'report', 'pending', 'settings', 'category']) {
+    assert.ok(allowed.includes(t), `?tab=${t} is no longer reachable`);
+  }
+
+  // Every name the URL may carry must still go somewhere real.
   for (const t of allowed) {
     assert.ok(dashboard.includes(`id="v-${t}"`), `?tab=${t} names a view that does not exist`);
     assert.match(dashboard, new RegExp(`LOADERS = \\{[^}]*\\b${t}:`), `?tab=${t} has nothing to load it`);
@@ -303,4 +329,40 @@ test('ช่องกรอกเตี้ยลงได้ แต่ตัว�
   // ป้ายกำกับช่องเป็นตัวเล็กได้ ไม่ใช่ช่องกรอก
   const label = /\.field > span:first-child \{[^}]*\}/.exec(css)?.[0] || '';
   assert.match(label, /font-size: 11px;/);
+});
+
+/* ร้านพิมพ์ "กรอบ 12 18" แล้วเจอ "ตร.ม. ละ (บาท)" — "งานกรอบก็ต้องเป็นบานละ ...
+ * แต่ละงานบางอันหน่วยไม่ใช่ตรม" ฟอร์มจึงจับชนิดงานจากชื่อแล้วเลือกช่องเงินให้เอง
+ */
+test('ฟอร์มจัดหน่วยราคาตามชนิดงาน — สายไฟครบทุกเส้น', () => {
+  // kind.js ต้องถูกโหลด และมาก่อน script.js ที่เรียกใช้
+  assert.ok(html.includes('src="./kind.js"'), 'หน้าไม่ได้โหลด kind.js');
+  assert.ok(html.indexOf('./kind.js') < html.indexOf('./script.js'), 'kind.js ต้องมาก่อน script.js');
+
+  // พิมพ์ชื่อแล้วจัดทันที ไม่ใช่รอกดอะไร
+  assert.ok(js.includes('name.oninput = () => { item.name = name.value; item.unitWordOwn = false; applyKind(item); paint(); };'));
+
+  // เลือกโหมดมือแล้ว ตัวจับคำห้ามทับ และคำของโหมดชนะคำนับเดิม
+  assert.match(js, /item\.rateModeManual = true;/);
+  assert.match(js, /if \(item\.rateModeManual\) return;/);
+
+  // จับไม่เจอ + ใส่เรตไว้แล้ว ห้ามพลิกโหมด — เรต ตร.ม. 165 ต้องไม่กลายเป็นราคาต่อชิ้นเงียบ ๆ
+  assert.match(js, /hit && hit\.price \? hit\.price : !\(item\.rate > 0\)/);
+
+  // ตัวจับคำ: ชุดตั้งต้นจาก /api/config (ใช้ได้ทั้งโหมดทดลอง) แล้วอัปเกรดเป็นของร้าน
+  assert.match(js, /cfg\.pricing/);
+  assert.match(js, /fetch\('\/api\/categories'/, 'ไม่ได้ดึงหมวด/คำที่ร้านตั้งเองมาจับ');
+  assert.match(js, /function reclassifyAll\(\)/);
+
+  // ร่างเก่าที่เลือกโหมดไว้ก่อนมีระบบนี้ (เช่นตารางสติ๊กเกอร์) ต้องไม่ถูกรีเซ็ต
+  assert.match(js, /it\.rateMode !== 'sqm' && it\.rateModeManual === undefined/);
+
+  // คำนับจากแชต ("2 บาน") ติดมาเป็นคำของงานนั้นเอง ไม่บังคับวิธีคิดเงิน
+  assert.match(js, /item\.unitWord = String\(it\.unit\);/);
+  assert.match(js, /item\.unitWordOwn = true;/);
+
+  // kind.js เองต้องสะอาด: เทียบตัวพิมพ์เล็ก และไม่แตะ DOM เลย
+  const kind = read('jot/kind.js');
+  assert.match(kind, /toLowerCase\(\)/);
+  assert.ok(!/innerHTML|document\./.test(kind), 'kind.js ควรเป็นตรรกะล้วน');
 });

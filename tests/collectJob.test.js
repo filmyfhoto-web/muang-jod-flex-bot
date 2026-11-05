@@ -56,7 +56,11 @@ test('the bot asks one thing at a time, in order, and stops when it has enough',
     'ราคากรอบละเท่าไหร่คะ?',
     'ลูกค้าชื่ออะไรคะ?',
     'นัดรับวันไหนคะ?',
-    'ต้องการแนบรูปหรือหลักฐานประกอบงานไหมคะ?',
+    /* ไม่ถาม "ต้องการแนบรูปหรือหลักฐานประกอบงานไหมคะ?" อีกแล้ว
+     *
+     * ร้านบอกว่า "บางที ฉันจะออกบิลเลย ม่วงก็แค่ออกบิลแล้วเอางานลงไว้ให้เป็น
+     * หมวด ๆ" — พอรู้ราคาแล้ว คำถามที่ไม่เปลี่ยนตัวเลขบนบิลก็ข้ามไป
+     */
   ]);
   assert.ok(done, 'ถามครบแล้วแต่ยังไม่ยอมไปสรุป');
 
@@ -76,7 +80,8 @@ test('everything in one message means nothing gets asked twice', () => {
   const state = startCollecting(
     'มีงานกรอบรูป 12×18 จำนวน 2 กรอบ กรอบละ 350 ลูกค้าคุณแอน รับวันศุกร์'
   );
-  assert.equal(nextSlot(state), 'attach', 'ยังจะถามเรื่องที่บอกมาแล้วอีก');
+  // บอกมาครบทั้งใบในข้อความเดียว = ไม่มีอะไรให้ถาม ไปสรุปเลย
+  assert.equal(nextSlot(state), null, 'ยังจะถามเรื่องที่บอกมาแล้วอีก');
   assert.equal(state.fields.qty.count, 2);
   assert.equal(state.fields.unitPrice, 350);
   assert.equal(state.fields.customer, 'คุณแอน');
@@ -227,7 +232,14 @@ test('the chat wires the loop up, and still never saves before confirming', () =
  * ที่มีคำว่า "วันที่" คั่น อ่านไม่ออกทั้งประโยค
  */
 
-test('ตอบวันนัดแล้วต้องไปข้อถัดไป ไม่ใช่วนถามเรื่องเดิม', () => {
+test('ตอบวันนัดแล้วต้องไปข้อถัดไป ไม่ใช่วนถามเรื่องเดิม', (t) => {
+  /* หยุดนาฬิกาไว้ก่อนวันที่ในเทสต์
+   *
+   * เทสต์นี้เล่าเรื่องวันหนึ่งที่ร้านพิมพ์ "25 กันยายน" มา ถ้าปล่อยให้อ่าน
+   * นาฬิกาจริง พอเลยวันที่ 25 ก.ย. ไปแล้ว ตัวอ่านจะตีเป็นปีหน้าซึ่งถูกของมัน
+   * แล้วเทสต์ก็แดงเองโดยไม่มีใครแก้อะไร
+   */
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-09-20T03:00:00Z') });
   let state = {
     ...startCollecting({ itemName: 'ตรายาง', workType: 'other' }),
     fields: { detail: 'ตรายาง', qty: { count: 1 }, unitPrice: 300 },
@@ -253,7 +265,9 @@ test('ตอบวันนัดแล้วต้องไปข้อถั�
   assert.notEqual(nextSlot(turn.state), 'due', 'ม่วงวนถามวันนัดซ้ำ');
 });
 
-test('"นัดรับวันที่ 25 กันยายน 2569" อ่านออก ไม่ใช่ตกทั้งประโยค', () => {
+test('"นัดรับวันที่ 25 กันยายน 2569" อ่านออก ไม่ใช่ตกทั้งประโยค', (t) => {
+  // หยุดนาฬิกา ไม่งั้นพอเลย 25 ก.ย. ตัวอ่านตีเป็นปีหน้า แล้วเทสต์แดงเอง
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-09-20T03:00:00Z') });
   // คำว่า "วันที่" คั่นระหว่างคำนัดกับตัวเลข ของเดิมบังคับให้ติดกัน
   for (const text of [
     'นัดรับวันที่ 25 กันยายน 2569',
@@ -294,4 +308,11 @@ test('ช่องที่ม่วงเพิ่งถาม ได้อ่�
   const both = readTurn({ ...base, asking: 'due' }, 'ลูกค้าพี่ต่าย นัดรับพรุ่งนี้');
   assert.equal(both.state.fields.customer, 'พี่ต่าย');
   assert.ok(both.state.fields.due);
+});
+
+test('ตอบจำนวนเป็น "2 บาน" ก็อ่านออก — งานกรอบนับเป็นบาน', () => {
+  let state = startCollecting('มีงานกรอบรูป');
+  state = readTurn({ ...state, asking: 'size' }, '12×18 นิ้ว').state;
+  const turn = readTurn({ ...state, asking: 'qty' }, '2 บาน');
+  assert.equal(turn.state.fields.qty.count, 2, '"บาน" ไม่ถูกนับเป็นหน่วยจำนวน');
 });

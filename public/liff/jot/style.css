@@ -1,44 +1,48 @@
 /* ม่วงจดให้ — หน้าบันทึกงาน
  *
  * สองธีมอยู่ในไฟล์เดียว สลับด้วยคลาสบน body อย่างเดียว:
- *   ค่าเริ่มต้น  — การ์ดขาว ปุ่มน้ำเงิน สีชุดเดียวกับการ์ดในแชต (src/flex/theme.js)
+ *   ค่าเริ่มต้น  — ขาว-กรม-ส้ม สีชุดเดียวกับการ์ดในแชต (src/flex/theme.js)
  *   body.night   — กรมท่ากลางคืน (?theme=night)
  * ทุกสีในไฟล์นี้อ้าง var() ทั้งหมด เปลี่ยนธีมจึงไม่ต้องแก้ที่อื่นเลย
  *
  * ค่าใน :root ต้องตรงกับ COLORS ใน theme.js — หน้านี้เปิดจากการ์ดในแชต
  * เปิดมาแล้วเจอคนละโทนคือสะดุด มีเทสต์คุมไว้ใน tests/jotForm.test.js
+ * ร้านขอ "โทนสี ส้ม กรม ขาว" — กรมเป็นโครง ส้มเป็นเงินกับปุ่มหลัก ขาวเป็นพื้น
  */
 
 :root {
-  /* ---- ธีมขาว-น้ำเงิน (ค่าเริ่มต้น) ---- */
-  --accent: #1c4fd8;        /* พื้นของปุ่มหลัก ตัวหนังสือขาวทับได้ */
-  --accent-2: #17357e;      /* ปลายไล่สีของปุ่ม/ชิปไอคอน */
-  --accent-text: #17357e;   /* น้ำเงินที่ใช้เป็นตัวหนังสือบนพื้นขาว */
-  --accent-soft: #dce7fb;   /* ปุ่มรอง ชิป พื้นอ่อน ๆ */
+  /* ---- ธีมขาว-กรม-ส้ม (ค่าเริ่มต้น) ชุดเดียวกับ src/flex/theme.js ---- */
+  --accent: #35486e;        /* กรม: พื้นของปุ่มโครงสร้าง ตัวหนังสือขาวทับได้ */
+  --accent-2: #2c3c5e;      /* ปลายไล่สีของชิปไอคอน */
+  --accent-text: #2f5a8a;   /* กรมที่ใช้เป็นตัวหนังสือบนพื้นขาว */
+  --accent-soft: #e8ecf5;   /* ปุ่มรอง ชิป พื้นอ่อน ๆ */
+  --gold: #ee7b2f;          /* ส้ม: ตัวเลขเงิน ปุ่มหลัก ชิปเงินที่เลือก */
+  --gold-2: #d9640f;        /* ปลายไล่สีของปุ่มส้ม */
+  --gold-soft: #fdeee0;     /* พื้นส้มอ่อนหลังชิป/ป้าย */
 
-  --page: #eef3fd;          /* พื้นหลังทั้งหน้า */
+  --page: #f5f6f8;          /* พื้นหลังทั้งหน้า — ขาวนวลแบบหน้า Settings ไอโฟน */
   --surface: #ffffff;       /* การ์ด */
-  --tint: #f2f6ff;          /* ช่องกรอก / กล่องย่อยในการ์ด */
-  --line: #dce3f5;          /* เส้นขอบ */
+  --tint: #e8ecf5;          /* ช่องกรอก / กล่องย่อยในการ์ด */
+  --line: #e2e6ee;          /* เส้นขอบ */
 
-  --ink: #1b2540;           /* ตัวหนังสือหลัก */
-  --sub: #3d4c73;           /* ป้ายกำกับช่อง */
-  --grey: #8794b4;          /* ตัวหนังสือจาง */
+  --ink: #1f2b45;           /* ตัวหนังสือหลัก */
+  --sub: #5e6e8c;           /* ป้ายกำกับช่อง */
+  --grey: #7e8ca3;          /* ตัวหนังสือจาง */
   --white: #ffffff;
 
   --bubble: #ffffff;        /* บับเบิลของบอท */
-  --bubble-ink: #1b2540;
+  --bubble-ink: #1f2b45;
 
-  --green: #15803d;
-  --green-bg: #e7f7ee;
-  --amber: #b45309;
-  --amber-bg: #fdf1dc;
-  --red: #dc2626;
-  --red-bg: #fdeaea;
+  --green: #2e7d5b;
+  --green-bg: #e4f0ea;
+  --amber: #8a6114;
+  --amber-bg: #fbefd8;
+  --red: #b3402f;
+  --red-bg: #f8e4e1;
 
-  --radius: 20px;
-  --shadow: 0 10px 26px rgba(23, 53, 126, .12);
-  --shadow-lg: 0 16px 38px rgba(23, 53, 126, .18);
+  --radius: 0;
+  --shadow: 0 10px 26px rgba(31, 43, 69, .10);
+  --shadow-lg: 0 16px 38px rgba(31, 43, 69, .16);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -49,6 +53,9 @@ body.night {
   --accent-2: #1d63db;
   --accent-text: #60a5fa;
   --accent-soft: #1b2537;
+  --gold: #f59e4b;
+  --gold-2: #e07f1d;
+  --gold-soft: #33230f;
 
   --page: #0b1524;
   --surface: #121a2a;
@@ -83,7 +90,9 @@ html { -webkit-text-size-adjust: 100%; background: var(--page); }
 body {
   margin: 0;
   min-height: 100dvh;
-  font-family: 'Noto Sans Thai', 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  /* ร้านขอ "ตัวหนังสือเหมือน mac ไอโฟน" — ฟอนต์ระบบของเครื่องมาก่อน ไทยบน
+     iPhone/Mac ตกที่ Thonburi แอนดรอยด์/วินโดวส์ตกที่ Noto ที่โหลดไว้ */
+  font-family: -apple-system, 'SF Pro Text', 'Thonburi', BlinkMacSystemFont, 'Noto Sans Thai', 'Sarabun', 'Segoe UI', sans-serif;
   font-size: 14px;
   line-height: 1.5;
   color: var(--ink);
@@ -154,7 +163,8 @@ body.night .sky {
 .who strong { font-size: 16px; font-weight: 700; }
 .who span { font-size: 11.5px; color: var(--grey); }
 
-main { padding: 10px 0 calc(24px + var(--safe-bottom)); max-width: 560px; margin: 0 auto; }
+/* เผื่อที่ให้แถบบันทึก + แถบแอป ที่ลอยซ้อนกันอยู่ล่างจอ */
+main { padding: 10px 0 calc(158px + var(--safe-bottom)); max-width: 560px; margin: 0 auto; }
 main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
 
 /* ---- บับเบิลแชต -------------------------------------------------------- */
@@ -166,7 +176,7 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
 .bubble {
   max-width: 82%;
   padding: 10px 14px;
-  border-radius: 16px 16px 16px 5px;
+  border-radius: 0;
   background: var(--bubble);
   color: var(--bubble-ink);
   font-weight: 500;
@@ -190,7 +200,7 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
   flex: 0 0 34px;
   width: 34px;
   height: 34px;
-  border-radius: 11px;
+  border-radius: 0;
   background: linear-gradient(160deg, var(--accent), var(--accent-2));
   color: var(--white);
   font-size: 17px;
@@ -210,7 +220,7 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
   display: inline-block;
   margin-top: -8px;
   padding: 4px 8px;
-  border-radius: 12px;
+  border-radius: 0;
   background: var(--accent-soft);
   color: var(--accent-text);
   font-size: 10px;
@@ -229,62 +239,115 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
 /* ร้านบอกว่า "เพิ่มเป็นบรรทัดเหมือนใบเสร็จธรรมดาได้มั้ย ไม่ต้องข้ามหน้าอ้ะ" —
    ของเดิมหนึ่งรายการคือการ์ดเต็มจอที่ต้องปัดซ้าย-ขวา งานสามรายการจึงไม่เคย
    เห็นพร้อมกันเลยสักครั้ง ทั้งที่ใบเสร็จจริงอ่านทีเดียวจบ */
+/* แถวอยู่ในชีทตารางแล้ว — ระยะขอบเป็นของชีท ไม่ใช่ของกล่องแถว ไม่งั้นแถว
+   เยื้องออกจากหัวคอลัมน์ */
 .track {
   display: block;
-  padding: 2px 14px 4px;
+  padding: 0;
 }
-.track > .item {
-  margin-bottom: 10px;
+/* ตารางเส้นสี่เหลี่ยมแบบสมุดจริง ("ฉันเอาตารางแบบสี่เหลี่ยมได้มั้ย") —
+ * ทุกช่องเป็นช่องตารางมีเส้นคั่นครบทั้งตั้งและนอน หัวคอลัมน์พื้นเข้ม
+ * ช่องกรอกกลืนเป็นช่องตารางเลย ไม่ใช่กล่องลอยซ้อนในกล่องอีกชั้น:
+ *   [รายการ______|กว้าง×ยาว|จำนวน|ราคา(หน่วยตามชนิดงาน)|รวม฿|✕]
+ * จอแคบกว่าตารางเลื่อนข้างได้นิดหน่อย (แบบเดียวกับแบบร่าง) — ดีกว่าบีบช่อง
+ * จนตัวเลขอ่านไม่ออก เพราะตัวหนังสือในช่องต่ำกว่า 16px ไม่ได้ (iOS ซูมเอง) */
+.sheet { padding: 10px 12px 8px; }
+.tblwrap { overflow-x: auto; }
+.tmin { min-width: 420px; border: 1.5px solid var(--line); border-radius: 0; overflow: hidden; }
+.thead,
+.track > .item > .row {
+  display: grid;
+  grid-template-columns: minmax(96px, 1.3fr) 96px 46px 66px minmax(58px, auto) 26px;
+  gap: 0;
+  align-items: stretch;
 }
-
-/* หัวบรรทัด: เลขที่ · ชื่อ · ยอด · ปุ่มลบ — อ่านได้โดยไม่ต้องกวาดตาหาในช่องกรอก */
-.row-top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: -2px 0 10px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--line);
+.thead { background: var(--accent-soft); }
+.thead span { font-size: 11.5px; font-weight: 700; color: var(--accent-text); padding: 8px 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thead .num { text-align: right; }
+/* เส้นตั้งของตาราง: ทุกช่อง (หัวและแถว) มีเส้นซ้าย ยกเว้นช่องแรก */
+.thead > span + span,
+.row > * + * { border-left: 1px solid var(--line); }
+.track > .item { border-top: 1px solid var(--line); padding: 0; margin: 0; }
+.row > * { min-width: 0; }
+.row .field { margin-bottom: 0; }
+/* ช่องกรอกในตาราง = ช่องตารางเอง ไม่มีกรอบ/พื้นของตัวเองอีกชั้น
+   (นำหน้าด้วย .track ให้ชนะกฎช่องกรอกกลางที่อยู่ท้ายไฟล์) */
+.track .row input {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  min-height: 44px;
+  padding: 6px 7px;
 }
-.row-no {
-  flex: 0 0 24px;
-  width: 24px;
-  height: 24px;
-  border-radius: 8px;
-  background: var(--accent-soft);
-  color: var(--accent-text);
-  font-size: 12px;
+.track .row input:focus { background: var(--gold-soft); box-shadow: inset 0 0 0 1.5px var(--gold); }
+/* ป้ายของช่องในแถวมีไว้ให้เครื่องอ่านหน้าจอ — ตาเห็นหัวคอลัมน์ข้างบนพอแล้ว */
+.track .row .row-name > span:first-child,
+.track .row .size-cell label > span,
+.track .row .qty-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  margin: 0;
+}
+.row-name { position: relative; min-width: 0; }
+.track .row input[type='number'] { text-align: center; }
+.size-cell { display: flex; align-items: center; gap: 0; min-width: 0; }
+.size-cell label { flex: 1; min-width: 0; position: relative; }
+.track .size-cell input { padding-left: 2px; padding-right: 2px; }
+.size-cell .x { flex: 0 0 auto; color: var(--grey); font-size: 12px; }
+.qty-cell { position: relative; }
+/* ช่องเงินช่องเดียวที่ต้องกรอก — หน่วยตามชนิดงาน (ตร.ม.ละ/บานละ) ห้อยติดขอบ
+   ล่างในช่องตัวเอง (ตำแหน่งตายตัว ไม่ดันความสูงจนป้ายล้นทับเส้นแถว) */
+.rate-field { position: relative; }
+.track .row .rate-field input { min-height: 48px; padding-bottom: 16px; }
+.track .row .rate-field .rate-label {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  bottom: 2px;
+  margin: 0;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--sub);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  pointer-events: none;
+}
+.rate-field input { color: var(--accent-text); font-weight: 700; }
+/* ยอดท้ายแถวเป็นปุ่มเต็มช่องตาราง: แตะ = เปิดตั้งราคาเอง/รายละเอียด/รูป
+   ขีดประใต้ยอดบอกว่ากดได้ (แบบเดียวกับลิงก์) */
+.row-amt {
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: 14px;
   font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.row-title {
-  flex: 1;
+  color: var(--gold);
+  text-align: right;
+  padding: 8px 6px;
   min-width: 0;
-  font-size: 13.5px;
-  font-weight: 700;
-  color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: pointer;
+  border-radius: 0;
+  text-decoration: underline dashed color-mix(in srgb, var(--gold) 55%, transparent);
+  text-underline-offset: 3px;
 }
-.row-amt { flex: 0 0 auto; font-size: 14px; font-weight: 700; color: var(--accent-text); }
+.row-amt:hover { background: var(--gold-soft); }
+.row-amt.on { color: var(--white); background: var(--gold); text-decoration: none; }
+.row .del { padding: 8px 2px; font-size: 13px; }
+.hintline { margin: 7px 2px 0; font-size: 11px; color: var(--grey); line-height: 1.5; }
 
-/* หัวบรรทัดเป็นตัวกาง/ยุบเอง — เอาสามเหลี่ยมของเบราว์เซอร์ออก ใช้ลูกศรของเราแทน */
-.item > summary { list-style: none; cursor: pointer; }
-.item > summary::-webkit-details-marker { display: none; }
-.item > summary::after {
-  content: '⌄';
-  flex: 0 0 auto;
-  color: var(--grey);
-  font-size: 15px;
-  line-height: 1;
-  transition: transform .15s;
-}
-.item[open] > summary::after { transform: rotate(180deg); }
-/* ยุบอยู่ก็ไม่ต้องมีเส้นคั่นใต้หัว เพราะไม่มีอะไรอยู่ใต้มัน */
-.item:not([open]) > summary { margin-bottom: -2px; padding-bottom: 0; border-bottom: 0; }
+/* ของเพิ่มเติมของแถว — แตะยอด ฿ เปิด แถวที่มีข้อมูลอยู่แล้วกางเอง
+   (อยู่ใต้แถวในตาราง จึงมีระยะขอบของตัวเอง เพราะแถวตารางชิดเส้น) */
+.fold { margin: 0; border-top: 1px dashed var(--line); padding: 8px 10px; }
 
 /* ปุ่มเพิ่มบรรทัด/ค่าส่ง มีที่เดียวที่ท้ายรายการ ไม่ใช่ติดอยู่บนทุกการ์ด */
 .list-actions {
@@ -304,10 +367,11 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
 .sum-name { flex: 1; font-size: 16px; font-weight: 700; }
 .sum-meta { font-size: 12.5px; color: var(--grey); margin-top: 2px; }
 
-.chip { flex: 0 0 auto; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; }
+.chip { flex: 0 0 auto; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 0; }
 .chip.pending { color: var(--red); background: var(--red-bg); }
 .chip.partial { color: var(--amber); background: var(--amber-bg); }
 .chip.paid { color: var(--green); background: var(--green-bg); }
+.chip.account { color: var(--accent-text); background: var(--accent-soft); }
 
 .rule { border: 0; border-top: 1px solid var(--line); margin: 9px 0; }
 
@@ -326,7 +390,7 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
 
 .sum-total { display: flex; justify-content: space-between; align-items: baseline; }
 .sum-total span { font-size: 14px; font-weight: 600; }
-.sum-total b { font-size: 22px; color: var(--accent-text); }
+.sum-total b { font-size: 22px; color: var(--gold); }
 .sum-paid { display: flex; justify-content: space-between; font-size: 13.5px; color: var(--green); margin-top: 4px; }
 
 /* ---- ปุ่ม -------------------------------------------------------------- */
@@ -340,7 +404,7 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
   width: 100%;
   min-height: 44px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 0;
   font-family: inherit;
   font-size: 15px;
   font-weight: 700;
@@ -351,10 +415,11 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
 }
 .btn:active { transform: translateY(1px); }
 .btn:disabled { opacity: .55; cursor: default; }
+/* ปุ่มหลักเป็นส้ม — จุดที่ต้องกดเด่นออกจากโครงกรมทันที (ร้านขอ "โทนส้ม") */
 .btn-primary {
-  background: linear-gradient(160deg, var(--accent), var(--accent-2));
+  background: linear-gradient(160deg, var(--gold), var(--gold-2));
   color: var(--white);
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 34%, transparent);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--gold) 38%, transparent);
 }
 .btn-soft { background: var(--accent-soft); color: var(--accent-text); }
 
@@ -365,7 +430,7 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
   margin: -2px 0 10px;
   padding: 7px 10px;
   border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
-  border-radius: 12px;
+  border-radius: 0;
   background: var(--accent-soft);
   color: var(--accent-text);
   font-family: inherit;
@@ -400,7 +465,7 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
   transform: translateY(-50%);
   width: 19px;
   height: 19px;
-  border-radius: 6px;
+  border-radius: 0;
   background: var(--accent-soft);
   color: var(--accent-text);
   font-size: 12px;
@@ -425,7 +490,7 @@ select {
   color: var(--ink);
   background: var(--tint);
   border: 1.5px solid var(--line);
-  border-radius: 11px;
+  border-radius: 0;
   appearance: none;
 }
 /* ลูกศรขึ้น-ลงของช่องตัวเลขกินความกว้างที่ช่องแคบ ๆ ไม่มีให้เสีย */
@@ -445,7 +510,7 @@ input[readonly] { background: var(--accent-soft); }
   font-weight: 700;
   color: var(--accent-text);
   background: var(--accent-soft);
-  border-radius: 999px;
+  border-radius: 0;
   padding: 2px 8px;
   margin-left: 6px;
 }
@@ -466,7 +531,7 @@ input[readonly] { background: var(--accent-soft); }
 .area-hint {
   background: var(--tint);
   border: 1px dashed var(--line);
-  border-radius: 12px;
+  border-radius: 0;
   padding: 8px 11px;
   color: var(--sub);
   font-weight: 600;
@@ -476,7 +541,7 @@ input[readonly] { background: var(--accent-soft); }
   display: flex; align-items: center; gap: 10px;
   min-height: 50px; padding: 10px 12px;
   border: 1.5px dashed var(--line);
-  border-radius: 14px;
+  border-radius: 0;
   background: var(--tint);
   cursor: pointer;
 }
@@ -486,7 +551,7 @@ input[readonly] { background: var(--accent-soft); }
 .drop-text small { display: block; font-size: 11px; color: var(--grey); }
 
 .preview { position: relative; margin: 0 0 12px; }
-.preview img { width: 100%; max-height: 190px; object-fit: cover; border-radius: 14px; display: block; }
+.preview img { width: 100%; max-height: 190px; object-fit: cover; border-radius: 0; display: block; }
 .preview .rm {
   position: absolute; top: 7px; right: 7px;
   width: 30px; height: 30px; border-radius: 50%;
@@ -517,7 +582,7 @@ body.quick .handle {
   display: block;
   width: 42px; height: 5px;
   margin: 8px auto 12px;
-  border-radius: 3px;
+  border-radius: 0;
   background: color-mix(in srgb, var(--accent) 34%, transparent);
 }
 
@@ -538,21 +603,49 @@ body.quick .more > summary::before { content: '＋ '; }
 body.quick .more[open] > summary::before { content: '－ '; }
 body.quick .link-full { display: block; }
 
+/* แถบยอด+บันทึกลอยเหนือแถบแอป — โหมดด่วน (ไม่มีแถบแอป) กลับไปชิดล่างตามเดิม */
 .quickbar {
   position: fixed;
-  left: 0; right: 0; bottom: 0;
+  left: 0; right: 0; bottom: calc(52px + var(--safe-bottom));
   z-index: 30;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 12px calc(9px + var(--safe-bottom));
+  padding: 9px 12px;
   background: color-mix(in srgb, var(--page) 94%, transparent);
   backdrop-filter: blur(12px);
   border-top: 1px solid var(--line);
 }
+body.quick .quickbar { bottom: 0; padding-bottom: calc(9px + var(--safe-bottom)); }
+
+/* แถบแอป 3 แท็บ ล่างสุด — จด · งาน&เงิน · ลูกค้า หน้าเดียวกันทุกหน้า */
+.appbar {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 29;
+  display: flex;
+  gap: 6px;
+  background: var(--accent);
+  padding: 5px max(14px, env(safe-area-inset-left, 0px)) calc(5px + var(--safe-bottom)) max(14px, env(safe-area-inset-right, 0px));
+}
+.appbar a {
+  flex: 1;
+  text-align: center;
+  color: var(--white);
+  opacity: .62;
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 0;
+  padding: 3px 2px 4px;
+  line-height: 1.2;
+}
+.appbar a span { display: block; font-size: 18px; }
+.appbar a.on { opacity: 1; background: rgba(255, 255, 255, .15); }
+body.quick .appbar { display: none; }
 .qb-total { flex: 1; display: flex; flex-direction: column; line-height: 1.2; }
 .qb-total span { font-size: 12px; color: var(--grey); }
-.qb-total b { font-size: 19px; color: var(--accent-text); }
+.qb-total b { font-size: 19px; color: var(--gold); }
 .quickbar .btn { width: auto; flex: 0 0 auto; padding: 0 18px; }
 
 /* ---- toast ------------------------------------------------------------- */
@@ -560,11 +653,12 @@ body.quick .link-full { display: block; }
 .toast {
   position: fixed;
   left: 50%;
-  bottom: calc(22px + var(--safe-bottom));
+  /* ลอยพ้นแถบบันทึก+แถบแอปที่ซ้อนอยู่ล่างจอ */
+  bottom: calc(120px + var(--safe-bottom));
   transform: translate(-50%, 20px);
   max-width: min(88vw, 420px);
   padding: 12px 18px;
-  border-radius: 14px;
+  border-radius: 0;
   background: var(--surface);
   border: 1px solid var(--line);
   color: var(--ink);
@@ -591,17 +685,33 @@ body.quick .link-full { display: block; }
 /* ราคาที่ร้านจะเก็บลูกค้า เทียบกับที่คิดได้จากรายการ
    ใช้โทนส้ม (--amber) ไม่ใช่สีหลักของหน้า เพื่อให้เห็นแต่ไกลว่าบล็อกนี้ไม่ได้
    ออกไปถึงลูกค้า และเปลี่ยนตามธีมกลางคืนเหมือนสีอื่นทั้งหมด */
-.mine { margin-top: 8px; background: var(--amber-bg); border-radius: 11px; padding: 8px 10px; }
+.mine { margin-top: 8px; background: var(--amber-bg); border-radius: 0; padding: 8px 10px; }
 .mine .mine-tag { display: block; font-size: 11.5px; font-weight: 700; color: var(--amber); }
 .mine .mine-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 6px; font-size: 14.5px; font-weight: 700; }
 .mine .mine-in { display: flex; align-items: center; gap: 6px; }
 .mine .mine-in i { font-style: normal; color: var(--amber); font-weight: 700; }
-.mine .mine-in input { width: 112px; text-align: right; font: inherit; font-size: 16px; font-weight: 700; padding: 8px 10px; border: 1.5px solid color-mix(in srgb, var(--amber) 35%, transparent); border-radius: 10px; background: var(--surface); color: var(--ink); }
+.mine .mine-in input { width: 112px; text-align: right; font: inherit; font-size: 16px; font-weight: 700; padding: 8px 10px; border: 1.5px solid color-mix(in srgb, var(--amber) 35%, transparent); border-radius: 0; background: var(--surface); color: var(--ink); }
 .mine .mine-round { display: flex; gap: 6px; margin-top: 8px; }
-.mine .mine-round button { flex: 1; border: 1.5px solid color-mix(in srgb, var(--amber) 35%, transparent); background: var(--surface); border-radius: 10px; padding: 8px 4px; font: inherit; font-size: 12.5px; font-weight: 700; color: var(--amber); }
+.mine .mine-round button { flex: 1; border: 1.5px solid color-mix(in srgb, var(--amber) 35%, transparent); background: var(--surface); border-radius: 0; padding: 8px 4px; font: inherit; font-size: 12.5px; font-weight: 700; color: var(--amber); }
 .mine .mine-gap { margin-top: 7px; font-size: 13px; font-weight: 700; color: var(--grey); }
 .mine .mine-gap.up { color: var(--green); }
 .mine .mine-gap.down { color: var(--red); }
+
+/* แถบชวนติดตั้งแอป — โผล่เฉพาะที่ติดตั้งได้จริง กดกากบาทแล้วไม่กวนอีก */
+.install {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  border: 1.5px dashed color-mix(in srgb, var(--gold) 55%, transparent);
+  border-radius: 0;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.install span { flex: 1; min-width: 0; }
+.install .btn { width: auto; min-height: 38px; padding: 0 14px; font-size: 13.5px; }
 
 /* แถบ "มีงานที่ค้างไว้" — ฟอร์มเปิดมาเป็นหน้าใหม่เสมอ ของเก่ามารอตรงนี้
    ร้านถามว่า "ทำไมจดด่วนถึงไม่ขึ้นหน้าใหม่ ไปขึ้นหน้าเดิมทำไม" — ของเดิมยัด
@@ -613,7 +723,7 @@ body.quick .link-full { display: block; }
   flex-wrap: wrap;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 0;
   padding: 10px 12px;
   margin-bottom: 12px;
 }
@@ -637,7 +747,7 @@ body.quick .link-full { display: block; }
   gap: 8px;
   margin: -1px 0 7px;
   padding: 7px 10px;
-  border-radius: 10px;
+  border-radius: 0;
   background: var(--green-bg);
   font-size: 14px;
   font-weight: 700;
@@ -669,3 +779,102 @@ body.quick .link-full { display: block; }
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* พิมพ์ทีเดียว แล้วให้ม่วงกรอกตารางให้
+ *
+ * ร้านบอกว่า "ขอแบบกระชับ ตารางไม่เยอะ ไม่พิมพ์หลายรอบ" — อยู่บนสุดก่อนตาราง
+ * เพราะมันคือทางที่เร็วกว่า ไม่ใช่ของเสริมที่ซ่อนไว้ข้างล่าง
+ */
+.paste { margin-bottom: 14px; }
+/* พับเป็นแถบบาง ๆ จนกว่าจะใช้ — หัวแถบคือตัวเปิด/ปิด */
+.paste > summary { list-style: none; cursor: pointer; user-select: none;
+  font-size: 13.5px; font-weight: 700; color: var(--accent-text); }
+.paste > summary::-webkit-details-marker { display: none; }
+.paste[open] > summary { margin-bottom: 6px; }
+.paste textarea {
+  width: 100%; box-sizing: border-box; margin-top: 10px;
+  border: 1.5px solid var(--line); border-radius: 0; padding: 11px 12px;
+  font: inherit; font-size: 14px; line-height: 1.55; resize: vertical;
+  background: var(--tint); color: var(--ink);
+}
+.paste textarea:focus { outline: none; border-color: var(--accent-text); background: var(--card, #fff); }
+.paste-act { display: flex; align-items: center; gap: 10px; margin-top: 9px; }
+.paste-act .btn { flex: none; }
+.paste-note { font-size: 11.5px; color: var(--grey); flex: 1; min-width: 0; }
+.paste-note.bad { color: var(--red); }
+.paste-note.good { color: var(--green); }
+
+/* ชิปชื่อลูกค้าที่เคยจดไว้ ใต้ช่องลูกค้า — กดแล้วเติมชื่อเต็มให้ */
+.cust-suggest { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 10px; }
+.cust-suggest button {
+  border: 1px solid var(--line); background: var(--tint);
+  color: inherit; font: inherit; font-size: 12.5px; line-height: 1;
+  padding: 8px 12px; border-radius: 0; cursor: pointer; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cust-suggest button b { font-weight: 600; }
+.cust-suggest button small { opacity: .6; font-size: 11px; margin-left: 4px; }
+
+/* ป้ายเดาชนิดลูกค้า — หน้าร้าน/หน่วยงาน จากชื่อที่พิมพ์ (ป้ายบอก ไม่ใช่ปุ่ม) */
+.kind-pill {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 0;
+  background: var(--tint);
+  color: var(--sub);
+  white-space: nowrap;
+}
+.kind-pill.org { background: var(--accent-soft); color: var(--accent-text); }
+
+/* ชิปเงินของใบนี้ — แตะอันเดียวจบ อันที่เลือกเป็นส้ม */
+.paychips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.paychip {
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 10px 13px;
+  border-radius: 0;
+  cursor: pointer;
+}
+.paychip[aria-pressed='true'] {
+  background: linear-gradient(160deg, var(--gold), var(--gold-2));
+  border-color: var(--gold-2);
+  color: var(--white);
+  box-shadow: 0 5px 14px color-mix(in srgb, var(--gold) 36%, transparent);
+}
+.paycard .dep { margin-bottom: 0; }
+
+/* การ์ดหลังบันทึก — ใบแจ้งยอด / ใบเสร็จ / จดใบต่อไป อยู่ตรงหน้าเลย */
+.done { border-color: color-mix(in srgb, var(--green) 45%, transparent); }
+.done-ok { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.done-mark {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--green-bg);
+  color: var(--green);
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.done-ok b { font-size: 15px; }
+.done-line { display: block; font-size: 12.5px; color: var(--grey); }
+.done-acts { display: flex; flex-direction: column; gap: 7px; }
+.done-why { margin: 10px 0 0; font-size: 11.5px; color: var(--grey); line-height: 1.5; }
+
+/* พับ "เพิ่มเติม" ในบรรทัดงาน — ช่องที่นาน ๆ ใช้ที ไม่ต้องเห็นทุกครั้งที่จด */
+details.extra > summary { list-style: none; cursor: pointer; user-select: none;
+  font-size: 12.5px; font-weight: 600; color: var(--accent-text);
+  background: var(--tint); border-radius: 0; padding: 9px 12px; margin: 2px 0 4px; }
+details.extra > summary::-webkit-details-marker { display: none; }
+details.extra[open] > summary { margin-bottom: 8px; }

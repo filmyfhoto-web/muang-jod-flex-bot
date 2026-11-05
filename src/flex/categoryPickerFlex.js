@@ -1,4 +1,4 @@
-import { CATEGORY_GROUPS, OTHER_GROUP, findGroup } from '../utils/category.js';
+import { BASE_TAXONOMY } from '../utils/category.js';
 import { COLORS } from './theme.js';
 
 // Two-step category picker, as in the "เลือกหมวดงานให้ตรงประเภท" mockup:
@@ -73,14 +73,21 @@ function bubble({ title, subtitle, rows, footer }) {
   };
 }
 
-// Step 1 — pick the kind of work.
-export function categoryGroupsFlex(jobId) {
+// คำอธิบายใต้ชื่อหมวด: รายชื่อประเภทย่อย — หมวดที่ไม่มีประเภทย่อยบอกตามชนิดของมัน
+function hintOf(group, tax) {
+  const types = group.types.map((t) => t.label).join(' / ');
+  if (types) return types;
+  return group.id === tax.other.id ? 'งานอื่น ๆ ที่ไม่เข้าหมวด' : 'ไม่ต้องระบุหมวดย่อย';
+}
+
+// Step 1 — pick the kind of work. `tax` คือชุดหมวดของร้าน (ที่ร้านเพิ่ม/ซ่อน/เปลี่ยนชื่อไว้)
+export function categoryGroupsFlex(jobId, tax = BASE_TAXONOMY) {
   const q = jobId ? `&jobId=${encodeURIComponent(jobId)}` : '';
-  const rows = [...CATEGORY_GROUPS, OTHER_GROUP].map((g) =>
+  const rows = [...tax.groups, tax.other].map((g) =>
     row({
       icon: g.icon,
       label: g.label,
-      hint: g.types.map((t) => t.label).join(' / ') || 'งานอื่น ๆ ที่ไม่เข้าหมวด',
+      hint: hintOf(g, tax),
       data: `action=pick_category&group=${g.id}${q}`,
     })
   );
@@ -103,15 +110,15 @@ export function categoryGroupsFlex(jobId) {
 // "what have I done in this line of work". They look the same on purpose —
 // the same list of kinds of work — but a row here is a link, not a postback,
 // so it goes straight to the page instead of asking the bot to fetch it.
-export function categoryBrowseFlex(urlFor) {
-  const rows = [...CATEGORY_GROUPS, OTHER_GROUP]
+export function categoryBrowseFlex(urlFor, tax = BASE_TAXONOMY) {
+  const rows = [...tax.groups, tax.other]
     .map((g) => ({ g, uri: urlFor(g.id) }))
     .filter(({ uri }) => uri)
     .map(({ g, uri }) =>
       row({
         icon: g.icon,
         label: g.label,
-        hint: g.types.map((t) => t.label).join(' / ') || 'งานอื่น ๆ ที่ไม่เข้าหมวด',
+        hint: hintOf(g, tax),
         uri,
       })
     );
@@ -130,8 +137,8 @@ export function categoryBrowseFlex(urlFor) {
 }
 
 // Step 2 — pick the specific type inside that group.
-export function categoryTypesFlex(groupId, jobId) {
-  const group = findGroup(groupId) || OTHER_GROUP;
+export function categoryTypesFlex(groupId, jobId, tax = BASE_TAXONOMY) {
+  const group = tax.findGroup(groupId) || tax.other;
   const q = jobId ? `&jobId=${encodeURIComponent(jobId)}` : '';
 
   const rows = group.types.map((t) =>
@@ -182,6 +189,70 @@ export function categoryTypesFlex(groupId, jobId) {
           },
         ],
       },
+    }),
+  };
+}
+
+/* ย้ายงานข้ามหมวด — "เลือกหางานในหมวดแล้วย้ายได้" (คำขอร้านตรง ๆ)
+ *
+ * สองการ์ดนี้คือสองก้าวแรกของการย้าย: เลือกหมวดที่งานอยู่ → เลือกงาน แล้วก้าว
+ * สุดท้ายคือตัวเลือกหมวดเดิม (pick_category&jobId=…) ซึ่งจบด้วย updateJob ตัวเดิม
+ * — เลขงานไม่เปลี่ยนตอนย้าย (กติกาเลขงานตั้งครั้งเดียว)
+ */
+export function moveCategoryGroupsFlex(tax = BASE_TAXONOMY) {
+  const rows = [...tax.groups, tax.other].map((g) =>
+    row({
+      icon: g.icon,
+      label: g.label,
+      hint: hintOf(g, tax),
+      data: `action=cat_jobs&group=${g.id}`,
+    })
+  );
+  return {
+    type: 'flex',
+    altText: 'ย้ายงานข้ามหมวด',
+    contents: bubble({
+      title: 'ย้ายงานข้ามหมวด',
+      subtitle: 'แตะหมวดที่งานอยู่ตอนนี้ → เลือกงาน → เลือกหมวดใหม่ค่ะ',
+      rows,
+    }),
+  };
+}
+
+const MOVE_ROWS = 10;
+
+export function categoryJobsFlex(group, jobs = [], { formatDate, formatMoney } = {}) {
+  const shown = jobs.slice(0, MOVE_ROWS);
+  const rows = shown.map((j) =>
+    row({
+      icon: group.icon || '📦',
+      label: j.job_name || 'งาน',
+      // เลขงาน+วันที่ทำให้งาน "ชื่อเดียวกัน" สองใบแยกกันออก — กดถูกใบแน่
+      hint: [j.job_number, formatDate ? formatDate(j.job_date) : j.job_date, formatMoney ? formatMoney(j.total) : null]
+        .filter(Boolean)
+        .join(' · '),
+      data: `action=pick_category&jobId=${encodeURIComponent(j.id)}`,
+    })
+  );
+  if (jobs.length > shown.length) {
+    rows.push({
+      type: 'text',
+      text: `… และอีก ${jobs.length - shown.length} งาน (งานใหม่สุดขึ้นก่อน)`,
+      size: 'xs',
+      color: COLORS.grey,
+      align: 'center',
+      wrap: true,
+    });
+  }
+  return {
+    type: 'flex',
+    altText: `ย้ายงานในหมวด ${group.label}`,
+    contents: bubble({
+      title: `งานในหมวด ${group.label}`,
+      subtitle: jobs.length
+        ? 'แตะงานที่จะย้าย แล้วเลือกหมวดใหม่ให้มันได้เลยค่ะ'
+        : 'หมวดนี้ยังไม่มีงานค่ะ',
+      rows,
     }),
   };
 }

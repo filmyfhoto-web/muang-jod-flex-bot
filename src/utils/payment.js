@@ -28,3 +28,19 @@ export function derivePaymentFields(total, paidAmount) {
     payment_status: computePaymentStatus(paid, total),
   };
 }
+
+/* เวลาเก็บเงินครบ (paid_at) เดินตามสถานะเงินเสมอ
+ *
+ * เพิ่งครบ → ประทับเวลานี้ · ครบอยู่แล้ว → ไม่ขยับ (วันเก็บเงินจริงต้องไม่เลื่อน
+ * เพราะกดซ้ำหรือแก้ช่องอื่น) · หลุดจากครบ → ล้างทิ้ง เพราะใบลงบัญชีนับรายรับ
+ * ตามวันนี้ ถ้าปล่อยค้างไว้เงินที่ยังไม่ได้จะโผล่เป็นรายรับ
+ *
+ * ใช้คู่กับ patch ที่มี payment_status แล้วเท่านั้น — patch ที่ไม่แตะเรื่องเงิน
+ * ได้ {} กลับไป ไม่ไปยุ่งอะไร
+ */
+export function paidAtPatch(job = {}, fields = {}, now = new Date()) {
+  const status = fields.payment_status;
+  if (!status) return {};
+  if (status === 'paid') return job.paid_at ? {} : { paid_at: now.toISOString() };
+  return job.paid_at ? { paid_at: null } : {};
+}

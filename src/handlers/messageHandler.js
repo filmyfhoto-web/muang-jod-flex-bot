@@ -1,9 +1,11 @@
 import { reply } from '../services/lineService.js';
-import { getState, setState, clearState, STATES } from '../services/stateService.js';
-import { getJobById, updateJob, recordPayment, searchJobs } from '../services/jobService.js';
+// อ่านสถานะผ่านตัวตรวจอายุ — สถานะค้างเกิน 6 ชม. ถูกล้างเป็น idle ตั้งแต่ตรงนี้
+import { getFreshState as getState, setState, clearState, STATES } from '../services/stateService.js';
+import { getJobById, updateJob, recordPayment, searchJobs, getRecentCustomerNames } from '../services/jobService.js';
+import { withDraftGuide } from '../flex/draftGuide.js';
 import { extractJobDraft } from '../services/nlpService.js';
 import { round2, numText, parsePrice } from '../utils/currency.js';
-import { derivePaymentFields } from '../utils/payment.js';
+import { derivePaymentFields, paidAtPatch } from '../utils/payment.js';
 import { todayISO } from '../utils/dates.js';
 import { safe, paymentAmountSchema, searchQuerySchema } from '../utils/validation.js';
 import { jobCardMessage, jobPreviewMessage } from '../flex/jobCard.js';
@@ -11,17 +13,32 @@ import { paymentConfirmationFlex } from '../flex/paymentFlex.js';
 import { searchResultsFlex } from '../flex/searchResultsFlex.js';
 import { billReceiptFlex } from '../flex/billFlex.js';
 import { recordBillPayment } from '../services/billService.js';
-import { resolveMenuCommand, splitLeadingAddJob } from '../utils/menuCommands.js';
+import { resolveMenuCommand, splitLeadingAddJob, suggestMenuCommand, labelForAction } from '../utils/menuCommands.js';
+import { matchCustomer } from '../utils/customerMatch.js';
 import { parseChatIntent } from '../utils/chatIntent.js';
-import { parseNaturalJob } from '../utils/nlParser.js';
+import { parseNaturalJob, looksLikeWorkDetail } from '../utils/nlParser.js';
+import { customerCardForText, parseCardAsk } from '../actions/customerCard.js';
 import { deriveJobName, classifyJob } from '../utils/category.js';
-import { makeDraft, draftToBubble, priceDraft, parseBarePrice } from '../utils/jobDraft.js';
+import { makeDraft, draftToBubble, priceDraft, parseBarePrice, parseBareSqmRate, priceDraftBySqm, parseCustomerName } from '../utils/jobDraft.js';
 import { extractDate, extractDueDate } from '../utils/thaiDate.js';
-import { startCollecting } from '../utils/slots.js';
+import { startCollecting, turnUnderstands } from '../utils/slots.js';
 import { startCollectFlow, handleCollectTurn } from '../services/collectFlow.js';
-import { splitDump, looksLikeDump } from '../utils/dumpSplit.js';
+import { splitDump, looksLikeDump, splitSelfPriced } from '../utils/dumpSplit.js';
+import { renameShopQr } from '../services/shopService.js';
+import { DEFAULT_BRANCHES, matchBranchStrict, stripBranch, parseBranchView, parseMoveCommand, TODAY_QUESTION } from '../utils/branch.js';
+import { branchView } from '../actions/branchView.js';
+import { moveJob } from '../actions/moveJob.js';
+import { logger } from '../services/logger.js';
 import { dumpPreviewFlex } from '../flex/dumpFlex.js';
 import { handlePostback } from './postbackHandler.js';
+import { parseAddCategory } from '../utils/categoryCommands.js';
+import { parseExpense } from '../utils/expense.js';
+import { confirmExpense } from '../actions/expense.js';
+import { parseStatusSpeak } from '../utils/statusSpeak.js';
+import { statusBySpeech } from '../actions/statusSpeak.js';
+import { parseQuickEdit } from '../utils/quickEdit.js';
+import { quickEditAsk } from '../actions/quickEdit.js';
+import { addCategoryFromChat } from '../actions/manageCategories.js';
 
 const DEFAULT_REPLY =
   'สวัสดีค่ะ 💜 ม่วงจดพร้อมช่วยจดงานให้แล้วค่ะ\n' +
@@ -49,6 +66,29 @@ function looksLikeJob(text) {
 const HAS_NUMBER = /[\d๐-๙]/;
 export function isJobEntry(text) {
   return looksLikeJob(text) || HAS_NUMBER.test(String(text ?? ''));
+}
+
+/* ข้อความนี้เป็น "งานใหม่ทั้งใบ" หรือเป็นคำตอบของคำถามที่ม่วงถามค้างไว้
+ *
+ * ร้านพิมพ์งานใหม่เข้ามาตอนที่ม่วงกำลังถามรายละเอียดงานเก่าอยู่ ของเดิมข้อความ
+ * นั้นถูกอ่านเป็นคำตอบ งานใหม่เลยกลายเป็นการ "แก้" งานเก่า — ร้านเห็นม่วงตอบ
+ * ว่า "แก้ขนาดเป็น 0.6 × 1.6 และจำนวนเป็น 1 ผืน และชื่อลูกค้าเป็นน้องป่านแล้วค่ะ"
+ * ทั้งที่เพิ่งสั่งงานใหม่ ต้องพิมพ์ "ยกเลิก" ก่อนถึงจะจดงานใหม่ได้
+ *
+ * เส้นแบ่ง: คำตอบข้อเดียวไม่เคยมีทั้งชื่อของ ราคา และอย่างอื่นอีกสองอย่างพร้อมกัน
+ * "200 บาท" "0.6*1.6" "2 ผืน" ตอบคำถามได้ข้อเดียว ส่วน "งานไวนิล สีดำน้องป่าน
+ * ขนาด 0.6*1.6 1 ผืน 200 บาท" เป็นใบสั่งงานทั้งใบ
+ */
+export function isWholeNewJob(text) {
+  try {
+    const d = parseNaturalJob(text);
+    if (!(d.total > 0) || !d.items.length || !classifyJob(d.items)) return false;
+    const [it] = d.items;
+    const marks = [it.size, it.unit, d.customerName, Number(it.quantity) > 1].filter(Boolean);
+    return marks.length >= 2;
+  } catch {
+    return false;
+  }
 }
 
 // งานที่ยังไม่ได้ตั้งราคาก็เป็นงาน — ร้านรับออเดอร์เข้ามาก่อน แล้วค่อยคิดราคา
@@ -130,10 +170,49 @@ export async function handleTextMessage(event, profile) {
     return handlePostback({ ...event, postback: { data: `action=${menuAction}` } }, profile);
   }
 
+  // "เพิ่มหมวด 🥤 แก้วสกรีน" — เพิ่มหมวดงานใหม่ของร้านจากแชตได้เลย
+  const newCategory = parseAddCategory(text);
+  if (newCategory) return addCategoryFromChat({ replyToken, profile }, newCategory);
+
+  // "ซื้อกระดาษ A4 350" — รายจ่ายของร้าน การ์ดสั้น ๆ ให้ยืนยันก่อนบันทึก
+  // (มาก่อนการอ่านเป็นงาน: "ซื้อ..." ไม่ใช่งานของลูกค้า)
+  const expense = parseExpense(text);
+  if (expense) return confirmExpense({ replyToken, profile }, expense);
+
+  // "งานครูแอนเสร็จแล้ว" — เปลี่ยนสถานะงานด้วยชื่อ หลายใบให้เลือกก่อน
+  const spoken = parseStatusSpeak(text);
+  if (spoken) return statusBySpeech({ replyToken, profile }, spoken);
+
+  // "แก้ราคาเป็น 650" — แก้ใบล่าสุด มีการ์ดยืนยันก่อนเสมอ (เรื่องเงินไม่เดา)
+  const quick = parseQuickEdit(text);
+  if (quick) return quickEditAsk({ replyToken, profile }, quick);
+
   // "งานวันนี้ ป้ายไวนิล 150 บาท" — command + details in one message.
   const leading = splitLeadingAddJob(text);
   if (leading) {
     return handleNewJob(replyToken, profile, leading.rest);
+  }
+
+  /* "ดูงานนัฐภรณ์ ปริ้นงาน" / "ดูงานเชียงกลาง" / "ดูงานทั้งสองร้าน"
+   *
+   * เจ้าของมีสองร้านและสั่งไว้ว่าถามถึงร้านไหนให้ตอบเฉพาะร้านนั้น — จับก่อน
+   * เข้าสเตต เพราะเป็นคำสั่งอ่านอย่างเดียว ควรตอบได้เสมอเหมือนปุ่มเมนู
+   */
+  const branchAsk = parseBranchView(text, DEFAULT_BRANCHES);
+  if (branchAsk) {
+    return branchView({ replyToken, profile }, branchAsk.all ? null : branchAsk);
+  }
+
+  // "วันนี้มีงานอะไรบ้าง" → สรุปแยกสองร้าน ตามที่เจ้าของสั่งไว้คำต่อคำ
+  // มีตัวเลข = กำลังจดงาน ("วันนี้มีงาน ป้ายไวนิล 150") ไม่ใช่คำถาม
+  if (TODAY_QUESTION.test(text) && !HAS_NUMBER.test(text)) {
+    return branchView({ replyToken, profile }, null);
+  }
+
+  // "ย้าย MJ-SGN-0001 ไปร้านเชียงกลาง" — งานเก่า/งานลงผิดร้าน ย้ายจากแชตได้เลย
+  const move = parseMoveCommand(text, DEFAULT_BRANCHES);
+  if (move) {
+    return moveJob({ replyToken, profile }, move);
   }
 
   const state = await getState(profile.id);
@@ -164,11 +243,130 @@ export async function handleTextMessage(event, profile) {
     }
     // มีร่างอยู่บนจอ กับกำลังรอให้พิมพ์งาน เป็นคนละเรื่อง บอกให้ตรงกับที่เห็น
     const hasDraft = current === STATES.CONFIRMING_JOB && Boolean(state?.context?.draft);
+
+    /* ร่างที่ยังไม่มีชื่อลูกค้า — ม่วงเพิ่งถามว่า "ของใคร" ข้อความสั้น ๆ
+     * ที่ไม่มีตัวเลขตรงนี้คือคำตอบ ไม่ใช่การคุยเล่น ใส่ชื่อแล้วขึ้นการ์ดใหม่
+     */
+    if (hasDraft && !state.context.draft.customerName) {
+      const typed = parseCustomerName(text);
+
+      /* ศัพท์ช่างตอนถูกถามชื่อ ("หน้างานสีดำ") = รายละเอียดงาน ไม่ใช่คน
+       * (เคสจริง: การ์ดขึ้น ลูกค้า: หน้างานสีดำ) — ต่อท้ายรายการแรกให้ แล้วถาม
+       * ชื่อต่อ · ตั้งใจให้เป็นชื่อจริงพิมพ์นำว่า "ลูกค้า …" ได้ (ทางเดิมรองรับอยู่)
+       */
+      if (typed && !/^(?:ของ|ลูกค้า|ชื่อ)/u.test(text.trim()) && looksLikeWorkDetail(typed, profile.id)) {
+        const items = state.context.draft.items || [];
+        const first = items[0]
+          ? { ...items[0], size: [items[0].size, typed].filter(Boolean).join(' · ') }
+          : null;
+        const draft = first ? { ...state.context.draft, items: [first, ...items.slice(1)] } : state.context.draft;
+        await setState(profile.id, STATES.CONFIRMING_JOB, { ...state.context, draft });
+        return reply(
+          replyToken,
+          withDraftGuide(
+            [
+              {
+                type: 'text',
+                text:
+                  `"${typed}" ดูเป็นรายละเอียดงาน ม่วงใส่ไว้ในรายการให้แล้วค่ะ 📝\n` +
+                  `งานนี้ของลูกค้าท่านไหนคะ? (ถ้าเป็นชื่อลูกค้าจริง พิมพ์ "ลูกค้า ${typed}" ได้ค่ะ)`,
+              },
+              jobPreviewMessage(draftToBubble(draft)),
+            ],
+            draft
+          )
+        );
+      }
+
+      if (typed) {
+        /* ชื่อที่พิมพ์ไปพ้องกับชื่อที่เคยจดไว้ไหม — ร้านขอ "พิมพ์ลูกค้าคนไหนที่เคย
+         * จดไว้ แสดงให้อัตโนมัติ จะได้ไม่ต้องพิมพ์"
+         *
+         *   สะกดต่างแต่เจ้าเดียวกัน ("รร สบกอน" = "รร.สบกอน") → ใช้สะกดที่เคยจด
+         *     สมุดลูกค้ารวมเจ้าด้วยชื่อ สะกดใหม่ทุกใบคือบัญชีใหม่ทุกใบ
+         *   พิมพ์มาแค่บางส่วน ("สบกอน")                       → ใช้ตามที่พิมพ์ แต่มีปุ่ม
+         *     ชื่อเต็มให้กดเปลี่ยน ไม่เดาแทน เพราะ "สบกอน" อาจเป็นลูกค้าใหม่จริง ๆ
+         */
+        const known = await getRecentCustomerNames(profile.id, 30).catch(() => []);
+        const hit = matchCustomer(typed, known);
+        const name = hit?.kind === 'exact' ? hit.name : typed;
+        const matchNote = hit?.kind === 'exact' && hit.name !== typed ? ' (ชื่อที่เคยจดไว้ค่ะ)' : '';
+
+        const draft = { ...state.context.draft, customerName: name };
+        await setState(profile.id, STATES.CONFIRMING_JOB, { ...state.context, draft });
+        const msgs = withDraftGuide(
+          [
+            { type: 'text', text: `ลงชื่อลูกค้า "${name}"${matchNote} ให้แล้วค่ะ 💜 ครบแล้วกด "✅ บันทึกงาน" ได้เลยนะคะ` },
+            jobPreviewMessage(draftToBubble(draft)),
+          ],
+          draft
+        );
+        // ปุ่มชื่อเต็มที่เคยจดไว้ — กดแล้วเปลี่ยนสะกดให้ ไม่ต้องพิมพ์ใหม่
+        if (hit?.kind === 'partial') {
+          const last = msgs[msgs.length - 1];
+          if (!last.quickReply) {
+            last.quickReply = {
+              items: hit.names.slice(0, 3).map((n) => ({
+                type: 'action',
+                action: {
+                  type: 'postback',
+                  label: `ใช้ "${n}"`.slice(0, 20),
+                  data: `action=draft_customer&name=${encodeURIComponent(n)}`,
+                  displayText: `ลูกค้า "${n}"`,
+                },
+              })),
+            };
+          }
+        }
+        return reply(replyToken, msgs);
+      }
+    }
+    /* "การ์ดแต่งงาน" ตอนม่วงรอให้พิมพ์งาน — รู้ชนิดงานแล้วแม้ยังไม่มีตัวเลข
+     * เริ่มถามเก็บทีละข้อเหมือนตอนว่าง (ม่วงแนะนำเองว่า พิมพ์ เช่น "มีงานกรอบรูป"
+     * แล้วม่วงจะถามต่อให้ — ก็ต้องทำตามคำแนะนำของตัวเองได้จริง ของเดิมตอบ
+     * "ยังไม่เห็นตัวเลข" ซ้ำสามรอบจนร้านถอดใจ)
+     */
+    if (!hasDraft) {
+      const collecting = startCollecting(text);
+      if (collecting) return startCollectFlow(replyToken, profile, collecting);
+    }
+
+    // ไม่เข้าใจติดกันสองครั้งตอนรอจดงาน — เลิกรอ อย่าตอบประโยคเดิมเป็นรอบที่สาม
+    if (!hasDraft && current === STATES.WAITING_FOR_JOB) {
+      const misses = (state?.context?.misses || 0) + 1;
+      if (misses >= 2) {
+        await clearState(profile.id);
+        return reply(replyToken, {
+          type: 'text',
+          text: 'ม่วงขอพักโหมดจดไว้ก่อนนะคะ 💜 พิมพ์งานมาใหม่เมื่อไหร่ก็ได้ค่ะ\nเช่น "การ์ดแต่งงาน 100 ใบ 1,500 บาท"',
+        });
+      }
+      await setState(profile.id, STATES.WAITING_FOR_JOB, { ...(state?.context || {}), misses });
+    }
     return reply(replyToken, { type: 'text', text: hasDraft ? DRAFT_WAITING_REPLY : WAITING_JOB_REPLY });
   }
 
   // กำลังถามรายละเอียดทีละข้ออยู่
   if (current === STATES.COLLECTING_JOB) {
+    // พิมพ์งานใหม่ทั้งใบเข้ามากลางคัน = จดงานใหม่ ไม่ใช่ตอบคำถามงานเก่า
+    if (isWholeNewJob(text)) return handleNewJob(replyToken, profile, text);
+    /* ข้อความที่ไม่ใช่คำตอบแน่ ๆ แต่เป็นงานแน่ ๆ ("งานพิมพ์การ์ด" ใส่คำถามขนาด
+     * ที่ค้างข้ามคืน) — ห้ามตอบ "ยังไม่เข้าใจ" ให้พับชุดคำถามเดิมแล้วไปจดงานใหม่
+     */
+    const escape = collectEscape(state?.context?.collect, text);
+    if (escape?.kind === 'switch') {
+      return startCollectFlow(
+        replyToken,
+        profile,
+        escape.collecting,
+        `ได้เลยค่ะ 💜 เปลี่ยนมาจด${escape.collecting.itemName}แทนนะคะ (พับคำถาม${state.context.collect.itemName}ชุดเดิมไว้ก่อนค่ะ)`
+      );
+    }
+    if (escape?.kind === 'job') {
+      await clearState(profile.id);
+      const note = `พับคำถาม${state.context.collect.itemName}ชุดเดิมไว้ก่อนนะคะ จดงานใหม่ให้เลยค่ะ 💜`;
+      return handleNewJob(replyToken, profile, text, null, null, note);
+    }
     return handleCollectTurn(replyToken, profile, state, text);
   }
 
@@ -195,6 +393,30 @@ export async function handleTextMessage(event, profile) {
     });
   }
 
+  /* เพิ่งเก็บรูป QR แล้วม่วงถามว่าใบนี้ของธนาคารอะไร
+   *
+   * คำตอบสั้น ๆ คำเดียว ("กสิกร") ซึ่งถ้าปล่อยผ่านไปจะถูกอ่านเป็นการจดงาน
+   * จึงต้องรับตรงนี้ก่อนทางอื่น
+   */
+  if (current === STATES.WAITING_FOR_QR_LABEL && state?.context?.qrId) {
+    const answer = String(text || '').trim();
+    const skipped = /^(ข้าม|ไม่|ไม่เอา|-|ไม่ต้อง)$/i.test(answer);
+    await clearState(profile.id);
+    if (!skipped && answer) {
+      try {
+        await renameShopQr(profile.id, state.context.qrId, answer);
+      } catch (err) {
+        logger.warn('shop.qr_rename_failed', { message: err?.message });
+      }
+    }
+    return reply(replyToken, {
+      type: 'text',
+      text:
+        (skipped || !answer ? 'ได้ค่ะ ไม่ตั้งชื่อก็ได้' : `ตั้งชื่อว่า "${answer}" แล้วค่ะ`) +
+        ' 💜\nพิมพ์ "QR" เพื่อดูและเลือกใบที่จะใช้ · "เพิ่ม QR" เพื่อเก็บใบใหม่',
+    });
+  }
+
   /* Idle: จดรวดเดียวทั้งวัน — หลายบรรทัด หลายลูกค้า
    *
    * ร้านบอกว่า "คิดได้ก็ใส่ บางทีไม่มีเวลามานั่งใส่เป็นหมวด ๆ" ของเดิมข้อความ
@@ -207,11 +429,38 @@ export async function handleTextMessage(event, profile) {
     return handleDump(replyToken, profile, text);
   }
 
+  /* Idle: "ขอดูงานของโรงเรียนบ้านห้วยฟอง" → การ์ดลูกค้าเจ้านั้นทันที (ร้านสอนมา)
+   * ต้องมาก่อนตัวทายจดงาน: ประโยคนี้มีทั้งคำว่า "งาน" และชื่อหน่วยงาน ปล่อยลงไป
+   * จะโดนทายเป็นจดงานใหม่ — บอกชัดว่า "ของใคร" แล้วไม่เจอ ก็ตอบตรง ๆ ว่าไม่เจอ */
+  const cardAsk = parseCardAsk(text);
+  if (cardAsk) {
+    if (await customerCardForText({ replyToken, profile }, cardAsk.name)) return;
+    if (cardAsk.explicit) {
+      return reply(replyToken, {
+        type: 'text',
+        text: `ยังไม่เจอลูกค้าชื่อ "${cardAsk.name}" ในสมุดค่ะ ลองพิมพ์แค่บางส่วนของชื่อดูได้นะคะ 💜`,
+      });
+    }
+  }
+
   // Idle: a message that already looks like a job goes straight to preview —
   // ไม่ว่าจะใส่ราคามาแล้วหรือยัง
   if (looksLikeJob(text) || looksLikePricelessJob(text)) {
     return handleNewJob(replyToken, profile, text);
   }
+
+  /* Idle: พิมพ์ชื่อลูกค้าที่เคยจดมาเฉย ๆ = ขอดูงานทั้งหมดของเขา
+   *
+   * ร้านขอ "ลูกค้าคนไหนที่มีงานหลายชิ้น ช่วยแสดงทั้งหมด … ขอแยกจ่าย" — การ์ด
+   * โชว์ทุกใบ (งานชื่อซ้ำแยกด้วยเลขงาน+วันที่) ใบค้างกดเก็บเงินรายใบได้เลย
+   * เทียบชื่อแบบเดียวกับสมุดลูกค้า สะกดต่างเจ้าเดียวกันก็เจอ — ไม่ใช่ชื่อที่เคยจด
+   * ก็ไหลไปทางเดิมเหมือนไม่มีเกตนี้อยู่
+   *
+   * อยู่ "ก่อน" ตัวเริ่มชุดคำถาม: ลูกค้าที่ชื่อมีคำช่างปน ("ร้านป้ายเจริญ") ต้อง
+   * เปิดการ์ดของเขา ไม่ใช่โดนคำว่า "ป้าย" ดักไปเริ่มจดงานใหม่ — ส่วนคำที่ไม่ใช่
+   * ชื่อที่เคยจด เกตนี้ปล่อยผ่านเสมอ ชุดคำถามจึงได้ของมันครบเหมือนเดิม
+   */
+  if (await customerCardForText({ replyToken, profile }, text)) return;
 
   // Idle: "มีงานกรอบรูป" — รู้ว่าเป็นงานอะไรแต่ยังไม่มีรายละเอียดสักอย่าง
   // ถามเก็บทีละข้อ แทนที่จะตอบกลับไปว่าพิมพ์ใหม่ให้ครบ
@@ -222,6 +471,27 @@ export async function handleTextMessage(event, profile) {
   // customer named before the work arrives. Answer it like a person would.
   const intent = parseChatIntent(text);
   if (intent) return handleChatIntent(replyToken, profile, intent);
+
+  /* ยังไม่เข้าใจ — แต่ถ้าเดาได้ว่าใกล้เคียงคำสั่งไหน ให้ถามกลับด้วยปุ่ม
+   *
+   * ร้านพิมพ์ "ดูงานค้างหน่อย" แล้วได้คำทักทายกลับไปสองรอบ พร้อมบอกว่า "อยากให้
+   * บอทตอบได้ในสิ่งที่เราถาม" — คำทักทายที่ไม่เกี่ยวกับสิ่งที่ถามเลยคือคำตอบ
+   * ที่แย่ที่สุดที่ตอบได้ เพราะมันไม่ได้บอกด้วยซ้ำว่าม่วงไม่เข้าใจ
+   *
+   * เสนอเป็นปุ่ม ไม่ใช่ทำให้เลย เพราะการเดาจากคำที่อยู่กลางประโยคหลวมเกินกว่า
+   * จะลงมือเอง — กดครั้งเดียวก็ได้คำตอบ และร้านเห็นว่าม่วงเข้าใจว่าอะไร
+   */
+  const guess = suggestMenuCommand(text);
+  const guessLabel = guess && labelForAction(guess);
+  if (guessLabel) {
+    return reply(replyToken, {
+      type: 'text',
+      text: `ยังไม่แน่ใจว่าหมายถึงอะไรค่ะ 🤔\nหมายถึง "${guessLabel}" ไหมคะ?`,
+      quickReply: {
+        items: [{ type: 'action', action: { type: 'message', label: guessLabel.slice(0, 20), text: guessLabel } }],
+      },
+    });
+  }
 
   // Idle: nudge toward the menu.
   return reply(replyToken, { type: 'text', text: DEFAULT_REPLY });
@@ -265,9 +535,42 @@ async function handleChatIntent(replyToken, profile, intent) {
 //
 // Returns null when the message is anything else, so the normal re-parse runs.
 async function handleDraftPrice(replyToken, profile, state, text) {
-  const amount = parseBarePrice(text);
   const draft = state?.context?.draft;
-  const priced = amount && draft ? priceDraft(draft, amount) : null;
+  if (!draft) return null;
+
+  /* "ตรมละ 350" — ใบที่มีหลายบอร์ดหลายขนาด ตอบเรตเดียวแล้วม่วงไล่คิดให้
+   * ทีละบอร์ดตามขนาดของมัน ร้านขอไว้ตรง ๆ: "ไล่บอร์ด 1-2-3-4 มาเลย
+   * ขนาดเท่านี้ ตรมละเท่านี้ กี่บาท"
+   *
+   * ต้องมาก่อนทางราคาเหมา เพราะ "ตรมละ 350" ก็มีตัวเลขเหมือนกัน
+   */
+  const rate = parseBareSqmRate(text);
+  const bySqm = rate ? priceDraftBySqm(draft, rate) : null;
+  if (bySqm) {
+    await setState(profile.id, STATES.CONFIRMING_JOB, { ...state.context, draft: bySqm.draft });
+    const names = !bySqm.draft.customerName ? await getRecentCustomerNames(profile.id) : [];
+    return reply(
+      replyToken,
+      withDraftGuide(
+        [
+          {
+            type: 'text',
+            text:
+              `คิดตารางเมตรละ ${numText(bySqm.rate)} ให้แล้วค่ะ 💜\n` +
+              bySqm.lines.join('\n') +
+              `\nรวมทั้งใบ ${numText(bySqm.draft.total)} บาท\n` +
+              'ถูกต้องกด "✅ บันทึกงาน" ได้เลยนะคะ',
+          },
+          jobPreviewMessage(draftToBubble(bySqm.draft)),
+        ],
+        bySqm.draft,
+        names
+      )
+    );
+  }
+
+  const amount = parseBarePrice(text);
+  const priced = amount ? priceDraft(draft, amount) : null;
   if (!priced) return null;
 
   await setState(profile.id, STATES.CONFIRMING_JOB, { ...state.context, draft: priced });
@@ -281,6 +584,31 @@ async function handleDraftPrice(replyToken, profile, state, text) {
 // `knownCustomer` is set after "➕ เพิ่มงานอีก": the shop typed the name once
 // and should not have to type it again for every job in the same visit. What
 // the message itself says still wins — they may have moved on to someone else.
+/* หนีออกจากวงถามเมื่อข้อความ "ไม่ใช่คำตอบแน่ ๆ แต่เป็นงานใหม่แน่ ๆ"
+ *
+ * คำตอบชนะเสมอ: ถ้าตัวอ่านคำตอบ/คำสั่ง/คำข้ามอ่านข้อความนี้ออก จะไม่หนี —
+ * "12x18", "600", "คุณแอน" ยังเป็นคำตอบของงานที่ถามค้างอยู่เหมือนเดิมทุกประการ
+ * ลำดับการเดางานเหมือนตอน idle: หลายบรรทัด → งานเดี่ยว → ชื่อชนิดงาน
+ */
+export function collectEscape(collect, text) {
+  if (!collect) return null;
+  if (turnUnderstands(collect, text)) return null;
+  // (จดรวดเดียวหลายลูกค้าไม่มีทางมาถึงนี่ — ใบเต็มถูก isWholeNewJob ดักก่อน
+  // ส่วนใบที่ขึ้นต้นด้วยชื่อคน ช่องลูกค้าอ่านชื่อนั้นออก = เป็นคำตอบไปแล้ว)
+  // "งานแน่ ๆ" ต้องมีของที่จัดหมวดได้จริง — เลขลอย ๆ ("600") ผ่าน looksLikeJob
+  // ได้แต่เป็นคำตอบที่อ่านไม่ออกมากกว่าจะเป็นงานใหม่ ให้วงถามถามย้ำพร้อมปุ่มแทน
+  if (looksLikeJob(text) || looksLikePricelessJob(text)) {
+    try {
+      const d = parseNaturalJob(text);
+      if (d.items.length && classifyJob(d.items)) return { kind: 'job' };
+    } catch {
+      /* อ่านไม่ออกก็ไม่ใช่งาน */
+    }
+  }
+  const collecting = startCollecting(text);
+  return collecting ? { kind: 'switch', collecting } : null;
+}
+
 /* จดรวดเดียวทั้งวัน → แยกเป็นงาน ๆ แล้วขึ้นการ์ดให้ตรวจ
  *
  * ยังไม่บันทึกอะไรทั้งนั้น เพราะสิ่งที่ผิดได้คือการจับคู่ "ใครสั่งอะไร" ซึ่ง
@@ -289,12 +617,14 @@ async function handleDraftPrice(replyToken, profile, state, text) {
 async function handleDump(replyToken, profile, text) {
   const { jobs, total } = splitDump(text);
 
-  /* ลูกค้าคนเดียวที่จดมาหลายบรรทัด ไม่ใช่ "หลายงาน" — ร้านบอกว่า "งานนี้ชื่อ
-   * เดียวกัน ... แต่รับพร้อมกัน" ใบเสร็จจึงควรเป็นใบเดียว ไปทางการ์ดสรุปเดิม
-   * ซึ่งมีปุ่มแก้ไขครบ
+  /* งานเดียวจริง ๆ (ราคาก้อนเดียว — หลายบรรทัดที่เหลือคือขนาด/รายละเอียดของมัน)
+   * ไปทางการ์ดสรุปเดิมซึ่งมีปุ่มแก้ไขครบ · ส่วนลูกค้าคนเดียวที่สั่งหลายอย่าง
+   * แต่ละอย่างมีราคาของตัวเอง ตอนนี้ splitDump แยกเป็นงานละใบแล้ว (ร้านขอ:
+   * "ถ้าลูกค้า 1 คน สั่ง 3 งาน แยกเฉพาะงานให้หน่อย จะได้รู้ว่างานไหนได้เงิน
+   * เท่าไหร่") จึงไหลลงพรีวิวหลายใบข้างล่างเหมือนหลายลูกค้า
    *
-   * แต่ต้องใช้ผลที่อ่านทีละบรรทัดมาแทน เพราะตัวอ่านหลายบรรทัดกลืนจำนวนไปอยู่ใน
-   * ชื่อของ: "สติ๊กเกอร์ 50 ดวง ดวงละ 5" คิดได้ ฿5 แทนที่จะเป็น ฿250
+   * ใช้ผลที่อ่านทีละบรรทัด เพราะตัวอ่านหลายบรรทัดกลืนจำนวนไปอยู่ในชื่อของ:
+   * "สติ๊กเกอร์ 50 ดวง ดวงละ 5" คิดได้ ฿5 แทนที่จะเป็น ฿250
    */
   if (jobs.length === 1) {
     const only = jobs[0];
@@ -306,26 +636,43 @@ async function handleDump(replyToken, profile, text) {
       discount: only.discount || 0,
       total: only.total,
       paidAmount: only.paidAmount || 0,
+      payMethod: only.payMethod || null,
       statedTotal: only.discount ? only.total : null,
     });
   }
 
-  const jobDate = todayISO();
+  return previewDump(replyToken, profile, jobs, total);
+}
 
-  await setState(profile.id, STATES.CONFIRMING_DUMP, { dump: jobs, jobDate });
-
+// พรีวิวชุดงานหลายใบ รอให้ร้านกด "บันทึกทั้งหมด" — ใช้ทั้งทางจดหลายบรรทัด
+// และทางบรรทัดเดียวที่ถูกแยกเป็นงานละใบ
+async function previewDump(replyToken, profile, jobs, total, note) {
+  await setState(profile.id, STATES.CONFIRMING_DUMP, { dump: jobs, jobDate: todayISO() });
   return reply(replyToken, [
     {
       type: 'text',
       text:
-        `อ่านให้แล้วค่ะ แยกได้ ${jobs.length} งาน 💜\n` +
-        'ดูการ์ดข้างล่างว่าแยกถูกคนไหมคะ ถ้าถูกกด "บันทึกทั้งหมด" ได้เลย',
+        `อ่านให้แล้วค่ะ แยกได้ ${jobs.length} งาน 💜` +
+        (note ? `\n${note}` : '') +
+        '\nดูการ์ดข้างล่างว่าแยกถูกไหมคะ ถ้าถูกกด "บันทึกทั้งหมด" ได้เลย',
     },
     dumpPreviewFlex(jobs, total),
   ]);
 }
 
-async function handleNewJob(replyToken, profile, text, knownCustomer = null, parsedOverride = null) {
+// lead — บรรทัดนำตอนพับชุดคำถามเดิมมาจดงานนี้แทน ต้องติดไปทั้งสาขาที่อ่านออกและไม่ออก
+async function handleNewJob(replyToken, profile, text, knownCustomer = null, parsedOverride = null, lead = null) {
+  /* ร้านไหน — จับเฉพาะที่พูดถึงร้านแบบตั้งใจ ("นัฐภรณ์ ปริ้นงาน …", "ลงร้าน
+   * เชียงกลาง …") แล้วตัดชื่อร้านออกก่อนอ่านงาน ไม่งั้นชื่อร้านถูกอ่านเป็นชื่อ
+   * ลูกค้า ใบเสร็จออกในนามร้านตัวเอง
+   *
+   * ไม่ได้บอกร้านมา ไม่เป็นไร — ตอนกด ✅ บันทึก ม่วงจะถามว่า "งานนี้ลงร้านไหน
+   * ดีคะ" เอง การเดาจากคำหลวม ๆ ("ปริ้นงานเอกสาร 100 แผ่น" คืองานปริ้น ไม่ใช่
+   * ร้านปริ้นงาน) คือทางที่งานลงผิดร้านเงียบ ๆ
+   */
+  const branch = matchBranchStrict(text, DEFAULT_BRANCHES);
+  if (branch) text = stripBranch(text, branch, DEFAULT_BRANCHES);
+
   // Two different dates can be in one message and they mean opposite things.
   // The pickup date is the one wearing a label ("นัดรับ 15 ก.ย."), so it comes
   // off first; whatever bare date is left is when the job is being recorded.
@@ -336,10 +683,27 @@ async function handleNewJob(replyToken, profile, text, knownCustomer = null, par
   // amount already received — via the AI layer when configured, else rules.
   const parsed = parsedOverride || (await extractJobDraft(when.rest));
 
+  /* บรรทัดเดียวแต่หลายชิ้นที่ต่างมีราคาของตัวเอง = คนละงาน — แยกใบเหมือนทาง
+   * หลายบรรทัด (ร้านขอ "ลูกค้า 1 คน สั่ง 3 งาน แยกเฉพาะงานให้หน่อย") ·
+   * แยกไม่ได้โดยไม่เดาเงิน (มัดจำรวม/ยอดเหมา) ก็เป็นใบเดียวตามเดิม
+   * ชุดคำถาม/ใบที่ถูกแก้ส่งกลับมา (parsedOverride) ไม่เข้าทางนี้ — ตัดสินใจ
+   * ไปแล้วรอบหนึ่งว่าเป็นใบเดียว
+   */
+  if (!parsedOverride) {
+    const many = splitSelfPriced(parsed);
+    if (many) {
+      // วันนัดรับที่พิมพ์มาในประโยคเดียวกัน ติดไปทุกใบ — รับพร้อมกันนัดวันเดียวกัน
+      const jobs = many.map((j) => ({ ...j, customerName: j.customerName || knownCustomer || null, dueDate: due.date || null }));
+      const total = jobs.reduce((s, j) => s + (Number(j.total) || 0), 0);
+      return previewDump(replyToken, profile, jobs, total, lead);
+    }
+  }
+
   if (!parsed.items.length) {
     return reply(replyToken, {
       type: 'text',
       text:
+        (lead ? lead + '\n' : '') +
         'ขออภัยค่ะ อ่านรายการไม่ออกเลย ลองพิมพ์แบบนี้นะคะ\n' +
         'ป้ายไวนิล 60x100 150 บาท\n' +
         'หรือ ไวนิล 160x300 ตรมละ 165 💜',
@@ -350,7 +714,7 @@ async function handleNewJob(replyToken, profile, text, knownCustomer = null, par
   // show a preview with confirm / edit / cancel buttons.
   const draft = makeDraft({
     // A heading the shop wrote themselves beats one worked out from the items.
-    jobName: parsed.jobName || deriveJobName(parsed.items),
+    jobName: parsed.jobName || deriveJobName(parsed.items, profile.id),
     customerName: parsed.customerName || knownCustomer,
     jobDate: when.date || todayISO(),
     dueDate: due.date,
@@ -359,9 +723,10 @@ async function handleNewJob(replyToken, profile, text, knownCustomer = null, par
     discount: parsed.discount || 0,
     total: parsed.total,
     paidAmount: parsed.paidAmount,
+    payMethod: parsed.payMethod || null,
   });
 
-  await setState(profile.id, STATES.CONFIRMING_JOB, { draft });
+  await setState(profile.id, STATES.CONFIRMING_JOB, { draft, ...(branch ? { branchSlug: branch.slug } : {}) });
 
   // Pricing by the square metre lands on satang — 4,887.97 — and no shop hands
   // a customer a bill like that. Say how to round it, but only on the jobs that
@@ -372,22 +737,47 @@ async function handleNewJob(replyToken, profile, text, knownCustomer = null, par
 
   // งานที่ยังไม่มีราคา บอกทางไปต่อด้วย ไม่งั้นการ์ด ฿0 ขึ้นมาเฉย ๆ แล้วร้าน
   // ไม่รู้ว่าพิมพ์ราคาต่อได้เลย
+  //
+  // หลายรายการราคาเหมาใส่ไม่ได้ (ไม่รู้ว่าก้อนเดียวเป็นของบรรทัดไหน) แต่บอก
+  // เรตตารางเมตรได้ — ม่วงจะไล่คิดทีละบอร์ดตามขนาดให้เอง
   const noPrice = !(draft.total > 0);
+  const priceHint =
+    draft.items.length > 1
+      ? 'บอกเรตมาได้เลยค่ะ เช่น "ตรมละ 350" เดี๋ยวม่วงไล่คิดทีละแผ่นตามขนาดให้'
+      : 'พิมพ์ราคามาได้เลยค่ะ เช่น 350 หรือ "ตรมละ 350" ก็ได้';
 
-  return reply(replyToken, [
+  // ไม่รู้ว่าของใคร ถามเลยตอนที่การ์ดยังอยู่บนจอ — ใบที่ไม่มีชื่อลูกค้าคือใบ
+  // ที่ค้นย้อนหลังไม่เจอ
+  const askWho = !draft.customerName ? '\nงานนี้ของลูกค้าท่านไหนคะ? พิมพ์ชื่อมาได้เลยค่ะ' : '';
+
+  const guideNames = !draft.customerName ? await getRecentCustomerNames(profile.id) : [];
+  // บอกสิ่งที่ม่วงเข้าใจจากคำท้ายประโยค — เข้าใจผิดต้องเห็นตรงนี้ ตอนยังแก้ทัน
+  const MONEY_UNDERSTOOD = {
+    cash: '💵 รับเป็นเงินสดแล้ว — จะลงใบลงบัญชีวันนี้ให้เลยค่ะ',
+    transfer: '🏦 รับเป็นเงินโอนแล้ว — จะลงใบลงบัญชีวันนี้ให้เลยค่ะ',
+    account: '📒 ลงบัญชีไว้ (ยังไม่ได้รับเงิน) — รอวางบิล/เก็บเงินค่ะ',
+  };
+  const moneyLine = MONEY_UNDERSTOOD[draft.payMethod] || '';
+  return reply(replyToken, withDraftGuide([
+    ...(lead ? [{ type: 'text', text: lead }] : []),
+    // บอกตั้งแต่ตอนตรวจว่าจะเข้าบัญชีร้านไหน — เห็นผิดตรงนี้ยังกดยกเลิกทัน
+    ...(branch ? [{ type: 'text', text: `งานนี้จะลงบัญชีร้าน "${branch.name}" นะคะ 🏪` }] : []),
     {
       type: 'text',
-      text: noPrice
-        ? 'จดไว้ให้แล้วค่ะ 📝 ยังไม่ได้ใส่ราคานะคะ\n' +
-          'พิมพ์ราคามาได้เลยค่ะ เช่น 350\n' +
-          'หรือกด "✅ บันทึกงาน" ไว้ก่อน แล้วค่อยมาใส่ราคาทีหลังก็ได้ 💜'
-        : hasSatang
-          ? `ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลยค่ะ 💜\n` +
-            `อยากปัดเศษเอง พิมพ์ "รวม ${numText(roundTo)}" มาได้เลยค่ะ`
-          : 'ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลยค่ะ 💜',
+      text:
+        (noPrice
+          ? 'จดไว้ให้แล้วค่ะ 📝 ยังไม่ได้ใส่ราคานะคะ\n' +
+            priceHint +
+            '\nหรือกด "✅ บันทึกงาน" ไว้ก่อน แล้วค่อยมาใส่ราคาทีหลังก็ได้ 💜'
+          : hasSatang
+            ? `ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลยค่ะ 💜\n` +
+              `อยากปัดเศษเอง พิมพ์ "รวม ${numText(roundTo)}" มาได้เลยค่ะ`
+            : 'ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลยค่ะ 💜') +
+        (moneyLine ? '\n' + moneyLine : '') +
+        askWho,
     },
     jobPreviewMessage(draftToBubble(draft)),
-  ]);
+  ], draft, guideNames));
 }
 
 async function handlePaymentAmount(replyToken, profile, state, text) {
@@ -492,6 +882,8 @@ async function handleEdit(replyToken, profile, state, text) {
       patch.paid_amount = round2(current.total);
       patch.balance_due = 0;
     }
+    // "สถานะ: จ่ายแล้ว" = เก็บเงินได้วันนี้ — วันเก็บจริงไปขึ้นใบลงบัญชีของวันนี้
+    Object.assign(patch, paidAtPatch(current, patch));
   }
 
   const updated = await updateJob(profile.id, jobId, patch);

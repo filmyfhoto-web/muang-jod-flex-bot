@@ -31,6 +31,20 @@ test('ตรายาง is its own kind of work, and "ปั๊ม" alone is no
   assert.equal(classifyItem('ค่าน้ำมัน ปั๊มบางจาก'), null);
 });
 
+test('"ปริ้น X" จัดตามตัว X ไม่ใช่ตามคำว่าปริ้น — ใบจริงของร้านเคยโดนมาแล้ว', () => {
+  /* ร้านจดว่า "ปริ้นโฟมบอร์ด 1 (โรงเรียนพระธาตุพิทยาคม)" แล้วงานทั้งใบถูกจัดเป็น
+   * งานพิมพ์ เลขงานออกเป็น MJ-PRN ทั้งที่มันคืองานป้าย — "ปริ้น" เป็นกริยาที่ร้าน
+   * ใช้กับทุกงาน คำบอกวัสดุต้องชนะ และกริยาเหลือเป็นตาข่ายของงานเอกสารจริง ๆ
+   */
+  assert.equal(classifyItem('ปริ้นโฟมบอร์ด 1 (โรงเรียนพระธาตุพิทยาคม)').type.id, 'foamboard');
+  assert.equal(classifyItem('พิมพ์ป้ายไวนิล 60x100').type.id, 'vinyl');
+  assert.equal(classifyItem('ปริ้นสติ๊กเกอร์ 20 ดวง').type.id, 'sticker');
+  // ของเดิมต้องไม่ขยับ: ปริ้นรูปเป็นงานรูป งานเอกสารยังเป็นงานพิมพ์
+  assert.equal(classifyItem('ปริ้นรูป 4x6').type.id, 'photo');
+  assert.equal(classifyItem('ปริ้นงานเอกสาร A4 50 แผ่น').type.id, 'print');
+  assert.equal(classifyItem('ใบปลิว 1000 ใบ').type.id, 'print');
+});
+
 test('สติ๊กเกอร์ฟิวเจอร์บอร์ด wins over both halves it is made of', () => {
   // งานนี้เคยตกไปลงโฟมบอร์ดหรือสติ๊กเกอร์ แล้วแต่ว่าเจอคำไหนก่อน
   assert.equal(classifyItem('สติ๊กเกอร์ฟิวเจอร์บอร์ด 60x90').type.id, 'sticker_board');
@@ -138,4 +152,32 @@ test('job headings and item icons', () => {
   assert.equal(guessCategory([{ item_name: 'ของแปลก' }]), null);
   assert.equal(itemIcon('สติ๊กเกอร์'), '🏷️');
   assert.equal(itemIcon('อะไรก็ไม่รู้'), '📦');
+});
+
+/* pricingEntries — ตัวจับคำ "หน่วยราคา" ที่ส่งให้ฟอร์มจดบนเบราว์เซอร์
+ * ต้องครบทุกประเภท เรียงลำดับเดียวกับ classifyItem และไม่มีวันมี tier
+ */
+test('pricingEntries: ทุกประเภทมีหน่วยราคา และเป็นชุดที่ฟอร์มใช้ได้จริง', async () => {
+  const { BASE_TAXONOMY } = await import('../src/utils/category.js');
+  const entries = BASE_TAXONOMY.pricingEntries;
+  const typeCount = CATEGORY_GROUPS.reduce((s, g) => s + g.types.length, 0);
+  assert.equal(entries.length, typeCount, 'บางประเภทไม่มีหน่วยราคา (หรือมีรายการเกิน)');
+
+  for (const e of entries) {
+    assert.ok(Array.isArray(e.keys) && e.keys.length, `entry "${e.label}" ไม่มีคำค้น`);
+    assert.ok(['sqm', 'sheet', 'piece'].includes(e.price.mode), `${e.label}: mode ${e.price.mode}`);
+    assert.ok(e.price.unit && typeof e.price.unit === 'string', `${e.label}: ไม่มีคำนับ`);
+    assert.notEqual(e.price.mode, 'tier', 'ตารางช่วงราคาห้ามตั้งอัตโนมัติ');
+  }
+
+  // ตัวหลักของร้าน — ตารางเดียวกับที่ตกลงกันไว้
+  const of = (key) => entries.find((e) => e.keys.includes(key)).price;
+  assert.deepEqual(of('กรอบรูป'), { mode: 'piece', unit: 'บาน' });
+  assert.deepEqual(of('ตรายาง'), { mode: 'piece', unit: 'อัน' });
+  assert.deepEqual(of('อัดรูป'), { mode: 'piece', unit: 'ใบ' });
+  assert.deepEqual(of('ไวนิล'), { mode: 'sqm', unit: 'ผืน' });
+  assert.deepEqual(of('โฟมบอร์ด'), { mode: 'sqm', unit: 'แผ่น' });
+  assert.deepEqual(of('สติ๊กเกอร์ฟิวเจอร์'), { mode: 'sheet', unit: 'แผ่น' });
+  assert.deepEqual(of('ถ่ายเอกสาร'), { mode: 'sheet', unit: 'แผ่น' });
+  assert.deepEqual(of('เข้าเล่ม'), { mode: 'piece', unit: 'เล่ม' });
 });

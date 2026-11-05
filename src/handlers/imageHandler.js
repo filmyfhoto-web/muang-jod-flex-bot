@@ -1,9 +1,12 @@
 import { reply, getMessageContentBuffer } from '../services/lineService.js';
-import { getState, setState, clearState, STATES } from '../services/stateService.js';
-import { getLatestJob, getJobById, createJob } from '../services/jobService.js';
+// อ่านสถานะผ่านตัวตรวจอายุ — รูปที่ส่งมาหลังสถานะค้างเกิน 6 ชม. เข้าเส้นอ่านรูปปกติ
+import { getFreshState as getState, setState, clearState, STATES } from '../services/stateService.js';
+import { getLatestJob, getJobById, getRecentCustomerNames } from '../services/jobService.js';
 import { saveAttachment } from '../services/attachmentService.js';
-import { readImage } from '../services/visionService.js';
-import { slipReceiptFlex } from '../flex/slipFlex.js';
+import { addShopQr, listShopQrs } from '../services/shopService.js';
+import { readImage, visionEnabled } from '../services/visionService.js';
+import { recordAiUsage } from '../services/aiUsageService.js';
+import { withDraftGuide } from '../flex/draftGuide.js';
 import { jobPreviewMessage } from '../flex/jobCard.js';
 import { makeDraft, draftToBubble } from '../utils/jobDraft.js';
 import { deriveJobName } from '../utils/category.js';
@@ -89,6 +92,54 @@ export async function handleImageMessage(event, profile) {
     });
   }
 
+  /* รูป QR รับเงินของร้าน — ต้องมาก่อนทุกทาง
+   *
+   * ร้านเพิ่งพิมพ์ว่า "QR" แล้วม่วงขอรูป รูปถัดไปจึงเป็น QR ของร้านแน่ ๆ
+   * ไม่ใช่หลักฐานของงานและไม่ใช่ใบสั่งงานให้อ่าน — ถ้าปล่อยให้ตกไปทางอ่านรูป
+   * ม่วงจะพยายามอ่าน QR เป็นใบสั่งงาน แล้วตั้งงานใหม่ขึ้นมาจากรูปที่ไม่มีงาน
+   */
+  if (current === STATES.WAITING_FOR_QR) {
+    if (fileType === 'application/pdf') {
+      return reply(replyToken, { type: 'text', text: 'QR ต้องเป็นรูปนะคะ (JPG หรือ PNG) ส่งใหม่ได้เลยค่ะ 💜' });
+    }
+    let saved;
+    try {
+      saved = await addShopQr(profile.id, { buffer, fileType });
+    } catch (err) {
+      logger.error('shop.qr_save_failed', { message: err?.message });
+      return reply(replyToken, { type: 'text', text: 'เก็บ QR ไม่สำเร็จค่ะ 😢 ลองส่งรูปใหม่อีกครั้งนะคะ' });
+    }
+
+    /* ถามชื่อทันทีตอนที่ร้านยังจำได้ว่าเพิ่งส่งใบไหนมา
+     *
+     * ร้านมีสองบัญชี ถ้าไม่มีชื่อกำกับ พอมาเลือกทีหลังก็ต้องเพ่งรูปเอาเอง
+     * ปุ่มลัดให้กดทีเดียวจบ ไม่ต้องพิมพ์
+     */
+    await setState(profile.id, STATES.WAITING_FOR_QR_LABEL, { qrId: saved.id });
+    const first = (await listShopQrs(profile.id)).length <= 1;
+    return reply(replyToken, {
+      type: 'text',
+      text:
+        'เก็บ QR ให้แล้วค่ะ 💜' +
+        (first ? '\nใบนี้จะขึ้นท้ายใบเสร็จที่ยังค้างจ่ายให้อัตโนมัติ' : '') +
+        '\n\nใบนี้ของธนาคารอะไรคะ? กดเลือกหรือพิมพ์มาได้เลย',
+      quickReply: {
+        /* ปุ่มชื่อเป็น postback พกรหัส QR ไปเอง — แบบ message เดิมมีกับดัก:
+         * "พร้อมเพย์" เป็นคำสั่งเมนู (เปิดลิสต์ QR) ซึ่งถูกเทียบก่อนสถานะ
+         * กดแล้วชื่อไม่ถูกเซฟแถมสถานะโดนล้าง · พิมพ์ชื่อเองยังได้เหมือนเดิม */
+        items: ['กสิกร', 'ออมสิน', 'ไทยพาณิชย์', 'กรุงไทย', 'กรุงเทพ', 'พร้อมเพย์', 'ข้าม'].map((label) => ({
+          type: 'action',
+          action: {
+            type: 'postback',
+            label,
+            data: `action=qr_label&id=${saved.id}${label === 'ข้าม' ? '' : `&v=${encodeURIComponent(label)}`}`,
+            displayText: label,
+          },
+        })),
+      },
+    });
+  }
+
   // Held, not uploaded: confirmAddJob downloads and attaches it once the draft
   // is saved, so a cancelled draft costs no storage.
   if (drafting) {
@@ -102,11 +153,18 @@ export async function handleImageMessage(event, profile) {
     ]);
   }
 
-  // Unless the user explicitly asked to attach evidence to an existing job,
-  // try to read the paper: a slip becomes a job of its own, a job sheet
-  // becomes a draft to check first.
+  /* Unless the user explicitly asked to attach evidence to an existing job,
+   * try to read the paper: a job sheet becomes a draft to check first.
+   *
+   * สลิปโอนเงินไม่ถูกอ่านเป็นงาน/เงินอีกแล้ว — ร้านสั่ง "เอาบอทอ่านออก ฉันจะ
+   * ย้ายการจ่ายเงินอ่านรูปภาพไปไว้บอทร้านเครื่องเขียน" ที่นี่สลิปถูกแนบเป็น
+   * หลักฐานเฉย ๆ พร้อมบอกร้านตรง ๆ (เส้นอ่านสลิปตัวเดิมอยู่ในประวัติ git) */
+  const diag = {};
   if (!attaching) {
-    const read = await readImage(buffer, fileType);
+    const read = await readImage(buffer, fileType, {
+      diag,
+      onUsage: (u) => recordAiUsage(profile.id, { kind: 'vision', ...u }),
+    });
 
     // A work order is a proposal, not a fact — the paper says what to make,
     // not that it was agreed or paid for. So it goes through the same preview
@@ -114,7 +172,7 @@ export async function handleImageMessage(event, profile) {
     // held aside to attach once the draft is confirmed.
     if (read?.kind === 'job') {
       const draft = makeDraft({
-        jobName: read.jobName || deriveJobName(read.items),
+        jobName: read.jobName || deriveJobName(read.items, profile.id),
         customerName: read.customerName,
         jobDate: read.date || undefined,
         items: read.items,
@@ -128,50 +186,69 @@ export async function handleImageMessage(event, profile) {
         attachment: { messageId: message.id, fileType },
       });
 
-      const askPrice = !(draft.total > 0) && draft.items.length === 1;
-      return reply(replyToken, [
-        {
-          type: 'text',
-          text: askPrice
-            ? 'อ่านจากรูปได้แล้วค่ะ แต่ในเอกสารไม่มีราคา 💜\nพิมพ์ราคามาได้เลย เช่น 1500 แล้วม่วงจดจะใส่ให้ค่ะ'
-            : 'อ่านจากรูปได้แล้วค่ะ ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลย 💜',
-        },
-        jobPreviewMessage(draftToBubble(draft)),
-      ]);
+      /* ใบที่ไม่มีราคา: ใบบรรทัดเดียวตอบราคาก้อนเดียวได้ ใบหลายบอร์ดตอบเป็น
+       * เรตตารางเมตร แล้วม่วงไล่คิดทีละบอร์ดตามขนาดให้ — ตามที่ร้านขอ
+       * "ไล่บอร์ด 1-2-3-4 มาเลย ขนาดเท่านี้ ตรมละเท่านี้ กี่บาท"
+       *
+       * ไม่รู้ว่าของใคร ก็ถามตรงนี้เลย ตอนที่การ์ดยังอยู่บนจอ
+       */
+      const noPrice = !(draft.total > 0);
+      const priceLine = !noPrice
+        ? ''
+        : draft.items.length === 1
+          ? '\nพิมพ์ราคามาได้เลย เช่น 1500 หรือ "ตรมละ 350" แล้วม่วงจดจะใส่ให้ค่ะ'
+          : '\nบอกเรตมาได้เลยค่ะ เช่น "ตรมละ 350" เดี๋ยวม่วงไล่คิดทีละแผ่นตามขนาดให้';
+      const askWho = !draft.customerName ? '\nงานนี้ของลูกค้าท่านไหนคะ? พิมพ์ชื่อมาได้เลยค่ะ' : '';
+      const names = !draft.customerName ? await getRecentCustomerNames(profile.id) : [];
+      return reply(
+        replyToken,
+        withDraftGuide(
+          [
+            {
+              type: 'text',
+              text:
+                (noPrice
+                  ? 'อ่านจากรูปได้แล้วค่ะ แต่ในเอกสารไม่มีราคา 💜'
+                  : 'อ่านจากรูปได้แล้วค่ะ ตรวจดูให้หน่อยนะคะ ถ้าถูกต้องกด "✅ บันทึกงาน" ได้เลย 💜') +
+                priceLine +
+                askWho,
+            },
+            jobPreviewMessage(draftToBubble(draft)),
+          ],
+          draft,
+          names
+        )
+      );
     }
 
-    const slip = read?.kind === 'slip' ? read : null;
-    if (slip) {
-      const created = await createJob(profile.id, {
-        jobName: slip.merchantName ? `สลิป ${slip.merchantName}` : 'บันทึกจากสลิป',
-        customerName: slip.merchantName,
-        jobDate: slip.date || undefined,
-        items: slip.items,
-        subtotal: slip.subtotal,
-        discount: slip.discount,
-        total: slip.total,
-        paidAmount: slip.total, // a slip is proof the money moved
-        note: 'บันทึกจากสลิป/หลักฐาน',
-      });
-
-      let attached = true;
-      try {
-        await saveAttachment(profile.id, created, { messageId: message.id, buffer, fileType });
-      } catch (err) {
-        // The job is already saved; say so rather than losing it over a file.
-        attached = false;
-        logger.error('image.slip_attach_failed', { message: err?.message });
-      }
-
-      return reply(replyToken, slipReceiptFlex(created, { attached }));
-    }
   }
+
+  /* ม่วงอ่านรูปไม่ออก — บอกออกมา อย่าแนบงานเก่าเงียบ ๆ
+   *
+   * สองกรณีที่ตกลงมาถึงตรงนี้ทั้งที่รูปดูเหมือนใบงาน:
+   * - ยังไม่ได้ตั้ง ANTHROPIC_API_KEY: บอกตรง ๆ ว่ายังอ่านเองไม่ได้
+   * - ตั้งกุญแจแล้วแต่รูปนี้ไม่ใช่เอกสาร (โมเดลจัด "other" หรือส่ง null):
+   *   บอกว่าอ่านรูปนี้ไม่ออก พิมพ์งานมาแทนได้
+   * ทั้งสองกรณี: ห้ามแสดงถ้าร้านตั้งใจแนบหลักฐาน (attaching)
+   */
+  const cantReadHint = !attaching
+    ? (!visionEnabled()
+      ? '\n\n(ม่วงยังอ่านรูปเป็นงานใหม่เองไม่ได้นะคะ ถ้ารูปนี้คือใบสั่งงาน พิมพ์งานมาได้เลยค่ะ เช่น "โฟมบอร์ด 120x70 ตรมละ 350")'
+      : diag.reason === 'slip'
+        // สลิปจ่ายเงิน: บอกตรง ๆ ว่าม่วงจดไม่บันทึกเงินจากรูปแล้ว (งานนั้นย้ายไป
+        // บอทร้านเครื่องเขียน) รูปถูกแนบเก็บเป็นหลักฐานให้ตามข้อความหลัก
+        ? '\n\n(รูปนี้เป็นสลิปโอนเงิน — ม่วงจดไม่บันทึกเงินจากรูปแล้วนะคะ ถ้ารับเงินงานไหน กดที่งานนั้นแล้วเลือก 🏦 รับโอนแล้ว ได้เลยค่ะ)'
+      : diag.reason === 'api_error'
+        // เรียก Claude ไม่สำเร็จ ≠ รูปไม่ใช่งาน — บอกเหตุจริงให้ร้านส่งต่อให้คนดูแลได้ (ไม่มีกุญแจในข้อความ)
+        ? `\n\n(ม่วงเรียกตัวอ่านรูปไม่สำเร็จค่ะ 😔 สาเหตุ: ${diag.detail || 'ไม่ทราบ'}${diag.message ? ' — ' + diag.message : ''}\nระหว่างนี้พิมพ์งานมาได้เลยค่ะ เช่น "โฟมบอร์ด 120x70 ตรมละ 350")`
+        : `\n\n(ม่วงอ่านรูปนี้ไม่ออกค่ะ 😔 [${diag.reason || 'unknown'}] ถ้าเป็นใบสั่งงาน ลองพิมพ์มาได้เลยค่ะ เช่น "โฟมบอร์ด 120x70 ตรมละ 350")`)
+    : '';
 
   if (nowhereToAttach) {
     if (attaching) await clearState(profile.id);
     return reply(replyToken, {
       type: 'text',
-      text: 'ยังไม่มีงานให้แนบหลักฐานเลยค่ะ ลองบันทึกงานก่อนนะคะ 💜',
+      text: 'ยังไม่มีงานให้แนบหลักฐานเลยค่ะ ลองบันทึกงานก่อนนะคะ 💜' + cantReadHint,
     });
   }
 
@@ -189,6 +266,6 @@ export async function handleImageMessage(event, profile) {
 
   return reply(replyToken, {
     type: 'text',
-    text: `แนบหลักฐานเข้ากับงาน "${job.job_name}" แล้วค่ะ 💜`,
+    text: `แนบหลักฐานเข้ากับงาน "${job.job_name}" แล้วค่ะ 💜` + cantReadHint,
   });
 }

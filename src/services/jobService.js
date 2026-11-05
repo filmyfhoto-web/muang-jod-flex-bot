@@ -1,9 +1,12 @@
 import { supabase } from '../config/supabase.js';
+import { accountKey } from '../utils/customerBook.js';
 import { round2 } from '../utils/currency.js';
 import { todayISO, rangeForPeriod } from '../utils/dates.js';
-import { derivePaymentFields } from '../utils/payment.js';
+import { derivePaymentFields, paidAtPatch } from '../utils/payment.js';
 import { categoryFields } from '../utils/category.js';
+import { ensureTaxonomy } from './categoryService.js';
 import { formatJobNumber } from '../utils/jobNumber.js';
+import { customerKind } from '../utils/customerKind.js';
 import { logger } from './logger.js';
 
 const ACTIVE_STATUSES = ['active', 'completed'];
@@ -78,9 +81,13 @@ export async function createJob(userId, payload, client = supabase) {
   const jobDate = payload.jobDate || todayISO();
   const name = jobName || `งานวันที่ ${jobDate}`;
   const pay = derivePaymentFields(total, paidAmount);
+  // หมวดของร้าน (ที่ร้านเพิ่ม/แก้เอง) ต้องอยู่ในหน่วยความจำก่อน — ทั้งตอนจัดหมวดจากคำค้น
+  // และตอนทำเลขงาน (หมวดที่ร้านเพิ่มเองมีรหัสของตัวเอง ถ้าไม่รู้จักจะตกไปชนเลข GEN)
+  await ensureTaxonomy(userId, { client });
+  const auto = categoryFields(items, userId);
   const cat = {
-    category: payload.category ?? categoryFields(items).category,
-    category_type: payload.categoryType ?? categoryFields(items).category_type,
+    category: payload.category ?? auto.category,
+    category_type: payload.categoryType ?? auto.category_type,
   };
 
   // The pickup date is stamped on AFTER the row exists rather than inserted
@@ -88,6 +95,33 @@ export async function createJob(userId, payload, client = supabase) {
   // where migration 007 has not been run yet — and a job must not be lost
   // over a date the shop can always fill in later.
   const dueDate = /^\d{4}-\d{2}-\d{2}$/.test(String(payload.dueDate || '')) ? payload.dueDate : null;
+
+  // ร้านที่งานนี้สังกัด — แสตมป์ทีหลังแบบเดียวกับ due_date: RPC รุ่นเก่าไม่รู้จัก
+  // ช่องนี้ และฐานข้อมูลที่ยังไม่รันไมเกรชัน 016 ก็ต้องจดงานได้เหมือนเดิม
+  const branchId = payload.branchId || null;
+
+  /* ช่องทางเงินที่พูดมาในประโยค ("อัดรูป 150 เงินสด") — แสตมป์ทีหลังเหมือนกัน
+   *
+   *   เงินสด/โอน + จ่ายครบ → pay_method + booked_at วันนี้: เป็น "รายรับวันนี้"
+   *                           ของใบลงบัญชีทันที ไม่ต้องไปกดลงบัญชีซ้ำอีกรอบ
+   *   เงินสด/โอน + มัดจำ   → จดแค่ช่องทาง ยอดยังค้าง ยังไม่ใช่รายรับเต็มวันนี้
+   *   ลงบัญชี              → booked_at อย่างเดียว (ยังไม่ได้เงิน รอวางบิล)
+   */
+  const method = ['cash', 'transfer'].includes(payload.payMethod) ? payload.payMethod : null;
+  /* โรงเรียน/หน่วยงานที่จดมาโดยไม่พูดเรื่องเงินสักคำ = ขายเชื่อ ลงบัญชีให้เลย
+   * (ร้านสั่ง "บอทแยกลงบัญชี และ โรงเรียนให้อัตโนมัติ") — เดาเฉพาะสถานะสมุด
+   * ไม่แตะตัวเงิน: ยอดค้างเต็มเหมือนเดิม เดาผิดก็กด 💵 เก็บสด แก้ได้ทุกหน้า
+   * ส่วนงานที่บอกมัดจำ/ช่องทางมาด้วย = ร้านกำลังคุมเรื่องเงินเอง ไม่ลงให้ */
+  const orgCredit =
+    !payload.payMethod && pay.payment_status === 'pending' && !(Number(paidAmount) > 0) &&
+    customerKind(customerName) === 'org';
+  const bookNow = payload.payMethod === 'account' || (method && pay.payment_status === 'paid') || orgCredit;
+  const moneyStamp = {
+    ...(method ? { pay_method: method } : {}),
+    ...(bookNow ? { booked_at: new Date().toISOString() } : {}),
+    // จดมาแบบจ่ายครบตั้งแต่แรก = เก็บเงินได้วันนี้เลย (วันเก็บจริงของใบลงบัญชี)
+    ...paidAtPatch({}, pay),
+  };
 
   const itemRows = items.map((it) => ({
     item_name: it.item_name,
@@ -132,7 +166,12 @@ export async function createJob(userId, payload, client = supabase) {
     let job = Array.isArray(rpc.data) ? rpc.data[0] : rpc.data;
     // The RPC predates categories; stamp them on afterwards. Derived metadata,
     // so a failure here must never lose the job that was just created.
-    const stamp = { ...(job && !job.category ? cat : {}), ...(dueDate ? { due_date: dueDate } : {}) };
+    const stamp = {
+      ...(job && !job.category ? cat : {}),
+      ...(dueDate ? { due_date: dueDate } : {}),
+      ...(branchId ? { branch_id: branchId } : {}),
+      ...moneyStamp,
+    };
     if (job && Object.keys(stamp).length) {
       const { data: restamped, error: stampErr } = await client
         .from('jobs')
@@ -192,10 +231,11 @@ export async function createJob(userId, payload, client = supabase) {
     throw error;
   }
 
-  if (dueDate) {
+  const extras = { ...(dueDate ? { due_date: dueDate } : {}), ...(branchId ? { branch_id: branchId } : {}), ...moneyStamp };
+  if (Object.keys(extras).length) {
     const { data: dated, error: dueErr } = await client
       .from('jobs')
-      .update({ due_date: dueDate })
+      .update(extras)
       .eq('id', job.id)
       .eq('user_id', userId)
       .select('*')
@@ -238,6 +278,31 @@ export async function getRecentJobs(userId, limit = 5, client = supabase) {
     throw error;
   }
   return attachItems(jobs || [], client);
+}
+
+/* งานทุกใบที่ยังไม่ถูกยกเลิก — ของสมุดลูกค้า
+ *
+ * สมุดลูกค้าจัดกลุ่มเองในเครื่อง (utils/customerBook.js) เพราะ "เจ้าเดียวกัน"
+ * ตัดสินจากชื่อที่สะกดได้หลายแบบ ซึ่งเป็นกฎของร้าน ไม่ใช่ของฐานข้อมูล — ถาม
+ * ฐานข้อมูลให้จัดกลุ่มให้ จะได้ รร.สบกอน สามบัญชีจากการเว้นวรรคคนละที่
+ *
+ * ไม่ดึง items มาด้วย: หน้าสมุดโชว์แค่ชื่องานกับยอด และงานสี่ร้อยใบคูณรายการ
+ * ย่อยคือข้อมูลที่โหลดไปทิ้งเกือบทั้งหมด
+ */
+export async function getBookJobs(userId, limit = 400, client = supabase) {
+  const { data, error } = await client
+    .from('jobs')
+    .select('*')
+    .eq('user_id', userId)
+    .in('status', ACTIVE_STATUSES)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    logger.error('job.book_failed', { message: error.message });
+    throw error;
+  }
+  return data || [];
 }
 
 // Replace the lines inside a job.
@@ -326,6 +391,23 @@ export async function getLatestJob(userId, client = supabase) {
   return withItems;
 }
 
+// หางานจากเลขงาน — เลขงานคือชื่อที่ร้านใช้เรียกใบงาน ("ย้าย MJ-SGN-0001 …")
+export async function getJobByNumber(userId, jobNumber, client = supabase) {
+  const number = String(jobNumber ?? '').trim();
+  if (!number) return null;
+  const { data, error } = await client
+    .from('jobs')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('job_number', number)
+    .maybeSingle();
+  if (error) {
+    logger.error('job.by_number_failed', { message: error.message });
+    throw error;
+  }
+  return data || null;
+}
+
 // Fetch one job by id, verifying ownership via userId.
 export async function getJobById(userId, jobId, client = supabase) {
   const { data: job, error } = await client
@@ -361,11 +443,44 @@ export async function updateJob(userId, jobId, patch, client = supabase) {
     'category',
     'category_type',
     'note',
+    'picked_up_at',
+    // ขั้นของงาน (ทำเสร็จ/ลงบัญชี) และวิธีรับเงิน — เดิมไม่อยู่ในรายการนี้ จึงถูกทิ้งเงียบ ๆ
+    // ปุ่ม "ลงบัญชี" ตอบสำเร็จแต่ไม่เคยบันทึกลงฐานข้อมูลจริง
+    'done_at',
+    'booked_at',
+    'pay_method',
+    'paid_at',
+    // ข้อมูลติดต่อ/การรับของ/ผู้รับผิดชอบ (migration 022)
+    'customer_phone',
+    'fulfillment',
+    'handler_name',
+    'client_ref',
   ];
   for (const f of fields) {
     if (patch[f] !== undefined) allowed[f] = patch[f];
   }
   allowed.updated_at = new Date().toISOString();
+
+  /* ตาข่ายของวันเก็บเงินจริง — ทุกทางที่เปลี่ยนสถานะเงินต้องพา paid_at ไปด้วย
+   *
+   * ทางหลัก (ปุ่มสถานะ รับเงิน จ่ายบิล หน้าแก้ไข) คิด paid_at มาเองเพราะมีงาน
+   * ในมืออยู่แล้ว ทางที่เหลือ (แก้ผ่านแชต ฯลฯ) ส่งมาแต่ payment_status — อ่าน
+   * ของเดิมหนึ่งรอบแล้วเติมให้ตามกติกาเดียวกัน อ่านไม่ได้ก็บันทึกต่อ (เงินที่จด
+   * ห้ามหายเพราะช่องประกอบ) แค่เสียวันเก็บไปหนึ่งใบ
+   */
+  if (allowed.payment_status !== undefined && allowed.paid_at === undefined) {
+    try {
+      const { data: current } = await client
+        .from('jobs')
+        .select('paid_at')
+        .eq('id', jobId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (current) Object.assign(allowed, paidAtPatch(current, allowed));
+    } catch (err) {
+      logger.warn('job.paid_at_net_failed', { message: err?.message });
+    }
+  }
 
   const { data, error } = await client
     .from('jobs')
@@ -405,7 +520,7 @@ export async function recordPayment(userId, jobId, amount, client = supabase) {
   if (!job) return null;
   const newPaid = round2((Number(job.paid_amount) || 0) + (Number(amount) || 0));
   const fields = derivePaymentFields(job.total, newPaid);
-  const updated = await updateJob(userId, jobId, fields, client);
+  const updated = await updateJob(userId, jobId, { ...fields, ...paidAtPatch(job, fields) }, client);
   if (!updated) return null;
   return { ...updated, items: job.items || [] };
 }
@@ -465,6 +580,95 @@ export function queueOrder(jobs = []) {
     }
     return String(a.created_at || '').localeCompare(String(b.created_at || ''));
   });
+}
+
+/* งานที่ยังไม่ลงบัญชี เรียงจากเก่าสุด — ไว้ไล่ทบทวนงานเก่าทีละหน้า
+ *
+ * คืน null ถ้าอ่านไม่ได้ (ยังไม่ได้รันไมเกรชัน 015 ที่เพิ่มช่อง booked_at)
+ * ขอเกินหนึ่งใบเพื่อรู้ว่ามีหน้าถัดไปไหม ไม่ต้องนับทั้งตาราง
+ */
+export async function getUnbookedJobs(userId, { offset = 0, limit = 8 } = {}, client = supabase) {
+  const { data, error } = await client
+    .from('jobs')
+    .select('*')
+    .eq('user_id', userId)
+    .in('status', ACTIVE_STATUSES)
+    .is('booked_at', null)
+    .order('created_at', { ascending: true })
+    .range(offset, offset + limit);
+
+  if (error) {
+    logger.warn('job.unbooked_failed', { message: error.message });
+    return null;
+  }
+  const rows = data || [];
+  return { jobs: rows.slice(0, limit), hasMore: rows.length > limit };
+}
+
+// ชื่อลูกค้าที่เพิ่งจดล่าสุด ไม่ซ้ำ — ไว้ทำปุ่มเลือกชื่อ (ล้มเหลว = ไม่มีปุ่ม ไม่ใช่ error)
+export async function getRecentCustomerNames(userId, limit = 8, client = supabase) {
+  const { data, error } = await client
+    .from('jobs')
+    .select('customer_name')
+    .eq('user_id', userId)
+    .in('status', ACTIVE_STATUSES)
+    .order('created_at', { ascending: false })
+    .limit(80);
+  if (error) {
+    logger.warn('job.recent_names_failed', { message: error.message });
+    return [];
+  }
+  const seen = new Set();
+  const out = [];
+  for (const row of data || []) {
+    const name = String(row.customer_name || '').trim();
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    out.push(name);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+/* สมุดรายชื่อลูกค้าแบบย่อ — ไว้เติมชื่อให้อัตโนมัติตอนพิมพ์
+ *
+ * ร้านขอ "พิมพ์ลูกค้าคนไหนที่เคยจดไว้ แสดงให้อัตโนมัติ จะได้ไม่ต้องพิมพ์" —
+ * ฟอร์มจดงานและแชตใช้รายชื่อนี้เสนอชื่อเต็มแบบที่เคยจด สะกดเดียวกันทุกใบ
+ * สมุดลูกค้าจึงรวมเจ้าถูก (สะกดต่างกันคือคนละบัญชี)
+ *
+ * ชื่อเดียวกันหลายสะกด ("รร.สบกอน" / "รร สบกอน") นับเป็นเจ้าเดียว ใช้สะกด
+ * ที่จดบ่อยที่สุด เรียงเจ้าที่จดล่าสุดไว้บนสุด
+ */
+export async function getCustomerDirectory(userId, limit = 30, client = supabase) {
+  const { data, error } = await client
+    .from('jobs')
+    .select('customer_name, created_at')
+    .eq('user_id', userId)
+    .in('status', ACTIVE_STATUSES)
+    .order('created_at', { ascending: false })
+    .limit(400);
+  if (error) {
+    logger.warn('job.customers_failed', { message: error.message });
+    return [];
+  }
+
+  const byKey = new Map(); // key -> { spellings: Map(ชื่อ -> ครั้ง), jobCount, lastAt }
+  for (const row of data || []) {
+    const name = String(row.customer_name || '').trim();
+    const key = accountKey(name);
+    if (!key) continue;
+    const entry = byKey.get(key) || { spellings: new Map(), jobCount: 0, lastAt: '' };
+    entry.spellings.set(name, (entry.spellings.get(name) || 0) + 1);
+    entry.jobCount += 1;
+    if (!entry.lastAt) entry.lastAt = row.created_at || ''; // เรียงใหม่→เก่า ตัวแรกคือล่าสุด
+    byKey.set(key, entry);
+  }
+
+  return [...byKey.values()].slice(0, limit).map((e) => ({
+    name: [...e.spellings.entries()].sort((a, b) => b[1] - a[1])[0][0],
+    jobCount: e.jobCount,
+    lastAt: e.lastAt,
+  }));
 }
 
 export async function getQueueJobs(userId, limit = 60, client = supabase) {

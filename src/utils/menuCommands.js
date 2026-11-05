@@ -27,6 +27,11 @@ const COMMANDS = new Map([
   ['บันทึกงาน', 'add_job'],
   ['งานวันนี้', 'add_job'],
   ['จดงาน', 'add_job'],
+  // การ์ดจด (ฟอร์มเล็ก): จดเองในฟอร์มก็ได้ พิมพ์ให้บอทจดก็ได้ — การ์ดเดียวกัน
+  ['ฟอร์ม', 'add_job'],
+  ['เปิดฟอร์ม', 'add_job'],
+  ['การ์ดจด', 'add_job'],
+  ['จดเอง', 'add_job'],
   ['แนบสลิป/หลักฐาน', 'attach_evidence'],
   ['แนบสลิป', 'attach_evidence'],
   ['แนบหลักฐาน', 'attach_evidence'],
@@ -41,6 +46,20 @@ const COMMANDS = new Map([
   ['ช่วยเหลือ', 'help'],
   ['วิธีใช้', 'help'],
   ['help', 'help'],
+  // QR รับเงินของร้าน — คำเดียวแล้วรูปเด้ง ไม่ต้องไถหาในอัลบั้ม
+  ['qr', 'shop_qr'],
+  ['คิวอาร์', 'shop_qr'],
+  ['คิวอาร์โค้ด', 'shop_qr'],
+  ['qr code', 'shop_qr'],
+  ['คิวอาร์รับเงิน', 'shop_qr'],
+  ['qr รับเงิน', 'shop_qr'],
+  ['สแกนจ่าย', 'shop_qr'],
+  ['พร้อมเพย์', 'shop_qr'],
+  ['เพิ่ม qr', 'add_shop_qr'],
+  ['เพิ่มคิวอาร์', 'add_shop_qr'],
+  ['เปลี่ยน qr', 'add_shop_qr'],
+  ['เปลี่ยนคิวอาร์', 'add_shop_qr'],
+  ['แก้ qr', 'add_shop_qr'],
   // extras reachable by text
   ['บันทึกรับเงิน', 'record_payment'],
   ['รับเงิน', 'record_payment'],
@@ -83,9 +102,84 @@ const COMMANDS = new Map([
   ['ทักมาได้', 'nudge_on'],
   ['ทักด้วย', 'nudge_on'],
   ['เตือนด้วย', 'nudge_on'],
+  // ทบทวนงานเก่า: จ่ายแล้ว / ยังไม่จ่าย / ลงบัญชีแล้ว กดทีละใบ
+  ['ตรวจงานเก่า', 'review_jobs'],
+  ['ทบทวนงานเก่า', 'review_jobs'],
+  ['งานเก่า', 'review_jobs'],
+  ['ทบทวนงาน', 'review_jobs'],
+  ['แก้สถานะ', 'review_jobs'],
+  ['แก้สถานะงาน', 'review_jobs'],
+  // แยกงานตามเงิน: เงินสด / โอน / ลงบัญชี / ยังไม่ได้รับ — เช็คงานซ้ำ
+  ['งานเงินสด', 'money_list&k=cash'],
+  ['เงินสด', 'money_list&k=cash'],
+  ['งานโอน', 'money_list&k=transfer'],
+  ['เงินโอน', 'money_list&k=transfer'],
+  ['งานลงบัญชี', 'money_list&k=account'],
+  ['ลงบัญชี', 'money_list&k=account'],
+  ['ค้างลงบัญชี', 'money_list&k=account'],
+  // คำที่ร้านพูดจริงตอนจะตามเงิน — "เก็บเงินแล้ว" เฉย ๆ (ไม่บอกชื่อ) คือขอดู
+  // รายชื่อที่รอเก็บเพื่อไปกดทีละงาน ส่วน "‹ชื่อ›เก็บเงินแล้ว" ยังเป็นประโยค
+  // เปลี่ยนสถานะเหมือนเดิม เพราะตารางนี้เทียบทั้งประโยคแบบตรงตัวเท่านั้น
+  ['เก็บเงินแล้ว', 'money_list&k=account'],
+  ['รอเก็บ', 'money_list&k=account'],
+  ['งานรอเก็บ', 'money_list&k=account'],
+  ['ตามเก็บ', 'money_list&k=account'],
+  ['งานยังไม่จ่าย', 'money_list&k=unpaid'],
+  ['ยังไม่จ่าย', 'money_list&k=unpaid'],
+  ['ยังไม่ได้รับเงิน', 'money_list&k=unpaid'],
+  // ค่า AI เป็นบาท / ลิงก์เปิดบนคอม
+  ['ค่า ai', 'ai_cost'],
+  ['ค่าai', 'ai_cost'],
+  ['ค่าเอไอ', 'ai_cost'],
+  ['ค่าไอ', 'ai_cost'],
+  ['ค่าใช้จ่าย ai', 'ai_cost'],
+  ['ai ใช้เงินเท่าไหร่', 'ai_cost'],
+  ['ใช้เงินเท่าไหร่', 'ai_cost'],
+  ['ลิงก์', 'web_links'],
+  ['ลิงค์', 'web_links'],
+  ['link', 'web_links'],
+  ['เปิดในคอม', 'web_links'],
+  ['เปิดบนคอม', 'web_links'],
+  ['เว็บ', 'web_links'],
+  ['เปิดเว็บ', 'web_links'],
   ['เลือกหมวด', 'pick_category'],
   ['หมวดงาน', 'pick_category'],
   ['เปลี่ยนหมวด', 'pick_category'],
+  // ย้ายงานข้ามหมวดแบบ "เลือกหางานในหมวดแล้วย้าย" — คนละอย่างกับ "เปลี่ยนหมวด"
+  // ซึ่งหมายถึงใบล่าสุด: อันนี้เปิดรายการให้เลือกใบก่อน
+  ['ย้ายหมวด', 'move_category'],
+  ['ย้ายงาน', 'move_category'],
+  ['ย้ายหมวดงาน', 'move_category'],
+  // หมวดงานของร้านเอง: ดู เพิ่ม แก้ไข — "เพิ่มหมวด <ชื่อ>" เพิ่มทันทีอยู่ที่ categoryCommands
+  // (ไม่ใส่ "แก้หมวด" เฉย ๆ เพราะกำกวมกับ "เปลี่ยนหมวด" ของงานล่าสุด)
+  ['เพิ่มหมวด', 'manage_categories'],
+  ['เพิ่มหมวดงาน', 'manage_categories'],
+  ['แก้ไขหมวด', 'manage_categories'],
+  ['แก้ไขหมวดงาน', 'manage_categories'],
+  ['จัดการหมวด', 'manage_categories'],
+  ['จัดการหมวดงาน', 'manage_categories'],
+  ['ตั้งค่าหมวด', 'manage_categories'],
+  ['ตั้งค่าหมวดงาน', 'manage_categories'],
+  ['หมวดของร้าน', 'manage_categories'],
+  ['หมวดงานของร้าน', 'manage_categories'],
+  // รายรับ–รายจ่าย (V2): "ซื้อ... / จ่ายค่า..." จดทันทีอยู่ที่ expense.js
+  ['จดรายรับรายจ่าย', 'money_note'],
+  ['จดรายรับ-รายจ่าย', 'money_note'],
+  ['จดรายรับ–รายจ่าย', 'money_note'],
+  ['รายรับรายจ่าย', 'money_note'],
+  ['จดรายรับ', 'money_note'],
+  ['จดรายจ่าย', 'money_note'],
+  ['รายจ่าย', 'expense_list'],
+  ['รายจ่ายวันนี้', 'expense_list'],
+  ['ดูรายจ่าย', 'expense_list'],
+  ['สรุปยอดร้าน', 'today_summary'],
+  ['สรุปยอด', 'today_summary'],
+  // "เงินวันนี้" / "วันนี้" คำเดียว = ขอดูสรุปเงินของวัน (เทียบตรงตัวเท่านั้น —
+  // "วันนี้มีงานอะไรบ้าง" ยังเป็นคำถามไปทางเดิม ไม่โดนตารางนี้ดัก)
+  ['เงินวันนี้', 'today_summary'],
+  ['ยอดวันนี้', 'today_summary'],
+  ['วันนี้', 'today_summary'],
+  ['จดงานใหม่', 'add_job'],
 ]);
 
 function normalise(text) {
@@ -97,12 +191,75 @@ function normalise(text) {
     .toLowerCase();
 }
 
+/* คำสุภาพที่คนพูดหุ้มคำสั่งไว้ — "ดูงานค้างหน่อย" คือ "งานค้าง"
+ *
+ * ร้านพิมพ์ "ดูงานค้างหน่อย" สองรอบ แล้วม่วงตอบคำทักทายกลับไปทั้งสองรอบ เพราะ
+ * ตารางคำสั่งเทียบแบบตรงตัวเป๊ะ ๆ ("งานค้าง" เท่านั้น) — ร้านบอกว่า "อยากให้
+ * บอทตอบได้ในสิ่งที่เราถาม"
+ *
+ * ปอกหัวท้ายออกแล้วค่อยเทียบใหม่ ไม่ได้ทำให้การเทียบหลวมลงเลย เพราะผลที่ปอก
+ * แล้วยังต้องตรงกับชื่อคำสั่งเป๊ะ ๆ อยู่ดี "ขอตรายาง 2 อัน" ปอกแล้วได้
+ * "ตรายาง 2 อัน" ซึ่งไม่ใช่คำสั่ง ก็ยังตกไปเป็นการจดงานเหมือนเดิม
+ */
+const LEAD_RE = /^(?:ช่วย|ขอ|อยาก(?:ได้)?|ไหน)?\s*(?:ดู|เปิด|เช็ค|เช็ก|เรียก)?\s*/;
+const TAIL_RE = /\s*(?:ให้|หน่อย|ด้วย|ที|ซิ|สิ|นะ|น่ะ|จ้า|ครับ|คับ|ค่ะ|คะ|ๆ)+$/;
+
+function undress(cleaned) {
+  let out = cleaned.replace(LEAD_RE, '').trim();
+  // ปอกหางซ้ำได้ ("ให้หน่อยค่ะ" = สามคำต่อกัน)
+  let before;
+  do {
+    before = out;
+    out = out.replace(TAIL_RE, '').trim();
+  } while (out !== before);
+  return out;
+}
+
 // Normalise: trim, collapse spaces, drop a leading emoji/number decoration,
 // lower-case latin. Returns the action name or null.
 export function resolveMenuCommand(text) {
   const cleaned = normalise(text);
   if (!cleaned) return null;
-  return COMMANDS.get(cleaned) ?? null;
+
+  // เทียบตรงตัวก่อนเสมอ — คำสั่งที่ขึ้นต้นด้วย "ดู" อยู่แล้ว ("ดูงานทั้งหมด")
+  // ต้องไม่ถูกปอกหัวทิ้งจนหาไม่เจอ
+  const exact = COMMANDS.get(cleaned);
+  if (exact) return exact;
+
+  const bare = undress(cleaned);
+  return bare && bare !== cleaned ? COMMANDS.get(bare) ?? null : null;
+}
+
+/* เดาว่าร้านน่าจะหมายถึงคำสั่งไหน — สำหรับ "เสนอเป็นปุ่ม" เท่านั้น
+ *
+ * ต่างจาก resolveMenuCommand ตรงที่มองหาคำสั่งที่ "อยู่ข้างใน" ประโยค ซึ่งหลวม
+ * เกินกว่าจะสั่งทำงานเองได้ แต่พอดีสำหรับถามกลับว่า "หมายถึงอันนี้ไหมคะ" แทน
+ * ที่จะตอบคำทักทายกลับไปเฉย ๆ ทั้งที่ร้านถามมาชัด ๆ
+ *
+ * ยาวก่อนสั้น — ประโยคหนึ่งมีได้หลายคำสั่งซ้อนกัน ("บิล" อยู่ข้างใน "แยกบิล")
+ * คำที่ยาวกว่าคือคำที่ตรงกับที่ร้านพิมพ์มามากกว่า
+ */
+// คำที่โผล่กลางประโยคทั่วไปโดยไม่ได้แปลว่าอยากสั่งอะไร — เป็นคำสั่งได้เฉพาะ
+// ตอนพิมพ์มาตรงตัว ("วันนี้" คำเดียว) ไม่ใช่เค้าให้เดา ("วันนี้อากาศดี")
+const SUGGEST_SKIP = new Set(['วันนี้']);
+
+export function suggestMenuCommand(text) {
+  const cleaned = normalise(text);
+  if (!cleaned) return null;
+  let best = null;
+  for (const [label, action] of COMMANDS) {
+    if (SUGGEST_SKIP.has(label) || !cleaned.includes(label)) continue;
+    if (!best || label.length > best.label.length) best = { label, action };
+  }
+  return best?.action ?? null;
+}
+
+// ป้ายบนปุ่มที่จะเสนอ — ใช้ชื่อแรกที่เจอ ซึ่งเป็นชื่อที่เขียนบนเมนูจริง
+export function labelForAction(action) {
+  for (const [label, act] of COMMANDS) {
+    if (act === action) return label;
+  }
+  return null;
 }
 
 // "งานวันนี้ ป้ายไวนิล 150 บาท" -> { action: 'add_job', rest: 'ป้ายไวนิล 150 บาท' }

@@ -44,6 +44,29 @@ const RATE_SLASH_RE = new RegExp(`(${NUM})\\s*(?:บาท|฿)?\\s*(?:\\/|ต�
 // "4.8 ตร.ม." — พื้นที่ที่ลูกค้าคิดมาให้แล้ว
 const AREA_RE = new RegExp(`(${NUM})\\s*${SQM}`);
 
+/* "100*150*600" — ตัวที่สามคือราคาต่อตารางเมตร
+ *
+ * ร้านขอมาเพราะอยากได้ความเร็ว: "ฉันอยากได้ความรวดเร็ว" — พิมพ์บรรทัดเดียว
+ * แล้วให้ม่วงคูณให้ ไม่ต้องพิมพ์คำว่า "ตรมละ" ทุกครั้ง
+ *
+ * ของเดิมอ่าน 600 เป็นราคาเหมา งานนี้จึงออกมา ฿600 แทนที่จะเป็น ฿900
+ * (1 × 1.5 = 1.5 ตร.ม. × 600) — คิดเงินขาดไป 300 บาทเงียบ ๆ
+ *
+ * เขียนตัวเลขสามตัวต่อกันด้วยเครื่องหมายคูณเป็นการตั้งใจ ไม่มีใครเขียนราคา
+ * เหมาต่อท้ายขนาดด้วยเครื่องหมายคูณ — ราคาเหมายังเขียนเว้นวรรคได้เหมือนเดิม
+ * ("100*150 600" = เหมา 600)
+ */
+const CHAIN_RATE_RE = new RegExp(
+  `(${NUM})\\s*(${UNIT})?\\s*${TIMES}\\s*(${NUM})\\s*(${UNIT})?\\s*(${TIMES}\\s*(${NUM}))(\\s*${TIMES}\\s*(${NUM}))?`
+);
+
+/* ต่ำกว่านี้ไม่ใช่เรตต่อตารางเมตร
+ *
+ * กันของที่เขียนสามมิติจริง ๆ ("กล่อง 30*20*15") และจำนวนชิ้นที่บางคนเขียน
+ * ต่อท้าย ("160*300*2") — เรตต่อตารางเมตรที่ต่ำกว่ายี่สิบบาทไม่มีในโลกของร้าน
+ */
+const RATE_FLOOR = 20;
+
 function toNumber(s) {
   const v = parseFloat(String(s ?? '').replace(/,/g, ''));
   return Number.isFinite(v) ? v : 0;
@@ -85,9 +108,29 @@ export function matchSize(text) {
 export function matchSqmRate(text) {
   const line = String(text || '');
   const m = RATE_PER_RE.exec(line) || RATE_SLASH_RE.exec(line);
-  if (!m) return null;
-  const rate = toNumber(m[1]);
-  return rate > 0 ? { match: m[0], rate } : null;
+  if (m) {
+    const rate = toNumber(m[1]);
+    if (rate > 0) return { match: m[0], rate };
+  }
+
+  // คำว่า "ตรมละ" ชนะเสมอ ถ้าไม่มีค่อยดูรูปแบบตัวเลขคูณกัน
+  const chain = CHAIN_RATE_RE.exec(line);
+  if (!chain) return null;
+  const rate = toNumber(chain[6]);
+  if (!(rate >= RATE_FLOOR)) return null;
+
+  /* ตัวที่สี่คือจำนวนชิ้น — "1*1.5*700*2" = 1.5 ตร.ม. × 700 × 2 ชิ้น
+   *
+   * ร้านเขียนแบบนี้เองในแชต ("รูปครูยิ้ม 1*1.5*700*2=2,100") ของเดิมทิ้งตัวที่สี่
+   * ทั้งดุ้น งานนี้จึงคิดได้ ฿1,050 แทนที่จะเป็น ฿2,100 — ครึ่งเดียว
+   *
+   * ไม่ต้องกลัวกำกวมเหมือนตัวที่สาม เพราะกว่าจะมาถึงตัวที่สี่ ตัวที่สามผ่าน
+   * ด่านเรตมาแล้ว สิ่งเดียวที่เหลือให้เป็นได้คือจำนวน
+   */
+  const pieces = chain[8] ? toNumber(chain[8]) : null;
+  // ตัดเฉพาะหาง "*600" (และ "*2" ถ้ามี) ทิ้ง ขนาด "100*150" ต้องเหลือไว้
+  const match = chain[5] + (chain[7] || '');
+  return { match, rate, pieces: pieces > 0 ? pieces : null };
 }
 
 // พื้นที่เป็นตารางเมตรจากขนาด + หน่วย — ปัดสองตำแหน่งสำหรับ "แสดงผล"
@@ -151,6 +194,8 @@ export function parseAreaPricing(rawLine) {
   return {
     rest: rest.replace(/ขนาด|พื้นที่|กว้าง|ยาว|สูง/g, ' ').replace(/\s+/g, ' ').trim(),
     rate: round2(rate.rate),
+    // จำนวนชิ้นที่เขียนเป็นตัวคูณที่สี่ — null แปลว่าไม่ได้เขียนมา
+    pieces: rate.pieces || null,
     sqm,
     // `sqm` is what the shop reads; this is what the money is worked out from.
     sqmExact: exact ?? sqm,

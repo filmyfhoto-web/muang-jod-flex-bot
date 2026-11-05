@@ -3,7 +3,7 @@ import { getJobById, getLatestJob, updateJob } from '../services/jobService.js';
 import { categoryGroupsFlex, categoryTypesFlex, categoryBrowseFlex } from '../flex/categoryPickerFlex.js';
 import { liffUrl } from '../utils/liff.js';
 import { jobCardMessage } from '../flex/jobCard.js';
-import { findGroup, findType, categoryLabel } from '../utils/category.js';
+import { taxonomyOf, categoryLabel } from '../utils/category.js';
 
 // action=pick_category — one action, three steps:
 //   no group          -> show the kinds of work
@@ -14,6 +14,8 @@ import { findGroup, findType, categoryLabel } from '../utils/category.js';
 // what "เลือกหมวด" from the menu means.
 export async function pickCategory({ replyToken, profile, params }) {
   const { group: groupId, type: typeId, jobId } = params || {};
+  // ชุดหมวดของร้านนี้ (เปลี่ยนชื่อ ซ่อน เพิ่มเองได้) — webhook อุ่นไว้ให้แล้ว
+  const tax = taxonomyOf(profile.id);
 
   // Tapped from the menu rather than from a job: the shop is asking what they
   // have done in a line of work, not asking to re-file the job they happened
@@ -22,23 +24,23 @@ export async function pickCategory({ replyToken, profile, params }) {
   // category's page. Without a LIFF app there is no page, so it falls back to
   // the filing flow that has always been here.
   if (!jobId && !groupId) {
-    const browse = categoryBrowseFlex((id) => liffUrl({ tab: 'category', category: id }));
+    const browse = categoryBrowseFlex((id) => liffUrl({ tab: 'category', category: id }), tax);
     if (browse) return reply(replyToken, browse);
   }
 
   if (!groupId) {
-    return reply(replyToken, categoryGroupsFlex(jobId));
+    return reply(replyToken, categoryGroupsFlex(jobId, tax));
   }
 
-  const group = findGroup(groupId);
+  const group = tax.findGroup(groupId);
   if (!group) {
-    return reply(replyToken, categoryGroupsFlex(jobId));
+    return reply(replyToken, categoryGroupsFlex(jobId, tax));
   }
 
   // A group with types still needs a type chosen; `type=` (empty) means
   // "the group is enough", which is how the catch-all is picked.
   if (typeId === undefined) {
-    return reply(replyToken, categoryTypesFlex(group.id, jobId));
+    return reply(replyToken, categoryTypesFlex(group.id, jobId, tax));
   }
 
   const job = jobId ? await getJobById(profile.id, jobId) : await getLatestJob(profile.id);
@@ -49,7 +51,7 @@ export async function pickCategory({ replyToken, profile, params }) {
     });
   }
 
-  const type = typeId ? findType(typeId) : null;
+  const type = typeId ? tax.findType(typeId) : null;
   const updated = await updateJob(profile.id, job.id, {
     category: group.id,
     category_type: type?.id || null,

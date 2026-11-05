@@ -35,7 +35,17 @@ app.use('/brand', express.static('public/brand', { maxAge: '1d' }));
 // LIFF web app (dashboard + edit form) and the JSON API behind it.
 const { default: apiRouter } = await import('./routes/api.js');
 const { default: receiptRouter } = await import('./routes/receipt.js');
-app.use('/app', express.static('public/liff', { maxAge: '5m', extensions: ['html'] }));
+/* หน้าแอปห้ามให้เบราว์เซอร์จำแบบไม่ถาม (no-cache = เช็กกับเซิร์ฟเวอร์ทุกครั้ง
+ * ไฟล์ไม่เปลี่ยนได้ 304 ถูก ๆ) — ของเดิม maxAge 5 นาทีทำให้คอมของร้านที่เปิด
+ * หน้าเดิมค้างไว้เห็นหน้าตาเก่าหลังอัปเดต ("ทำไมดูในคอมไม่ขึ้น") กดรีเฟรช
+ * หนึ่งทีหลังจากนี้ ทุกครั้งต่อไปจะได้ของใหม่เสมอ */
+app.use(
+  '/app',
+  express.static('public/liff', {
+    extensions: ['html'],
+    setHeaders: (res) => res.set('Cache-Control', 'no-cache'),
+  })
+);
 app.use('/api', apiRouter);
 
 // Printable receipt, readable by anyone holding the bill's share token.
@@ -160,7 +170,7 @@ app.get('/health/webhook', async (req, res) => {
 // Deep health: probes every table the bot writes to, so a half-applied
 // migration shows up as one failing table instead of a generic chat error.
 app.get('/health/db', async (req, res) => {
-  const TABLES = ['profiles', 'jobs', 'job_items', 'attachments', 'user_states', 'webhook_events', 'nudge_state'];
+  const TABLES = ['profiles', 'jobs', 'job_items', 'attachments', 'user_states', 'webhook_events', 'nudge_state', 'ai_usage', 'customer_orgs', 'category_settings', 'chat_messages'];
   const tables = {};
   for (const table of TABLES) {
     try {
@@ -241,6 +251,11 @@ app.listen(PORT, async () => {
     const { startCheckinDispatcher } = await import('./services/checkinDispatcher.js');
     startCheckinDispatcher();
   }
+
+  // หมวดงานที่ร้านตั้งเอง — โหลดไว้ตั้งแต่เริ่ม และรีเฟรชทุก 10 นาที เพื่อให้ข้อความที่บอท
+  // ส่งเอง (เตือนงาน เช็กอิน) โชว์ชื่อหมวดที่ร้านตั้งไว้ ไม่ใช่ชื่อตั้งต้น
+  const { startTaxonomyRefresh } = await import('./services/categoryService.js');
+  startTaxonomyRefresh();
 
   // Put the current Rich Menu live if it is not already. Does nothing when it
   // matches, so this is not an upload on every restart. RICH_MENU_AUTO_INSTALL=0

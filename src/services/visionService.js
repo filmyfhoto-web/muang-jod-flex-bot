@@ -5,10 +5,13 @@ import { prepareForVision } from './imagePrep.js';
 
 // Read a photographed piece of paper into something the bot can act on.
 //
-// Two kinds are worth reading, and they mean opposite things:
-//   slip — money already moved. Becomes a saved job, marked paid.
+// One kind is worth reading:
 //   job  — a work order / spec sheet / quotation. Becomes a DRAFT to confirm,
 //          because nobody has agreed to anything yet.
+// A payment slip is recognized but never read into money — ร้านสั่ง "เอาบอทอ่าน
+// ออก ฉันจะย้ายการจ่ายเงินอ่านรูปภาพไปไว้บอทร้านเครื่องเขียน" — ที่นี่เหลือแค่
+// บอกชนิดไว้ให้คนตอบพูดถูก แล้วรูปถูกแนบเป็นหลักฐานตามปกติ (โค้ดอ่านสลิปตัวเดิม
+// อยู่ในประวัติ git ก่อนคอมมิตนี้ เผื่อบอทร้านเครื่องเขียนยกไปใช้)
 // Anything else (a photo of the finished sign, a screenshot, a face) is
 // "other": it is evidence, and the caller attaches it as before.
 //
@@ -33,12 +36,17 @@ const SYSTEM_PROMPT = `คุณคือตัวช่วยอ่านรู
     }
   ]
 }
-วิธีเลือก kind:
-- "slip" = สลิปโอนเงิน/ใบเสร็จ/หลักฐานการจ่ายเงิน (จ่ายไปแล้ว มียอดเงินชัดเจน)
-- "job" = เอกสารสั่งงาน/แบบงาน/สเปกงาน/ใบเสนอราคา/ข้อความสั่งงาน (ยังไม่ได้จ่าย
-  อาจไม่มีราคาเลยก็ได้ ให้อ่านชื่องาน ขนาด จำนวน ออกมาให้ครบ)
-- "other" = รูปอื่น เช่น รูปงานที่ทำเสร็จแล้ว รูปคน รูปวิว อ่านไม่ออก
-  ถ้าเป็น "other" ให้ items เป็น [] และ total เป็น 0
+วิธีเลือก kind (ตัดสินตามลำดับ ข้อแรกที่ตรงคือคำตอบ):
+1. "slip" = เห็นสลิปโอนเงิน/หลักฐานการจ่ายเงิน/ใบเสร็จจากร้านอื่น — ตอบแค่ kind
+   ไม่ต้องอ่านรายการหรือยอดเงิน ให้ items เป็น [] และ total เป็น 0
+2. "job" = เห็นสิ่งใดสิ่งหนึ่งต่อไปนี้ แม้เพียงบางส่วนของรูป:
+   - มีขนาด/มิติ เช่น 120×70, 3.5×4, กว้าง×ยาว, หน่วย ซม./นิ้ว/ม.
+   - มีคำสั่งพิมพ์หรือชื่อวัสดุ เช่น ปริ้น, พิมพ์, โฟมบอร์ด, ป้าย, ไวนิล, แบนเนอร์, สติ๊กเกอร์
+   - มีข้อความหรือป้ายกำกับบอกว่านี่คืองานพิมพ์ (เช่น "ปริ้นโฟมบอร์ด 4 บอร์ด")
+   - รูปงานสำเร็จที่มีลายน้ำ/ป้าย/ลูกศรบอกขนาดหรือชื่อบอร์ดกำกับ
+   ราคาอาจไม่มีก็ได้ ให้อ่านชื่องาน ขนาด จำนวนออกมาให้ครบ
+3. "other" = ไม่มีสิ่งใดใน (2) เลย เช่น รูปคน รูปวิว รูปอาหาร ภาพทั่วไปที่ไม่เกี่ยวกับงานพิมพ์
+   ถ้าเป็น "other" ให้ items เป็น [] และ total เป็น 0
 กติกา:
 - ตัวเลขห้ามมีเครื่องหมายคั่นหลักพัน
 - ถ้าปีเป็น พ.ศ. ให้แปลงเป็น ค.ศ. (ลบ 543)
@@ -73,52 +81,8 @@ function text(value, fallback = null) {
   return s ? s.slice(0, 200) : fallback;
 }
 
-// Shape a raw extraction into the same draft shape createJob expects, or null.
-export function normalizeSlip(raw) {
-  if (!raw) return null;
-  const total = round2(Number(raw.total) || 0);
-  if (!(total > 0)) return null;
-
-  const merchant = text(raw.merchantName);
-
-  const items = [];
-  for (const it of Array.isArray(raw.items) ? raw.items : []) {
-    const name = text(it?.item_name, '');
-    const quantity = Number(it?.quantity);
-    const unitPrice = Number(it?.unit_price);
-    if (!name || !Number.isFinite(quantity) || quantity <= 0) continue;
-    if (!Number.isFinite(unitPrice) || unitPrice < 0) continue;
-    items.push({
-      item_name: name,
-      size: null,
-      quantity: round2(quantity),
-      unit: null,
-      unit_price: round2(unitPrice),
-      total: round2(unitPrice * quantity),
-    });
-  }
-
-  // No line items (or they don't add up to anything): keep the slip's own
-  // total as a single line, so the money on the card always matches the slip.
-  const itemsTotal = round2(items.reduce((s, it) => s + it.total, 0));
-  const lines = items.length && itemsTotal === total
-    ? items
-    : [{ item_name: merchant || 'รายการจากสลิป', size: null, quantity: 1, unit: null, unit_price: total, total }];
-
-  return {
-    kind: 'slip',
-    merchantName: merchant,
-    date: normalizeDate(raw.date),
-    items: lines,
-    subtotal: total,
-    discount: 0,
-    total,
-  };
-}
-
-// A job sheet is the mirror image of a slip: the lines are what matters and
-// the money may be missing entirely, so a zero total is normal here rather
-// than a reason to give up.
+// A job sheet: the lines are what matters and the money may be missing
+// entirely, so a zero total is normal here rather than a reason to give up.
 export function normalizeJobSheet(raw) {
   if (!raw) return null;
 
@@ -159,13 +123,13 @@ export function normalizeJobSheet(raw) {
   };
 }
 
-async function defaultVisionExtract(buffer, mimeType) {
+async function defaultVisionExtract(buffer, mimeType, hooks = {}) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
 
   const { default: Anthropic } = await import('@anthropic-ai/sdk');
   const client = new Anthropic({ apiKey });
-  const model = process.env.VISION_MODEL || process.env.NLP_MODEL || 'claude-haiku-4-5';
+  const model = process.env.VISION_MODEL || 'claude-sonnet-5-5';
 
   const res = await client.messages.create({
     model,
@@ -182,6 +146,13 @@ async function defaultVisionExtract(buffer, mimeType) {
     ],
   });
 
+  // จำนวนโทเคนจริงที่ใช้ — ให้คนเรียกเก็บยอดค่า AI (ไม่ทำให้การอ่านล้มถ้าเก็บไม่ได้)
+  try {
+    hooks.onUsage?.({ model, usage: res.usage });
+  } catch (err) {
+    logger.warn('vision.on_usage_failed', { message: err?.message });
+  }
+
   const out = (res.content || [])
     .filter((b) => b.type === 'text')
     .map((b) => b.text)
@@ -192,11 +163,27 @@ async function defaultVisionExtract(buffer, mimeType) {
 // Images only — the vision API does not read PDFs as images.
 export const READABLE_TYPES = ['image/jpeg', 'image/png'];
 
+/* เปิดตัวอ่านรูปไว้หรือยัง
+ *
+ * ร้านส่งใบสั่งงานเป็นรูปเข้ามาแล้วบอกว่า "ก็ยังไม่อ่านนะ" — เพราะเครื่องที่ยัง
+ * ไม่ได้ใส่กุญแจ รูปถูกเอาไปแนบงานล่าสุดเงียบ ๆ ดูเหมือนบอทไม่สนใจ ความจริง
+ * ที่ไม่ได้ถูกพูดคือ "ม่วงยังอ่านรูปเองไม่ได้" ตัวเช็คนี้มีไว้ให้คนตอบพูดความ
+ * จริงข้อนั้นออกมา
+ */
+export function visionEnabled(env = process.env) {
+  return Boolean(String(env.ANTHROPIC_API_KEY ?? '').trim());
+}
+
 // Returns a normalized slip or job-sheet draft, or null when reading is
 // unavailable or the picture is neither. Never throws: the caller falls back
 // to attaching the file as-is.
 export async function readImage(buffer, mimeType, deps = {}) {
-  if (!READABLE_TYPES.includes(mimeType)) return null;
+  // diag: ให้คนเรียกรู้ว่า null นี้เพราะอะไร (เรียก API ไม่สำเร็จ ≠ โมเดลบอกว่าไม่ใช่งาน)
+  const diag = deps.diag || {};
+  if (!READABLE_TYPES.includes(mimeType)) {
+    diag.reason = 'unsupported_type';
+    return null;
+  }
   const extract = deps.visionExtract || defaultVisionExtract;
   const prepare = deps.prepareForVision || prepareForVision;
   try {
@@ -208,21 +195,35 @@ export async function readImage(buffer, mimeType, deps = {}) {
     const ready = await prepare(buffer, mimeType);
     if (!ready) {
       logger.warn('vision.too_big_to_read', { size: buffer.length });
+      diag.reason = 'too_big';
       return null;
     }
 
-    const raw = await extract(ready.buffer, ready.mimeType);
-    if (raw?.kind === 'other') return null; // a photo, not paperwork: just attach it
+    const raw = await extract(ready.buffer, ready.mimeType, { onUsage: deps.onUsage });
+    if (raw?.kind === 'other') {
+      diag.reason = 'other'; // a photo, not paperwork: just attach it
+      return null;
+    }
+    /* สลิปโอนเงิน: ม่วงจดเลิกบันทึกเงินจากรูปแล้ว (ร้านย้ายการอ่านสลิปจ่ายเงิน
+     * ไปไว้บอทร้านเครื่องเขียน) — บอกชนิดไว้ให้คนตอบพูดถูก แล้วรูปถูกแนบเป็น
+     * หลักฐานตามทางปกติ เงินไม่ถูกแตะจากรูปเด็ดขาด */
+    if (raw?.kind === 'slip') {
+      diag.reason = 'slip';
+      return null;
+    }
+    if (!raw) diag.reason = 'no_answer';
 
-    // A slip is the safer reading of an ambiguous document: it records money
-    // that already moved, where a job sheet only ever proposes a draft.
-    const read = raw?.kind === 'job' ? normalizeJobSheet(raw) : normalizeSlip(raw);
+    const read = raw?.kind === 'job' ? normalizeJobSheet(raw) : null;
     if (read) {
       logger.info('vision.read', { kind: read.kind, items: read.items.length, total: read.total });
       return read;
     }
   } catch (err) {
-    logger.warn('vision.read_failed', { message: err?.message });
+    logger.warn('vision.read_failed', { message: err?.message, status: err?.status });
+    diag.reason = 'api_error';
+    diag.detail = [err?.status, err?.error?.error?.type || err?.name].filter(Boolean).join(' ');
+    diag.message = String(err?.error?.error?.message || err?.message || '').slice(0, 160);
   }
+  if (!diag.reason) diag.reason = 'no_items';
   return null;
 }

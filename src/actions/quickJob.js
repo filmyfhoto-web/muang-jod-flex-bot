@@ -1,25 +1,18 @@
 import { reply } from '../services/lineService.js';
 import { startCollecting } from '../utils/slots.js';
 import { startCollectFlow } from '../services/collectFlow.js';
-import { QUICK_JOBS } from '../flex/quickReply.js';
 
 /* ปุ่มลัดเหนือช่องพิมพ์ — กดแล้วม่วงถามต่อในแชต ไม่ใช่เปิดฟอร์ม
  *
  * ร้านบอกว่า "ตรงปุ่มกดให้เป็นบอทตอบเหมือนเดิม แล้วค่อยกดเข้าไปแก้ไขทีหลัง"
  *
- * ของเดิมปุ่มพวกนี้เป็นลิงก์เปิดฟอร์มจดด่วนที่มีชื่องานใส่ไว้ให้แล้ว ซึ่งแปลว่า
- * ทุกครั้งที่จะจดงานต้องเด้งออกจากแชตไปหน้าเว็บก่อน ตอนนี้ม่วงถามทีละข้อในแชต
- * ได้แล้ว การเปิดฟอร์มจึงเหลือไว้สำหรับ "แก้หลายช่องทีเดียว" ซึ่งคือปุ่ม ✏️ แก้ไข
- * บนการ์ดหลังบันทึก และปุ่มจดด่วนบนริชเมนูสำหรับคนที่อยากกรอกเองทั้งใบ
+ * ปุ่มมาจากหมวดของร้านเอง (quickReply.js) ชื่อที่ส่งมาจึงไม่ใช่ลิสต์ตายตัวอีกแล้ว —
+ * ตรวจด้วยตัวจัดหมวดจริงแทน: ชื่อที่จัดหมวดได้คือชื่องานจริง ปลอม data มาได้ก็แค่
+ * เท่ากับพิมพ์คำนั้นเองในแชต ซึ่งทำได้อยู่แล้วและไม่ไปไกลกว่าการเริ่มชุดคำถาม
  */
-
-// ชื่องานที่ปุ่มส่งมา ต้องเป็นชื่อที่อยู่ในปุ่มจริง ๆ ไม่ใช่อะไรก็ได้ที่ยัดมาใน
-// postback — data ของ postback เป็นของที่ปลอมได้ ไม่ต่างจากข้อความที่พิมพ์เอง
-const KNOWN = new Set(QUICK_JOBS.map((j) => j.name));
-
 export async function quickJob({ replyToken, profile, params }) {
   const name = String(params?.name || '').trim();
-  const collecting = KNOWN.has(name) ? startCollecting(name) : null;
+  const collecting = name ? startCollecting(name) : null;
 
   if (!collecting) {
     return reply(replyToken, {

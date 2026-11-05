@@ -5,6 +5,10 @@ import { saveAttachment } from '../services/attachmentService.js';
 import { receiptFlex } from '../flex/receiptFlex.js';
 import { formCardsMessage, greetingTexts } from '../flex/formCardFlex.js';
 import { quickFormUrl, liffUrl } from '../utils/liff.js';
+import { listBranches, pickBranch } from '../services/branchService.js';
+import { ensureJobBill } from '../services/billService.js';
+import { receiptUrl } from '../flex/billFlex.js';
+import { withShopKey } from '../utils/receiptLink.js';
 import { logger } from '../services/logger.js';
 
 // Triggered by postback action=add_job: the greeting and the cards.
@@ -73,7 +77,6 @@ async function attachHeldPicture(userId, job, held) {
 export async function confirmAddJob({ replyToken, profile }) {
   const st = await getState(profile.id);
   const draft = st?.context?.draft;
-  const held = st?.context?.attachment;
 
   if (st?.state !== STATES.CONFIRMING_JOB || !draft) {
     return reply(replyToken, {
@@ -82,9 +85,76 @@ export async function confirmAddJob({ replyToken, profile }) {
     });
   }
 
+  /* ร้านไหน — เจ้าของมีสองร้านและสั่งว่า "ห้ามนำงานมาปนกัน"
+   *
+   * ถ้าข้อความบอกร้านมาแล้ว (branchSlug ในสเตต) ใช้อันนั้น ไม่ได้บอกและมี
+   * หลายร้าน → ถามก่อนบันทึก ตามที่เจ้าของสั่งไว้คำต่อคำ: "ถ้าฉันเพิ่มงานใหม่
+   * แต่ไม่ได้บอกว่าเป็นร้านไหน ให้ม่วงถามสั้น ๆ"
+   *
+   * มีร้านเดียวหรือยังไม่มีร้าน (ไมเกรชันยังไม่รัน) → บันทึกไปเลย การถามคำถาม
+   * ที่มีคำตอบเดียวคือการกดเพิ่มหนึ่งครั้งฟรี ๆ ทุกงาน
+   */
+  const branches = await listBranchesSafe(profile.id);
+  const picked = st?.context?.branchSlug ? pickBranch(branches, st.context.branchSlug) : null;
+  const branch = picked || (branches.length === 1 ? branches[0] : null);
+
+  if (!branch && branches.length >= 2) {
+    return reply(replyToken, {
+      type: 'text',
+      text: 'งานนี้ลงร้านไหนดีคะ? 💜',
+      quickReply: {
+        items: branches.slice(0, 13).map((b) => ({
+          type: 'action',
+          action: {
+            type: 'postback',
+            label: String(b.name).slice(0, 20),
+            data: `action=pick_branch&branch=${encodeURIComponent(b.slug)}`,
+            displayText: b.name,
+          },
+        })),
+      },
+    });
+  }
+
+  return saveDraft({ replyToken, profile }, st, branch);
+}
+
+// postback action=pick_branch&branch=… — คำตอบของ "งานนี้ลงร้านไหนดีคะ"
+export async function pickBranchAndSave({ replyToken, profile, params }) {
+  const st = await getState(profile.id);
+  if (st?.state !== STATES.CONFIRMING_JOB || !st?.context?.draft) {
+    return reply(replyToken, {
+      type: 'text',
+      text: 'ไม่พบงานที่รอบันทึกค่ะ ลองกด "บันทึกงานวันนี้" ใหม่นะคะ 💜',
+    });
+  }
+
+  const branches = await listBranchesSafe(profile.id);
+  const branch = pickBranch(branches, params?.branch || '');
+  if (!branch) {
+    // ปุ่มเก่าจากการ์ดที่ค้างไว้ ชี้ร้านที่ไม่มีแล้ว — อย่าเดา ให้เลือกใหม่
+    return confirmAddJob({ replyToken, profile });
+  }
+  return saveDraft({ replyToken, profile }, st, branch);
+}
+
+async function listBranchesSafe(userId) {
+  try {
+    return await listBranches(userId);
+  } catch (err) {
+    // รายชื่อร้านพังต้องไม่พางานทั้งใบล่ม — บันทึกแบบไม่ระบุร้าน แล้วค่อยย้ายได้
+    logger.warn('addJob.branches_failed', { message: err?.message });
+    return [];
+  }
+}
+
+async function saveDraft({ replyToken, profile }, st, branch) {
+  const draft = st?.context?.draft;
+  const held = st?.context?.attachment;
+
   let job;
   try {
-    job = await createJob(profile.id, draft);
+    job = await createJob(profile.id, { ...draft, branchId: branch?.id || null });
   } catch (err) {
     console.error(`[confirmAddJob] save failed for user ${profile.id}:`, err?.message || err);
     // Keep the draft in context so the user can retry with the same buttons.
@@ -97,10 +167,20 @@ export async function confirmAddJob({ replyToken, profile }) {
   const attached = await attachHeldPicture(profile.id, job, held);
   await clearState(profile.id);
 
+  // จดแล้วบิลพร้อมเลย (ร้านขอ "จดแล้วออกเอกบิลให้เลยไม่ต้องหลายขั้นตอน")
+  // — ปุ่ม 🧾 บนการ์ดกลายเป็นลิงก์เข้าใบตรง ๆ เปิดไม่สำเร็จก็ได้ปุ่มแบบเดิม
+  const bill = await ensureJobBill(profile.id, job);
+  const billPage = bill ? receiptUrl(bill) : null;
+  const billUrl = billPage ? withShopKey(billPage, bill.share_token) : null;
+
   // Receipt-style "บันทึกสำเร็จ" card. ไม่มีแถบนับยอดของวันแล้ว — ร้านบอกว่า
   // "จำนวนจดรวมไม่ต้องนับ" ยอดรวมของวันดูได้จากปุ่มสรุปที่อยู่บนการ์ดอยู่แล้ว
+  //
+  // บอกด้วยว่าเข้าบัญชีร้านไหน — การลงผิดร้านต้องถูกเห็นตรงนี้ ตอนที่ยังแก้ทัน
+  // ไม่ใช่ตอนปิดบัญชีสิ้นเดือน
   return reply(replyToken, [
-    receiptFlex(job),
+    ...(branch ? [{ type: 'text', text: `ลงบัญชีร้าน "${branch.name}" ให้แล้วนะคะ 💜` }] : []),
+    receiptFlex(job, { billUrl }),
     ...(attached
       ? []
       : [{ type: 'text', text: 'บันทึกงานแล้วค่ะ แต่แนบรูปเอกสารไม่สำเร็จ ส่งรูปเข้ามาใหม่อีกครั้งได้นะคะ 💜' }]),

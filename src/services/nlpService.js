@@ -131,17 +131,24 @@ async function defaultLlmExtract(text) {
 
 // Extract a normalized job draft from free text. `deps.llmExtract` is
 // injectable for tests; production uses the Claude call above.
+// ข้อความพิมพ์ใช้กฎในโค้ดเป็นหลัก (ฟรี) — AI อ่านเฉพาะรูป เว้นแต่ตั้ง NLP_TEXT_AI=1
+function textAiEnabled(env = process.env) {
+  return ['1', 'true', 'on', 'yes'].includes(String(env.NLP_TEXT_AI ?? '').trim().toLowerCase());
+}
+
 export async function extractJobDraft(text, deps = {}) {
-  const llm = deps.llmExtract || defaultLlmExtract;
-  try {
-    const raw = await llm(text);
-    const draft = normalizeExtraction(raw);
-    if (draft) {
-      logger.info('nlp.extracted', { via: 'llm', items: draft.items.length });
-      return draft;
+  const llm = deps.llmExtract || (textAiEnabled() ? defaultLlmExtract : null);
+  if (llm) {
+    try {
+      const raw = await llm(text);
+      const draft = normalizeExtraction(raw);
+      if (draft) {
+        logger.info('nlp.extracted', { via: 'llm', items: draft.items.length });
+        return draft;
+      }
+    } catch (err) {
+      logger.warn('nlp.llm_failed', { message: err?.message });
     }
-  } catch (err) {
-    logger.warn('nlp.llm_failed', { message: err?.message });
   }
 
   const draft = parseNaturalJob(text);

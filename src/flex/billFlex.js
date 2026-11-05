@@ -463,7 +463,8 @@ export function billJobsFlex(customerName, jobs = []) {
         flex: 6,
         contents: [
           { type: 'text', text: j.job_name || 'งาน', size: 'sm', weight: 'bold', color: COLORS.ink, wrap: true },
-          { type: 'text', text: formatThaiDate(j.job_date), size: 'xxs', color: COLORS.grey },
+          // เลขงานกำกับไว้ — งานชื่อเดียวกันสองใบของเจ้าเดียวกันต้องแยกกันออก
+          { type: 'text', text: [j.job_number, formatThaiDate(j.job_date)].filter(Boolean).join(' · '), size: 'xxs', color: COLORS.grey },
         ],
       },
       { type: 'text', text: formatBaht(Number(j.total) || 0), size: 'sm', weight: 'bold', color: COLORS.accentText, align: 'end', flex: 3 },

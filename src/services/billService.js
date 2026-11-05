@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { supabase } from '../config/supabase.js';
 import { round2 } from '../utils/currency.js';
 import { todayISO } from '../utils/dates.js';
-import { derivePaymentFields } from '../utils/payment.js';
+import { derivePaymentFields, paidAtPatch } from '../utils/payment.js';
 import { splitPlan, canSplitBill } from '../utils/billSplit.js';
 import { attachItems } from './jobService.js';
 import { logger } from './logger.js';
@@ -194,6 +194,20 @@ export async function createBill(userId, jobIds = [], opts = {}, client = supaba
   return { ...bill, jobs: attached };
 }
 
+/* จดแล้วบิลพร้อมเลย — เปิดใบให้ตั้งแต่ตอนจด (ร้านขอ "จดแล้วออกเอกบิลให้เลย
+ * ไม่ต้องหลายขั้นตอน") งานที่เคยมีใบใช้ใบเดิม ไม่เคยก็เปิดใบของงานนั้นใบเดียว
+ * ล้มเหลวคืน null เงียบ ๆ: บิลเป็นของแถมของการจด ห้ามพาการจดล่ม */
+export async function ensureJobBill(userId, job, client = supabase) {
+  try {
+    if (!job?.id) return null;
+    if (job.bill_id) return await getBillById(userId, job.bill_id, client);
+    return await createBill(userId, [job.id], { customerName: job.customer_name ?? null }, client);
+  } catch (err) {
+    logger.warn('bill.ensure_failed', { jobId: job?.id, message: err?.message });
+    return null;
+  }
+}
+
 // แยกบิลที่รวมกันไปแล้ว ออกเป็นคนละใบ — วิธีจัดกลุ่มอยู่ที่ utils/billSplit.js
 // ที่เดียว เพื่อให้ปุ่มบนการ์ดกับการแยกจริงตัดสินใจเหมือนกันเป๊ะเสมอ
 export async function splitBill(userId, billId, client = supabase) {
@@ -355,9 +369,12 @@ export async function recordBillPayment(userId, billId, amount, client = supabas
     const jobTotal = round2(Number(job.total) || 0);
     const applied = round2(Math.min(remaining, jobTotal));
     remaining = round2(Math.max(remaining - applied, 0));
+    const fields = derivePaymentFields(jobTotal, applied);
     await client
       .from('jobs')
-      .update(derivePaymentFields(jobTotal, applied))
+      // วันเก็บเงินจริงของแต่ละงานในบิล — งานลงบัญชีที่เพิ่งเก็บครบผ่านบิล
+      // ต้องขึ้นใบลงบัญชีของวันนี้ ไม่ใช่ย้อนไปวันที่ลงบัญชีไว้
+      .update({ ...fields, ...paidAtPatch(job, fields, new Date(nowIso)) })
       .eq('id', job.id)
       .eq('user_id', userId);
   }

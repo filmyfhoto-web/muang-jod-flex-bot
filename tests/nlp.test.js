@@ -106,3 +106,17 @@ test('a job with no price still becomes a draft to price later', () => {
   assert.equal(d.total, 0);
   assert.match(d.items[0].item_name, /ไวนิล/);
 });
+
+test('งานกรอบนับเป็นบาน — "2 บาน" คือจำนวน ไม่ใช่ส่วนหนึ่งของชื่อ', () => {
+  // เดิมอ่านจำนวนไม่ออก (ได้ 1) เพราะ "บาน" ไม่อยู่ในคำนับ — ยอดรวมจึงผิดเท่าตัว
+  const d = parseNaturalJob('กรอบรูป 12x18 2 บาน บานละ 450');
+  assert.equal(d.items[0].item_name, 'กรอบรูป');
+  assert.equal(d.items[0].quantity, 2);
+  assert.equal(d.items[0].unit, 'บาน');
+  assert.equal(d.items[0].unit_price, 450);
+  assert.equal(d.total, 900);
+
+  // คำเดิมไม่เพี้ยน — ป้ายยังนับเป็นป้าย/ผืนเหมือนเดิม
+  const sign = parseNaturalJob('ป้ายไวนิล 160x300 2 ป้าย ตรมละ 165');
+  assert.equal(sign.items[0].quantity, 2);
+});

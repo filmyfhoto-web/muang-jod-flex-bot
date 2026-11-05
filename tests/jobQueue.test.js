@@ -96,8 +96,8 @@ test('every tile and every legend row goes somewhere', () => {
 
 test('the queue is two piles, each in day order', () => {
   const q = dashboard.slice(dashboard.indexOf('function renderQueue'), dashboard.indexOf('async function loadReport'));
-  assert.match(q, /section\('💰 ค้างรับ', owed/, 'ค้างรับ is not its own pile');
-  assert.match(q, /section\('✅ รับเงินแล้ว', paid/, 'paid jobs are still mixed in');
+  assert.match(q, /byDay\('💰 ค้างรับ', owed/, 'ค้างรับ is not its own pile');
+  assert.match(q, /byDay\('✅ รับเงินแล้ว', paid/, 'paid jobs are still mixed in');
   assert.ok(
     q.indexOf("'💰 ค้างรับ'") < q.indexOf("'✅ รับเงินแล้ว'"),
     'the money still owed must come first — that is the work'
@@ -107,7 +107,10 @@ test('the queue is two piles, each in day order', () => {
 
   const split = dashboard.slice(dashboard.indexOf('async function loadQueue'), dashboard.indexOf('function dayLabel'));
   assert.match(split, /payment_status !== 'paid'/);
-  assert.match(split, /ค้างรับ ' \+ owed\.length/, 'the summary line does not say how the queue splits');
+  /* บรรทัดสรุป "ค้างรับ 7 งาน · รับแล้ว 13 งาน" ถูกเอาออกแล้ว — ปุ่มกรอง
+   * ข้างล่างเขียนตัวเลขเดียวกันอยู่บนปุ่ม และกดได้ด้วย ร้านบอกว่า "อ่านแล้ว งง"
+   */
+  assert.match(split, /counts = \{ all: jobs\.length, owed: owed\.length, paid: paid\.length \}/);
 });
 
 test('a day says what it means, and a late one says so twice', () => {
@@ -118,7 +121,8 @@ test('a day says what it means, and a late one says so twice', () => {
   assert.match(d, /ยังไม่ได้นัดวัน/);
   // งานที่เลยกำหนดและยังไม่ได้เงิน ต้องเห็นบนแถวของมันเองด้วย ไม่ใช่แค่บนหัวข้อวัน
   assert.match(dashboard, /job\.due_date < opts\.today && !opts\.done/);
-  assert.match(dashboard, /เลยกำหนดแล้ว/);
+  // ขึ้นเฉพาะตอนแบ่งกองตามหมวดงาน ซึ่งไม่มีชิปวันข้างบนคอยบอก
+  assert.match(dashboard, /'เลยกำหนด · ' \+ shortThaiDate\(job\.due_date\)/);
 });
 
 // ร้านบอกว่า "ข้างบนเป็นชื่องาน ข้างล่างเป็นชื่อลูกค้า อยากได้ชื่อลูกค้าเป็นเหมือน
@@ -220,6 +224,6 @@ test('คิวงานมีช่องให้กดสลับ ค้า�
   const render = dashboard.slice(dashboard.indexOf('function renderQueue'), dashboard.indexOf('async function loadReport'));
   assert.match(render, /filter === 'owed' && !owed\.length/);
   assert.match(render, /filter === 'paid' && !paid\.length/);
-  assert.match(render, /if \(filter !== 'paid'\) section\('💰 ค้างรับ'/);
-  assert.match(render, /if \(filter !== 'owed'\) section\('✅ รับเงินแล้ว'/);
+  assert.match(render, /if \(filter !== 'paid'\) byDay\('💰 ค้างรับ'/);
+  assert.match(render, /if \(filter !== 'owed'\) byDay\('✅ รับเงินแล้ว'/);
 });

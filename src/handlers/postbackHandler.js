@@ -1,13 +1,21 @@
 import { reply } from '../services/lineService.js';
-import { addJob, addMoreForCustomer, confirmAddJob, editNewJob, cancelNewJob } from '../actions/addJob.js';
+import { addJob, addMoreForCustomer, confirmAddJob, pickBranchAndSave, editNewJob, cancelNewJob } from '../actions/addJob.js';
 import { confirmSaveDump, cancelSaveDump } from '../actions/saveDump.js';
+import { shopQr, addShopQrPrompt, sendShopQr, useShopQr, removeShopQr, qrLabelPick } from '../actions/shopQr.js';
 import { attachEvidence } from '../actions/attachEvidence.js';
 import { recentJobs } from '../actions/recentJobs.js';
 import { todaySummary } from '../actions/todaySummary.js';
+import { branchView } from '../actions/branchView.js';
 import { editLatest } from '../actions/editLatest.js';
 import { cancelLatest, confirmCancel, cancelCancel } from '../actions/cancelLatest.js';
 import { editJob, deleteJob } from '../actions/jobActions.js';
 import { pickCategory } from '../actions/pickCategory.js';
+import { moveCategoryStart, categoryJobs } from '../actions/moveCategory.js';
+import { manageCategories } from '../actions/manageCategories.js';
+import { setDraftCustomer } from '../actions/draftCustomer.js';
+import { saveExpense, cancelExpenseDraft, expenseList, deleteExpenseAsk, deleteExpense, moneyNote } from '../actions/expense.js';
+import { statusByNamePick } from '../actions/statusSpeak.js';
+import { quickEditApply, quickEditCancel } from '../actions/quickEdit.js';
 import {
   createBillAction,
   billAllForCustomer,
@@ -27,6 +35,10 @@ import { reportMenu, report, exportCsv } from '../actions/report.js';
 import { help } from '../actions/help.js';
 import { nudgeOff, nudgeOn, nudgeTest } from '../actions/nudge.js';
 import { quickJob } from '../actions/quickJob.js';
+import { aiCost } from '../actions/aiCost.js';
+import { moneyList } from '../actions/moneyList.js';
+import { webLinks } from '../actions/webLinks.js';
+import { reviewJobs, reviewAnswer } from '../actions/reviewJobs.js';
 import {
   checkinHasWork,
   checkinToday,
@@ -62,6 +74,12 @@ export async function handlePostback(event, profile) {
       return addMoreForCustomer(ctx);
     case 'confirm_add_job':
       return confirmAddJob(ctx);
+    // คำตอบของ "งานนี้ลงร้านไหนดีคะ? 💜"
+    case 'pick_branch':
+      return pickBranchAndSave(ctx);
+    // การ์ดสรุปร้าน — ไม่ใส่ branch มา = การ์ดรวมทั้งสองร้าน
+    case 'branch_view':
+      return branchView(ctx);
     case 'edit_new_job':
       return editNewJob(ctx);
     case 'cancel_new_job':
@@ -71,6 +89,19 @@ export async function handlePostback(event, profile) {
       return confirmSaveDump(ctx);
     case 'cancel_dump':
       return cancelSaveDump(ctx);
+    // QR รับเงินของร้าน
+    case 'shop_qr':
+      return shopQr(ctx);
+    case 'add_shop_qr':
+      return addShopQrPrompt(ctx);
+    case 'qr_send':
+      return sendShopQr(ctx);
+    case 'qr_default':
+      return useShopQr(ctx);
+    case 'qr_delete':
+      return removeShopQr(ctx);
+    case 'qr_label':
+      return qrLabelPick(ctx);
     case 'attach_evidence':
       return attachEvidence(ctx);
     case 'recent_jobs':
@@ -87,6 +118,11 @@ export async function handlePostback(event, profile) {
       return deleteJob(ctx);
     case 'pick_category':
       return pickCategory(ctx);
+    // ย้ายงานข้ามหมวด: เลือกหมวดที่งานอยู่ → เลือกงาน → เข้าตัวเลือกหมวดเดิม
+    case 'move_category':
+      return moveCategoryStart(ctx);
+    case 'cat_jobs':
+      return categoryJobs(ctx);
     case 'bill_job':
       return billOneJob(ctx);
     case 'create_bill':
@@ -154,6 +190,38 @@ export async function handlePostback(event, profile) {
       return exportCsv(ctx);
     case 'help':
       return help(ctx);
+    case 'review_jobs':
+      return reviewJobs(ctx);
+    case 'rv':
+      return reviewAnswer(ctx);
+    case 'money_list':
+      return moneyList(ctx);
+    case 'ai_cost':
+      return aiCost(ctx);
+    case 'web_links':
+      return webLinks(ctx);
+    case 'manage_categories':
+      return manageCategories(ctx);
+    case 'draft_customer':
+      return setDraftCustomer(ctx);
+    case 'exp_save':
+      return saveExpense(ctx);
+    case 'exp_cancel':
+      return cancelExpenseDraft(ctx);
+    case 'expense_list':
+      return expenseList(ctx);
+    case 'exp_del':
+      return deleteExpenseAsk(ctx);
+    case 'exp_del_yes':
+      return deleteExpense(ctx);
+    case 'money_note':
+      return moneyNote(ctx);
+    case 'sbn':
+      return statusByNamePick(ctx);
+    case 'qe':
+      return quickEditApply(ctx);
+    case 'qe_cancel':
+      return quickEditCancel(ctx);
     default:
       console.warn(`[postback] unknown action: ${action}`);
       return reply(replyToken, {

@@ -193,6 +193,21 @@
    *
    * รายละเอียดที่พิมพ์ซ้ำกับชื่องานไม่ต้องขึ้นสองรอบ
    */
+  /* ป้ายคำบนฟอร์มตามชนิดงาน — "บานละ (บาท)" / "จำนวน (บาน)"
+   *
+   * unitWord คือคำนับของงานนั้น (บาน/ใบ/ผืน จากหมวดงาน) — เป็นแค่คำเรียก
+   * ไม่เปลี่ยนวิธีคิดเงิน: ป้ายไวนิลนับเป็น "ผืน" แต่ราคาคิดตาม ตร.ม.
+   * ป้ายช่องเงินจึงคงของโหมดไว้เมื่อคิดตามพื้นที่ (sqm) หรือช่วงราคา (tier)
+   */
+  function words(item) {
+    var m = mode(item && item.rateMode);
+    var w = String((item && item.unitWord) || '').trim();
+    return {
+      label: m.id === 'sqm' || m.id === 'tier' || !w ? m.label : w + 'ละ',
+      piece: w || m.piece,
+    };
+  }
+
   function subLine(sizeLabel, detail, name) {
     var d = String(detail == null ? '' : detail).trim();
     var n = String(name == null ? '' : name).trim();
@@ -215,6 +230,7 @@
     FACTORS: FACTORS,
     UNIT_LABELS: UNIT_LABELS,
     mode: mode,
+    words: words,
     sqmOf: sqmOf,
     suggested: suggested,
     yieldPerSqm: yieldPerSqm,

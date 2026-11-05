@@ -1,5 +1,5 @@
 import { parseJobText } from './parser.js';
-import { round2 } from './currency.js';
+import { round2, numText } from './currency.js';
 import { parseAreaPricing, areaItem, areaWorking } from './area.js';
 import { classifyItem } from './category.js';
 import { subLine } from './itemLine.js';
@@ -15,6 +15,9 @@ import { subLine } from './itemLine.js';
 const UNIT_WORDS = [
   'ป้าย', 'ชิ้น', 'อัน', 'ใบ', 'แผ่น', 'ตัว', 'ม้วน', 'กล่อง', 'ชุด', 'เมตร', 'ผืน', 'โหล', 'คู่',
   'ดวง', 'เล่ม', 'ห่อ', 'ถุง', 'แพ็ค', 'แพ็ก', 'กิโล', 'โล',
+  // งานกรอบรูปนับเป็นบาน — "กรอบรูป 2 บาน" เคยอ่านจำนวนไม่ออก (ได้ 1)
+  // ต่อท้ายลิสต์เสมอ คำเดิมต้องชนะก่อนเหมือนเดิมทุกตัว
+  'บาน', 'กรอบ',
 ];
 // Note: short honorifics like "ป้า"/"อา" are intentionally excluded — they
 // collide with common words ("ป้าย" = sign), causing false customer matches.
@@ -60,6 +63,12 @@ const ORG_PREFIXES = [
   'รพ\\.',
   'โรงเรียน',
   'ร\\.?ร\\.',
+  /* "รร สบกอน" — ร้านเขียนย่อแบบไม่มีจุด
+   *
+   * ต้องอยู่ต้นคำเท่านั้น ไม่งั้น "ธรรม" "บรรทัด" "กรรไกร" จะกลายเป็นโรงเรียน
+   * ชื่อ "ม" "ทัด" "ไกร" — "รร" สองตัวติดกันกลางคำไทยมีเยอะ
+   */
+  '(?<![ก-๙])รร\\.?',
   'มหาวิทยาลัย',
   'เทศบาล',
   'อบต\\.?',
@@ -67,13 +76,50 @@ const ORG_PREFIXES = [
   'สำนักงาน',
   'บริษัท',
   'หจก\\.?',
+  // หน่วยงานที่ร้านนี้ออกใบเสร็จให้จริง — ธกส ทุ่งช้าง อยู่ในคิวงานของร้านอยู่แล้ว
+  // แต่ไม่เคยถูกอ่านว่าเป็นหน่วยงาน เพราะไม่มีในลิสต์
+  'ธ\\.?ก\\.?ส\\.?',
+  'สหกรณ์',
+  'กศน\\.?',
   'วัด',
   'ร้าน',
 ];
 
+/* ชื่อนี้เป็นหน่วยงานไหม — ใช้ลิสต์เดียวกับตอนอ่านชื่อลูกค้าจากประโยค
+ *
+ * ส่งออกมาเป็นฟังก์ชัน ไม่ใช่ส่งลิสต์ออกไป เพื่อให้มีที่เดียวที่ตอบคำถามว่า
+ * "อันนี้โรงเรียนหรือลูกค้าหน้าร้าน" — ก๊อปลิสต์ไปไว้อีกไฟล์เมื่อไหร่ ก็มีวันที่
+ * สองที่ตอบไม่ตรงกัน แล้วงานเดียวกันอยู่คนละกองแล้วแต่ว่าถามจากตรงไหน
+ */
+export function isOrgCustomer(name) {
+  const text = String(name || '').trim();
+  if (!text) return false;
+  return new RegExp(`^\\s*(?:${ORG_PREFIXES.join('|')})`).test(text);
+}
+
 function toNumber(s) {
   const v = parseFloat(String(s ?? '').replace(/,/g, ''));
   return Number.isFinite(v) ? v : 0;
+}
+
+/* ช่องทางเงินที่พูดติดท้ายประโยค — "อัดรูป 150 เงินสด" / "ป้าย 600 โอน" / "ตรายาง 300 ลงบัญชี"
+ *
+ * ร้านพูดแบบนี้จริง (V2: "พิมพ์น้อย จดไว") คำพวกนี้ไม่ใช่ชื่อของ และบอกความหมายเงินชัด:
+ *   เงินสด/สด/จ่ายสด   → รับเป็นเงินสดแล้ว (ไม่บอกยอด = รับครบ)
+ *   โอน/เงินโอน/พร้อมเพย์ → รับเป็นเงินโอนแล้ว
+ *   ลงบัญชี             → ยังไม่ได้เงิน แต่ลงใบลงบัญชีวันนี้ไว้ (รอวางบิล)
+ * เอาคำออกจากข้อความก่อนอ่านรายการ ไม่งั้นใบเสร็จขึ้นของชื่อ "อัดรูป เงินสด"
+ */
+const METHOD_TOKEN = /(?:^|[\s,·])(เงินสด|จ่ายสด|รับสด|สด|เงินโอน|พร้อมเพย์|สแกนจ่าย|โอนจ่าย|โอน|ลงบัญชี(?:ไว้)?)(?:แล้ว)?(?=[\s,·]|$)/u;
+export function extractPayMethod(text) {
+  const t = String(text ?? '');
+  const m = METHOD_TOKEN.exec(t);
+  if (!m) return { method: null, rest: t };
+  const word = m[1];
+  const method = /สด/.test(word) ? 'cash' : /ลงบัญชี/.test(word) ? 'account' : 'transfer';
+  // "โอนแล้ว 300" เป็นของ extractPaid (ยอดมัดจำ+ช่องทาง) ไม่แตะตรงนี้
+  if (/^โอน/.test(word) && /^\s*\d/.test(t.slice(m.index + m[0].length))) return { method: null, rest: t };
+  return { method, rest: (t.slice(0, m.index) + ' ' + t.slice(m.index + m[0].length)).trim() };
 }
 
 // Pull out "received/deposit" amount, e.g. "รับมาแล้ว 300", "มัดจำ 500".
@@ -81,8 +127,9 @@ function extractPaid(text) {
   const re =
     /(?:รับ(?:มา)?(?:แล้ว|เงิน)?|มัดจำ|วางมัดจำ|จ่ายแล้ว|ชำระแล้ว|โอนแล้ว|โอนมา)\s*(?:มา)?\s*(\d[\d,]*(?:\.\d+)?)\s*(?:บาท|฿)?/;
   const m = text.match(re);
-  if (!m) return { paidAmount: 0, rest: text };
-  return { paidAmount: toNumber(m[1]), rest: text.replace(m[0], ' ') };
+  if (!m) return { paidAmount: 0, method: null, rest: text };
+  // "โอนแล้ว 300" บอกทั้งยอดและช่องทางในคำเดียว
+  return { paidAmount: toNumber(m[1]), method: /โอน/.test(m[0]) ? 'transfer' : null, rest: text.replace(m[0], ' ') };
 }
 
 /* "จ่ายเงินแล้ว" เฉย ๆ ไม่มีตัวเลข = จ่ายครบ
@@ -107,6 +154,43 @@ export function saysPaidInFull(text) {
 const NOT_A_NAME =
   /^(ขนาด|ราคา|จำนวน|ไวนิล|สติกเกอร์|สติ๊กเกอร์|ป้าย|งาน|ทำ|ละ|ค่า|กว้าง|ยาว|หน้า|ร้าน|พิมพ์|โฟม|สี|ตรา|บาท)/;
 
+/* คำกริยาที่ร้านพิมพ์ติดท้ายชื่อคน — "น้องป่านสั่ง" คือน้องป่านเป็นคนสั่ง
+ *
+ * ภาษาไทยไม่เว้นวรรค ตัวจับชื่อจึงกวาดคำที่ติดมาข้างหลังไปด้วยทั้งคำ ใบเสร็จ
+ * เลยออกในชื่อ "น้องป่านสั่ง" ซึ่งไม่ใช่ชื่อใคร
+ *
+ * ตัดเฉพาะที่ "ท้ายชื่อ" และเฉพาะคำที่เป็นกริยาสั่งงานชัด ๆ เท่านั้น และต้อง
+ * เหลือชื่ออย่างน้อยสองตัวอักษร — ตัดพลาดแปลว่าออกใบเสร็จผิดคน
+ */
+const NAME_TAIL_RE = /(?:มาสั่ง|สั่งของ|สั่งมา|สั่ง|ฝากมา|ฝาก)$/;
+
+export function trimNameTail(name) {
+  const clean = String(name || '').trim();
+  const cut = clean.replace(NAME_TAIL_RE, '');
+  return cut.length >= 2 ? cut : clean;
+}
+
+/* คำตอบที่เป็น "งาน" ไม่ใช่ "คน" — ไว้กันตอนม่วงถามชื่อลูกค้า
+ *
+ * เคสจริง: ถาม "ของลูกค้าท่านไหนคะ?" ร้านตอบ "หน้างานสีดำ" (รายละเอียดกรอบรูป)
+ * แล้วการ์ดขึ้น ลูกค้า: หน้างานสีดำ — ศัพท์ช่างต้องไปอยู่รายละเอียดงาน ไม่ใช่ช่องคน
+ *
+ * จับสามแบบ: ขึ้นต้นด้วยคำบอกส่วนของชิ้นงาน · มีชื่อสี · หรือพิมพ์ชื่อหมวด/ประเภท
+ * (รวมที่ร้านตั้งเอง) มาทั้งดุ้น — ชื่อจริงที่มีคำช่างปนอยู่ เช่น "ร้านป้ายเจริญ"
+ * ไม่โดน เพราะไม่เท่ากับชื่อประเภทเป๊ะ ๆ · อยากบังคับเป็นชื่อคนจริง พิมพ์นำว่า
+ * "ลูกค้า …" (ทางเรียกทุกทางเช็กคำนำก่อนถึงตัวนี้)
+ */
+const DETAIL_LEAD_RE = /^(?:หน้า|ขอบ|พื้น|ด้าน|แบบ|ลาย|เคลือบ|ขนาด|เนื้อ)/u;
+const DETAIL_COLOR_RE = /สี(?:ดำ|ขาว|แดง|เขียว|น้ำเงิน|ฟ้า|เหลือง|ส้ม|ม่วง|ชมพู|ทอง|เงิน|น้ำตาล|เทา|ครีม|ใส)/u;
+
+export function looksLikeWorkDetail(text, who) {
+  const t = String(text || '').trim();
+  if (!t) return false;
+  if (DETAIL_LEAD_RE.test(t) || DETAIL_COLOR_RE.test(t)) return true;
+  const hit = classifyItem(t, who);
+  return Boolean(hit && (hit.type?.label === t || hit.group?.label === t));
+}
+
 // Pull out a customer name: an honorific + name (พี่นก), an organisation
 // (รพสตบ้านชี, โรงเรียนบ้านหนอง), else "ร้าน<name>".
 export function extractCustomer(text) {
@@ -118,7 +202,7 @@ export function extractCustomer(text) {
     // keep what follows ("ผอ กิ้ก โรงเรียนบ้านนาบง") without also keeping what
     // came before ("งานงานบุญ" in front of "วัดบ้านชี").
     return {
-      customerName: `${m[1]}${m[2]}`.replace(/\s+/g, ''),
+      customerName: trimNameTail(`${m[1]}${m[2]}`.replace(/\s+/g, '')),
       rest: text.replace(m[0], ' '),
       match: m[0],
       index: m.index,
@@ -128,7 +212,7 @@ export function extractCustomer(text) {
   const org = text.match(new RegExp(`(${ORG_PREFIXES.join('|')})\\s*([ก-๙A-Za-z]{2,20})`));
   if (org && !NOT_A_NAME.test(org[2])) {
     return {
-      customerName: `${org[1]}${org[2]}`.replace(/\s+/g, ''),
+      customerName: trimNameTail(`${org[1]}${org[2]}`.replace(/\s+/g, '')),
       rest: text.replace(org[0], ' '),
       match: org[0],
       index: org.index,
@@ -165,6 +249,8 @@ const NOISE_WORDS = new Set([
   // "ขอตรายาง ของโรงเรียนเปียงซ้อ" — พอชื่อลูกค้าถูกยกออกไป เหลือ "ของ" ลอยอยู่
   // คำเดียวโดด ๆ เป็นคำเชื่อม ไม่ใช่ชื่อของ ("ของที่ระลึก" เป็นคนละคำ ไม่โดน)
   'ของ',
+  // "คนสั่งน้องทีน" — พอชื่อคนถูกยกออกไป เหลือ "คนสั่ง" ลอยอยู่
+  'คนสั่ง',
 ]);
 
 /* คำนำหน้าที่ติดหัวชื่อของมาเลย: "สั่งสติ๊กเกอร์" "ขอทำป้าย"
@@ -183,7 +269,9 @@ function stripLeadVerb(word) {
 
 function cleanItemName(working) {
   const stripped = working
-    .replace(/วันนี้|เมื่อวาน|พรุ่งนี้|ทำ|ทํา|งาน|ให้|ค่ะ|คะ|ครับ|นะ|บาท|฿/g, ' ')
+    // "งาน" หายทุกที่ ยกเว้นใน "หน้างาน" — "หน้างานสีดำ" คือศัพท์ช่างทั้งคำ
+    // ตัดกลางคำแล้วได้ "หน้า สีดำ" ซึ่งไม่ใช่ภาษาที่ร้านพูด
+    .replace(/วันนี้|เมื่อวาน|พรุ่งนี้|ทำ|ทํา|(?<!หน้า)งาน|ให้|ค่ะ|คะ|ครับ|นะ|บาท|฿/g, ' ')
     .replace(/ร้าน/g, ' ')
     .replace(/\d[\d,]*(?:\.\d+)?/g, ' ')
     // "ไวนิล = 0.80X1.80 165" left the "=" sitting in the name once the numbers
@@ -230,18 +318,97 @@ function extractPieces(working) {
 
 // Parse a single free-form line into one item, understanding "ป้ายละ 350"
 // (price per unit) and "2 ป้าย" (leading quantity + unit).
+/* "1*1.5*700*2=2,100" — เลขหลังเท่ากับคือยอดที่ร้านคิดมาเองแล้ว
+ *
+ * ร้านพิมพ์วิธีคิดพร้อมคำตอบมาในบรรทัดเดียว บางบรรทัดมีบวกเพิ่มด้วย
+ * ("1,428+200=1,628" — ค่าขาตั้ง) เลขตัวสุดท้ายหลังเท่ากับตัวสุดท้ายคือยอดจริง
+ *
+ * เชื่อเลขที่ร้านเขียนดีกว่าคิดเอง: มันคือยอดที่ร้านจะเก็บลูกค้าจริง ๆ และการ
+ * ที่ร้านอุตส่าห์พิมพ์มาแปลว่าเขาคิดแล้ว ส่วนที่เหลือของบรรทัดยังอ่านต่อได้
+ * ตามปกติ เพื่อเอาขนาดกับจำนวนขึ้นใบเสร็จ
+ */
+const STATED_TOTAL_RE = /=\s*(\d[\d,]*(?:\.\d+)?)\s*$/;
+
+export function statedLineTotal(line) {
+  const m = STATED_TOTAL_RE.exec(String(line || '').trim());
+  if (!m) return null;
+  const total = toNumber(m[1]);
+  return total > 0 ? total : null;
+}
+
+/* ขั้นตอนสุดท้ายที่ร้านเขียน: "ราคาต่อชิ้น × จำนวน = ยอด"
+ *
+ * ร้านอธิบายวิธีคิดที่ต้องการมาเป็นบรรทัด ๆ:
+ *   "ป้ายเกษียณ 1.2*1.7*600 = 900   900*2=1800"
+ *                             ↑ ต่อชิ้น  ↑ จำนวน  ↑ ยอด
+ * จำนวนอยู่ในขั้นตอนสุดท้ายนี้เท่านั้น ไม่ได้เขียนเป็นคำว่า "2 อัน" ทุกบรรทัด
+ * ถ้าไม่อ่าน ป้ายเกษียณจะออกมาชิ้นเดียวทั้งที่ลูกค้าสั่งสอง
+ *
+ * รับเฉพาะเมื่อ "ต่อชิ้น × จำนวน" เท่ากับยอดที่ร้านเขียนพอดี — เส้นแบ่งนี้คือ
+ * ทั้งหมดที่กันไม่ให้ขนาดถูกอ่านเป็นจำนวน: "ป้าย 100*150 = 600" ก็ลงรูปแบบ
+ * เดียวกันเป๊ะ แต่ 100 × 150 ไม่เท่ากับ 600 จึงไม่ใช่ขั้นตอนคิดเงิน — ถ้ารับไป
+ * ลูกค้าจะโดนคิด 150 ชิ้น
+ */
+const LAST_STEP_RE = /(\d[\d,]*(?:\.\d+)?)\s*[*x×]\s*(\d+)\s*$/i;
+
+function finalStep(raw, stated) {
+  const last = raw.lastIndexOf('=');
+  if (last === -1) return null;
+  // เฉพาะช่วงหลังเท่ากับตัวก่อนหน้า ไม่งั้นจะคว้าตัวคูณจากคนละขั้นตอน
+  const seg = raw.slice(raw.lastIndexOf('=', last - 1) + 1, last).trim();
+  const m = LAST_STEP_RE.exec(seg);
+  if (!m) return null;
+  const perPiece = toNumber(m[1]);
+  const count = toNumber(m[2]);
+  if (!(perPiece > 0) || !(count > 0)) return null;
+  if (Math.abs(perPiece * count - stated) > 0.009) return null;
+  return { count, match: m[0].trim() };
+}
+
+function dropLast(text, fragment) {
+  const at = text.lastIndexOf(fragment);
+  return at === -1 ? text : `${text.slice(0, at)} ${text.slice(at + fragment.length)}`;
+}
+
 function parseSingleLine(line) {
-  let working = ` ${String(line || '').replace(/\s+/g, ' ').trim()} `;
+  const raw = String(line || '').replace(/\s+/g, ' ').trim();
+  /* ยอดที่ร้านคิดมาเอง และส่วนที่เหลือของบรรทัดหลังตัดวิธีคิดออก
+   *
+   * ตัดตั้งแต่เครื่องหมายเท่ากับตัวแรกไปจนจบ เพราะทุกอย่างหลังจากนั้นคือ
+   * การคิดเลข ไม่ใช่ของที่ลูกค้าสั่ง ("=1,428+200=1,628")
+   */
+  const stated = statedLineTotal(raw);
+  const step = stated == null ? null : finalStep(raw, stated);
+  let head = stated != null ? raw.slice(0, raw.indexOf('=')) : raw;
+  // ขั้นตอนสุดท้ายบางทีอยู่ก่อนเท่ากับตัวแรก ("ชุดละ 1400  1400*2=2800") ถ้า
+  // ปล่อยไว้ "1400*2" จะถูกอ่านเป็นขนาดของงาน
+  if (step) head = dropLast(head, step.match);
+  let working = ` ${head.replace(/\s+/g, ' ').trim()} `;
 
   // "ไวนิล ขนาด 160*300 ตรมละ 165" — คิดพื้นที่ให้ก่อน ไม่งั้น "ละ 165"
   // จะถูกอ่านเป็นราคาต่อชิ้น
   const area = parseAreaPricing(working);
   if (area) {
-    const { pieces, rest } = extractPieces(area.rest);
-    const itemName = cleanItemName(rest) || 'งานป้าย';
+    const found = extractPieces(area.rest);
+    // จำนวนที่เขียนเป็นตัวคูณที่สี่ ชนะการเดาจากคำ ("2 แผ่น") เพราะมันอยู่ใน
+    // สูตรที่ร้านเขียนเอง
+    const pieces = step?.count || area.pieces || found.pieces;
+    const rest = found.rest;
+    /* แยกชื่อของออกจากรายละเอียด เหมือนทางที่ไม่ได้คิดตามพื้นที่
+     *
+     * ของเดิมทางนี้ข้ามการแยก ชื่อรายการจึงกลายเป็นทั้งก้อน — "โฟมบอร์ด รร
+     * สบกอน" แทนที่จะเป็นชื่อ "โฟมบอร์ด" กับรายละเอียด "รร สบกอน" ทั้งที่อีก
+     * ทางหนึ่งแยกให้อยู่แล้ว งานเดียวกันจึงหน้าตาไม่เหมือนกันแค่เพราะคิดราคา
+     * คนละแบบ
+     */
+    const split = splitNameDetail(cleanItemName(rest) || 'งานป้าย');
+    const itemName = split.name;
     const item = areaItem(area, { itemName, pieces });
+    item.detail = split.detail;
+    item.size = subLine(area.sizeLabel, split.detail, itemName);
     // ติดวิธีคิดไว้กับรายการ ให้ผู้เรียกเก็บลงหมายเหตุ ไม่ใช่ลงใบเสร็จ
     item.working = areaWorking(area, { itemName, pieces });
+    if (stated != null) applyStated(item, stated);
     return item;
   }
 
@@ -300,17 +467,43 @@ function parseSingleLine(line) {
   if (!itemName) itemName = unitWord || 'งาน';
 
   const split = splitNameDetail(itemName);
-  return {
+  const item = {
     item_name: split.name,
     // ขนาดกับรายละเอียดอยู่ช่องเดียวกัน ตามที่ตาราง job_items มีให้ และตรงกับ
     // ที่ฟอร์มจดงานส่งมา — ใบเสร็จกับใบสรุปจึงพิมพ์ออกมาเหมือนกันทั้งสองทาง
     size: subLine(size, split.detail, split.name),
     detail: split.detail,
-    quantity,
+    // จำนวนในขั้นตอนคิดเงินที่ร้านเขียนเอง ชนะการเดาจากคำในบรรทัด
+    quantity: step?.count || quantity,
     unit: unitWord || null,
     unit_price: round2(unitPrice),
     total: round2(unitPrice * quantity),
   };
+  if (stated != null) applyStated(item, stated);
+  return item;
+}
+
+/* ยอดที่ร้านเขียนเองชนะยอดที่คิดได้
+ *
+ * ราคาต่อชิ้นคิดย้อนจากยอดที่ร้านเขียน เพื่อให้ "ราคา × จำนวน = ยอด" บนใบเสร็จ
+ * ยังบวกกันได้ลงตัว ไม่ใช่โชว์ยอดของร้านแต่ราคาต่อชิ้นเป็นของเรา
+ */
+function applyStated(item, stated) {
+  const count = Number(item.quantity) > 0 ? Number(item.quantity) : 1;
+  const computed = round2(Number(item.total) || 0);
+  item.total = round2(stated);
+  item.unit_price = round2(stated / count);
+
+  /* วิธีคิดต้องจบที่ยอดเดียวกับที่ขึ้นใบเสร็จ
+   *
+   * "0.6*1.7*700*2=1,428+200=1,628" — ค่าขาตั้ง 200 ที่ร้านบวกเพิ่มไม่ได้อยู่
+   * ในสูตรพื้นที่ บรรทัดวิธีคิดจึงจบที่ 1,428 ทั้งที่ราคาบนการ์ดเป็น 1,628
+   * ร้านอ่านแล้วนึกว่าม่วงคิดผิด ทั้งที่ยอดถูก — ต่อท้ายให้เห็นว่าส่วนต่างมา
+   * จากที่ร้านเขียนมาเอง
+   */
+  if (item.working && Math.abs(computed - item.total) > 0.009) {
+    item.working += ` → ร้านคิด ${numText(item.total)}`;
+  }
 }
 
 // A line that is nothing but "รวม 4,900" — the shop's own price for the lot.
@@ -330,14 +523,34 @@ function parseSingleLine(line) {
  *
  * ดาวคร่อมตัวเลขเป็นการเน้นข้อความแบบที่คนพิมพ์ในไลน์ ไม่ใช่ตัวคูณ
  */
-const GRAND_TOTAL_RE =
-  /^(?:ยอด)?(?:รวม(?:ทั้งหมด|ทั้งสิ้น|เป็น)?|ราคารวม|เหมา(?:ทั้งหมด|หมด)?|คิด(?:รวม)?|สรุป|ทั้งหมด|ปัด(?:เศษ)?(?:เป็น)?)\s*(?:[\d,.\s*x×+]*=)?\s*(?:เป็น|ที่|[=:])?\s*\*?\s*฿?\s*(\d[\d,]*(?:\.\d+)?)\s*\*?\s*(?:บาท|฿)?$/;
+const TOTAL_WORD =
+  '(?:ยอด)?(?:รวม(?:ทั้งหมด|ทั้งสิ้น|เป็น)?|ราคารวม|เหมา(?:ทั้งหมด|หมด)?|คิด(?:รวม)?|สรุป|ทั้งหมด|ปัด(?:เศษ)?(?:เป็น)?)';
+
+const GRAND_TOTAL_RE = new RegExp(
+  `^${TOTAL_WORD}\\s*(?:[\\d,.\\s*x×+]*=)?\\s*(?:เป็น|ที่|[=:])?\\s*\\*?\\s*฿?\\s*(\\d[\\d,]*(?:\\.\\d+)?)\\s*\\*?\\s*(?:บาท|฿)?$`
+);
+
+/* บรรทัดสรุปที่มีคำพูดต่อท้าย — "ทั้งหมด 2100+2100+1800+2800 = 8,800. มันต้องคิดแบบนี้"
+ *
+ * ร้านคุยกับม่วงต่อในบรรทัดเดียวกับยอด แบบข้างบนต้องจบที่ตัวเลขพอดีถึงจะรับ
+ * บรรทัดนี้จึงตกไปเป็น "รายการชื่อ ทั้งหมด ราคา 8,800" — บวกยอดทั้งกองซ้ำอีก
+ * รอบบนใบเสร็จ
+ *
+ * ปล่อยให้ต่อท้ายได้เฉพาะเมื่อร้านเขียนวิธีคิดมาด้วย (มีเครื่องหมายเท่ากับ)
+ * เพราะนั่นคือสิ่งที่บอกว่าเลขตัวนี้เป็นผลลัพธ์ ไม่ใช่จำนวน — "ทั้งหมด 2 ป้าย"
+ * ไม่มีเท่ากับ จึงยังเป็นของที่สั่ง ไม่ใช่ยอดรวมสองบาท
+ */
+const GRAND_TOTAL_WORKING_RE = new RegExp(
+  // จุดปิดประโยคไม่ใช่จุดทศนิยม — "= 8,800. มันต้องคิดแบบนี้" ยอดคือ 8,800
+  // ไม่ใช่ 8 (ถ้าห้ามจุดตามหลังเฉย ๆ ตัวจับจะถอยไปเอาแค่หลักแรก)
+  `^${TOTAL_WORD}\\s*[\\d,.\\s*x×+]+=\\s*\\*?\\s*฿?\\s*(\\d[\\d,]*(?:\\.\\d+)?)(?!\\d|\\.\\d)`
+);
 
 export function extractGrandTotal(text) {
   let total = null;
   const rest = [];
   for (const line of String(text || '').split('\n')) {
-    const m = GRAND_TOTAL_RE.exec(line.trim());
+    const m = GRAND_TOTAL_RE.exec(line.trim()) || GRAND_TOTAL_WORKING_RE.exec(line.trim());
     const amount = m ? toNumber(m[1]) : 0;
     // Every one of these comes out, not just the one that wins: a shop that
     // changes its mind types the new figure below the old, and a leftover
@@ -361,16 +574,39 @@ function splitHeading(lines) {
   return { heading: lines.filter((l) => !/\d/.test(l)).join(' ').replace(/\s+/g, ' ').trim() || null, body };
 }
 
-// Parse a whole message into a normalized job draft.
-export function parseNaturalJob(rawText) {
-  const text = String(rawText || '');
+/* ดาวคร่อมตัวเลขคือการเน้นข้อความ ไม่ใช่ตัวคูณ
+ *
+ * ร้านพิมพ์ "= *1,050*  2 อัน 1050*2 = *2,100*" — ดาวคู่ที่คร่อมเลขไว้เป็นวิธี
+ * เน้นข้อความแบบที่คนพิมพ์ในไลน์ แต่ดาวเป็นเครื่องหมายคูณของเราด้วย ยอดที่ร้าน
+ * เขียนไว้ท้ายบรรทัดจึงอ่านไม่ออกเพราะมีดาวปิดท้าย แล้วม่วงก็ไปคิดเลขเอง
+ *
+ * ตัวคูณจริงไม่มีช่องว่างหรือเท่ากับนำหน้า ("1050*2") ส่วนดาวเน้นข้อความมาเป็น
+ * คู่คร่อมตัวเลขไว้พอดี — เอาออกเฉพาะคู่ที่คร่อมครบ
+ */
+export function stripEmphasis(text) {
+  return String(text ?? '').replace(/(?<![\d.])\*\s*(\d[\d,]*(?:\.\d+)?)\s*\*(?!\d)/g, '$1');
+}
+
+/* Parse a whole message into a normalized job draft.
+ *
+ * `opts.customerKnown` says the caller already knows whose job this is, so the
+ * line carries none: the shop wrote the customer on a heading line above and
+ * these are the things they ordered. Without it "รูปครูยิ้ม 1*1.5*700*2" reads
+ * as a customer called ครูยิ้ม and the item is left named "รูป" — two of those
+ * on one receipt and nobody can tell which picture is which.
+ */
+export function parseNaturalJob(rawText, opts = {}) {
+  const text = stripEmphasis(rawText);
   /* "จ่ายเงินแล้ว" ไม่มีตัวเลข = จ่ายครบ — เอาวลีออกจากข้อความก่อนอ่านรายการ
    * ไม่งั้นมันจะไปติดอยู่ในชื่อของ ("กรอบรูป จ่ายแล้ว")
    */
   const paidInFull = saysPaidInFull(text);
+  const paidByTransferInFull = paidInFull && /โอน(?:เงิน)?\s*(?:ครบ|เต็ม)?\s*แล้ว/.test(text);
   const cleanedText = paidInFull ? text.replace(PAID_IN_FULL_RE, ' ') : text;
   const paid = extractPaid(cleanedText);
-  const grand = extractGrandTotal(paid.rest);
+  const pm = extractPayMethod(paid.rest);
+  const payMethod = pm.method || paid.method || (paidByTransferInFull ? 'transfer' : null);
+  const grand = extractGrandTotal(pm.rest);
 
   const { heading, body } = splitHeading(
     grand.rest.split('\n').map((l) => l.trim()).filter(Boolean)
@@ -383,21 +619,46 @@ export function parseNaturalJob(rawText) {
   // customer it is the name of the job, which beats one derived from the items.
   // "ลูกค้า" / "ชื่อลูกค้า" are labels on the line, never part of the name.
   const named = heading ? heading.replace(/(?:ชื่อ)?ลูกค้า\s*:?\s*/g, '').trim() : null;
-  const found = named ? extractCustomer(named) : null;
+  const found = opts.customerKnown || !named ? null : extractCustomer(named);
   // From where the name starts to the end of the line: "ผอ กิ้ก" is only half
   // of "ผอ กิ้ก โรงเรียนบ้านนาบง", and a receipt made out to the half has lost
   // which school it is for. Anything in front of the name is not part of it.
+  const rest = heading ? body.join('\n') : grand.rest;
   const cust = found?.customerName
-    ? { customerName: named.slice(found.index).trim(), rest: body.join('\n') }
-    : extractCustomer(heading ? body.join('\n') : grand.rest);
+    ? { customerName: trimNameTail(named.slice(found.index).trim()), rest: body.join('\n') }
+    : opts.customerKnown
+      ? { customerName: null, rest }
+      : extractCustomer(rest);
   const headingIsCustomer = Boolean(found?.customerName);
 
   // Drop the label word "ลูกค้า" so it can't be parsed as an item.
   const cleaned = cust.rest.replace(/ลูกค้า/g, ' ');
   const lines = cleaned.split('\n').map((l) => l.trim()).filter(Boolean);
 
+  /* หัวเรื่องบอกว่าทำอะไร บรรทัดล่างบอกรายละเอียดของอันนั้น = ของชิ้นเดียว
+   *
+   * ร้านพิมพ์งานหนึ่งงานเป็นสามบรรทัด:
+   *   งานไวนิล งานสีดำน้องป่านสั่ง
+   *   ขนาด 0.6*1.6  1 ผืน
+   *   200 บาท
+   * ของเดิมนับบรรทัดล่างเป็นคนละรายการ ใบเสร็จจึงมีของสองอย่างที่ลูกค้าสั่งมา
+   * อย่างเดียว แถมคิดเงินได้ ฿201 แทนที่จะเป็น ฿200
+   *
+   * ตัวตัดสินคือ "บรรทัดล่างมีชื่อของเป็นของตัวเองไหม" — ใช้ classifyItem
+   * ตัวเดียวกับที่ใช้จัดหมวดงาน ถ้าทุกบรรทัดไม่มีชื่อของเลย แปลว่ามันเป็น
+   * รายละเอียดของสิ่งที่เขียนไว้บนหัวเรื่อง ไม่ใช่ของคนละชิ้น
+   * ("สติ๊กเกอร์ 50 ดวง" กับ "ตรายาง 1 อัน" ต่างมีชื่อของ จึงยังแยกกันเหมือนเดิม)
+   *
+   * ชื่อของอยู่บนหัวเรื่อง ต้องเอามาด้วย ไม่งั้นรายการจะไม่มีชื่อ
+   */
+  const headText = headingIsCustomer ? named.slice(0, found.index).trim() : heading || '';
+  const detailsOnly =
+    lines.length > 1 && Boolean(heading) && lines.every((line) => !classifyItem(line));
+
   let items;
-  if (lines.length > 1) {
+  if (detailsOnly) {
+    items = [parseSingleLine([headText, ...lines].filter(Boolean).join(' '))];
+  } else if (lines.length > 1) {
     // Multi-line list — reuse the tested line parser.
     items = parseJobText(cleaned).items;
   } else {
@@ -420,6 +681,11 @@ export function parseNaturalJob(rawText) {
     statedTotal: grand.total,
     // บอกว่าจ่ายแล้วโดยไม่บอกจำนวน = จ่ายเต็มยอด ซึ่งคือคำตอบของ "วันนี้ได้เงิน
     // เท่าไหร่" — แต่ถ้าบอกจำนวนมาด้วย เชื่อจำนวนนั้น (มัดจำคือจ่ายบางส่วน)
-    paidAmount: round2(paid.paidAmount || (paidInFull ? total : 0)),
+    // บอกช่องทางมาเฉย ๆ ("อัดรูป 150 เงินสด") = รับครบแล้วทางนั้น — ภาษาหน้าร้านจริง
+    // ยกเว้น "ลงบัญชี" ที่แปลว่ายังไม่ได้เงิน แค่ลงใบลงบัญชีไว้
+    paidAmount: round2(
+      paid.paidAmount || (paidInFull || (payMethod && payMethod !== 'account') ? total : 0)
+    ),
+    payMethod,
   };
 }

@@ -4,6 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>ม่วงจดให้ — จัดการงาน</title>
+<link rel="manifest" href="/app/manifest.webmanifest" />
+<link rel="apple-touch-icon" href="/brand/ui/app-192.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -18,20 +20,22 @@
 
        สองน้ำเงิน: --accent เป็นพื้นของปุ่ม (ตัวหนังสือขาวต้องอ่านออก)
        --accent-text เป็นน้ำเงินที่ใช้เป็น 'ตัวหนังสือ' บนพื้นขาว */
-    --accent: #1c4fd8; --accent-text: #17357e; --accent-dim: #1c4fd8;
-    --bg: #eef3fd; --surface: #ffffff; --tint: #f2f6ff; --line: #dce3f5;
-    --ink: #1b2540; --sub: #3d4c73; --grey: #8794b4; --white: #fff;
-    --pink: #db2777; --blue: #1c4fd8; --amber: #b45309;
-    --green: #15803d; --green-bg: #e7f7ee;
-    --orange: #b45309; --orange-bg: #fdf1dc;
-    --red: #dc2626; --red-bg: #fdeaea;
-    --shadow: rgba(23, 53, 126, .12);
-    --r: 18px;
+    --accent: #35486E; --accent-text: #2F5A8A; --accent-dim: #43578A;
+    --gold: #EE7B2F;
+    --bg: #EFF1F5; --surface: #ffffff; --tint: #E8ECF5; --line: #E2E6EE;
+    --ink: #1F2B45; --sub: #5E6E8C; --grey: #7E8CA3; --white: #fff;
+    --pink: #A0476B; --blue: #3E6FA8; --amber: #8A6114;
+    --green: #2E7D5B; --green-bg: #E4F0EA;
+    --orange: #8A6114; --orange-bg: #FBEFD8;
+    --red: #B3402F; --red-bg: #F8E4E1;
+    --shadow: rgba(31, 43, 69, .10);
+    --r: 0;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body {
     margin: 0; background: var(--bg); color: var(--ink);
-    font-family: 'Noto Sans Thai', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Thonburi', Thonburi,
+                 'Noto Sans Thai', 'Segoe UI', sans-serif;
     font-size: 15px; line-height: 1.5; padding-bottom: 104px;
   }
   /* หน้านี้ถูกออกแบบมาสำหรับจอมือถือ แต่เปิดบนคอมได้ด้วย และบนจอกว้าง ๆ
@@ -62,9 +66,9 @@
 
   /* Stat grid — the big total plus one tile per category */
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
-  .stat { background: var(--tint); border-radius: 14px; padding: 12px; }
+  .stat { background: var(--tint); border-radius: 0; padding: 12px; }
   .stat .top { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
-  .stat .ic { width: 28px; height: 28px; border-radius: 9px; background: var(--surface); display: grid; place-items: center; font-size: 15px; flex: none; }
+  .stat .ic { width: 28px; height: 28px; border-radius: 0; background: var(--surface); display: grid; place-items: center; font-size: 15px; flex: none; }
   .stat .lbl { font-size: 11.5px; color: var(--sub); font-weight: 500; }
   .stat .big { font-size: 21px; font-weight: 700; color: var(--accent-text); line-height: 1.25; }
   .stat .sm { font-size: 12px; color: var(--grey); }
@@ -85,7 +89,7 @@
   .tappable:active { transform: scale(.985); }
   .stat.tappable { transition: background .12s ease; }
   .stat.tappable:active { background: var(--accent-soft, #dce7fb); }
-  .legend .tappable { border-radius: 9px; margin: 0 -6px; padding-left: 6px; padding-right: 6px; }
+  .legend .tappable { border-radius: 0; margin: 0 -6px; padding-left: 6px; padding-right: 6px; }
   .legend .tappable:active { background: var(--tint); }
   .tappable:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -93,11 +97,11 @@
   .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
   .cat-grid button {
     display: flex; align-items: center; gap: 9px; text-align: left;
-    border: 1.5px solid var(--line); background: var(--tint); border-radius: 14px;
+    border: 1.5px solid var(--line); background: var(--tint); border-radius: 0;
     padding: 11px 10px; font: inherit; color: var(--ink); cursor: pointer;
   }
   .cat-grid button:active { background: var(--accent-soft, #dce7fb); transform: scale(.985); }
-  .cat-grid .ic { width: 30px; height: 30px; border-radius: 10px; background: var(--surface); display: grid; place-items: center; font-size: 16px; flex: none; }
+  .cat-grid .ic { width: 30px; height: 30px; border-radius: 0; background: var(--surface); display: grid; place-items: center; font-size: 16px; flex: none; }
   .cat-grid .nm { font-size: 13px; font-weight: 700; line-height: 1.25; min-width: 0; }
 
   /* หน้าตั้งค่า "ม่วงทักถามงาน" */
@@ -106,7 +110,7 @@
   .times { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
   .times .t {
     display: flex; align-items: center; gap: 6px; background: var(--tint);
-    border: 1px solid var(--line); border-radius: 999px; padding: 6px 8px 6px 12px; font-size: 14px; font-weight: 700;
+    border: 1px solid var(--line); border-radius: 0; padding: 6px 8px 6px 12px; font-size: 14px; font-weight: 700;
   }
   .times .t button { border: 0; background: none; color: var(--grey); font-size: 16px; line-height: 1; cursor: pointer; padding: 0 2px; }
   .time-add { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
@@ -115,7 +119,7 @@
   .days { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
   .days button {
     border: 1px solid var(--line); background: var(--surface); color: var(--sub);
-    border-radius: 10px; padding: 8px 0; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; flex: 1 1 40px;
+    border-radius: 0; padding: 8px 0; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; flex: 1 1 40px;
   }
   .days button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 
@@ -134,29 +138,116 @@
   .q-head:first-child { margin-top: 0; }
   .q-head .amt { font-weight: 600; color: var(--grey); }
   .q-day {
-    margin: 9px 0 0; padding: 3px 9px; border-radius: 999px; display: inline-block;
+    margin: 9px 0 0; padding: 3px 9px; border-radius: 0; display: inline-block;
     font-size: 11px; font-weight: 700; background: var(--tint); color: var(--sub);
   }
   .q-day.late { background: var(--red-bg); color: var(--red); }
+
+  /* ปุ่มเลือกว่าลูกค้าแบบไหน — ตัวตัดสินว่าหน้าแก้ไขจะถามอะไรบ้าง
+     สองปุ่มเต็มความกว้าง เพราะมันคือคำถามแรกของหน้านี้ ไม่ใช่ของเสริม */
+  .kinds { display: flex; gap: 8px; margin: 2px 0 14px; }
+  .kinds button {
+    flex: 1; display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
+    border: 1.5px solid var(--line); background: var(--tint); border-radius: 0;
+    padding: 11px 12px; font: inherit; text-align: left; cursor: pointer; color: var(--sub);
+  }
+  .kinds button b { font-size: 13.5px; font-weight: 700; }
+  .kinds button small { font-size: 10.5px; color: var(--grey); }
+  .kinds button[aria-pressed="true"] { border-color: var(--accent-text); background: var(--accent-dim); color: var(--white); }
+  .kinds button[aria-pressed="true"] small { color: rgba(255,255,255,.82); }
+
+  /* ติ๊กเดียวแทนการกรอกสถานะการเงิน + ช่องรับมาแล้ว */
+  .cash {
+    display: flex; gap: 11px; align-items: center; margin: 4px 0 14px;
+    padding: 12px 13px; border-radius: 0; border: 1.5px solid var(--line); background: var(--tint);
+    cursor: pointer;
+  }
+  .cash input { width: 21px; height: 21px; flex: none; accent-color: var(--green); margin: 0; }
+  .cash span { display: flex; flex-direction: column; gap: 1px; }
+  .cash b { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+  .cash small { font-size: 10.5px; color: var(--grey); }
+  .cash:has(input:checked) { border-color: var(--green); background: var(--green-bg, #e8f7ee); }
+
+  /* ของที่ม่วงเดาให้ถูกอยู่แล้ว พับไว้ ไม่ต้องเอามาขวางตา */
+  #e-more { margin: 4px 0 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+  #e-more summary {
+    cursor: pointer; font-size: 12.5px; font-weight: 700; color: var(--sub);
+    list-style: none; padding: 4px 0;
+  }
+  #e-more summary::-webkit-details-marker { display: none; }
+  #e-more summary::before { content: '▸ '; color: var(--grey); }
+  #e-more[open] summary::before { content: '▾ '; }
+
+  [data-kind][hidden] { display: none; }
+
+  /* หัวกองหมวดงาน — กดพับได้ เพราะยี่สิบงานเรียงยาวคือการเลื่อนหาทีละใบ
+     ร้านบอกว่า "อ่านแล้ว งง ปรับให้ใช้งานง่ายกว่านี้ได้มั้ย" — พับไว้แล้วเปิด
+     เฉพาะหมวดที่กำลังหา ทำให้ทั้งคิวอยู่ในหน้าจอเดียว */
+  .q-cat {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    margin: 8px 0 0; padding: 11px 12px; border: 0;
+    border-radius: 0; background: var(--tint); font: inherit; text-align: left; cursor: pointer;
+  }
+  .q-cat .dot { width: 28px; height: 28px; border-radius: 0; display: grid; place-items: center; font-size: 15px; flex: none; }
+  .q-cat .nm { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .q-cat .ct { font-size: 11.5px; font-weight: 600; color: var(--grey); flex: none; }
+  .q-cat .mny { font-size: 13px; font-weight: 700; color: var(--sub); flex: none; }
+  .q-cat .car { font-size: 10px; color: var(--grey); flex: none; transition: transform .15s; }
+  .q-cat[aria-expanded="true"] .car { transform: rotate(90deg); }
+  /* งานค้างจ่ายในหมวดนี้กี่ใบ — ตัวเลขที่ร้านตามเก็บเงิน ต้องเห็นตอนพับอยู่ */
+  .q-cat .owe { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 0; background: var(--red-bg); color: var(--red); flex: none; }
+  .q-body[hidden] { display: none; }
+
+  /* แผงสถานะใต้งาน — เลือกอิสระ ไม่ใช่ขั้นที่ติ๊กต่อกัน
+     แถว 1: แก้ไข · ทำเสร็จ · ลูกค้ารับแล้ว
+     แถว 2: ได้รับเงิน · ยังไม่ได้รับเงิน
+     แถว 3: (ได้รับเงิน) จ่ายสด · โอน   (ยังไม่ได้รับเงิน) ลงบัญชี */
+  .sp { display: flex; flex-direction: column; gap: 6px; margin: -2px 0 12px 46px; }
+  .sp[hidden] { display: none; }
+  /* แถวงานที่มีแผงสถานะ: แตะเพื่อกาง มีลูกศรบอก และหมุนตอนกางอยู่ */
+  .job.has-sp { cursor: pointer; }
+  .job.has-sp::after { content: '⌄'; color: var(--grey); font-size: 15px; line-height: 1; transition: transform .15s; }
+  .job.has-sp.sp-on::after { transform: rotate(180deg); }
+  /* ตัวเลือกรองพับไว้ — หัวพับโชว์ค่าที่เลือกอยู่ */
+  details.fil { margin-bottom: 10px; }
+  details.fil > summary { list-style: none; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--accent-text);
+    background: var(--tint, #e8ecf5); border-radius: 0; padding: 9px 12px; user-select: none; }
+  details.fil > summary::-webkit-details-marker { display: none; }
+  details.fil > summary::after { content: ' ⌄'; color: var(--grey); }
+  details.fil[open] > summary { margin-bottom: 9px; }
+  details.fil[open] > summary::after { content: ' ⌃'; }
+  .sp.saving { opacity: .55; pointer-events: none; }
+  .sp-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .sp-row.sub { padding-left: 2px; }
+  .sp-b {
+    flex: 1 1 0; min-width: 0; min-height: 38px; padding: 6px 8px; border-radius: 0;
+    font: inherit; font-size: 12.5px; line-height: 1.25; cursor: pointer;
+    background: var(--white); border: 1.5px solid var(--line); color: var(--sub);
+  }
+  .sp-b.edit { flex: 0 0 auto; color: var(--accent-text); border-color: var(--accent); }
+  .sp-b.on { background: var(--green); border-color: var(--green); color: var(--white); font-weight: 700; }
+  .sp-b.open { border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+  .sp-b.warn.on { background: var(--red); border-color: var(--red); }
+  @media (max-width: 360px) { .sp { margin-left: 0; } .sp-b { font-size: 12px; } }
   .q-day.today { background: var(--accent-soft, #dce7fb); color: var(--accent-text); }
   .job .late { color: var(--red); font-weight: 700; }
 
   .job { display: flex; gap: 11px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
   .job:last-child { border-bottom: 0; }
-  .job .ic { width: 38px; height: 38px; border-radius: 12px; background: var(--tint); display: grid; place-items: center; font-size: 18px; flex: none; }
+  .job .ic { width: 38px; height: 38px; border-radius: 0; background: var(--tint); display: grid; place-items: center; font-size: 18px; flex: none; }
   .job .txt { flex: 1; min-width: 0; }
   .job .txt b { display: block; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .job .txt small { color: var(--grey); font-size: 11.5px; }
   .job .amt { text-align: right; flex: none; }
   .job .amt b { display: block; font-size: 14px; }
-  .badge { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; display: inline-block; margin-top: 2px; }
+  .badge { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 0; display: inline-block; margin-top: 2px; }
 
   /* ชิปชื่อลูกค้า ระบายด้วยสีของหมวดงานนั้น
      ร้านบอกว่า "อยากได้ชื่อลูกค้าเป็นเหมือนสีเน้นคำว่าค้างรับ แต่เป็นสีของเฉพาะ
      หมวดงาน ไม่ซ้ำกัน" — ชื่อลูกค้าเคยเป็นตัวจาง ๆ ปนอยู่กับวันที่และเลขงาน
      ทั้งที่เป็นสิ่งที่ร้านกวาดตาหาก่อนเพื่อน */
   .who {
-    font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+    font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 0;
     display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
     white-space: nowrap; vertical-align: -1px;
   }
@@ -167,7 +258,7 @@
   /* Edit form. The delete button belongs in the header next to the title, not
      as a full-width red slab under Save where it is one mis-tap from it. */
   .card > h2 .icon-btn {
-    width: 36px; height: 36px; border: 0; border-radius: 11px; flex: none;
+    width: 36px; height: 36px; border: 0; border-radius: 0; flex: none;
     background: var(--red-bg); color: var(--red); font-size: 16px; line-height: 1;
   }
   .card > h2 .head-right { display: flex; align-items: center; gap: 10px; }
@@ -179,13 +270,13 @@
   label .req { color: var(--red); }
   input, select, textarea {
     width: 100%; font: inherit; font-size: 15px; padding: 11px 12px; border: 1.5px solid var(--line);
-    border-radius: 12px; background: var(--tint); color: var(--ink); appearance: none;
+    border-radius: 0; background: var(--tint); color: var(--ink); appearance: none;
   }
   select { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8'><path d='M1 1l5 5 5-5' stroke='%231c4fd8' stroke-width='2' fill='none' stroke-linecap='round'/></svg>"); background-repeat: no-repeat; background-position: right 14px center; }
   input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent-text); }
   /* ราคาที่ยังไม่ปัด — สีส้ม ไม่ใช่สีของหน้า เพื่อให้เห็นแต่ไกลว่าส่วนนี้ไม่ได้
      ออกไปถึงลูกค้า */
-  .mine { margin-top: 9px; background: #fff7ed; border-radius: 12px; padding: 10px 12px; }
+  .mine { margin-top: 9px; background: #fff7ed; border-radius: 0; padding: 10px 12px; }
   .mine .mine-tag { display: block; font-size: 11.5px; font-weight: 700; color: #b45309; }
   .mine .mine-lab { display: block; margin: 8px 0 4px; font-size: 12.5px; font-weight: 700; color: #b45309; }
   .mine input { background: #fff; border-color: #fed7aa; }
@@ -193,11 +284,19 @@
   .mine .mine-row .up { color: var(--green, #1a7f4b); }
   .mine .mine-row .down { color: var(--red); }
   .mine .mine-round { display: flex; gap: 6px; margin-top: 8px; }
-  .mine .mine-round button { flex: 1; border: 1.5px solid #fed7aa; background: #fff; border-radius: 10px; padding: 8px 4px; font: inherit; font-size: 12.5px; font-weight: 700; color: #b45309; }
-  .seg { display: flex; gap: 7px; }
-  .seg button { flex: 1; border: 1.5px solid var(--line); background: var(--tint); border-radius: 12px; padding: 13px 4px; font: inherit; font-size: 13.5px; font-weight: 600; color: var(--sub); }
+  .mine .mine-round button { flex: 1; border: 1.5px solid #fed7aa; background: #fff; border-radius: 0; padding: 8px 4px; font: inherit; font-size: 12.5px; font-weight: 700; color: #b45309; }
+  .seg { display: flex; gap: 7px; margin-bottom: 8px; }
+  .seg button { flex: 1; border: 1.5px solid var(--line); background: var(--tint); border-radius: 0; padding: 13px 4px; font: inherit; font-size: 13.5px; font-weight: 600; color: var(--sub); }
   .seg button[aria-pressed="true"] { border-color: var(--accent-text); background: var(--accent-dim); color: var(--white); font-weight: 700; }
-  .btn { width: 100%; border: 0; border-radius: 13px; padding: 13px; font: inherit; font-size: 15px; font-weight: 700; margin-top: 15px; }
+  /* แถวที่สอง "จะแบ่งกองด้วยอะไร" เป็นของรอง ไม่ใช่ตัวกรองหลัก จึงเตี้ยและจางกว่า */
+  .seg.wrap { flex-wrap: wrap; }
+  .seg.wrap button { flex: 1 1 30%; }
+  .money-sum { margin: -3px 2px 11px; font-size: 12px; color: var(--sub); line-height: 1.5; }
+  .money-sum b { color: var(--accent-text); }
+  .seg.sub { margin-bottom: 11px; }
+  .seg.sub button { padding: 8px 4px; font-size: 12.5px; border-radius: 0; }
+  .seg.sub button[aria-pressed="true"] { background: var(--accent-soft, #dce7fb); border-color: transparent; color: var(--accent-text); }
+  .btn { width: 100%; border: 0; border-radius: 0; padding: 13px; font: inherit; font-size: 15px; font-weight: 700; margin-top: 15px; }
   .btn-primary { background: var(--accent); color: #fff; }
   .btn-danger { background: var(--red-bg); color: var(--red); }
   .btn-ghost { background: transparent; color: var(--sub); font-weight: 500; }
@@ -223,12 +322,81 @@
 
   .toast {
     position: fixed; left: 50%; bottom: 96px; transform: translate(-50%, 16px); opacity: 0;
-    background: var(--tint); color: var(--ink); border: 1px solid var(--line); padding: 11px 18px; border-radius: 999px; font-size: 13.5px;
+    background: var(--tint); color: var(--ink); border: 1px solid var(--line); padding: 11px 18px; border-radius: 0; font-size: 13.5px;
     transition: .25s; pointer-events: none; max-width: 90vw; z-index: 9;
   }
   .toast.on { opacity: 1; transform: translate(-50%, 0); }
   .toast.err { background: var(--red); }
+  #fatal-msg { white-space: pre-line; }
+  .retry {
+    display: block; margin: 0 auto; min-height: 44px; padding: 0 22px;
+    border: 0; border-radius: 0; background: var(--accent); color: var(--white);
+    font: inherit; font-size: 14px; font-weight: 600;
+  }
   [hidden] { display: none !important; }
+
+  /* บนจอคอม แถบปุ่มย้ายไปอยู่ข้างซ้ายเหมือนแอปบนเครื่อง
+     ร้านขอ "เอาเครื่องมือกดอยู่ไว้แบบระบบ mac"
+     บนมือถือยังเป็นแถบล่างเหมือนเดิม เพราะนิ้วโป้งอยู่ตรงนั้น */
+  @media (min-width: 900px) {
+    body { padding-bottom: 24px; padding-left: 236px; }
+    header, main { margin-inline: 0 auto; }
+
+    nav {
+      top: 0; bottom: 0; right: auto; width: 236px;
+      flex-direction: column; align-items: stretch; gap: 2px;
+      border-top: 0; border-right: 1px solid var(--line);
+      padding: 18px 12px; box-shadow: 2px 0 14px var(--shadow);
+    }
+    nav button {
+      flex: 0 0 auto; display: flex; align-items: center; gap: 11px;
+      font-size: 13.5px; padding: 10px 12px; border-radius: 0; text-align: left;
+    }
+    nav button span { font-size: 18px; line-height: 1; }
+    nav button[aria-selected="true"] { background: var(--tint); }
+
+    .toast { left: calc(50% + 118px); }
+  }
+
+  /* ---- หน้าแรก "งาน & เงิน" — ตามแบบร่างรื้อระบบที่ร้านอนุมัติ ----
+     เปิดมาเห็นสองตัวเลขที่ร้านถามทุกวัน (เงินเข้าวันนี้ / รอเก็บ) แล้วก็ลิสต์งาน
+     ที่แตะได้ทั้งแถว — ของละเอียด (แบ่งกอง/แยกตามเงิน/สัดส่วน) ยังอยู่ครบ
+     ในหน้า "คิวงานละเอียด" เข้าจากปุ่มเล็กท้ายหน้า */
+  .hstat { display: flex; gap: 9px; margin-bottom: 13px; }
+  .hstat .box { flex: 1; background: var(--surface); border: 1px solid var(--line); border-radius: 0; padding: 11px 13px; box-shadow: 0 2px 14px var(--shadow); }
+  .hstat .box span { display: block; font-size: 11.5px; color: var(--sub); }
+  .hstat .box b { font-size: 20px; font-variant-numeric: tabular-nums; line-height: 1.35; }
+  .hstat .got b { color: var(--green); }
+  .hstat .owe b { color: var(--gold); }
+  #h-q { width: 100%; border: 1.5px solid var(--line); border-radius: 0; background: var(--surface); padding: 10px 12px; font: inherit; font-size: 14px; color: var(--ink); margin: 10px 0 4px; }
+  #h-q:focus { outline: none; border-color: var(--accent-dim); }
+  .hj { display: flex; align-items: center; gap: 10px; padding: 11px 2px; border-bottom: 1px solid var(--line); }
+  .hj:last-child { border-bottom: 0; }
+  .hj .who { flex: 1; min-width: 0; }
+  .hj .who b { display: block; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hj .who span { font-size: 12px; color: var(--grey); }
+  .hj .money { text-align: right; flex: none; }
+  .hj .money b { display: block; font-size: 15.5px; font-variant-numeric: tabular-nums; color: var(--accent-text); }
+  .hj .money .st { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 0; }
+  .st.owe { color: var(--red); background: var(--red-bg); }
+  .st.book { color: var(--accent-text); background: var(--tint); }
+  .st.paid { color: var(--green); background: var(--green-bg); }
+  .hlinks { text-align: center; font-size: 12.5px; margin: 2px 0 10px; line-height: 2.3; }
+  .hlinks button, .hlinks a { border: 1px solid var(--line); background: var(--surface); color: var(--sub); font: inherit; font-size: 12.5px; border-radius: 0; padding: 5px 11px; cursor: pointer; text-decoration: none; margin: 0 2px; display: inline-block; }
+
+  /* แผ่นปุ่มใหญ่ของงานหนึ่งใบ — สี่ปุ่มจบ ตามแบบร่าง */
+  .hsheet-bg { position: fixed; inset: 0; background: rgba(21, 29, 48, .45); z-index: 60; }
+  .hsheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 61; background: var(--surface); border-radius: 0; padding: 10px 16px calc(14px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -8px 30px rgba(31, 43, 69, .18); }
+  .hsheet .in { max-width: 560px; margin: 0 auto; }
+  .hsheet .grab { width: 40px; height: 5px; border-radius: 0; background: var(--line); margin: 0 auto 10px; }
+  .hsheet h3 { margin: 0 0 2px; font-size: 16.5px; }
+  .hsheet .sub { font-size: 13px; color: var(--sub); margin-bottom: 12px; }
+  .hsheet .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .hsheet .acts .wide { grid-column: 1 / -1; }
+  .hs-b { border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-weight: 700; font-size: 14.5px; border-radius: 0; padding: 13px 8px; cursor: pointer; }
+  .hs-b.pay { background: var(--gold); border-color: var(--gold); color: #fff; }
+  .hs-b.ghost { color: var(--grey); }
+  .hs-b:disabled { opacity: .55; }
 </style>
 </head>
 <body>
@@ -238,6 +406,35 @@
 </header>
 
 <main>
+  <!-- 0. งาน & เงิน — หน้าแรกแบบง่าย ตามแบบร่างรื้อระบบที่ร้านอนุมัติ
+       ("ฉันก็ยังงงกับระบบ ช่วยทำระบบใหม่ให้เลย") เปิดมาเห็นเงินเข้าวันนี้กับ
+       ยอดรอเก็บ แล้วก็ลิสต์งานแตะได้ทั้งแถว แตะแล้วเป็นแผ่นปุ่มใหญ่
+       เก็บสด/โอน/ใบเสร็จ/แก้ไข — หน้าเดิมทุกหน้ายังอยู่ เข้าจากปุ่มเล็กท้ายลิสต์ -->
+  <section id="v-home" hidden>
+    <div class="hstat">
+      <div class="box got"><span>เงินเข้าวันนี้</span><b id="h-got">—</b></div>
+      <div class="box owe"><span>รอเก็บทั้งหมด</span><b id="h-owe">—</b></div>
+    </div>
+    <div class="card mascot-foot">
+      <div class="seg" id="h-seg">
+        <button type="button" data-v="owed" aria-pressed="true">รอเก็บ</button>
+        <button type="button" data-v="paid" aria-pressed="false">ได้เงินแล้ว</button>
+        <button type="button" data-v="all" aria-pressed="false">ทั้งหมด</button>
+      </div>
+      <input type="search" id="h-q" placeholder="🔍 ค้นชื่อลูกค้า ชื่องาน หรือเลขงาน" autocomplete="off" />
+      <div id="h-list"></div>
+      <img class="peek front" src="/brand/ui/rest.png" alt="" style="right:10px;bottom:-14px;width:84px" />
+    </div>
+    <p class="hlinks">
+      <button type="button" data-go="today">🗂 คิวงานละเอียด</button>
+      <button type="button" data-go="pending">📋 งานค้างรับ</button>
+      <button type="button" data-go="report">📊 สรุปรายการ</button>
+      <a href="/app/ledger/">🧾 บัญชีรายวัน</a>
+      <a href="/app/orders/">💬 แชตและออเดอร์</a>
+      <button type="button" data-go="settings">⚙️ ตั้งค่า</button>
+    </p>
+  </section>
+
   <!-- 1. งานวันนี้ -->
   <section id="v-today" hidden>
     <div class="card">
@@ -245,23 +442,45 @@
       <h2>สรุปงานวันนี้ <span class="date" id="t-date"></span></h2>
       <div class="grid" id="t-tiles"></div>
     </div>
-    <div class="card" id="t-share-card">
-      <h2>สัดส่วนงานวันนี้</h2>
-      <div class="donut"><div id="t-donut"></div><div class="legend" id="t-legend"></div></div>
-    </div>
     <div class="card mascot-foot">
-      <h2>คิวงาน <span class="link" data-go="pending">ดูค้างรับ ›</span></h2>
-      <div class="sub-line" id="t-queue-sum"></div>
+      <h2>คิวงาน</h2>
       <!-- ร้านขอ "แบ่งช่องว่าอันไหนรับแล้ว อันไหนยังไม่ได้รับ เพื่อจะได้ส่ง
            ใบเสร็จออกให้ลูกค้าหรือคนลงบัญชีร้าน" — สองกองมีอยู่แล้ว แต่กอง
-           "รับแล้ว" อยู่ใต้งานค้างรับสิบงาน กว่าจะเลื่อนถึงก็ลืมแล้วว่าหาอะไร -->
-      <div class="seg" id="t-queue-filter" style="margin-bottom:11px">
+           "รับแล้ว" อยู่ใต้งานค้างรับสิบงาน กว่าจะเลื่อนถึงก็ลืมแล้วว่าหาอะไร
+
+           บรรทัดสรุปใต้หัวข้อ ("ค้างรับ 7 งาน · รับแล้ว 13 งาน") กับลิงก์
+           "ดูค้างรับ ›" ถูกเอาออก เพราะปุ่มสามปุ่มข้างล่างบอกเรื่องเดียวกัน
+           พร้อมตัวเลขอยู่แล้ว — ร้านบอกว่า "อ่านแล้ว งง" -->
+      <div class="seg" id="t-queue-filter">
         <button type="button" data-v="all" aria-pressed="true">ทั้งหมด</button>
         <button type="button" data-v="owed" aria-pressed="false">ค้างรับ</button>
         <button type="button" data-v="paid" aria-pressed="false">รับแล้ว</button>
       </div>
+      <!-- ร้านขอ "แยกช่องหมวดงานให้หน่อย" — คิวเรียงตามวันนัดรับอย่างเดียว
+           ตรายาง กรอบรูป ป้าย สติ๊กเกอร์ จึงปนกันทั้งกอง เลือกได้ว่าจะแบ่ง
+           กองด้วยอะไร ไม่ใช่ซ้อนสองแบบเข้าด้วยกันจนอ่านไม่ออก -->
+      <!-- ร้านบอก "มันดูกรอกเยอะไป" — ตัวเลือกรอง (แบ่งกอง/แยกตามเงิน) พับไว้
+           เปิดเฉพาะตอนจะใช้ ค่าที่เลือกไว้โชว์บนหัวพับ ไม่ต้องกางก็รู้ว่ากรองอะไรอยู่ -->
+      <details class="fil" id="t-filter-more">
+        <summary id="t-filter-note">⚙️ แบ่งกอง · แยกตามเงิน</summary>
+      <div class="seg sub" id="t-queue-group">
+        <button type="button" data-g="day" aria-pressed="true">📅 วันนัด</button>
+        <button type="button" data-g="cat" aria-pressed="false">🗂️ หมวดงาน</button>
+        <button type="button" data-g="kind" aria-pressed="false">🏫 ลูกค้า</button>
+      </div>
+      <!-- ร้านขอ "แยกเงินสดกับลงบัญชีไว้เช็คงานอีกที" — กรองตามวิธีรับเงิน: เงินสด · โอน ·
+           ลงบัญชี (ค้างจ่าย) · ยังไม่ได้รับ · รับแล้วแต่ยังไม่บอกช่องทาง กดเลือกแล้วแก้สถานะ
+           ใต้งานแต่ละใบได้เลย งานจะย้ายออกจากกองนี้ไปอยู่กองที่ถูกต้อง -->
+      <div class="seg sub wrap" id="t-queue-money" hidden aria-label="แยกตามเงิน"></div>
+      </details>
+      <p class="money-sum" id="t-money-sum" hidden></p>
       <div id="t-recent"></div>
       <img class="peek front" src="/brand/ui/rest.png" alt="" style="right:10px;bottom:-14px;width:88px" />
+    </div>
+    <!-- สัดส่วนเป็นของไว้ดู ไม่ใช่ของไว้ทำ — คิวงานที่ต้องกดจึงมาก่อน -->
+    <div class="card" id="t-share-card">
+      <h2>สัดส่วนงานวันนี้</h2>
+      <div class="donut"><div id="t-donut"></div><div class="legend" id="t-legend"></div></div>
     </div>
   </section>
 
@@ -312,8 +531,19 @@
       <div class="job"><div class="ic">💜</div><div class="txt"><b>ม่วงจดให้</b><small id="s-ver">ผู้ช่วยบันทึกงานใน LINE</small></div></div>
       <button class="btn btn-ghost" id="s-close">ปิดหน้าต่าง</button>
     </div>
+    <!-- ร้านขอ "แก้ไขหมวดงานเองได้ เพราะมันจะมีเพิ่มเติม" -->
+    <div class="card">
+      <h2>หมวดงาน <span class="date">เพิ่ม · แก้ไขได้เอง</span></h2>
+      <p style="font-size:13px;color:var(--sub);margin:0 0 12px">
+        เปลี่ยนชื่อ ไอคอน สี ซ่อนหมวดที่ไม่ใช้ หรือเพิ่มหมวดใหม่ เช่น แก้วสกรีน เสื้อ ฯลฯ
+        ใส่คำค้นไว้แล้วม่วงจะจัดงานเข้าหมวดให้เองค่ะ
+      </p>
+      <button class="btn btn-primary" id="s-cats">✏️ เพิ่ม / แก้ไขหมวดงาน</button>
+    </div>
     <div class="card">
       <h2>ข้อมูลร้าน <span class="date">ขึ้นหัวใบเสร็จ</span></h2>
+      <details class="fil" id="sh-fold">
+      <summary>✏️ แก้ไขข้อมูลร้าน — ชื่อ · เบอร์ · ที่อยู่ · ท้ายใบเสร็จ</summary>
       <label for="sh-name">ชื่อร้าน</label>
       <input id="sh-name" maxlength="200" placeholder="เช่น ร้านม่วงป้ายโฆษณา" />
       <label for="sh-phone">เบอร์โทร</label>
@@ -328,6 +558,7 @@
       <p style="font-size:12.5px;color:var(--grey);margin:10px 0 0">
         เว้นว่างได้ทุกช่อง ช่องที่ว่างจะไม่ขึ้นในใบเสร็จค่ะ
       </p>
+      </details>
     </div>
     <!-- ม่วงแวะมาถามว่ามีงานให้จดไหม ตามเวลาที่ร้านตั้งเอง
          ปิดไว้ก่อนเสมอ: การส่งข้อความหาคนที่ไม่ได้ขอ ผิดครั้งเดียวก็กลายเป็น
@@ -397,63 +628,118 @@
           <button type="button" class="icon-btn" id="e-delete" aria-label="ยกเลิกรายการนี้">🗑</button>
         </span>
       </h2>
+      <!-- ลูกค้าสองแบบ ที่ร้านทำงานกับมันคนละอย่างกันจริง ๆ
+           ร้านบอกว่า "แยกงานโรงเรียนกับงานทั่วไปให้หน่อย ฟีลแบบ เก็บเงินสด
+           หน้าร้านแล้ว แล้วก็ลงบัญชี" — ปุ่มนี้เป็นตัวตัดสินว่าหน้านี้จะถาม
+           อะไรบ้าง เพราะงานสองแบบต้องการคนละเรื่องกัน -->
+      <div class="kinds" id="e-kind">
+        <button type="button" data-k="org"><b>🏫 หน่วยงาน</b><small>วางบิล · ออกใบเสร็จ</small></button>
+        <button type="button" data-k="walkin"><b>🏪 หน้าร้าน</b><small>เก็บเงินสดแล้ว</small></button>
+      </div>
+
       <label for="e-name">รายละเอียด <span class="req">*</span></label>
       <input id="e-name" maxlength="200" />
-      <label for="e-customer">ลูกค้า</label>
+      <label for="e-customer" id="e-customer-lab">ลูกค้า</label>
       <input id="e-customer" maxlength="200" placeholder="เช่น พี่นก" />
-      <label for="e-group">ประเภทงาน</label>
-      <select id="e-group"></select>
-      <label for="e-type">หมวด</label>
-      <select id="e-type"></select>
-      <label>สถานะการเงิน</label>
-      <div class="seg" id="e-status">
-        <button type="button" data-v="pending">ค้างรับ</button>
-        <button type="button" data-v="partial">รับบางส่วน</button>
-        <button type="button" data-v="paid">รับแล้ว</button>
+      <label for="e-total">ราคาที่เก็บลูกค้า <span class="req">*</span></label>
+      <div class="with-unit"><input id="e-total" type="number" inputmode="decimal" min="0" step="1" /><span class="unit">฿</span></div>
+
+      <!-- หน้าร้าน: เงินเข้ากระเป๋าไปแล้ว เหลือแค่ติ๊กว่าเก็บแล้ว
+           ติ๊กเดียวแทนการกรอกสถานะการเงิน + ช่องรับมาแล้ว -->
+      <label class="cash" id="e-cash-row">
+        <input type="checkbox" id="e-cash" />
+        <span><b>💵 เก็บเงินสดแล้ว</b><small>ลงบัญชีเป็นขายวันนี้ ไม่ต้องตามเก็บ</small></span>
+      </label>
+
+      <!-- หน่วยงาน: ของออกไปก่อน เงินตามทีหลัง จึงต้องรู้ว่าค้างเท่าไหร่
+           และนัดรับวันไหน -->
+      <div data-kind="org">
+        <label>สถานะการเงิน</label>
+        <div class="seg" id="e-status">
+          <button type="button" data-v="pending">ค้างรับ</button>
+          <button type="button" data-v="partial">รับบางส่วน</button>
+          <button type="button" data-v="paid">รับแล้ว</button>
+        </div>
+        <label for="e-paid">รับมาแล้ว</label>
+        <div class="with-unit"><input id="e-paid" type="number" inputmode="decimal" min="0" step="1" /><span class="unit">฿</span></div>
+        <label for="e-due">วันรับงาน (นัดรับ / ส่งก่อน)</label>
+        <input id="e-due" type="date" />
+        <!-- สองร้านของเจ้าของ — "ห้ามนำงานมาปนกัน" งานเก่าที่จดก่อนมีสองร้าน
+             ขึ้นเป็น "ยังไม่ระบุร้าน" แล้วเลือกเข้าร้านจากตรงนี้ได้เลย -->
+        <label for="e-branch">ร้าน</label>
+        <select id="e-branch"><option value="">ยังไม่ระบุร้าน</option></select>
       </div>
+
       <!-- งานที่พิมพ์มาหลายรายการ แก้ได้แค่ยอดรวมก้อนเดียวในหน้านี้ — บรรทัด
            ย่อยอยู่ในฟอร์มจดงาน ซึ่งแก้ทีละรายการได้ -->
       <a class="btn btn-soft" id="e-items" hidden></a>
       <!-- ที่ที่ร้านยืนอยู่ตอนงานเสร็จคือหน้านี้ แต่ใบเสร็จเคยออกได้จากแชต
            อย่างเดียว -->
       <button type="button" class="btn btn-soft" id="e-receipt">🧾 ออกใบเสร็จ / ปริ้น</button>
-      <label for="e-total">ราคาที่เก็บลูกค้า <span class="req">*</span></label>
-      <div class="with-unit"><input id="e-total" type="number" inputmode="decimal" min="0" step="1" /><span class="unit">฿</span></div>
-      <!-- ราคาที่คิดได้จากรายการ กับราคาที่ร้านเก็บจริง เป็นคนละตัว ร้านปัดขึ้น
-           เป็นเลขกลม ๆ ได้ ลูกค้าเห็นแค่ตัวที่เก็บ ส่วนตัวที่คิดได้ยังอยู่ครบ -->
-      <div class="mine" id="e-mine" hidden>
-        <span class="mine-tag">🔒 เฉพาะร้าน · ลูกค้าไม่เห็นบรรทัดนี้</span>
-        <label class="mine-lab" for="e-listed">ราคายังไม่ปัด</label>
-        <div class="with-unit"><input id="e-listed" type="number" inputmode="decimal" min="0" step="1" /><span class="unit">฿</span></div>
-        <div class="mine-row"><span id="e-rows"></span><b id="e-gap"></b></div>
-        <div class="mine-round">
-          <button type="button" data-round="10">ปัดขึ้นสิบ</button>
-          <button type="button" data-round="100">ปัดขึ้นร้อย</button>
-          <button type="button" data-round="0">ไม่ปัด</button>
+
+      <!-- ที่เหลือพับไว้ — ม่วงเดาให้หมดแล้วตอนจด ร้านบอกว่า "ไม่ต้องกรอกเยอะ
+           บางทีไม่มีเวลากรอกเอง" ของที่ถูกอยู่แล้วไม่ต้องเอามาขวางตา -->
+      <details id="e-more">
+        <summary>ตัวเลือกเพิ่มเติม</summary>
+        <label for="e-group">ประเภทงาน</label>
+        <select id="e-group"></select>
+        <label for="e-type">หมวด</label>
+        <select id="e-type"></select>
+        <label for="e-date">วันที่จด</label>
+        <input id="e-date" type="date" />
+        <!-- ราคาที่คิดได้จากรายการ กับราคาที่ร้านเก็บจริง เป็นคนละตัว ร้านปัดขึ้น
+             เป็นเลขกลม ๆ ได้ ลูกค้าเห็นแค่ตัวที่เก็บ ส่วนตัวที่คิดได้ยังอยู่ครบ -->
+        <div class="mine" id="e-mine" hidden>
+          <span class="mine-tag">🔒 เฉพาะร้าน · ลูกค้าไม่เห็นบรรทัดนี้</span>
+          <label class="mine-lab" for="e-listed">ราคายังไม่ปัด</label>
+          <div class="with-unit"><input id="e-listed" type="number" inputmode="decimal" min="0" step="1" /><span class="unit">฿</span></div>
+          <div class="mine-row"><span id="e-rows"></span><b id="e-gap"></b></div>
+          <div class="mine-round">
+            <button type="button" data-round="10">ปัดขึ้นสิบ</button>
+            <button type="button" data-round="100">ปัดขึ้นร้อย</button>
+            <button type="button" data-round="0">ไม่ปัด</button>
+          </div>
         </div>
-      </div>
-      <label for="e-paid">รับมาแล้ว</label>
-      <div class="with-unit"><input id="e-paid" type="number" inputmode="decimal" min="0" step="1" /><span class="unit">฿</span></div>
-      <label for="e-date">วันที่จด</label>
-      <input id="e-date" type="date" />
-      <label for="e-due">วันรับงาน (นัดรับ / ส่งก่อน)</label>
-      <input id="e-due" type="date" />
-      <label for="e-note">หมายเหตุ (ถ้ามี)</label>
-      <textarea id="e-note" rows="2" maxlength="500" placeholder="เช่น ส่งของวันจันทร์"></textarea>
+        <label for="e-note">หมายเหตุ (ถ้ามี)</label>
+        <textarea id="e-note" rows="2" maxlength="500" placeholder="เช่น ส่งของวันจันทร์"></textarea>
+      </details>
+
       <button class="btn btn-primary" id="e-save">บันทึก</button>
       <button class="btn btn-ghost" id="e-back">← กลับ</button>
     </div>
   </section>
 
-  <div id="fatal" class="card" hidden><div class="empty" id="fatal-msg"></div></div>
+  <div id="fatal" class="card" hidden>
+    <div class="empty" id="fatal-msg"></div>
+    <button type="button" id="fatal-retry" class="retry">ลองอีกครั้ง</button>
+  </div>
 </main>
 
+<!-- สามแท็บเดียวกับแถบแอปของหน้าจด/สมุด/บัญชี: จด · งาน&เงิน · ลูกค้า
+     หน้าเดิม (คิวละเอียด/ค้างรับ/สรุป/ตั้งค่า) ย้ายเป็นปุ่มเล็กท้ายหน้าแรก
+     และยังเปิดตรงด้วย ?tab= จากริชเมนูได้เหมือนเดิม -->
 <nav id="nav" hidden>
-  <button data-tab="today" aria-selected="true"><span>🏠</span>งานวันนี้</button>
-  <button data-tab="report" aria-selected="false"><span>📊</span>สรุปรายการ</button>
-  <button data-tab="pending" aria-selected="false"><span>📋</span>งานค้างรับ</button>
-  <button data-tab="settings" aria-selected="false"><span>⚙️</span>ตั้งค่า</button>
+  <button data-page="/app/jot/"><span>✏️</span>จด</button>
+  <button data-tab="home" aria-selected="true"><span>📋</span>งาน &amp; เงิน</button>
+  <button data-page="/app/book/"><span>👤</span>ลูกค้า</button>
 </nav>
+
+<!-- แผ่นปุ่มใหญ่ของงานหนึ่งใบ (เปิดจากแถวในหน้า งาน & เงิน) -->
+<div class="hsheet-bg" id="hsheet-bg" hidden></div>
+<div class="hsheet" id="hsheet" hidden>
+  <div class="in">
+    <div class="grab"></div>
+    <h3 id="hs-title"></h3>
+    <div class="sub" id="hs-sub"></div>
+    <div class="acts">
+      <button type="button" class="hs-b pay" id="hs-cash">💵 เก็บเงินสดแล้ว</button>
+      <button type="button" class="hs-b pay" id="hs-tf">🏦 รับโอนแล้ว</button>
+      <button type="button" class="hs-b" id="hs-receipt">🖨 ใบเสร็จ</button>
+      <button type="button" class="hs-b" id="hs-edit">✏️ แก้ไขงาน</button>
+      <button type="button" class="hs-b ghost wide" id="hs-close">ปิด</button>
+    </div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -463,11 +749,27 @@ const $ = (id) => document.getElementById(id);
 const baht = (n) => '฿' + (Number(n) || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
 const thb = (n) => (Number(n) || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 }) + ' บาท';
 const BADGE = { paid: ['b-paid', 'รับเงินแล้ว'], partial: ['b-partial', 'รับบางส่วน'], pending: ['b-pending', 'ค้างรับ'] };
+
+/* สามสถานะที่ร้านใช้จริง — ต้องตรงกับ src/utils/jobState.js
+ *
+ * "ของออกจากร้านไปหรือยัง" กับ "ได้เงินหรือยัง" เป็นคนละเรื่อง งานที่ทำเสร็จ
+ * วางรออยู่หน้าร้าน กับงานที่ลูกค้าหอบไปแล้วแต่ยังไม่จ่าย ต้องตามคนละแบบ
+ */
+/* สถานะแบบเลือกอิสระ — ต้องตรงกับ jobStatus() ใน src/utils/jobState.js */
+function jobStatusOf(job) {
+  const total = Number(job.total) || 0;
+  const paid = total > 0 && (Number(job.balance_due) || 0) <= 0.009;
+  let money;
+  if (paid) money = job.pay_method === 'cash' || job.pay_method === 'transfer' ? job.pay_method : 'paid';
+  else if (job.booked_at) money = 'account';
+  else money = (Number(job.paid_amount) || 0) > 0 ? 'partial' : 'unpaid';
+  return { done: Boolean(job.done_at || job.picked_up_at), picked: Boolean(job.picked_up_at), money };
+}
 // สีวงโดนัท — ชุดเดิมเป็นพาสเทลสำหรับพื้นเข้ม พอมาอยู่บนขาวแล้วจาง
 // แยกสีกันไม่ออก ชุดนี้เข้มพอที่จะอ่านบนขาวและยังต่างกันชัด
 const COLORS = { sign: '#db2777', print: '#7c3aed', design: '#1c4fd8', food: '#d97706', shipping: '#0d9488', other: '#64748b' };
 
-let token = null, groups = [], current = null, tab = 'today', period = 'daily', me = null, categoryId = '';
+let token = null, groups = [], current = null, tab = 'home', period = 'daily', me = null, categoryId = '';
 
 function toast(msg, isErr) {
   const t = $('toast');
@@ -477,21 +779,44 @@ function toast(msg, isErr) {
   toast._t = setTimeout(() => (t.className = 'toast'), 2600);
 }
 
-function fatal(msg) {
+/* เปิดมาแล้วหน้าขาว เป็นความล้มเหลวที่แย่ที่สุด — ร้านไม่รู้ว่าเน็ตไม่ดี
+ * เซิร์ฟเวอร์ล่ม หรือแอปพัง และไม่รู้ว่าต้องทำอะไรต่อ
+ *
+ * ของเดิมความผิดพลาดตอนโหลดแท็บถูกโยนให้ toast ซึ่งจางหายไปในสามวินาที
+ * เหลือหน้าว่าง ๆ ให้เดาเอง ตอนนี้บอกค้างไว้พร้อมปุ่มลองใหม่
+ */
+function fatal(msg, { retry = null } = {}) {
   document.querySelectorAll('main > section').forEach((s) => (s.hidden = true));
-  $('nav').hidden = true;
+  $('nav').hidden = Boolean(retry) ? false : true;
   $('fatal').hidden = false;
   $('fatal-msg').textContent = msg;
+  $('fatal-retry').hidden = !retry;
+  $('fatal-retry').onclick = retry;
+}
+
+function clearFatal() {
+  $('fatal').hidden = true;
 }
 
 async function api(path, opts = {}) {
-  const res = await fetch('/api' + path, {
-    ...opts,
-    headers: { Authorization: 'Bearer ' + token, ...(opts.body ? { 'Content-Type': 'application/json' } : {}) },
-  });
+  /* ต่อเซิร์ฟเวอร์ไม่ติดเลย ต่างจากเซิร์ฟเวอร์ตอบว่าผิดพลาด
+   *
+   * เครื่องที่โฮสต์อยู่หลับเมื่อไม่มีคนใช้ ครั้งแรกของวันจึงต้องรอให้มันตื่น
+   * ซึ่งนานพอที่ fetch จะยอมแพ้ก่อน — ถ้าไม่บอก ร้านจะเห็นแค่หน้าว่าง ๆ
+   * แล้วไม่รู้ว่าควรกดใหม่หรือแอปเสีย
+   */
+  let res;
+  try {
+    res = await fetch('/api' + path, {
+      ...opts,
+      headers: { Authorization: 'Bearer ' + token, ...(opts.body ? { 'Content-Type': 'application/json' } : {}) },
+    });
+  } catch {
+    throw new Error('ต่อเซิร์ฟเวอร์ไม่ได้ค่ะ — เน็ตอาจหลุด หรือเครื่องยังตื่นไม่ทัน รอสักครู่แล้วกดลองอีกครั้ง');
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.message || body.error || 'เกิดข้อผิดพลาด');
+    throw new Error(body.message || body.error || 'เซิร์ฟเวอร์ตอบว่าผิดพลาด (' + res.status + ')');
   }
   return res.json();
 }
@@ -633,6 +958,10 @@ function jobRow(job, opts = {}) {
     const ic = el.querySelector('.ic');
     ic.className = 'ic qn' + (opts.done ? ' done' : '');
     ic.textContent = String(opts.n);
+    /* ป้ายสถานะการจ่ายออกจากแถวในคิว เพราะปุ่มสามปุ่มใต้แถวบอกเรื่องเดียวกัน
+       อยู่แล้ว — สองป้ายที่พูดคนละคำบนแถวเดียว ("ค้างรับ" กับ "ยังไม่มารับ")
+       ทำให้ต้องหยุดอ่านว่าอันไหนคืออันจริง */
+    el.querySelector('.badge').remove();
   } else {
     el.querySelector('.ic').textContent = iconOf(job);
   }
@@ -652,10 +981,17 @@ function jobRow(job, opts = {}) {
     small.appendChild(document.createTextNode((chip ? ' · ' : '') + rest.join(' · ')));
   }
 
-  if (opts.queue && job.due_date && opts.today && job.due_date < opts.today && !opts.done) {
+  /* "เลยกำหนดแล้ว" ขึ้นเฉพาะตอนที่หัวกองไม่ได้บอกวันไว้แล้ว
+   *
+   * ตอนแบ่งกองตามวันนัด ชิปสีแดงข้างบนเขียนว่า "เลยกำหนด · 13 ก.ย." อยู่แล้ว
+   * คำว่า "เลยกำหนดแล้ว" ในแถวจึงเป็นเรื่องเดิมที่พูดซ้ำรอบที่สอง ร้านบอกว่า
+   * "อ่านแล้ว งง" — แต่ตอนแบ่งกองตามหมวดงาน ไม่มีชิปวัน บรรทัดนี้คือที่เดียว
+   * ที่บอกว่างานใบนี้เลยกำหนด
+   */
+  if (opts.lateNote && job.due_date && opts.today && job.due_date < opts.today && !opts.done) {
     const late = document.createElement('span');
     late.className = 'late';
-    late.textContent = (chip ? ' · ' : '') + 'เลยกำหนดแล้ว';
+    late.textContent = (chip ? ' · ' : '') + 'เลยกำหนด · ' + shortThaiDate(job.due_date);
     small.appendChild(late);
   }
   el.querySelector('.amt b').textContent = baht(job.total);
@@ -669,7 +1005,11 @@ function renderJobs(el, jobs, emptyMsg, opts) {
     el.innerHTML = '<div class="empty">' + emptyMsg + '</div>';
     return;
   }
-  jobs.forEach((j, i) => el.appendChild(jobRow(j, { ...opts, n: i + 1 })));
+  jobs.forEach((j, i) => {
+    const row = jobRow(j, { ...opts, n: i + 1 });
+    if (opts && opts.panel) attachPanel(el, row, j);
+    else el.appendChild(row);
+  });
 }
 
 // --- views ----------------------------------------------------------------
@@ -729,6 +1069,79 @@ try {
   if (saved === 'owed' || saved === 'paid' || saved === 'all') queueFilter = saved;
 } catch (e) { /* โหมดส่วนตัวอ่านไม่ได้ ก็ใช้ค่าตั้งต้น */ }
 
+/* จะแบ่งกองด้วยอะไร — วันนัดรับ หรือหมวดงาน
+ *
+ * จำไว้เหมือนตัวกรอง เพราะร้านคนหนึ่งทำงานแบบเดียวทุกวัน การต้องกดเลือกใหม่
+ * ทุกครั้งที่เปิดหน้าคือหนึ่งจังหวะที่เสียไปวันละหลายรอบ
+ */
+const QUEUE_GROUP_KEY = 'mj.queue.group';
+let queueGroup = 'day';
+try {
+  const saved = localStorage.getItem(QUEUE_GROUP_KEY);
+  if (saved === 'day' || saved === 'cat' || saved === 'kind') queueGroup = saved;
+} catch (e) { /* เหมือนกัน */ }
+
+/* แยกตามเงิน — เงินสด / โอน / ลงบัญชี / ยังไม่ได้รับ / รับแล้วไม่ระบุช่องทาง
+ *
+ * ข้อมูลชุดเดิม มองคนละมุม เหมือนตัวกรองอื่น ไม่ยิง API ใหม่ จำค่าไว้ในเครื่อง
+ */
+const MONEY_KINDS = [
+  { id: 'all', label: 'ทุกแบบ' },
+  { id: 'cash', label: '💵 เงินสด' },
+  { id: 'transfer', label: '🏦 โอน' },
+  { id: 'account', label: '📒 ลงบัญชี' },
+  { id: 'unpaid', label: '⏳ ยังไม่ได้รับ' },
+  { id: 'paid', label: '❓ ไม่ระบุช่องทาง' },
+];
+const MONEY_HINT = {
+  cash: 'รับเป็นเงินสดแล้ว',
+  transfer: 'รับเป็นเงินโอนแล้ว',
+  account: 'ลงบัญชีไว้แล้ว ยังไม่ได้รับเงิน (รอวางบิล / เก็บเงิน)',
+  unpaid: 'ยังไม่ได้รับเงิน และยังไม่ได้ลงบัญชี — กดใต้งานเพื่อเลือกว่าเงินสดหรือลงบัญชี',
+  paid: 'รับเงินแล้วแต่ยังไม่ได้บอกว่าสดหรือโอน — กด 💰 ได้รับเงิน ใต้งานเพื่อเลือก',
+};
+const QUEUE_MONEY_KEY = 'mj.queue.money';
+let queueMoney = 'all';
+try {
+  const saved = localStorage.getItem(QUEUE_MONEY_KEY);
+  if (MONEY_KINDS.some((k) => k.id === saved)) queueMoney = saved;
+} catch (e) { /* เหมือนกัน */ }
+
+// หนึ่งงานอยู่กองไหน: ได้รับบางส่วนนับเป็นยังไม่ได้รับ (ยังมียอดค้าง)
+function moneyKindOf(job) {
+  const m = jobStatusOf(job).money;
+  return m === 'partial' ? 'unpaid' : m;
+}
+
+// หมวดที่ร้านกางไว้ อยู่แค่ในหน้าที่เปิดอยู่ — วาดใหม่แล้วยังกางเหมือนเดิม
+const queueOpenCats = new Set();
+
+/* แผงสถานะใต้แถวงาน พับไว้ทุกใบ แตะแถวถึงกาง (ทีละใบ)
+ *
+ * ร้านบอก "มันดูกรอกเยอะไป" — ของเดิมแผงเจ็ดปุ่มกางพร้อมกันทุกงาน ยี่สิบงาน
+ * คือปุ่มร้อยสี่สิบปุ่มในหน้าเดียว ตอนนี้คิวเป็นรายการบรรทัดเดียวอ่านรวดเดียวจบ
+ * ปุ่มทั้งเจ็ดยังอยู่ครบ แค่รอหลังการแตะหนึ่งครั้งบนงานที่จะแก้
+ */
+let queueOpenJob = null;
+function attachPanel(parent, row, job) {
+  const panel = statusPanel(job);
+  const open = queueOpenJob === job.id;
+  panel.hidden = !open;
+  row.classList.add('has-sp');
+  row.classList.toggle('sp-on', open);
+  row.onclick = () => {
+    const show = panel.hidden;
+    // กางได้ทีละใบ — ใบอื่นหุบ เพื่อให้รายการยังอ่านเป็นรายการ
+    document.querySelectorAll('.sp').forEach((x) => { x.hidden = true; });
+    document.querySelectorAll('.job.sp-on').forEach((x) => x.classList.remove('sp-on'));
+    panel.hidden = !show;
+    row.classList.toggle('sp-on', show);
+    queueOpenJob = show ? job.id : null;
+  };
+  parent.appendChild(row);
+  parent.appendChild(panel);
+}
+
 // งานที่ยังอยู่ในมือ เรียงตามวันนัดรับ พร้อมเลขคิว
 async function loadQueue() {
   try {
@@ -739,20 +1152,77 @@ async function loadQueue() {
   paintQueue();
 }
 
+let filterFoldSet = false; // เปิดพับให้ครั้งแรกครั้งเดียว ถ้าร้านตั้งตัวกรองไว้
 function paintQueue() {
-  const jobs = queueJobs || [];
+  const everyJob = queueJobs || [];
+
+  // หัวพับบอกค่าที่เลือกอยู่ — ไม่ต้องกางก็รู้ว่ากรองอะไร
+  const fil = $('t-filter-more');
+  fil.hidden = !everyJob.length;
+  const groupNames = { day: '📅 วันนัด', cat: '🗂️ หมวดงาน', kind: '🏫 ลูกค้า' };
+  const activeMoney = MONEY_KINDS.find((k) => k.id === queueMoney);
+  $('t-filter-note').textContent =
+    queueGroup === 'day' && queueMoney === 'all'
+      ? '⚙️ แบ่งกอง · แยกตามเงิน'
+      : '⚙️ ' + groupNames[queueGroup] + (queueMoney !== 'all' ? ' · ' + activeMoney.label : '');
+  if (!filterFoldSet) {
+    filterFoldSet = true;
+    if (queueGroup !== 'day' || queueMoney !== 'all') fil.open = true;
+  }
+
+  // แถวแยกตามเงิน: โชว์เฉพาะกองที่มีงาน (กับกองที่เลือกอยู่) ตัวเลขบนปุ่ม
+  const moneyCount = (k) => (k === 'all' ? everyJob.length : everyJob.filter((j) => moneyKindOf(j) === k).length);
+  const mseg = $('t-queue-money');
+  mseg.hidden = !everyJob.length;
+  mseg.textContent = '';
+  MONEY_KINDS.forEach((k) => {
+    const n = moneyCount(k.id);
+    if (k.id !== 'all' && !n && k.id !== queueMoney) return;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.m = k.id;
+    b.textContent = k.label + (k.id !== 'all' && n ? ' ' + n : '');
+    b.setAttribute('aria-pressed', String(k.id === queueMoney));
+    mseg.appendChild(b);
+  });
+
+  const jobs = queueMoney === 'all' ? everyJob : everyJob.filter((j) => moneyKindOf(j) === queueMoney);
+  const sumEl = $('t-money-sum');
+  if (queueMoney === 'all' || !everyJob.length) {
+    sumEl.hidden = true;
+  } else {
+    const total = jobs.reduce((t, j) => t + (Number(j.total) || 0), 0);
+    const owedSum = jobs.reduce((t, j) => t + (Number(j.balance_due) || 0), 0);
+    const kind = MONEY_KINDS.find((k) => k.id === queueMoney);
+    sumEl.innerHTML = '<b></b> · <span></span><br><small></small>';
+    sumEl.querySelector('b').textContent = kind.label;
+    sumEl.querySelector('span').textContent = jobs.length + ' งาน · ' + thb(total) +
+      (owedSum > 0.009 ? ' · ค้าง ' + thb(owedSum) : '');
+    sumEl.querySelector('small').textContent = MONEY_HINT[queueMoney] || '';
+    sumEl.hidden = false;
+  }
+  if (queueMoney !== 'all' && everyJob.length && !jobs.length) {
+    // ไม่มีงานในกองนี้ — บอกตรง ๆ ไม่ใช่โชว์ช่องว่าง ๆ ให้เดา
+    const kind = MONEY_KINDS.find((k) => k.id === queueMoney);
+    $('t-queue-filter').hidden = true;
+    $('t-queue-group').hidden = true;
+    // ปุ่มสลับกองเงินอยู่ในพับ — ต้องกางไว้ ไม่งั้นติดอยู่ในกองว่างแล้วออกไม่ได้
+    $('t-filter-more').open = true;
+    $('t-recent').innerHTML = '<div class="empty">ไม่มีงานในกอง "' + kind.label + '" ค่ะ 💜</div>';
+    return;
+  }
+
   const owed = jobs.filter((j) => j.payment_status !== 'paid');
   const paid = jobs.filter((j) => j.payment_status === 'paid');
-
-  $('t-queue-sum').textContent = jobs.length
-    ? 'ค้างรับ ' + owed.length + ' งาน · รับแล้ว ' + paid.length + ' งาน'
-    : '';
 
   // ตัวเลขอยู่บนปุ่มเลย ไม่ต้องกดเข้าไปดูว่ามีกี่งาน
   const counts = { all: jobs.length, owed: owed.length, paid: paid.length };
   const names = { all: 'ทั้งหมด', owed: 'ค้างรับ', paid: 'รับแล้ว' };
   const seg = $('t-queue-filter');
   seg.hidden = !jobs.length;
+  const grp = $('t-queue-group');
+  grp.hidden = !jobs.length;
+  [...grp.children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.g === queueGroup)));
   [...seg.children].forEach((b) => {
     const v = b.dataset.v;
     b.textContent = names[v] + (counts[v] ? ' ' + counts[v] : '');
@@ -791,6 +1261,99 @@ function dayLabel(iso, today, done) {
 // คิวงานสองกอง: ค้างรับก่อน เพราะนั่นคืองานที่ยังต้องตามเก็บเงิน แล้วในแต่ละกอง
 // คั่นเป็นวัน ๆ ตามวันนัดรับ — ร้านขอ "แยกงานรับแล้วกับค้างงาน" และ "คิวงานตาม
 // ลำดับวัน" ซึ่งเป็นการแบ่งคนละชั้นกัน ไม่ใช่สองวิธีเรียงที่ต้องเลือกอย่างเดียว
+/* แผงสถานะใต้งาน — ร้านบอกว่า "เอาเลือกแบบนี้ดีกว่า"
+ *
+ *   แก้ไข · ทำเสร็จ · ลูกค้ารับแล้ว
+ *   ได้รับเงิน  → จ่ายสด · โอน
+ *   ยังไม่ได้รับเงิน → ลงบัญชี
+ *
+ * แต่ละข้อเป็นคนละเรื่อง กดข้อไหนก็ไม่ลากข้ออื่นตาม และกดแล้วบันทึกเลย
+ * ถ้าเซิร์ฟเวอร์ปฏิเสธค่อยถอยค่ากลับและบอกว่าทำไม
+ */
+const MONEY_SAID = {
+  cash: 'จ่ายสดแล้วค่ะ', transfer: 'รับเงินโอนแล้วค่ะ',
+  account: 'ลงบัญชีไว้แล้วค่ะ (ยังไม่ได้รับเงิน)', unpaid: 'ยังไม่ได้รับเงินค่ะ',
+};
+
+function statusPanel(job) {
+  const box = document.createElement('div');
+  box.className = 'sp';
+  const st = jobStatusOf(job);
+  const received = ['cash', 'transfer', 'paid'].includes(st.money);
+  // เปิดแถวย่อยของฝั่งไหน — ตามสถานะจริง จนกว่าจะกดอีกฝั่งเพื่อเลือกต่อ
+  let side = received ? 'recv' : 'unrecv';
+
+  const mk = (cls, text, on, handler, label) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'sp-b ' + cls + (on ? ' on' : '');
+    b.textContent = text;
+    b.setAttribute('aria-pressed', String(Boolean(on)));
+    b.setAttribute('aria-label', (label || text) + ' — ' + (job.job_name || 'งาน'));
+    b.onclick = (e) => { e.stopPropagation(); handler(); };
+    return b;
+  };
+  const row = (cls, ...btns) => {
+    const r = document.createElement('div');
+    r.className = 'sp-row ' + cls;
+    btns.forEach((b) => r.appendChild(b));
+    return r;
+  };
+
+  async function save(change, said) {
+    const before = {
+      done_at: job.done_at, picked_up_at: job.picked_up_at, booked_at: job.booked_at, pay_method: job.pay_method,
+      balance_due: job.balance_due, paid_amount: job.paid_amount, payment_status: job.payment_status,
+    };
+    box.classList.add('saving');
+    try {
+      const { job: saved } = await api('/jobs/' + job.id + '/status', { method: 'POST', body: JSON.stringify(change) });
+      Object.assign(job, saved);
+      toast(said);
+      // ยอดบนหัวข้อกองและตัวเลขบนปุ่มกรองเปลี่ยนตามที่เพิ่งกด
+      if (tab === 'category') await loadCategory(); else await loadQueue();
+    } catch (err) {
+      Object.assign(job, before);
+      toast(err.message || 'บันทึกไม่สำเร็จ', true);
+      paint();
+    } finally {
+      box.classList.remove('saving');
+    }
+  }
+
+  function paint() {
+    box.textContent = '';
+    const s = jobStatusOf(job);
+    const got = ['cash', 'transfer', 'paid'].includes(s.money);
+
+    box.appendChild(row('',
+      mk('edit', '✏️ แก้ไข', false, () => openEdit(job.id)),
+      mk('', '✓ ทำเสร็จ', s.done, () => save({ done: !s.done }, s.done ? 'ยังไม่เสร็จค่ะ' : 'ทำเสร็จแล้วค่ะ')),
+      mk('', '📦 ลูกค้ารับแล้ว', s.picked, () => save({ picked: !s.picked }, s.picked ? 'ยังไม่ได้รับของค่ะ' : 'ลูกค้ารับของแล้วค่ะ'))
+    ));
+
+    box.appendChild(row('',
+      mk('' + (side === 'recv' && !got ? ' open' : ''), '💰 ได้รับเงิน', got && side === 'recv', () => { side = 'recv'; paint(); }),
+      mk('warn' + (side === 'unrecv' && got ? ' open' : ''), '⏳ ยังไม่ได้รับเงิน', !got && side === 'unrecv', () => { side = 'unrecv'; paint(); })
+    ));
+
+    if (side === 'recv') {
+      box.appendChild(row('sub',
+        mk('', '💵 จ่ายสด', s.money === 'cash', () => save({ money: 'cash' }, MONEY_SAID.cash)),
+        mk('', '🏦 โอน', s.money === 'transfer', () => save({ money: 'transfer' }, MONEY_SAID.transfer))
+      ));
+    } else {
+      box.appendChild(row('sub',
+        mk('', '📒 ลงบัญชี', s.money === 'account', () => save({ money: 'account' }, MONEY_SAID.account)),
+        mk('', 'ยังไม่ลงบัญชี', s.money === 'unpaid' || s.money === 'partial', () => save({ money: 'unpaid' }, MONEY_SAID.unpaid))
+      ));
+    }
+  }
+
+  paint();
+  return box;
+}
+
 function renderQueue(el, owed, paid, filter = 'all') {
   el.textContent = '';
   if (!owed.length && !paid.length) {
@@ -816,20 +1379,31 @@ function renderQueue(el, owed, paid, filter = 'all') {
     return String(a.created_at || a.job_date || '').localeCompare(String(b.created_at || b.job_date || ''));
   };
 
-  const section = (title, list, opts) => {
-    if (!list.length) return;
-    const jobs = [...list].sort(byDue);
+  const sumOf = (jobs, done) =>
+    jobs.reduce((t, j) => t + (Number(done ? j.total : j.balance_due ?? j.total) || 0), 0);
+
+  const sectionHead = (title, jobs, done) => {
     const head = document.createElement('div');
     head.className = 'q-head';
-    const sum = jobs.reduce((t, j) => t + (Number(opts.done ? j.total : j.balance_due ?? j.total) || 0), 0);
     head.innerHTML = '<span></span><span class="amt"></span>';
     head.querySelector('span').textContent = title + ' · ' + jobs.length + ' งาน';
-    head.querySelector('.amt').textContent = thb(sum);
+    head.querySelector('.amt').textContent = thb(sumOf(jobs, done));
     el.appendChild(head);
+  };
 
+  // หนึ่งงาน = แถว + ปุ่มสถานะ ใช้ร่วมกันทั้งสองแบบการแบ่งกอง
+  const appendJob = (parent, j, n, done, lateNote) => {
+    attachPanel(parent, jobRow(j, { queue: true, n, done, today, lateNote }), j);
+  };
+
+  // แบ่งตามวันนัดรับ — ของเดิม
+  const byDay = (title, list, done) => {
+    if (!list.length) return;
+    const jobs = [...list].sort(byDue);
+    sectionHead(title, jobs, done);
     let day = null;
     jobs.forEach((j, i) => {
-      const d = dayLabel(j.due_date, today, opts.done);
+      const d = dayLabel(j.due_date, today, done);
       if (d.key !== day) {
         day = d.key;
         const tag = document.createElement('div');
@@ -837,12 +1411,108 @@ function renderQueue(el, owed, paid, filter = 'all') {
         tag.textContent = d.text;
         el.appendChild(tag);
       }
-      el.appendChild(jobRow(j, { queue: true, n: i + 1, done: opts.done, today }));
+      // ชิปวันข้างบนบอกไปแล้วว่าเลยกำหนด ไม่ต้องพูดซ้ำในแถว
+      appendJob(el, j, i + 1, done, false);
     });
   };
 
-  if (filter !== 'paid') section('💰 ค้างรับ', owed, { done: false });
-  if (filter !== 'owed') section('✅ รับเงินแล้ว', paid, { done: true });
+  /* แบ่งตามหมวดงาน — ร้านขอ "แยกช่องหมวดงานให้หน่อย"
+   *
+   * พับไว้ทุกกอง เปิดเฉพาะกองที่กด: ยี่สิบงานเรียงยาวสามพันพิกเซลกลายเป็น
+   * สี่บรรทัดที่เห็นครบในหน้าจอเดียว ว่าหมวดไหนมีกี่งาน ค้างเงินกี่ใบ เท่าไหร่
+   *
+   * กองไหนมีงานเลยกำหนด เปิดไว้ให้เลย เพราะนั่นคือกองที่ต้องทำก่อน
+   */
+  const byCat = (list, done) => {
+    if (!list.length) return;
+    const buckets = new Map();
+    for (const j of list) {
+      const key = j.category || 'other';
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(j);
+    }
+    // กองใหญ่ก่อน — หมวดที่มีงานเยอะคือหมวดที่ร้านเปิดหาบ่อยที่สุด
+    const order = [...buckets.entries()].sort((a, b) => b[1].length - a[1].length);
+
+    for (const [key, raw] of order) {
+      const jobs = raw.sort(byDue);
+      const g = groups.find((x) => x.id === key);
+      const late = jobs.filter((j) => !done && j.due_date && j.due_date < today).length;
+
+      const head = document.createElement('button');
+      head.type = 'button';
+      head.className = 'q-cat';
+      head.innerHTML =
+        '<span class="dot"></span><span class="nm"></span>' +
+        (late ? '<span class="owe"></span>' : '') +
+        '<span class="ct"></span><span class="mny"></span><span class="car">▶</span>';
+      const dot = head.querySelector('.dot');
+      dot.textContent = g?.icon || '📦';
+      dot.style.background = (g?.color || '#e9eef7') + '33';
+      head.querySelector('.nm').textContent = g?.label || 'อื่น ๆ';
+      if (late) head.querySelector('.owe').textContent = 'เลยกำหนด ' + late;
+      head.querySelector('.ct').textContent = jobs.length + ' งาน';
+      head.querySelector('.mny').textContent = thb(sumOf(jobs, done));
+
+      const body = document.createElement('div');
+      body.className = 'q-body';
+      jobs.forEach((j, i) => appendJob(body, j, i + 1, done, true));
+
+      const open = late > 0 || queueOpenCats.has(key);
+      body.hidden = !open;
+      head.setAttribute('aria-expanded', String(open));
+      head.onclick = () => {
+        const now = body.hidden;
+        body.hidden = !now;
+        head.setAttribute('aria-expanded', String(now));
+        if (now) queueOpenCats.add(key);
+        else queueOpenCats.delete(key);
+      };
+
+      el.appendChild(head);
+      el.appendChild(body);
+    }
+  };
+
+  /* แบ่งตามลูกค้าสองแบบ — ร้านขอ "แยกงานโรงเรียนกับงานทั่วไปให้หน่อย"
+   *
+   * งานโรงเรียนคือของที่ต้องตามเก็บเงินและออกใบเสร็จ ส่วนงานหน้าร้านเก็บเงินสด
+   * ไปแล้วตั้งแต่ลูกค้ายืนอยู่ตรงนั้น สองกองนี้ร้านทำคนละอย่างกับมัน
+   */
+  const byKind = (list, done) => {
+    if (!list.length) return;
+    for (const k of ['org', 'walkin']) {
+      const jobs = list.filter((j) => kindOf(j.customer_name) === k).sort(byDue);
+      if (!jobs.length) continue;
+      const meta = k === 'org'
+        ? { icon: '🏫', label: 'หน่วยงาน · โรงเรียน' }
+        : { icon: '🏪', label: 'หน้าร้าน · ลูกค้าทั่วไป' };
+
+      const head = document.createElement('div');
+      head.className = 'q-head';
+      head.innerHTML = '<span></span><span class="amt"></span>';
+      head.querySelector('span').textContent = `${meta.icon} ${meta.label} · ${jobs.length} งาน`;
+      head.querySelector('.amt').textContent = thb(sumOf(jobs, done));
+      el.appendChild(head);
+
+      jobs.forEach((j, i) => appendJob(el, j, i + 1, done, true));
+    }
+  };
+
+  if (queueGroup === 'kind') {
+    if (filter !== 'paid' && owed.length) { sectionHead('💰 ค้างรับ', owed, false); byKind(owed, false); }
+    if (filter !== 'owed' && paid.length) { sectionHead('✅ รับเงินแล้ว', paid, true); byKind(paid, true); }
+    return;
+  }
+
+  if (queueGroup === 'cat') {
+    if (filter !== 'paid' && owed.length) { sectionHead('💰 ค้างรับ', owed, false); byCat(owed, false); }
+    if (filter !== 'owed' && paid.length) { sectionHead('✅ รับเงินแล้ว', paid, true); byCat(paid, true); }
+    return;
+  }
+
+  if (filter !== 'paid') byDay('💰 ค้างรับ', owed, false);
+  if (filter !== 'owed') byDay('✅ รับเงินแล้ว', paid, true);
 }
 
 async function loadReport() {
@@ -1004,7 +1674,7 @@ function renderCategoryGrid() {
   const grid = $('c-grid');
   grid.hidden = false;
   grid.textContent = '';
-  for (const g of groups) {
+  for (const g of groups.filter((x) => !x.hidden)) {
     const b = document.createElement('button');
     b.type = 'button';
     b.innerHTML = '<span class="ic"></span><span class="nm"></span>';
@@ -1047,38 +1717,205 @@ async function loadCategory() {
   $('c-sum').textContent = jobs.length
     ? jobs.length + ' งาน · ' + thb(total) + (due > 0 ? ' · ค้าง ' + thb(due) : '')
     : '';
-  renderJobs($('c-list'), jobs, 'ยังไม่มีงานในหมวดนี้ค่ะ', { showDate: true });
+  renderJobs($('c-list'), jobs, 'ยังไม่มีงานในหมวดนี้ค่ะ', { showDate: true, panel: true });
 }
 
-const LOADERS = { today: loadToday, report: loadReport, pending: loadPending, settings: loadSettings, category: loadCategory };
+// --- home: งาน & เงิน — หน้าแรกแบบง่าย ตามแบบร่างรื้อระบบที่ร้านอนุมัติ ------
+
+/* ร้านบอก "ฉันก็ยังงงกับระบบ" — หน้าแรกเดิมคือคิวงานพร้อมตัวกรองสามชั้น
+ * หน้านี้เหลือเรื่องเดียว: เงินเข้าวันนี้ รอเก็บเท่าไหร่ และงานใบไหนจะจัดการ
+ * แตะงานแล้วเป็นแผ่นปุ่มใหญ่ เก็บสด/โอน/ใบเสร็จ/แก้ไข — ของละเอียดทั้งหมด
+ * ยังอยู่ในหน้าเดิม (ปุ่มเล็กท้ายหน้า + ?tab= จากริชเมนู) ไม่ได้ลบอะไรทิ้ง */
+let homeFilter = 'owed';
+let homeJob = null; // งานที่แผ่นปุ่มเปิดอยู่
+
+// ป้ายเดียวต่อแถว: ได้เงินแล้ว / ลงบัญชี / ค้างรับ — กติกาเดียวกับ jobStatusOf
+function homeStatus(job) {
+  const m = jobStatusOf(job).money;
+  if (m === 'cash' || m === 'transfer' || m === 'paid') return ['paid', 'ได้เงินแล้ว'];
+  if (m === 'account') return ['book', 'ลงบัญชี'];
+  return ['owe', 'ค้างรับ'];
+}
+
+async function loadHome() {
+  /* ตัวเลขหัวหน้ามาจากใบลงบัญชีจริง (เส้นเดียวกับ /app/ledger/) — เงินเข้า
+   * นับวันที่เก็บเงินจริง ไม่ใช่วันจด ส่วนลิสต์คืองานในมือชุดเดียวกับคิวละเอียด
+   * ใบลงบัญชีโหลดพังก็ขีดไว้ ไม่เดาตัวเลขเงิน และลิสต์งานยังใช้ได้ */
+  const [led] = await Promise.all([api('/ledger').catch(() => null), loadQueue()]);
+  $('h-got').textContent = led ? thb(led.total) : '—';
+  $('h-owe').textContent = led ? thb(led.carry?.owed || 0) : '—';
+  paintHome();
+}
+
+function paintHome() {
+  const all = queueJobs || [];
+  const owed = all.filter((j) => j.payment_status !== 'paid');
+  const paid = all.filter((j) => j.payment_status === 'paid');
+  const counts = { owed: owed.length, paid: paid.length, all: all.length };
+  const names = { owed: 'รอเก็บ', paid: 'ได้เงินแล้ว', all: 'ทั้งหมด' };
+  [...$('h-seg').children].forEach((b) => {
+    const v = b.dataset.v;
+    b.textContent = names[v] + (counts[v] ? ' ' + counts[v] : '');
+    b.setAttribute('aria-pressed', String(v === homeFilter));
+  });
+
+  let jobs = homeFilter === 'owed' ? owed : homeFilter === 'paid' ? paid : all;
+  const q = ($('h-q').value || '').trim().toLowerCase();
+  if (q) {
+    jobs = jobs.filter((j) =>
+      [j.customer_name, j.job_name, j.job_number].some((v) => String(v || '').toLowerCase().includes(q)));
+  }
+
+  const list = $('h-list');
+  list.textContent = '';
+  if (!jobs.length) {
+    const msg = q ? 'ไม่เจองานที่ค้นค่ะ'
+      : homeFilter === 'owed' ? 'ไม่มีงานรอเก็บเงินค่ะ 💜'
+      : homeFilter === 'paid' ? 'ยังไม่มีงานที่ได้เงินแล้วในคิวค่ะ'
+      : 'ไม่มีงานค้างอยู่ในมือค่ะ 💜';
+    list.innerHTML = '<div class="empty">' + msg + '</div>';
+    return;
+  }
+  jobs.forEach((j) => {
+    const [st, stLabel] = homeStatus(j);
+    const row = document.createElement('div');
+    row.className = 'hj tappable';
+    row.innerHTML = '<div class="who"><b></b><span></span></div>' +
+      '<div class="money"><b></b><span class="st"></span></div>';
+    row.querySelector('.who b').textContent =
+      (j.customer_name ? j.customer_name + ' — ' : '') + (j.job_name || 'งาน');
+    row.querySelector('.who span').textContent =
+      [j.job_number, j.due_date ? 'นัด ' + shortThaiDate(j.due_date) : ''].filter(Boolean).join(' · ');
+    const owedNow = Number(j.balance_due) || 0;
+    // แถวที่ยังค้างโชว์ยอดที่ต้องเก็บ (สิ่งที่ร้านถาม) แถวที่จบแล้วโชว์ยอดงาน
+    row.querySelector('.money b').textContent = baht(st === 'paid' ? j.total : owedNow || j.total);
+    const stEl = row.querySelector('.money .st');
+    stEl.className = 'st ' + st;
+    stEl.textContent = stLabel;
+    row.onclick = () => openSheet(j);
+    list.appendChild(row);
+  });
+}
+
+/* แผ่นปุ่มใหญ่ของงานหนึ่งใบ — เก็บสด/โอนคือ POST /status ตัวเดียวกับแผงใน
+ * คิวละเอียด ใบเสร็จคือเส้นเดียวกับปุ่มในหน้าแก้ไข ไม่มีเส้นใหม่ให้เพี้ยนจากกัน */
+function openSheet(job) {
+  homeJob = job;
+  $('hs-title').textContent = (job.customer_name ? job.customer_name + ' — ' : '') + (job.job_name || 'งาน');
+  const owedNow = Number(job.balance_due) || 0;
+  $('hs-sub').textContent = [
+    job.job_number,
+    'ยอด ' + thb(job.total),
+    owedNow > 0.009 ? 'ค้าง ' + thb(owedNow) : homeStatus(job)[1],
+  ].filter(Boolean).join(' · ');
+  // จ่ายครบแล้วไม่เสนอปุ่มเก็บเงินซ้ำ — เหลือใบเสร็จกับแก้ไข
+  const paidUp = owedNow <= 0.009 && (Number(job.total) || 0) > 0;
+  $('hs-cash').hidden = paidUp;
+  $('hs-tf').hidden = paidUp;
+  $('hsheet-bg').hidden = false;
+  $('hsheet').hidden = false;
+}
+
+function closeSheet() {
+  $('hsheet-bg').hidden = true;
+  $('hsheet').hidden = true;
+  homeJob = null;
+}
+$('hsheet-bg').onclick = closeSheet;
+$('hs-close').onclick = closeSheet;
+
+async function sheetMoney(money, said) {
+  if (!homeJob) return;
+  const btn = money === 'cash' ? $('hs-cash') : $('hs-tf');
+  btn.disabled = true;
+  try {
+    await api('/jobs/' + homeJob.id + '/status', { method: 'POST', body: JSON.stringify({ money }) });
+    toast(said);
+    closeSheet();
+    await loadHome();
+  } catch (err) {
+    toast(err.message, true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+$('hs-cash').onclick = () => sheetMoney('cash', 'บันทึกเก็บเงินสดแล้วค่ะ 💵');
+$('hs-tf').onclick = () => sheetMoney('transfer', 'บันทึกรับโอนแล้วค่ะ 🏦');
+
+// ใบเสร็จจากแผ่นปุ่ม — งานที่ออกบิลแล้วใช้ใบเดิม เหมือนปุ่มในหน้าแก้ไข
+$('hs-receipt').onclick = async () => {
+  if (!homeJob) return;
+  const btn = $('hs-receipt');
+  btn.disabled = true;
+  try {
+    const { url, shopUrl, reused } = await api('/jobs/' + homeJob.id + '/receipt', { method: 'POST' });
+    toast(reused ? 'เปิดใบเสร็จเดิมของงานนี้ค่ะ' : 'ออกใบเสร็จให้แล้วค่ะ 💜');
+    const open = shopUrl || url;
+    if (window.liff && liff.isInClient && liff.isInClient()) liff.openWindow({ url: open, external: false });
+    else window.open(open, '_blank');
+  } catch (err) {
+    toast(err.message || 'ออกใบเสร็จไม่สำเร็จค่ะ', true);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+$('hs-edit').onclick = () => {
+  if (!homeJob) return;
+  const id = homeJob.id;
+  closeSheet();
+  openEdit(id);
+};
+
+$('h-seg').onclick = (e) => {
+  const b = e.target.closest('button[data-v]');
+  if (!b) return;
+  homeFilter = b.dataset.v;
+  paintHome();
+};
+$('h-q').oninput = () => paintHome();
+
+const LOADERS = { home: loadHome, today: loadToday, report: loadReport, pending: loadPending, settings: loadSettings, category: loadCategory };
 
 async function show(name) {
+  const view = $('v-' + name);
+  if (!view) {
+    // ชื่อแท็บผิด แปลว่าโค้ดพลาด ไม่ใช่ความผิดของคนใช้ แต่อย่างน้อย
+    // ต้องมีข้อความบอก ไม่ใช่ซ่อนทุกอย่างทิ้งไว้เป็นหน้าว่าง
+    fatal('เปิดหน้า "' + (TAB_NAMES[name] || name) + '" ไม่ได้ค่ะ', { retry: () => show('home') });
+    return;
+  }
   tab = name;
   document.querySelectorAll('main > section').forEach((s) => (s.hidden = true));
-  $('v-' + name).hidden = false;
+  view.hidden = false;
   $('nav').hidden = false;
   document.querySelectorAll('nav button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
   scrollTo(0, 0);
+  clearFatal();
   try {
     await LOADERS[name]();
   } catch (err) {
-    toast(err.message, true);
+    fatal('เปิด "' + (TAB_NAMES[name] || name) + '" ไม่สำเร็จค่ะ\n' + (err.message || 'ไม่รู้สาเหตุ'),
+          { retry: () => show(name) });
   }
 }
+
+const TAB_NAMES = { today: 'งานวันนี้', report: 'สรุปรายการ', pending: 'งานค้างรับ', settings: 'ตั้งค่า', category: 'หมวดงาน', home: 'งาน & เงิน' };
 
 // --- edit -----------------------------------------------------------------
 
 function fillGroups(groupId) {
   const sel = $('e-group');
   sel.textContent = '';
-  groups.forEach((g) => sel.add(new Option(g.icon + ' ' + g.label, g.id)));
+  // หมวดที่ซ่อนไม่เสนอให้เลือก ยกเว้นหมวดที่งานนี้อยู่เดิม — ไม่งั้นกดบันทึกแล้วย้ายหมวดเงียบ ๆ
+  groups.filter((g) => !g.hidden || g.id === groupId).forEach((g) => sel.add(new Option(g.icon + ' ' + g.label, g.id)));
   sel.value = groups.some((g) => g.id === groupId) ? groupId : 'other';
 }
 
 function fillTypes(groupId, typeId) {
   const sel = $('e-type');
   sel.textContent = '';
-  const types = groups.find((g) => g.id === groupId)?.types || [];
+  const types = (groups.find((g) => g.id === groupId)?.types || []).filter((t) => !t.hidden || t.id === typeId);
   sel.add(new Option('— ไม่ระบุ —', ''));
   types.forEach((t) => sel.add(new Option(t.icon + ' ' + t.label, t.id)));
   sel.value = types.some((t) => t.id === typeId) ? typeId : '';
@@ -1086,6 +1923,55 @@ function fillTypes(groupId, typeId) {
 }
 
 $('e-group').onchange = () => fillTypes($('e-group').value, '');
+
+/* ลูกค้าแบบไหน — ตัวเดียวกับ src/utils/customerKind.js
+ *
+ * เขียนซ้ำตรงนี้เพราะหน้าเว็บโหลดเป็นไฟล์เดียวไม่มีตัวรวมโมดูล แต่กติกาต้อง
+ * ตรงกับฝั่งเซิร์ฟเวอร์ ไม่งั้นงานเดียวกันอยู่คนละกองแล้วแต่ว่าถามจากตรงไหน
+ * (tests/customerKind.test.js คุมไว้ว่าสองที่ต้องตรงกัน)
+ */
+const ORG_RE = /^\s*(?:รพ\.?\s?สต\.?|โรงพยาบาลส่งเสริมสุขภาพตำบล|โรงพยาบาล|รพ\.|โรงเรียน|ร\.?ร\.|รร\.?|มหาวิทยาลัย|เทศบาล|อบต\.?|อบจ\.?|สำนักงาน|บริษัท|หจก\.?|ธ\.?ก\.?ส\.?|สหกรณ์|กศน\.?|วัด|ร้าน)/;
+const kindOf = (name) => (ORG_RE.test(String(name || '').trim()) ? 'org' : 'walkin');
+
+let editKind = 'walkin';
+
+/* หน้านี้ถามอะไรบ้าง ขึ้นกับว่าลูกค้าแบบไหน
+ *
+ * หน่วยงาน = ของออกไปก่อน เงินตามทีหลัง ต้องรู้ว่าค้างเท่าไหร่ นัดรับวันไหน
+ * หน้าร้าน  = เงินเข้ากระเป๋าไปแล้ว เหลือแค่ติ๊กว่าเก็บแล้ว
+ */
+function setKind(k) {
+  editKind = k === 'org' ? 'org' : 'walkin';
+  [...$('e-kind').children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.k === editKind)));
+  document.querySelectorAll('#v-edit [data-kind]').forEach((el) => {
+    el.hidden = el.dataset.kind !== editKind;
+  });
+  $('e-cash-row').hidden = editKind !== 'walkin';
+  $('e-customer-lab').textContent = editKind === 'org' ? 'ชื่อหน่วยงาน' : 'ลูกค้า (ไม่ใส่ก็ได้)';
+  $('e-customer').placeholder = editKind === 'org' ? 'เช่น โรงเรียนบ้านปงสนุก' : 'เช่น พี่นก';
+}
+
+$('e-kind').onclick = (e) => {
+  const b = e.target.closest('button[data-k]');
+  if (!b) return;
+  setKind(b.dataset.k);
+};
+
+/* ติ๊ก "เก็บเงินสดแล้ว" = จ่ายครบ · เอาติ๊กออก = ยังไม่ได้เก็บ
+ *
+ * ช่องสถานะการเงินกับช่องรับมาแล้วยังเป็นตัวจริงที่ถูกบันทึก ติ๊กนี้แค่กรอก
+ * ให้ — ไม่ได้มีทางเก็บสถานะสองทางที่มีวันขัดกันเอง
+ */
+function syncCash() {
+  const on = $('e-cash').checked;
+  setStatus(on ? 'paid' : 'pending');
+  $('e-paid').value = on ? Number($('e-total').value) || 0 : 0;
+}
+
+$('e-cash').onchange = syncCash;
+$('e-total').addEventListener('input', () => {
+  if (editKind === 'walkin' && $('e-cash').checked) $('e-paid').value = Number($('e-total').value) || 0;
+});
 
 function setStatus(v) {
   [...$('e-status').children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
@@ -1148,10 +2034,30 @@ $('e-mine').onclick = (e) => {
   paintMine();
 };
 
+/* รายชื่อร้าน โหลดครั้งเดียวต่อการเปิดแอป
+ *
+ * เซิร์ฟเวอร์ที่ยังไม่มีตารางร้านตอบรายการว่าง — ช่องเลือกร้านก็เหลือแค่
+ * "ยังไม่ระบุร้าน" และการบันทึกไม่แตะเรื่องร้านเลย หน้าแก้ไขเดิมต้องใช้ได้
+ */
+let branches = null;
+async function loadBranches() {
+  if (branches) return branches;
+  try {
+    branches = (await api('/branches')).branches || [];
+  } catch {
+    branches = [];
+  }
+  const sel = $('e-branch');
+  for (const b of branches) sel.add(new Option(b.name, b.id));
+  return branches;
+}
+
 async function openEdit(id) {
   try {
     const { job } = await api('/jobs/' + id);
     current = job;
+    await loadBranches();
+    $('e-branch').value = branches.some((b) => b.id === job.branch_id) ? job.branch_id : '';
     $('e-number').textContent = job.job_number || '';
     $('e-name').value = job.job_name || '';
     $('e-customer').value = job.customer_name || '';
@@ -1165,6 +2071,9 @@ async function openEdit(id) {
     fillGroups(job.category || 'other');
     fillTypes($('e-group').value, job.category_type || '');
     setStatus(job.payment_status || 'pending');
+    // เดาจากชื่อลูกค้า แล้วร้านกดสลับได้ถ้าเดาผิด
+    setKind(kindOf(job.customer_name));
+    $('e-cash').checked = (job.payment_status || 'pending') === 'paid';
     paintMine();
 
     // ทางไปแก้บรรทัดย่อย หน้านี้มีช่องยอดรวมช่องเดียว งานที่พิมพ์มาสองรายการ
@@ -1230,8 +2139,18 @@ $('e-save').onclick = async () => {
         note: $('e-note').value.trim() || null,
       }),
     });
+    /* ร้านเดินแยกจากข้อมูลงาน — เซิร์ฟเวอร์ตรวจความเป็นเจ้าของร้านปลายทาง
+     * ให้เอง ส่งเฉพาะตอนที่เปลี่ยนจริง จะได้ไม่พังการบันทึกอื่นบนเครื่อง
+     * ที่ยังไม่ได้รันไมเกรชันร้าน
+     */
+    if ($('e-branch').value !== (current.branch_id || '')) {
+      await api('/jobs/' + current.id + '/branch', {
+        method: 'POST',
+        body: JSON.stringify({ branch: $('e-branch').value || null }),
+      });
+    }
     toast('บันทึกเรียบร้อยแล้วค่ะ 💜');
-    await show(tab === 'edit' ? 'today' : tab);
+    await show(tab === 'edit' ? 'home' : tab);
   } catch (err) {
     toast(err.message, true);
   } finally {
@@ -1244,16 +2163,24 @@ $('e-delete').onclick = async () => {
   try {
     await api('/jobs/' + current.id + '/cancel', { method: 'POST' });
     toast('ยกเลิกรายการแล้วค่ะ');
-    await show('today');
+    await show('home');
   } catch (err) {
     toast(err.message, true);
   }
 };
 
-$('e-back').onclick = () => show(tab === 'edit' ? 'today' : tab);
-$('s-close').onclick = () => (liff.isInClient() ? liff.closeWindow() : show('today'));
+$('e-back').onclick = () => show(tab === 'edit' ? 'home' : tab);
+$('s-close').onclick = () => (liff.isInClient() ? liff.closeWindow() : show('home'));
+// หน้าแก้หมวดงานเป็นหน้าของมันเอง โดเมนเดียวกัน
+$('s-cats').onclick = () => (location.href = '/app/categories/');
 
-document.querySelectorAll('nav button').forEach((b) => (b.onclick = () => show(b.dataset.tab)));
+document.querySelectorAll('nav button').forEach((b) => (b.onclick = () => {
+  // ปุ่มที่พาไปอีกหน้าในแอปเดียวกัน (สมุดลูกค้า) — โดเมนเดียวกัน จึงไม่ต้อง
+  // init LIFF ใหม่ ส่วนปุ่มที่เหลือเป็นแท็บของหน้านี้
+  // data-page = ออกไปอีกหน้าหนึ่ง ส่วน data-go (ด้านล่าง) = สลับแท็บในหน้านี้
+  if (b.dataset.page) return void (location.href = b.dataset.page);
+  show(b.dataset.tab);
+}));
 document.querySelectorAll('[data-go]').forEach((el) => (el.onclick = () => show(el.dataset.go)));
 // สลับช่องคิวงาน — ข้อมูลชุดเดิม คนละมุม ไม่ต้องโหลดใหม่
 $('t-queue-filter').onclick = (e) => {
@@ -1261,6 +2188,24 @@ $('t-queue-filter').onclick = (e) => {
   if (!b) return;
   queueFilter = b.dataset.v;
   try { localStorage.setItem(QUEUE_FILTER_KEY, queueFilter); } catch (err) { /* ไม่เป็นไร */ }
+  paintQueue();
+};
+
+// แยกตามเงิน — ข้อมูลชุดเดิม ไม่ต้องโหลดใหม่
+$('t-queue-money').onclick = (e) => {
+  const b = e.target.closest('button[data-m]');
+  if (!b || b.dataset.m === queueMoney) return;
+  queueMoney = b.dataset.m;
+  try { localStorage.setItem(QUEUE_MONEY_KEY, queueMoney); } catch (err) { /* ไม่เป็นไร */ }
+  paintQueue();
+};
+
+// แบ่งกองตามวันนัด หรือตามหมวดงาน — ข้อมูลชุดเดิมเหมือนกัน ไม่ต้องโหลดใหม่
+$('t-queue-group').onclick = (e) => {
+  const b = e.target.closest('button[data-g]');
+  if (!b || b.dataset.g === queueGroup) return;
+  queueGroup = b.dataset.g;
+  try { localStorage.setItem(QUEUE_GROUP_KEY, queueGroup); } catch (err) { /* ไม่เป็นไร */ }
   paintQueue();
 };
 
@@ -1281,20 +2226,33 @@ $('r-period').onclick = async (e) => {
     if (!liff.isLoggedIn()) return liff.login({ redirectUri: location.href });
     token = liff.getAccessToken();
 
+    // หมวดงานของร้านเอง (เปลี่ยนชื่อ/ซ่อน/เพิ่มได้) — ไม่ได้ก็ใช้ชุดตั้งต้นจาก /config ที่โหลดไว้แล้ว
+    try {
+      const cats = await api('/categories');
+      if (Array.isArray(cats.groups) && cats.groups.length) groups = cats.groups;
+    } catch (e) { /* ใช้ชุดตั้งต้น */ }
+
+    // ?money=account — ลิงก์จากแชต/ใบลงบัญชี เปิดมาที่กองนั้นเลย
+    const wantMoney = new URLSearchParams(location.search).get('money');
+    if (MONEY_KINDS.some((k) => k.id === wantMoney)) {
+      queueMoney = wantMoney;
+      try { localStorage.setItem(QUEUE_MONEY_KEY, queueMoney); } catch (err) { /* ไม่เป็นไร */ }
+    }
+
     const editId = new URLSearchParams(location.search).get('edit');
     if (editId) {
       $('nav').hidden = false;
       await openEdit(editId);
     } else {
       // ?tab=… ต้องรับได้ทุกแท็บที่มีจริง ไม่ใช่แค่ pending — ปุ่ม "ตั้งค่า"
-      // บนริชเมนูลิงก์มาที่ ?tab=settings ตรง ๆ ถ้าตกไปหน้า "งานวันนี้"
+      // บนริชเมนูลิงก์มาที่ ?tab=settings ตรง ๆ ถ้าตกไปหน้าแรก
       // เท่ากับปุ่มพาไปผิดที่
-      const TABS = ['today', 'report', 'pending', 'settings', 'category'];
+      const TABS = ['home', 'today', 'report', 'pending', 'settings', 'category'];
       const want = new URLSearchParams(location.search).get('tab');
-      await show(TABS.includes(want) ? want : 'today');
+      await show(TABS.includes(want) ? want : 'home');
     }
   } catch (err) {
-    fatal(err.message || 'เปิดหน้านี้ไม่สำเร็จค่ะ');
+    fatal(err.message || 'เปิดหน้านี้ไม่สำเร็จค่ะ', { retry: () => location.reload() });
   }
 })();
 </script>

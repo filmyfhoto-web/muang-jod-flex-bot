@@ -235,6 +235,7 @@ export function createMockSupabase(seed = {}) {
       notification_settings: seed.notification_settings || [],
       notification_logs: seed.notification_logs || [],
       checkin_day_state: seed.checkin_day_state || [],
+      branches: seed.branches || [],
     },
     failUpsert: seed.failUpsert || false,
     uniques: {
@@ -248,6 +249,7 @@ export function createMockSupabase(seed = {}) {
       // กันส่งซ้ำอยู่ที่นี่ ไม่ใช่ที่การเช็คก่อนเขียนในโค้ด
       notification_logs: [['unique_send_key']],
       checkin_day_state: [['user_id', 'day']],
+      branches: [['user_id', 'slug']],
     },
   };
 

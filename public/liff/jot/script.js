@@ -76,6 +76,9 @@ const state = {
   customer: '',
   date: todayISO(),
   due: '', // วันนัดรับงาน — ว่างได้ แปลว่าไม่ได้นัดวันไว้
+  // วิธีจ่ายที่บอกมาแล้วตั้งแต่ในแชต ('cash'|'transfer'|'account'|'') — ฟอร์มนี้
+  // ไม่มีช่องให้กรอก แค่พกกลับไปตอนบันทึก ไม่งั้น "ลงบัญชี" ที่พูดไว้หายกลางทาง
+  payMethod: '',
   // ราคาที่คิดได้ก่อนปัด null = ไม่ได้แก้ ให้เท่ากับผลบวกของรายการ
   listed: null,
   // ราคาที่จะเก็บลูกค้าจริง null = ไม่ได้แก้ ให้เท่ากับราคายังไม่ปัด
@@ -99,12 +102,46 @@ function blankItem() {
     // 'sqm' = คิดตามพื้นที่ (งานป้าย) | 'sheet'/'piece'/'unit'/'set' = ราคาต่อชิ้น
     // ตั้งต้นเป็น sqm เหมือนเดิมทุกประการ ร้านที่ทำป้ายเป็นหลักจะไม่รู้สึกว่าอะไรเปลี่ยน
     rateMode: 'sqm',
+    // คำนับของงานนี้ (บาน/ใบ/ผืน จากหมวดงาน) — เปลี่ยนป้ายคำ ไม่เปลี่ยนวิธีคิดเงิน
+    unitWord: '',
+    // คำนับมากับงานเอง (เช่น "5 ดวง" ที่แชตอ่านมา) — ตัวจับชนิดงานห้ามทับคำนี้
+    // จนกว่าร้านจะพิมพ์แก้ชื่อ ซึ่งคือการบอกใหม่ว่างานนี้คืออะไร
+    unitWordOwn: false,
+    // ร้านเลือกวิธีคิดเองแล้ว = ตัวจับชนิดงานห้ามแตะโหมดของบรรทัดนี้อีก
+    rateModeManual: false,
     price: 0,
     priceManual: false,
     total: 0,
     totalManual: false,
     image: null,
   };
+}
+
+/* ----------------------------------------------- ชนิดงาน → หน่วยราคา */
+
+/* ร้านบอกว่า "งานกรอบก็ต้องเป็นบานละ ... บางทีมันไม่ได้เป็น ตรม ทั้งหมด" —
+ * ของเดิมทุกบรรทัดตั้งต้นเป็น ตร.ม. ตายตัว ทั้งที่ระบบหมวดงานรู้จัก "กรอบ"
+ * อยู่แล้ว ตัวจับคำชุดเดียวกันนั้น (pricing จาก /api/config แล้วอัปเกรดเป็น
+ * ของร้านจาก /api/categories หลังล็อกอิน) จึงมาเลือกช่องเงินให้ถูกตั้งแต่พิมพ์ชื่อ
+ */
+let pricingEntries = [];
+
+function applyKind(item) {
+  if (item.rateModeManual) return; // ร้านเลือกมือแล้ว คำตัดสินของร้านชนะเสมอ
+  const name = String(item.name || '').trim();
+  if (!name) return;
+  const hit = typeof MJKind !== 'undefined' ? MJKind.match(name, pricingEntries) : null;
+  // จับไม่เจอ = งานที่ระบบไม่รู้จัก → ต่อชิ้น แต่เฉพาะตอนยังไม่ใส่เรต — มีเรตอยู่
+  // แล้วห้ามพลิกโหมด ไม่งั้นเรต ตร.ม. 165 กลายเป็นราคาต่อชิ้นเงียบ ๆ ตอนแก้ชื่อ
+  const next = hit && hit.price ? hit.price : !(item.rate > 0) ? { mode: 'piece', unit: 'ชิ้น' } : null;
+  if (!next) return;
+  const mode = next.mode === 'sqm' || next.mode === 'sheet' || next.mode === 'piece' ? next.mode : 'piece';
+  if (mode !== item.rateMode) {
+    // เปลี่ยนวิธีคิดแล้วราคาที่ระบบเติมให้ต้องคิดใหม่ — กติกาเดียวกับเลือกโหมดเอง
+    if (!item.priceManual) item.price = 0;
+    item.rateMode = mode;
+  }
+  if (!item.unitWordOwn) item.unitWord = next.unit || '';
 }
 
 // ยอดของรายการหนึ่ง
@@ -205,7 +242,13 @@ function peekDraft() {
 function loadDraft(saved) {
   if (!saved) return false;
   Object.assign(state, saved);
-  state.items = saved.items.map((it) => ({ ...blankItem(), ...it }));
+  state.items = saved.items.map((it) => {
+    const item = { ...blankItem(), ...it };
+    // ร่างเก่าก่อนมีตัวจับชนิดงาน: โหมดที่ไม่ใช่ sqm คือร้านตั้งใจเลือกไว้เอง
+    // (เช่นตารางช่วงราคาสติ๊กเกอร์) — ปักไว้ ไม่งั้นตัวจับคำจะรีเซ็ตทิ้ง
+    if (it.rateMode && it.rateMode !== 'sqm' && it.rateModeManual === undefined) item.rateModeManual = true;
+    return item;
+  });
   return true;
 }
 
@@ -245,6 +288,32 @@ function renderItems() {
   state.items.forEach((item, i) => itemsBox.appendChild(itemCard(item, i)));
   renderSummary();
   saveDraft();
+}
+
+/* จัดหน่วยราคาใหม่ทุกบรรทัด — เรียกตอนตัวจับคำเพิ่งมาถึง/เพิ่งอัปเกรด
+ * (ชื่อจาก ?name= ถูกใส่ก่อน fetch เสร็จ และร่าง/งานเก่าโหลดมาก่อนของร้านจะมา)
+ */
+function reclassifyAll() {
+  let changed = false;
+  for (const it of state.items) {
+    const before = it.rateMode + '|' + it.unitWord;
+    applyKind(it);
+    if (before !== it.rateMode + '|' + it.unitWord) changed = true;
+  }
+  if (!changed) return;
+  // สร้างการ์ดใหม่ทั้งแถบ — ถ้ากำลังพิมพ์อยู่พอดี ต้องคืนโฟกัสให้ช่องเดิม
+  const focused = document.activeElement;
+  const at = focused && itemsBox.contains(focused)
+    ? { i: [...itemsBox.children].findIndex((c) => c.contains(focused)), cls: focused.className }
+    : null;
+  renderItems();
+  if (at && at.i >= 0) {
+    const el = itemsBox.children[at.i]?.getElementsByClassName(at.cls)[0];
+    if (el) {
+      el.focus();
+      try { el.setSelectionRange(el.value.length, el.value.length); } catch { /* select/file ไม่มี caret */ }
+    }
+  }
 }
 
 /* รายการเรียงลงมาเป็นบรรทัด ไม่ใช่การ์ดที่ต้องปัดหา
@@ -305,32 +374,29 @@ function itemCard(item, index) {
   const file = $('.i-file', el);
   const preview = $('.preview', el);
 
+  // ใบที่กรอกของในพับไว้แล้ว (รายละเอียด/รูป) ต้องเห็นของตัวเองตอนกลับมาแก้
+  const extra = $('.extra', el);
+  if (extra) extra.open = Boolean(item.detail || item.image);
+
   const count = state.items.length;
-  const rowNo = $('.row-no', el);
-  const rowTitle = $('.item-title', el);
   const rowAmt = $('.row-amt', el);
-  rowNo.textContent = String(index + 1);
+  const fold = $('.fold', el);
   // ลบบรรทัดสุดท้ายทิ้งไม่ได้ ฟอร์มต้องเหลืออย่างน้อยหนึ่งบรรทัดให้กรอก
   $('.del', el).hidden = count < 2;
 
-  // บรรทัดเดียวกางไว้เสมอ (ไม่มีอะไรให้ยุบหนี) หลายบรรทัดกางเฉพาะอันที่กำลังแก้
-  if (openId === null && count === 1) openId = item.id;
-  el.open = count === 1 || openId === item.id;
-  el.ontoggle = () => {
-    if (el.open) {
-      openId = item.id;
-      // กางอันใหม่แล้วยุบอันอื่น ไม่งั้นก็กลับไปเป็นกองยาวเหมือนเดิม
-      [...itemsBox.children].forEach((other) => {
-        if (other !== el) other.open = false;
-      });
-    } else if (openId === item.id) {
-      openId = null;
-    }
+  /* ตารางบรรทัดเดียว ("ต้องการแบบตารางในโมบาย") — ช่องหลักของทุกแถวแก้ได้
+   * ตรงนั้นเลย ของที่นาน ๆ ใช้ (ตั้งราคาเอง รายละเอียด หน่วย รูป) อยู่ใน .fold
+   * ใต้แถว แตะยอด ฿ ท้ายแถวเพื่อเปิด · openId = แถวที่ร้านเปิดเอง (ทีละแถวพอ)
+   * ส่วนแถวที่มีของพวกนั้นอยู่แล้ว กางมาให้เอง ไม่มีข้อมูลซ่อนหาย
+   */
+  const autoOpen = Boolean(item.detail || item.image || item.priceManual || item.totalManual);
+  fold.hidden = !(openId === item.id || autoOpen);
+  rowAmt.classList.toggle('on', !fold.hidden);
+  rowAmt.onclick = () => {
+    openId = fold.hidden ? item.id : null;
+    renderItems();
   };
-  // ปุ่มลบอยู่บนหัวบรรทัด ซึ่งเป็นตัวกางเอง — กดลบต้องไม่กางไปด้วย
-  $('.del', el).onclick = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  $('.del', el).onclick = () => {
     state.items = state.items.filter((x) => x.id !== item.id);
     if (!state.items.length) state.items.push(blankItem());
     if (openId === item.id) openId = null;
@@ -358,8 +424,7 @@ function itemCard(item, index) {
   function paint() {
     const { size, suggested, price: p, total: t, quote: q, qty: n } = computeItem(item);
 
-    // หัวบรรทัดอ่านได้เหมือนใบเสร็จ: ชื่อกับยอด โดยไม่ต้องกวาดตาหาในช่องกรอก
-    rowTitle.textContent = (item.name || item.detail || '').trim() || 'รายการที่ ' + (index + 1);
+    // ยอดของแถวอยู่ท้ายแถวเหมือนคอลัมน์ "รวม" ของใบเสร็จ อัปเดตตามที่พิมพ์
     rowAmt.textContent = baht(t);
 
     if (!item.priceManual) price.value = p || '';
@@ -369,6 +434,10 @@ function itemCard(item, index) {
     total.classList.toggle('auto', !item.totalManual);
 
     const mode = MJRate.mode(item.rateMode);
+    // คำบนป้ายตามชนิดงาน — "บานละ" ของกรอบ "จำนวน (ผืน)" ของป้าย (คณิตไม่เปลี่ยน)
+    const wordz = MJRate.words(item);
+    // ตัวจับชนิดงานเปลี่ยนโหมดได้โดยไม่ผ่าน select — ให้ select ตามโหมดจริงเสมอ
+    if (rateMode.value !== mode.id) rateMode.value = mode.id;
 
     /* ผลลัพธ์เป็นบรรทัดอ่าน ไม่ใช่ช่องกรอก จนกว่าร้านจะขอตั้งราคาเอง
      *
@@ -381,7 +450,7 @@ function itemCard(item, index) {
     calcBox.hidden = !own;
     resultBox.hidden = own || !(t > 0);
     if (!resultBox.hidden) {
-      const each = `${baht(p)} ต่อ${mode.piece}`;
+      const each = `${baht(p)} ต่อ${wordz.piece}`;
       resLine.textContent = n > 1 ? `${each} × ${numText(n)} = ${baht(t)}` : `${each}`;
     }
     const tiered = mode.id === 'tier';
@@ -397,14 +466,14 @@ function itemCard(item, index) {
       rateLabel.textContent = `เรตตามช่วง (บาท/ตร.ม.)`;
       rate.value = q.tier.rate;
     } else {
-      rateLabel.textContent = `${mode.label} (บาท)`;
+      rateLabel.textContent = `${wordz.label} (บาท)`;
       rate.placeholder = mode.id === 'sqm' ? 'เช่น 165' : 'เช่น 50';
       if (rate.value !== String(item.rate || '')) rate.value = item.rate || '';
     }
 
     // ป้ายช่องจำนวนบอกหน่วยที่กำลังนับอยู่ — "จำนวน" เฉย ๆ ตอนคิดเป็นแผ่น
-    // ทำให้ไม่รู้ว่าใส่แผ่นหรือใส่ตารางเมตร
-    qtyLabel.textContent = tiered || mode.id !== 'sqm' ? `จำนวน (${mode.piece})` : 'จำนวน';
+    // ทำให้ไม่รู้ว่าใส่แผ่นหรือใส่ตารางเมตร (งานป้ายนับเป็นผืนแม้คิดเงินตาม ตร.ม.)
+    qtyLabel.textContent = tiered || mode.id !== 'sqm' || item.unitWord ? `จำนวน (${wordz.piece})` : 'จำนวน';
 
     /* บรรทัดนี้เป็นของร้านล้วน ๆ ไม่มีอะไรจากตรงนี้ไปโผล่บนใบเสร็จ
      *
@@ -420,10 +489,13 @@ function itemCard(item, index) {
         ` · ช่วง ${q.tier.label} = ${numText(q.tier.rate)} บาท/ตร.ม.` +
         ` · เฉลี่ยแผ่นละ ${baht(suggested)}`;
     } else if (mode.id !== 'sqm') {
-      const per = `${baht(suggested)} ต่อ${mode.piece}`;
+      const per = `${baht(suggested)} ต่อ${wordz.piece}`;
       hint.hidden = !(suggested > 0 || size);
+      // ตร.ม. ของหนึ่งแผ่นมีความหมายกับงานที่ตัดจากม้วน (sheet) — งานนับชิ้น
+      // อย่างกรอบ/ตรายาง พื้นที่ไม่เกี่ยวกับราคา เหลือไว้แค่ขนาดที่จดเป็นสเปก
+      const sizePart = size ? (mode.id === 'sheet' ? `${size.label} · ${size.sqm} ตร.ม. ต่อ${wordz.piece}` : size.label) : '';
       hint.textContent = size
-        ? `${size.label} · ${size.sqm} ตร.ม. ต่อ${mode.piece}` + (suggested > 0 ? ` · ${per}` : '')
+        ? sizePart + (suggested > 0 ? ` · ${per}` : '')
         : `🔒 ร้านเห็นคนเดียว · ${per}`;
     } else if (size && suggested > 0) {
       hint.hidden = false;
@@ -465,9 +537,11 @@ function itemCard(item, index) {
       return;
     }
 
-    const y = MJRate.yieldPerSqm(item);
+    // "1 ตร.ม. ได้กี่แผ่น" มีความหมายกับงานที่ตัดจากวัสดุเป็นตารางเมตรเท่านั้น —
+    // งานกรอบ/ตรายางที่นับเป็นชิ้น ขึ้นบรรทัดนี้แล้วชวนงงเปล่า ๆ (ร้านเจอมาแล้ว)
+    const y = mode.id === 'sqm' || mode.id === 'sheet' ? MJRate.yieldPerSqm(item) : null;
     if (y && y.sheets >= 1) {
-      const piece = mode.id === 'sqm' ? 'แผ่น' : mode.piece;
+      const piece = mode.id === 'sqm' ? 'แผ่น' : wordz.piece;
       yieldHint.hidden = false;
       yieldHint.textContent =
         `🔒 1 ตร.ม. ได้ราว ${y.sheets} ${piece} (${y.sqmPerSheet} ตร.ม./${piece} · ไม่รวมเศษตัด)` +
@@ -480,7 +554,8 @@ function itemCard(item, index) {
     saveDraft();
   }
 
-  name.oninput = () => { item.name = name.value; paint(); };
+  // พิมพ์แก้ชื่อ = บอกใหม่ว่างานนี้คืออะไร — คำนับที่ติดมากับงานเดิมหมดสิทธิ์ค้ำ
+  name.oninput = () => { item.name = name.value; item.unitWordOwn = false; applyKind(item); paint(); };
   detail.oninput = () => { item.detail = detail.value; paint(); };
   w.oninput = () => { item.w = num(w.value); paint(); };
   h.oninput = () => { item.h = num(h.value); paint(); };
@@ -489,6 +564,10 @@ function itemCard(item, index) {
   rate.oninput = () => { item.rate = num(rate.value); paint(); };
   rateMode.onchange = () => {
     item.rateMode = MJRate.mode(rateMode.value).id;
+    // เลือกมือแล้วตัวจับชนิดงานหยุดยุ่งกับบรรทัดนี้ และคำของโหมดที่เลือกชนะคำนับเดิม
+    item.rateModeManual = true;
+    item.unitWord = '';
+    item.unitWordOwn = false;
     // เปลี่ยนวิธีคิดแล้วเรตเดิมไม่มีความหมาย (165/ตร.ม. ไม่ใช่ 165/แผ่น) —
     // ราคาที่ร้านพิมพ์เองไว้ยังอยู่ ของที่ระบบเติมให้ต้องคิดใหม่
     if (!item.priceManual) item.price = 0;
@@ -585,7 +664,7 @@ function renderSummary() {
     t.textContent = label || 'รายการ';
     const sub = document.createElement('small');
     // สรุปพูดภาษาเดียวกับใบเสร็จ: ขนาดกับจำนวน ไม่มีเรตต่อตารางเมตร
-    const pieceWord = MJRate.mode(item.rateMode).piece;
+    const pieceWord = MJRate.words(item).piece;
     sub.textContent = [size ? size.label : '', qty > 1 ? `${qty} ${pieceWord} × ${baht(price)}` : '']
       .filter(Boolean)
       .join(' · ') || (item.detail && item.name ? item.detail : '');
@@ -607,9 +686,11 @@ function renderSummary() {
   }
 
   // ยอดรวม = ราคาที่คิดได้จากรายการ ส่วนยอดที่เก็บจริงคือ charge ถ้าร้านแก้ไว้
+  // ชิป "จ่ายสดครบ/โอนครบ" = รับเท่ายอดเก็บ (กติกาเดียวกับพิมพ์ "จ่ายสด" ในแชต)
   const listed = listedAmount();
   const total = chargeAmount();
-  const paid = Math.min(state.paid, total);
+  const payFull = state.payMethod === 'cash' || state.payMethod === 'transfer';
+  const paid = payFull ? total : Math.min(state.paid, total);
   $('#s-total').textContent = baht(total);
   $('#qb-total').textContent = baht(total);
   paintMine(listed, total);
@@ -629,9 +710,11 @@ function renderSummary() {
   $('#s-paid-amount').textContent = baht(paid);
 
   const chip = $('#s-status');
-  const status = total > 0 && paid >= total ? 'paid' : paid > 0 ? 'partial' : 'pending';
+  // "ลงบัญชีไว้" ไม่ใช่สถานะเงินเข้า — เป็นค้างรับที่ลงสมุดแล้ว จึงบอกให้ต่างกัน
+  const status =
+    total > 0 && paid >= total ? 'paid' : paid > 0 ? 'partial' : state.payMethod === 'account' ? 'account' : 'pending';
   chip.className = 'chip ' + status;
-  chip.textContent = { paid: 'รับเงินแล้ว', partial: 'รับบางส่วน', pending: 'ค้างรับ' }[status];
+  chip.textContent = { paid: 'รับเงินแล้ว', partial: 'รับบางส่วน', account: 'ลงบัญชีไว้', pending: 'ค้างรับ' }[status];
 }
 
 function thaiDate(iso) {
@@ -679,8 +762,9 @@ function toPayload() {
       size: sub,
       quantity: qty,
       // โหมดต่อแผ่น/ชิ้น/อัน บอกหน่วยได้ตรง ๆ และหน่วยนี้ขึ้นใบเสร็จ
-      // โหมดพื้นที่ไม่บอก เพราะ "ชิ้น" ของงานป้ายคือผืน ซึ่งขนาดข้างหลังบอกแล้ว
-      unit: MJRate.mode(item.rateMode).id === 'sqm' ? null : MJRate.mode(item.rateMode).piece,
+      // งานคิดตามพื้นที่บอกเฉพาะเมื่อรู้คำนับจริง (ป้ายนับเป็น "ผืน") — ไม่รู้ก็
+      // ไม่บอก เพราะ "ชิ้น" ของงานป้ายคือผืน ซึ่งขนาดข้างหลังบอกแล้ว
+      unit: MJRate.mode(item.rateMode).id === 'sqm' ? item.unitWord || null : MJRate.words(item).piece,
       unit_price: round2(price),
       total,
     });
@@ -704,7 +788,13 @@ function toPayload() {
     // ส่งไปเฉพาะตอนร้านแก้เอง ไม่งั้นปล่อยให้เซิร์ฟเวอร์ใช้ยอดที่บวกจากรายการ
     listedTotal: state.listed === null || state.listed === undefined ? null : round2(state.listed),
     customerTotal: state.charge === null || state.charge === undefined ? null : round2(state.charge),
-    paidAmount: Math.min(state.paid, chargeAmount()),
+    // ชิป "จ่ายสดครบ/โอนครบ" = รับเท่ายอดเก็บ แม้แก้รายการทีหลังก็ยังครบตาม
+    // ยอดใหม่ — กติกาเดียวกับพิมพ์ "จ่ายสด" ในแชต (ไม่บอกจำนวน = จ่ายครบ)
+    paidAmount:
+      state.payMethod === 'cash' || state.payMethod === 'transfer'
+        ? chargeAmount()
+        : Math.min(state.paid, chargeAmount()),
+    payMethod: state.payMethod || null,
     note: note || null,
     images: state.items.map((i) => i.image).filter(Boolean).slice(0, 4),
   };
@@ -769,10 +859,18 @@ async function save() {
     // แก้งานเก่าไม่ได้ล้างฟอร์ม เพราะฟอร์มนี้ไม่ใช่ที่ร่างงานใหม่ตอนนี้ — ล้าง
     // แล้วจอจะว่างเปล่าหนึ่งวินาทีก่อนปิด ซึ่งอ่านเหมือนงานหายไป
     if (!editingJobId) clearForm();
-    // ปิดหน้าต่างให้เอง เพื่อให้กลับไปเห็นการ์ดในแชตต่อ
-    setTimeout(() => {
-      if (window.liff && liff.isInClient && liff.isInClient()) liff.closeWindow();
-    }, 1200);
+    /* หน้าเต็ม: บันทึกแล้วขึ้นการ์ด "ใบแจ้งยอด / ใบเสร็จ / จดใบต่อไป" ตรงหน้าเลย
+     * (ร้านขอ: "ใบแจ้งยอด แล้วก็ออกใบเสร็จได้") — โหมดด่วนกับโหมดแก้งานยังปิด
+     * หน้าต่างกลับไปแชตเหมือนเดิม เพราะการ์ดในแชต/หน้าจัดการงานมีปุ่มพวกนี้อยู่แล้ว
+     */
+    if (!editingJobId && !quick && body.job?.id) {
+      showDone(body.job, body.receipt);
+    } else {
+      // ปิดหน้าต่างให้เอง เพื่อให้กลับไปเห็นการ์ดในแชตต่อ
+      setTimeout(() => {
+        if (window.liff && liff.isInClient && liff.isInClient()) liff.closeWindow();
+      }, 1200);
+    }
   } catch (err) {
     toast(err.message || 'บันทึกไม่สำเร็จค่ะ', 'err');
   } finally {
@@ -800,6 +898,7 @@ function clearForm() {
   state.customer = '';
   state.date = todayISO();
   state.due = '';
+  state.payMethod = '';
   state.paid = 0;
   state.note = '';
   state.listed = null;
@@ -818,11 +917,137 @@ function syncHeaderFields() {
   $('#f-note').value = state.note;
   $('#f-listed').value = state.listed === null || state.listed === undefined ? '' : state.listed;
   $('#f-charge').value = state.charge === null || state.charge === undefined ? '' : state.charge;
+  syncPayChips();
+  paintKind();
+}
+
+// ชิปเงินสะท้อน state.payMethod เสมอ — ร่างจากแชต ("ลงบัญชี" ท้ายประโยค) เปิดมา
+// ชิปต้องติดถูกอัน ไม่ใช่เริ่มที่ "ยังไม่จ่าย" ทั้งที่ร้านพูดไว้แล้ว
+function syncPayChips() {
+  document.querySelectorAll('#paychips .paychip').forEach((b) => {
+    b.setAttribute('aria-pressed', String((state.payMethod || '') === b.dataset.pay));
+  });
+  const dep = $('#dep-field');
+  // จ่ายครบแล้วไม่มีอะไรให้มัดจำ — ช่องหายไปเลย ไม่ใช่ช่องว่างที่ชวนให้กรอกซ้ำ
+  if (dep) dep.hidden = state.payMethod === 'cash' || state.payMethod === 'transfer';
+}
+
+/* ป้ายเดาชนิดลูกค้า — กติกาเดียวกับคิวงานและสมุด (เดาจากชื่อ ไม่มีช่องในฐานข้อมูล)
+ * เป็นป้ายบอก ไม่ใช่ปุ่ม: โรงเรียน/รพ./บริษัท เข้าหน่วยงานเองตั้งแต่พิมพ์ชื่อ */
+const ORG_RE = /^\s*(?:รพ\.?\s?สต\.?|โรงพยาบาลส่งเสริมสุขภาพตำบล|โรงพยาบาล|รพ\.|โรงเรียน|ร\.?ร\.|รร\.?|มหาวิทยาลัย|เทศบาล|อบต\.?|อบจ\.?|สำนักงาน|บริษัท|หจก\.?|ธ\.?ก\.?ส\.?|สหกรณ์|กศน\.?|วัด|ร้าน)/;
+
+// ร้านแตะชิปเงินเองแล้วหรือยัง — แตะแล้วตัวเดาห้ามทับของร้านเด็ดขาด
+let payTouched = false;
+
+function paintKind() {
+  const pill = $('#kind-pill');
+  if (!pill) return;
+  const name = state.customer.trim();
+  const org = Boolean(name) && ORG_RE.test(name);
+  pill.hidden = !name;
+  if (name) {
+    pill.textContent = org ? '🏛 หน่วยงาน' : '🏠 หน้าร้าน';
+    pill.classList.toggle('org', org);
+  }
+  /* โรงเรียน/หน่วยงาน → ชิป "ลงบัญชี" ติดให้เอง (ร้านสั่ง "บอทแยกลงบัญชี และ
+   * โรงเรียนให้อัตโนมัติ") — เดาเฉพาะตอนที่ร้านยังไม่แตะชิปเงินเองและยังไม่มี
+   * มัดจำ ถอยกลับเป็น "ยังไม่จ่าย" เมื่อชื่อกลายเป็นหน้าร้าน เซิร์ฟเวอร์เดา
+   * กติกาเดียวกันให้ฝั่งแชต (jobService.createJob) — แตะแค่สถานะสมุด ไม่แตะเงิน */
+  if (!payTouched && !editingJobId && !(Number(state.paid) > 0)) {
+    const want = org ? 'account' : '';
+    const can = org ? !state.payMethod : state.payMethod === 'account';
+    if (can && (state.payMethod || '') !== want) {
+      state.payMethod = want;
+      syncPayChips();
+      renderSummary();
+    }
+  }
 }
 
 /* ------------------------------------------------------------------- เริ่ม */
 
-$('#f-customer').oninput = (e) => { state.customer = e.target.value; renderSummary(); saveDraft(); };
+$('#f-customer').oninput = (e) => { state.customer = e.target.value; renderSummary(); saveDraft(); renderCustomerChips(); paintKind(); };
+$('#f-customer').onfocus = () => renderCustomerChips();
+
+/* ชื่อลูกค้าที่เคยจดไว้ เด้งให้กดตอนพิมพ์ — ร้านขอ "พิมพ์ลูกค้าคนไหนที่เคยจดไว้
+ * แสดงให้อัตโนมัติ จะได้ไม่ต้องพิมพ์"
+ *
+ * เทียบแบบเดียวกับสมุดลูกค้า (ตัดจุด เว้นวรรค ขีด ตัวพิมพ์) "รร สบ" จึงเจอ
+ * "รร.สบกอน" กดชิปแล้วได้สะกดเดิมเป๊ะ บัญชีเดิม ไม่แตกเป็นเจ้าใหม่
+ */
+let customers = []; // [{ name, jobCount }] จาก /api/customers — ว่างเมื่อเปิดนอก LINE
+const custKey = (t) => String(t || '').trim().replace(/[\s.·,\-\u2013\u2014]/g, '').toLowerCase();
+
+function renderCustomerChips() {
+  const box = $('#cust-suggest');
+  if (!box) return;
+  const typed = custKey(state.customer);
+  const list = customers
+    .filter((c) => {
+      const k = custKey(c.name);
+      if (!typed) return true; // ยังไม่พิมพ์ = โชว์เจ้าล่าสุดไว้กดเลย
+      if (k === typed) return false; // พิมพ์ครบแล้ว ไม่ต้องเสนอซ้ำ
+      return k.includes(typed);
+    })
+    .slice(0, typed ? 4 : 6);
+
+  box.textContent = '';
+  box.hidden = !list.length;
+  for (const c of list) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    const name = document.createElement('b');
+    name.textContent = c.name;
+    btn.appendChild(name);
+    if (c.jobCount > 1) {
+      const n = document.createElement('small');
+      n.textContent = c.jobCount + ' งาน';
+      btn.appendChild(n);
+    }
+    btn.onclick = () => {
+      state.customer = c.name;
+      $('#f-customer').value = c.name;
+      renderSummary();
+      saveDraft();
+      renderCustomerChips();
+    };
+    box.appendChild(btn);
+  }
+}
+
+async function loadCustomers() {
+  if (!token) return; // โหมดทดลองนอก LINE ไม่มีบัญชีให้ดึง
+  try {
+    const res = await fetch('/api/customers', { headers: { Authorization: 'Bearer ' + token } });
+    const body = await res.json();
+    customers = Array.isArray(body?.customers) ? body.customers : [];
+  } catch { customers = []; }
+  const dl = $('#customer-list');
+  if (dl) {
+    dl.textContent = '';
+    for (const c of customers) {
+      const opt = document.createElement('option');
+      opt.value = c.name;
+      dl.appendChild(opt);
+    }
+  }
+  renderCustomerChips();
+}
+/* หมวด/คำค้นที่ร้านตั้งเองก็ต้องจับได้ — "แก้วสกรีน นับเป็น ใบ" ที่ตั้งไว้ในหน้า
+ * แก้หมวด ฟอร์มต้องขึ้น "ใบละ" ให้เหมือนกัน ชุดตั้งต้นใช้ไปพลางระหว่างรอ
+ */
+async function loadPricing() {
+  if (!token) return; // โหมดทดลองนอก LINE ใช้ชุดตั้งต้นจาก /api/config
+  try {
+    const res = await fetch('/api/categories', { headers: { Authorization: 'Bearer ' + token } });
+    const body = await res.json();
+    if (res.ok && Array.isArray(body?.pricing)) {
+      pricingEntries = body.pricing;
+      reclassifyAll();
+    }
+  } catch { /* ใช้ชุดตั้งต้นต่อไป ฟอร์มยังทำงานครบ */ }
+}
+
 $('#f-date').onchange = (e) => { state.date = e.target.value || todayISO(); renderSummary(); saveDraft(); };
 $('#f-due').onchange = (e) => { state.due = e.target.value || ''; renderSummary(); saveDraft(); };
 $('#f-paid').oninput = (e) => { state.paid = num(e.target.value); renderSummary(); saveDraft(); };
@@ -882,7 +1107,7 @@ let editingJobId = null;
 function fromDraft(draft) {
   const items = (draft.items || []).map((it) => {
     const size = parseSizeLabel(it.size);
-    return {
+    const item = {
       ...blankItem(),
       name: it.item_name || '',
       ...(size ? { w: size.w, h: size.h, unit: size.unit } : {}),
@@ -898,12 +1123,23 @@ function fromDraft(draft) {
       // ของมันเอง จึงเก็บไว้ตามเดิม
       totalManual: Math.abs(num(it.unit_price) * (num(it.quantity) || 1) - num(it.total)) > 0.01,
     };
+    // หน่วยราคาตามชนิดงาน (ราคาไม่ขยับ — priceManual กันไว้แล้ว) ส่วนคำนับที่
+    // แชตอ่านมา ("5 ดวง" → ดวง) เป็นของงานนั้นเอง ชนะเฉพาะคำ ไม่บังคับวิธีคิดเงิน
+    applyKind(item);
+    if (it.unit) {
+      item.unitWord = String(it.unit);
+      item.unitWordOwn = true;
+    }
+    return item;
   });
 
   state.customer = draft.customerName || '';
   state.date = draft.jobDate || todayISO();
   state.due = draft.dueDate || '';
+  state.payMethod = draft.payMethod || '';
   state.paid = num(draft.paidAmount);
+  // ร่างจากแชตที่พกเรื่องเงินมา = ร้านพูดไว้เองแล้ว ตัวเดาห้ามทับ
+  payTouched = payTouched || Boolean(state.payMethod) || Number(state.paid) > 0;
   state.note = draft.note || '';
   // ราคายังไม่ปัดที่ร้านเคยพิมพ์ทับไว้ ติดมาเฉพาะตอนที่มันไม่เท่ากับผลบวกของ
   // รายการ ไม่งั้นแก้จำนวนแล้วยอดค้างอยู่ที่เลขเก่า
@@ -921,13 +1157,13 @@ function fromDraft(draft) {
   state.items = items.length ? items : [blankItem()];
 }
 
-// เพิ่มการ์ดใบใหม่แล้วเลื่อนไปหาเลย ไม่ต้องปัดเอง
+// เพิ่มแถวใหม่แล้วเลื่อนไปหาเลย ไม่ต้องปัดเอง — แถวกางตลอดอยู่แล้ว จึงพาไป
+// พิมพ์ชื่อของแถวใหม่แทนการเด้งของเพิ่มเติมขึ้นมาบังตาราง
 function addItem() {
-  const fresh = blankItem();
-  state.items.push(fresh);
-  openId = fresh.id;
+  state.items.push(blankItem());
   renderItems();
   scrollToCard(state.items.length - 1);
+  setTimeout(() => $('.i-name', itemsBox.children[state.items.length - 1])?.focus(), 250);
 }
 
 /* ค่าส่งเป็นบรรทัดหนึ่งบนใบเสร็จ ไม่ใช่งานหนึ่งชิ้น
@@ -944,7 +1180,6 @@ function addShipping() {
   ship.rateMode = 'piece';
   ship.qty = 1;
   state.items.push(ship);
-  openId = ship.id;
   renderItems();
   const index = state.items.length - 1;
   scrollToCard(index);
@@ -952,6 +1187,70 @@ function addShipping() {
   setTimeout(() => $('.i-rate', itemsBox.children[index])?.focus(), 350);
 }
 
+/* พิมพ์ทีเดียว แล้วให้ม่วงกรอกตารางให้
+ *
+ * ร้านบอกว่า "ขอแบบกระชับ ตารางไม่เยอะ ไม่พิมพ์หลายรอบ" — ตารางข้างล่างมีสิบ
+ * ช่องต่อหนึ่งรายการ ทั้งที่ร้านพิมพ์ประโยคเดียวในแชตแล้วม่วงอ่านออกมาตั้งนาน
+ * แล้ว ปุ่มนี้ส่งข้อความไปให้ตัวอ่านตัวเดียวกับในแชต แล้วเอาผลมากรอกช่องให้
+ *
+ * กรอกให้แล้วยังแก้ได้ทุกช่องเหมือนเดิม — ม่วงกรอกให้ ไม่ใช่ม่วงตัดสินใจแทน
+ */
+async function pasteFill() {
+  const box = $('#p-text');
+  const note = $('#p-note');
+  const btn = $('#p-go');
+  const text = box.value.trim();
+
+  const say = (msg, cls) => {
+    note.textContent = msg;
+    note.className = 'paste-note' + (cls ? ' ' + cls : '');
+  };
+
+  if (!text) return say('พิมพ์รายการงานลงในช่องก่อนนะคะ', 'bad');
+
+  btn.disabled = true;
+  say('กำลังอ่านให้ค่ะ…');
+  try {
+    const res = await fetch('/api/parse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ text }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body?.message || 'อ่านไม่ออกค่ะ');
+
+    const rows = (body.draft?.items || []).length;
+    if (!rows) return say('ยังอ่านไม่ออกค่ะ ลองใส่ราคาหรือขนาดมาด้วยนะคะ', 'bad');
+
+    fromDraft(body.draft);
+    syncHeaderFields();
+    renderItems();
+    saveDraft();
+
+    /* หลายงานหลายลูกค้าในข้อความเดียว ฟอร์มนี้กรอกได้ทีละงาน
+     *
+     * บอกไปตรง ๆ ว่าเหลืออีกกี่งาน ดีกว่ากลืนหายไปเงียบ ๆ แล้วร้านมารู้ทีหลัง
+     * ตอนที่งานของลูกค้าอีกสามคนไม่เคยถูกบันทึก
+     */
+    const more = Number(body.more) || 0;
+    say(
+      more
+        ? `กรอกให้แล้ว ${rows} รายการ · ยังมีอีก ${more} งานในข้อความนี้ พิมพ์ในแชตจะแยกให้ครบกว่าค่ะ`
+        : `กรอกให้แล้ว ${rows} รายการ ตรวจดูได้เลยค่ะ`,
+      more ? 'bad' : 'good'
+    );
+    box.value = '';
+    // กรอกเสร็จแล้วพับแถบลง ให้ตารางที่เพิ่งเติมเป็นพระเอก (เหลือทิ้งไว้ตอนอ่าน
+    // ไม่ครบ จะได้เห็นข้อความบอกว่าเหลืออีกกี่งาน)
+    if (!more) $('#paste').open = false;
+  } catch (err) {
+    say(err.message || 'อ่านไม่ออกค่ะ', 'bad');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+$('#p-go').onclick = pasteFill;
 $('#btn-add').onclick = addItem;
 $('#btn-ship').onclick = addShipping;
 $('#btn-save').onclick = save;
@@ -972,6 +1271,85 @@ $('#btn-close').onclick = () => {
 
 $('#qb-save').onclick = save;
 
+/* ชิปเงิน: แตะอันเดียวจบ — ลงท่อ state.payMethod เดิมที่ API รับอยู่แล้ว
+ * ('account' = ลงบัญชี ตัวสร้างงานประทับวันลงบัญชีให้เอง) */
+$('#paychips').onclick = (e) => {
+  const b = e.target.closest('.paychip');
+  if (!b) return;
+  payTouched = true;
+  state.payMethod = b.dataset.pay;
+  // จ่ายครบเป็นเรื่องของชิป ไม่ใช่ช่องมัดจำ — เลขมัดจำเก่าต้องไม่ค้างไปปนยอดครบ
+  if (state.payMethod === 'cash' || state.payMethod === 'transfer') {
+    state.paid = 0;
+    $('#f-paid').value = '';
+  }
+  syncPayChips();
+  renderSummary();
+  saveDraft();
+};
+
+/* หลังบันทึก: ใบแจ้งยอด / ใบเสร็จ / จดใบต่อไป — อยู่ตรงหน้า ไม่ต้องกลับไปหาในแชต */
+let doneJob = null;
+// บิลที่เซิร์ฟเวอร์เปิดไว้ให้ตั้งแต่ตอนบันทึก ("จดแล้วออกเอกบิลให้เลย") —
+// มีลิงก์อยู่ในมือ ปุ่มใบเสร็จก็เปิดทันที ไม่ต้องยิงขอออกใบอีกรอบ
+let doneReceipt = null;
+
+function showDone(job, receipt) {
+  doneJob = job;
+  doneReceipt = receipt || null;
+  $('#d-no').textContent = [job.job_number, doneReceipt?.billNumber ? 'บิล ' + doneReceipt.billNumber : '']
+    .filter(Boolean).join(' · ');
+  $('#d-line').textContent = [job.customer_name, baht(num(job.total))].filter(Boolean).join(' · ');
+  // ใบแจ้งยอดคือสมุดของ "เจ้านี้" — ไม่มีชื่อลูกค้าก็ไม่มีเจ้าให้เปิด
+  $('#d-bill').hidden = !String(job.customer_name || '').trim();
+  $('#done').hidden = false;
+  $('#quickbar').hidden = true;
+  $('#done').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+$('#d-receipt').onclick = async () => {
+  if (!doneJob?.id || !token) return;
+  // บิลพร้อมอยู่แล้วจากตอนบันทึก — เปิดเลย ไม่ต้องรอเซิร์ฟเวอร์ออกใบซ้ำ
+  const ready = doneReceipt && (doneReceipt.shopUrl || doneReceipt.url);
+  if (ready) {
+    if (window.liff && liff.isInClient && liff.isInClient()) liff.openWindow({ url: ready, external: false });
+    else location.href = ready;
+    return;
+  }
+  const btn = $('#d-receipt');
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/jobs/' + encodeURIComponent(doneJob.id) + '/receipt', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token },
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.message || 'ออกใบเสร็จไม่สำเร็จค่ะ');
+    const url = body.shopUrl || body.url;
+    // ในเบราว์เซอร์ของ LINE ต้องใช้ liff.openWindow — window.open โดนบล็อก
+    if (window.liff && liff.isInClient && liff.isInClient()) liff.openWindow({ url, external: false });
+    else location.href = url;
+  } catch (err) {
+    toast(err.message || 'ออกใบเสร็จไม่สำเร็จค่ะ', 'err');
+  }
+  btn.disabled = false;
+};
+
+$('#d-bill').onclick = () => {
+  if (!doneJob) return;
+  // กุญแจบัญชีลูกค้า = ชื่อที่ตัดช่องว่าง/จุด/ขีด (custKey เทียบเท่า accountKey ฝั่งเซิร์ฟเวอร์)
+  location.href = '/app/book/?key=' + encodeURIComponent(custKey(doneJob.customer_name || ''));
+};
+
+$('#d-again').onclick = () => {
+  doneJob = null;
+  doneReceipt = null;
+  $('#done').hidden = true;
+  $('#quickbar').hidden = false;
+  scrollTo({ top: 0, behavior: 'smooth' });
+  $('#f-customer').focus();
+};
+
 /* โหมดด่วน (?quick=1) — ตั้งใจให้เปิดผ่าน LIFF ขนาด Tall จะได้เด้งขึ้นมาเป็น
  * แผ่นการ์ดทับแชต ไม่ต้องออกไปหน้าเต็ม ตัดแชตกับการ์ดสรุปออก เหลือฟอร์มกับ
  * แถบยอดรวมด้านล่าง */
@@ -979,10 +1357,36 @@ const params = new URLSearchParams(location.search);
 const quick = params.get('quick') === '1';
 if (quick) {
   document.body.classList.add('quick');
-  $('#quickbar').hidden = false;
   $('#more').open = false;
   document.title = 'จดด่วน — ม่วงจดให้';
 }
+// แถบยอดรวม + บันทึกลอยล่าง ใช้ทุกโหมด — ของเดิมมีเฉพาะโหมดด่วน ร้านขอปุ่มใหญ่
+// กดง่ายไม่ต้องเลื่อนหาการ์ดสรุป
+$('#quickbar').hidden = false;
+
+/* ปุ่มติดตั้งแอป — ร้านขอ "สร้างเป็นแอพออกมา แต่ก็ทำงานในไลน์ได้" ซึ่งคือ
+ * สิ่งที่เป็นอยู่ (เว็บเดียวกัน ประตูสองบาน) เหลือแค่ให้การติดตั้งง่าย:
+ * Chrome/Edge ยิง beforeinstallprompt เมื่อหน้าเข้าเกณฑ์และยังไม่ได้ติดตั้ง
+ * กดปุ่มเดียวขึ้นกล่องติดตั้งของเบราว์เซอร์เลย — ใน LINE อีเวนต์นี้ไม่มา
+ * ปุ่มจึงไม่โผล่ และกดกากบาทแล้วจำไว้ ไม่ชวนซ้ำทุกวัน */
+let installEvent = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  installEvent = e;
+  let off = false;
+  try { off = localStorage.getItem('muangjod.install.dismissed') === '1'; } catch { /* ไม่เป็นไร */ }
+  if (!off && !quick) $('#install').hidden = false;
+});
+$('#install-go').onclick = async () => {
+  $('#install').hidden = true;
+  if (!installEvent) return;
+  try { await installEvent.prompt(); } catch { /* ร้านปิดกล่องเอง ไม่เป็นไร */ }
+  installEvent = null;
+};
+$('#install-no').onclick = () => {
+  $('#install').hidden = true;
+  try { localStorage.setItem('muangjod.install.dismissed', '1'); } catch { /* ไม่เป็นไร */ }
+};
 
 // ธีม: ขาว-น้ำเงินเป็นค่าเริ่มต้น ให้เข้าชุดกับการ์ดในแชตที่กดเข้ามา
 // ?theme=night ได้โทนกรมท่ากลางคืน
@@ -1010,6 +1414,8 @@ function offerDraft(saved) {
 
   $('#resume-yes').onclick = () => {
     loadDraft(saved);
+    // ร่างค้างที่พกเรื่องเงินมา = ร้านตัดสินใจไว้แล้ว ตัวเดาห้ามทับ
+    payTouched = payTouched || Boolean(state.payMethod) || Number(state.paid) > 0;
     bar.hidden = true;
     syncHeaderFields();
     renderItems();
@@ -1051,6 +1457,9 @@ function whenText(ts) {
   const preset = (params.get('name') || '').trim();
   if (preset && state.items.length === 1 && !state.items[0].name && !state.items[0].total) {
     state.items[0].name = preset.slice(0, 200);
+    // ชื่อมาทางลิงก์ ไม่ผ่าน oninput — จัดหน่วยราคาตรงนี้ (ตัวจับคำของจริงมาถึง
+    // ทีหลังตอน fetch /api/config เสร็จ แล้ว reclassifyAll จัดซ้ำให้ถูก)
+    applyKind(state.items[0]);
     saveDraft();
   }
 
@@ -1060,11 +1469,19 @@ function whenText(ts) {
   // LIFF: ถ้าเปิดใน LINE จะได้โทเคนไว้ยิง API ถ้าไม่ใช่ก็ยังกรอกได้ตามปกติ
   try {
     const cfg = await (await fetch('/api/config')).json();
+    // ตัวจับคำหน่วยราคา (ชุดตั้งต้น) — ต้องมาก่อนเช็ก LIFF เพราะโหมดทดลองนอก
+    // LINE โยนออกตรงบรรทัดถัดไป แต่ยังต้องจับ "กรอบ → บานละ" ได้เหมือนกัน
+    if (Array.isArray(cfg.pricing)) {
+      pricingEntries = cfg.pricing;
+      reclassifyAll();
+    }
     if (!cfg.liffId) throw new Error('ยังไม่ได้ตั้งค่า LIFF_ID');
     await liff.init({ liffId: cfg.liffId });
     if (!liff.isLoggedIn()) return liff.login({ redirectUri: location.href });
     token = liff.getAccessToken();
     $('#bar-sub').textContent = 'บันทึกเข้าบัญชีของคุณ';
+    loadCustomers(); // ชื่อลูกค้าเดิมไว้เติมอัตโนมัติ — ไม่ต้องรอ ฟอร์มใช้ได้เลย
+    loadPricing(); // หน่วยราคาของหมวด/คำที่ร้านตั้งเอง — ระหว่างรอใช้ชุดตั้งต้น
 
     // ?draft=1 — มาจากปุ่ม ✏️ แก้ไข บนการ์ดในแชต ของที่จดไว้ต้องมาอยู่ในฟอร์ม
     // ให้ครบ ไม่ใช่ให้พิมพ์ใหม่ ร่างที่ค้างในเครื่องแพ้เสมอ เพราะอันนี้คือ
@@ -1098,6 +1515,9 @@ function whenText(ts) {
         const body = await res.json();
         if (res.ok && body?.job) {
           editingJobId = jobId;
+          // แก้งานเก่า: เงินแก้จากหน้าจัดการงาน (PATCH ทางนี้ไม่ส่งเงิน) —
+          // โชว์ชิปไว้ก็หลอกว่ากดแล้วมีผล
+          $('#paycard').hidden = true;
           fromDraft({
             items: body.job.items,
             customerName: body.job.customer_name,

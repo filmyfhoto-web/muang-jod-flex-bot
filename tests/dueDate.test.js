@@ -110,7 +110,11 @@ test('a job is never lost over a column the database may not have yet', () => {
   const service = readFileSync(new URL('../src/services/jobService.js', import.meta.url), 'utf8');
   const insert = service.slice(service.indexOf(".from('jobs')\n      .insert({"), service.indexOf('.select(\'*\')\n      .single();'));
   assert.ok(!insert.includes('due_date'), 'due_date must not be part of the insert');
-  assert.match(service, /update\(\{ due_date: dueDate \}\)/);
+  // branch_id (ไมเกรชัน 016) เดินตามกติกาเดียวกัน — แสตมป์ทีหลัง ไม่ใส่ใน insert
+  assert.ok(!insert.includes('branch_id'), 'branch_id must not be part of the insert');
+  assert.match(service, /\.\.\.\(dueDate \? \{ due_date: dueDate \} : \{\}\)/);
+  assert.match(service, /\.\.\.\(branchId \? \{ branch_id: branchId \} : \{\}\)/);
+  assert.match(service, /update\(extras\)/);
   assert.match(service, /logger\.warn\('job\.due_stamp_failed'/);
 });
 

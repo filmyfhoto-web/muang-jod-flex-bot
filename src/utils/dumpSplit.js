@@ -1,5 +1,5 @@
 import { parseNaturalJob, extractCustomer } from './nlParser.js';
-import { deriveJobName, classifyJob } from './category.js';
+import { deriveJobName, classifyJob, classifyItem } from './category.js';
 import { round2 } from './currency.js';
 
 /* จดรวดเดียวทั้งวัน แล้วให้ม่วงแยกเป็นงาน ๆ ให้
@@ -47,13 +47,23 @@ function isHeading(line) {
 export function groupLines(text) {
   const groups = [];
   let heading = null;
+  let headingJob = null;
 
   for (const raw of String(text || '').split('\n')) {
     const line = raw.trim().replace(BULLET, '').trim();
     if (!line || NOISE_LINE.test(line)) continue;
 
     if (isHeading(line)) {
-      heading = extractCustomer(line).customerName;
+      const found = extractCustomer(line);
+      heading = found.customerName;
+      /* หัวกลุ่มบอกทั้งวัสดุและลูกค้าในบรรทัดเดียวก็ได้ — "โฟมบอร์ด รร สบกอน"
+       *
+       * ร้านเขียนสองแบบสลับกัน บางทีแยกสองบรรทัด บางทีรวมบรรทัดเดียว ของเดิม
+       * แบบรวมบรรทัดทิ้งวัสดุไปทั้งคำ ชื่องานเลยกลายเป็นชื่อที่เดาจากรายการ
+       * ("งานป้าย / ป้ายตั้งโต๊ะ") แทนที่จะเป็น "โฟมบอร์ด" ที่ร้านพิมพ์มาเอง
+       */
+      const leftover = found.rest.replace(/\s+/g, ' ').trim();
+      headingJob = leftover && classifyItem(leftover) ? leftover : null;
       continue;
     }
 
@@ -63,72 +73,226 @@ export function groupLines(text) {
      * ให้หน่อย แต่รับพร้อมกัน" — ของเดิมต้องย่อหน้าเข้ามาถึงจะรู้ว่าเป็นพวก
      * เดียวกัน ซึ่งไม่มีใครพิมพ์แบบนั้นในไลน์
      *
-     * "รับพร้อมกัน" จึงรวมเป็นงานเดียวหลายรายการ ใบเสร็จของลูกค้าคนนั้นเป็น
-     * ใบเดียว — ไม่ใช่แยกเป็นหลายงานที่ต้องออกใบเสร็จทีละใบ
+     * กลุ่มเดียวกันแปลว่า "ของลูกค้าคนเดียวกัน" เท่านั้น ส่วนจะเป็นใบเดียว
+     * หลายรายการ หรือหลายงานคนละใบ draftsOf ตัดสินจากบรรทัดข้างใน —
+     * ของชนิดเดียวกันรวมใบ ("รับพร้อมกัน") ของคนละชนิดแยกใบ (ร้านขอ:
+     * "สั่ง 3 งาน แยกเฉพาะงานให้หน่อย จะได้รู้ว่างานไหนได้เงินเท่าไหร่")
      *
      * ยังไม่เดาเกินที่ร้านเขียนอยู่ดี: ต้องมี "หัวกลุ่ม" (บรรทัดที่มีแต่ชื่อ
      * ไม่มีของ) มาก่อนเท่านั้น บรรทัดที่มีทั้งชื่อและของไม่เปิดกลุ่มให้ใคร
      * งานขายหน้าร้านที่จดต่อท้ายจึงไม่ถูกยัดให้ลูกค้าคนก่อนหน้า
+     *
+     * กลุ่มจบเมื่อร้านเขียนชื่อลูกค้า "นำหน้าบรรทัด" — ตำแหน่งคือสิ่งเดียวที่
+     * แยก "โรงเรียนบ้านปงสนุก ตรายาง 2 อัน" (ลูกค้าคนใหม่) ออกจาก "รูปครูยิ้ม
+     * 1*1.5*700*2" (ชื่อชิ้นงาน ไม่ใช่ลูกค้าชื่อครูยิ้ม) เพราะคนจดขึ้นต้นบรรทัด
+     * ด้วยชื่อลูกค้าเสมอเวลาเปลี่ยนคน ของเดิมชื่อที่อยู่กลางบรรทัดก็ตัดกลุ่ม
+     * ด้วย ใบสั่งของโรงเรียนใบเดียวจึงแตกเป็นสี่งานที่มีลูกค้าปลอมสี่คน
      */
-    if (heading && !extractCustomer(line).customerName) {
+    if (heading && extractCustomer(line).index === 0) heading = headingJob = null;
+
+    if (heading) {
       const last = groups[groups.length - 1];
       if (last && last.customer === heading) last.lines.push(line);
-      else groups.push({ customer: heading, lines: [line] });
+      else groups.push({ customer: heading, jobName: headingJob, lines: [line] });
       continue;
     }
 
     // บรรทัดที่มีชื่อลูกค้าของตัวเอง ออกจากกลุ่มข้างบนแล้ว
-    heading = null;
-    groups.push({ customer: null, lines: [line] });
+    heading = headingJob = null;
+    groups.push({ customer: null, jobName: null, lines: [line] });
   }
 
   return groups;
 }
 
-/* กลุ่มบรรทัด → ร่างงานหนึ่งใบ
+/* กลุ่มบรรทัด → ร่างงาน (หนึ่งใบ หรือหลายใบเมื่อแต่ละบรรทัดมีราคาของตัวเอง)
  *
  * ชื่อลูกค้าของหัวกลุ่มชนะ เพราะร้านตั้งใจเขียนไว้ตรงนั้น ส่วนที่ตัวอ่านเดาได้
  * จากบรรทัดเป็นตัวสำรอง
  */
-function draftOf(group, index) {
+function draftsOf(group) {
   /* อ่านทีละบรรทัด ไม่ใช่ต่อกันแล้วอ่านทีเดียว
    *
    * ตัวอ่านหลายบรรทัดคิด "สติ๊กเกอร์ 50 ดวง ดวงละ 5" ได้ ฿5 เพราะจำนวนถูก
    * กลืนไปอยู่ในชื่อสินค้า ส่วนตัวอ่านบรรทัดเดียวได้ ฿250 ซึ่งถูก — กลุ่มที่มี
    * หลายบรรทัดจึงต้องอ่านทีละบรรทัดแล้วค่อยเอารายการมารวมกัน
    */
-  const perLine = group.lines.map((line) => parseNaturalJob(line));
+  /* บรรทัดที่ไม่มีตัวเลขเลย ไม่ใช่ของที่สั่ง แต่บอกว่าของข้างล่างคืออะไร
+   *
+   * ร้านเขียนวัสดุไว้บรรทัดเดียวข้างบน ("โฟมบอร์ด") แล้วไล่ชิ้นงานข้างใต้
+   * และบางทีเขียนชื่อชิ้นงานไว้บรรทัดหนึ่ง ตัวเลขอีกบรรทัดหนึ่ง ("สแตนดี้ สูง"
+   * แล้วขึ้นบรรทัดใหม่เป็น "0.6*1.7*700*2=...")
+   *
+   * ของเดิมบรรทัดพวกนี้ถูกทิ้งทั้งคู่ — วัสดุหายไป และชิ้นงานกลายเป็นรายการ
+   * ไม่มีชื่อ
+   */
+  const lines = [];
+  let carry = null;
+  let groupName = null;
+  for (const line of group.lines) {
+    if (hasDigit(line)) {
+      lines.push(carry ? `${carry} ${line}` : line);
+      carry = null;
+      continue;
+    }
+    // ชื่อวัสดุที่ระบบรู้จัก = ชื่องานของทั้งกอง ส่วนคำอื่นเป็นชื่อของชิ้นถัดไป
+    if (classifyItem(line)) groupName = groupName || line;
+    else carry = carry ? `${carry} ${line}` : line;
+  }
+
+  const perLine = lines.map((line) => parseNaturalJob(line, { customerKnown: Boolean(group.customer) }));
+
+  /* ทุกบรรทัดเป็นรายละเอียดของของชิ้นเดียว = อ่านรวดเดียว ไม่ใช่ทีละบรรทัด
+   *
+   * ร้านพิมพ์งานเดียวเป็นสามบรรทัด:
+   *     งานไวนิล งานสีดำน้องป่านสั่ง
+   *     ขนาด 0.6*1.6  1 ผืน
+   *     200 บาท
+   * ทางนี้อ่านทีละบรรทัด ใบเสร็จจึงได้สองรายการ — "ผืน ฿0" กับ "งาน ฿200" —
+   * ทั้งที่ลูกค้าสั่งป้ายผืนเดียว (ยอดรวมถูก แต่บนใบเสร็จอ่านไม่รู้เรื่อง)
+   *
+   * เส้นแบ่งคือ "มีบรรทัดเดียวที่มีราคา" — ขนาดกับจำนวนไม่มีราคาของตัวเอง
+   * มันเป็นรายละเอียดของราคาบรรทัดนั้น ส่วนกองที่ทุกบรรทัดมีราคาของตัวเอง
+   * คือของคนละชิ้นจริง ๆ ("สติ๊กเกอร์ 50 ดวง ฿250" กับ "ตรายาง 1 อัน ฿250")
+   *
+   * เคยใช้ classifyItem ตัดสินแทน แล้วบรรทัด "รูปครูยิ้ม 1*1.5*700 = 1,050
+   * 2 อัน 1050*2 = 2,100" อ่านไม่ออกว่ามีชื่อของ สองบรรทัดจึงโดนยุบรวมกัน
+   * แล้วเงินหายไป ฿2,100 เงียบ ๆ — นับราคาปลอดภัยกว่าเดาจากชื่อ
+   */
+  const priced = perLine.filter((p) => Number(p.total) > 0).length;
+  if (lines.length > 1 && priced <= 1) {
+    const whole = [group.jobName, groupName, ...lines].filter(Boolean).join(' ');
+    const one = parseNaturalJob(whole, { customerKnown: Boolean(group.customer) });
+    return [{
+      customerName: group.customer || one.customerName || null,
+      jobName: group.jobName || groupName || one.jobName || deriveJobName(one.items) || 'งาน',
+      items: one.items,
+      subtotal: one.subtotal,
+      discount: one.discount,
+      total: one.total,
+      paidAmount: one.paidAmount || 0,
+      payMethod: one.payMethod || null,
+      source: lines.join(' · '),
+    }];
+  }
+
+  /* หัวกลุ่มบอกชื่อลูกค้าไว้แล้ว บรรทัดข้างใต้จึงไม่มีชื่อลูกค้าอยู่ข้างใน
+   *
+   * ไม่งั้น "รูปครูยิ้ม" ถูกอ่านเป็นลูกค้าชื่อครูยิ้ม แล้วเหลือของชื่อ "รูป"
+   * — ในใบเดียวกันมีรูปสองรายการชื่อ "รูป" เหมือนกัน ร้านแยกไม่ออกว่าอันไหน
+   */
 
   /* บรรทัดสรุป ("ทั้งหมด 6*50 = 300") บอกยอด ไม่ได้สั่งของ
    *
    * พอยอดถูกยกออกไปแล้ว บรรทัดก็ไม่เหลืออะไร ตัวอ่านจึงคืนรายการเปล่าชื่อ "งาน"
    * ราคา 0 มาให้ — กลายเป็นรายการที่สามบนใบเสร็จที่ลูกค้าไม่ได้สั่ง
    */
-  const items = perLine
-    .filter((p) => !(p.statedTotal != null && p.subtotal === 0))
-    .flatMap((p) => p.items || []);
+  const summary = (p) => p.statedTotal != null && p.subtotal === 0;
+  // "เหมารวม 1000" อ่านออกมาเป็นรายการชื่อ "เหมารวม" — มันคือยอดสรุป ไม่ใช่ของที่สั่ง
+  const LUMP_RE = /^(?:เหมา(?:รวม)?|รวม(?:ทั้งหมด|สุทธิ)?|ทั้งหมด|สุทธิ|เบ็ดเสร็จ|total|net)$/i;
+  const lumpLine = (p) =>
+    Number(p.total) > 0 &&
+    (p.items || []).length > 0 &&
+    p.items.every((it) => LUMP_RE.test(String(it.item_name || '').trim()));
+  // บรรทัดที่บอกแต่เงินรับมา ("มัดจำ 500") เป็นของทั้งกอง ไม่รู้ว่าก้อนไหนของใบไหน
+  // — มัดจำที่พิมพ์ในบรรทัดที่มีราคาของตัวเอง ("ป้าย 350 มัดจำ 100") ไม่เข้าข่ายนี้
+  const groupPaid = (p) => Number(p.paidAmount) > 0 && !(Number(p.total) > 0);
+
+  const realPriced = perLine.filter((p) => Number(p.total) > 0 && !summary(p) && !lumpLine(p));
+  const pricedTotal = round2(realPriced.reduce((s, p) => s + Number(p.total), 0));
+  const lumps = perLine.filter((p) => summary(p) || lumpLine(p)).map((p) => round2(p.statedTotal != null ? p.statedTotal : p.total));
   const stated = perLine.map((p) => p.statedTotal).find((t) => t != null);
+
+  /* ลูกค้าคนเดียว หลายบรรทัดที่ต่างก็มีราคาของตัวเอง = คนละงานจริง ๆ
+   *
+   * ร้านขอตรง ๆ: "ถ้าลูกค้าชื่อ 1 คน สั่ง 3 งาน แยกเฉพาะงานให้หน่อยค่ะ จะได้รู้
+   * ว่างานไหนเราได้เงินเท่าไหร่" — ของเดิมรวมเป็นใบเดียว (ตามคำขอเก่า "รับพร้อม
+   * กัน") แล้วเลขงาน/หมวด/เงิน เหลือชุดเดียวทั้งที่เป็นป้ายกับกรอบคนละงานกัน
+   *
+   * แต่ "หลายบรรทัดที่มีราคา" อย่างเดียวยังไม่พอ — ใบสั่งโรงเรียนก็หน้าตาแบบนี้
+   * (โฟมบอร์ดสี่ชิ้น ชิ้นละบรรทัด) ทั้งที่มันคือใบสั่งใบเดียว แยกเมื่อเป็น
+   * "หลายงาน" จริง และแยกได้โดยไม่ต้องเดาเงินเท่านั้น (V2 §4):
+   *   มีหัววัสดุ/ชื่องานทั้งกอง ("โฟมบอร์ด")   → ใบสั่งใบเดียว ชิ้นงานคือรายการ
+   *   ทุกบรรทัดเป็นของชนิดเดียวกัน            → งานเดียวหลายรายการ ("รับพร้อมกัน"
+   *                                            สติ๊กเกอร์สองแบบ ไม่ใช่สองงาน)
+   *   ยอดเหมาทั้งกองที่ไม่เท่าผลบวกรายบรรทัด → ร้านตั้งราคารวมเอง ใบเดียวเหมือนเดิม
+   *   บรรทัดเงินรับลอย ๆ ("มัดจำ 500")        → ไม่รู้ของใบไหน ใบเดียวเหมือนเดิม
+   *   มัดจำที่พิมพ์ในบรรทัดงานนั้นเอง           → ติดใบนั้นไป แยกได้ปกติ
+   * อยากให้เป็นใบเดียวหลายรายการจริง ๆ ยังทำได้จากฟอร์มจด (เพิ่มแถวในใบเดียว)
+   */
+  const kindOf = (p) => {
+    const hit = classifyJob(p.items || []);
+    return hit ? hit.type?.id || hit.group.id : 'ไม่รู้จัก';
+  };
+  const splittable =
+    realPriced.length >= 2 &&
+    !group.jobName &&
+    !groupName &&
+    new Set(realPriced.map(kindOf)).size >= 2 &&
+    !perLine.some(groupPaid) &&
+    lumps.every((t) => t === pricedTotal);
+
+  if (splittable) {
+    const jobs = [];
+    let pending = []; // รายการไม่มีราคาที่มาก่อนใบแรก — ฝากไว้ให้ใบถัดไป
+    for (let k = 0; k < perLine.length; k += 1) {
+      const p = perLine[k];
+      if (summary(p) || lumpLine(p)) continue; // ยอดรวมที่เท่าผลบวกอยู่แล้ว ไม่ต้องเป็นรายการ
+      if (!(Number(p.total) > 0)) {
+        // บรรทัดรายละเอียดไม่มีราคา เกาะใบข้างบน (ไม่มีใบข้างบนก็รอใบถัดไป)
+        const last = jobs[jobs.length - 1];
+        if (last) {
+          last.items = [...last.items, ...(p.items || [])];
+          last.source += ` · ${lines[k]}`;
+        } else {
+          pending.push(...(p.items || []));
+        }
+        continue;
+      }
+      const items = [...pending, ...(p.items || [])];
+      pending = [];
+      jobs.push({
+        customerName: group.customer || p.customerName || null,
+        jobName: p.jobName || deriveJobName(items) || group.jobName || groupName || 'งาน',
+        items,
+        subtotal: p.subtotal,
+        discount: round2((Number(p.subtotal) || 0) - (Number(p.total) || 0)),
+        total: p.total,
+        paidAmount: p.paidAmount || 0,
+        payMethod: p.payMethod || null,
+        source: lines[k],
+      });
+    }
+    if (jobs.length) return jobs;
+  }
+
+  // ใบรวม: บรรทัดยอดเหมา ("เหมารวม 1000") คือยอดที่ร้านตั้ง ไม่ใช่ของอีกชิ้น —
+  // ยกออกจากรายการ แล้วใช้เป็นยอดจริงของใบ (ส่วนต่างคือปัด/ลดให้ ตามเดิม)
+  const lumpStated = perLine.find(lumpLine);
+  const items = perLine
+    .filter((p) => !summary(p) && !lumpLine(p))
+    .flatMap((p) => p.items || []);
   const parsed = {
     customerName: perLine.map((p) => p.customerName).find(Boolean) || null,
-    jobName: perLine.map((p) => p.jobName).find(Boolean) || null,
+    jobName: perLine.filter((p) => !lumpLine(p)).map((p) => p.jobName).find(Boolean) || null,
     paidAmount: perLine.reduce((s, p) => s + (Number(p.paidAmount) || 0), 0),
-    statedTotal: stated == null ? null : stated,
+    statedTotal: stated != null ? stated : lumpStated ? round2(lumpStated.total) : null,
   };
   const subtotal = round2(items.reduce((s, it) => s + (Number(it.total) || 0), 0));
   const total = parsed.statedTotal != null ? parsed.statedTotal : subtotal;
 
-  return {
-    no: index + 1,
+  return [{
     customerName: group.customer || parsed.customerName || null,
-    jobName: parsed.jobName || deriveJobName(items) || 'งาน',
+    jobName: group.jobName || groupName || parsed.jobName || deriveJobName(items) || 'งาน',
     items,
     subtotal,
     discount: round2(subtotal - total),
     total,
     paidAmount: parsed.paidAmount || 0,
+    payMethod: perLine.map((p) => p.payMethod).find(Boolean) || null,
     // บรรทัดที่ร้านพิมพ์มาจริง ๆ เอาไว้โชว์บนการ์ดให้ตรวจว่าแยกถูกไหม
-    source: group.lines.join(' · '),
-  };
+    source: lines.join(' · '),
+  }];
 }
 
 /* บรรทัดนี้เป็น "งาน" จริงไหม
@@ -153,12 +317,50 @@ function isRealJob(job, group) {
 export function splitDump(text) {
   const groups = groupLines(text);
   const jobs = groups
-    .map(draftOf)
-    .filter((j, i) => isRealJob(j, groups[i]))
+    .flatMap((group) => draftsOf(group).map((job) => ({ job, group })))
+    .filter(({ job, group }) => isRealJob(job, group))
     // เลขลำดับต้องเรียงตามที่เหลือจริง ไม่ใช่ตามก่อนกรอง
-    .map((j, i) => ({ ...j, no: i + 1 }));
+    .map(({ job }, i) => ({ ...job, no: i + 1 }));
 
   return { jobs, total: round2(jobs.reduce((s, j) => s + (Number(j.total) || 0), 0)) };
+}
+
+/* งานบรรทัดเดียวที่มีหลายชิ้นซึ่งต่างก็มีราคาของตัวเอง → แยกเป็นงานละใบ
+ *
+ * ทางเดียวกับหลายบรรทัด ("พ่อทองคำ ป้ายไวนิล 350 งานกรอบรูป 600" คือสองงาน
+ * ไม่ใช่งานป้ายใบเดียว ฿950 ที่มีกรอบแอบอยู่ข้างใน) — คืน null เมื่อแยกไม่ได้
+ * โดยไม่ต้องเดาเงิน: มีมัดจำรวม / ร้านตั้งยอดเหมาที่ไม่เท่าผลบวก / มีชิ้นไม่มีราคา
+ * และใช้เส้นแบ่งเดียวกับทางหลายบรรทัด: ร้านตั้งชื่องานทั้งก้อนมาเอง หรือ
+ * ทุกชิ้นเป็นของชนิดเดียวกัน = งานเดียวหลายรายการ ไม่ใช่หลายงาน
+ */
+export function splitSelfPriced(parsed) {
+  const items = parsed?.items || [];
+  if (items.length < 2) return null;
+  if (parsed.jobName) return null;
+  if (!items.every((it) => Number(it.total) > 0)) return null;
+  if (Number(parsed.paidAmount) > 0) return null;
+  const sum = round2(items.reduce((s, it) => s + Number(it.total), 0));
+  if (round2(Number(parsed.total) || 0) !== sum) return null;
+  const kinds = new Set(
+    items.map((it) => {
+      const hit = classifyJob([it]);
+      return hit ? hit.type?.id || hit.group.id : 'ไม่รู้จัก';
+    })
+  );
+  if (kinds.size < 2) return null;
+
+  return items.map((it, i) => ({
+    no: i + 1,
+    customerName: parsed.customerName || null,
+    jobName: deriveJobName([it]) || it.item_name || 'งาน',
+    items: [it],
+    subtotal: round2(Number(it.total)),
+    discount: 0,
+    total: round2(Number(it.total)),
+    paidAmount: 0,
+    payMethod: parsed.payMethod || null,
+    source: it.item_name || '',
+  }));
 }
 
 /* ข้อความนี้เป็น "จดหลายบรรทัดรวดเดียว" ไหม

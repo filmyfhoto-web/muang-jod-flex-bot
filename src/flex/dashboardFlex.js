@@ -143,6 +143,47 @@ function recentRow(job) {
   };
 }
 
+function moneySplitRows(m) {
+  if (!m) return [];
+  const rows = [];
+  if (m.received > 0) {
+    const parts = [`💵 สด ${formatBaht(m.cash)}`, `🏦 โอน ${formatBaht(m.transfer)}`];
+    if (m.unknown > 0) parts.push(`❓ ${formatBaht(m.unknown)}`);
+    rows.push({
+      type: 'box',
+      layout: 'horizontal',
+      paddingTop: 'sm',
+      contents: [
+        { type: 'text', text: 'เงินเข้าวันนี้', size: 'xxs', color: COLORS.sub, flex: 2 },
+        { type: 'text', text: parts.join(' · '), size: 'xxs', weight: 'bold', color: COLORS.green, align: 'end', flex: 5, wrap: true },
+      ],
+    });
+  }
+  if (m.collected?.jobCount > 0) {
+    rows.push({
+      type: 'text',
+      text: `📥 ตามเก็บเงินบัญชีเก่าได้ ${formatBaht(m.collected.total)} (${m.collected.jobCount} งาน)`,
+      size: 'xxs',
+      color: COLORS.green,
+      margin: 'sm',
+      wrap: true,
+    });
+  }
+  const booked = m.bookedToday?.total > 0 ? `📒 ลงบัญชีวันนี้ +${formatBaht(m.bookedToday.total)}` : '';
+  const carry = m.accountCarry?.owed > 0 ? `รอเก็บรวม ${formatBaht(m.accountCarry.owed)} (${m.accountCarry.jobCount} งาน)` : '';
+  if (booked || carry) {
+    rows.push({
+      type: 'text',
+      text: booked ? [booked, carry].filter(Boolean).join(' · ') : `📒 ${carry}`,
+      size: 'xxs',
+      color: COLORS.orange,
+      margin: 'sm',
+      wrap: true,
+    });
+  }
+  return rows;
+}
+
 export function dashboardFlex(dash, opts = {}) {
   const { summary, counts, categories = [], trend, recent = [] } = dash;
   const total = summary.jobCount || 0;
@@ -189,9 +230,72 @@ export function dashboardFlex(dash, opts = {}) {
             { type: 'text', text: `ค้าง ${formatBaht(summary.pending)}`, size: 'xxs', color: COLORS.red, align: 'end', flex: 2 },
           ],
         },
+        // สามก้อนเงินที่ร้านขอให้แยก (แยกงานลงบัญชี กับ เก็บเงินแล้ว):
+        //   เงินเข้าวันนี้ = สด/โอนที่เก็บได้จริงวันนี้ รวมเงินบัญชีเก่าที่ตามเก็บมา
+        //   📒 = ลงบัญชีไว้ยังไม่ได้เงิน ทั้งที่เพิ่งลงวันนี้และค้างสะสมทั้งหมด
+        // ตัวเลขมาจาก buildLedger ชุดเดียวกับหน้าใบลงบัญชี — ไม่มีสูตรที่สอง
+        ...moneySplitRows(opts.money),
+        // รายจ่ายวันนี้ (V2 "จดรายรับ–รายจ่าย") — มีเมื่อร้านจดรายจ่ายไว้เท่านั้น
+        ...(opts.expense && opts.expense.total > 0
+          ? [
+              {
+                type: 'box',
+                layout: 'horizontal',
+                paddingTop: 'sm',
+                contents: [
+                  { type: 'text', text: `💸 จ่ายวันนี้ ${opts.expense.count} รายการ`, size: 'xxs', color: COLORS.sub, flex: 3 },
+                  { type: 'text', text: `-${formatBaht(opts.expense.total)}`, size: 'xxs', weight: 'bold', color: COLORS.red, align: 'end', flex: 2 },
+                ],
+              },
+            ]
+          : []),
       ],
     },
   ];
+
+  /* "ให้สรุปแยกเป็น 2 ร้านให้ชัดเจน" — แถวละร้าน: ชื่อ จำนวนงานวันนี้ ยอด
+   * งานที่ยังไม่ระบุร้านโชว์ด้วยเสมอ ไม่งั้นสองแถวบวกกันไม่เท่ายอดรวมข้างบน
+   */
+  if (dash.shops?.shops?.length) {
+    body.push(divider());
+    body.push({ type: 'text', text: '🏪 แยกตามร้าน', weight: 'bold', size: 'sm', color: COLORS.title });
+    for (const shop of dash.shops.shops) {
+      body.push({
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: shop.branch.name, size: 'sm', color: COLORS.ink, wrap: true, flex: 5 },
+          {
+            type: 'text',
+            text: shop.todayCount ? `${shop.todayCount} งาน · ${formatBaht(shop.todayTotal)}` : 'ยังไม่มีงาน',
+            size: 'xs',
+            color: shop.todayCount ? COLORS.accentText : COLORS.grey,
+            align: 'end',
+            gravity: 'center',
+            flex: 4,
+          },
+        ],
+      });
+    }
+    if (dash.shops.unassigned.todayCount > 0) {
+      body.push({
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: 'ยังไม่ระบุร้าน', size: 'sm', color: COLORS.orange, flex: 5 },
+          {
+            type: 'text',
+            text: `${dash.shops.unassigned.todayCount} งาน · ${formatBaht(dash.shops.unassigned.todayTotal)}`,
+            size: 'xs',
+            color: COLORS.orange,
+            align: 'end',
+            gravity: 'center',
+            flex: 4,
+          },
+        ],
+      });
+    }
+  }
 
   if (categories.length) {
     body.push(...categoryTiles(categories.slice(0, 4)));
@@ -258,6 +362,13 @@ export function dashboardFlex(dash, opts = {}) {
         style: 'secondary',
         height: 'sm',
         action: { type: 'postback', label: '💰 ค้างรับ', data: 'action=pending_payment', displayText: 'ค้างรับ' },
+      },
+      // กองลงบัญชี (รอเก็บ) — เปิดรายชื่อพร้อมปุ่มเก็บเงินรายใบ
+      {
+        type: 'button',
+        style: 'secondary',
+        height: 'sm',
+        action: { type: 'postback', label: '📒 รอเก็บ', data: 'action=money_list&k=account', displayText: 'งานลงบัญชี' },
       },
     ],
   });

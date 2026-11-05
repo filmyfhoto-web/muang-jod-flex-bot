@@ -147,3 +147,52 @@ test('search is scoped to the requesting user', async () => {
   const none = await searchJobs('userA', 'ไม่มีจริง', {}, db);
   assert.equal(none.length, 0);
 });
+
+/* ร้านสั่ง "บอทแยกลงบัญชี และ โรงเรียนให้อัตโนมัติ" — จดงานหน่วยงานโดยไม่พูด
+ * เรื่องเงินสักคำ = ขายเชื่อ ลงสมุด (booked_at) ให้เอง โดยไม่แตะตัวเงินสักบาท
+ * พูดเรื่องเงินมาเมื่อไหร่ (มัดจำ/ช่องทาง) ร้านคุมเอง ตัวเดาต้องถอย (กติกา §4)
+ */
+test('add job: ลูกค้าโรงเรียน/หน่วยงาน ไม่พูดเรื่องเงิน → ลงบัญชีให้อัตโนมัติ', async () => {
+  const db = createMockSupabase();
+
+  const school = await createJob('userA', newJobPayload(900, { customerName: 'โรงเรียนบ้านห้วยฟอง' }), db);
+  const saved = await getJobById('userA', school.id, db);
+  assert.ok(saved.booked_at, 'งานโรงเรียนต้องลงบัญชีเอง');
+  assert.equal(saved.payment_status, 'pending');
+  assert.equal(Number(saved.balance_due), 900, 'ลงบัญชีเฉย ๆ ตัวเงินห้ามขยับ');
+  assert.ok(!saved.pay_method, 'ยังไม่รู้ช่องทางเงิน — ห้ามเดา');
+
+  // หน้าร้านไม่เกี่ยว — พฤติกรรมเดิมทุกอย่าง
+  const walkin = await createJob('userA', newJobPayload(150, { customerName: 'คุณนก' }), db);
+  assert.ok(!(await getJobById('userA', walkin.id, db)).booked_at, 'หน้าร้านห้ามโดนลงบัญชีเอง');
+
+  // หน่วยงานแต่พูดเรื่องเงินมาแล้ว = ร้านกำลังคุมเอง ไม่เดาทับ
+  const deposit = await createJob('userA', newJobPayload(900, { customerName: 'อบต.ผาทอง', paidAmount: 300 }), db);
+  assert.ok(!(await getJobById('userA', deposit.id, db)).booked_at, 'มีมัดจำ = ร้านคุมเงินเองอยู่');
+
+  // จ่ายครบมาแต่แรก ลงบัญชีเป็นรายรับวันนี้ (กติกาเดิม ไม่ใช่ตัวเดาใหม่)
+  const cashed = await createJob('userA', newJobPayload(400, { customerName: 'รร.สบกอน', paidAmount: 400, payMethod: 'cash' }), db);
+  const cashedRow = await getJobById('userA', cashed.id, db);
+  assert.ok(cashedRow.booked_at);
+  assert.equal(cashedRow.pay_method, 'cash');
+});
+
+/* ร้านขอ "จดแล้วออกเอกบิลให้เลยไม่ต้องหลายขั้นตอน" — ensureJobBill คือตัวเปิดใบ
+ * ตอนจด: งานใหม่ได้ใบใหม่ งานที่มีใบแล้วได้ใบเดิม และพังก็เงียบ ไม่พาการจดล่ม */
+test('จดแล้วบิลพร้อมเลย: เปิดใบให้งานใหม่ งานเดิมได้ใบเดิม', async () => {
+  const db = createMockSupabase();
+  const { ensureJobBill } = await import('../src/services/billService.js');
+
+  const job = await createJob('userA', newJobPayload(500, { customerName: 'โรงเรียนวัดดอนตัน' }), db);
+  const bill = await ensureJobBill('userA', job, db);
+  assert.ok(bill?.id && bill.share_token, 'ต้องได้ใบพร้อมโทเคนลิงก์');
+  assert.equal(bill.jobs?.length, 1);
+
+  const saved = await getJobById('userA', job.id, db);
+  assert.equal(saved.bill_id, bill.id, 'งานต้องผูกกับใบที่เปิด');
+
+  const again = await ensureJobBill('userA', saved, db);
+  assert.equal(again?.id, bill.id, 'งานที่มีใบแล้วต้องได้ใบเดิม ไม่เปิดซ้ำ');
+
+  assert.equal(await ensureJobBill('userA', null, db), null, 'ไม่มีงานต้องเงียบ ๆ ไม่พัง');
+});
