@@ -52,6 +52,7 @@ supabase/
   migrations/001_initial_schema.sql
 scripts/
   create-rich-menu.js
+sign-mockup/                # นัดพอน Sign Mockup — จำลองป้ายให้ลูกค้าดู เปิดที่ /sign/ (ดู sign-mockup/README.md)
 .env.example  .gitignore  package.json  README.md
 ```
 
