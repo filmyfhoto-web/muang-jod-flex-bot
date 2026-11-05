@@ -359,7 +359,13 @@ test('โลโก้ร้าน NATTAPRON: ไฟล์มีจริง ใ�
     assert.deepEqual([...b.slice(0, 4)], [0x89, 0x50, 0x4e, 0x47], f);
     assert.ok(b.length < 80 * 1024, f + ' ' + b.length);
   }
-  // ตัวการ์ตูนใส่เสื้อสกรีนโลโก้ร้าน (ทั้ง 3 มิติ และ 2 มิติ)
-  assert.match(s3, /NS\.BRAND && NS\.BRAND\.mark/);
-  assert.match(app, /R\.setMascotLogo\(img\)/);
+  // คนเทียบขนาด = รูปการ์ตูนเจ้าของร้าน (ทั้ง 3 มิติ และ 2 มิติ) เก็บไว้ใช้ออฟไลน์
+  const m = 'brand/mascot.webp';
+  const b = readFileSync(new URL('../sign-mockup/' + m, import.meta.url));
+  assert.equal(b.slice(0, 4).toString('latin1'), 'RIFF');
+  assert.equal(b.slice(8, 12).toString('latin1'), 'WEBP');
+  assert.ok(b.length < 120 * 1024, m + ' ' + b.length);
+  assert.ok(app.includes(`'${m}'`) && sw.includes(`'${m}'`));
+  assert.match(s3, /NS\.BRAND && NS\.BRAND\.mascot/);
+  assert.match(app, /R\.setMascot\(img\)/);
 });

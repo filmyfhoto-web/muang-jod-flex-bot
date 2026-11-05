@@ -567,46 +567,15 @@
 
   var SCENE_DRAW = { studio: sceneStudio, wall: sceneWall, brick: sceneBrick, shop: sceneShop, fence: sceneFence, classDoor: sceneClassDoor, officeDoor: sceneOfficeDoor, classroom: sceneClassroom };
 
-  /* ---------- คนยืนเทียบขนาด 170 ซม. — การ์ตูนเจ้าของร้าน (ยืนขวาของป้าย ผายมือซ้ายไปทางป้าย) ---------- */
-  var mascotLogo = null;
-  function setMascotLogo(img) {
-    mascotLogo = img;
+  /* ---------- คนยืนเทียบขนาด 170 ซม. — รูปการ์ตูนเจ้าของร้าน (ยังโหลดรูปไม่เสร็จ ใช้เงาคนสีเทาแทน) ---------- */
+  var mascot = null;
+  function setMascot(img) {
+    mascot = img;
   }
   function person(x, cam, U) {
     var s = cam.s;
     var cx = cam.personX;
     var fy = cam.floorY;
-    var INKC = '#16181e';
-    // พิกัดเป็นซม. จากเท้า (y ขึ้นบน)
-    function P(px, py) {
-      return [cx + px * s, fy - py * s];
-    }
-    function box(px, py, w, h, r, fill) {
-      x.beginPath();
-      rr(x, cx + px * s, fy - (py + h) * s, w * s, h * s, r * s);
-      x.fillStyle = fill;
-      x.fill();
-      x.stroke();
-    }
-    function oval(px, py, rx, ry, fill, stroke) {
-      var p = P(px, py);
-      x.beginPath();
-      x.ellipse(p[0], p[1], rx * s, ry * s, 0, 0, Math.PI * 2);
-      x.fillStyle = fill;
-      x.fill();
-      if (stroke !== false) x.stroke();
-    }
-    function line(pts, w, color) {
-      x.beginPath();
-      pts.forEach(function (q, i) {
-        var p = P(q[0], q[1]);
-        if (i) x.lineTo(p[0], p[1]);
-        else x.moveTo(p[0], p[1]);
-      });
-      x.lineWidth = w * s;
-      x.strokeStyle = color;
-      x.stroke();
-    }
     x.save();
     var sh = x.createRadialGradient(0, 0, 0, 0, 0, 1);
     sh.addColorStop(0, 'rgba(0,0,0,0.25)');
@@ -617,129 +586,43 @@
     circle(x, 0, 0, 1);
     x.fill();
     x.restore();
-
     x.save();
-    x.lineJoin = 'round';
-    x.lineCap = 'round';
-    x.strokeStyle = INKC;
-    x.lineWidth = Math.max(1, 0.55 * s);
-    var ink = x.lineWidth;
-    // รองเท้าผ้าใบ + กางเกงสีเบจ
-    box(-15, 0, 14, 7, 3, '#f1f0ec');
-    box(1, 0, 14, 7, 3, '#f1f0ec');
-    box(-12.5, 5, 11.5, 85, 4, '#d8c4a2');
-    box(1, 5, 11.5, 85, 4, '#d8c4a2');
-    box(-15, 78, 30, 14, 6, '#d8c4a2');
-    // แขนขวา (ปล่อยข้างตัว)
-    box(15, 81, 7.8, 61, 3.9, '#26292f');
-    oval(19, 78.5, 3.6, 5, '#f2cfb6');
-    // เสื้อแขนยาวสีดำ
-    box(-17.5, 84, 35, 62, 10, '#26292f');
-    x.fillStyle = '#1b1d22';
-    x.beginPath();
-    rr(x, cx - 17 * s, fy - 88 * s, 34 * s, 3.4 * s, 1.5 * s);
-    x.fill();
-    // โลโก้ร้านกลางอก
-    if (mascotLogo && mascotLogo.width) {
-      var lw = 13;
-      var lh = (lw * mascotLogo.height) / mascotLogo.width;
-      var lp = P(-lw / 2, 129 + lh / 2);
-      x.drawImage(mascotLogo, lp[0], lp[1], lw * s, lh * s);
-    }
-    // แขนซ้าย ผายมือไปทางป้าย
-    line([[-15.5, 139], [-25, 118], [-39, 121]], 8.2 + ink / s * 2, INKC);
-    line([[-15.5, 139], [-25, 118], [-39, 121]], 8.2, '#26292f');
-    x.lineWidth = ink;
-    x.strokeStyle = INKC;
-    var hp = P(-44, 122.5);
-    x.beginPath();
-    x.ellipse(hp[0], hp[1], 5.4 * s, 2.3 * s, -0.12, 0, Math.PI * 2);
-    x.fillStyle = '#f2cfb6';
-    x.fill();
-    x.stroke();
-    // คอ + หัว + หู
-    box(-4.5, 139, 9, 11, 3, '#f2cfb6');
-    oval(-11, 157.5, 2, 3, '#f2cfb6');
-    oval(11, 157.5, 2, 3, '#f2cfb6');
-    oval(0, 158, 10.8, 12.4, '#f2cfb6');
-    // ผมดำยุ่ง + หน้าม้า
-    x.fillStyle = '#181a21';
-    x.beginPath();
-    var tufts = [[-10, 163, 5], [-6.5, 168.5, 5.6], [0, 171, 6], [6.5, 168.5, 5.6], [10, 163, 5], [-11.5, 158.5, 3.2], [11.5, 158.5, 3.2]];
-    tufts.forEach(function (t) {
-      var p = P(t[0], t[1]);
-      x.moveTo(p[0] + t[2] * s, p[1]);
-      x.arc(p[0], p[1], t[2] * s, 0, Math.PI * 2);
-    });
-    x.fill();
-    x.stroke();
-    x.beginPath();
-    for (var i = 0; i < 5; i++) {
-      var bx = -8 + i * 4;
-      var p0 = P(bx - 2.6, 166);
-      var p1 = P(bx, 160.6 + Math.abs(bx) * 0.12);
-      var p2 = P(bx + 2.6, 166);
-      x.moveTo(p0[0], p0[1]);
-      x.quadraticCurveTo(p1[0] - 1.2 * s, p1[1], p1[0], p1[1]);
-      x.quadraticCurveTo(p1[0] + 1.2 * s, p1[1], p2[0], p2[1]);
-    }
-    var top = P(-10.5, 167);
-    x.moveTo(top[0], top[1]);
-    x.lineTo(cx + 10.5 * s, top[1]);
-    x.lineTo(cx + 10.5 * s, fy - 170 * s);
-    x.lineTo(cx - 10.5 * s, fy - 170 * s);
-    x.closePath();
-    x.fill();
-    // ตา แว่นกลม แก้ม ปากยิ้ม
-    x.fillStyle = '#1a1b22';
-    [-4.2, 4.2].forEach(function (ex) {
-      var e = P(ex, 157.5);
+    if (mascot && mascot.width) {
+      var h = 172 * s; // ปลายผมถึงพื้นรองเท้า
+      var w = (h * mascot.width) / mascot.height;
+      x.drawImage(mascot, cx - w / 2, fy - h, w, h);
+    } else {
+      x.fillStyle = '#2e3954';
       x.beginPath();
-      x.ellipse(e[0], e[1], 0.95 * s, 1.25 * s, 0, 0, Math.PI * 2);
+      var R = function (px, py, w2, h2, r) {
+        rr(x, cx + px * s, fy - (py + h2) * s, w2 * s, h2 * s, r * s);
+      };
+      R(-11.5, 2, 10.5, 88, 4);
+      R(1, 2, 10.5, 88, 4);
+      R(-14, 0, 13, 5, 2.5);
+      R(1, 0, 13, 5, 2.5);
+      R(-16.5, 84, 33, 62, 9);
+      R(-22.5, 80, 7.5, 62, 3.8);
+      R(15, 80, 7.5, 62, 3.8);
+      R(-4.5, 140, 9, 10, 3);
       x.fill();
-    });
-    x.strokeStyle = '#121317';
-    x.lineWidth = Math.max(1, 0.55 * s);
-    [-4.2, 4.2].forEach(function (ex) {
-      var e = P(ex, 157.5);
       x.beginPath();
-      x.arc(e[0], e[1], 3.1 * s, 0, Math.PI * 2);
-      x.stroke();
-    });
-    line([[-1.1, 157.8], [1.1, 157.8]], 0.5, '#121317');
-    x.fillStyle = 'rgba(240,128,128,0.45)';
-    [-6.6, 6.6].forEach(function (ex) {
-      var e = P(ex, 152.6);
-      x.beginPath();
-      x.ellipse(e[0], e[1], 1.8 * s, 1 * s, 0, 0, Math.PI * 2);
+      x.ellipse(cx, fy - 158.5 * s, 9.5 * s, 11.5 * s, 0, 0, Math.PI * 2);
       x.fill();
-    });
-    var m0 = P(-3, 151.2);
-    var m1 = P(3, 151.2);
-    var mb = P(0, 147.4);
-    x.beginPath();
-    x.moveTo(m0[0], m0[1]);
-    x.lineTo(m1[0], m1[1]);
-    x.quadraticCurveTo(m1[0], mb[1], mb[0], mb[1]);
-    x.quadraticCurveTo(m0[0], mb[1], m0[0], m0[1]);
-    x.fillStyle = '#7d2b2e';
-    x.fill();
-    x.restore();
-
+    }
     var label = 'คนสูง 170 ซม.';
-    x.save();
     x.font = '500 ' + Math.round(17 * U) + 'px ' + BODY;
-    var lw2 = x.measureText(label).width + 18 * U;
-    var lh2 = 26 * U;
-    var ly = fy - 174 * s - 10 * U - lh2;
+    var lw = x.measureText(label).width + 18 * U;
+    var lh = 26 * U;
+    var ly = fy - 174 * s - 10 * U - lh;
     x.beginPath();
-    rr(x, cx - lw2 / 2, ly, lw2, lh2, lh2 / 2);
+    rr(x, cx - lw / 2, ly, lw, lh, lh / 2);
     x.fillStyle = 'rgba(255,255,255,0.88)';
     x.fill();
     x.fillStyle = '#2e3954';
     x.textAlign = 'center';
     x.textBaseline = 'middle';
-    x.fillText(label, cx, ly + lh2 / 2 + U);
+    x.fillText(label, cx, ly + lh / 2 + U);
     x.restore();
   }
 
@@ -1589,7 +1472,7 @@
     footer: footer,
     textDesign: textDesign,
     prepareImage: prepareImage,
-    setMascotLogo: setMascotLogo,
+    setMascot: setMascot,
     THEMES: THEMES,
     fonts: { display: DISPLAY, body: BODY },
   };
