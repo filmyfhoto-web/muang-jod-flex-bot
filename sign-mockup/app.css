@@ -1292,6 +1292,181 @@ dialog.jobs-dlg {
   text-align: center;
 }
 
+
+/* steel frame calculator */
+select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line-2);
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--ink);
+  padding: 9px 11px;
+  font: inherit;
+  font-size: 15px;
+}
+select:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: -1px;
+}
+.steel {
+  margin-top: 6px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+.steel h3 {
+  margin: 0;
+}
+.steel h3 small {
+  margin-left: 6px;
+  font: 500 13px/1 var(--font-body);
+  color: var(--ink-3);
+}
+.steel input[type='text'],
+.steel select {
+  background: var(--surface);
+}
+.steel-diagram {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.steel-diagram svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+.steel-diagram .dlabel {
+  margin: 0 0 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+  text-align: center;
+}
+#stDiagram {
+  display: grid;
+  justify-items: center;
+}
+.steel-diagram .legend {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  display: flex;
+  gap: 4px 12px;
+  align-items: center;
+}
+.lg {
+  display: inline-block;
+  width: 14px;
+  height: 3px;
+  margin-right: 4px;
+  vertical-align: middle;
+  border-radius: 2px;
+}
+.lg.h {
+  background: #2f9e62;
+}
+.lg.v {
+  background: #3a6fd8;
+}
+.steel-diagram .hint.warn {
+  color: #c2412b;
+}
+.steel-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.steel-stats div {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.steel-stats small {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.steel-stats b {
+  font: 600 22px/1.2 var(--font-display);
+  color: var(--active);
+  font-variant-numeric: tabular-nums;
+}
+.steel-stats em {
+  font-style: normal;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  margin-left: 4px;
+}
+.cut-wrap {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.cut-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+.cut-table caption {
+  caption-side: top;
+  text-align: left;
+  padding: 10px 12px;
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+.cut-table caption span {
+  float: right;
+  font-weight: 400;
+  color: var(--ink-2);
+}
+.cut-table th,
+.cut-table td {
+  padding: 8px 12px;
+  border-top: 1px solid var(--line);
+  text-align: left;
+}
+.cut-table th {
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+.cut-table td small {
+  display: block;
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.cut-table .n {
+  text-align: right;
+  white-space: nowrap;
+}
+.cut-table td.n b {
+  font: 600 16px/1.2 var(--font-display);
+}
+.cut-table tfoot td {
+  font-weight: 600;
+  background: var(--surface-2);
+}
+.cut-txt {
+  margin: 0;
+  max-height: min(60vh, 520px);
+  overflow: auto;
+  padding: 14px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  font: 13px/1.6 ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'Noto Sans Mono', monospace;
+  white-space: pre;
+}
+
 /* ---------- phones & small tablets ---------- */
 @media (max-width: 900px) {
   .viewbar {

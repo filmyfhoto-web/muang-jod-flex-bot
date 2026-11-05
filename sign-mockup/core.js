@@ -56,6 +56,13 @@
       mount: 'wall',
       presets: [[60, 40], [100, 50], [120, 60], [200, 80], [300, 100]],
     },
+    stand: {
+      name: 'ป้ายขาตั้งโครงเหล็ก',
+      desc: 'เหล็กกล่องเชื่อม ตั้งพื้น มีรายการตัดเหล็ก',
+      unit: 'set',
+      mount: 'floor',
+      presets: [[60, 90], [80, 120], [100, 150], [120, 80], [120, 180], [240, 120]],
+    },
     cnc: {
       name: 'ป้ายโครงการ CNC',
       desc: 'อักษรนูนตัด CNC บนแผ่นอะลูมิเนียมคอมโพสิต ตั้งเสาคู่',
@@ -78,7 +85,7 @@
       presets: [[60, 160], [80, 180]],
     },
   };
-  var TYPE_ORDER = ['vinyl', 'frame', 'foam', 'sticker', 'acrylic', 'lightbox', 'cnc', 'rollup', 'xstand'];
+  var TYPE_ORDER = ['vinyl', 'frame', 'foam', 'sticker', 'acrylic', 'lightbox', 'stand', 'cnc', 'rollup', 'xstand'];
 
   var SCENES = {
     studio: { name: 'พื้นเรียบ', desc: 'โชว์งานชัด ๆ' },
@@ -209,9 +216,155 @@
     return pts;
   }
 
+  /* ---------- โครงเหล็ก: ป้ายขาตั้งโครงเหล็ก / ไวนิลขึงโครง ----------
+   * หน่วยความยาวเป็น ซม. (เหล็กกล่องเป็น มม.) — ค่าเบื้องต้นสำหรับจัดแบบ ต้องตรวจวัสดุ แรงลม จุดยึดก่อนผลิต */
+  var TUBES = [
+    [19, '¾ นิ้ว (6 หุน)'],
+    [25, '1 นิ้ว'],
+    [32, '1¼ นิ้ว'],
+    [38, '1½ นิ้ว'],
+    [50, '2 นิ้ว'],
+  ];
+  var WALLS = [1, 1.2, 1.5, 2, 2.3];
+  var STEEL_DEF = { total: 0, depth: 0, tube: 25, wall: 1.2, nh: -1, nv: -1, cut: 'miter', base: 'rect', price: 0, frameOnly: false };
+  var STOCK = 600; // เหล็กเส้นยาว 6 ม.
+  var KERF = 0.3; // คมเลื่อย 3 มม.
+
+  // ค่าที่ใช้จริง (0 / -1 = อัตโนมัติ) — ความสูงรวมเริ่มที่ ป้าย + 30 ซม. ฐานลึก 40% ของความสูงรวม
+  // คร่าวนอนห่างไม่เกิน 60 ซม. คร่าวตั้งห่างไม่เกิน 100 ซม.
+  function steelOpts(w, h, o) {
+    o = o || {};
+    var r = {};
+    for (var k in STEEL_DEF) r[k] = o[k] !== undefined && o[k] !== null ? o[k] : STEEL_DEF[k];
+    var tube = num(r.tube);
+    r.tube = tube >= 10 && tube <= 100 ? tube : 25;
+    var wall = num(r.wall);
+    r.wall = wall > 0 && wall < r.tube / 2 ? wall : 1.2;
+    var T = r.tube / 10;
+    r.T = T;
+    var total = num(r.total);
+    r.autoTotal = !(total > 0);
+    r.total = r.autoTotal ? h + 30 : Math.min(h + 300, Math.max(h + T, total));
+    var depth = num(r.depth);
+    r.autoDepth = !(depth > 0);
+    r.depth = r.autoDepth ? Math.min(150, Math.max(40, Math.round((r.total * 0.4) / 5) * 5)) : Math.min(300, Math.max(T * 2 + 5, depth));
+    var nh = Math.floor(num(r.nh));
+    var nv = Math.floor(num(r.nv));
+    r.autoNh = !(r.nh !== '' && r.nh >= 0);
+    r.autoNv = !(r.nv !== '' && r.nv >= 0);
+    r.nh = r.autoNh ? Math.max(0, Math.ceil((h - 2 * T) / 60) - 1) : Math.min(20, nh);
+    r.nv = r.autoNv ? Math.max(0, Math.ceil((w - 2 * T) / 100) - 1) : Math.min(20, nv);
+    r.cut = r.cut === 'butt' ? 'butt' : 'miter';
+    r.base = r.base === 'feet' ? 'feet' : 'rect';
+    r.price = Math.max(0, num(r.price) || 0);
+    r.frameOnly = !!r.frameOnly;
+    // ช่องโครงใหญ่สุด (ภายในกรอบ หักคร่าว)
+    r.bayW = Math.round(((w - 2 * T - r.nv * T) / (r.nv + 1)) * 10) / 10;
+    r.bayH = Math.round(((h - 2 * T - r.nh * T) / (r.nh + 1)) * 10) / 10;
+    r.wide = r.bayW > 100 || r.bayH > 60;
+    return r;
+  }
+
+  function r1(v) {
+    return Math.round(v * 10) / 10;
+  }
+
+  // เหล็กเส้นยาว 6 ม.: เรียงชิ้นยาวก่อน ใส่เส้นแรกที่ยังพอ (เผื่อคมเลื่อยทุกชิ้น)
+  function packBars(lengths, stock, kerf) {
+    stock = stock || STOCK;
+    kerf = kerf == null ? KERF : kerf;
+    var bars = [];
+    var over = [];
+    lengths
+      .slice()
+      .sort(function (a, b) {
+        return b - a;
+      })
+      .forEach(function (L) {
+        if (L > stock) {
+          over.push(L);
+          return;
+        }
+        for (var i = 0; i < bars.length; i++) {
+          if (bars[i].left >= L + (bars[i].cuts.length ? kerf : 0)) {
+            bars[i].left -= L + (bars[i].cuts.length ? kerf : 0);
+            bars[i].cuts.push(L);
+            return;
+          }
+        }
+        bars.push({ cuts: [L], left: stock - L });
+      });
+    bars.forEach(function (b) {
+      b.left = r1(b.left);
+    });
+    return { bars: bars, count: bars.length, waste: r1(bars.reduce(function (s, b) { return s + b.left; }, 0)), over: over };
+  }
+
+  // น้ำหนักเหล็กกล่องสี่เหลี่ยม (กก./ม.) = พื้นที่หน้าตัด (มม.²) × 7.85 / 1000
+  function tubeKgPerM(a, t) {
+    return ((4 * a * t - 4 * t * t) * 7.85) / 1000;
+  }
+
+  /* รายการตัดเหล็ก: kind 'stand' = ขาตั้ง (เสา 2 ต้นต่อจากกรอบลงพื้น + ฐาน) · 'wall' = กรอบติดผนังอย่างเดียว
+   * ตัดเข้ามุม 45° ที่มุมกรอบนอก/มุมฐาน (วัดความยาวด้านยาว) · คร่าวชนกลางตัดตรง */
+  function steelCut(kind, w, h, opts) {
+    var o = steelOpts(w, h, opts);
+    var T = o.T;
+    var m = o.cut === 'miter';
+    var parts = [];
+    function add(name, qty, len, note) {
+      if (qty > 0 && len > 0) parts.push({ name: name, qty: qty, len: r1(len), note: note });
+    }
+    var STRAIGHT = 'ตัดตรง 90°';
+    if (kind === 'stand') {
+      var baseT = T; // เสายืนบนเหล็กฐาน
+      add('เสาและกรอบแนวตั้ง', 2, o.total - baseT, m ? '45° ปลายบน · วัดด้านยาว' : STRAIGHT);
+      add('คานกรอบบน', 1, m ? w : w - 2 * T, m ? '45° สองปลาย · วัดด้านยาว' : STRAIGHT);
+      add('คานกรอบล่าง', 1, w - 2 * T, STRAIGHT);
+    } else {
+      add('กรอบแนวตั้ง', 2, m ? h : h, m ? '45° สองปลาย · วัดด้านยาว' : STRAIGHT);
+      add('กรอบแนวนอน', 2, m ? w : w - 2 * T, m ? '45° สองปลาย · วัดด้านยาว' : STRAIGHT);
+    }
+    add('คร่าวนอน', o.nh, w - 2 * T, STRAIGHT);
+    add('คร่าวตั้ง', o.nv * (o.nh + 1), (h - 2 * T - o.nh * T) / (o.nh + 1), STRAIGHT);
+    if (kind === 'stand') {
+      if (o.base === 'rect') {
+        add('ฐานแนวลึก', 2, o.depth, m ? '45° สองปลาย · วัดด้านยาว' : STRAIGHT);
+        add('คานฐานแนวขวาง', 2, m ? w : w - 2 * T, m ? '45° สองปลาย · วัดด้านยาว' : STRAIGHT);
+      } else {
+        add('ขาฐาน (ตัว T)', 2, o.depth, STRAIGHT + ' · ปิดปลายด้วยจุกพลาสติก');
+      }
+    }
+    var lengths = [];
+    var total = 0;
+    var pieces = 0;
+    parts.forEach(function (p) {
+      total += p.qty * p.len;
+      pieces += p.qty;
+      for (var i = 0; i < p.qty; i++) lengths.push(p.len);
+    });
+    var pack = packBars(lengths);
+    var kgm = tubeKgPerM(o.tube, o.wall);
+    return {
+      kind: kind,
+      opts: o,
+      parts: parts,
+      total: r1(total),
+      pieces: pieces,
+      pack: pack,
+      kgPerM: Math.round(kgm * 1000) / 1000,
+      kg: Math.round((total / 100) * kgm * 10) / 10,
+      cost: o.price > 0 ? Math.round(pack.count * o.price) : 0,
+    };
+  }
+
+  function tubeText(o) {
+    return o.tube + '×' + o.tube + '×' + o.wall + ' มม.';
+  }
+
   /* กรอบรวมของชิ้นงาน (ซม.) จุดเริ่มคือมุมซ้ายบนของกรอบรวม
    * fx,fy = ตำแหน่งหน้าป้ายในกรอบ, depth = ความหนาที่เห็นด้านข้าง, gap = ระยะห่างจากผนัง (เงา) */
-  function geometry(type, w, h) {
+  function geometry(type, w, h, steel) {
     var t = TYPES[type] ? type : 'vinyl';
     var g = { type: t, w: w, h: h, fx: 0, fy: 0, bw: w, bh: h, depth: 0, gap: 0.4, mount: TYPES[t].mount };
     if (t === 'frame') {
@@ -238,6 +391,17 @@
       g.fy = g.rail;
       g.bw = w + 8;
       g.bh = g.rail + h - 1 + g.base + g.feet;
+    } else if (t === 'stand') {
+      // โครงเหล็กกล่อง: หน้าป้าย = กรอบนอก · เสาคือด้านข้างกรอบต่อลงพื้น · ฐานลึกตามตั้งค่า
+      var so = steelOpts(w, h, steel);
+      g.steel = so;
+      g.T = so.T;
+      g.total = so.total;
+      g.lift = so.total - h;
+      g.baseD = so.depth;
+      g.depth = so.T;
+      g.gap = 0;
+      g.bh = so.total;
     } else if (t === 'cnc') {
       // แผ่น ACP บนโครงเหล็กหนา 5 ซม. อักษรนูน 1.5 ซม. — เสาเหล็กกล่อง 10 ซม. ซ้าย/ขวา ยื่นเหนือแผ่น 4 ซม.
       // ขอบล่างแผ่นสูงจากพื้น 80 ซม.
@@ -481,6 +645,7 @@
     acrylic: 'แผ่น 8 มม. + หมุด 2.5 ซม.',
     lightbox: 'กล่องหนา 12 ซม.',
     cnc: 'แผ่น 5 ซม. + อักษรนูน 1.5 ซม.',
+    stand: 'เหล็กกล่อง + ฐาน',
     rollup: 'ฐานลึก 40 ซม.',
     xstand: 'ขากาง 45 ซม.',
   };
@@ -620,5 +785,15 @@
     quoteNo: quoteNo,
     pdfFromJpeg: pdfFromJpeg,
     bahtText: bahtText,
+    TUBES: TUBES,
+    WALLS: WALLS,
+    STEEL_DEF: STEEL_DEF,
+    STOCK: STOCK,
+    KERF: KERF,
+    steelOpts: steelOpts,
+    steelCut: steelCut,
+    packBars: packBars,
+    tubeKgPerM: tubeKgPerM,
+    tubeText: tubeText,
   };
 });

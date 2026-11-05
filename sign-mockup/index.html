@@ -210,6 +210,71 @@
               </div>
               <div class="chips" id="presets"></div>
               <p class="readout" id="sizeReadout"></p>
+
+              <div class="steel stack" id="steelPane" hidden>
+                <h3>โครงเหล็ก <small id="steelKind"></small></h3>
+                <div class="grid2" id="steelStandRow">
+                  <label class="field">
+                    <span class="label">ความสูงรวม</span>
+                    <span class="affix"><input id="stTotal" type="text" inputmode="decimal" /><i>ซม.</i></span>
+                  </label>
+                  <label class="field">
+                    <span class="label">ฐานลึก</span>
+                    <span class="affix"><input id="stDepth" type="text" inputmode="decimal" /><i>ซม.</i></span>
+                  </label>
+                </div>
+                <div class="grid2">
+                  <label class="field">
+                    <span class="label">เหล็กกล่อง</span>
+                    <select id="stTube"></select>
+                  </label>
+                  <label class="field">
+                    <span class="label">ความหนาเหล็ก</span>
+                    <select id="stWall"></select>
+                  </label>
+                </div>
+                <div class="grid2">
+                  <label class="field">
+                    <span class="label">คร่าวนอน <em>เส้น</em></span>
+                    <input id="stNh" type="text" inputmode="numeric" />
+                  </label>
+                  <label class="field">
+                    <span class="label">คร่าวตั้ง <em>ต่อแถว</em></span>
+                    <input id="stNv" type="text" inputmode="numeric" />
+                  </label>
+                </div>
+                <div class="field" id="steelBaseField">
+                  <span class="label">ฐาน</span>
+                  <div class="seg small" id="stBase">
+                    <button type="button" data-base="rect">ฐานสี่เหลี่ยม</button>
+                    <button type="button" data-base="feet">ขาตัว T</button>
+                  </div>
+                </div>
+                <div class="field">
+                  <span class="label">รูปแบบการตัด</span>
+                  <div class="seg small" id="stCut">
+                    <button type="button" data-cut="butt">ตัดตรงชน</button>
+                    <button type="button" data-cut="miter">เข้ามุม 45°</button>
+                  </div>
+                </div>
+                <div class="steel-diagram">
+                  <div id="stDiagram"></div>
+                  <p class="legend"><i class="lg h"></i>คร่าวนอน <i class="lg v"></i>คร่าวตั้ง</p>
+                  <p class="hint" id="stBay"></p>
+                </div>
+                <label class="toggle" id="stFrameOnlyRow"><input type="checkbox" id="stFrameOnly" /><span>โชว์เฉพาะโครงเหล็ก (ซ่อนแผ่นป้าย)</span></label>
+                <div class="steel-stats" id="stStats"></div>
+                <div class="cut-wrap"><table class="cut-table" id="stTable"></table></div>
+                <label class="field">
+                  <span class="label">ราคาเหล็กเส้นละ (ยาว 6 ม.) <em>ไม่ใส่ก็ได้</em></span>
+                  <span class="affix"><input id="stPrice" type="text" inputmode="decimal" placeholder="เช่น 280" /><i>บาท</i></span>
+                </label>
+                <button type="button" class="btn-primary block" id="stCutBtn">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14" /></svg>
+                  <span>รายการตัด · ดาวน์โหลด TXT (หน่วย มม.)</span>
+                </button>
+                <p class="hint">ค่าเบื้องต้นสำหรับจัดแบบ ต้องตรวจวัสดุ แรงลม และจุดยึดก่อนผลิต</p>
+              </div>
             </section>
 
             <!-- 3 ฉาก -->
@@ -375,6 +440,19 @@
       </label>
       <div class="jobs" id="jobList"></div>
       <p class="hint">งานเก็บไว้ในเครื่องนี้เท่านั้น (รวมไฟล์งานและรูปหน้าร้าน) ล้างข้อมูลเบราว์เซอร์แล้วงานจะหาย</p>
+    </dialog>
+
+    <dialog id="cutDlg" aria-labelledby="cutTitle">
+      <div class="dlg-head">
+        <h2 id="cutTitle">รายการตัดเหล็ก</h2>
+        <button type="button" class="btn-ghost small" data-close>ปิด</button>
+      </div>
+      <pre class="cut-txt" id="cutTxt"></pre>
+      <div class="dlg-actions">
+        <button type="button" class="btn-ghost" id="cutCopy">คัดลอกข้อความ</button>
+        <button type="button" class="btn-primary" id="cutSave">ดาวน์โหลด .txt</button>
+      </div>
+      <p class="status" id="cutStatus" role="status" aria-live="polite"></p>
     </dialog>
 
     <dialog id="installDlg" aria-labelledby="installTitle">

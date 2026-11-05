@@ -388,3 +388,61 @@ test('ป้ายโครงการ CNC: ตั้งเสาคู่ แ�
   const cam = C.camera({ scene: 'studio', g, W: 1600, H: 1132, person: true, zoom: 1 });
   assert.ok(cam.person);
 });
+
+test('โครงเหล็กขาตั้ง 80×120 สูงรวม 150 ฐานลึก 60 เหล็ก 25 มม. เข้ามุม 45°: 9 ชิ้น รวม 805 ซม. (ตรงกับโปรแกรมช่าง)', () => {
+  const r = C.steelCut('stand', 80, 120, {});
+  assert.equal(r.opts.total, 150);
+  assert.equal(r.opts.depth, 60);
+  assert.equal(r.opts.nh, 1);
+  assert.equal(r.opts.nv, 0);
+  assert.equal(r.pieces, 9);
+  assert.equal(r.total, 805);
+  const len = Object.fromEntries(r.parts.map((p) => [p.name, [p.qty, p.len]]));
+  assert.deepEqual(len['เสาและกรอบแนวตั้ง'], [2, 147.5]);
+  assert.deepEqual(len['คานกรอบบน'], [1, 80]);
+  assert.deepEqual(len['คานกรอบล่าง'], [1, 75]);
+  assert.deepEqual(len['คร่าวนอน'], [1, 75]);
+  assert.deepEqual(len['ฐานแนวลึก'], [2, 60]);
+  assert.deepEqual(len['คานฐานแนวขวาง'], [2, 80]);
+  assert.equal(r.opts.bayW, 75);
+  assert.equal(r.opts.bayH, 56.3);
+  // เหล็กเส้น 6 ม. 2 เส้น (เผื่อคมเลื่อย 3 มม.)
+  assert.equal(r.pack.count, 2);
+  for (const b of r.pack.bars) {
+    const used = b.cuts.reduce((s, c) => s + c, 0) + (b.cuts.length - 1) * C.KERF;
+    assert.ok(used <= C.STOCK + 1e-9);
+    assert.ok(Math.abs(C.STOCK - used - b.left) < 0.11);
+  }
+  // 25×25×1.2 มม. ≈ 0.897 กก./ม. → 8.05 ม. ≈ 7.2 กก.
+  assert.equal(r.kgPerM, 0.897);
+  assert.equal(r.kg, 7.2);
+});
+
+test('โครงเหล็ก: ตัดตรงชนคานอยู่ระหว่างเสา, ขาตัว T, กรอบติดผนัง, ปรับค่าเอง และเหล็กยาวเกิน 6 ม.', () => {
+  const butt = C.steelCut('stand', 80, 120, { cut: 'butt' });
+  assert.equal(butt.total, 790); // คานบน + คานฐาน 2 เส้น สั้นลงข้างละ 2.5
+  const feet = C.steelCut('stand', 80, 120, { base: 'feet' });
+  assert.equal(feet.parts.find((p) => p.name.startsWith('ขาฐาน')).qty, 2);
+  assert.ok(!feet.parts.some((p) => p.name === 'คานฐานแนวขวาง'));
+  const wall = C.steelCut('wall', 300, 150, {});
+  assert.deepEqual(wall.parts.map((p) => p.name), ['กรอบแนวตั้ง', 'กรอบแนวนอน', 'คร่าวนอน', 'คร่าวตั้ง']);
+  assert.equal(wall.opts.nv, 2);
+  assert.equal(wall.parts.find((p) => p.name === 'คร่าวตั้ง').qty, 6); // 2 แถว × (คร่าวนอน 2 + 1) ช่อง
+  const custom = C.steelCut('stand', 120, 180, { total: 250, depth: 90, nh: 0, nv: 2, tube: 38, wall: 2, price: 450 });
+  assert.equal(custom.opts.total, 250);
+  assert.equal(custom.opts.depth, 90);
+  assert.equal(custom.opts.nh, 0);
+  assert.equal(custom.opts.nv, 2);
+  assert.equal(custom.cost, custom.pack.count * 450);
+  // ความสูงรวมต่ำกว่าป้ายไม่ได้
+  assert.equal(C.steelOpts(80, 120, { total: 50 }).total, 122.5);
+  const big = C.packBars([700, 300, 300]);
+  assert.deepEqual(big.over, [700]);
+  assert.equal(big.count, 2); // 300 + 300 + คมเลื่อย 3 มม. เกิน 6 ม. → ต้องใช้ 2 เส้น
+  assert.equal(C.packBars([300, 299.7]).count, 1);
+  // ชนิดป้ายขาตั้ง: สูงรวม/ฐานจากตั้งค่าโครงเหล็ก
+  const g = C.geometry('stand', 80, 120, { total: 180 });
+  assert.equal(g.mount, 'floor');
+  assert.equal(g.lift, 60);
+  assert.equal(g.total, 180);
+});

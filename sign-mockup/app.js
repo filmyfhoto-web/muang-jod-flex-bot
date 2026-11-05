@@ -6,11 +6,11 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '3.3.0';
+  var APP_VERSION = '3.4.0';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp' });
 
-  var UNIT_WORD = { vinyl: 'ผืน', frame: 'ผืน', foam: 'แผ่น', sticker: 'แผ่น', acrylic: 'แผ่น', lightbox: 'ป้าย', cnc: 'ป้าย', rollup: 'ชุด', xstand: 'ชุด' };
+  var UNIT_WORD = { vinyl: 'ผืน', frame: 'ผืน', foam: 'แผ่น', sticker: 'แผ่น', acrylic: 'แผ่น', lightbox: 'ป้าย', stand: 'ชุด', cnc: 'ป้าย', rollup: 'ชุด', xstand: 'ชุด' };
 
   var DEF = {
     mode: 'text',
@@ -30,6 +30,7 @@
     spot: 'auto',
     doorOpen: true, // ประตูห้องเรียนเปิดพับชิดผนัง (แบบที่ร้านส่งรูปมา)
     tone: 'pink',
+    steel: { total: 0, depth: 0, tube: 25, wall: 1.2, nh: -1, nv: -1, cut: 'miter', base: 'rect', price: 0, frameOnly: false }, // โครงเหล็ก (0 / -1 = อัตโนมัติ)
     panel: 'right', // แผงตั้งค่าอยู่ขวา/ซ้าย
     fmt: 'jpg', // ชนิดรูปที่ส่งออกล่าสุด (jpg / png)
     qty: 1,
@@ -71,6 +72,7 @@
         if (saved[k] !== undefined && saved[k] !== null && typeof saved[k] === typeof DEF[k]) s[k] = JSON.parse(JSON.stringify(saved[k]));
       });
       s.text = Object.assign({}, DEF.text, saved.text || {});
+      s.steel = Object.assign({}, DEF.steel, saved.steel && typeof saved.steel === 'object' ? saved.steel : {});
     }
     if (!C.TYPES[s.type]) s.type = DEF.type;
     if (!C.SCENES[s.scene]) s.scene = DEF.scene;
@@ -235,6 +237,7 @@
       scene: st.scene,
       spot: st.spot,
       tone: st.tone,
+      steel: st.steel,
       photo: photo,
       person: st.person,
       dims: st.dims,
@@ -286,7 +289,7 @@
   }
 
   function draw3d() {
-    var g = C.geometry(st.type, st.w, st.h);
+    var g = C.geometry(st.type, st.w, st.h, st.steel);
     var size = C.canvasSize(st.aspect, g, null);
     var U = C.unitScale(size.W, size.H);
     var F = st.info ? Math.round(132 * U) : 0;
@@ -311,6 +314,7 @@
       spot: st.spot,
       doorOpen: st.doorOpen,
       tone: st.tone,
+      steel: st.steel,
       person: st.person,
       night: st.night,
       face: fc.canvas,
@@ -390,13 +394,18 @@
     $('ibW').textContent = C.fmtCm(st.w) + ' ซม.';
     $('ibH').textContent = C.fmtCm(st.h) + ' ซม.';
     $('ibD').textContent = C.DEPTH[st.type] || '';
+    if (st.type === 'stand') {
+      var so = C.steelOpts(st.w, st.h, st.steel);
+      $('ibH').textContent = C.fmtCm(st.h) + ' ซม. (รวมขา ' + C.fmtCm(so.total) + ')';
+      $('ibD').textContent = 'ฐานลึก ' + C.fmtCm(so.depth) + ' ซม. · เหล็ก ' + so.tube + ' มม.';
+    }
     $('ibAreaRow').hidden = t.unit !== 'sqm';
     $('ibA').textContent = C.fmtArea(st.w, st.h);
     $('infoBox').hidden = false;
     $('sizeReadout').textContent = C.sizeText(st.w, st.h) + (t.unit === 'sqm' ? ' · พื้นที่ ' + C.fmtArea(st.w, st.h) : '');
     var unit = UNIT_WORD[st.type];
     $('qtyUnit').textContent = unit;
-    $('rateLabel').textContent = t.unit === 'sqm' ? 'ราคาต่อ ตร.ม.' : st.type === 'cnc' ? 'ราคาต่อป้าย (รวมเสา)' : 'ราคาต่อชุด';
+    $('rateLabel').textContent = t.unit === 'sqm' ? 'ราคาต่อ ตร.ม.' : st.type === 'cnc' ? 'ราคาต่อป้าย (รวมเสา)' : st.type === 'stand' ? 'ราคาต่อชุด (รวมโครงเหล็ก)' : 'ราคาต่อชุด';
     var pr = $('priceReadout');
     if (q.has) {
       var how =
@@ -467,6 +476,7 @@
     acrylic:
       '<svg viewBox="0 0 44 34"><rect x="5" y="5" width="34" height="24" rx="2"/><circle cx="9" cy="9" r="1.6"/><circle cx="35" cy="9" r="1.6"/><circle cx="9" cy="25" r="1.6"/><circle cx="35" cy="25" r="1.6"/><path d="M16 26l9-18M21 26l6-12"/></svg>',
     lightbox: '<svg viewBox="0 0 44 34"><rect x="4" y="8" width="36" height="20" rx="2"/><rect x="8" y="12" width="28" height="12" rx="1"/><path d="M13 2.5l1.6 2.8M22 1.5v3.4M31 2.5l-1.6 2.8"/></svg>',
+    stand: '<svg viewBox="0 0 44 34"><path d="M12 3v28M32 3v28M12 3h20M12 21h20M12 12h20"/><path d="M7 31h30"/></svg>',
     cnc: '<svg viewBox="0 0 44 34"><path d="M6 3v29M38 3v29"/><rect x="8" y="6" width="28" height="16" rx="1"/><path d="M12 11h7M12 16h12M23 11h9"/><path d="M3.5 32h5M35.5 32h5"/></svg>',
     rollup: '<svg viewBox="0 0 44 34"><path d="M15 2h14"/><rect x="15.5" y="3" width="13" height="25"/><rect x="12" y="27" width="20" height="4" rx="1.5"/></svg>',
     xstand: '<svg viewBox="0 0 44 34"><rect x="15" y="2" width="14" height="24"/><path d="M15 26l-4 6M29 26l4 6"/></svg>',
@@ -696,6 +706,7 @@
     buildPresets();
     buildSpots();
     buildTones();
+    steelSync();
     save();
     draw();
   }
@@ -875,6 +886,7 @@
         refreshPhotoQuad();
         save();
         buildPresets();
+        steelSync();
         draw();
         syncRatioNote();
       }
@@ -1326,7 +1338,7 @@
     x.fillStyle = INK2;
     font(x, 400, 20, BODY);
     if (t.unit === 'sqm') x.fillText('พื้นที่ ' + C.fmtArea(st.w, st.h), col.size, ry + 82);
-    else x.fillText(st.type === 'cnc' ? 'รวมเสาเหล็ก 2 ต้น' : 'รวมขาตั้ง + กระเป๋า', col.size, ry + 82);
+    else x.fillText(st.type === 'cnc' ? 'รวมเสาเหล็ก 2 ต้น' : st.type === 'stand' ? 'รวมโครงเหล็ก + ฐาน' : 'รวมขาตั้ง + กระเป๋า', col.size, ry + 82);
     x.textAlign = 'center';
     x.fillStyle = INK;
     font(x, 600, 26, BODY);
@@ -1371,6 +1383,12 @@
       'กรุณาตรวจข้อความ ตัวสะกด เบอร์โทร และขนาด ก่อนยืนยันสั่งผลิต',
       t.name + ': ' + (C.DEPTH[st.type] || ''),
     ];
+    var sc = steelNow();
+    if (sc) {
+      var so2 = sc.opts;
+      notes[2] =
+        'โครงเหล็กกล่อง ' + C.tubeText(so2) + ' · ' + (so2.cut === 'miter' ? 'ตัดเข้ามุม 45°' : 'ตัดตรงชน') + (sc.kind === 'stand' ? ' · สูงรวม ' + C.fmtCm(so2.total) + ' ซม. · ฐานลึก ' + C.fmtCm(so2.depth) + ' ซม.' : '') + ' · เหล็กรวม ' + C.fmtCm(sc.total) + ' ซม.';
+    }
     notes.forEach(function (n, i) {
       fitText(x, '• ' + n, M, sy + 68 + i * 34, CW - tw - 40, 400, 19, BODY);
     });
@@ -1570,6 +1588,7 @@
     sticker: 'sticker สติกเกอร์ สติ้กเกอร์ ติดกระจก ฟิล์ม ประตู',
     acrylic: 'acrylic อะคริลิก อคริลิค ใส หมุด',
     lightbox: 'lightbox กล่องไฟ ไฟ led กลางคืน',
+    stand: 'stand ขาตั้ง โครงเหล็ก เหล็กกล่อง ป้ายตั้ง ตั้งพื้น รายการตัด ตัดเหล็ก โครง เชื่อม',
     cnc: 'cnc ซีเอ็นซี ป้ายโครงการ โครงการ หมู่บ้าน ป้ายหน้าโครงการ อักษรนูน ตัวนูน ตัวอักษร อะลูมิเนียม คอมโพสิต acp ตั้งเสา เสาคู่',
     rollup: 'roll up rollup โรลอัพ ขาตั้ง',
     xstand: 'x-stand xstand เอ็กซ์สแตนด์ ขาตั้ง',
@@ -2134,6 +2153,253 @@
       footCache = null;
       draw();
     });
+  }
+
+  /* ---------- โครงเหล็ก + รายการตัดเหล็ก (ป้ายขาตั้งโครงเหล็ก / ไวนิลขึงโครง) ---------- */
+  function steelKind() {
+    return st.type === 'stand' ? 'stand' : st.type === 'frame' ? 'wall' : null;
+  }
+  function steelNow() {
+    var kind = steelKind();
+    return kind ? C.steelCut(kind, st.w, st.h, st.steel) : null;
+  }
+  // (ประกาศแบบ function ให้ใช้ได้ตั้งแต่ตอนเริ่มหน้า — โค้ดส่วนนี้อยู่หลังส่วนเริ่มต้น)
+  function fmt1(v) {
+    return C.fmtCm(v);
+  }
+  function steelDiagram(cut) {
+    var o = cut.opts;
+    var stand = cut.kind === 'stand';
+    var W = st.w;
+    var Ht = stand ? o.total : st.h;
+    var T = o.T;
+    var pad = Math.max(W, Ht) * 0.06;
+    var sc = 200 / Math.max(W + pad * 2, Ht + pad * 2);
+    var vw = Math.round((W + pad * 2) * sc);
+    var vh = Math.round((Ht + pad * 2) * sc);
+    var r = [];
+    var bar = function (x, y, w, h, c) {
+      r.push('<rect x="' + ((x + pad) * sc).toFixed(1) + '" y="' + ((y + pad) * sc).toFixed(1) + '" width="' + Math.max(1, w * sc).toFixed(1) + '" height="' + Math.max(1, h * sc).toFixed(1) + '" fill="' + c + '"/>');
+    };
+    var F = '#3b4048';
+    if (stand) {
+      bar(0, 0, T, o.total, F);
+      bar(W - T, 0, T, o.total, F);
+      if (o.base === 'rect') bar(0, o.total - T, W, T, F);
+      else {
+        bar(-T * 0.5, o.total - T, T * 2, T, F);
+        bar(W - T * 1.5, o.total - T, T * 2, T, F);
+      }
+    } else {
+      bar(0, 0, T, st.h, F);
+      bar(W - T, 0, T, st.h, F);
+    }
+    bar(0, 0, W, T, F);
+    bar(0, st.h - T, W, T, F); // คานกรอบล่าง (ขอบล่างป้าย)
+    var innerW = W - 2 * T;
+    var innerH = st.h - 2 * T;
+    var segH = (innerH - o.nh * T) / (o.nh + 1);
+    var segW = (innerW - o.nv * T) / (o.nv + 1);
+    for (var i = 0; i < o.nh; i++) bar(T, T + (i + 1) * segH + i * T, innerW, T, '#2f9e62');
+    for (var j = 0; j < o.nv; j++) bar(T + (j + 1) * segW + j * T, T, T, innerH, '#3a6fd8');
+    var label = fmt1(st.w) + ' × ' + fmt1(st.h) + ' ซม.' + (stand ? ' · สูงรวม ' + fmt1(o.total) : '');
+    return '<p class="dlabel">' + esc(label) + '</p><svg viewBox="0 0 ' + vw + ' ' + vh + '" width="' + vw + '" height="' + vh + '" role="img" aria-label="ผังโครงเหล็ก ' + esc(label) + '">' + r.join('') + '</svg>';
+  }
+  function steelSync() {
+    var kind = steelKind();
+    $('steelPane').hidden = !kind;
+    if (!kind) return;
+    var cut = steelNow();
+    var o = cut.opts;
+    var stand = kind === 'stand';
+    $('steelKind').textContent = stand ? 'ขาตั้ง' : 'กรอบติดผนัง';
+    $('steelStandRow').hidden = !stand;
+    $('steelBaseField').hidden = !stand;
+    $('stFrameOnlyRow').hidden = !stand;
+    var tube = $('stTube');
+    if (!tube.options.length) {
+      C.TUBES.forEach(function (t) {
+        var op = document.createElement('option');
+        op.value = t[0];
+        op.textContent = t[0] + '×' + t[0] + ' มม. (' + t[1] + ')';
+        tube.appendChild(op);
+      });
+      C.WALLS.forEach(function (t) {
+        var op = document.createElement('option');
+        op.value = t;
+        op.textContent = t + ' มม.';
+        $('stWall').appendChild(op);
+      });
+    }
+    tube.value = String(o.tube);
+    $('stWall').value = String(o.wall);
+    var auto = function (id, isAuto, v) {
+      var el = $(id);
+      el.placeholder = 'อัตโนมัติ (' + fmt1(v) + ')';
+      if (document.activeElement !== el) el.value = isAuto ? '' : fmt1(v);
+    };
+    auto('stTotal', o.autoTotal, o.total);
+    auto('stDepth', o.autoDepth, o.depth);
+    auto('stNh', o.autoNh, o.nh);
+    auto('stNv', o.autoNv, o.nv);
+    if (document.activeElement !== $('stPrice')) $('stPrice').value = o.price ? String(o.price) : '';
+    pressed('#stBase button', 'base', o.base);
+    pressed('#stCut button', 'cut', o.cut);
+    $('stFrameOnly').checked = o.frameOnly;
+    $('stDiagram').innerHTML = steelDiagram(cut);
+    var bay = $('stBay');
+    bay.textContent = 'ช่องโครงใหญ่สุด กว้าง × สูง: ' + fmt1(o.bayW) + ' × ' + fmt1(o.bayH) + ' ซม.' + (o.wide ? ' — กว้างเกินเกณฑ์ (คร่าวนอนห่าง ≤ 60 · คร่าวตั้งห่าง ≤ 100 ซม.) ลองเพิ่มคร่าว' : '');
+    bay.classList.toggle('warn', o.wide);
+    var stats = [
+      ['ความยาวเหล็กรวม', fmt1(cut.total), 'ซม.'],
+      ['จำนวนชิ้นรวม', cut.pieces, 'ชิ้น'],
+      ['เหล็กเส้นยาว 6 ม.', cut.pack.count, 'เส้น · เศษ ' + fmt1(cut.pack.waste) + ' ซม.'],
+      ['น้ำหนักโดยประมาณ', cut.kg, 'กก.'],
+    ];
+    if (cut.cost) stats.push(['ค่าเหล็ก', C.baht(cut.cost), 'บาท']);
+    $('stStats').innerHTML = stats
+      .map(function (s) {
+        return '<div><small>' + esc(s[0]) + '</small><b>' + esc(String(s[1])) + '</b><em>' + esc(s[2]) + '</em></div>';
+      })
+      .join('');
+    var rows = cut.parts
+      .map(function (p) {
+        return '<tr><td>' + esc(p.name) + '<small>' + esc(p.note) + '</small></td><td class="n">' + p.qty + '</td><td class="n"><b>' + esc(fmt1(p.len)) + '</b></td></tr>';
+      })
+      .join('');
+    $('stTable').innerHTML =
+      '<caption>หน้าตัด ' + esc(C.tubeText(o)) + '<span>' + cut.pieces + ' ชิ้น</span></caption>' +
+      '<thead><tr><th>ส่วนของโครง</th><th class="n">ชิ้น</th><th class="n">ยาว/ชิ้น (ซม.)</th></tr></thead><tbody>' +
+      rows +
+      '</tbody><tfoot><tr><td colspan="2">ความยาวรวม</td><td class="n">' + esc(fmt1(cut.total)) + ' ซม.</td></tr></tfoot>' +
+      (cut.pack.over.length ? '<tfoot><tr><td colspan="3">มีชิ้นยาวเกิน 6 ม. ' + cut.pack.over.length + ' ชิ้น ต้องต่อเหล็ก</td></tr></tfoot>' : '');
+  }
+  function setSteel(k, v) {
+    st.steel = Object.assign({}, st.steel);
+    st.steel[k] = v;
+    save();
+    steelSync();
+    summary();
+    draw();
+  }
+  [
+    ['stTotal', 'total', 0],
+    ['stDepth', 'depth', 0],
+    ['stNh', 'nh', -1],
+    ['stNv', 'nv', -1],
+    ['stPrice', 'price', 0],
+  ].forEach(function (f) {
+    $(f[0]).addEventListener('input', function (e) {
+      var raw = e.target.value.trim();
+      var v = raw === '' ? f[2] : C.num(raw);
+      if (raw !== '' && !(v >= 0)) return;
+      setSteel(f[1], v);
+    });
+    $(f[0]).addEventListener('change', function () {
+      steelSync();
+    });
+  });
+  $('stTube').addEventListener('change', function (e) {
+    setSteel('tube', +e.target.value);
+  });
+  $('stWall').addEventListener('change', function (e) {
+    setSteel('wall', +e.target.value);
+  });
+  document.querySelectorAll('#stBase button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      setSteel('base', b.dataset.base);
+    });
+  });
+  document.querySelectorAll('#stCut button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      setSteel('cut', b.dataset.cut);
+    });
+  });
+  $('stFrameOnly').addEventListener('change', function (e) {
+    setSteel('frameOnly', e.target.checked);
+  });
+
+  // รายการตัดเป็นข้อความ (หน่วย มม.) — ส่งช่างตัดเหล็กได้เลย
+  function cutListText(cut) {
+    var o = cut.opts;
+    var mm = function (cm) {
+      return String(Math.round(cm * 10));
+    };
+    var pad = function (s, n, right) {
+      s = String(s);
+      var len = s.replace(/[ัิ-ฺ็-๎]/g, '').length; // สระบน/ล่าง วรรณยุกต์ไม่กินที่
+      var sp = new Array(Math.max(1, n - len + 1)).join(' ');
+      return right ? sp + s : s + sp;
+    };
+    var L = [];
+    var t = C.TYPES[st.type];
+    L.push('รายการตัดเหล็ก — ' + t.name + ' ' + mm(st.w) + ' × ' + mm(st.h) + ' มม.');
+    var spec = ['เหล็กกล่อง ' + C.tubeText(o), o.cut === 'miter' ? 'ตัดเข้ามุม 45°' : 'ตัดตรงชน'];
+    if (cut.kind === 'stand') spec.unshift('สูงรวม ' + mm(o.total) + ' มม.', 'ฐานลึก ' + mm(o.depth) + ' มม. (' + (o.base === 'rect' ? 'ฐานสี่เหลี่ยม' : 'ขาตัว T') + ')');
+    L.push(spec.join(' · '));
+    var who = [customer.trim() ? 'ลูกค้า: ' + customer.trim() : '', st.shopName.trim(), C.thaiDate(new Date())].filter(Boolean);
+    L.push(who.join(' · '));
+    L.push('');
+    L.push(pad('ส่วนของโครง', 22) + pad('ชิ้น', 6, true) + pad('ยาว/ชิ้น (มม.)', 16, true) + '   มุมตัด');
+    L.push(new Array(70).join('-'));
+    cut.parts.forEach(function (p) {
+      L.push(pad(p.name, 22) + pad(p.qty, 6, true) + pad(mm(p.len), 16, true) + '   ' + p.note);
+    });
+    L.push(new Array(70).join('-'));
+    L.push('รวม ' + cut.pieces + ' ชิ้น · ความยาวรวม ' + mm(cut.total) + ' มม. · น้ำหนักโดยประมาณ ' + cut.kg + ' กก.');
+    L.push('ช่องโครงใหญ่สุด ' + mm(o.bayW) + ' × ' + mm(o.bayH) + ' มม. · คร่าวนอน ' + o.nh + ' เส้น · คร่าวตั้ง ' + o.nv + ' ต่อแถว');
+    L.push('');
+    L.push('แผนตัดจากเหล็กเส้นยาว ' + mm(C.STOCK) + ' มม. (เผื่อคมเลื่อย ' + mm(C.KERF) + ' มม./รอยตัด) ใช้ ' + cut.pack.count + ' เส้น');
+    cut.pack.bars.forEach(function (b, i) {
+      L.push('  เส้นที่ ' + (i + 1) + ': ' + b.cuts.map(mm).join(' + ') + '  → เหลือ ' + mm(b.left) + ' มม.');
+    });
+    if (cut.pack.over.length) L.push('  ชิ้นยาวเกินเส้น (ต้องต่อเหล็ก): ' + cut.pack.over.map(mm).join(', ') + ' มม.');
+    if (cut.cost) L.push('ค่าเหล็กโดยประมาณ ' + C.baht(cut.cost) + ' บาท (' + cut.pack.count + ' เส้น × ' + C.baht(o.price) + ' บาท)');
+    L.push('');
+    L.push('หมายเหตุ: ความยาวชิ้นที่ตัดเข้ามุม 45° วัดด้านยาว · คร่าวชนกลางตัดตรง');
+    L.push('ค่าเบื้องต้นสำหรับจัดแบบ ต้องตรวจวัสดุ แรงลม และจุดยึดก่อนผลิต');
+    L.push('จัดทำด้วย นัดพอน Sign Mockup v' + APP_VERSION);
+    return L.join('\r\n');
+  }
+  var cutFile = { text: '', name: '' };
+  $('stCutBtn').addEventListener('click', function () {
+    var cut = steelNow();
+    if (!cut) return;
+    cutFile.text = cutListText(cut);
+    cutFile.name = fileName('cutlist', 'txt');
+    $('cutTxt').textContent = cutFile.text;
+    $('cutStatus').textContent = '';
+    $('cutSave').hidden = inFrame;
+    openDialog($('cutDlg'));
+  });
+  $('cutSave').addEventListener('click', function () {
+    var blob = new Blob(['﻿' + cutFile.text], { type: 'text/plain;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = cutFile.name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () {
+      URL.revokeObjectURL(url);
+    }, 4000);
+    $('cutStatus').textContent = 'กำลังดาวน์โหลด ' + cutFile.name;
+  });
+  $('cutCopy').addEventListener('click', function () {
+    var done = function () {
+      $('cutStatus').textContent = 'คัดลอกแล้ว วางในแชต LINE หรือโน้ตได้เลย';
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(cutFile.text).then(done, selectCut);
+    else selectCut();
+  });
+  function selectCut() {
+    var r = document.createRange();
+    r.selectNodeContents($('cutTxt'));
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(r);
+    $('cutStatus').textContent = 'เลือกข้อความให้แล้ว กด Ctrl+C (หรือกดค้างแล้วคัดลอก)';
   }
 
   /* ---------- 3 มิติ ---------- */
