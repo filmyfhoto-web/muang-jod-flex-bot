@@ -9,6 +9,7 @@ import { parseExpense } from '../src/utils/expense.js';
 import { parseStatusSpeak } from '../src/utils/statusSpeak.js';
 import { parseQuickEdit } from '../src/utils/quickEdit.js';
 import { buildLedger } from '../src/utils/ledger.js';
+import { todayISO } from '../src/utils/dates.js';
 import { resolveMenuCommand } from '../src/utils/menuCommands.js';
 import { expenseConfirmMessage } from '../src/actions/expense.js';
 import { changeCode } from '../src/actions/statusSpeak.js';
@@ -80,7 +81,7 @@ test('createJob: เงินสดครบ → pay_method + booked_at (เข�
   assert.ok(job.booked_at, 'ต้องลงบัญชีทันที ไม่ต้องไปกดซ้ำ');
   assert.equal(job.payment_status, 'paid');
 
-  const led = buildLedger([job], new Date().toISOString().slice(0, 10));
+  const led = buildLedger([job], todayISO());
   assert.equal(led.total, 150, 'โผล่เป็นรายรับของวันนี้');
   assert.equal(led.methods[0].id, 'cash');
 });
@@ -94,7 +95,7 @@ test('createJob: มัดจำสด → ได้ช่องทางแต�
   const booked = await createJob('u1', makeDraft(parseNaturalJob('ป้าย 500 ลงบัญชี')), db);
   assert.ok(booked.booked_at);
   assert.ok(!booked.pay_method, 'ยังไม่รู้ว่าจะจ่ายสดหรือโอน');
-  const led = buildLedger([booked], new Date().toISOString().slice(0, 10));
+  const led = buildLedger([booked], todayISO());
   assert.equal(led.total, 0);
   assert.equal(led.carry.account.jobCount, 1, 'ไปอยู่กองลงบัญชีไว้ (ค้างจ่าย)');
 });
