@@ -5,10 +5,13 @@ import { prepareForVision } from './imagePrep.js';
 
 // Read a photographed piece of paper into something the bot can act on.
 //
-// Two kinds are worth reading, and they mean opposite things:
-//   slip — money already moved. Becomes a saved job, marked paid.
+// One kind is worth reading:
 //   job  — a work order / spec sheet / quotation. Becomes a DRAFT to confirm,
 //          because nobody has agreed to anything yet.
+// A payment slip is recognized but never read into money — ร้านสั่ง "เอาบอทอ่าน
+// ออก ฉันจะย้ายการจ่ายเงินอ่านรูปภาพไปไว้บอทร้านเครื่องเขียน" — ที่นี่เหลือแค่
+// บอกชนิดไว้ให้คนตอบพูดถูก แล้วรูปถูกแนบเป็นหลักฐานตามปกติ (โค้ดอ่านสลิปตัวเดิม
+// อยู่ในประวัติ git ก่อนคอมมิตนี้ เผื่อบอทร้านเครื่องเขียนยกไปใช้)
 // Anything else (a photo of the finished sign, a screenshot, a face) is
 // "other": it is evidence, and the caller attaches it as before.
 //
@@ -34,7 +37,8 @@ const SYSTEM_PROMPT = `คุณคือตัวช่วยอ่านรู
   ]
 }
 วิธีเลือก kind (ตัดสินตามลำดับ ข้อแรกที่ตรงคือคำตอบ):
-1. "slip" = เห็นสลิปโอนเงิน/ใบเสร็จ/หลักฐานการจ่าย + มียอดเงินชัดเจน
+1. "slip" = เห็นสลิปโอนเงิน/หลักฐานการจ่ายเงิน/ใบเสร็จจากร้านอื่น — ตอบแค่ kind
+   ไม่ต้องอ่านรายการหรือยอดเงิน ให้ items เป็น [] และ total เป็น 0
 2. "job" = เห็นสิ่งใดสิ่งหนึ่งต่อไปนี้ แม้เพียงบางส่วนของรูป:
    - มีขนาด/มิติ เช่น 120×70, 3.5×4, กว้าง×ยาว, หน่วย ซม./นิ้ว/ม.
    - มีคำสั่งพิมพ์หรือชื่อวัสดุ เช่น ปริ้น, พิมพ์, โฟมบอร์ด, ป้าย, ไวนิล, แบนเนอร์, สติ๊กเกอร์
@@ -77,52 +81,8 @@ function text(value, fallback = null) {
   return s ? s.slice(0, 200) : fallback;
 }
 
-// Shape a raw extraction into the same draft shape createJob expects, or null.
-export function normalizeSlip(raw) {
-  if (!raw) return null;
-  const total = round2(Number(raw.total) || 0);
-  if (!(total > 0)) return null;
-
-  const merchant = text(raw.merchantName);
-
-  const items = [];
-  for (const it of Array.isArray(raw.items) ? raw.items : []) {
-    const name = text(it?.item_name, '');
-    const quantity = Number(it?.quantity);
-    const unitPrice = Number(it?.unit_price);
-    if (!name || !Number.isFinite(quantity) || quantity <= 0) continue;
-    if (!Number.isFinite(unitPrice) || unitPrice < 0) continue;
-    items.push({
-      item_name: name,
-      size: null,
-      quantity: round2(quantity),
-      unit: null,
-      unit_price: round2(unitPrice),
-      total: round2(unitPrice * quantity),
-    });
-  }
-
-  // No line items (or they don't add up to anything): keep the slip's own
-  // total as a single line, so the money on the card always matches the slip.
-  const itemsTotal = round2(items.reduce((s, it) => s + it.total, 0));
-  const lines = items.length && itemsTotal === total
-    ? items
-    : [{ item_name: merchant || 'รายการจากสลิป', size: null, quantity: 1, unit: null, unit_price: total, total }];
-
-  return {
-    kind: 'slip',
-    merchantName: merchant,
-    date: normalizeDate(raw.date),
-    items: lines,
-    subtotal: total,
-    discount: 0,
-    total,
-  };
-}
-
-// A job sheet is the mirror image of a slip: the lines are what matters and
-// the money may be missing entirely, so a zero total is normal here rather
-// than a reason to give up.
+// A job sheet: the lines are what matters and the money may be missing
+// entirely, so a zero total is normal here rather than a reason to give up.
 export function normalizeJobSheet(raw) {
   if (!raw) return null;
 
@@ -244,11 +204,16 @@ export async function readImage(buffer, mimeType, deps = {}) {
       diag.reason = 'other'; // a photo, not paperwork: just attach it
       return null;
     }
+    /* สลิปโอนเงิน: ม่วงจดเลิกบันทึกเงินจากรูปแล้ว (ร้านย้ายการอ่านสลิปจ่ายเงิน
+     * ไปไว้บอทร้านเครื่องเขียน) — บอกชนิดไว้ให้คนตอบพูดถูก แล้วรูปถูกแนบเป็น
+     * หลักฐานตามทางปกติ เงินไม่ถูกแตะจากรูปเด็ดขาด */
+    if (raw?.kind === 'slip') {
+      diag.reason = 'slip';
+      return null;
+    }
     if (!raw) diag.reason = 'no_answer';
 
-    // A slip is the safer reading of an ambiguous document: it records money
-    // that already moved, where a job sheet only ever proposes a draft.
-    const read = raw?.kind === 'job' ? normalizeJobSheet(raw) : normalizeSlip(raw);
+    const read = raw?.kind === 'job' ? normalizeJobSheet(raw) : null;
     if (read) {
       logger.info('vision.read', { kind: read.kind, items: read.items.length, total: read.total });
       return read;
