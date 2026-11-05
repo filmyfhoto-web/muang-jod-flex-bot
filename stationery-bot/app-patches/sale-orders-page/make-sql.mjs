@@ -30,11 +30,12 @@ const SEQ = 66; // ข้าง ๆ salechat (66) — หน้าเดิม�
 export const md5Of = (text) => createHash('md5').update(text, 'utf8').digest('hex');
 
 // code = the current version (v7) · v6 / v5 / v4 / v3 / v2 / v1 = the earlier versions (optional). Returns every script as text.
-export function buildSql(code, { v7 = null, v6 = null, v5 = null, v4 = null, v3 = null, v2 = null, v1 = null } = {}) {
-  for (const [name, text] of [['module code', code], ['v7', v7], ['v6', v6], ['v5', v5], ['v4', v4], ['v3', v3], ['v2', v2], ['v1', v1]]) {
+export function buildSql(code, { v8 = null, v7 = null, v6 = null, v5 = null, v4 = null, v3 = null, v2 = null, v1 = null } = {}) {
+  for (const [name, text] of [['module code', code], ['v8', v8], ['v7', v7], ['v6', v6], ['v5', v5], ['v4', v4], ['v3', v3], ['v2', v2], ['v1', v1]]) {
     if (text && text.includes(TAG)) throw new Error(`the ${name} contains ${TAG}; pick another tag`);
   }
   const md5 = md5Of(code);
+  const md5v8 = v8 ? md5Of(v8) : null;
   const md5v7 = v7 ? md5Of(v7) : null;
   const md5v6 = v6 ? md5Of(v6) : null;
   const md5v5 = v5 ? md5Of(v5) : null;
@@ -42,10 +43,10 @@ export function buildSql(code, { v7 = null, v6 = null, v5 = null, v4 = null, v3 
   const md5v3 = v3 ? md5Of(v3) : null;
   const md5v2 = v2 ? md5Of(v2) : null;
   const md5v1 = v1 ? md5Of(v1) : null;
-  const known = [md5, md5v7, md5v6, md5v5, md5v4, md5v3, md5v2, md5v1].filter(Boolean).map((x) => `'${x}'`).join(', ');
+  const known = [md5, md5v8, md5v7, md5v6, md5v5, md5v4, md5v3, md5v2, md5v1].filter(Boolean).map((x) => `'${x}'`).join(', ');
 
   const apply = `-- ติดตั้งหน้า "แชตและออเดอร์" (โมดูล saleorders) ในแอปหลังร้าน: แถวใหม่ในตาราง app_modules เท่านั้น
--- · ไม่แก้โมดูลเดิมแม้แต่บรรทัดเดียว · ติดตั้งซ้ำได้ (ถ้ามีแถวนี้อยู่แล้วจะไม่ทำอะไร — ถ้าเป็นรุ่นเก่าให้ใช้ upgrade-v7-to-v8.sql (หรือ upgrade-v6-to-v7.sql / upgrade-v5-to-v6.sql / upgrade-v4-to-v5.sql / upgrade-v3-to-v4.sql ตามรุ่นที่ติดตั้งอยู่))
+-- · ไม่แก้โมดูลเดิมแม้แต่บรรทัดเดียว · ติดตั้งซ้ำได้ (ถ้ามีแถวนี้อยู่แล้วจะไม่ทำอะไร — ถ้าเป็นรุ่นเก่าให้ใช้ upgrade-v8-to-v9.sql (หรือ upgrade-v7-to-v8.sql / upgrade-v6-to-v7.sql / upgrade-v5-to-v6.sql / upgrade-v4-to-v5.sql / upgrade-v3-to-v4.sql ตามรุ่นที่ติดตั้งอยู่))
 -- · ติดตั้งแบบปิดไว้ (enabled = false): เปิดหลังตรวจแล้วด้วย update app_modules set enabled = true where name = 'saleorders';
 -- · ต้องติดตั้ง migration db/migrations/002_sale_orders.sql ก่อน (หน้านี้เรียก sale_order_save / sale_order_log_send)
 -- · ส่วน LINE ใช้ได้ต่อเมื่อติดตั้ง db/migrations/003_sale_line_bridge.sql และเปิดสะพานที่บอท — ถ้ายังไม่ติดตั้ง หน้าแสดง "LINE OA: ยังไม่ได้เชื่อมต่อ"
@@ -65,7 +66,7 @@ end
 $do$;
 `;
 
-  const reverse = `-- ย้อนกลับ apply.sql: ลบแถว saleorders ออกจาก app_modules · ลบเฉพาะเมื่อโค้ดยังเป็นรุ่นที่รู้จัก (md5 ${[md5, md5v7, md5v6, md5v5, md5v4, md5v3, md5v2, md5v1].filter(Boolean).join(' · ')})
+  const reverse = `-- ย้อนกลับ apply.sql: ลบแถว saleorders ออกจาก app_modules · ลบเฉพาะเมื่อโค้ดยังเป็นรุ่นที่รู้จัก (md5 ${[md5, md5v8, md5v7, md5v6, md5v5, md5v4, md5v3, md5v2, md5v1].filter(Boolean).join(' · ')})
 -- ถ้ามีคนแก้โค้ดหลังติดตั้ง จะไม่ลบและแจ้งเตือน (ให้ตรวจก่อนว่าจะลบหรือไม่)
 do $do$
 declare c text;
@@ -84,16 +85,28 @@ end
 $do$;
 `;
 
-  const out = { md5, md5v7, md5v6, md5v5, md5v4, md5v3, md5v2, md5v1, apply, reverse };
+  const out = { md5, md5v8, md5v7, md5v6, md5v5, md5v4, md5v3, md5v2, md5v1, apply, reverse };
+  if (v8) {
+    out.upgrade89 = replaceScript({
+      note: 'อัปเกรดหน้าเป็นรุ่น 9: ยอดปิดงานแยกตามผู้รับผิดชอบ (ปุ่ม "ยอดปิดงาน" ที่หัวรายการแชต)',
+      from: { label: 'v8', md5: md5v8 },
+      to: { label: 'v9', md5, code },
+    });
+    out.downgrade98 = replaceScript({
+      note: `ย้อนหน้า v9 กลับเป็น v8 ตรงทุกไบต์ (md5 ${md5v8})`,
+      from: { label: 'v9', md5 },
+      to: { label: 'v8', md5: md5v8, code: v8 },
+    });
+  }
   if (v7) {
     out.upgrade78 = replaceScript({
       note: 'อัปเกรดหน้าเป็นรุ่น 8: บันทึกคำตอบที่ตอบใน LINE OA Manager เข้าแชต (ไม่ส่งถึงลูกค้า ไม่นับโควตา)',
       from: { label: 'v7', md5: md5v7 },
-      to: { label: 'v8', md5, code },
+      to: { label: 'v8', md5: md5v8, code: v8 },
     });
     out.downgrade87 = replaceScript({
       note: `ย้อนหน้า v8 กลับเป็น v7 ตรงทุกไบต์ (md5 ${md5v7})`,
-      from: { label: 'v8', md5 },
+      from: { label: 'v8', md5: md5v8 },
       to: { label: 'v7', md5: md5v7, code: v7 },
     });
   }
@@ -192,6 +205,7 @@ $do$;
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const file = (name) => (existsSync(DIR + name) ? readFileSync(DIR + name, 'utf8') : null);
   const b = buildSql(file('saleorders.module.js'), {
+    v8: file('saleorders.module.v8.js'),
     v7: file('saleorders.module.v7.js'),
     v6: file('saleorders.module.v6.js'),
     v5: file('saleorders.module.v5.js'),
@@ -214,5 +228,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   writeFileSync(DIR + 'downgrade-v7-to-v6.sql', b.downgrade76);
   writeFileSync(DIR + 'upgrade-v7-to-v8.sql', b.upgrade78);
   writeFileSync(DIR + 'downgrade-v8-to-v7.sql', b.downgrade87);
-  console.log(`wrote the scripts (current md5 ${b.md5}; v7 ${b.md5v7}; v6 ${b.md5v6}; v5 ${b.md5v5}; v4 ${b.md5v4}; v3 ${b.md5v3}; v2 ${b.md5v2}; v1 ${b.md5v1})`);
+  writeFileSync(DIR + 'upgrade-v8-to-v9.sql', b.upgrade89);
+  writeFileSync(DIR + 'downgrade-v9-to-v8.sql', b.downgrade98);
+  console.log(`wrote the scripts (current md5 ${b.md5}; v8 ${b.md5v8}; v7 ${b.md5v7}; v6 ${b.md5v6}; v5 ${b.md5v5}; v4 ${b.md5v4}; v3 ${b.md5v3}; v2 ${b.md5v2}; v1 ${b.md5v1})`);
 }

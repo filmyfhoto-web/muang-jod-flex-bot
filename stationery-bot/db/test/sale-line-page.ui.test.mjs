@@ -396,3 +396,31 @@ test('a reply typed in LINE OA Manager is logged into the chat with one click: i
   assert.equal((await rows(`select count(*)::int as n from sale_line_out where body = $1`, [text]))[0].n, 0, 'nothing is queued for LINE');
   await shot('line-9-log-oa-manager');
 });
+
+test('ยอดปิดงาน: closed orders are added up in total and by the person responsible; delivered-but-not-closed is shown apart', skipIt, async () => {
+  const th = await one(`select id from sale_threads where title = 'คุณปู' limit 1`);
+  const order = (no, total, job, assignee, closedDays) =>
+    db.query(
+      `insert into sale_orders (thread_id, order_no, customer_name, total, job_status, assignee, closed_at, client_token, created_by, order_date)
+       values ($1, $2, 'คุณปู', $3, $4, $5, case when $6::int is null then null else now() - make_interval(days => $6::int) end, $2, 'หญิง', current_date)`,
+      [th.id, no, total, job, assignee || null, closedDays],
+    );
+  await order('ORD-SUM-1', 1000, 'closed', 'หญิง', 0);
+  await order('ORD-SUM-2', 2500, 'closed', 'ฟิล์ม', 0);
+  await order('ORD-SUM-3', 300, 'closed', null, 40);
+  await order('ORD-SUM-4', 700, 'delivered', 'หญิง', null);
+  await page.goto(`${shell.url}/#saleorders`);
+  await page.reload(); // start from the list
+  await page.waitForSelector('#so_items .so-row');
+  await page.locator('#so_root [data-a="closedsum"]').click();
+  await page.waitForSelector('#so_modal .rcpt');
+  assert.match(await page.locator('#so_modal .rcpt').innerText(), /ปิดงานแล้ว 2 ใบ · รวม 3,500\.00 บาท/, 'this month: two closed orders');
+  const people = await page.locator('#so_modal table').first().locator('tbody tr').allInnerTexts();
+  assert.deepEqual(people.map((t) => t.replace(/\s+/g, ' ').trim()), ['ฟิล์ม 1 2,500.00', 'หญิง 1 1,000.00'], 'per person, the largest first');
+  assert.match(await page.locator('#so_modal').innerText(), /ส่งมอบแล้ว รอปิดงาน 1 ใบ · 700\.00 บาท/, 'delivered but not closed, shown apart');
+  await page.locator('#so_modal [data-a="cspan"][data-p="all"]').click();
+  await page.waitForFunction(() => /ปิดงานแล้ว 3 ใบ/.test(document.querySelector('#so_modal .rcpt')?.innerText || ''), null, { timeout: 10000 });
+  const all = await page.locator('#so_modal table').first().locator('tbody tr').allInnerTexts();
+  assert.deepEqual(all.map((t) => t.replace(/\s+/g, ' ').trim()), ['ฟิล์ม 1 2,500.00', 'หญิง 1 1,000.00', 'ไม่ระบุผู้รับผิดชอบ 1 300.00'], 'all time: the order without a person is listed too');
+  await shot('line-10-closed-sum');
+});

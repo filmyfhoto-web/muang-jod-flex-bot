@@ -16,6 +16,7 @@ import { parseOrderText } from '../../src/picklist.js';
 const DIR = fileURLToPath(new URL('../../app-patches/sale-orders-page/', import.meta.url));
 const read = (f) => readFileSync(DIR + f, 'utf8');
 const code = read('saleorders.module.js');
+const v8 = read('saleorders.module.v8.js');
 const v7 = read('saleorders.module.v7.js');
 const v6 = read('saleorders.module.v6.js');
 const v5 = read('saleorders.module.v5.js');
@@ -23,7 +24,7 @@ const v4 = read('saleorders.module.v4.js');
 const v3 = read('saleorders.module.v3.js');
 const v2 = read('saleorders.module.v2.js');
 const v1 = read('saleorders.module.v1.js');
-const built = buildSql(code, { v7, v6, v5, v4, v3, v2, v1 });
+const built = buildSql(code, { v8, v7, v6, v5, v4, v3, v2, v1 });
 const V1_MD5 = '9559832beab918cf7261079338771178'; // what the first installed version hashes to (checked against production on 4 Nov 2569)
 const V2_MD5 = '021d0e36d3e31cb66c46c58e62a7ea7e'; // what the version the back office had before v3 hashes to (checked against production)
 const V3_MD5 = '9f5e3e414a69ce2f89c2ab0e135af1a1'; // what the v3 version (live since the LINE bridge) hashes to
@@ -34,6 +35,8 @@ const V6_MD5 = 'b78b1655aaa4eccd9bc97f9f92ee5ff1'; // what the v6 version (live 
 const RAN_V5_TO_V6_MD5 = '077596e0f3046397fc89e45f7df27df2'; // the exact script that ran on production when v6 was installed
 const V7_MD5 = '5a8b8f0730e5f4958c07e590e5df5545'; // what the v7 version (live since links in LINE messages open) hashes to
 const RAN_V6_TO_V7_MD5 = 'b0806a88d6bb40e92509e08a6c7e06ee'; // the exact script that ran on production when v7 was installed
+const V8_MD5 = '6750d33a90a9c62659d82deef4168205'; // what the v8 version (a reply from LINE OA Manager can be logged) hashes to
+const RAN_V7_TO_V8_MD5 = 'b336c8fae67bc0f21288501aceb66cef'; // the exact script that ran on production when v8 was installed
 const FROZEN_V1_TO_V2_MD5 = 'd0be45e0a86f17d62229ac898a4e5645'; // the exact script that ran on production on 4 Nov 2569
 const RAN_V3_TO_V4_MD5 = '02861dcf8aaa83d7ac8a2875be68029b'; // the exact script that ran on production when v4 was installed
 
@@ -60,7 +63,7 @@ const installed = async (text, enabled = true) => {
 const row = () => rowOf(db);
 const others = () => othersOf(db);
 
-test('the committed scripts are the ones these files give, and the eight versions are the ones named here', () => {
+test('the committed scripts are the ones these files give, and the nine versions are the ones named here', () => {
   for (const [key, file] of [
     ['apply', 'apply.sql'],
     ['reverse', 'reverse.sql'],
@@ -76,6 +79,8 @@ test('the committed scripts are the ones these files give, and the eight version
     ['downgrade76', 'downgrade-v7-to-v6.sql'],
     ['upgrade78', 'upgrade-v7-to-v8.sql'],
     ['downgrade87', 'downgrade-v8-to-v7.sql'],
+    ['upgrade89', 'upgrade-v8-to-v9.sql'],
+    ['downgrade98', 'downgrade-v9-to-v8.sql'],
   ]) {
     assert.equal(read(file), built[key], `${file} is stale: run node app-patches/sale-orders-page/make-sql.mjs`);
   }
@@ -85,13 +90,15 @@ test('the committed scripts are the ones these files give, and the eight version
   assert.equal(built.md5v4, V4_MD5, 'saleorders.module.v4.js is byte for byte the version live since v4');
   assert.equal(built.md5v6, V6_MD5, 'saleorders.module.v6.js is byte for byte the version live since the bot’s answers show in the chat');
   assert.equal(built.md5v7, V7_MD5, 'saleorders.module.v7.js is byte for byte the version live since links in LINE messages open');
+  assert.equal(built.md5v8, V8_MD5, 'saleorders.module.v8.js is byte for byte the version live since a reply from LINE OA Manager can be logged');
   assert.equal(built.md5v5, V5_MD5, 'saleorders.module.v5.js is byte for byte the version live since ลงบัญชี');
-  assert.equal(new Set([built.md5, built.md5v7, built.md5v6, built.md5v5, built.md5v4, built.md5v3, built.md5v2, built.md5v1]).size, 8, 'the current version differs from each earlier one');
+  assert.equal(new Set([built.md5, built.md5v8, built.md5v7, built.md5v6, built.md5v5, built.md5v4, built.md5v3, built.md5v2, built.md5v1]).size, 9, 'the current version differs from each earlier one');
   assert.equal(md5Of(read('upgrade-v1-to-v2.sql')), FROZEN_V1_TO_V2_MD5, 'upgrade-v1-to-v2.sql is the script that ran on production, unchanged');
   assert.equal(md5Of(read('upgrade-v3-to-v4.sql')), RAN_V3_TO_V4_MD5, 'upgrade-v3-to-v4.sql is the script that ran on production when v4 was installed');
   assert.equal(md5Of(read('upgrade-v4-to-v5.sql')), RAN_V4_TO_V5_MD5, 'upgrade-v4-to-v5.sql is the script that ran on production when v5 was installed');
   assert.equal(md5Of(read('upgrade-v5-to-v6.sql')), RAN_V5_TO_V6_MD5, 'upgrade-v5-to-v6.sql is the script that ran on production when v6 was installed');
   assert.equal(md5Of(read('upgrade-v6-to-v7.sql')), RAN_V6_TO_V7_MD5, 'upgrade-v6-to-v7.sql is the script that ran on production when v7 was installed');
+  assert.equal(md5Of(read('upgrade-v7-to-v8.sql')), RAN_V7_TO_V8_MD5, 'upgrade-v7-to-v8.sql is the script that ran on production when v8 was installed');
 });
 
 test('the module code is valid JavaScript (compiled, not run) and names no other page as its own', () => {
@@ -157,8 +164,8 @@ test('apply.sql run again changes nothing', async () => {
   assert.equal((await db.query("select count(*)::int as n from app_modules where name = 'saleorders'")).rows[0].n, 1);
 });
 
-test('reverse.sql removes the page while its code is v1, v2, v3, v4, v5, v6, v7 or v8, and refuses an edited one', async () => {
-  for (const [label, text] of [['v1', v1], ['v2', v2], ['v3', v3], ['v4', v4], ['v5', v5], ['v6', v6], ['v7', v7], ['v8', code]]) {
+test('reverse.sql removes the page while its code is v1, v2, v3, v4, v5, v6, v7, v8 or v9, and refuses an edited one', async () => {
+  for (const [label, text] of [['v1', v1], ['v2', v2], ['v3', v3], ['v4', v4], ['v5', v5], ['v6', v6], ['v7', v7], ['v8', v8], ['v9', code]]) {
     const d = await installed(text);
     try {
       const others0 = await othersOf(d);
@@ -489,8 +496,8 @@ test('upgrade-v7-to-v8.sql moves the page from v7 to v8: only its code changes (
       const others0 = await othersOf(d);
       await d.exec(built.upgrade78);
       const r = await rowOf(d);
-      assert.equal(r.code, code, 'the stored code is exactly the v8 file');
-      assert.equal(await md5In(d, r.code), built.md5);
+      assert.equal(r.code, v8, 'the stored code is exactly the v8 file');
+      assert.equal(await md5In(d, r.code), V8_MD5);
       assert.deepEqual([r.enabled, r.seq], [enabled, 66], 'switched on stays on, switched off stays off');
       assert.deepEqual(await othersOf(d), others0, 'salechat and the other modules are exactly as they were');
       await d.exec(built.upgrade78);
@@ -548,6 +555,72 @@ test('a reply typed in LINE OA Manager is logged into the chat with one click: k
   assert.ok(code.includes("if(meta.src==='oa_manager')return"), 'the chat says it was not sent from the page');
   assert.ok(code.includes("if(a==='oalog'){S.oaLog=!S.oaLog;"));
   assert.ok(code.includes("if(a==='note'){S.note=!S.note;if(S.note)S.oaLog=false;"), 'the note and the log are never on together');
+});
+
+test('upgrade-v8-to-v9.sql moves the page from v8 to v9: only its code changes (enabled and seq stay), and running it again does nothing', async () => {
+  for (const enabled of [true, false]) {
+    const d = await installed(v8, enabled);
+    try {
+      const others0 = await othersOf(d);
+      await d.exec(built.upgrade89);
+      const r = await rowOf(d);
+      assert.equal(r.code, code, 'the stored code is exactly the v9 file');
+      assert.equal(await md5In(d, r.code), built.md5);
+      assert.deepEqual([r.enabled, r.seq], [enabled, 66], 'switched on stays on, switched off stays off');
+      assert.deepEqual(await othersOf(d), others0, 'salechat and the other modules are exactly as they were');
+      await d.exec(built.upgrade89);
+      assert.deepEqual(await rowOf(d), r, 'run twice: nothing more changes');
+    } finally {
+      await d.close();
+    }
+  }
+});
+
+test('upgrade-v8-to-v9.sql refuses a page that is neither v8 nor v9, and never overwrites an edited one', async () => {
+  const edited = await installed(v8 + '\n// a later edit');
+  try {
+    const kept = (await rowOf(edited)).code;
+    await assert.rejects(edited.exec(built.upgrade89), /neither v8 nor v9/);
+    assert.equal((await rowOf(edited)).code, kept, 'the edited code is still there');
+  } finally {
+    await edited.close();
+  }
+  const old = await installed(v7);
+  try {
+    await assert.rejects(old.exec(built.upgrade89), /neither v8 nor v9/);
+    assert.equal((await rowOf(old)).code, v7, 'the v7 page is still there, untouched');
+  } finally {
+    await old.close();
+  }
+});
+
+test('downgrade-v9-to-v8.sql puts v8 back byte for byte, keeps enabled and seq, refuses an edited v9, and is harmless twice', async () => {
+  const d = await installed(v8);
+  try {
+    await d.exec(built.upgrade89);
+    const others0 = await othersOf(d);
+    await d.exec(built.downgrade98);
+    const r = await rowOf(d);
+    assert.equal(r.code, v8);
+    assert.equal(await md5In(d, r.code), V8_MD5, 'the md5 the v8 page had before the upgrade');
+    assert.deepEqual([r.enabled, r.seq], [true, 66]);
+    assert.deepEqual(await othersOf(d), others0);
+    await d.exec(built.downgrade98);
+    assert.equal((await rowOf(d)).code, v8, 'run twice: still v8');
+    await d.exec(built.upgrade89);
+    await d.query("update app_modules set code = code || E'\\n// edited' where name = 'saleorders'");
+    await assert.rejects(d.exec(built.downgrade98), /neither v9 nor v8/);
+  } finally {
+    await d.close();
+  }
+});
+
+test('the closed-sales summary adds up the orders that are closed by responsible person; delivered-but-not-closed is shown apart and not added in', () => {
+  assert.ok(code.includes('data-a="closedsum"'), 'the button is in the list header');
+  assert.ok(code.includes("if(a==='closedsum'){openClosedSum();return}"));
+  assert.ok(code.includes(".eq('job_status','closed')"), 'only closed orders count as closed');
+  assert.ok(code.includes(".eq('job_status','delivered')"), 'delivered-but-not-closed is a separate line');
+  assert.ok(code.includes('ไม่ระบุผู้รับผิดชอบ'), 'an order without a responsible person is still counted');
 });
 
 test('upgrade-v1-to-v2.sql (the step run on 4 Nov) still moves the first version to v2 — the record is frozen', async () => {

@@ -315,7 +315,7 @@
       <div class="so-cols">
         <nav class="so-mtabs" id="so_mtabs" aria-label="สลับส่วนของหน้า"></nav>
         <aside class="so-col so-list" aria-label="แชตลูกค้า">
-          <div class="so-lhd"><span class="ttl">${ic('chat',22)} แชตลูกค้า</span><button type="button" class="so-btn sm pri" data-a="picker">${ic('plus',14)} แชตใหม่</button></div>
+          <div class="so-lhd"><span class="ttl">${ic('chat',22)} แชตลูกค้า</span><button type="button" class="so-btn sm pri" data-a="picker">${ic('plus',14)} แชตใหม่</button><button type="button" class="so-btn sm" data-a="closedsum" title="ยอดงานที่ปิดแล้ว แยกตามผู้รับผิดชอบ">ยอดปิดงาน</button></div>
           <div class="so-chan" id="so_chan"></div>
           <label class="so-srch">${ic('search',16)}<input id="so_q" type="search" placeholder="ค้นหาชื่อลูกค้า ข้อความ หรือเลขออเดอร์…" aria-label="ค้นหาแชต" autocomplete="off" value="${E(S.q)}"></label>
           <div class="so-tabs" id="so_tabs" role="tablist"></div>
@@ -1431,6 +1431,28 @@
   // ---------- หน้าต่างยืนยัน / ตรวจ ----------
   function openModal(m){S.modal=m;paintModal()}
   function closeModal(){S.modal=null;paintModal()}
+  // ยอดปิดงาน: ใบที่สถานะ "ปิดออเดอร์" นับตามวันที่ปิด (closed_at) แยกตามผู้รับผิดชอบ · ส่วนที่ส่งมอบแล้วแต่ยังไม่ปิดแสดงแยก ไม่นับในยอดปิด
+  function sinceOf(p){
+    const d=new Date()
+    if(p==='today'){d.setHours(0,0,0,0)}
+    else if(p==='week'){d.setDate(d.getDate()-6);d.setHours(0,0,0,0)}
+    else if(p==='month'){d.setDate(1);d.setHours(0,0,0,0)}
+    else return null
+    return d.toISOString()
+  }
+  function openClosedSum(){openModal({kind:'closedsum',period:'month',rows:null,delivered:null,busy:true,err:''});loadClosedSum(S.modal)}
+  async function loadClosedSum(m){
+    let qb=sb.from('sale_orders').select('id,order_no,customer_name,total,assignee,closed_at').eq('job_status','closed').order('closed_at',{ascending:false}).limit(2000)
+    const since=sinceOf(m.period)
+    if(since)qb=qb.gte('closed_at',since)
+    const r=await q(()=>qb)
+    const d=await q(()=>sb.from('sale_orders').select('total,assignee').eq('job_status','delivered').limit(2000))
+    if(S.modal!==m)return
+    m.busy=false
+    if(errMsg(r)||errMsg(d)){m.err=niceErr(errMsg(r)||errMsg(d))}
+    else{m.rows=r.data||[];m.delivered=d.data||[]}
+    paintModal()
+  }
   function paintModal(){
     const host=$('so_modalhost');if(!host)return
     const m=S.modal
@@ -1479,6 +1501,25 @@
         ${lineStatBox(m)}
         ${(m.copied||(m.lineOut&&lineDelivery(m)==='sent'))&&o.job_status==='pending'?'<div style="margin-top:10px;display:flex;justify-content:flex-end"><button type="button" class="so-btn" data-a="setawait">ตั้งสถานะงานเป็น "รอลูกค้ายืนยัน" แล้วบันทึก</button></div>':''}
         <div class="mut" style="margin-top:8px">ระบบจะไม่แสดงว่า "ส่งสำเร็จ" จนกว่าจะส่งถึงลูกค้าจริง — ช่องทางที่ใช้ได้ตอนนี้: ${isLine(S.list.find(x=>x.id===S.sel))&&lineState().ok?'ส่งทาง LINE OA · ':''}คัดลอกไปส่งเอง</div>`
+      foot=`<button type="button" class="so-btn" data-a="mclose">ปิด</button>`
+    }else if(m.kind==='closedsum'){
+      const PER=[['today','วันนี้'],['week','7 วันล่าสุด'],['month','เดือนนี้'],['all','ทั้งหมด']]
+      head=`<b>ยอดปิดงาน</b>`
+      const list=m.rows||[]
+      const by={};let sum=0
+      for(const r of list){const k=String(r.assignee||'').trim()||'ไม่ระบุผู้รับผิดชอบ';const t=num(r.total);sum+=t;by[k]=by[k]||{n:0,t:0};by[k].n++;by[k].t+=t}
+      const people=Object.entries(by).sort((a,b)=>b[1].t-a[1].t)
+      const dl=m.delivered||[];const dsum=dl.reduce((s,r)=>s+num(r.total),0)
+      body=`<div class="mut" style="margin-bottom:8px">${PER.map(([k,t])=>`<button type="button" class="so-tab${m.period===k?' on':''}" data-a="cspan" data-p="${k}">${t}</button>`).join('')}</div>
+        ${m.err?`<div class="warn">${E(m.err)}</div>`:''}
+        ${m.busy?'<div class="mut">กำลังโหลด…</div>':`
+        <div class="rcpt"><b>ปิดงานแล้ว ${list.length} ใบ · รวม ${money(sum)} บาท</b><br><span class="mut">ยอดตามที่ระบุในใบ (รวมภาษีถ้ามี) · นับตามวันที่ปิดงาน</span></div>
+        <table><thead><tr><th>ผู้รับผิดชอบ</th><th>ปิดแล้ว</th><th>ยอดรวม (บาท)</th></tr></thead><tbody>
+        ${people.map(([k,v])=>`<tr><td>${E(k)}</td><td>${v.n}</td><td>${money(v.t)}</td></tr>`).join('')||'<tr><td colspan="3" class="mut">ยังไม่มีใบที่ปิดในช่วงนี้</td></tr>'}</tbody></table>
+        <div class="mut" style="margin:10px 0 6px">ส่งมอบแล้ว รอปิดงาน ${dl.length} ใบ · ${money(dsum)} บาท (ไม่นับในยอดปิด)</div>
+        ${list.length?`<table><thead><tr><th>เลขที่</th><th>ลูกค้า</th><th>ผู้รับผิดชอบ</th><th>วันที่ปิด</th><th>ยอด</th></tr></thead><tbody>
+        ${list.slice(0,30).map(r=>`<tr><td>${E(r.order_no)}</td><td>${E(r.customer_name)}</td><td>${E(String(r.assignee||'').trim()||'ไม่ระบุ')}</td><td>${E(r.closed_at?new Date(r.closed_at).toLocaleDateString('th-TH'):'')}</td><td>${money(r.total)}</td></tr>`).join('')}</tbody></table>`:''}
+        ${list.length>30?`<div class="mut">แสดง 30 ใบแรกจากทั้งหมด ${list.length} ใบ</div>`:''}`}`
       foot=`<button type="button" class="so-btn" data-a="mclose">ปิด</button>`
     }
     host.innerHTML=`<div id="so_modalwrap" data-a="mwrap"><div id="so_modal" role="dialog" aria-modal="true" aria-label="${E((m.title||m.kind))}"><div class="mh">${head}<button type="button" class="so-del" data-a="mclose" aria-label="ปิด" style="font-size:20px">×</button></div><div class="mb">${body}</div><div class="mf">${foot}</div></div></div>`
@@ -1562,6 +1603,8 @@
     const a=el.dataset.a
     if(a==='mwrap'){if(e.target.id==='so_modalwrap')closeModal();return}
     if(a==='mclose'){closeModal();return}
+    if(a==='closedsum'){openClosedSum();return}
+    if(a==='cspan'){const m=S.modal;if(!m||m.kind!=='closedsum')return;m.period=el.dataset.p;m.busy=true;m.err='';paintModal();loadClosedSum(m);return}
     if(a==='myes'){const m=S.modal;closeModal();if(m&&m.onYes)m.onYes();return}
     if(a==='myesprompt'){const m=S.modal;const v=($('so_mp')||{}).value;closeModal();if(m&&m.onYes)m.onYes(v);return}
     if(a==='tab'){S.tab=el.dataset.k;paintList();return}
