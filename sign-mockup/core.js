@@ -452,6 +452,104 @@
     return /^(โทร|tel|call)/i.test(s) ? s : 'โทร ' + s;
   }
 
+  // ความหนา/ระยะยื่นจากผนัง (แกน Z) ของแต่ละชนิด — โชว์ในกล่องขนาดป้าย
+  var DEPTH = {
+    vinyl: 'ผ้าใบ 0.5 มม.',
+    frame: 'โครงหนา 3 ซม.',
+    foam: 'บอร์ดหนา 5 มม.',
+    sticker: 'แนบผิว',
+    acrylic: 'แผ่น 8 มม. + หมุด 2.5 ซม.',
+    lightbox: 'กล่องหนา 12 ซม.',
+    rollup: 'ฐานลึก 40 ซม.',
+    xstand: 'ขากาง 45 ซม.',
+  };
+
+  // เลขที่ใบเสนอราคา: Q + ปี พ.ศ. 2 หลัก + เดือน วัน - ชั่วโมง นาที  เช่น Q691105-1430
+  function quoteNo(d) {
+    var p = function (n) {
+      return (n < 10 ? '0' : '') + n;
+    };
+    return 'Q' + String(d.getFullYear() + 543).slice(-2) + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes());
+  }
+
+  /* PDF หน้าเดียวจากภาพ JPEG เต็มหน้า (ค่าเริ่มต้น A4 แนวตั้ง) — ไม่ต้องใช้ไลบรารี
+   * jpeg: Uint8Array ของไฟล์ JPEG, w/h: ขนาดภาพเป็นพิกเซล → คืน Uint8Array ของไฟล์ PDF */
+  function pdfFromJpeg(jpeg, w, h, pageW, pageH) {
+    pageW = pageW || 595.28;
+    pageH = pageH || 841.89;
+    var enc = function (str) {
+      var a = new Uint8Array(str.length);
+      for (var i = 0; i < str.length; i++) a[i] = str.charCodeAt(i) & 0xff;
+      return a;
+    };
+    var parts = [];
+    var offsets = [];
+    var pos = 0;
+    function push(u8) {
+      parts.push(u8);
+      pos += u8.length;
+    }
+    function obj(n, body, stream) {
+      offsets[n] = pos;
+      if (stream) {
+        push(enc(n + ' 0 obj\n' + body + '\nstream\n'));
+        push(stream);
+        push(enc('\nendstream\nendobj\n'));
+      } else push(enc(n + ' 0 obj\n' + body + '\nendobj\n'));
+    }
+    push(enc('%PDF-1.4\n%\u00e2\u00e3\u00cf\u00d3\n'));
+    obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+    obj(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
+    obj(3, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + pageW + ' ' + pageH + '] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>');
+    obj(4, '<< /Type /XObject /Subtype /Image /Width ' + w + ' /Height ' + h + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + jpeg.length + ' >>', jpeg);
+    var content = 'q ' + pageW + ' 0 0 ' + pageH + ' 0 0 cm /Im0 Do Q';
+    obj(5, '<< /Length ' + content.length + ' >>', enc(content));
+    var xref = pos;
+    var x = 'xref\n0 6\n0000000000 65535 f \n';
+    for (var n = 1; n <= 5; n++) x += ('0000000000' + offsets[n]).slice(-10) + ' 00000 n \n';
+    x += 'trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF\n';
+    push(enc(x));
+    var out = new Uint8Array(pos);
+    var o = 0;
+    for (var i = 0; i < parts.length; i++) {
+      out.set(parts[i], o);
+      o += parts[i].length;
+    }
+    return out;
+  }
+
+  // จำนวนเงินเป็นตัวหนังสือ (แบบใบเสนอราคา/ใบเสร็จ): 1520 → "หนึ่งพันห้าร้อยยี่สิบบาทถ้วน"
+  var DIGIT = ['ศูนย์', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'];
+  var PLACE = ['', 'สิบ', 'ร้อย', 'พัน', 'หมื่น', 'แสน'];
+  function readGroup(x) {
+    var str = String(x);
+    var out = '';
+    for (var i = 0; i < str.length; i++) {
+      var d = +str[i];
+      var p = str.length - i - 1;
+      if (!d) continue;
+      if (p === 1 && d === 1) out += 'สิบ';
+      else if (p === 1 && d === 2) out += 'ยี่สิบ';
+      else if (p === 0 && d === 1 && x > 10) out += 'เอ็ด';
+      else out += DIGIT[d] + PLACE[p];
+    }
+    return out;
+  }
+  function readNumber(x) {
+    if (x >= 1e6) {
+      var lo = x % 1e6;
+      return readNumber(Math.floor(x / 1e6)) + 'ล้าน' + (lo ? readGroup(lo) : '');
+    }
+    return readGroup(x);
+  }
+  function bahtText(v) {
+    var n = Math.round(Math.abs(num(v)) * 100);
+    var b = Math.floor(n / 100);
+    var s = n % 100;
+    if (!b && !s) return 'ศูนย์บาทถ้วน';
+    return (b ? readNumber(b) + 'บาท' : '') + (s ? readNumber(s) + 'สตางค์' : 'ถ้วน');
+  }
+
   function thaiDate(d) {
     var months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
     return d.getDate() + ' ' + months[d.getMonth()] + ' ' + (d.getFullYear() + 543);
@@ -497,5 +595,9 @@
     presetLabel: presetLabel,
     phoneText: phoneText,
     thaiDate: thaiDate,
+    DEPTH: DEPTH,
+    quoteNo: quoteNo,
+    pdfFromJpeg: pdfFromJpeg,
+    bahtText: bahtText,
   };
 });

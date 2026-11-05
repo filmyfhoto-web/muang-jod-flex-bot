@@ -1,9 +1,12 @@
 /* นัดพอน Sign Mockup — หน้าจอ: 4 ขั้น (งาน → ชนิด/ขนาด → ฉาก → ราคา/ส่งออก) + ติดตั้งเป็นแอป */
 (function () {
   'use strict';
-  var C = window.SignMockup.core;
-  var R = window.SignMockup.render;
+  var NS = window.SignMockup;
+  var C = NS.core;
+  var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
+  // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
+  var APP_VERSION = '3.0.0';
 
   var UNIT_WORD = { vinyl: 'ผืน', frame: 'ผืน', foam: 'แผ่น', sticker: 'แผ่น', acrylic: 'แผ่น', lightbox: 'ป้าย', rollup: 'ชุด', xstand: 'ชุด' };
 
@@ -25,6 +28,8 @@
     spot: 'auto',
     doorOpen: true, // ประตูห้องเรียนเปิดพับชิดผนัง (แบบที่ร้านส่งรูปมา)
     tone: 'pink',
+    panel: 'right', // แผงตั้งค่าอยู่ขวา/ซ้าย
+    fmt: 'jpg', // ชนิดรูปที่ส่งออกล่าสุด (jpg / png)
     qty: 1,
     rates: {},
     shopName: 'นัดพอน',
@@ -36,11 +41,12 @@
   /* ---------- สถานะ ---------- */
   var st = load();
   var step = 1;
-  var imgDesign = null; // งานจากไฟล์ (ไม่เก็บลงเครื่อง ไฟล์ใหญ่)
+  var imgDesign = null; // งานจากไฟล์ { src, w, h, bg, id, blob, name, thumb, px } (ไฟล์เก็บใน IndexedDB)
   var textCache = { key: '', design: null };
-  var photo = null; // { img, w, h, quad, touched }
+  var photo = null; // { id, img, w, h, quad, touched, blob }
   var logoImg = null;
   var customer = '';
+  var curJob = null; // งานที่เปิด/บันทึกล่าสุด { id, name }
   var lastOut = null;
   var stage = null; // เวที 3 มิติ (โหลดตามมาทีหลัง ถ้าเครื่องไม่รองรับใช้ภาพ 2 มิติแทน)
   var L3 = null; // ขนาดภาพตอนเป็น 3 มิติ { W, H, F, U, f }
@@ -53,32 +59,124 @@
     inFrame = true;
   }
 
-  function load() {
+  // ค่าที่บันทึกไว้ → สถานะที่ใช้ได้แน่นอน (ชนิดข้อมูลผิด/ชนิดป้ายหาย ใช้ค่าเริ่มต้น)
+  function normalize(saved) {
     var s = JSON.parse(JSON.stringify(DEF));
-    try {
-      var saved = JSON.parse(localStorage.getItem(KEY) || 'null');
-      if (saved && typeof saved === 'object') {
-        Object.keys(DEF).forEach(function (k) {
-          if (saved[k] !== undefined && typeof saved[k] === typeof DEF[k]) s[k] = saved[k];
-        });
-        s.text = Object.assign({}, DEF.text, saved.text || {});
-      }
-    } catch (e) {}
+    if (saved && typeof saved === 'object') {
+      Object.keys(DEF).forEach(function (k) {
+        if (saved[k] !== undefined && saved[k] !== null && typeof saved[k] === typeof DEF[k]) s[k] = JSON.parse(JSON.stringify(saved[k]));
+      });
+      s.text = Object.assign({}, DEF.text, saved.text || {});
+    }
     if (!C.TYPES[s.type]) s.type = DEF.type;
-    if (!C.SCENES[s.scene] || s.scene === 'photo') s.scene = DEF.scene;
-    s.mode = 'text'; // ไฟล์งานไม่ได้เก็บไว้ เปิดใหม่เริ่มที่ข้อความ
+    if (!C.SCENES[s.scene]) s.scene = DEF.scene;
+    if (s.mode !== 'image') s.mode = 'text';
     s.w = C.clampCm(s.w, DEF.w);
     s.h = C.clampCm(s.h, DEF.h);
+    return s;
+  }
+  // ตอนเปิดแอป: ไฟล์งาน/รูปหน้าร้านโหลดตามมาจาก IndexedDB — ระหว่างนั้นโชว์ข้อความ/ฉากปกติไปก่อน
+  var want; // { mode, scene } ที่บันทึกไว้ (ตั้งค่าใน load() ซึ่งรันก่อนบรรทัดนี้)
+  function load() {
+    var saved = null;
+    try {
+      saved = JSON.parse(localStorage.getItem(KEY) || 'null');
+    } catch (e) {}
+    var s = normalize(saved);
+    want = { mode: s.mode, scene: s.scene };
+    s.mode = 'text';
+    if (s.scene === 'photo') s.scene = DEF.scene;
     return s;
   }
   var saveTimer = 0;
   function save() {
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(function () {
-      try {
-        localStorage.setItem(KEY, JSON.stringify(st));
-      } catch (e) {}
-    }, 300);
+    saveTimer = setTimeout(flushSave, 300);
+  }
+  // เก็บลงเครื่อง + จดประวัติย้อนกลับ + บันทึกงานปัจจุบันอัตโนมัติ
+  function flushSave() {
+    clearTimeout(saveTimer);
+    try {
+      localStorage.setItem(KEY, JSON.stringify(st));
+    } catch (e) {}
+    record();
+    autosaveSoon();
+  }
+
+  /* ---------- ย้อนกลับ / ทำซ้ำ (Ctrl+Z / Ctrl+Y) ---------- */
+  var NOHIST = { panel: 1, view: 1, fmt: 1, logo: 1 };
+  var hist = { list: [], i: -1, lock: false };
+  function copyQuad(q) {
+    return q
+      ? q.map(function (c) {
+          return { x: c.x, y: c.y };
+        })
+      : null;
+  }
+  function snapshot() {
+    var o = {};
+    Object.keys(st).forEach(function (k) {
+      if (!NOHIST[k]) o[k] = st[k];
+    });
+    var json = JSON.stringify(o);
+    var q = photo ? copyQuad(photo.quad) : null;
+    return {
+      key: json + '|' + (imgDesign ? imgDesign.id : '') + '|' + (photo ? photo.id + JSON.stringify(q) : ''),
+      json: json,
+      img: imgDesign,
+      photo: photo,
+      quad: q,
+      touched: photo ? photo.touched : false,
+    };
+  }
+  function record() {
+    if (hist.lock) return;
+    var s = snapshot();
+    var top = hist.list[hist.i];
+    if (top && top.key === s.key) return;
+    hist.list = hist.list.slice(0, hist.i + 1);
+    hist.list.push(s);
+    if (hist.list.length > 80) hist.list.shift();
+    hist.i = hist.list.length - 1;
+    syncHist();
+  }
+  function syncHist() {
+    var u = document.getElementById('undoBtn');
+    if (!u) return;
+    u.disabled = hist.i <= 0;
+    document.getElementById('redoBtn').disabled = hist.i >= hist.list.length - 1;
+  }
+  function applySnap(s) {
+    hist.lock = true;
+    var o = JSON.parse(s.json);
+    Object.keys(o).forEach(function (k) {
+      st[k] = o[k];
+    });
+    imgDesign = s.img;
+    photo = s.photo;
+    if (photo && s.quad) {
+      photo.quad = copyQuad(s.quad);
+      photo.touched = s.touched;
+    }
+    if (st.mode === 'image' && !imgDesign) st.mode = 'text';
+    if (st.scene === 'photo' && !photo) st.scene = DEF.scene;
+    showFileCard();
+    sync();
+    hist.lock = false;
+  }
+  function undo() {
+    flushSave();
+    if (hist.i <= 0) return;
+    hist.i--;
+    applySnap(hist.list[hist.i]);
+    syncHist();
+  }
+  function redo() {
+    flushSave();
+    if (hist.i >= hist.list.length - 1) return;
+    hist.i++;
+    applySnap(hist.list[hist.i]);
+    syncHist();
   }
 
   /* ---------- อ้างอิงหน้าจอ ---------- */
@@ -251,7 +349,7 @@
   function fitSize(a) {
     var box = $('canvasBox');
     var bw = box.clientWidth;
-    var bh = phone.matches ? window.innerHeight * 0.36 : box.clientHeight;
+    var bh = phone.matches && !isFull() ? window.innerHeight * 0.36 : box.clientHeight;
     if (!(bw > 0 && bh > 0)) return { w: 800, h: 800 / a };
     var w = bw;
     var h = w / a;
@@ -280,6 +378,13 @@
     if (t.unit === 'sqm') html += '<span class="area">' + esc(C.fmtArea(st.w, st.h)) + '</span>';
     if (q.has) html += '<span class="price">' + esc(C.baht(q.total)) + ' บาท</span>';
     $('summary').innerHTML = html;
+    // กล่องขนาดป้ายมุมภาพ: กว้าง (X) / สูง (Y) / หนา (Z)
+    $('ibW').textContent = C.fmtCm(st.w) + ' ซม.';
+    $('ibH').textContent = C.fmtCm(st.h) + ' ซม.';
+    $('ibD').textContent = C.DEPTH[st.type] || '';
+    $('ibAreaRow').hidden = t.unit !== 'sqm';
+    $('ibA').textContent = C.fmtArea(st.w, st.h);
+    $('infoBox').hidden = false;
     $('sizeReadout').textContent = C.sizeText(st.w, st.h) + (t.unit === 'sqm' ? ' · พื้นที่ ' + C.fmtArea(st.w, st.h) : '');
     var unit = UNIT_WORD[st.type];
     $('qtyUnit').textContent = unit;
@@ -341,7 +446,7 @@
   });
   $('next').addEventListener('click', function () {
     if (step < 4) go(step + 1);
-    else exportImage();
+    else openExport(imageFmt());
   });
 
   /* ---------- ไอคอนชนิดป้าย ---------- */
@@ -353,6 +458,7 @@
     foam: '<svg viewBox="0 0 44 34"><rect x="5" y="5" width="34" height="24" rx="1"/><path d="M39 6.5h1.5V30.5H6.5V29"/><path d="M11 12h16M11 17h22M11 22h12"/></svg>',
     acrylic:
       '<svg viewBox="0 0 44 34"><rect x="5" y="5" width="34" height="24" rx="2"/><circle cx="9" cy="9" r="1.6"/><circle cx="35" cy="9" r="1.6"/><circle cx="9" cy="25" r="1.6"/><circle cx="35" cy="25" r="1.6"/><path d="M16 26l9-18M21 26l6-12"/></svg>',
+    lightbox: '<svg viewBox="0 0 44 34"><rect x="4" y="8" width="36" height="20" rx="2"/><rect x="8" y="12" width="28" height="12" rx="1"/><path d="M13 2.5l1.6 2.8M22 1.5v3.4M31 2.5l-1.6 2.8"/></svg>',
     rollup: '<svg viewBox="0 0 44 34"><path d="M15 2h14"/><rect x="15.5" y="3" width="13" height="25"/><rect x="12" y="27" width="20" height="4" rx="1.5"/></svg>',
     xstand: '<svg viewBox="0 0 44 34"><rect x="15" y="2" width="14" height="24"/><path d="M15 26l-4 6M29 26l4 6"/></svg>',
   };
@@ -622,19 +728,44 @@
   function isImage(file) {
     return file && /^image\//.test(file.type || '') && !/heic|heif/i.test(file.type);
   }
+  var uid = 0;
+  function newId(p) {
+    return p + Date.now().toString(36) + (++uid).toString(36);
+  }
+  // ไฟล์งาน → พร้อมใช้ (เก็บไฟล์ต้นฉบับไว้บันทึกงาน)
+  function designFromBlob(blob, name) {
+    return loadImage(blob).then(function (img) {
+      var d = R.prepareImage(img, 3000);
+      d.id = newId('img');
+      d.blob = blob;
+      d.name = name || 'รูปที่วาง';
+      d.thumb = img.src;
+      d.px = (img.naturalWidth || img.width) + ' × ' + (img.naturalHeight || img.height) + ' px';
+      return d;
+    });
+  }
+  function photoFromBlob(blob) {
+    return loadImage(blob).then(function (img) {
+      var p = R.prepareImage(img, 2400);
+      return { id: newId('ph'), img: p.src, w: p.w, h: p.h, quad: null, touched: false, blob: blob };
+    });
+  }
+  function showFileCard() {
+    if (!imgDesign) return;
+    $('fileThumb').src = imgDesign.thumb || '';
+    $('fileName').textContent = imgDesign.name || '';
+    $('fileInfo').textContent = imgDesign.px || '';
+  }
   function setDesignFile(file) {
     if (!file) return;
     if (!isImage(file)) {
       toast('ไฟล์นี้เปิดไม่ได้ ใช้ JPG หรือ PNG (ไฟล์ PDF/AI ให้ Export เป็น JPG ก่อน)');
       return;
     }
-    loadImage(file)
-      .then(function (img) {
-        imgDesign = R.prepareImage(img, 3000);
-        imgDesign.id = 'img' + Date.now();
-        $('fileThumb').src = img.src;
-        $('fileName').textContent = file.name || 'รูปที่วาง';
-        $('fileInfo').textContent = (img.naturalWidth || img.width) + ' × ' + (img.naturalHeight || img.height) + ' px';
+    designFromBlob(file, file.name)
+      .then(function (d) {
+        imgDesign = d;
+        showFileCard();
         st.mode = 'image';
         if (C.TYPES[st.type].mount === 'wall' && C.ratioMismatch(st.w, st.h, imgDesign.w, imgDesign.h)) {
           st.h = C.clampCm(C.heightForImage(st.w, imgDesign.w, imgDesign.h), st.h);
@@ -785,12 +916,11 @@
       toast('รูปนี้เปิดไม่ได้ ใช้ JPG หรือ PNG');
       return;
     }
-    loadImage(file)
-      .then(function (img) {
-        var p = R.prepareImage(img, 2400);
+    photoFromBlob(file)
+      .then(function (p) {
         var size = C.canvasSize('auto', null, { w: p.w, h: p.h });
-        var g = C.geometry(st.type, st.w, st.h);
-        photo = { img: p.src, w: p.w, h: p.h, quad: C.defaultQuad(g, size.W, size.H), touched: false };
+        p.quad = C.defaultQuad(C.geometry(st.type, st.w, st.h), size.W, size.H);
+        photo = p;
         st.scene = 'photo';
         toast('ลากจุดส้ม 4 มุมให้ตรงตำแหน่งป้ายในรูป');
         sync();
@@ -812,6 +942,7 @@
   $('resetQuad').addEventListener('click', function () {
     refreshPhotoQuad(true);
     if (photo) photo.touched = false;
+    save();
     draw();
   });
 
@@ -864,6 +995,7 @@
     if (!drag) return;
     drag = null;
     view.classList.remove('dragging');
+    save();
     if (!C.isConvex(lastOut.quad || [])) toast('มุมไขว้กันอยู่ ลากมุมให้เป็นสี่เหลี่ยมก่อน');
   }
   view.addEventListener('pointerup', endDrag);
@@ -885,6 +1017,7 @@
   });
   $('customer').addEventListener('input', function (e) {
     customer = e.target.value;
+    autosaveSoon();
     draw();
   });
   ['shopName', 'shopPhone'].forEach(function (id) {
@@ -947,84 +1080,414 @@
     setLogo('');
   });
 
-  /* ---------- ส่งออก ---------- */
-  var lastBlob = null;
-  var lastName = '';
-  var lastUrl = '';
-  var lastCanvas = null;
-  function fileName() {
+  /* ---------- ส่งออก: รูป JPG / PNG · ใบเสนอราคา PDF · ไฟล์ 3 มิติ .glb ---------- */
+  var exp = { fmt: 'jpg', blob: null, name: '', url: '', purl: '', canvas: null, job: 0 };
+  function stamp() {
     var d = new Date();
     var p = function (n) {
       return (n < 10 ? '0' : '') + n;
     };
-    // ชื่อไฟล์ใช้ตัวอังกฤษ/ตัวเลขเท่านั้น (ชื่อไทยบางเบราว์เซอร์กลายเป็น "download")
-    var who = customer.trim().replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
-    return 'mockup-' + (who ? who + '-' : '') + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()) + '.jpg';
+    return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes());
   }
-  function exportImage() {
+  // ชื่อไฟล์ใช้ตัวอังกฤษ/ตัวเลขเท่านั้น (ชื่อไทยบางเบราว์เซอร์กลายเป็น "download")
+  function fileName(prefix, ext) {
+    var who = customer.trim().replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
+    return prefix + '-' + (who ? who + '-' : '') + stamp() + '.' + ext;
+  }
+  function imageFmt() {
+    return st.fmt === 'png' ? 'png' : 'jpg';
+  }
+  function toBlob(c, type, q) {
+    return new Promise(function (resolve, reject) {
+      c.toBlob(
+        function (b) {
+          if (b) resolve(b);
+          else reject(new Error('ภาพใหญ่เกินไป'));
+        },
+        type,
+        q
+      );
+    });
+  }
+  function blobBytes(b) {
+    return (b.arrayBuffer ? b.arrayBuffer() : new Response(b).arrayBuffer()).then(function (ab) {
+      return new Uint8Array(ab);
+    });
+  }
+  // ภาพจำลองความละเอียด k เท่า (3 มิติ: จากมุมกล้องที่เห็นอยู่ + เส้นบอกขนาด) withFooter = มีแถบรายละเอียดใต้ภาพ
+  function mockupCanvas(k, withFooter) {
+    var c = document.createElement('canvas');
+    if (is3d() && L3) {
+      var F = withFooter ? L3.F : 0;
+      var H = Math.round(L3.H * k);
+      c.width = Math.round(L3.W * k);
+      c.height = Math.round((L3.H + F) * k);
+      var cx = c.getContext('2d');
+      stage.renderAt(c.width, H, function (gl, pr) {
+        cx.drawImage(gl, 0, 0, c.width, H);
+        cx.setTransform(k, 0, 0, k, 0, 0);
+        R.overlay3d(cx, pr, L3.g, L3.W, L3.H, L3.U, { dims: st.dims, person: st.person });
+        if (F) R.footer(cx, L3.W, L3.H, F, L3.U, footerInfo());
+      });
+    } else R.render(c, renderState(withFooter ? null : { info: false }), { scale: k, preview: false });
+    return c;
+  }
+
+  var DISP = '"Kanit", "Noto Sans Thai", "Leelawadee UI", Tahoma, sans-serif';
+  var BODY = '"IBM Plex Sans Thai", "Noto Sans Thai", "Leelawadee UI", Tahoma, sans-serif';
+  function font(x, w, px, fam) {
+    x.font = w + ' ' + px + 'px ' + fam;
+  }
+  // เขียนข้อความไม่ให้เกินความกว้าง (ย่อตัวอักษรลงจนพอดี)
+  function fitText(x, text, tx, ty, maxW, w, px, fam) {
+    var size = px;
+    font(x, w, size, fam);
+    while (size > 12 && x.measureText(text).width > maxW) {
+      size -= 1;
+      font(x, w, size, fam);
+    }
+    x.fillText(text, tx, ty);
+  }
+  function rrect(x, rx, ry, rw, rh, r) {
+    x.beginPath();
+    x.moveTo(rx + r, ry);
+    x.arcTo(rx + rw, ry, rx + rw, ry + rh, r);
+    x.arcTo(rx + rw, ry + rh, rx, ry + rh, r);
+    x.arcTo(rx, ry + rh, rx, ry, r);
+    x.arcTo(rx, ry, rx + rw, ry, r);
+    x.closePath();
+  }
+
+  /* ใบเสนอราคา A4 (1240 × 1754 จุด = 150 dpi): หัวร้าน · ลูกค้า · ภาพจำลอง · ตารางราคา · ยอดตัวหนังสือ · ช่องเซ็น */
+  function quotePage(mock) {
+    var W = 1240;
+    var H = 1754;
+    var M = 84;
+    var CW = W - M * 2;
+    var NAVY = '#1f2a4d';
+    var ORANGE = '#d9622b';
+    var INK = '#18203a';
+    var INK2 = '#565e75';
+    var INK3 = '#868c9e';
+    var LINE = '#e0dcd4';
+    var c = document.createElement('canvas');
+    c.width = W;
+    c.height = H;
+    var x = c.getContext('2d');
+    var now = new Date();
+    var t = C.TYPES[st.type];
+    var q = quoteNow();
+    var unit = UNIT_WORD[st.type];
+    x.fillStyle = '#ffffff';
+    x.fillRect(0, 0, W, H);
+
+    // หัวกระดาษ
+    x.fillStyle = NAVY;
+    x.fillRect(0, 0, W, 200);
+    x.fillStyle = ORANGE;
+    x.fillRect(0, 200, W, 8);
+    var lx = M;
+    if (logoImg) {
+      var lh = 104;
+      var lw = Math.min(240, (lh * (logoImg.naturalWidth || logoImg.width)) / (logoImg.naturalHeight || logoImg.height));
+      x.fillStyle = '#ffffff';
+      rrect(x, M - 10, 38, lw + 20, lh + 20, 14);
+      x.fill();
+      x.drawImage(logoImg, M, 48, lw, lh);
+      lx = M + lw + 34;
+    }
+    x.textBaseline = 'alphabetic';
+    x.textAlign = 'left';
+    x.fillStyle = '#ffffff';
+    fitText(x, st.shopName.trim() || 'ร้านป้าย', lx, 104, W / 2 + 40 - lx, 600, 46, DISP);
+    x.fillStyle = '#aeb8d4';
+    if (st.shopPhone.trim()) fitText(x, C.phoneText(st.shopPhone), lx, 148, W / 2 + 40 - lx, 400, 26, BODY);
+    x.textAlign = 'right';
+    x.fillStyle = '#ffffff';
+    font(x, 600, 56, DISP);
+    x.fillText('ใบเสนอราคา', W - M, 106);
+    x.fillStyle = '#aeb8d4';
+    font(x, 500, 22, BODY);
+    x.fillText('QUOTATION', W - M, 144);
+
+    // ลูกค้า / เลขที่ / วันที่
+    var y = 268;
+    x.textAlign = 'left';
+    x.fillStyle = INK3;
+    font(x, 500, 22, BODY);
+    x.fillText('ลูกค้า', M, y);
+    x.fillStyle = INK;
+    if (customer.trim()) fitText(x, customer.trim(), M, y + 46, CW * 0.58, 600, 34, DISP);
+    else {
+      x.strokeStyle = LINE;
+      x.lineWidth = 2;
+      x.setLineDash([4, 6]);
+      x.beginPath();
+      x.moveTo(M, y + 48);
+      x.lineTo(M + CW * 0.5, y + 48);
+      x.stroke();
+      x.setLineDash([]);
+    }
+    x.textAlign = 'right';
+    x.fillStyle = INK3;
+    font(x, 500, 22, BODY);
+    x.fillText('เลขที่', W - M - 250, y);
+    x.fillText('วันที่', W - M - 250, y + 44);
+    x.fillStyle = INK;
+    font(x, 600, 26, BODY);
+    x.fillText(C.quoteNo(now), W - M, y);
+    x.fillText(C.thaiDate(now), W - M, y + 44);
+
+    // ภาพจำลอง
+    var by = 352;
+    var bh = 640;
+    x.fillStyle = '#f3f1ec';
+    rrect(x, M, by, CW, bh, 18);
+    x.fill();
+    var sc = Math.min((CW - 24) / mock.width, (bh - 24) / mock.height);
+    var iw = mock.width * sc;
+    var ih = mock.height * sc;
+    var ix = M + (CW - iw) / 2;
+    var iy = by + (bh - ih) / 2;
+    x.save();
+    rrect(x, ix, iy, iw, ih, 10);
+    x.clip();
+    x.drawImage(mock, ix, iy, iw, ih);
+    x.restore();
+
+    // ตารางรายการ
+    var ty = by + bh + 40;
+    var col = { item: M + 22, size: M + 470, qty: M + 742, per: M + 905, total: W - M - 22 };
+    x.fillStyle = NAVY;
+    rrect(x, M, ty, CW, 56, 10);
+    x.fill();
+    x.fillStyle = '#ffffff';
+    font(x, 600, 22, BODY);
+    x.textAlign = 'left';
+    x.fillText('รายการ', col.item, ty + 37);
+    x.fillText('ขนาด', col.size, ty + 37);
+    x.textAlign = 'center';
+    x.fillText('จำนวน', col.qty, ty + 37);
+    x.textAlign = 'right';
+    x.fillText(t.unit === 'sqm' ? 'ราคา/' + unit : 'ราคา/ชุด', col.per, ty + 37);
+    x.fillText('รวม (บาท)', col.total, ty + 37);
+    var ry = ty + 56;
+    var rh = 132;
+    x.textAlign = 'left';
+    x.fillStyle = INK;
+    fitText(x, t.name, col.item, ry + 46, 420, 600, 30, DISP);
+    x.fillStyle = INK2;
+    fitText(x, t.desc, col.item, ry + 82, 420, 400, 20, BODY);
+    if (q.has && t.unit === 'sqm') {
+      x.fillStyle = INK3;
+      fitText(x, 'คิดจาก ' + C.fmtAreaExact(st.w, st.h) + ' × ' + C.baht(q.rate) + ' บาท/ตร.ม.', col.item, ry + 114, 420, 400, 19, BODY);
+    }
+    x.fillStyle = INK;
+    font(x, 600, 26, BODY);
+    x.fillText(C.fmtCm(st.w) + ' × ' + C.fmtCm(st.h) + ' ซม.', col.size, ry + 46);
+    x.fillStyle = INK2;
+    font(x, 400, 20, BODY);
+    if (t.unit === 'sqm') x.fillText('พื้นที่ ' + C.fmtArea(st.w, st.h), col.size, ry + 82);
+    else x.fillText('รวมขาตั้ง + กระเป๋า', col.size, ry + 82);
+    x.textAlign = 'center';
+    x.fillStyle = INK;
+    font(x, 600, 26, BODY);
+    x.fillText(q.qty + ' ' + unit, col.qty, ry + 46);
+    x.textAlign = 'right';
+    x.fillText(q.has ? C.baht(q.per) : '—', col.per, ry + 46);
+    x.fillText(q.has ? C.baht(q.total) : '—', col.total, ry + 46);
+    x.strokeStyle = LINE;
+    x.lineWidth = 2;
+    x.beginPath();
+    x.moveTo(M, ry + rh);
+    x.lineTo(W - M, ry + rh);
+    x.stroke();
+
+    // ยอดรวม (ขวา) + หมายเหตุ (ซ้าย)
+    var sy = ry + rh + 30;
+    var tw = 430;
+    x.fillStyle = '#fbe8dc';
+    rrect(x, W - M - tw, sy, tw, 150, 16);
+    x.fill();
+    x.textAlign = 'right';
+    x.fillStyle = INK2;
+    font(x, 500, 22, BODY);
+    x.fillText('รวมทั้งสิ้น', W - M - 24, sy + 40);
+    if (q.has) {
+      x.fillStyle = '#b8491a';
+      fitText(x, C.baht(q.total) + ' บาท', W - M - 24, sy + 96, tw - 48, 600, 50, DISP);
+      x.fillStyle = INK2;
+      fitText(x, '(' + C.bahtText(q.total) + ')', W - M - 24, sy + 132, tw - 48, 400, 19, BODY);
+    } else {
+      x.fillStyle = INK3;
+      font(x, 500, 26, BODY);
+      x.fillText('ยังไม่ได้ใส่ราคา', W - M - 24, sy + 96);
+    }
+    x.textAlign = 'left';
+    x.fillStyle = INK;
+    font(x, 600, 22, BODY);
+    x.fillText('หมายเหตุ', M, sy + 32);
+    x.fillStyle = INK2;
+    var notes = [
+      'ภาพจำลองเพื่อประกอบการตัดสินใจ สีและรายละเอียดจริงอาจต่างจากหน้าจอเล็กน้อย',
+      'กรุณาตรวจข้อความ ตัวสะกด เบอร์โทร และขนาด ก่อนยืนยันสั่งผลิต',
+      t.name + ': ' + (C.DEPTH[st.type] || ''),
+    ];
+    notes.forEach(function (n, i) {
+      fitText(x, '• ' + n, M, sy + 68 + i * 34, CW - tw - 40, 400, 19, BODY);
+    });
+
+    // ช่องเซ็นชื่อ
+    var gy = H - 220;
+    [['ผู้เสนอราคา', M], ['ลูกค้า / ผู้อนุมัติ', W - M - 400]].forEach(function (s2) {
+      x.strokeStyle = INK3;
+      x.lineWidth = 1.5;
+      x.beginPath();
+      x.moveTo(s2[1], gy);
+      x.lineTo(s2[1] + 400, gy);
+      x.stroke();
+      x.textAlign = 'center';
+      x.fillStyle = INK2;
+      font(x, 500, 21, BODY);
+      x.fillText(s2[0], s2[1] + 200, gy + 34);
+      x.fillStyle = INK3;
+      font(x, 400, 19, BODY);
+      x.fillText('วันที่ ......../......../........', s2[1] + 200, gy + 68);
+    });
+
+    // ท้ายกระดาษ
+    x.fillStyle = LINE;
+    x.fillRect(M, H - 82, CW, 2);
+    x.textAlign = 'center';
+    x.fillStyle = INK3;
+    font(x, 400, 18, BODY);
+    var foot = [st.shopName.trim(), st.shopPhone.trim() ? C.phoneText(st.shopPhone) : '', 'จัดทำด้วย นัดพอน Sign Mockup'].filter(Boolean).join('  ·  ');
+    x.fillText(foot, W / 2, H - 46);
+    return c;
+  }
+
+  function buildExport(fmt) {
+    if (fmt === 'glb') {
+      return stage.exportGLB().then(function (ab) {
+        var blob = new Blob([ab], { type: 'model/gltf-binary' });
+        return { blob: blob, name: fileName('sign3d', 'glb'), preview: null, canvas: null };
+      });
+    }
+    return new Promise(function (resolve) {
+      // ให้หน้าจอวาด "กำลังเตรียมไฟล์" ก่อนเริ่มงานหนัก
+      setTimeout(resolve, 30);
+    }).then(function () {
+      if (fmt === 'pdf') {
+        var page = quotePage(mockupCanvas(1.2, false));
+        return toBlob(page, 'image/jpeg', 0.9).then(function (jpg) {
+          return blobBytes(jpg).then(function (bytes) {
+            var pdf = new Blob([C.pdfFromJpeg(bytes, page.width, page.height)], { type: 'application/pdf' });
+            return { blob: pdf, name: fileName('quote', 'pdf'), preview: jpg, canvas: page };
+          });
+        });
+      }
+      var c = mockupCanvas(1.5, true);
+      var png = fmt === 'png';
+      return toBlob(c, png ? 'image/png' : 'image/jpeg', 0.92).then(function (b) {
+        return { blob: b, name: fileName('mockup', png ? 'png' : 'jpg'), preview: b, canvas: c };
+      });
+    });
+  }
+  function kb(n) {
+    return n >= 1048576 ? (Math.round((n / 1048576) * 10) / 10).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+  }
+  var FMT_HINT = {
+    jpg: 'มือถือ: กดค้างที่รูปแล้วเลือก “บันทึกรูปภาพ” · คอมพิวเตอร์: คลิกขวาที่รูป หรือกดดาวน์โหลด',
+    png: 'PNG คมชัดที่สุด ไม่มีรอยบีบอัด (ไฟล์ใหญ่กว่า JPG) เหมาะกับงานที่มีตัวหนังสือเล็ก',
+    pdf: 'ใบเสนอราคา A4 พร้อมภาพจำลอง ราคา และช่องเซ็นชื่อ ส่งทาง LINE หรือสั่งพิมพ์ได้เลย',
+    glb: 'ไฟล์ 3 มิติของตัวป้าย หมุนดูได้ทุกมุม เปิดด้วย 3D Viewer ใน Windows, แอปดูไฟล์ 3 มิติในมือถือ หรือส่งให้ทีมออกแบบ',
+  };
+  function openExport(fmt) {
     if (st.scene === 'photo' && photo && !C.isConvex((lastOut && lastOut.quad) || [])) {
       toast('มุมป้ายไขว้กันอยู่ จัดมุมให้เป็นสี่เหลี่ยมก่อนบันทึก');
       return;
     }
-    var c = document.createElement('canvas');
-    if (is3d() && L3) {
-      // ภาพ 3 มิติจากมุมกล้องที่เห็นอยู่ ความละเอียด 1.5 เท่า + เส้นบอกขนาด + แถบรายละเอียด
-      var k = 1.5;
-      c.width = Math.round(L3.W * k);
-      c.height = Math.round((L3.H + L3.F) * k);
-      var cx = c.getContext('2d');
-      stage.renderAt(c.width, Math.round(L3.H * k), function (gl, pr) {
-        cx.drawImage(gl, 0, 0, c.width, Math.round(L3.H * k));
-        cx.setTransform(k, 0, 0, k, 0, 0);
-        R.overlay3d(cx, pr, L3.g, L3.W, L3.H, L3.U, { dims: st.dims, person: st.person });
-        if (L3.F) R.footer(cx, L3.W, L3.H, L3.F, L3.U, footerInfo());
+    if (fmt === 'glb' && !is3d()) fmt = 'jpg';
+    exp.fmt = fmt;
+    if ((fmt === 'jpg' || fmt === 'png') && st.fmt !== fmt) {
+      st.fmt = fmt;
+      save();
+    }
+    pressed('#fmtSeg button', 'fmt', fmt);
+    $('fmtGlb').hidden = !is3d();
+    $('exportTitle').textContent = fmt === 'pdf' ? 'ใบเสนอราคา' : fmt === 'glb' ? 'ไฟล์ 3 มิติ' : 'รูปพร้อมส่งลูกค้า';
+    $('dlHint').textContent = inFrame && fmt !== 'glb' ? 'มือถือ: กดค้างที่รูปแล้วเลือก “บันทึกรูปภาพ” · คอมพิวเตอร์: คลิกขวาที่รูป แล้วเลือกบันทึกรูป' : FMT_HINT[fmt];
+    $('dlStatus').textContent = 'กำลังเตรียมไฟล์…';
+    ['dlShare', 'dlCopy', 'dlSave'].forEach(function (id) {
+      $(id).disabled = true;
+    });
+    var job = ++exp.job;
+    if (!$('exportDlg').open) openDialog($('exportDlg'));
+    buildExport(fmt)
+      .then(function (r) {
+        if (job === exp.job) showExport(r);
+      })
+      .catch(function () {
+        if (job !== exp.job) return;
+        $('dlStatus').textContent = fmt === 'glb' ? 'สร้างไฟล์ 3 มิติไม่สำเร็จ ลองใหม่อีกครั้ง' : 'บันทึกไฟล์ไม่สำเร็จ ลองลดขนาดรูปที่ใส่แล้วลองใหม่';
       });
-    } else R.render(c, renderState(), { scale: 1.5, preview: false });
-    lastCanvas = c;
-    c.toBlob(
-      function (blob) {
-        if (!blob) {
-          toast('บันทึกรูปไม่สำเร็จ ลองลดขนาดรูปที่ใส่แล้วลองใหม่');
-          return;
-        }
-        if (lastUrl) URL.revokeObjectURL(lastUrl);
-        lastBlob = blob;
-        lastName = fileName();
-        lastUrl = URL.createObjectURL(blob);
-        $('exportImg').src = lastUrl;
-        $('dlStatus').textContent = '';
-        var file = new File([blob], lastName, { type: 'image/jpeg' });
-        var canShare = false;
-        try {
-          canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
-        } catch (e) {}
-        // เปิดอยู่ในกรอบของเว็บอื่น (พรีวิว) ดาวน์โหลด/แชร์/คัดลอกถูกปิด เหลือกดค้าง/คลิกขวาที่รูป
-        $('dlShare').hidden = inFrame || !canShare;
-        $('dlCopy').hidden = inFrame || !(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write);
-        $('dlSave').hidden = inFrame;
-        if (inFrame) $('dlHint').textContent = 'มือถือ: กดค้างที่รูปแล้วเลือก “บันทึกรูปภาพ” · คอมพิวเตอร์: คลิกขวาที่รูป แล้วเลือกบันทึกรูป';
-        openDialog($('exportDlg'));
-      },
-      'image/jpeg',
-      0.92
-    );
   }
-  $('exportBtn').addEventListener('click', exportImage);
+  function showExport(r) {
+    if (exp.url) URL.revokeObjectURL(exp.url);
+    if (exp.purl) URL.revokeObjectURL(exp.purl);
+    exp.blob = r.blob;
+    exp.name = r.name;
+    exp.canvas = r.canvas;
+    exp.url = URL.createObjectURL(r.blob);
+    exp.purl = r.preview && r.preview !== r.blob ? URL.createObjectURL(r.preview) : '';
+    $('dlgImg').hidden = !r.preview;
+    $('dlgFile').hidden = !!r.preview;
+    if (r.preview) $('exportImg').src = exp.purl || exp.url;
+    else {
+      $('dlgFileName').textContent = r.name;
+      $('dlgFileInfo').textContent = 'ไฟล์ 3 มิติ (glTF Binary) · ' + kb(r.blob.size) + ' · ' + C.TYPES[st.type].name + ' ' + C.sizeText(st.w, st.h);
+    }
+    var file = new File([r.blob], r.name, { type: r.blob.type });
+    var canShare = false;
+    try {
+      canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
+    } catch (e) {}
+    // เปิดอยู่ในกรอบของเว็บอื่น (พรีวิว) ดาวน์โหลด/แชร์/คัดลอกถูกปิด เหลือกดค้าง/คลิกขวาที่รูป
+    $('dlShare').hidden = inFrame || !canShare;
+    $('dlCopy').hidden = inFrame || !r.canvas || !(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write);
+    $('dlSave').hidden = inFrame;
+    $('dlCopy').textContent = exp.fmt === 'pdf' ? 'คัดลอกเป็นรูป' : 'คัดลอกรูป';
+    ['dlShare', 'dlCopy', 'dlSave'].forEach(function (id) {
+      $(id).disabled = false;
+    });
+    $('dlStatus').textContent = inFrame && exp.fmt === 'glb' ? 'หน้าพรีวิวดาวน์โหลดไฟล์ไม่ได้ เปิดแอปจริงเพื่อดาวน์โหลด' : '';
+  }
+  $('exportBtn').addEventListener('click', function () {
+    openExport(imageFmt());
+  });
+  $('quoteBtn').addEventListener('click', function () {
+    openExport('pdf');
+  });
+  document.querySelectorAll('#fmtSeg button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (b.dataset.fmt !== exp.fmt || !exp.blob) openExport(b.dataset.fmt);
+    });
+  });
   $('dlSave').addEventListener('click', function () {
-    if (!lastUrl) return;
+    if (!exp.url) return;
     var a = document.createElement('a');
-    a.href = lastUrl;
-    a.download = lastName;
+    a.href = exp.url;
+    a.download = exp.name;
     document.body.appendChild(a);
     a.click();
     a.remove();
-    $('dlStatus').textContent = 'กำลังดาวน์โหลด ' + lastName + ' — ถ้าไม่มีอะไรเกิดขึ้น ให้กดค้าง/คลิกขวาที่รูปเพื่อบันทึก';
+    $('dlStatus').textContent = 'กำลังดาวน์โหลด ' + exp.name + (exp.fmt === 'jpg' || exp.fmt === 'png' ? ' — ถ้าไม่มีอะไรเกิดขึ้น ให้กดค้าง/คลิกขวาที่รูปเพื่อบันทึก' : '');
   });
   $('dlShare').addEventListener('click', function () {
-    if (!lastBlob) return;
-    var file = new File([lastBlob], lastName, { type: 'image/jpeg' });
+    if (!exp.blob) return;
+    var file = new File([exp.blob], exp.name, { type: exp.blob.type });
     navigator
-      .share({ files: [file], title: 'ภาพจำลองป้าย' })
+      .share({ files: [file], title: exp.fmt === 'pdf' ? 'ใบเสนอราคา' : 'ภาพจำลองป้าย' })
       .then(function () {
         $('dlStatus').textContent = 'เปิดหน้าแชร์แล้ว';
       })
@@ -1034,13 +1497,8 @@
       });
   });
   $('dlCopy').addEventListener('click', function () {
-    if (!lastCanvas) return;
-    var png = new Promise(function (resolve, reject) {
-      lastCanvas.toBlob(function (b) {
-        if (b) resolve(b);
-        else reject(new Error('png'));
-      }, 'image/png');
-    });
+    if (!exp.canvas) return;
+    var png = toBlob(exp.canvas, 'image/png');
     navigator.clipboard
       .write([new ClipboardItem({ 'image/png': png })])
       .then(function () {
@@ -1057,12 +1515,467 @@
   }
   document.querySelectorAll('dialog').forEach(function (d) {
     d.addEventListener('click', function (e) {
-      if (e.target === d || (e.target.closest && e.target.closest('[data-close]'))) {
-        if (d.close) d.close();
-        else d.removeAttribute('open');
-      }
+      if (e.target === d || (e.target.closest && e.target.closest('[data-close]'))) closeDialog(d);
     });
   });
+
+  function closeDialog(d) {
+    if (d.close) d.close();
+    else d.removeAttribute('open');
+  }
+
+  /* ---------- ค้นหาชนิดป้าย / ฉาก ---------- */
+  var KEYWORDS = {
+    vinyl: 'vinyl banner ป้ายผ้า ไวนิว ตาไก่ ประตู',
+    frame: 'frame โครงเหล็ก ขึงตึง ป้ายโครง',
+    foam: 'foam board โฟม ฟิวเจอร์บอร์ด บอร์ด',
+    sticker: 'sticker สติกเกอร์ สติ้กเกอร์ ติดกระจก ฟิล์ม ประตู',
+    acrylic: 'acrylic อะคริลิก อคริลิค ใส หมุด',
+    lightbox: 'lightbox กล่องไฟ ไฟ led กลางคืน',
+    rollup: 'roll up rollup โรลอัพ ขาตั้ง',
+    xstand: 'x-stand xstand เอ็กซ์สแตนด์ ขาตั้ง',
+    studio: 'studio สตูดิโอ พื้นหลัง',
+    wall: 'wall ผนัง ปูน ในร้าน',
+    brick: 'brick อิฐ ร้านกาแฟ คาเฟ่',
+    shop: 'shop หน้าร้าน ตึกแถว อาคาร ร้านค้า',
+    fence: 'fence รั้ว กลางแจ้ง ขายที่ดิน',
+    classDoor: 'school โรงเรียน ประตู ห้องเรียน ครู',
+    officeDoor: 'office ออฟฟิศ สำนักงาน ประตู ห้องประชุม',
+    classroom: 'classroom ห้องเรียน กระดาน โรงเรียน',
+    photo: 'photo รูป ถ่ายรูป รูปลูกค้า หน้าร้านจริง',
+  };
+  function filterCards(sel, attr, table, q, emptyId) {
+    q = String(q || '').trim().toLowerCase();
+    var n = 0;
+    document.querySelectorAll(sel).forEach(function (b) {
+      var k = b.dataset[attr];
+      var t = table[k] || {};
+      var hay = (k + ' ' + (t.name || '') + ' ' + (t.desc || '') + ' ' + (KEYWORDS[k] || '')).toLowerCase();
+      var ok = !q || hay.indexOf(q) >= 0;
+      b.hidden = !ok;
+      if (ok) n++;
+    });
+    $(emptyId).hidden = n > 0;
+  }
+  $('typeSearch').addEventListener('input', function (e) {
+    filterCards('#types .card', 'type', C.TYPES, e.target.value, 'typeEmpty');
+  });
+  $('sceneSearch').addEventListener('input', function (e) {
+    filterCards('#scenes .scene', 'scene', C.SCENES, e.target.value, 'sceneEmpty');
+  });
+
+  /* ---------- โหมดสว่าง / มืด ---------- */
+  var THEME_KEY = 'np-sign-theme';
+  var darkMq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  function curTheme() {
+    return document.documentElement.dataset.theme || (darkMq && darkMq.matches ? 'dark' : 'light');
+  }
+  function applyTheme(t) {
+    if (t) document.documentElement.dataset.theme = t;
+    else delete document.documentElement.dataset.theme;
+    var m = curTheme();
+    $('themeBtn').dataset.mode = m;
+    $('themeBtn').title = m === 'dark' ? 'เปลี่ยนเป็นโหมดสว่าง' : 'เปลี่ยนเป็นโหมดมืด';
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', m === 'dark' ? '#0d1326' : '#1f2a4d');
+  }
+  $('themeBtn').addEventListener('click', function () {
+    var t = curTheme() === 'dark' ? 'light' : 'dark';
+    applyTheme(t);
+    try {
+      localStorage.setItem(THEME_KEY, t);
+    } catch (e) {}
+  });
+  if (darkMq && darkMq.addEventListener)
+    darkMq.addEventListener('change', function () {
+      applyTheme(document.documentElement.dataset.theme || '');
+    });
+
+  /* ---------- แผงตั้งค่าซ้าย / ขวา ---------- */
+  function applySide() {
+    var left = st.panel === 'left';
+    document.querySelector('.work').classList.toggle('panel-left', left);
+    $('sideBtn').setAttribute('aria-pressed', String(left));
+    $('sideBtn').title = left ? 'ย้ายแผงตั้งค่าไปขวา' : 'ย้ายแผงตั้งค่าไปซ้าย';
+  }
+  $('sideBtn').addEventListener('click', function () {
+    st.panel = st.panel === 'left' ? 'right' : 'left';
+    applySide();
+    save();
+    fitView();
+    draw();
+  });
+
+  /* ---------- รีเซ็ตมุมกล้อง / เต็มจอ ---------- */
+  var stageEl = document.querySelector('.stage');
+  function isFull() {
+    return document.fullscreenElement === stageEl || document.webkitFullscreenElement === stageEl || stageEl.classList.contains('is-max');
+  }
+  function onFull() {
+    var on = isFull();
+    $('fullBtn').setAttribute('aria-pressed', String(on));
+    $('fullBtn').querySelector('span').textContent = on ? 'ออกเต็มจอ' : 'เต็มจอ';
+    document.body.classList.toggle('stage-max', on);
+    setTimeout(function () {
+      fitView();
+      draw();
+    }, 60);
+  }
+  function setMax(on) {
+    stageEl.classList.toggle('is-max', on);
+    onFull();
+  }
+  $('fullBtn').addEventListener('click', function () {
+    if (isFull()) {
+      if (document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      else setMax(false);
+      return;
+    }
+    var req = stageEl.requestFullscreen || stageEl.webkitRequestFullscreen;
+    var p = null;
+    try {
+      p = req ? req.call(stageEl) : null;
+    } catch (e) {
+      req = null;
+    }
+    // iPhone ขยายเต็มจอแบบจริงไม่ได้ → ขยายเต็มหน้าเว็บแทน
+    if (!req) setMax(true);
+    else if (p && p.catch)
+      p.catch(function () {
+        setMax(true);
+      });
+  });
+  document.addEventListener('fullscreenchange', onFull);
+  document.addEventListener('webkitfullscreenchange', onFull);
+  $('resetViewBtn').addEventListener('click', function () {
+    if (!stage) return;
+    stage.resetView();
+    syncViewbar();
+  });
+
+  /* ---------- งานของฉัน (บันทึกงานไว้ในเครื่อง) ---------- */
+  function defaultJobName() {
+    return customer.trim() || C.TYPES[st.type].name + ' ' + C.fmtCm(st.w) + '×' + C.fmtCm(st.h);
+  }
+  function jobThumb() {
+    try {
+      var tw = 360;
+      var th = Math.max(1, Math.round((tw * view.height) / view.width));
+      var c = document.createElement('canvas');
+      c.width = tw;
+      c.height = th;
+      c.getContext('2d').drawImage(view, 0, 0, tw, th);
+      return c.toDataURL('image/jpeg', 0.8);
+    } catch (e) {
+      return '';
+    }
+  }
+  function jobState() {
+    var o = JSON.parse(JSON.stringify(st));
+    delete o.panel;
+    return o;
+  }
+  function saveJob(name) {
+    if (!NS.jobs) return Promise.reject(new Error('no db'));
+    name = String(name || '').trim() || defaultJobName();
+    var id = curJob && curJob.name === name ? curJob.id : newId('job');
+    flushSave();
+    var j = {
+      id: id,
+      name: name,
+      customer: customer,
+      updated: Date.now(),
+      st: jobState(),
+      thumb: jobThumb(),
+      label: C.TYPES[st.type].name + ' · ' + C.sizeText(st.w, st.h),
+      design: imgDesign && imgDesign.blob ? { blob: imgDesign.blob, name: imgDesign.name } : null,
+      photo: photo && photo.blob ? { blob: photo.blob, quad: copyQuad(photo.quad), touched: photo.touched } : null,
+    };
+    return NS.jobs.put(j).then(function () {
+      curJob = { id: id, name: name };
+      autosaveSoon();
+      toast('บันทึกงาน “' + name + '” แล้ว');
+    });
+  }
+  // เปิดงานที่บันทึกไว้ (รูปงาน/รูปหน้าร้านโหลดกลับมาด้วย)
+  function applyJob(j) {
+    var none = function () {
+      return null;
+    };
+    return Promise.all([
+      j.design && j.design.blob ? designFromBlob(j.design.blob, j.design.name).catch(none) : null,
+      j.photo && j.photo.blob ? photoFromBlob(j.photo.blob).catch(none) : null,
+    ]).then(function (r) {
+      var keep = { panel: st.panel };
+      st = normalize(j.st);
+      st.panel = keep.panel;
+      imgDesign = r[0];
+      photo = r[1];
+      if (photo) {
+        photo.quad = copyQuad(j.photo.quad);
+        photo.touched = !!j.photo.touched;
+        if (!photo.quad) refreshPhotoQuad(true);
+      }
+      if (st.mode === 'image' && !imgDesign) st.mode = 'text';
+      if (st.scene === 'photo' && !photo) st.scene = DEF.scene;
+      customer = j.customer || '';
+      $('customer').value = customer;
+      setLogo(st.logo || '');
+      showFileCard();
+      if (stage && st.view) stage.setView(st.view);
+      sync();
+    });
+  }
+  function fmtWhen(ms) {
+    var d = new Date(ms);
+    var p = function (n) {
+      return (n < 10 ? '0' : '') + n;
+    };
+    return C.thaiDate(d) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+  var jobsCache = [];
+  function renderJobs() {
+    var box = $('jobList');
+    var q = $('jobSearch').value.trim().toLowerCase();
+    box.innerHTML = '';
+    var list = jobsCache.filter(function (j) {
+      return !q || (j.name + ' ' + (j.customer || '') + ' ' + (j.label || '')).toLowerCase().indexOf(q) >= 0;
+    });
+    if (!list.length) {
+      var p = document.createElement('p');
+      p.className = 'jobs-empty';
+      p.textContent = jobsCache.length ? 'ไม่พบงานที่ค้นหา' : 'ยังไม่มีงานที่บันทึกไว้ ตั้งชื่องานแล้วกด “บันทึกงานปัจจุบัน”';
+      box.appendChild(p);
+      return;
+    }
+    list.forEach(function (j) {
+      var row = document.createElement('div');
+      row.className = 'job' + (curJob && curJob.id === j.id ? ' on' : '');
+      var img = document.createElement('img');
+      img.alt = '';
+      if (j.thumb) img.src = j.thumb;
+      var meta = document.createElement('div');
+      meta.className = 'job-meta';
+      var b = document.createElement('b');
+      b.textContent = j.name;
+      var sm = document.createElement('small');
+      sm.textContent = (j.label || '') + ' · ' + fmtWhen(j.updated);
+      meta.appendChild(b);
+      meta.appendChild(sm);
+      var act = document.createElement('div');
+      act.className = 'job-act';
+      var open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'btn-ghost small';
+      open.textContent = 'เปิด';
+      open.addEventListener('click', function () {
+        NS.jobs
+          .get(j.id)
+          .then(function (full) {
+            if (!full) throw new Error('gone');
+            return applyJob(full).then(function () {
+              curJob = { id: full.id, name: full.name };
+              autosaveSoon();
+              closeDialog($('jobsDlg'));
+              toast('เปิดงาน “' + full.name + '” แล้ว');
+            });
+          })
+          .catch(function () {
+            toast('เปิดงานนี้ไม่ได้');
+          });
+      });
+      var del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'btn-ghost small danger';
+      del.textContent = 'ลบ';
+      var armed = 0;
+      del.addEventListener('click', function () {
+        if (!armed) {
+          del.textContent = 'กดอีกครั้งเพื่อลบ';
+          armed = setTimeout(function () {
+            armed = 0;
+            del.textContent = 'ลบ';
+          }, 3000);
+          return;
+        }
+        clearTimeout(armed);
+        NS.jobs.del(j.id).then(function () {
+          if (curJob && curJob.id === j.id) curJob = null;
+          loadJobs();
+        });
+      });
+      act.appendChild(open);
+      act.appendChild(del);
+      row.appendChild(img);
+      row.appendChild(meta);
+      row.appendChild(act);
+      box.appendChild(row);
+    });
+  }
+  function loadJobs() {
+    if (!NS.jobs) {
+      $('jobList').innerHTML = '<p class="jobs-empty">เครื่องนี้เก็บงานไม่ได้</p>';
+      return;
+    }
+    NS.jobs
+      .list()
+      .then(function (list) {
+        jobsCache = list;
+        renderJobs();
+      })
+      .catch(function () {
+        $('jobList').innerHTML = '<p class="jobs-empty">เบราว์เซอร์นี้เก็บงานไม่ได้ (โหมดไม่ระบุตัวตน?)</p>';
+      });
+  }
+  function openJobs(focusName) {
+    $('jobName').value = curJob ? curJob.name : defaultJobName();
+    $('jobSearch').value = '';
+    loadJobs();
+    if (!$('jobsDlg').open) openDialog($('jobsDlg'));
+    if (focusName)
+      setTimeout(function () {
+        $('jobName').focus();
+        $('jobName').select();
+      }, 30);
+  }
+  $('jobsBtn').addEventListener('click', function () {
+    openJobs(false);
+  });
+  $('saveJobBtn').addEventListener('click', function () {
+    openJobs(true);
+  });
+  $('jobSearch').addEventListener('input', renderJobs);
+  function doSaveJob() {
+    saveJob($('jobName').value)
+      .then(loadJobs)
+      .catch(function () {
+        toast('บันทึกงานไม่ได้ในเบราว์เซอร์นี้');
+      });
+  }
+  $('jobSave').addEventListener('click', doSaveJob);
+  $('jobName').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      doSaveJob();
+    }
+  });
+
+  /* ---------- บันทึกงานปัจจุบันอัตโนมัติ (ปิดแอป/อัปเดตแล้วเปิดใหม่ งานยังอยู่ครบ) ---------- */
+  var auto = { timer: 0, designId: null, photoId: null, ready: false };
+  function autosaveSoon() {
+    if (!auto.ready) return;
+    clearTimeout(auto.timer);
+    auto.timer = setTimeout(autosave, 800);
+  }
+  function autosave() {
+    clearTimeout(auto.timer);
+    if (!auto.ready || !NS.jobs) return Promise.resolve();
+    var J = NS.jobs;
+    var ops = [
+      J.put({
+        id: 'current',
+        customer: customer,
+        curJob: curJob,
+        mode: st.mode,
+        scene: st.scene,
+        quad: photo ? copyQuad(photo.quad) : null,
+        touched: photo ? photo.touched : false,
+        updated: Date.now(),
+      }),
+    ];
+    // ไฟล์ใหญ่ เขียนเฉพาะตอนเปลี่ยนไฟล์
+    var did = imgDesign ? imgDesign.id : '';
+    if (did !== auto.designId) {
+      ops.push(imgDesign && imgDesign.blob ? J.put({ id: 'current-design', blob: imgDesign.blob, name: imgDesign.name }) : J.del('current-design'));
+      auto.designId = did;
+    }
+    var pid = photo ? photo.id : '';
+    if (pid !== auto.photoId) {
+      ops.push(photo && photo.blob ? J.put({ id: 'current-photo', blob: photo.blob }) : J.del('current-photo'));
+      auto.photoId = pid;
+    }
+    return Promise.all(ops).catch(function () {});
+  }
+  function restoreCurrent() {
+    var done = function () {
+      auto.ready = true;
+      hist.list = [];
+      hist.i = -1;
+      flushSave();
+    };
+    if (!NS.jobs) return done();
+    var J = NS.jobs;
+    var none = function () {
+      return null;
+    };
+    Promise.all([J.get('current'), J.get('current-design'), J.get('current-photo')])
+      .then(function (r) {
+        var cur = r[0];
+        if (!cur) return;
+        customer = cur.customer || '';
+        $('customer').value = customer;
+        curJob = cur.curJob || null;
+        return Promise.all([
+          r[1] && r[1].blob ? designFromBlob(r[1].blob, r[1].name).catch(none) : null,
+          r[2] && r[2].blob ? photoFromBlob(r[2].blob).catch(none) : null,
+        ]).then(function (x) {
+          if (x[0]) {
+            imgDesign = x[0];
+            showFileCard();
+            if (want.mode === 'image') st.mode = 'image';
+          }
+          if (x[1]) {
+            photo = x[1];
+            if (cur.quad) {
+              photo.quad = copyQuad(cur.quad);
+              photo.touched = !!cur.touched;
+            } else refreshPhotoQuad(true);
+            if (want.scene === 'photo') st.scene = 'photo';
+          }
+          auto.designId = imgDesign ? imgDesign.id : '';
+          auto.photoId = photo ? photo.id : '';
+          sync();
+        });
+      })
+      .catch(function () {})
+      .then(done);
+  }
+  function flushAll() {
+    flushSave();
+    return autosave();
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') flushAll();
+  });
+  window.addEventListener('pagehide', flushAll);
+
+  /* ---------- คีย์ลัด ---------- */
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && stageEl.classList.contains('is-max') && !document.querySelector('dialog[open]')) {
+      setMax(false);
+      return;
+    }
+    var mod = e.ctrlKey || e.metaKey;
+    if (!mod || e.altKey) return;
+    var k = (e.key || '').toLowerCase();
+    if (k === 's') {
+      e.preventDefault();
+      openJobs(true);
+      return;
+    }
+    var el = document.activeElement;
+    var typing = el && (el.isContentEditable || (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && !/^(checkbox|range|button|file)$/.test(el.type)));
+    if (typing || document.querySelector('dialog[open]')) return;
+    if (k === 'z' && !e.shiftKey) {
+      e.preventDefault();
+      undo();
+    } else if (k === 'y' || (k === 'z' && e.shiftKey)) {
+      e.preventDefault();
+      redo();
+    }
+  });
+  $('undoBtn').addEventListener('click', undo);
+  $('redoBtn').addEventListener('click', redo);
 
   /* ---------- ติดตั้งเป็นแอป ---------- */
   var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
@@ -1089,17 +2002,79 @@
     $('installBtn').hidden = true;
     toast('ติดตั้งแล้ว เปิดได้จากไอคอนบนหน้าจอ');
   });
+  /* ---------- อัปเดตอัตโนมัติ ----------
+   * แอปเช็กรุ่นใหม่ทุก 10 นาที + ทุกครั้งที่กลับมาเปิดหน้า เจอแล้วเก็บงานปัจจุบันแล้วโหลดรุ่นใหม่เอง (ไม่ต้องลบแอปติดตั้งใหม่) */
+  var UPDATED_KEY = 'np-sign-updated';
+  function safeToReload() {
+    if (document.visibilityState === 'hidden') return true;
+    var el = document.activeElement;
+    var typing = el && /^(INPUT|TEXTAREA)$/.test(el.tagName) && !/^(checkbox|range|file|button)$/.test(el.type);
+    return !typing && !drag && !document.querySelector('dialog[open]') && !(stage && stage.showing);
+  }
+  var reloading = false;
+  function reloadWhenSafe() {
+    if (!safeToReload()) {
+      setTimeout(reloadWhenSafe, 2500);
+      return;
+    }
+    flushAll().then(function () {
+      try {
+        sessionStorage.setItem(UPDATED_KEY, '1');
+      } catch (e) {}
+      location.reload();
+    });
+  }
   if ('serviceWorker' in navigator && !inFrame && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
-    navigator.serviceWorker.register('sw.js').catch(function () {});
+    var hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker
+      .register('sw.js')
+      .then(function (reg) {
+        var check = function () {
+          if (navigator.onLine !== false) reg.update().catch(function () {});
+        };
+        setInterval(check, 10 * 60 * 1000);
+        document.addEventListener('visibilitychange', function () {
+          if (document.visibilityState === 'visible') check();
+        });
+        window.addEventListener('online', check);
+      })
+      .catch(function () {});
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      // ติดตั้งครั้งแรกไม่ต้องโหลดใหม่ — โหลดใหม่เฉพาะตอนรุ่นใหม่มาแทนรุ่นเดิม
+      if (!hadController) {
+        hadController = true;
+        return;
+      }
+      if (reloading) return;
+      reloading = true;
+      toast('มีรุ่นใหม่ กำลังอัปเดต… งานที่ทำอยู่ไม่หาย');
+      setTimeout(reloadWhenSafe, 1200);
+    });
   }
 
   /* ---------- เริ่ม ---------- */
+  try {
+    applyTheme(localStorage.getItem(THEME_KEY) || '');
+  } catch (e) {
+    applyTheme('');
+  }
+  applySide();
+  $('verLabel').textContent = 'v' + APP_VERSION;
   buildTypes();
   buildThemes();
   buildScenes();
   if (st.logo) setLogo(st.logo);
   go(1);
   sync();
+  restoreCurrent();
+  try {
+    if (sessionStorage.getItem(UPDATED_KEY)) {
+      sessionStorage.removeItem(UPDATED_KEY);
+      setTimeout(function () {
+        toast('อัปเดตเป็นรุ่นใหม่แล้ว (v' + APP_VERSION + ') งานเดิมอยู่ครบ');
+      }, 600);
+    }
+  } catch (e) {}
   // ฟอนต์ไทยมาช้ากว่าหน้า — โหลดเสร็จแล้ววาดข้อความใหม่ให้ใช้ฟอนต์จริง
   if (document.fonts && document.fonts.load) {
     var sample = 'กขคง ABC 0123';
@@ -1126,6 +2101,7 @@
     $('viewbar').hidden = !on;
     if (!on) return;
     pressed('#viewSeg button', 'view', stage.view);
+    $('fullBtn').setAttribute('aria-pressed', String(isFull()));
     $('showBtn').setAttribute('aria-pressed', String(stage.showing));
     $('nightBtn').setAttribute('aria-pressed', String(!!st.night));
   }

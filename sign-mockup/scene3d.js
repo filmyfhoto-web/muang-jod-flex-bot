@@ -2077,6 +2077,31 @@ export function createStage(opts) {
     needs = true;
   }
 
+  // ไฟล์ 3 มิติ (.glb) เฉพาะตัวป้าย (ขอบล่างวางที่พื้น y = 0) — เปิดดูได้ใน Windows 3D Viewer / เว็บดูไฟล์ glb / ส่งต่อให้ทีมออกแบบ
+  async function exportGLB() {
+    if (!model) throw new Error('ยังไม่มีป้าย');
+    const { GLTFExporter } = await import('three/addons/exporters/GLTFExporter.js');
+    const root = new THREE.Group();
+    root.name = 'NadponSign';
+    const lift = model.floor ? 0 : model.h / 2;
+    const s = model.group.clone(true);
+    s.position.y += lift;
+    root.add(s);
+    if (ties.visible && ties.children.length) {
+      const t = ties.clone(true);
+      t.position.set(0, lift, 0);
+      root.add(t);
+    }
+    // แสง/สไปรต์เรืองแสงไม่ใช่ตัวป้าย ไม่ต้องใส่ในไฟล์
+    const drop = [];
+    root.traverse((o) => {
+      if (o.isLight || o.isSprite) drop.push(o);
+    });
+    drop.forEach((o) => o.parent && o.parent.remove(o));
+    root.updateMatrixWorld(true);
+    return new GLTFExporter().parseAsync(root, { binary: true, onlyVisible: true, maxTextureSize: 2048 });
+  }
+
   function setEnvIntensity() {
     scene.traverse((m) => {
       if (m.isMesh) (Array.isArray(m.material) ? m.material : [m.material]).forEach((mm) => (mm.envMapIntensity = LIGHT.env));
@@ -2109,6 +2134,12 @@ export function createStage(opts) {
     projected,
     renderAt,
     thumb,
+    exportGLB,
+    // กลับไปมุมกล้องเริ่มต้นของมุมที่เลือกอยู่
+    resetView() {
+      stopShow();
+      frame(view);
+    },
     requestRender() {
       needs = true;
     },
