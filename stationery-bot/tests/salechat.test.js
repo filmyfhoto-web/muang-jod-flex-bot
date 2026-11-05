@@ -184,6 +184,32 @@ test('a picture is saved in the page’s bucket first, then shown in the chat; a
   }
 });
 
+test('a PDF the customer sends is saved as a PDF and opens from the chat; a file that is not a PDF, or cannot be had, is noted by name as before', async () => {
+  const PDF_BYTES = Buffer.from('%PDF-1.4\n% test\n', 'latin1');
+  const pdfApi = () => lineApi({ content: async () => ({ buffer: PDF_BYTES, mimeType: 'application/octet-stream' }) });
+  const ok = ingestWith({ api: pdfApi() });
+  await ok.ing.handle({ channelKey: 'main', token: 't', ev: { ...textEv(U1, ''), message: { id: 'PDF-1', type: 'file', fileName: 'ไวนิลประตูม.3.pdf', fileSize: PDF_BYTES.length } } });
+  assert.deepEqual(ok.calls.media, [{ path: 'line/main/PDF-1.pdf', size: PDF_BYTES.length, type: 'application/pdf' }]);
+  const m = ok.calls.ingest[0];
+  assert.deepEqual([m.kind, m.body, m.meta.path, m.meta.name, m.meta.type], ['file', '[ไฟล์] ไวนิลประตูม.3.pdf', 'line/main/PDF-1.pdf', 'ไวนิลประตูม.3.pdf', 'application/pdf']);
+
+  const storageDown = fakeStore({ async putMedia() { throw new Error('save file: fetch failed'); } });
+  for (const [label, msg, api, store] of [
+    ['a Word file (the page keeps PDFs only)', { id: 'DOC-1', type: 'file', fileName: 'ใบเสนอราคา.docx', fileSize: 900 }, undefined, undefined],
+    ['LINE has no file', { id: 'PDF-2', type: 'file', fileName: 'a.pdf', fileSize: 10 }, lineApi({ content: async () => null }), undefined],
+    ['named .pdf but not a PDF inside', { id: 'PDF-3', type: 'file', fileName: 'a.pdf', fileSize: 10 }, lineApi({ content: async () => ({ buffer: Buffer.from('hello'), mimeType: 'application/pdf' }) }), undefined],
+    ['over 10 MB', { id: 'PDF-4', type: 'file', fileName: 'big.pdf', fileSize: 1 }, lineApi({ content: async () => ({ buffer: Buffer.concat([Buffer.from('%PDF'), Buffer.alloc(10 * 1024 * 1024)]), mimeType: 'application/pdf' }) }), undefined],
+    ['the storage is down', { id: 'PDF-5', type: 'file', fileName: 'c.pdf', fileSize: 10 }, pdfApi(), storageDown],
+  ]) {
+    const h = ingestWith({ api, store });
+    const r = await h.ing.handle({ channelKey: 'main', token: 't', ev: { ...textEv(U1, ''), message: msg } });
+    assert.equal(r.handled, true, label);
+    assert.equal(h.calls.ingest[0].kind, 'file', label);
+    assert.equal(h.calls.ingest[0].meta.path, undefined, `${label}: no path, so the page shows the name only`);
+    assert.match(h.calls.ingest[0].body, /^\[ไฟล์\] /, label);
+  }
+});
+
 test('a database that does not answer is tried again (the same LINE id, so nothing doubles); one that refuses the data is not', async () => {
   let n = 0;
   const flaky = ingestWith({

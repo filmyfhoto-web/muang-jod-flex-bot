@@ -1,12 +1,13 @@
 // One LINE event → the "แชตและออเดอร์" page's chats. It never answers the customer and never changes what the bot does: the shop's own
 // answers (server.js handleEvent, the app's cards, the Studio) run exactly as before. A customer's message becomes a message in their
-// chat (the chat is opened on their first message); a picture is saved in the page's private bucket first so staff can open it later,
+// chat (the chat is opened on their first message); a picture or a PDF is saved in the page's private bucket first so staff can open it later,
 // because LINE only keeps what a customer sent for a limited time. Everything here is idempotent: a LINE message seen before
 // (LINE retried, the bot restarted) changes nothing.
 import { enabledFor } from '../chatorders.js';
 
 const IMAGE_TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' }; // what the page's bucket accepts
-const MAX_IMAGE = 10 * 1024 * 1024;
+const MAX_MEDIA = 10 * 1024 * 1024; // the bucket's own limit for one file
+const PDF = { ext: 'pdf', type: 'application/pdf' }; // a PDF is kept as a PDF: its bytes must start with %PDF
 const clip = (s, n) => {
   const t = String(s ?? '');
   return t.length > n ? t.slice(0, n - 1) + '…' : t;
@@ -47,23 +48,42 @@ const transient = (e) => !e?.code || /^(5|08|53|57|XX)/.test(String(e.code));
 // store → createSaleChatStore · lineApi → { profile(userId, token), content(messageId, token) } · getConfig() → the current saleChat settings
 // retries → how long to wait before each new try when the database does not answer
 export function createSaleChatIngest({ store, lineApi, getConfig, log = console, retries = [1000, 5000, 15000], sleep = (ms) => new Promise((r) => setTimeout(r, ms)) }) {
-  async function imagePart(messageId, token, channelKey) {
+  // A picture, or a PDF the customer sent, is saved in the page's private bucket first (LINE keeps what a customer sent only for a limited
+  // time). Anything else, or anything that cannot be saved, is recorded as the short note describeMessage gives, as before.
+  async function mediaPart(message, messageId, token, channelKey) {
+    const isImage = message.type === 'image';
+    const isPdf = message.type === 'file' && /\.pdf$/i.test(String(message.fileName || ''));
+    if (!isImage && !isPdf) return describeMessage(message);
     const file = await lineApi.content(messageId, token).catch(() => null);
-    const ext = file && IMAGE_TYPES[file.mimeType];
-    if (!file || !ext || !file.buffer?.length || file.buffer.length > MAX_IMAGE) {
-      return { kind: 'image', body: '[รูปภาพ] เอารูปจาก LINE มาไม่ได้ ดูในแอป LINE OA Manager', meta: {} };
+    const buf = file?.buffer;
+    let ext = null;
+    let type = null;
+    if (isImage && IMAGE_TYPES[file?.mimeType]) {
+      ext = IMAGE_TYPES[file.mimeType];
+      type = file.mimeType;
+    } else if (isPdf && buf?.length && Buffer.from(buf.slice(0, 4)).toString('latin1') === '%PDF') {
+      ext = PDF.ext;
+      type = PDF.type;
+    }
+    if (!ext || !buf?.length || buf.length > MAX_MEDIA) {
+      return isImage ? { kind: 'image', body: '[รูปภาพ] เอารูปจาก LINE มาไม่ได้ ดูในแอป LINE OA Manager', meta: {} } : describeMessage(message);
     }
     const path = `line/${channelKey}/${messageId}.${ext}`;
     try {
-      await store.putMedia(path, file.buffer, file.mimeType);
+      await store.putMedia(path, buf, type);
     } catch (e) {
-      // the same picture delivered twice is already there; any other failure still records the message, without the picture
+      // the same file delivered twice is already there; any other failure still records the message, without the file
       if (!/exist|duplicate/i.test(String(e.message))) {
-        log.error?.('[salechat] picture not saved:', e.message);
-        return { kind: 'image', body: '[รูปภาพ] เก็บรูปไม่สำเร็จ ดูในแอป LINE OA Manager', meta: {} };
+        log.error?.(`[salechat] ${isImage ? 'picture' : 'file'} not saved:`, e.message);
+        return isImage ? { kind: 'image', body: '[รูปภาพ] เก็บรูปไม่สำเร็จ ดูในแอป LINE OA Manager', meta: {} } : describeMessage(message);
       }
     }
-    return { kind: 'image', body: '[รูปภาพ]', meta: { path, name: 'รูปจากลูกค้า', size: file.buffer.length, type: file.mimeType } };
+    if (isImage) return { kind: 'image', body: '[รูปภาพ]', meta: { path, name: 'รูปจากลูกค้า', size: buf.length, type } };
+    return {
+      kind: 'file',
+      body: `[ไฟล์] ${clip(message.fileName || 'ไม่มีชื่อ', 200)}`,
+      meta: { path, name: clip(message.fileName || 'ไฟล์จากลูกค้า', 200), size: buf.length, type },
+    };
   }
 
   async function ingestWithRetry(payload) {
@@ -84,7 +104,7 @@ export function createSaleChatIngest({ store, lineApi, getConfig, log = console,
     if (!enabledFor(getConfig() ?? {}, userId)) return { handled: false, why: 'off' };
     const messageId = String(ev.message?.id ?? '');
     if (!messageId) return { handled: false, why: 'no-message-id' };
-    const part = ev.message.type === 'image' ? await imagePart(messageId, token, channelKey) : describeMessage(ev.message);
+    const part = await mediaPart(ev.message, messageId, token, channelKey);
     const profile = await lineApi.profile(userId, token).catch(() => null);
     const res = await ingestWithRetry({
       channel_key: channelKey,
