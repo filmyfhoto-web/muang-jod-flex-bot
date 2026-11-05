@@ -1854,6 +1854,7 @@ export function createStage(opts) {
     const t = new THREE.CanvasTexture(src);
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = ANISO;
+    t.userData.mimeType = 'image/jpeg'; // หน้าป้ายทึบแสง — ไฟล์ .glb ใช้ JPEG เล็กกว่า PNG หลายเท่า
     t.generateMipmaps = true;
     t.minFilter = THREE.LinearMipmapLinearFilter;
     return t;

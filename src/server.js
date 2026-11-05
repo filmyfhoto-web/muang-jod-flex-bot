@@ -49,7 +49,10 @@ app.use(
 app.use('/api', apiRouter);
 
 /* นัดพอน Sign Mockup — จำลองป้ายไวนิล/โฟมบอร์ด/โรลอัพให้ลูกค้าดูก่อนสั่ง
- * ไฟล์นิ่งล้วนใน sign-mockup/ ติดตั้งเป็นแอปแยกจากม่วงจดได้ (scope /sign/) */
+ * ไฟล์นิ่งล้วนใน sign-mockup/ ติดตั้งเป็นแอปแยกจากม่วงจดได้ (scope /sign/)
+ * + ลิงก์ดูป้าย 3 มิติส่งลูกค้า (/sign/api/share, /sign/v/:id) */
+const { default: signShareRouter } = await import('./routes/signShare.js');
+app.use('/sign', signShareRouter);
 app.use(
   '/sign',
   express.static('sign-mockup', {

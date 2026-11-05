@@ -2,7 +2,7 @@
  * ไฟล์แอป: ขอจากเซิร์ฟเวอร์ก่อน (ได้รุ่นล่าสุดเสมอ) เน็ตหลุดค่อยใช้ของในเครื่อง
  * three.js / ไอคอน / โลโก้: ใช้ของในเครื่องก่อน (ไม่เปลี่ยนบ่อย เปิดเร็ว)
  * เปลี่ยนไฟล์แอปเมื่อไหร่ ให้เลื่อน VERSION ให้ตรงกับ APP_VERSION ใน app.js (มีเทสต์เช็ก) */
-var VERSION = 'sign-mockup-3.5.0';
+var VERSION = 'sign-mockup-3.6.0';
 var APP = [
   './',
   'index.html',
@@ -84,6 +84,8 @@ self.addEventListener('fetch', function (e) {
     return;
   }
   if (url.origin !== self.location.origin) return;
+  // ลิงก์ดู 3 มิติ / API — ของสด ไม่เก็บในเครื่อง
+  if (/\/sign\/(v|api)\//.test(url.pathname)) return;
   if (STATIC.test(url.pathname)) {
     e.respondWith(
       caches.open(VERSION).then(function (c) {

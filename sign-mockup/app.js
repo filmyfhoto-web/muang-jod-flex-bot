@@ -6,7 +6,7 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '3.5.0';
+  var APP_VERSION = '3.6.0';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp' });
 
@@ -1518,7 +1518,7 @@
     jpg: 'มือถือ: กดค้างที่รูปแล้วเลือก “บันทึกรูปภาพ” · คอมพิวเตอร์: คลิกขวาที่รูป หรือกดดาวน์โหลด',
     png: 'PNG คมชัดที่สุด ไม่มีรอยบีบอัด (ไฟล์ใหญ่กว่า JPG) เหมาะกับงานที่มีตัวหนังสือเล็ก',
     pdf: 'ใบเสนอราคา A4 พร้อมภาพจำลอง ราคา และช่องเซ็นชื่อ ส่งทาง LINE หรือสั่งพิมพ์ได้เลย',
-    glb: 'ไฟล์ 3 มิติของตัวป้าย หมุนดูได้ทุกมุม เปิดด้วย 3D Viewer ใน Windows, แอปดูไฟล์ 3 มิติในมือถือ หรือส่งให้ทีมออกแบบ',
+    glb: 'กด “สร้างลิงก์ดู 3 มิติ” ส่งลิงก์ให้ลูกค้าเปิดหมุนดูในมือถือได้เลย (ไม่ต้องลงแอป) · หรือดาวน์โหลดไฟล์ .glb เปิดใน 3D Viewer / ส่งทีมออกแบบ',
   };
   function openExport(fmt) {
     if (st.scene === 'photo' && photo && !C.isConvex((lastOut && lastOut.quad) || [])) {
@@ -1578,8 +1578,72 @@
     ['dlShare', 'dlCopy', 'dlSave'].forEach(function (id) {
       $(id).disabled = false;
     });
-    $('dlStatus').textContent = inFrame && exp.fmt === 'glb' ? 'หน้าพรีวิวดาวน์โหลดไฟล์ไม่ได้ เปิดแอปจริงเพื่อดาวน์โหลด' : '';
+    $('dlStatus').textContent = inFrame && exp.fmt === 'glb' ? 'หน้าพรีวิวดาวน์โหลดไฟล์/สร้างลิงก์ไม่ได้ เปิดแอปจริงที่ /sign/ เพื่อใช้งาน' : '';
+    $('share3d').hidden = exp.fmt !== 'glb' || inFrame;
+    $('linkBox').hidden = true;
+    $('mkLink').disabled = false;
+    exp.link = '';
   }
+
+  /* ---------- ลิงก์ดู 3 มิติ: อัปโหลดไฟล์ .glb ขึ้นเซิร์ฟเวอร์ร้าน แล้วได้ลิงก์ส่งลูกค้า ---------- */
+  function showLink(url) {
+    exp.link = url;
+    $('linkUrl').value = url;
+    $('linkOpen').href = url;
+    $('linkBox').hidden = false;
+    $('linkShare').hidden = !navigator.share;
+  }
+  $('mkLink').addEventListener('click', function () {
+    if (exp.fmt !== 'glb' || !exp.blob) return;
+    if (exp.link) return showLink(exp.link);
+    var btn = $('mkLink');
+    btn.disabled = true;
+    $('dlStatus').textContent = 'กำลังสร้างลิงก์…';
+    var poster = mockupCanvas(0.5, false);
+    Promise.all([blobToDataUrl(exp.blob), toBlob(poster, 'image/jpeg', 0.82).then(blobToDataUrl)])
+      .then(function (r) {
+        return fetch('api/share', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            glb: r[0],
+            poster: r[1],
+            meta: { title: C.TYPES[st.type].name, size: C.sizeText(st.w, st.h), customer: customer.trim(), shop: st.shopName.trim(), phone: st.shopPhone.trim(), w: st.w, h: st.h },
+          }),
+        });
+      })
+      .then(function (res) {
+        return res
+          .json()
+          .catch(function () {
+            return {};
+          })
+          .then(function (j) {
+            if (!res.ok || !j.url) throw new Error(j.message || 'เซิร์ฟเวอร์ไม่ตอบ');
+            return j;
+          });
+      })
+      .then(function (j) {
+        showLink(j.url);
+        $('dlStatus').textContent = 'ได้ลิงก์แล้ว ส่งให้ลูกค้าเปิดหมุนดูในมือถือได้เลย (ลิงก์ใช้ได้ 1 ปี)';
+      })
+      .catch(function (e) {
+        btn.disabled = false;
+        $('dlStatus').textContent = 'สร้างลิงก์ไม่สำเร็จ: ' + (navigator.onLine === false ? 'ไม่มีอินเทอร์เน็ต' : e.message || 'ลองใหม่อีกครั้ง');
+      });
+  });
+  $('linkCopy').addEventListener('click', function () {
+    var done = function () {
+      $('dlStatus').textContent = 'คัดลอกลิงก์แล้ว วางในแชต LINE ได้เลย';
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(exp.link).then(done, function () {
+      $('linkUrl').select();
+    });
+    else $('linkUrl').select();
+  });
+  $('linkShare').addEventListener('click', function () {
+    navigator.share({ title: C.TYPES[st.type].name + ' ' + C.sizeText(st.w, st.h), text: 'ดูป้ายแบบ 3 มิติ หมุนดูได้ทุกมุม', url: exp.link }).catch(function () {});
+  });
   $('exportBtn').addEventListener('click', function () {
     openExport(imageFmt());
   });

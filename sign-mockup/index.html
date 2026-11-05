@@ -428,12 +428,26 @@
         <button type="button" data-fmt="jpg">รูป JPG</button>
         <button type="button" data-fmt="png">รูป PNG (คมสุด)</button>
         <button type="button" data-fmt="pdf">ใบเสนอราคา PDF</button>
-        <button type="button" data-fmt="glb" id="fmtGlb">ไฟล์ 3 มิติ (.glb)</button>
+        <button type="button" data-fmt="glb" id="fmtGlb">ไฟล์/ลิงก์ 3 มิติ</button>
       </div>
       <div class="dlg-img" id="dlgImg"><img id="exportImg" alt="ภาพจำลองป้ายสำหรับส่งลูกค้า" /></div>
       <div class="dlg-file" id="dlgFile" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z" /><path d="m4 7.5 8 4.5 8-4.5M12 12v9" /></svg>
         <div><b id="dlgFileName"></b><small id="dlgFileInfo"></small></div>
+      </div>
+      <div class="share3d" id="share3d" hidden>
+        <button type="button" class="btn-primary" id="mkLink">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1" /><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1" /></svg>
+          <span>สร้างลิงก์ดู 3 มิติ ส่งลูกค้า</span>
+        </button>
+        <div class="linkbox" id="linkBox" hidden>
+          <input id="linkUrl" type="text" readonly aria-label="ลิงก์ดู 3 มิติ" />
+          <div class="row">
+            <button type="button" class="btn-ghost small" id="linkCopy">คัดลอกลิงก์</button>
+            <button type="button" class="btn-ghost small" id="linkShare">แชร์ (LINE ฯลฯ)</button>
+            <a class="btn-ghost small" id="linkOpen" href="#" target="_blank" rel="noopener">เปิดดู</a>
+          </div>
+        </div>
       </div>
       <p class="hint" id="dlHint">มือถือ: กดค้างที่รูปแล้วเลือก “บันทึกรูปภาพ” · คอมพิวเตอร์: คลิกขวาที่รูป หรือกดดาวน์โหลด</p>
       <div class="dlg-actions">
