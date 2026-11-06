@@ -271,6 +271,29 @@
                 </div>
                 <p class="readout" id="runInfo"></p>
               </div>
+              <div class="field" id="lookMatField" hidden>
+                <span class="label">วัสดุตัวอักษร</span>
+                <div class="seg small" id="lookMat">
+                  <button type="button" data-mat="color">สีตามงาน</button>
+                  <button type="button" data-mat="inox">สแตนเลส</button>
+                  <button type="button" data-mat="gold">ทอง</button>
+                  <button type="button" data-mat="black">ดำ</button>
+                  <button type="button" data-mat="white">ขาว</button>
+                </div>
+              </div>
+              <div class="field" id="lookLightField" hidden>
+                <span class="label">ไฟ</span>
+                <div class="seg small" id="lookLight">
+                  <button type="button" data-light="none">ไม่มีไฟ</button>
+                  <button type="button" data-light="halo">ไฟส่องหลัง</button>
+                  <button type="button" data-light="front">ไฟหน้า</button>
+                </div>
+              </div>
+              <div class="field" id="neonField" hidden>
+                <span class="label">สีไฟนีออน</span>
+                <div class="swatches" id="neonColors"></div>
+              </div>
+              <label class="toggle" id="lookLitRow" hidden><input type="checkbox" id="lookLit" /><span id="lookLitText">มีไฟ</span></label>
               <div class="field" id="cncPostField" hidden>
                 <span class="label">เสา</span>
                 <div class="seg small" id="cncPostSeg">

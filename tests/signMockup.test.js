@@ -748,3 +748,44 @@ test('แบบให้ลูกค้าเลือก 2 แบบในห�
   const jobs = readFileSync(new URL('../sign-mockup/jobs.js', import.meta.url), 'utf8');
   assert.match(jobs, /j\.id\.indexOf\('opt-'\) !== 0/);
 });
+
+test('ป้ายเพิ่ม 8 ชนิด: ตัวอักษร นีออน ป้ายยื่น ธงญี่ปุ่น แบ็คดรอป บิลบอร์ด โปสเตอร์ ป้ายตั้งโต๊ะ — ขนาด ฉากเริ่ม วิธีคิดราคา', async () => {
+  const want = { letters: ['wall', 'set', 'shop'], neon: ['wall', 'set', 'brick'], blade: ['wall', 'set', 'shop'], flag: ['floor', 'set', 'road'], backdrop: ['floor', 'sqm', 'event'], billboard: ['floor', 'sqm', 'road'], poster: ['wall', 'pcs', 'paper'], tablestand: ['floor', 'pcs', 'table'] };
+  for (const [k, [mount, unit, scene]] of Object.entries(want)) {
+    assert.ok(C.TYPE_ORDER.includes(k), k);
+    const t = C.TYPES[k];
+    const g = C.geometry(k, t.presets[0][0], t.presets[0][1]);
+    assert.equal(g.mount, mount, k);
+    assert.equal(t.unit, unit, k);
+    assert.equal(C.defaultScene(k), scene, k);
+    assert.ok(C.sceneFits(scene, k), k + ' ' + scene);
+    assert.ok(g.bw >= g.w && g.bh >= g.h, k);
+    assert.ok(C.depthText(k), k);
+  }
+  // โปสเตอร์ใช้หน้าตางานกระดาษ ไม่มีเลขรัน
+  assert.equal(C.baseType('poster'), 'card');
+  assert.equal(C.TYPES.poster.run, false);
+  // ป้ายตั้งโต๊ะวางบนโต๊ะสูง 75 ซม. ไม่วางบนกระดาษ/ไม่ถือในมือ
+  assert.equal(C.mountBottom('table', C.geometry('tablestand', 21, 29.7), 'auto'), 75);
+  assert.equal(C.sceneFits('paper', 'tablestand'), false);
+  assert.equal(C.sceneFits('hand', 'tablestand'), false);
+  // ริมถนนไม่มีผนังให้ติด
+  assert.equal(C.sceneFits('road', 'vinyl'), false);
+  assert.equal(C.sceneFits('road', 'flag'), true);
+  // บิลบอร์ดสูงจากพื้นอย่างน้อย 4 ม.
+  assert.ok(C.geometry('billboard', 800, 400).lift >= 400);
+  // ตัวเลือกหน้าตา: ค่าผิด → ค่าเริ่มต้น
+  assert.deepEqual(C.normalizeLook({ mat: 'x', light: 'disco', neon: 'red', lit: 0 }), { mat: 'color', light: 'none', neon: 'design', lit: true });
+  assert.equal(C.normalizeLook({ neon: '#FF00AA' }).neon, '#ff00aa');
+  assert.match(C.lookNote('letters', { mat: 'gold', light: 'halo' }), /ทอง.*ไฟส่องหลัง/);
+  assert.equal(C.quote({ type: 'backdrop', w: 400, h: 250, qty: 1, rate: 300 }).total, 3000);
+  const { readFileSync } = await import('node:fs');
+  const s3 = readFileSync(new URL('../sign-mockup/scene3d.js', import.meta.url), 'utf8');
+  for (const f of ['buildLetters', 'buildNeon', 'buildBlade', 'buildFlag', 'buildBackdrop', 'buildBillboard', 'buildTableStand', 'buildTableScene', 'buildEventScene']) assert.match(s3, new RegExp('function ' + f + '\\('), f);
+  assert.match(s3, /road: \(\) => buildFence\(true\)/);
+  const render = readFileSync(new URL('../sign-mockup/render.js', import.meta.url), 'utf8');
+  assert.match(render, /function neonArt\(/);
+  assert.match(render, /table: sceneTable, event: sceneEvent, road: sceneRoad/);
+  const html = readFileSync(new URL('../sign-mockup/index.html', import.meta.url), 'utf8');
+  for (const id of ['lookMat', 'lookLight', 'neonColors', 'lookLit']) assert.match(html, new RegExp('id="' + id + '"'), id);
+});

@@ -465,6 +465,98 @@ function buildHandScene() {
   return { group: g, bg: new THREE.Color(0xd6cfc4), floorZ: 0.5, wallZ: 0, kind: 'indoor' };
 }
 
+/* ฉาก "บนโต๊ะ / เคาน์เตอร์": โต๊ะไม้สูง 75 ซม. ผนังร้านเบลอ ๆ ด้านหลัง — ของตั้งโต๊ะวางบนโต๊ะ ของแผ่นพิงยืนบนโต๊ะ */
+function buildTableScene() {
+  const g = new THREE.Group();
+  const c = mk(1024, 256);
+  const x = c.getContext('2d');
+  x.fillStyle = '#9a6b45';
+  x.fillRect(0, 0, 1024, 256);
+  const r = rng(31);
+  for (let i = 0; i < 70; i++) {
+    const y = r() * 256;
+    x.strokeStyle = r() < 0.5 ? 'rgba(60,32,14,0.28)' : 'rgba(255,220,180,0.12)';
+    x.lineWidth = 1 + r() * 3;
+    x.beginPath();
+    x.moveTo(0, y);
+    for (let px = 0; px <= 1024; px += 64) x.lineTo(px, y + Math.sin(px / 140 + i) * 5 * r());
+    x.stroke();
+  }
+  const wood = new THREE.CanvasTexture(c);
+  wood.colorSpace = THREE.SRGBColorSpace;
+  wood.wrapS = wood.wrapT = THREE.RepeatWrapping;
+  wood.anisotropy = ANISO;
+  wood.repeat.set(2, 3);
+  const top = box(3.2, 0.04, 1.2, std({ map: wood, roughness: 0.55 }));
+  top.position.set(0, C.TABLE_H / 100 - 0.02, 0);
+  top.receiveShadow = true;
+  g.add(top);
+  const bc = mk(512, 256);
+  const bx = bc.getContext('2d');
+  const grd = bx.createLinearGradient(0, 0, 0, 256);
+  grd.addColorStop(0, '#ece4d8');
+  grd.addColorStop(1, '#cbbba6');
+  bx.fillStyle = grd;
+  bx.fillRect(0, 0, 512, 256);
+  for (let i = 0; i < 14; i++) {
+    bx.fillStyle = 'rgba(255,248,236,' + (0.15 + r() * 0.25) + ')';
+    bx.beginPath();
+    bx.arc(r() * 512, 40 + r() * 120, 8 + r() * 26, 0, Math.PI * 2);
+    bx.fill();
+  }
+  const btex = new THREE.CanvasTexture(bc);
+  btex.colorSpace = THREE.SRGBColorSpace;
+  const back = plane(6, 3, new THREE.MeshBasicMaterial({ map: btex, toneMapped: false }));
+  back.position.set(0, 1.2, -1.4);
+  g.add(back);
+  return { group: g, bg: new THREE.Color(0xcbbba6), floorZ: 0, floorY: C.TABLE_H / 100, wallZ: 0, kind: 'indoor' };
+}
+
+/* ฉาก "ห้องจัดงาน": ผ้าม่านฉากหลัง พรมเทาน้ำเงิน — แบ็คดรอป ธง โรลอัพ ตั้งบนพรม */
+function buildEventScene() {
+  const g = new THREE.Group();
+  const c = mk(512, 256);
+  const x = c.getContext('2d');
+  x.fillStyle = '#2b3047';
+  x.fillRect(0, 0, 512, 256);
+  for (let i = 0; i < 64; i++) {
+    const px = i * 8;
+    const gr = x.createLinearGradient(px, 0, px + 8, 0);
+    gr.addColorStop(0, 'rgba(0,0,0,0.25)');
+    gr.addColorStop(0.5, 'rgba(255,255,255,0.06)');
+    gr.addColorStop(1, 'rgba(0,0,0,0.25)');
+    x.fillStyle = gr;
+    x.fillRect(px, 0, 8, 256);
+  }
+  const drape = new THREE.CanvasTexture(c);
+  drape.colorSpace = THREE.SRGBColorSpace;
+  drape.wrapS = drape.wrapT = THREE.RepeatWrapping;
+  drape.repeat.set(6, 1);
+  const wall = plane(30, 7, std({ map: drape, roughness: 0.95 }));
+  wall.position.set(0, 3.5, 0);
+  wall.receiveShadow = true;
+  g.add(wall);
+  const fc = mk(256, 256);
+  const fx = fc.getContext('2d');
+  fx.fillStyle = '#4c5466';
+  fx.fillRect(0, 0, 256, 256);
+  const r = rng(5);
+  for (let i = 0; i < 4000; i++) {
+    fx.fillStyle = r() < 0.5 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.08)';
+    fx.fillRect(r() * 256, r() * 256, 1.5, 1.5);
+  }
+  const ft = new THREE.CanvasTexture(fc);
+  ft.colorSpace = THREE.SRGBColorSpace;
+  ft.wrapS = ft.wrapT = THREE.RepeatWrapping;
+  ft.repeat.set(20, 10);
+  const floor = plane(30, 16, std({ map: ft, roughness: 1 }));
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(0, 0, 8);
+  floor.receiveShadow = true;
+  g.add(floor);
+  return { group: g, bg: new THREE.Color(0x1e2233), floorZ: 1.2, wallZ: 0, kind: 'indoor' };
+}
+
 function buildWall() {
   const g = new THREE.Group();
   const p = plaster('#e9e4db', 3);
@@ -597,7 +689,8 @@ function buildShop() {
 }
 
 // รั้วตาข่ายกลางแจ้ง: เสาทุก 2.5 ม. ราวบน หญ้า แนวต้นไม้ ฟ้า
-function buildFence() {
+// road = ฉาก "ริมถนน" (ไม่มีรั้ว มีถนนลาดยาง + ทางเท้า) สำหรับบิลบอร์ด ธง ป้ายตั้งพื้น
+function buildFence(road) {
   const g = new THREE.Group();
   const gr = grassTex();
   const ground = floorMesh(120, 120, gr, { tile: 1.6 });
@@ -639,11 +732,31 @@ function buildFence() {
     fence.add(p);
     posts.push(p);
   }
-  g.add(fence);
+  if (road) {
+    const asphalt = std({ color: 0x3b3e43, roughness: 0.95 });
+    const rd = plane(120, 7, asphalt);
+    rd.rotation.x = -Math.PI / 2;
+    rd.position.set(0, 0.012, 6.5);
+    rd.receiveShadow = true;
+    const walkMat = std({ color: 0xb9b4aa, roughness: 0.9 });
+    const walk = box(120, 0.12, 1.8, walkMat);
+    walk.position.set(0, 0.06, 2.1);
+    walk.receiveShadow = true;
+    const kerb = box(120, 0.15, 0.15, std({ color: 0xe6e3dc, roughness: 0.8 }));
+    kerb.position.set(0, 0.075, 3.0);
+    g.add(rd, walk, kerb);
+    for (let i = -12; i <= 12; i++) {
+      const dash = plane(1.6, 0.14, std({ color: 0xf2f0e8, roughness: 0.8 }));
+      dash.rotation.x = -Math.PI / 2;
+      dash.position.set(i * 4, 0.015, 6.5);
+      g.add(dash);
+    }
+  } else g.add(fence);
   shadowy(g, true, true);
   ground.castShadow = false;
   trees.traverse((m) => (m.castShadow = false));
   const env = { group: g, bg: null, sky: true, fog: [0xcfdde2, 18, 70], floorZ: 0.9, wallZ: 0.035, kind: 'outdoor' };
+  if (road) return env;
   env.fit = (signTop) => {
     const F = Math.max(1.8, signTop + 0.15);
     mesh.scale.y = F - 0.03;
@@ -1405,7 +1518,7 @@ function buildClassroom() {
   return env;
 }
 
-const BUILD = { paper: buildPaper, hand: buildHandScene, studio: buildStudio, wall: buildWall, brick: buildBrick, shop: buildShop, fence: buildFence, classDoor: buildClassDoor, officeDoor: buildOfficeDoor, classroom: buildClassroom };
+const BUILD = { paper: buildPaper, hand: buildHandScene, table: buildTableScene, event: buildEventScene, studio: buildStudio, wall: buildWall, brick: buildBrick, shop: buildShop, fence: () => buildFence(false), road: () => buildFence(true), classDoor: buildClassDoor, officeDoor: buildOfficeDoor, classroom: buildClassroom };
 
 /* ---------------- ตัวป้าย ---------------- */
 // หน้าป้าย: วัสดุแต่ละชนิดผิวไม่เหมือนกัน
@@ -1781,6 +1894,409 @@ function buildXstand(w, h, map) {
   return { group: g, face, front: 0.001, faceY: [lift, lift + h] };
 }
 
+/* ---------------- ป้ายเพิ่มเติม: ตัวอักษร · นีออน · ป้ายยื่น · ธงญี่ปุ่น · แบ็คดรอป · บิลบอร์ด · ป้ายตั้งโต๊ะ ---------------- */
+// รวมแท่งกลมหลายเส้นเป็นก้อนเดียว (โครงทรัส/ราวกันตก) — วาดเร็ว ส่งออก .glb ได้
+function mergedRods(segs, r, mat, seg = 8) {
+  const pos = [];
+  const nor = [];
+  const idx = [];
+  let base = 0;
+  const m4 = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const one = new THREE.Vector3(1, 1, 1);
+  for (const [a, b] of segs) {
+    const d = new THREE.Vector3().subVectors(b, a);
+    const len = d.length();
+    if (len < 1e-6) continue;
+    const geo = new THREE.CylinderGeometry(r, r, len, seg, 1, true);
+    q.setFromUnitVectors(UP, d.clone().normalize());
+    m4.compose(a.clone().addScaledVector(d, 0.5), q, one);
+    geo.applyMatrix4(m4);
+    const p = geo.attributes.position.array;
+    const n = geo.attributes.normal.array;
+    const ix = geo.index.array;
+    for (let i = 0; i < p.length; i++) {
+      pos.push(p[i]);
+      nor.push(n[i]);
+    }
+    for (let i = 0; i < ix.length; i++) idx.push(ix[i] + base);
+    base += p.length / 3;
+    geo.dispose();
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  geo.setIndex(idx);
+  return new THREE.Mesh(geo, mat);
+}
+const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+// ภาพตัวอักษรสีเดียว (ใช้กับวัสดุโลหะ/ดำ/ขาว) จากภาพตัวอักษรสีตามงาน
+function tintCanvas(src, color) {
+  const c = mk(src.width, src.height);
+  const x = c.getContext('2d');
+  x.drawImage(src, 0, 0);
+  x.globalCompositeOperation = 'source-in';
+  x.fillStyle = color;
+  x.fillRect(0, 0, c.width, c.height);
+  return c;
+}
+// แสงฟุ้ง: วาดภาพลงกลางผืนที่ใหญ่กว่า (sx, sy เท่า) แล้วเบลอ
+function glowCanvas(src, sx, sy, blur, color) {
+  const c = mk(Math.round(src.width * sx), Math.round(src.height * sy));
+  const x = c.getContext('2d');
+  const s = color ? tintCanvas(src, color) : src;
+  x.filter = 'blur(' + blur + 'px)';
+  const ox = (c.width - src.width) / 2;
+  const oy = (c.height - src.height) / 2;
+  x.drawImage(s, ox, oy);
+  x.drawImage(s, ox, oy);
+  return c;
+}
+const canvasTex = (cv) => {
+  const t = new THREE.CanvasTexture(cv);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = ANISO;
+  return t;
+};
+
+/* ป้ายตัวอักษรติดผนัง: ตัวอักษรหนา 3 ซม. ลอยจากผนัง 2.5 ซม. (ไม่มีแผ่นพื้น) — ส่วนที่สีต่างจากพื้นงานคือตัวอักษร
+ * วัสดุ: สีตามงาน / สแตนเลส / ทอง / ดำ / ขาว · ไฟ: ส่องหลัง (แสงฟุ้งบนผนัง) / ไฟหน้า (หน้าตัวอักษรเรืองแสง) */
+const LETTER_METAL = { inox: ['#d8dbdf', 0.9, 0.22], gold: ['#d6ae55', 0.9, 0.26], black: ['#1d1e21', 0.15, 0.6], white: ['#f2f1ec', 0, 0.45] };
+function buildLetters(w, h, map, edge, look) {
+  const g = new THREE.Group();
+  const G = C.geometry('letters', w * 100, h * 100);
+  const gap = G.gap / 100;
+  const T = G.relief / 100;
+  const mtl = LETTER_METAL[look.mat];
+  const front = std({ alphaTest: 0.5, roughness: mtl ? mtl[2] : 0.32, metalness: mtl ? mtl[1] : 0.02 });
+  const side = std({ alphaTest: 0.5, roughness: 0.45, metalness: mtl ? mtl[1] * 0.8 : 0.05, color: mtl ? new THREE.Color(mtl[0]).multiplyScalar(0.6) : 0x707070 });
+  const depthMat = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, alphaTest: 0.5 });
+  const geo = new THREE.PlaneGeometry(w, h);
+  const N = 9;
+  for (let i = 0; i < N; i++) {
+    const m = new THREE.Mesh(geo, i === N - 1 ? front : side);
+    m.position.z = gap + (T * i) / (N - 1);
+    m.customDepthMaterial = depthMat;
+    g.add(m);
+  }
+  const haloMat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, opacity: 0 });
+  const halo = new THREE.Mesh(new THREE.PlaneGeometry(w * 1.3, h * 1.7), haloMat);
+  halo.position.z = 0.004;
+  halo.visible = look.light === 'halo';
+  g.add(halo);
+  let texs = [];
+  const setFace = (faceTex, e) => {
+    const src = faceTex && faceTex.image;
+    if (!src || !NS.render || !NS.render.letterMask) return;
+    const L = NS.render.letterMask(src, e || edge);
+    const t = canvasTex(mtl ? tintCanvas(L, '#ffffff') : L);
+    if (mtl) front.color.set(mtl[0]);
+    for (const m of [front, side, depthMat]) {
+      m.map = t;
+      m.needsUpdate = true;
+    }
+    if (look.light === 'front') {
+      front.emissiveMap = t;
+      front.emissive.set(0xffffff);
+    }
+    const ht = canvasTex(glowCanvas(L, 1.3, 1.7, Math.max(6, L.width * 0.02), '#fff1d8'));
+    haloMat.map = ht;
+    haloMat.needsUpdate = true;
+    texs.forEach((x) => x.dispose());
+    texs = [t, ht];
+  };
+  setFace(map, edge);
+  const setNight = (night) => {
+    front.emissiveIntensity = look.light === 'front' ? (night ? 1.15 : 0.1) : 0;
+    haloMat.opacity = night ? 1 : 0.22;
+    haloMat.color.setScalar(night ? 1.8 : 1);
+  };
+  setNight(false);
+  const dispose = () => {
+    texs.forEach((x) => x.dispose());
+    depthMat.dispose();
+  };
+  return { group: g, face: null, front: gap + T, setFace, setNight, selfLit: look.light !== 'none', dispose };
+}
+
+/* ป้ายไฟนีออน LED: หลอดนีออนตามขอบตัวอักษร บนแผ่นอะคริลิคใสลอยจากผนัง 3 ซม. — กลางคืนเรืองแสง ส่องผนังรอบ ๆ */
+function buildNeon(w, h, map, edge, look) {
+  const g = new THREE.Group();
+  const gap = 0.03;
+  const board = new THREE.Mesh(
+    new THREE.BoxGeometry(w, h, 0.005),
+    new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.16, roughness: 0.04, metalness: 0, clearcoat: 1, depthWrite: false })
+  );
+  board.position.z = gap;
+  g.add(board);
+  for (const sx of [-1, 1])
+    for (const sy of [-1, 1]) {
+      const p = rod(V3(sx * (w / 2 - 0.03), sy * (h / 2 - 0.03), 0), V3(sx * (w / 2 - 0.03), sy * (h / 2 - 0.03), gap + 0.008), 0.007, MAT.chrome);
+      g.add(p);
+    }
+  const tubeMat = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.05, toneMapped: false });
+  const tube = new THREE.Mesh(new THREE.PlaneGeometry(w, h), tubeMat);
+  tube.position.z = gap + 0.009;
+  g.add(tube);
+  const glowMat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
+  const glow = new THREE.Mesh(new THREE.PlaneGeometry(w * 1.2, h * 1.2), glowMat);
+  glow.position.z = gap + 0.011;
+  g.add(glow);
+  const spillMat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, opacity: 0 });
+  const spill = new THREE.Mesh(new THREE.PlaneGeometry(w * 1.8, h * 2), spillMat);
+  spill.position.z = 0.003;
+  g.add(spill);
+  let texs = [];
+  const setFace = (faceTex, e) => {
+    const src = faceTex && faceTex.image;
+    if (!src || !NS.render || !NS.render.neonArt) return;
+    const a = NS.render.neonArt(src, e || edge, look.neon);
+    const tt = canvasTex(a.tube);
+    const gt = canvasTex(glowCanvas(a.glow, 1.2, 1.2, 0));
+    // แสงตกบนผนัง: ซ้อนแสงฟุ้งหลายชั้นให้เข้มพอ แล้วเบลอกว้าง
+    const sc = mk(Math.round(a.glow.width * 1.8), Math.round(a.glow.height * 2));
+    const sx = sc.getContext('2d');
+    sx.filter = 'blur(' + Math.max(16, a.glow.width * 0.09) + 'px)';
+    sx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 6; i++) sx.drawImage(a.tube, (sc.width - a.glow.width) / 2, (sc.height - a.glow.height) / 2);
+    const st2 = canvasTex(sc);
+    tubeMat.map = tt;
+    glowMat.map = gt;
+    spillMat.map = st2;
+    for (const m of [tubeMat, glowMat, spillMat]) m.needsUpdate = true;
+    texs.forEach((x) => x.dispose());
+    texs = [tt, gt, st2];
+  };
+  setFace(map, edge);
+  const setNight = (night) => {
+    tubeMat.color.setScalar(night ? 1.25 : 0.95);
+    glowMat.opacity = night ? 0.85 : 0.4;
+    spillMat.opacity = night ? 1 : 0;
+    spillMat.color.setScalar(night ? 1.3 : 1); // แสงนีออนตกบนผนังรอบ ๆ
+  };
+  setNight(false);
+  const dispose = () => texs.forEach((x) => x.dispose());
+  return { group: g, face: null, front: gap + 0.01, setFace, setNight, selfLit: true, dispose };
+}
+
+/* ป้ายยื่น (แขวนสองหน้า): กล่องหนา 12 ซม. ตั้งฉากกับผนัง พิมพ์ทั้งสองหน้า แขวนใต้แขนเหล็ก — เปิดไฟได้ (กล่องไฟ) */
+function buildBlade(w, h, map, look) {
+  const g = new THREE.Group();
+  const D = 0.12;
+  const arm = 0.15;
+  const face = faceMat('lightbox', map);
+  const rim = std({ color: 0xeef0f2, metalness: 0.6, roughness: 0.35 });
+  const bx = new THREE.Mesh(new THREE.BoxGeometry(D, h, w), [face, face, rim, rim, rim, rim]);
+  bx.position.set(0, 0, arm + w / 2);
+  g.add(bx);
+  const y = h / 2 + 0.06;
+  const bar = box(0.025, 0.035, arm + w + 0.04, MAT.plastic);
+  bar.position.set(0, y, (arm + w + 0.04) / 2);
+  const plate = box(0.12, 0.2, 0.012, MAT.plastic);
+  plate.position.set(0, y - 0.04, 0.006);
+  g.add(bar, plate);
+  g.add(rod(V3(0, y - 0.1, 0.01), V3(0, y, arm * 0.9), 0.008, MAT.plastic)); // ค้ำยัน
+  for (const z of [arm + w * 0.15, arm + w * 0.85]) g.add(rod(V3(0, h / 2, z), V3(0, y - 0.017, z), 0.004, MAT.chrome));
+  const setNight = (night) => {
+    face.emissiveIntensity = look.lit ? (night ? 0.82 : 0.14) : 0;
+  };
+  setNight(false);
+  const x = -D / 2 - 0.001;
+  const corners = [[x, h / 2, arm], [x, h / 2, arm + w], [x, -h / 2, arm + w], [x, -h / 2, arm]];
+  return { group: g, face, front: D / 2, corners, setNight, selfLit: !!look.lit };
+}
+
+/* ธงญี่ปุ่น: ผืนธงพลิ้วนิด ๆ แขวนราวบน เสาข้างซ้าย ปักในฐานถ่วงน้ำ — ชายธงลอยจากพื้น 30 ซม. */
+function buildFlag(w, h, map) {
+  const g = new THREE.Group();
+  const lift = 0.3;
+  const poleX = -w / 2 - 0.025;
+  const top = lift + h + 0.08;
+  const geo = new THREE.PlaneGeometry(w, h, 24, 40);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const u = (pos.getX(i) + w / 2) / w;
+    const v = (pos.getY(i) + h / 2) / h;
+    pos.setZ(i, Math.sin(u * Math.PI * 1.4 + v * 2.4) * 0.028 * u + Math.sin(v * 8 + u * 3) * 0.006 * u);
+  }
+  geo.computeVertexNormals();
+  const face = std({ map, roughness: 0.78, side: THREE.DoubleSide });
+  const flag = new THREE.Mesh(geo, face);
+  flag.position.set(0, lift + h / 2, 0);
+  g.add(flag);
+  g.add(rod(V3(poleX, 0.12, 0), V3(poleX, top, 0), 0.016, MAT.alu));
+  g.add(rod(V3(poleX, lift + h + 0.012, 0), V3(w / 2 + 0.012, lift + h + 0.012, 0), 0.008, MAT.alu));
+  const capM = new THREE.Mesh(new THREE.SphereGeometry(0.022, 16, 10), MAT.plastic);
+  capM.position.set(poleX, top + 0.01, 0);
+  g.add(capM);
+  for (const yy of [lift + 0.02, lift + h * 0.5]) {
+    const clip = box(0.03, 0.02, 0.03, MAT.plastic);
+    clip.position.set(poleX + 0.01, yy, 0);
+    g.add(clip);
+  }
+  const baseM = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, 0.13, 32), MAT.plastic);
+  baseM.position.set(poleX, 0.065, 0);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.05, 0.08, 16), MAT.plastic);
+  neck.position.set(poleX, 0.16, 0);
+  g.add(baseM, neck);
+  return { group: g, face, front: 0.03, faceY: [lift, lift + h] };
+}
+
+/* ฉากแบ็คดรอป: โครงทรัสอะลูมิเนียม 30 ซม. (เสา 2 ข้าง + คานบน) ไวนิลขึงด้านในด้วยยางยืด — ชายล่างลอยจากพื้น 10 ซม. */
+function trussSegs(x0, y0, z0, x1, y1, z1, T) {
+  // ทรัสสี่เหลี่ยมตามแกนยาว (แกนที่ต่างกันมากที่สุด) — คอร์ด 4 เส้น + ตัวเฉียงซิกแซก 4 ด้าน
+  const L = [x1 - x0, y1 - y0, z1 - z0];
+  const ax = L.map(Math.abs).indexOf(Math.max(...L.map(Math.abs)));
+  const len = Math.abs(L[ax]);
+  const o = [x0, y0, z0];
+  const others = [0, 1, 2].filter((i) => i !== ax);
+  const corner = (a, b, t) => {
+    const p = o.slice();
+    p[ax] += Math.sign(L[ax]) * t;
+    p[others[0]] += a ? T : 0;
+    p[others[1]] += b ? T : 0;
+    return V3(p[0], p[1], p[2]);
+  };
+  const chords = [];
+  const lace = [];
+  const cs = [[0, 0], [1, 0], [1, 1], [0, 1]];
+  for (const [a, b] of cs) chords.push([corner(a, b, 0), corner(a, b, len)]);
+  const n = Math.max(1, Math.round(len / T));
+  for (let s = 0; s < 4; s++) {
+    const [a1, b1] = cs[s];
+    const [a2, b2] = cs[(s + 1) % 4];
+    for (let i = 0; i < n; i++) {
+      const t0 = (len * i) / n;
+      const t1 = (len * (i + 1)) / n;
+      lace.push(i % 2 ? [corner(a1, b1, t0), corner(a2, b2, t1)] : [corner(a2, b2, t0), corner(a1, b1, t1)]);
+    }
+  }
+  return { chords, lace };
+}
+function buildBackdrop(w, h, map) {
+  const g = new THREE.Group();
+  const T = 0.3;
+  const lift = 0.1;
+  const H = lift + h + T;
+  const alu = std({ color: 0xcfd3d8, metalness: 0.85, roughness: 0.3 });
+  const parts = [trussSegs(-w / 2 - T, 0, -T / 2, -w / 2 - T, H - T, -T / 2, T), trussSegs(w / 2, 0, -T / 2, w / 2, H - T, -T / 2, T), trussSegs(-w / 2 - T, H - T, -T / 2, w / 2 + T, H - T, -T / 2, T)];
+  g.add(mergedRods([].concat(...parts.map((p) => p.chords)), 0.024, alu, 10));
+  g.add(mergedRods([].concat(...parts.map((p) => p.lace)), 0.009, alu, 6));
+  for (const x of [-w / 2 - T / 2, w / 2 + T / 2]) {
+    const bp = box(T + 0.14, 0.012, T + 0.14, MAT.darkAlu);
+    bp.position.set(x, 0.006, 0);
+    g.add(bp);
+  }
+  const face = std({ map, roughness: 0.7 });
+  const vin = plane(w, h, face);
+  vin.position.set(0, lift + h / 2, 0.002);
+  const back = plane(w, h, std({ color: 0xbfc2c6, roughness: 0.7, side: THREE.BackSide }));
+  back.position.copy(vin.position);
+  g.add(vin, back);
+  // ยางยืดยึดไวนิลกับทรัส ทุก ๆ ~50 ซม.
+  const ties = [];
+  const nx = Math.max(2, Math.round(w / 0.5));
+  for (let i = 0; i <= nx; i++) {
+    const x = -w / 2 + (w * i) / nx;
+    ties.push([V3(x, lift + h, 0.002), V3(x, H - T, 0)]);
+  }
+  const ny = Math.max(2, Math.round(h / 0.5));
+  for (let i = 0; i <= ny; i++) {
+    const y = lift + (h * i) / ny;
+    ties.push([V3(-w / 2, y, 0.002), V3(-w / 2 - 0.02, y, 0)], [V3(w / 2, y, 0.002), V3(w / 2 + 0.02, y, 0)]);
+  }
+  g.add(mergedRods(ties, 0.003, MAT.tie, 5));
+  return { group: g, face, front: 0.003, faceY: [lift, lift + h] };
+}
+
+/* บิลบอร์ด: ป้ายบนโครงกล่องลึก 40 ซม. เสาเดี่ยวกลาง ฐานปูน ทางเดินซ่อมบำรุงมีราว ไฟส่องบนแขนยื่น */
+function buildBillboard(w, h, map, look) {
+  const g = new THREE.Group();
+  const G = C.geometry('billboard', w * 100, h * 100);
+  const lift = G.lift / 100;
+  const D = 0.4;
+  const face = std({ map, roughness: 0.62 });
+  const panel = plane(w, h, face);
+  panel.position.set(0, lift + h / 2, 0.002);
+  g.add(panel);
+  const steel = std({ color: 0x8b9097, metalness: 0.7, roughness: 0.45 });
+  const frame = box(w + 0.12, h + 0.12, D, steel);
+  frame.position.set(0, lift + h / 2, -D / 2);
+  g.add(frame);
+  const R = Math.min(0.45, 0.18 + w * 0.02);
+  const poleZ = -D - R - 0.05;
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 1.1, lift + h * 0.5, 32), steel);
+  pole.position.set(0, (lift + h * 0.5) / 2, poleZ);
+  const foot = new THREE.Mesh(new THREE.CylinderGeometry(R * 2.2, R * 2.4, 0.35, 32), std({ color: 0xa8a59e, roughness: 0.95 }));
+  foot.position.set(0, 0.175, poleZ);
+  g.add(pole, foot);
+  for (const yy of [lift + 0.3, lift + h - 0.3]) {
+    const beam = box(Math.min(w * 0.7, 6), 0.18, Math.abs(poleZ) - D + 0.1, steel);
+    beam.position.set(0, yy, (poleZ - D) / 2);
+    g.add(beam);
+  }
+  // ทางเดิน + ราวกันตก
+  const walk = box(w, 0.04, 0.7, std({ color: 0x5d6168, metalness: 0.6, roughness: 0.6 }));
+  walk.position.set(0, lift - 0.12, 0.3);
+  g.add(walk);
+  const rail = [];
+  const np = Math.max(2, Math.round(w / 1.5));
+  for (let i = 0; i <= np; i++) {
+    const x = -w / 2 + (w * i) / np;
+    rail.push([V3(x, lift - 0.1, 0.63), V3(x, lift + 0.9, 0.63)]);
+  }
+  rail.push([V3(-w / 2, lift + 0.9, 0.63), V3(w / 2, lift + 0.9, 0.63)], [V3(-w / 2, lift + 0.45, 0.63), V3(w / 2, lift + 0.45, 0.63)]);
+  g.add(mergedRods(rail, 0.022, steel, 8));
+  // ไฟส่อง
+  const lampMat = std({ color: 0x2b2f35, roughness: 0.4, emissive: 0xfff3d6, emissiveIntensity: 0 });
+  const nl = Math.max(2, Math.round(w / 2.5));
+  const arms = [];
+  for (let i = 0; i < nl; i++) {
+    const x = -w / 2 + (w * (i + 0.5)) / nl;
+    arms.push([V3(x, lift + h + 0.05, 0), V3(x, lift + h + 0.45, 0.9)]);
+    const head = box(0.35, 0.12, 0.22, lampMat);
+    head.position.set(x, lift + h + 0.42, 0.95);
+    head.rotation.x = 0.6;
+    g.add(head);
+  }
+  g.add(mergedRods(arms, 0.03, steel, 8));
+  const setNight = (night) => {
+    lampMat.emissiveIntensity = look.lit && night ? 2.5 : 0;
+  };
+  return { group: g, face, front: 0.003, faceY: [lift, lift + h], setNight, selfLit: !look.lit };
+}
+
+/* ป้ายตั้งโต๊ะ: อะคริลิคใสพับ L เอนหลัง 10° เสียบกระดาษพิมพ์ ฐานลึก 7 ซม. */
+function buildTableStand(w, h, map) {
+  const g = new THREE.Group();
+  const tilt = 0.17;
+  const acr = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.22, roughness: 0.04, metalness: 0, clearcoat: 1, depthWrite: false });
+  const base = box(w + 0.012, 0.004, 0.07, acr);
+  base.position.set(0, 0.002, -0.02);
+  g.add(base);
+  const holder = new THREE.Group();
+  holder.position.set(0, 0.004, 0);
+  holder.rotation.x = -tilt;
+  const face = std({ map, roughness: 0.5 });
+  const print = plane(w, h, face);
+  print.position.set(0, h / 2 + 0.003, 0);
+  const backP = plane(w, h, std({ color: 0xf2f1ee, roughness: 0.8, side: THREE.BackSide }));
+  backP.position.copy(print.position);
+  const slab = box(w + 0.012, h + 0.008, 0.003, acr);
+  slab.position.set(0, h / 2 + 0.004, 0.0025);
+  const slab2 = slab.clone();
+  slab2.position.z = -0.0025;
+  holder.add(print, backP, slab, slab2);
+  g.add(holder);
+  const ct = Math.cos(tilt);
+  const sn = Math.sin(tilt);
+  const yz = (y) => [0.004 + (y + 0.003) * ct, -(y + 0.003) * sn + 0.004];
+  const [y0, z0] = yz(0);
+  const [y1, z1] = yz(h);
+  const corners = [[-w / 2, y1, z1], [w / 2, y1, z1], [w / 2, y0, z0], [-w / 2, y0, z0]];
+  return { group: g, face, front: 0.004, faceY: [0.004, 0.004 + h * ct], corners };
+}
+
 // หุ่นคนสเกลแบบโมเดลสถาปัตย์ สูง 170 ซม. — ไว้เทียบขนาดป้าย
 /* ---------------- คนเทียบขนาด: การ์ตูนเจ้าของร้าน (รูปวาดจริง) สูง 170 ซม. ----------------
  * เป็นป้ายรูปคนตั้งพื้นที่หันหน้าเข้ากล้องเสมอ (หมุนรอบแกนตั้งอย่างเดียว เท้าติดพื้นทุกมุม)
@@ -2023,6 +2539,13 @@ export function createStage(opts) {
     else if (bt === 'xstand') model = buildXstand(w, h, map);
     else if (bt === 'cnc') model = buildCnc(w, h, map, s.edge || [31, 42, 77], s.steel);
     else if (bt === 'stand') model = buildStand(w, h, map, s.steel);
+    else if (bt === 'letters') model = buildLetters(w, h, map, s.edge || [31, 42, 77], C.normalizeLook(s.look));
+    else if (bt === 'neon') model = buildNeon(w, h, map, s.edge || [31, 42, 77], C.normalizeLook(s.look));
+    else if (bt === 'blade') model = buildBlade(w, h, map, C.normalizeLook(s.look));
+    else if (bt === 'flag') model = buildFlag(w, h, map);
+    else if (bt === 'backdrop') model = buildBackdrop(w, h, map);
+    else if (bt === 'billboard') model = buildBillboard(w, h, map, C.normalizeLook(s.look));
+    else if (bt === 'tablestand') model = buildTableStand(w, h, map);
     else model = buildBoard(bt, w, h, map, s.edge || [120, 120, 120]);
     model.type = bt;
     model.w = w;
@@ -2051,16 +2574,16 @@ export function createStage(opts) {
     let baseY;
     let z;
     if (model.floor) {
-      baseY = 0;
+      baseY = env.floorY || 0; // ฉากโต๊ะ: ตั้งบนโต๊ะ
       z = env.floorZ;
-      signRoot.position.set(env.floorX ? env.floorX(w) : 0, 0, z);
+      signRoot.position.set(env.floorX ? env.floorX(w) : 0, baseY, z);
     } else {
       baseY = C.mountBottom(sceneKey, g, spot) / 100;
       // ป้ายกว้างเกินช่วงเสา (3.6 ม.) ต้องยึดหน้าเสา
       z = env.spotZ ? env.spotZ(spot) : sceneKey === 'shop' && w > 3.6 ? 0.15 : env.wallZ;
       signRoot.position.set(env.spotX ? env.spotX(spot, w) : 0, baseY + h / 2, z);
     }
-    const top = model.floor ? (model.faceY ? model.faceY[1] : h) : baseY + h;
+    const top = model.floor ? baseY + (model.faceY ? model.faceY[1] : h) : baseY + h;
     if (env.fit) env.fit(top);
     // ฉากบัตร: มือจับ (บัตรเอียงนิดหน่อยแบบถือจริง) · บัตรซ้อนบนกระดาษ
     const handOn = sceneKey === 'hand';
@@ -2181,10 +2704,13 @@ export function createStage(opts) {
     // กลางคืน: กล่องไฟสว่างเอง ป้ายอื่นมีสปอตไลท์ส่อง
     const lb = model.type === 'lightbox';
     if (model.face) model.face.emissiveIntensity = lb ? (night ? 0.82 : 0.16) : 0;
+    // ป้ายที่มีไฟของตัวเอง (ตัวอักษรไฟ นีออน ป้ายยื่นกล่องไฟ) / ปิดไฟ (บิลบอร์ดไม่เปิดไฟส่อง)
+    if (model.setNight) model.setNight(night);
+    const selfLit = lb || !!model.selfLit;
     const fc = new THREE.Vector3();
     signRoot.getWorldPosition(fc);
-    const faceC = model.floor ? new THREE.Vector3(fc.x, (model.faceY[0] + model.faceY[1]) / 2, fc.z) : fc.clone();
-    if (night && !lb) {
+    const faceC = model.floor ? new THREE.Vector3(fc.x, fc.y + (model.faceY[0] + model.faceY[1]) / 2, fc.z) : fc.clone();
+    if (night && !selfLit) {
       spot.intensity = 26 * Math.max(1, model.w * model.h);
       spot.position.set(faceC.x, faceC.y + Math.max(1.1, model.h * 0.9), faceC.z + Math.max(1.0, model.w * 0.55));
       spot.target.position.copy(faceC);
@@ -2335,7 +2861,7 @@ export function createStage(opts) {
       if (model && model.setFace) model.setFace(faceTex, st.edge);
       if (old) old.dispose();
     }
-    const sk = [st.type, st.w, st.h, (st.edge || []).map(Math.round).join(','), st.type === 'stand' ? JSON.stringify(st.steel || {}) : st.type === 'cnc' ? ((st.steel && st.steel.color) || '') + (C.cncPosts(st.steel) ? '' : '|wall') : ''].join('|');
+    const sk = [st.type, st.w, st.h, (st.edge || []).map(Math.round).join(','), st.type === 'stand' ? JSON.stringify(st.steel || {}) : st.type === 'cnc' ? ((st.steel && st.steel.color) || '') + (C.cncPosts(st.steel) ? '' : '|wall') : '', ['letters', 'neon', 'blade', 'billboard'].indexOf(C.baseType(st.type)) >= 0 ? JSON.stringify(C.normalizeLook(st.look)) : ''].join('|');
     const geomChanged = sk !== signKey;
     const sceneChanged = st.scene !== cur.scene || !envKey;
     const personChanged = !!st.person !== !!cur.person || st.spot !== cur.spot || !!st.doorOpen !== !!cur.doorOpen;
@@ -2363,7 +2889,8 @@ export function createStage(opts) {
     const w = model.w;
     const h = model.h;
     let pts;
-    if (model.floor) {
+    if (model.corners) pts = model.corners.map(([x, y, z]) => new THREE.Vector3(x, y, z)); // หน้าป้ายไม่ได้หันเข้ากล้อง (ป้ายยื่น / ป้ายตั้งโต๊ะเอน)
+    else if (model.floor) {
       const [y0, y1] = model.faceY;
       pts = [[-w / 2, y1], [w / 2, y1], [w / 2, y0], [-w / 2, y0]].map(([x, y]) => new THREE.Vector3(x, y, model.front));
     } else pts = [[-w / 2, h / 2], [w / 2, h / 2], [w / 2, -h / 2], [-w / 2, -h / 2]].map(([x, y]) => new THREE.Vector3(x, y, model.front));

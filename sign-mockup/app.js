@@ -6,11 +6,11 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '3.9.0';
+  var APP_VERSION = '4.0.0';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp' });
 
-  var UNIT_WORD = { vinyl: 'ผืน', frame: 'ผืน', foam: 'แผ่น', sticker: 'แผ่น', acrylic: 'แผ่น', lightbox: 'ป้าย', stand: 'ชุด', cnc: 'ป้าย', rollup: 'ชุด', xstand: 'ชุด', card: 'ใบ' };
+  var UNIT_WORD = { vinyl: 'ผืน', frame: 'ผืน', foam: 'แผ่น', sticker: 'แผ่น', acrylic: 'แผ่น', lightbox: 'ป้าย', stand: 'ชุด', cnc: 'ป้าย', rollup: 'ชุด', xstand: 'ชุด', card: 'ใบ', letters: 'ชุด', neon: 'ป้าย', blade: 'ป้าย', flag: 'ผืน', backdrop: 'ชุด', billboard: 'ป้าย', poster: 'แผ่น', tablestand: 'อัน' };
   // ชนิดงานของร้าน (ตัวเลือกของร้าน) ต้องลงทะเบียนก่อนโหลดงานที่บันทึกไว้ ไม่งั้นงานชนิดนั้นจะกลายเป็นไวนิล
   var OPT_KEY = 'np-sign-options-v1';
   try {
@@ -40,6 +40,7 @@
     sheet: 'a4', // บัตร: กระดาษที่จัดหน้าพิมพ์
     paper: 'white', // บัตร: สีกระดาษรองในฉาก "บนกระดาษ"
     cmpOut: 'jpg', // หน้าเทียบ 2 แบบ: รูป JPG / PDF
+    look: { mat: 'color', light: 'none', neon: 'design', lit: true }, // ตัวอักษร: วัสดุ/ไฟ · นีออน: สี · ป้ายยื่น/บิลบอร์ด: เปิดไฟ
     panel: 'right', // แผงตั้งค่าอยู่ขวา/ซ้าย
     fmt: 'jpg', // ชนิดรูปที่ส่งออกล่าสุด (jpg / png)
     qty: 1,
@@ -87,6 +88,7 @@
     if (!C.SHEETS[s.sheet]) s.sheet = DEF.sheet;
     if (!C.PAPERS[s.paper]) s.paper = DEF.paper;
     if (s.cmpOut !== 'pdf') s.cmpOut = 'jpg';
+    s.look = C.normalizeLook(Object.assign({}, DEF.look, s.look));
     if (!C.TYPES[s.type]) s.type = DEF.type;
     if (!C.SCENES[s.scene]) s.scene = DEF.scene;
     if (s.scene !== 'photo' && !C.sceneFits(s.scene, s.type)) s.scene = C.defaultScene(s.type);
@@ -227,10 +229,10 @@
     return (t && t.word) || UNIT_WORD[bt()] || 'ชิ้น';
   }
   function isCard() {
-    return bt() === 'card';
+    return bt() === 'card' && C.TYPES[st.type].run !== false;
   }
   function runNow() {
-    return isCard() && st.run.on ? st.run : null;
+    return isCard() && st.run.on && C.TYPES[st.type].run !== false ? st.run : null;
   }
   function stubNow() {
     var r = runNow();
@@ -297,6 +299,7 @@
       tone: st.tone,
       paper: st.paper,
       steel: st.steel,
+      look: st.look,
       photo: photo,
       person: personNow(),
       dims: st.dims,
@@ -375,6 +378,7 @@
       tone: st.tone,
       paper: st.paper,
       steel: st.steel,
+      look: st.look,
       person: personNow(),
       night: st.night,
       face: fc.canvas,
@@ -542,6 +546,14 @@
     rollup: '<svg viewBox="0 0 44 34"><path d="M15 2h14"/><rect x="15.5" y="3" width="13" height="25"/><rect x="12" y="27" width="20" height="4" rx="1.5"/></svg>',
     xstand: '<svg viewBox="0 0 44 34"><rect x="15" y="2" width="14" height="24"/><path d="M15 26l-4 6M29 26l4 6"/></svg>',
     card: '<svg viewBox="0 0 44 34"><rect x="3" y="7" width="38" height="20" rx="2"/><path d="M13 7v20" stroke-dasharray="2 2"/><path d="M18 13h12M18 18h16"/><path d="M31 23.5h7"/></svg>',
+    letters: '<svg viewBox="0 0 44 34"><path d="M3 4h38" opacity=".35"/><path d="M6 26l5-15 5 15M8 21h6"/><path d="M20 11v15h6"/><path d="M30 11h8M34 11v15"/><path d="M6 29h5M30 29h8" opacity=".5"/></svg>',
+    neon: '<svg viewBox="0 0 44 34"><rect x="3" y="4" width="38" height="26" rx="3"/><path d="M10 22c0-7 4-11 7-11s4 4 2 7-6 5-2 6 7-3 8-8M29 11v11c0 2 1 3 3 3s3-1 3-3"/></svg>',
+    blade: '<svg viewBox="0 0 44 34"><path d="M5 3v28"/><path d="M5 7h26"/><path d="M14 7v4M28 7v4"/><rect x="11" y="11" width="21" height="17" rx="1.5"/><path d="M15 17h13M15 22h9"/></svg>',
+    flag: '<svg viewBox="0 0 44 34"><path d="M12 2v29"/><path d="M12 4h20"/><path d="M14 4h18v22c-6-2-12 2-18 0z"/><path d="M6 31h12"/></svg>',
+    backdrop: '<svg viewBox="0 0 44 34"><rect x="3" y="3" width="38" height="5"/><rect x="3" y="3" width="5" height="28"/><rect x="36" y="3" width="5" height="28"/><path d="M3 3l5 5M8 3l-5 5M36 3l5 5M41 3l-5 5"/><rect x="10" y="10" width="24" height="17"/></svg>',
+    billboard: '<svg viewBox="0 0 44 34"><rect x="4" y="4" width="36" height="16" rx="1"/><path d="M22 20v12M17 32h10"/><path d="M5 22h34"/><path d="M10 2l2 2M22 1v3M34 2l-2 2"/></svg>',
+    poster: '<svg viewBox="0 0 44 34"><path d="M13 3h14l5 5v23H13z"/><path d="M27 3v5h5"/><rect x="16" y="11" width="12" height="9" rx="1"/><path d="M16 24h12M16 27h8"/></svg>',
+    tablestand: '<svg viewBox="0 0 44 34"><path d="M14 4l4 25M30 4l-4 25"/><rect x="15" y="5" width="14" height="19" rx="1"/><path d="M9 30h26"/><path d="M18 10h8M18 14h6"/></svg>',
   };
 
   function buildTypes() {
@@ -569,7 +581,13 @@
     var t = C.TYPES[k];
     // เปลี่ยนไปขาตั้ง (โรลอัพ / X-Stand) ใช้ขนาดมาตรฐานของขาตั้งนั้น
     var old = C.TYPES[was] || C.TYPES.vinyl;
-    if (!!t.small !== !!old.small) {
+    // ขนาดเดิมห่างจากขนาดปกติของชนิดใหม่มาก (เช่น ไวนิล 3 ม. → ป้ายยื่น) ใช้ขนาดมาตรฐานของชนิดนั้น
+    var areas = t.presets.map(function (p) {
+      return p[0] * p[1];
+    });
+    var cur = st.w * st.h;
+    var outOfRange = cur > Math.max.apply(null, areas) * 2 || cur < Math.min.apply(null, areas) / 2;
+    if (!!t.small !== !!old.small || (outOfRange && C.baseType(k) !== C.baseType(was) && t.mount === old.mount)) {
       // บัตร ↔ ป้าย ขนาดต่างกันมาก ใช้ขนาดมาตรฐานของชนิดใหม่
       var z = t.small || t.mine ? t.presets[0] : t.presets[2] || t.presets[0];
       if (z) {
@@ -586,11 +604,17 @@
       st.h = q[1];
       if (st.mode === 'image' && imgDesign) st.h = C.heightForImage(st.w, imgDesign.w, imgDesign.h);
     }
+    // ป้ายยื่นตั้งฉากกับผนัง: มุมด้านข้างเห็นหน้าป้ายชัดสุด
+    if (C.baseType(k) === 'blade' && C.baseType(was) !== 'blade') {
+      st.view = 'side';
+      if (stage) stage.setView('side');
+    }
     // บัตร ↔ ป้าย: ฉากที่เหมาะต่างกัน (บัตรเริ่มที่ "บนกระดาษ")
     if (!!t.small !== !!old.small) {
       if (st.scene !== 'photo') st.scene = C.defaultScene(k);
       buildScenes();
     } else if (st.scene !== 'photo' && !C.sceneFits(st.scene, k)) st.scene = C.defaultScene(k);
+    else if (st.scene === C.defaultScene(was) && C.defaultScene(k) !== st.scene) st.scene = C.defaultScene(k); // เช่น แบ็คดรอป → ห้องจัดงาน · บิลบอร์ด/ธง → กลางแจ้ง
     refreshPhotoQuad();
     sync();
   }
@@ -657,11 +681,17 @@
   /* ---------- ฉาก (ภาพย่อวาดจริงด้วยงานปัจจุบัน) ---------- */
   var CAMERA_ICON =
     '<svg viewBox="0 0 24 24"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7H8l1.5-2h5L16 7h2.5A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="13" r="3.2"/></svg>';
-  var scenesSmall = null; // รายการฉากตอนนี้ทำไว้ให้งานบัตร (true) หรือป้าย (false)
+  // รายการฉากโชว์เฉพาะฉากที่ใช้กับชนิดงานนี้ได้ — ชุดฉากเปลี่ยน (บัตร/ป้ายตั้งพื้น/ป้ายติดผนัง) ทำรายการใหม่
+  var scenesKey = null;
+  function fitScenes() {
+    return C.SCENE_ORDER.filter(function (k) {
+      return k === 'photo' || C.sceneFits(k, st.type);
+    }).join(',');
+  }
   function buildScenes() {
     var box = $('scenes');
     box.innerHTML = '';
-    scenesSmall = !!C.TYPES[st.type].small;
+    scenesKey = fitScenes();
     C.SCENE_ORDER.forEach(function (k) {
       if (opts.hideScenes.indexOf(k) >= 0 && k !== st.scene) return;
       if (k !== 'photo' && !C.sceneFits(k, st.type)) return; // ฉากบัตรโชว์เฉพาะงานบัตร
@@ -822,7 +852,7 @@
     $('textPane').hidden = st.mode !== 'text';
     pressed('#fitSeg button', 'fit', st.fit);
     pressed('#types .card', 'type', st.type);
-    if (scenesSmall !== null && scenesSmall !== !!C.TYPES[st.type].small) buildScenes(); // ย้อนกลับ/เปิดงานเก่าข้ามบัตร ↔ ป้าย
+    if (scenesKey !== null && scenesKey !== fitScenes()) buildScenes(); // เปลี่ยนชนิด/ย้อนกลับ/เปิดงานเก่า
     pressed('#scenes .scene', 'scene', st.scene);
     pressed('#themes .swatch', 'theme', st.text.theme);
     pressed('#aspectSeg button', 'aspect', st.aspect);
@@ -1505,7 +1535,7 @@
     font(x, 400, 20, BODY);
     if (t.unit === 'sqm') x.fillText('พื้นที่ ' + C.fmtArea(st.w, st.h), col.size, ry + 82);
     else {
-      var note = st.type === 'cnc' ? (C.cncPosts(st.steel) ? 'รวมเสาเหล็ก 2 ต้น' : 'ติดผนัง ไม่มีเสา') : st.type === 'stand' ? 'รวมโครงเหล็ก + ฐาน' : bt() === 'rollup' || bt() === 'xstand' ? 'รวมขาตั้ง + กระเป๋า' : '';
+      var note = st.type === 'cnc' ? (C.cncPosts(st.steel) ? 'รวมเสาเหล็ก 2 ต้น' : 'ติดผนัง ไม่มีเสา') : st.type === 'stand' ? 'รวมโครงเหล็ก + ฐาน' : bt() === 'rollup' || bt() === 'xstand' ? 'รวมขาตั้ง + กระเป๋า' : C.lookNote(bt(), st.look);
       if (runNow()) note = 'เลข ' + C.runText(st.run, 0) + (q.qty > 1 ? '–' + C.runText(st.run, q.qty - 1) : '');
       if (note) fitText(x, note, col.size, ry + 82, col.qty - col.size - 70, 400, 20, BODY);
     }
@@ -2189,6 +2219,14 @@
     lightbox: 'lightbox กล่องไฟ ไฟ led กลางคืน',
     stand: 'stand ขาตั้ง โครงเหล็ก เหล็กกล่อง ป้ายตั้ง ตั้งพื้น รายการตัด ตัดเหล็ก โครง เชื่อม',
     cnc: 'cnc ซีเอ็นซี ป้ายโครงการ โครงการ หมู่บ้าน ป้ายหน้าโครงการ อักษรนูน ตัวนูน ตัวอักษร อะลูมิเนียม คอมโพสิต acp ตั้งเสา เสาคู่ ไม่มีเสา ติดผนัง ติดอาคาร',
+    letters: 'letters ตัวอักษร ตัวหนังสือ ป้ายตัวอักษร อักษรนูน ตัวอักษรสแตนเลส ตัวอักษรอะคริลิค ตัวอักษรทอง ไฟส่องหลัง halo ไฟ led ติดผนัง หน้าร้าน โลโก้',
+    neon: 'neon นีออน ไฟนีออน led flex ป้ายไฟ ป้ายไฟวิ่ง คาเฟ่ ร้านกาแฟ กลางคืน',
+    blade: 'blade ป้ายยื่น ป้ายแขวน สองหน้า ป้ายกล่องไฟสองหน้า ตั้งฉาก ยื่นออกจากผนัง',
+    flag: 'flag ธง ธงญี่ปุ่น ธงริมทาง ธงหน้าร้าน งานอีเวนต์ ธงโฆษณา',
+    backdrop: 'backdrop แบ็คดรอป แบคดรอป ฉากหลัง เวที บูธ ทรัส truss อีเวนต์ งานแต่ง มุมถ่ายรูป',
+    billboard: 'billboard บิลบอร์ด ป้ายใหญ่ ริมถนน ป้ายโฆษณา เสาเดี่ยว ป้ายทางหลวง',
+    poster: 'poster โปสเตอร์ ใบปลิว แผ่นพับ flyer a4 a3 a5 กระดาษ แจก',
+    tablestand: 'table ป้ายตั้งโต๊ะ เมนู เมนูตั้งโต๊ะ อะคริลิค สแตนดี้ ตั้งเคาน์เตอร์ qr code',
     card: 'card บัตร การ์ด คูปอง coupon voucher ticket บัตรสมนาคุณ บัตรกำนัล ส่วนลด นามบัตร รันนัมเบอร์ รันเบอร์ เลขรัน running number ต้นขั้ว บัตรคิว บัตรเชิญ สมาชิก',
     rollup: 'roll up rollup โรลอัพ ขาตั้ง',
     xstand: 'x-stand xstand เอ็กซ์สแตนด์ ขาตั้ง',
@@ -3137,7 +3175,74 @@
 
   // ---- สีโครงเหล็ก / เสา ----
   var metalInput = null;
+  // ตัวเลือกหน้าตาป้าย: ตัวอักษร (วัสดุ/ไฟ) · นีออน (สีไฟ) · ป้ายยื่น/บิลบอร์ด (เปิดไฟ)
+  var neonInput = null;
+  function buildLook() {
+    var b = bt();
+    $('lookMatField').hidden = b !== 'letters';
+    $('lookLightField').hidden = b !== 'letters';
+    $('neonField').hidden = b !== 'neon';
+    $('lookLitRow').hidden = b !== 'blade' && b !== 'billboard';
+    $('lookLitText').textContent = b === 'blade' ? 'กล่องไฟ (มีไฟในกล่อง สว่างตอนกลางคืน)' : 'ไฟส่องป้ายตอนกลางคืน';
+    pressed('#lookMat button', 'mat', st.look.mat);
+    pressed('#lookLight button', 'light', st.look.light);
+    $('lookLit').checked = st.look.lit;
+    if (b !== 'neon') return;
+    var box = $('neonColors');
+    if (!box.children.length) {
+      C.NEON_COLORS.forEach(function (n) {
+        var el = document.createElement('button');
+        el.type = 'button';
+        el.className = 'swatch';
+        el.dataset.neon = n[0];
+        var bg = n[0] === 'design' ? 'conic-gradient(#ff5fa8,#ffd23f,#7dff6a,#4fd6ff,#ff5fa8)' : n[0];
+        el.innerHTML = '<i style="background:' + bg + ';box-shadow:0 0 6px ' + (n[0] === 'design' ? '#fff' : n[0]) + ',inset 0 0 0 1px rgba(0,0,0,.15)"></i>' + esc(n[1]);
+        el.addEventListener('click', function () {
+          setLook('neon', n[0]);
+        });
+        box.appendChild(el);
+      });
+      var l = document.createElement('label');
+      l.className = 'metal-custom';
+      neonInput = document.createElement('input');
+      neonInput.type = 'color';
+      neonInput.setAttribute('aria-label', 'เลือกสีไฟเอง');
+      neonInput.addEventListener('input', function (e) {
+        setLook('neon', e.target.value);
+      });
+      l.appendChild(neonInput);
+      l.appendChild(document.createElement('span')).textContent = 'สีอื่น';
+      box.appendChild(l);
+    }
+    pressed('#neonColors .swatch', 'neon', st.look.neon);
+    if (neonInput && st.look.neon !== 'design' && document.activeElement !== neonInput) neonInput.value = st.look.neon;
+  }
+  function setLook(k, v) {
+    var o = {};
+    o[k] = v;
+    st.look = C.normalizeLook(Object.assign({}, st.look, o));
+    save();
+    buildLook();
+    summary();
+    draw();
+  }
+  document.querySelectorAll('#lookMat button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      setLook('mat', b.dataset.mat);
+    });
+  });
+  document.querySelectorAll('#lookLight button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      setLook('light', b.dataset.light);
+      if (b.dataset.light !== 'none' && !st.night) toast('ไฟเห็นชัดตอนกลางคืน — กดปุ่ม “กลางคืน” เหนือภาพเพื่อดู');
+    });
+  });
+  $('lookLit').addEventListener('change', function (e) {
+    setLook('lit', e.target.checked);
+  });
+
   function buildMetals() {
+    buildLook();
     var cnc = st.type === 'cnc';
     $('cncPostField').hidden = !cnc;
     if (cnc) pressed('#cncPostSeg button', 'posts', C.cncPosts(st.steel) ? '1' : '0');

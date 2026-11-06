@@ -95,10 +95,73 @@
       presets: [[18, 7, 'บัตรสมนาคุณ'], [20, 8, 'คูปอง + ต้นขั้ว'], [9, 5.5, 'นามบัตร'], [8.6, 5.4, 'บัตรสมาชิก'], [10, 15, 'บัตรเชิญ'], [7, 10, 'บัตรคิว']],
     },
   };
-  var TYPE_ORDER = ['vinyl', 'frame', 'foam', 'sticker', 'acrylic', 'lightbox', 'stand', 'cnc', 'rollup', 'xstand', 'card'];
+  // ---- ป้ายหน้าร้าน / อีเวนต์ / งานพิมพ์เพิ่มเติม ----
+  TYPES.letters = {
+    name: 'ป้ายตัวอักษร (ติดผนัง)',
+    desc: 'ตัวอักษรอะคริลิค/สแตนเลส/ทอง ลอยจากผนัง มีไฟได้',
+    unit: 'set',
+    mount: 'wall',
+    presets: [[200, 50], [300, 60], [150, 40], [400, 80], [120, 30]],
+  };
+  TYPES.neon = {
+    name: 'ป้ายไฟนีออน LED',
+    desc: 'นีออนเฟล็กซ์ดัดตามตัวอักษร บนแผ่นอะคริลิคใส',
+    unit: 'set',
+    mount: 'wall',
+    presets: [[60, 40], [80, 50], [100, 60], [120, 60], [150, 80]],
+  };
+  TYPES.blade = {
+    name: 'ป้ายยื่น (แขวนสองหน้า)',
+    desc: 'กล่องป้ายสองหน้ายื่นจากผนัง แขนเหล็กยึด มีไฟได้',
+    unit: 'set',
+    mount: 'wall',
+    presets: [[60, 60], [50, 80], [80, 40], [60, 90], [40, 120]],
+  };
+  TYPES.flag = {
+    name: 'ธงญี่ปุ่น',
+    desc: 'ธงผ้าทรงยาวบนเสา ฐานถ่วงน้ำ ตั้งหน้าร้าน/งานอีเวนต์',
+    unit: 'set',
+    mount: 'floor',
+    presets: [[60, 180], [70, 200], [80, 240], [60, 150], [90, 300]],
+  };
+  TYPES.backdrop = {
+    name: 'ฉากแบ็คดรอป (อีเวนต์)',
+    desc: 'ไวนิลบนโครงทรัส ตั้งพื้น เวที บูธ มุมถ่ายรูป',
+    unit: 'sqm',
+    mount: 'floor',
+    presets: [[300, 200], [400, 250], [500, 300], [600, 300], [240, 240]],
+  };
+  TYPES.billboard = {
+    name: 'บิลบอร์ด (ริมถนน)',
+    desc: 'ป้ายใหญ่บนเสาเดี่ยว ทางเดินซ่อมบำรุง ไฟส่อง',
+    unit: 'sqm',
+    mount: 'floor',
+    presets: [[600, 300], [800, 400], [1200, 500], [1000, 300], [400, 200]],
+  };
+  TYPES.poster = {
+    name: 'โปสเตอร์ / ใบปลิว',
+    desc: 'พิมพ์กระดาษอาร์ต A5–A2 แจก ติดบอร์ด แปะหน้าร้าน',
+    unit: 'pcs',
+    word: 'แผ่น',
+    mount: 'wall',
+    small: true,
+    base: 'card', // หน้าตาแบบงานกระดาษ (ไม่มีเลขรัน)
+    run: false,
+    presets: [[21, 29.7, 'A4'], [29.7, 42, 'A3'], [14.8, 21, 'A5'], [42, 59.4, 'A2'], [10, 21, 'ใบปลิว DL']],
+  };
+  TYPES.tablestand = {
+    name: 'ป้ายตั้งโต๊ะ / เมนู',
+    desc: 'อะคริลิคใสเสียบกระดาษ ตั้งบนโต๊ะ เคาน์เตอร์',
+    unit: 'pcs',
+    word: 'อัน',
+    mount: 'floor',
+    small: true,
+    presets: [[14.8, 21, 'A5'], [21, 29.7, 'A4'], [10, 15, '4×6 นิ้ว'], [9.9, 21, 'DL']],
+  };
+  var TYPE_ORDER = ['vinyl', 'frame', 'foam', 'sticker', 'acrylic', 'lightbox', 'letters', 'neon', 'blade', 'stand', 'cnc', 'billboard', 'backdrop', 'flag', 'rollup', 'xstand', 'card', 'poster', 'tablestand'];
   var BASE_TYPES = TYPE_ORDER.slice(); // ชนิดมาตรฐาน (ชนิดของร้านเพิ่มต่อท้าย)
   // ชนิดของร้านใช้หน้าตาของชนิดมาตรฐานเหล่านี้ได้ (ขาตั้งเหล็ก/CNC มีโครงสร้างเฉพาะ ไม่เปิดให้ยืม)
-  var LOOK_TYPES = ['vinyl', 'frame', 'foam', 'sticker', 'acrylic', 'lightbox', 'rollup', 'xstand', 'card'];
+  var LOOK_TYPES = ['vinyl', 'frame', 'foam', 'sticker', 'acrylic', 'lightbox', 'letters', 'neon', 'blade', 'flag', 'backdrop', 'billboard', 'rollup', 'xstand', 'card', 'tablestand'];
   // ชนิดหน้าตาที่ใช้วาด (ชนิดของร้าน → ชนิดมาตรฐานที่ยืมหน้าตามา)
   function baseType(type) {
     var t = TYPES[type];
@@ -108,8 +171,11 @@
 
   /* ฉาก — small: เฉพาะงานชิ้นเล็ก (บัตร) · big: เฉพาะป้าย (บัตรไม่ต้องโชว์ฉากนี้) */
   var SCENES = {
-    paper: { name: 'บนกระดาษ', desc: 'วางบัตรบนกระดาษ ภาพสินค้า', small: true, papers: true },
-    hand: { name: 'มือถือบัตร', desc: 'ยื่นบัตรให้ลูกค้าดู', small: true },
+    paper: { name: 'บนกระดาษ', desc: 'วางบัตรบนกระดาษ ภาพสินค้า', small: true, papers: true, wallOnly: true },
+    hand: { name: 'มือถือบัตร', desc: 'ยื่นบัตรให้ลูกค้าดู', small: true, wallOnly: true },
+    table: { name: 'บนโต๊ะ / เคาน์เตอร์', desc: 'ตั้งบนโต๊ะในร้าน', small: true },
+    event: { name: 'ห้องจัดงาน', desc: 'เวที บูธ งานอีเวนต์', big: true },
+    road: { name: 'ริมถนน', desc: 'บิลบอร์ด ธง ป้ายตั้งพื้นกลางแจ้ง', big: true, floorOnly: true },
     studio: { name: 'พื้นเรียบ', desc: 'โชว์งานชัด ๆ' },
     wall: { name: 'ผนังปูน', desc: 'ในร้าน / ในอาคาร' },
     brick: { name: 'ผนังอิฐ', desc: 'ร้านกาแฟ / ร้านอาหาร' },
@@ -127,7 +193,8 @@
     classroom: { name: 'ในห้องเรียน', desc: 'เหนือกระดาน / ผนังห้อง', spots: [['above', 'เหนือกระดาน'], ['beside', 'ข้างกระดาน']], tones: true, big: true },
     photo: { name: 'รูปหน้าร้านลูกค้า', desc: 'อัปโหลดรูป แล้วลากมุมป้าย' },
   };
-  var SCENE_ORDER = ['paper', 'hand', 'studio', 'wall', 'brick', 'shop', 'fence', 'classDoor', 'officeDoor', 'classroom', 'photo'];
+  var SCENE_ORDER = ['paper', 'hand', 'table', 'studio', 'wall', 'brick', 'shop', 'fence', 'road', 'event', 'classDoor', 'officeDoor', 'classroom', 'photo'];
+  var TABLE_H = 75; // ความสูงโต๊ะ/เคาน์เตอร์ (ซม.)
   // ฉากนี้ใช้กับชนิดงานนี้ได้ไหม (บัตร ↔ ป้าย) · ฉากเริ่มต้นของชนิดงาน
   function sceneFits(scene, type) {
     var sc = SCENES[scene];
@@ -135,10 +202,19 @@
     if (!sc || !t) return false;
     if (sc.small && !t.small) return false;
     if (sc.big && t.small) return false;
+    if (sc.wallOnly && TYPES[baseType(type)].mount === 'floor') return false; // ป้ายตั้งโต๊ะไม่วางบนกระดาษ/ไม่ถือในมือ
+    if (sc.floorOnly && TYPES[baseType(type)].mount !== 'floor') return false; // ริมถนนไม่มีผนังให้ติด
     return true;
   }
   function defaultScene(type) {
-    return TYPES[type] && TYPES[type].small ? 'paper' : 'shop';
+    var t = TYPES[type];
+    if (!t) return 'shop';
+    if (t.small) return TYPES[baseType(type)].mount === 'floor' ? 'table' : 'paper';
+    var b = baseType(type);
+    if (b === 'backdrop') return 'event';
+    if (b === 'billboard' || b === 'flag') return 'road';
+    if (b === 'neon') return 'brick';
+    return 'shop';
   }
   // สีกระดาษรองบัตร (ฉาก "บนกระดาษ")
   var PAPERS = {
@@ -477,6 +553,58 @@
         g.bw = w + 2 * g.post;
         g.bh = g.cap + h + g.lift;
       }
+    } else if (t === 'letters') {
+      // ตัวอักษรหนา 3 ซม. ลอยจากผนัง 2.5 ซม. (ไม่มีแผ่นพื้น)
+      g.depth = 3;
+      g.gap = 2.5;
+      g.relief = 3;
+    } else if (t === 'neon') {
+      // หลอดนีออน 1.5 ซม. บนอะคริลิคใสลอยจากผนัง 3 ซม.
+      g.depth = 1.5;
+      g.gap = 3;
+    } else if (t === 'blade') {
+      // กล่องสองหน้าหนา 12 ซม. ตั้งฉากกับผนัง แขนยื่น 15 ซม.
+      g.depth = 12;
+      g.gap = 0;
+      g.arm = 15;
+      g.fx = g.arm;
+      g.fy = 8; // แขนเหล็กเหนือกล่อง
+      g.bw = w + g.arm;
+      g.bh = h + g.fy;
+    } else if (t === 'flag') {
+      // เสาข้างซ้าย 4 ซม. ราวบน 12 ซม. ชายธงลอยจากพื้น 30 ซม.
+      g.pole = 4;
+      g.cap = 12;
+      g.lift = 30;
+      g.gap = 0;
+      g.fx = 24; // เสา + ครึ่งฐานถ่วงน้ำ (ภาพ 2 มิติ)
+      g.fy = g.cap;
+      g.bw = w + g.fx + 2;
+      g.bh = g.cap + h + g.lift;
+    } else if (t === 'backdrop') {
+      // ทรัสสี่เหลี่ยม 30 ซม. สองข้าง + บน · ไวนิลลอยจากพื้น 10 ซม.
+      g.post = 30;
+      g.lift = 10;
+      g.depth = 30;
+      g.gap = 0;
+      g.fx = g.post;
+      g.fy = g.post;
+      g.bw = w + 2 * g.post;
+      g.bh = g.post + h + g.lift;
+    } else if (t === 'billboard') {
+      // เสาเดี่ยว ขอบล่างป้ายสูงจากพื้น ≥ 4 ม. · ไฟส่องยื่นเหนือป้าย 60 ซม.
+      g.lift = Math.max(400, Math.round(h * 1.3));
+      g.cap = 60;
+      g.depth = 40;
+      g.gap = 0;
+      g.fy = g.cap;
+      g.bh = g.cap + h + g.lift;
+    } else if (t === 'tablestand') {
+      // อะคริลิคพับ L ฐานลึก 7 ซม. หนา 0.5 ซม.
+      g.lift = 0.5;
+      g.depth = 7;
+      g.gap = 0;
+      g.bh = h + g.lift;
     } else if (t === 'xstand') {
       // ป้ายลอยจากพื้น 18 ซม. ขาไขว้ต่อเลยมุมล่างลงพื้น เอียงตามแนวทแยงของป้าย
       g.lift = 18;
@@ -509,6 +637,7 @@
   }
 
   function mountBottom(scene, g, spot) {
+    if (scene === 'table') return TABLE_H; // ตั้ง/พิงบนโต๊ะ
     if (g.mount === 'floor') return 0;
     var sp = resolveSpot(scene, spot, g);
     if (sp === 'full') return 2.5; // บานลอยจากพื้น 1 ซม. + ขอบ 1.5 ซม.
@@ -711,6 +840,14 @@
     rollup: 'ฐานลึก 40 ซม.',
     xstand: 'ขากาง 45 ซม.',
     card: 'อาร์ตการ์ด 300–350 แกรม',
+    letters: 'ตัวอักษรหนา 3 ซม. ลอยจากผนัง 2.5 ซม.',
+    neon: 'นีออน 1.5 ซม. + อะคริลิคใส',
+    blade: 'กล่องสองหน้า 12 ซม. + แขนยื่น',
+    flag: 'เสาข้าง + ฐานถ่วงน้ำ',
+    backdrop: 'โครงทรัส 30 ซม.',
+    billboard: 'เสาเดี่ยว + ทางเดิน + ไฟส่อง',
+    poster: 'กระดาษอาร์ต 160 แกรม',
+    tablestand: 'อะคริลิคใส ฐานลึก 7 ซม.',
   };
   function depthText(type) {
     return DEPTH[type] || DEPTH[baseType(type)] || '';
@@ -1248,6 +1385,32 @@
     });
   }
 
+  /* ตัวเลือกหน้าตาป้าย: ตัวอักษร (วัสดุ/ไฟ) · นีออน (สีไฟ) · ป้ายยื่น/บิลบอร์ด (เปิดไฟ) */
+  var LETTER_MATS = { color: 'สีตามงาน', inox: 'สแตนเลส', gold: 'สแตนเลสทอง', black: 'ดำด้าน', white: 'ขาว' };
+  var LIGHTS = { none: 'ไม่มีไฟ', halo: 'ไฟส่องหลัง', front: 'ไฟหน้า' };
+  var NEON_COLORS = [['design', 'ตามงาน'], ['#fff1d6', 'ขาววอร์ม'], ['#ff5fa8', 'ชมพู'], ['#4fd6ff', 'ฟ้า'], ['#ffd23f', 'เหลือง'], ['#7dff6a', 'เขียว'], ['#ff4b3e', 'แดง']];
+  function normalizeLook(o) {
+    o = o && typeof o === 'object' ? o : {};
+    var neonOk = o.neon === 'design' || HEX.test(String(o.neon || ''));
+    return {
+      mat: LETTER_MATS[o.mat] ? o.mat : 'color',
+      light: LIGHTS[o.light] ? o.light : 'none',
+      neon: neonOk ? String(o.neon).toLowerCase() : 'design',
+      lit: o.lit !== false,
+    };
+  }
+  function lookNote(base, look) {
+    look = normalizeLook(look);
+    if (base === 'letters') return 'ตัวอักษร' + LETTER_MATS[look.mat] + ' · ' + LIGHTS[look.light];
+    if (base === 'neon') return 'นีออน LED + อะคริลิคใส + อะแดปเตอร์';
+    if (base === 'blade') return look.lit ? 'กล่องไฟสองหน้า + แขนเหล็ก' : 'สองหน้า + แขนเหล็ก';
+    if (base === 'flag') return 'รวมเสา + ฐาน';
+    if (base === 'backdrop') return 'รวมโครงทรัส';
+    if (base === 'billboard') return look.lit ? 'รวมโครงสร้าง + ไฟส่อง' : 'รวมโครงสร้าง';
+    if (base === 'tablestand') return 'อะคริลิค + งานพิมพ์';
+    return '';
+  }
+
   // สีโครงเหล็ก/เสา: 'inox' = สแตนเลส (โลหะเงา)
   var METALS = [
     ['#1f2125', 'ดำ'],
@@ -1321,6 +1484,7 @@
     TYPE_ORDER: TYPE_ORDER,
     SCENES: SCENES,
     SCENE_ORDER: SCENE_ORDER,
+    TABLE_H: TABLE_H,
     sceneFits: sceneFits,
     defaultScene: defaultScene,
     PAPERS: PAPERS,
@@ -1377,6 +1541,11 @@
     normalizeOptions: normalizeOptions,
     applyTones: applyTones,
     METALS: METALS,
+    LETTER_MATS: LETTER_MATS,
+    LIGHTS: LIGHTS,
+    NEON_COLORS: NEON_COLORS,
+    normalizeLook: normalizeLook,
+    lookNote: lookNote,
     metalColor: metalColor,
     FONTS: FONTS,
     fontCssUrl: fontCssUrl,
