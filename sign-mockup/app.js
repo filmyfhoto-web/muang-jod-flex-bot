@@ -6,11 +6,11 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '4.1.0';
+  var APP_VERSION = '4.2.0';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp' });
 
-  var UNIT_WORD = { vinyl: 'ผืน', frame: 'ผืน', foam: 'แผ่น', sticker: 'แผ่น', acrylic: 'แผ่น', lightbox: 'ป้าย', stand: 'ชุด', cnc: 'ป้าย', rollup: 'ชุด', xstand: 'ชุด', card: 'ใบ', letters: 'ชุด', neon: 'ป้าย', blade: 'ป้าย', flag: 'ผืน', backdrop: 'ชุด', billboard: 'ป้าย', poster: 'แผ่น', tablestand: 'อัน' };
+  var UNIT_WORD = { vinyl: 'ผืน', frame: 'ผืน', foam: 'แผ่น', sticker: 'แผ่น', acrylic: 'แผ่น', lightbox: 'ป้าย', stand: 'ชุด', cnc: 'ป้าย', rollup: 'ชุด', xstand: 'ชุด', card: 'ใบ', letters: 'ชุด', neon: 'ป้าย', blade: 'ป้าย', flag: 'ผืน', backdrop: 'ชุด', billboard: 'ป้าย', poster: 'แผ่น', tablestand: 'อัน', standee: 'ชิ้น', window: 'ชิ้น' };
   // ชนิดงานของร้าน (ตัวเลือกของร้าน) ต้องลงทะเบียนก่อนโหลดงานที่บันทึกไว้ ไม่งั้นงานชนิดนั้นจะกลายเป็นไวนิล
   var OPT_KEY = 'np-sign-options-v1';
   try {
@@ -40,7 +40,8 @@
     sheet: 'a4', // บัตร: กระดาษที่จัดหน้าพิมพ์
     paper: 'white', // บัตร: สีกระดาษรองในฉาก "บนกระดาษ"
     cmpOut: 'jpg', // หน้าเทียบ 2 แบบ: รูป JPG / PDF
-    look: { mat: 'color', light: 'none', neon: 'design', lit: true }, // ตัวอักษร: วัสดุ/ไฟ · นีออน: สี · ป้ายยื่น/บิลบอร์ด: เปิดไฟ
+    look: { mat: 'color', light: 'none', neon: 'design', lit: true, film: 'print' }, // ตัวอักษร: วัสดุ/ไฟ · นีออน: สี · ป้ายยื่น/บิลบอร์ด: เปิดไฟ · ติดกระจก: ชนิดฟิล์ม
+    shape: { kind: 'rect', border: 0.3, radius: 10 }, // รูปทรงชิ้นงาน (สติ๊กเกอร์/โฟม/อะคริลิค/บัตร/สแตนดี้/ติดกระจก)
     bill: { extras: [], discount: 0, vat: false, deposit: 0, due: '', note: '', work: '' }, // ค่าใช้จ่ายเพิ่ม ส่วนลด VAT มัดจำ นัดรับ หมายเหตุ
     panel: 'right', // แผงตั้งค่าอยู่ขวา/ซ้าย
     fmt: 'jpg', // ชนิดรูปที่ส่งออกล่าสุด (jpg / png)
@@ -90,6 +91,7 @@
     if (!C.PAPERS[s.paper]) s.paper = DEF.paper;
     if (s.cmpOut !== 'pdf') s.cmpOut = 'jpg';
     s.look = C.normalizeLook(Object.assign({}, DEF.look, s.look));
+    s.shape = C.normalizeShape(s.shape);
     s.bill = C.normalizeBill(s.bill);
     if (!C.TYPES[s.type]) s.type = DEF.type;
     if (!C.SCENES[s.scene]) s.scene = DEF.scene;
@@ -242,7 +244,7 @@
   }
   // งานที่โชว์: บัตรที่เปิดเลขรัน = งาน + เลขใบแรก (+ เส้นปรุต้นขั้ว) รวมเป็นรูปเดียว ใช้ทั้ง 2 มิติ/3 มิติ
   var runCache = { key: '', design: null };
-  function shownDesign() {
+  function runDesign() {
     var d = currentDesign();
     var r = runNow();
     if (!r) return d;
@@ -253,8 +255,28 @@
     }
     return runCache.design;
   }
+  // รูปทรงที่ใช้ตอนนี้ (rect = สี่เหลี่ยมธรรมดา)
+  function shapeNow() {
+    return C.shapeKind(st.type, st.shape);
+  }
+  // งานที่โชว์ + รูปทรง (มุมมน/วงกลม/ไดคัท): ตัดรูปทรงเป็นภาพพื้นใสครั้งเดียว ใช้ทั้ง 2 มิติ/3 มิติ
+  var shapeCache = { key: '', design: null };
+  function shownDesign() {
+    var d = runDesign();
+    var kind = shapeNow();
+    if (kind === 'rect') return d;
+    var sh = st.shape;
+    var fit = runNow() ? 'cover' : st.fit;
+    var key = [d.id || textCache.key, fit, st.w, st.h, kind, sh.border, sh.radius, bt() === 'standee'].join('|');
+    if (shapeCache.key !== key) {
+      var sd = R.shapedDesign(d, st.w, st.h, fit, kind, Object.assign({ base: bt() === 'standee' }, sh), 1600);
+      sd.id = 'shape|' + key;
+      shapeCache = { key: key, design: sd };
+    }
+    return shapeCache.design;
+  }
   function fitNow() {
-    return runNow() ? 'cover' : st.fit;
+    return runNow() || shapeNow() !== 'rect' ? 'cover' : st.fit;
   }
   // งานชิ้นเล็ก (บัตร) ไม่เอาคนยืนเทียบ ไม่งั้นบัตรเหลือนิดเดียวในภาพ
   function personNow() {
@@ -273,6 +295,9 @@
     var line2 = [];
     if (t.unit === 'sqm') line2.push('พื้นที่ ' + C.fmtArea(st.w, st.h));
     line2.push('จำนวน ' + q.qty + ' ' + unit);
+    var shn = C.shapeNote(st.type, st.shape);
+    if (shn) line2.push(shn);
+    if (bt() === 'window') line2.push(C.FILMS[st.look.film]);
     if (runNow()) line2.push('เลข ' + C.runText(st.run, 0) + (q.qty > 1 ? '–' + C.runText(st.run, q.qty - 1) : ''));
     if (customer.trim()) line2.push('ลูกค้า: ' + customer.trim());
     var line3 = [];
@@ -382,6 +407,7 @@
       paper: st.paper,
       steel: st.steel,
       look: st.look,
+      shaped: shapeNow() === 'rect' ? '' : shapeNow(),
       person: personNow(),
       night: st.night,
       face: fc.canvas,
@@ -455,6 +481,8 @@
     var q = quoteNow();
     var html = '<b>' + esc(t.name) + '</b><span>' + esc(C.sizeText(st.w, st.h)) + '</span>';
     if (t.unit === 'sqm') html += '<span class="area">' + esc(C.fmtArea(st.w, st.h)) + '</span>';
+    var shn = C.shapeNote(st.type, st.shape);
+    if (shn) html += '<span>' + esc(shn) + '</span>';
     if (q.has) html += '<span class="price">' + esc(C.baht(q.total)) + ' บาท</span>';
     $('summary').innerHTML = html;
     // กล่องขนาดป้ายมุมภาพ: กว้าง (X) / สูง (Y) / หนา (Z)
@@ -557,6 +585,8 @@
     backdrop: '<svg viewBox="0 0 44 34"><rect x="3" y="3" width="38" height="5"/><rect x="3" y="3" width="5" height="28"/><rect x="36" y="3" width="5" height="28"/><path d="M3 3l5 5M8 3l-5 5M36 3l5 5M41 3l-5 5"/><rect x="10" y="10" width="24" height="17"/></svg>',
     billboard: '<svg viewBox="0 0 44 34"><rect x="4" y="4" width="36" height="16" rx="1"/><path d="M22 20v12M17 32h10"/><path d="M5 22h34"/><path d="M10 2l2 2M22 1v3M34 2l-2 2"/></svg>',
     poster: '<svg viewBox="0 0 44 34"><path d="M13 3h14l5 5v23H13z"/><path d="M27 3v5h5"/><rect x="16" y="11" width="12" height="9" rx="1"/><path d="M16 24h12M16 27h8"/></svg>',
+    standee: '<svg viewBox="0 0 44 34"><path d="M22 3c3 0 5 2.2 5 5s-1.6 4.2-2.6 4.8c4 .9 6.6 3.6 6.6 8.2V30H13V21c0-4.6 2.6-7.3 6.6-8.2C18.6 12.2 17 10.8 17 8c0-2.8 2-5 5-5z"/><path d="M8 31h28"/></svg>',
+    window: '<svg viewBox="0 0 44 34"><rect x="4" y="3" width="36" height="28" rx="1"/><path d="M22 3v28"/><rect x="8" y="10" width="11" height="12" rx="1"/><path d="M27 8l-3 5M33 8l-7 12"/></svg>',
     tablestand: '<svg viewBox="0 0 44 34"><path d="M14 4l4 25M30 4l-4 25"/><rect x="15" y="5" width="14" height="19" rx="1"/><path d="M9 30h26"/><path d="M18 10h8M18 14h6"/></svg>',
   };
 
@@ -607,6 +637,10 @@
       st.w = q[0];
       st.h = q[1];
       if (st.mode === 'image' && imgDesign) st.h = C.heightForImage(st.w, imgDesign.w, imgDesign.h);
+    }
+    // สแตนดี้จากไฟล์รูป: คงความสูง ปรับความกว้างตามสัดส่วนรูป (ไดคัทพอดีตัว)
+    if (C.baseType(k) === 'standee' && C.baseType(was) !== 'standee' && st.mode === 'image' && imgDesign) {
+      st.w = C.clampCm(Math.round(((st.h * imgDesign.w) / imgDesign.h) * 10) / 10, st.w);
     }
     // ป้ายยื่นตั้งฉากกับผนัง: มุมด้านข้างเห็นหน้าป้ายชัดสุด
     if (C.baseType(k) === 'blade' && C.baseType(was) !== 'blade') {
@@ -1543,6 +1577,8 @@
     else {
       var note = st.type === 'cnc' ? (C.cncPosts(st.steel) ? 'รวมเสาเหล็ก 2 ต้น' : 'ติดผนัง ไม่มีเสา') : st.type === 'stand' ? 'รวมโครงเหล็ก + ฐาน' : bt() === 'rollup' || bt() === 'xstand' ? 'รวมขาตั้ง + กระเป๋า' : C.lookNote(bt(), st.look);
       if (runNow()) note = 'เลข ' + C.runText(st.run, 0) + (q.qty > 1 ? '–' + C.runText(st.run, q.qty - 1) : '');
+      var shn = C.shapeNote(st.type, st.shape);
+      if (shn) note = note ? shn + ' · ' + note : shn;
       if (note) fitText(x, note, col.size, ry + 76, col.qty - col.size - 70, 400, 19, BODY);
     }
     x.textAlign = 'center';
@@ -2016,6 +2052,8 @@
       var r = runNow();
       fin = r ? 'รันนัมเบอร์ ' + C.runText(r, 0) + '–' + C.runText(r, q.qty - 1) + (C.runSlots(r, st.w, st.h).stub ? ' · ต้นขั้ว ' + C.fmtCm(r.stub) + ' ซม. + ปรุ' : '') + ' · สีเลข ' + r.color : 'ตัดตามขนาด (ไม่มีเลขรัน)';
     } else fin = C.lookNote(b, st.look);
+    var shn2 = C.shapeNote(st.type, st.shape);
+    if (shn2) fin = shn2 + (fin ? ' · ' + fin : '');
     if (sc) fin = (fin ? fin + ' · ' : '') + 'เหล็กกล่อง ' + C.tubeText(sc.opts) + ' ' + sc.pieces + ' ชิ้น รวม ' + C.fmtCm(sc.total) + ' ซม. (' + (sc.opts.cut === 'miter' ? 'เข้ามุม 45°' : 'ตัดตรงชน') + ')';
     if (fin) rows.push(['งานตกแต่ง / อุปกรณ์', fin]);
     if (st.mode === 'image' && imgDesign) {
@@ -2443,7 +2481,7 @@
     vinyl: 'vinyl banner ป้ายผ้า ไวนิว ตาไก่ ประตู',
     frame: 'frame โครงเหล็ก ขึงตึง ป้ายโครง',
     foam: 'foam board โฟม ฟิวเจอร์บอร์ด บอร์ด',
-    sticker: 'sticker สติกเกอร์ สติ้กเกอร์ ติดกระจก ฟิล์ม ประตู',
+    sticker: 'sticker สติกเกอร์ สติ้กเกอร์ ติดกระจก ฟิล์ม ประตู ไดคัท die cut วงกลม มุมมน ฉลาก โลโก้',
     acrylic: 'acrylic อะคริลิก อคริลิค ใส หมุด',
     lightbox: 'lightbox กล่องไฟ ไฟ led กลางคืน',
     stand: 'stand ขาตั้ง โครงเหล็ก เหล็กกล่อง ป้ายตั้ง ตั้งพื้น รายการตัด ตัดเหล็ก โครง เชื่อม',
@@ -2455,6 +2493,8 @@
     backdrop: 'backdrop แบ็คดรอป แบคดรอป ฉากหลัง เวที บูธ ทรัส truss อีเวนต์ งานแต่ง มุมถ่ายรูป',
     billboard: 'billboard บิลบอร์ด ป้ายใหญ่ ริมถนน ป้ายโฆษณา เสาเดี่ยว ป้ายทางหลวง',
     poster: 'poster โปสเตอร์ ใบปลิว แผ่นพับ flyer a4 a3 a5 กระดาษ แจก',
+    standee: 'standee สแตนดี้ ไดคัท ตั้งพื้น คนยืน ตัวการ์ตูน มาสคอต ฟิวเจอร์บอร์ด ตัดตามรูป ถ่ายรูป หน้าร้าน งานอีเวนต์',
+    window: 'window glass กระจก ติดกระจก สติ๊กเกอร์ติดกระจก ฟิล์ม ฟิล์มฝ้า ฝ้า ฟิล์มขุ่น one way วันเวย์ มองทางเดียว ตาข่าย หน้าร้าน ประตูกระจก ตู้กระจก',
     tablestand: 'table ป้ายตั้งโต๊ะ เมนู เมนูตั้งโต๊ะ อะคริลิค สแตนดี้ ตั้งเคาน์เตอร์ qr code',
     card: 'card บัตร การ์ด คูปอง coupon voucher ticket บัตรสมนาคุณ บัตรกำนัล ส่วนลด นามบัตร รันนัมเบอร์ รันเบอร์ เลขรัน running number ต้นขั้ว บัตรคิว บัตรเชิญ สมาชิก',
     rollup: 'roll up rollup โรลอัพ ขาตั้ง',
@@ -3470,8 +3510,79 @@
     setLook('lit', e.target.checked);
   });
 
+  // ---- รูปทรงชิ้นงาน (มุมมน / วงกลม / ไดคัท) · ชนิดฟิล์มติดกระจก ----
+  var FILM_HINT = {
+    print: 'พิมพ์สีลงสติ๊กเกอร์ติดกระจกด้านนอก สีสด ทึบแสง',
+    frost: 'ฟิล์มฝ้าขาวขุ่นเต็มชิ้น ตัวอักษร/ลายในงานตัดเป็นช่องใส (เห็นทะลุเข้าร้าน) — งานที่มีพื้นสีเดียวจะได้ลายคมสุด',
+    oneway: 'พิมพ์บนสติ๊กเกอร์ตาข่ายรูพรุน ข้างนอกเห็นงาน ในร้านมองออกมาเห็นข้างนอก (ภาพจะทึบลงนิดหน่อยตามจริง)',
+  };
+  function buildShape() {
+    var b = bt();
+    var on = C.SHAPE_TYPES.indexOf(b) >= 0;
+    $('shapeField').hidden = !on;
+    $('filmField').hidden = b !== 'window';
+    if (b === 'window') {
+      pressed('#filmSeg button', 'film', st.look.film);
+      $('filmHint').textContent = FILM_HINT[st.look.film] || '';
+    }
+    if (!on) return;
+    var kind = shapeNow();
+    pressed('#shapeSeg button', 'shape', kind);
+    // สแตนดี้ไดคัทเสมอ (ไม่มีแบบสี่เหลี่ยม)
+    $('shapeSeg').querySelector('[data-shape="rect"]').hidden = b === 'standee';
+    $('shapeOpts').hidden = kind !== 'cut' && kind !== 'round';
+    $('shapeBorderRow').hidden = kind !== 'cut';
+    $('shapeRadiusRow').hidden = kind !== 'round';
+    setVal('shapeBorder', C.fmtCm(st.shape.border));
+    setVal('shapeRadius', String(st.shape.radius));
+    var alpha = st.mode === 'image' && imgDesign && R.hasAlpha(imgDesign.src);
+    $('shapeHint').textContent =
+      kind === 'cut'
+        ? alpha
+          ? 'ไฟล์พื้นใส — ตัดตามรูปในไฟล์ + ขอบขาวรอบนอก'
+          : 'ตัดตามลาย/ตัวอักษร เก็บสีพื้นงานรอบลายไว้ + ขอบขาวรอบนอก · ใช้ไฟล์ PNG พื้นใสจะได้ขอบตามรูปเป๊ะ'
+        : kind === 'circle'
+          ? 'ตัดเป็นวงกลม (ขนาดกว้าง = สูง) หรือวงรีตามขนาดที่ตั้ง'
+          : kind === 'round'
+            ? 'ลบมุมทั้ง 4 มุม (% ของด้านสั้น)'
+            : '';
+  }
+  function setShape(k, v) {
+    var o = {};
+    o[k] = v;
+    st.shape = C.normalizeShape(Object.assign({}, st.shape, o));
+    save();
+    buildShape();
+    summary();
+    draw();
+  }
+  document.querySelectorAll('#shapeSeg button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      setShape('kind', b.dataset.shape);
+    });
+  });
+  [
+    ['shapeBorder', 'border'],
+    ['shapeRadius', 'radius'],
+  ].forEach(function (f) {
+    $(f[0]).addEventListener('input', function (e) {
+      if (String(e.target.value).trim() === '') return;
+      var v = C.num(e.target.value);
+      if (!isFinite(v)) return;
+      setShape(f[1], v);
+    });
+    $(f[0]).addEventListener('blur', buildShape);
+  });
+  document.querySelectorAll('#filmSeg button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      setLook('film', b.dataset.film);
+      buildShape();
+    });
+  });
+
   function buildMetals() {
     buildLook();
+    buildShape();
     var cnc = st.type === 'cnc';
     $('cncPostField').hidden = !cnc;
     if (cnc) pressed('#cncPostSeg button', 'posts', C.cncPosts(st.steel) ? '1' : '0');

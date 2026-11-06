@@ -1518,7 +1518,93 @@ function buildClassroom() {
   return env;
 }
 
-const BUILD = { paper: buildPaper, hand: buildHandScene, table: buildTableScene, event: buildEventScene, studio: buildStudio, wall: buildWall, brick: buildBrick, shop: buildShop, fence: () => buildFence(false), road: () => buildFence(true), classDoor: buildClassDoor, officeDoor: buildOfficeDoor, classroom: buildClassroom };
+// หน้าร้านกระจก: บานกระจกใหญ่กรอบอะลูมิเนียมทุก 4 ม. เห็นในร้าน (ชั้นวางของ ไฟเพดาน) · ป้ายคาดเหนือกระจก · ทางเท้า ถนน
+function buildGlass() {
+  const g = new THREE.Group();
+  const facade = plaster('#e6dfd2', 67);
+  const facadeMat = std({ map: repeatOf(facade.map, 1.5, 1.5), bumpMap: repeatOf(facade.bump, 1.5, 1.5), bumpScale: 0.5, roughness: 0.92 });
+  const pillarMat = std({ map: repeatOf(facade.map, 0.4, 2), color: 0xefe8da, roughness: 0.9 });
+  const N = 9;
+  const W = 4;
+  const P = 0.3;
+  const GT = 2.7;
+  const pw = W - P;
+  // ภาพในร้าน (ชั้นวางของ) — เบลอนิดหน่อย มองผ่านกระจก
+  const ic = mk(1024, 760);
+  const ix = ic.getContext('2d');
+  if (NS.render && NS.render.glassInterior) NS.render.glassInterior(ix, 0, 0, 1024, 760, 31);
+  else {
+    ix.fillStyle = '#3a352f';
+    ix.fillRect(0, 0, 1024, 760);
+  }
+  const ib = mk(1024, 760);
+  const bx = ib.getContext('2d');
+  bx.filter = 'blur(3px)';
+  bx.drawImage(ic, 0, 0);
+  const inTex = canvasTex(ib);
+  const backMat = std({ map: inTex, emissiveMap: inTex, emissive: 0xffffff, emissiveIntensity: 0.45, roughness: 1 });
+  const wallIn = std({ color: 0x4a443c, roughness: 0.95 });
+  const ceilIn = std({ color: 0x8d8478, emissive: 0x3a3226, roughness: 0.9 });
+  const floorIn = std({ color: 0x3a342d, roughness: 0.8 });
+  const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xb8ccd4, metalness: 0, roughness: 0.04, transparent: true, opacity: 0.2, clearcoat: 1, clearcoatRoughness: 0.02, depthWrite: false, envMapIntensity: 1.3 });
+  for (let k = -4; k <= 4; k++) {
+    const mx = k * W;
+    // ห้องในร้าน (กล่องมองจากด้านใน) ลึก 1.6 ม.
+    const room = new THREE.Mesh(new THREE.BoxGeometry(pw, GT, 1.6), [wallIn, wallIn, ceilIn, floorIn, wallIn, backMat]);
+    room.material.forEach((m) => (m.side = THREE.BackSide));
+    room.position.set(mx, GT / 2, -0.8 - 0.02);
+    room.receiveShadow = true;
+    room.userData.noCast = true;
+    g.add(room);
+    const pane = plane(pw, GT - 0.08, glassMat);
+    pane.position.set(mx, 0.08 + (GT - 0.08) / 2, 0);
+    pane.renderOrder = 1;
+    pane.userData.noCast = true;
+    g.add(pane);
+    // กรอบอะลูมิเนียม: บน ล่าง ข้าง
+    const top = box(pw, 0.05, 0.07, MAT.alu);
+    top.position.set(mx, GT - 0.025, 0);
+    const sill = box(pw, 0.08, 0.08, MAT.darkAlu);
+    sill.position.set(mx, 0.04, 0);
+    g.add(top, sill);
+    for (const sx of [-1, 1]) {
+      const side = box(0.05, GT, 0.07, MAT.alu);
+      side.position.set(mx + sx * (pw / 2 - 0.025), GT / 2, 0);
+      g.add(side);
+    }
+  }
+  for (let k = -4; k <= 5; k++) {
+    const p = box(P, GT, 0.3, pillarMat);
+    p.position.set(k * W - W / 2, GT / 2, 0);
+    g.add(p);
+  }
+  // ป้ายคาดหน้าร้าน + ผนังชั้นบน
+  const fascia = box(N * W, 0.7, 0.36, std({ color: 0x2e3239, roughness: 0.6, metalness: 0.2 }));
+  fascia.position.set(0, GT + 0.35, 0);
+  g.add(fascia);
+  const upper = box(N * W, 3, 0.2, facadeMat);
+  upper.position.set(0, GT + 0.7 + 1.5, -0.1);
+  g.add(upper);
+  const pav = tiles('pavers', 4, 512, [178, 172, 162], '#7d776d', 18, 71);
+  const walk = floorMesh(N * W + 10, 3, pav, { tile: 1.2, bumpScale: 0.8 });
+  walk.position.set(0, 0, 1.5);
+  g.add(walk);
+  const curb = box(N * W + 10, 0.15, 0.15, std({ color: 0xb9b4aa, roughness: 0.9 }));
+  curb.position.set(0, 0.0, 3.07);
+  g.add(curb);
+  const ap = asphaltTex();
+  const road = floorMesh(N * W + 30, 30, { map: ap.map }, { tile: 2 });
+  road.position.set(0, -0.12, 18.1);
+  g.add(road);
+  shadowy(g, true, true);
+  road.castShadow = false;
+  g.traverse((m) => {
+    if (m.userData.noCast) m.castShadow = false;
+  });
+  return { group: g, bg: new THREE.Color(0xbcc7cf), floorZ: 0.9, wallZ: 0, kind: 'street' };
+}
+
+const BUILD = { paper: buildPaper, hand: buildHandScene, table: buildTableScene, event: buildEventScene, studio: buildStudio, wall: buildWall, brick: buildBrick, shop: buildShop, glass: buildGlass, fence: () => buildFence(false), road: () => buildFence(true), classDoor: buildClassDoor, officeDoor: buildOfficeDoor, classroom: buildClassroom };
 
 /* ---------------- ตัวป้าย ---------------- */
 // หน้าป้าย: วัสดุแต่ละชนิดผิวไม่เหมือนกัน
@@ -1664,6 +1750,186 @@ function buildBoard(type, w, h, map, edge) {
     front = d;
   }
   return { group: g, face, front };
+}
+
+/* ---------- ชิ้นงานรูปทรงพิเศษ (มุมมน / วงกลม / ไดคัท) ----------
+ * หน้างานเป็นภาพพื้นใส (ตัดรูปทรงแล้ว) → แผ่นเรียบซ้อนหลายชั้นตัดด้วย alphaTest เป็นความหนาตามรูปจริง เงาก็ตามรูป */
+function silCanvas(src) {
+  const c = mk(src.width, src.height);
+  const x = c.getContext('2d');
+  x.drawImage(src, 0, 0);
+  x.globalCompositeOperation = 'source-in';
+  x.fillStyle = '#ffffff';
+  x.fillRect(0, 0, c.width, c.height);
+  return c;
+}
+function shapedMats(sideColor, rough) {
+  return {
+    side: std({ color: sideColor, roughness: rough, alphaTest: 0.5, side: THREE.DoubleSide }),
+    depth: new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, alphaTest: 0.5 }),
+    dist: new THREE.MeshDistanceMaterial({ alphaTest: 0.5 }),
+  };
+}
+// แผ่นหนา d เริ่มที่ z0: ชั้นขอบทุก ~1.2 มม. (ชั้นหลังสุดทอดเงา) + หน้างาน
+function shapedSlab(g, w, h, face, M, z0, d) {
+  const geo = new THREE.PlaneGeometry(w, h);
+  const n = d > 0 ? Math.max(2, Math.min(10, Math.ceil(d / 0.0012) + 1)) : 0;
+  for (let i = 0; i < n; i++) {
+    const m = new THREE.Mesh(geo, M.side);
+    m.position.z = z0 + (d * i) / n;
+    m.customDepthMaterial = M.depth;
+    m.customDistanceMaterial = M.dist;
+    if (i > 0) m.userData.noCast = true;
+    g.add(m);
+  }
+  const f = new THREE.Mesh(geo, face);
+  f.position.z = z0 + d;
+  f.customDepthMaterial = M.depth;
+  f.customDistanceMaterial = M.dist;
+  if (n) f.userData.noCast = true;
+  g.add(f);
+  return f;
+}
+function shapedFaceUpdater(M, extra = []) {
+  let tex = null;
+  return (faceTex) => {
+    const src = faceTex && faceTex.image;
+    if (!src) return;
+    const t = canvasTex(silCanvas(src));
+    for (const m of [M.side, M.depth, M.dist, ...extra]) {
+      m.map = t;
+      m.needsUpdate = true;
+    }
+    if (tex) tex.dispose();
+    tex = t;
+  };
+}
+function standoffsAt(g, pts, gap, t) {
+  for (const [x, y] of pts) {
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0125, gap, 20), MAT.chrome);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.set(x, y, gap / 2);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0128, 0.012, 24), MAT.chrome);
+    cap.rotation.x = Math.PI / 2;
+    cap.position.set(x, y, gap + t + 0.007);
+    g.add(barrel, cap);
+  }
+}
+function buildShaped(type, w, h, map, kind) {
+  const g = new THREE.Group();
+  const face = faceMat(type, map);
+  face.alphaTest = 0.5;
+  const acr = type === 'acrylic';
+  const P = { foam: [0.002, 0.005, 0xf1efe9], card: [0.0025, 0.0004, 0xf4f3ef], sticker: [0.0008, 0, 0xffffff], acrylic: [kind === 'cut' ? 0.012 : 0.025, 0.008, 0xd3ebe6] }[type] || [0.002, 0.005, 0xf1efe9];
+  const [z0, d, sideColor] = P;
+  const M = shapedMats(sideColor, acr ? 0.12 : 0.85);
+  if (type === 'sticker') {
+    face.polygonOffset = true;
+    face.polygonOffsetFactor = -2;
+    face.polygonOffsetUnits = -2;
+  }
+  shapedSlab(g, w, h, face, M, z0, d);
+  const extra = [];
+  let front = z0 + d + 0.0002;
+  if (acr) {
+    // ผิวอะคริลิคใสเงาด้านหน้า (ตามรูป) + หมุดสแตนเลส (มุมมน: 4 มุม · วงกลม: 4 จุดในวง · ไดคัท: หมุดซ่อนหลังแผ่น)
+    const gl = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.16, roughness: 0.03, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.03, alphaTest: 0.05, depthWrite: false, envMapIntensity: LIGHT.env });
+    const top = plane(w, h, gl);
+    top.position.z = z0 + d + 0.0006;
+    top.userData.noCast = true;
+    g.add(top);
+    extra.push(gl);
+    const inset = Math.max(0.025, Math.min(w, h) * 0.07);
+    const pts =
+      kind === 'round'
+        ? [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sy]) => [sx * (w / 2 - inset), sy * (h / 2 - inset)])
+        : kind === 'circle'
+          ? [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sy]) => [sx * w * 0.27, sy * h * 0.27])
+          : [];
+    standoffsAt(g, pts, z0, d);
+    front = z0 + d + 0.001;
+  }
+  const setFace = shapedFaceUpdater(M, extra);
+  setFace(map);
+  const dispose = () => {
+    M.depth.dispose();
+    M.dist.dispose();
+  };
+  return { group: g, face, front, setFace, dispose, shaped: kind };
+}
+
+/* สแตนดี้ไดคัท: ฟิวเจอร์บอร์ด 5 มม. ตัดตามรูป ฐานตรง เอนหลัง 6° มีขาค้ำด้านหลัง (ตั้งพื้น) */
+const STANDEE_TILT = 0.105;
+function buildStandee(w, h, map) {
+  const g = new THREE.Group();
+  const d = 0.005;
+  const face = faceMat('foam', map);
+  face.alphaTest = 0.5;
+  const M = shapedMats(0xf4f3ef, 0.85);
+  const board = new THREE.Group();
+  const slab = new THREE.Group();
+  shapedSlab(slab, w, h, face, M, 0, d);
+  slab.position.y = h / 2;
+  board.add(slab);
+  board.rotation.x = -STANDEE_TILT;
+  g.add(board);
+  const c = Math.cos(STANDEE_TILT);
+  const sn = Math.sin(STANDEE_TILT);
+  const at = (x, y, z) => [x, y * c + z * sn, -y * sn + z * c];
+  // ขาค้ำ: แผ่นโฟมกว้าง 10 ซม. จากหลังแผ่นที่ 60% ของความสูง ลงพื้นเฉียงไปข้างหลัง
+  const hs = h * 0.6;
+  const A = at(0, hs, -0.002);
+  const B = [0, 0.004, -hs * 0.57];
+  const dy = A[1] - B[1];
+  const dz = A[2] - B[2];
+  const L = Math.hypot(dy, dz);
+  const strut = box(Math.min(0.1, w * 0.3), L, 0.005, MAT.foamEdge);
+  strut.position.set(0, (A[1] + B[1]) / 2, (A[2] + B[2]) / 2);
+  strut.rotation.x = Math.atan2(dz, dy);
+  g.add(strut);
+  const setFace = shapedFaceUpdater(M);
+  setFace(map);
+  const corners = [at(-w / 2, h, d), at(w / 2, h, d), at(w / 2, 0, d), at(-w / 2, 0, d)];
+  const dispose = () => {
+    M.depth.dispose();
+    M.dist.dispose();
+  };
+  return { group: g, face, front: d, faceY: [0, h * c], corners, setFace, dispose, shaped: 'cut' };
+}
+
+/* สติ๊กเกอร์ติดกระจก (แนบผิวกระจกด้านนอก): print = พิมพ์สีทึบ · frost = ฟิล์มฝ้าขุ่น ลายตัดใส · oneway = ตาข่ายรูพรุน */
+function buildWindow(w, h, map, look, shaped, edge) {
+  const g = new THREE.Group();
+  const film = look.film || 'print';
+  const face =
+    film === 'frost'
+      ? std({ color: 0xffffff, transparent: true, depthWrite: false, roughness: 0.8 })
+      : std({ map, roughness: film === 'oneway' ? 0.55 : 0.3, metalness: 0, alphaTest: shaped ? 0.5 : 0 });
+  face.polygonOffset = true;
+  face.polygonOffsetFactor = -2;
+  face.polygonOffsetUnits = -2;
+  const m = plane(w, h, face);
+  m.position.z = 0.0012;
+  m.renderOrder = 2;
+  m.userData.noCast = true;
+  g.add(m);
+  let tex = null;
+  const setFace = (faceTex, e) => {
+    if (film === 'print') return;
+    const src = faceTex && faceTex.image;
+    if (!src || !NS.render || !NS.render.filmArt) return;
+    const t = canvasTex(NS.render.filmArt(src, film, e || edge, src.width / (w * 100)));
+    if (film === 'oneway' && !shaped) t.userData.mimeType = 'image/jpeg';
+    face.map = t;
+    face.needsUpdate = true;
+    if (tex) tex.dispose();
+    tex = t;
+  };
+  setFace(map, edge);
+  const dispose = () => {
+    if (tex) tex.dispose();
+  };
+  return { group: g, face, front: 0.0014, setFace, dispose, shaped };
 }
 
 function buildRollup(w, h, map) {
@@ -2546,6 +2812,9 @@ export function createStage(opts) {
     else if (bt === 'backdrop') model = buildBackdrop(w, h, map);
     else if (bt === 'billboard') model = buildBillboard(w, h, map, C.normalizeLook(s.look));
     else if (bt === 'tablestand') model = buildTableStand(w, h, map);
+    else if (bt === 'standee') model = buildStandee(w, h, map);
+    else if (bt === 'window') model = buildWindow(w, h, map, C.normalizeLook(s.look), s.shaped || '', s.edge || [255, 255, 255]);
+    else if (s.shaped && ['foam', 'acrylic', 'card', 'sticker'].indexOf(bt) >= 0) model = buildShaped(bt, w, h, map, s.shaped);
     else model = buildBoard(bt, w, h, map, s.edge || [120, 120, 120]);
     model.type = bt;
     model.w = w;
@@ -2553,7 +2822,10 @@ export function createStage(opts) {
     model.floor = C.geometry(s.type, s.w, s.h, s.steel).mount === 'floor';
     shadowy(model.group, true, true);
     if (bt === 'vinyl') model.group.children.slice(0, 2).forEach((m) => (m.receiveShadow = false));
-    if (bt === 'sticker') model.group.traverse((m) => (m.castShadow = m.receiveShadow = false));
+    if (bt === 'sticker' || bt === 'window') model.group.traverse((m) => (m.castShadow = m.receiveShadow = false));
+    model.group.traverse((m) => {
+      if (m.userData.noCast) m.castShadow = false;
+    });
     signRoot.add(model.group);
   }
 
@@ -2596,7 +2868,7 @@ export function createStage(opts) {
       }
       if (!handG.parent) signRoot.add(handG);
     } else if (handG.parent) signRoot.remove(handG);
-    const stackOn = sceneKey === 'paper' && model.type === 'card';
+    const stackOn = sceneKey === 'paper' && model.type === 'card' && !model.shaped; // บัตรรูปทรงพิเศษ ไม่ซ้อนบัตรสี่เหลี่ยมไว้ใต้
     if (stackOn) {
       const sk2 = w + '|' + h;
       if (sk2 !== stackKey) {
@@ -2852,6 +3124,7 @@ export function createStage(opts) {
     if (st.faceKey !== faceKey) {
       const old = faceTex;
       faceTex = makeTexture(st.face);
+      if (st.shaped) faceTex.userData.mimeType = 'image/png'; // งานรูปทรงพิเศษ: พื้นใส ต้องเก็บเป็น PNG
       faceKey = st.faceKey;
       if (model && model.face) {
         model.face.map = faceTex;
@@ -2861,7 +3134,7 @@ export function createStage(opts) {
       if (model && model.setFace) model.setFace(faceTex, st.edge);
       if (old) old.dispose();
     }
-    const sk = [st.type, st.w, st.h, (st.edge || []).map(Math.round).join(','), st.type === 'stand' ? JSON.stringify(st.steel || {}) : st.type === 'cnc' ? ((st.steel && st.steel.color) || '') + (C.cncPosts(st.steel) ? '' : '|wall') : '', ['letters', 'neon', 'blade', 'billboard'].indexOf(C.baseType(st.type)) >= 0 ? JSON.stringify(C.normalizeLook(st.look)) : ''].join('|');
+    const sk = [st.type, st.w, st.h, (st.edge || []).map(Math.round).join(','), st.type === 'stand' ? JSON.stringify(st.steel || {}) : st.type === 'cnc' ? ((st.steel && st.steel.color) || '') + (C.cncPosts(st.steel) ? '' : '|wall') : '', ['letters', 'neon', 'blade', 'billboard'].indexOf(C.baseType(st.type)) >= 0 ? JSON.stringify(C.normalizeLook(st.look)) : C.baseType(st.type) === 'window' ? C.normalizeLook(st.look).film : '', st.shaped || ''].join('|');
     const geomChanged = sk !== signKey;
     const sceneChanged = st.scene !== cur.scene || !envKey;
     const personChanged = !!st.person !== !!cur.person || st.spot !== cur.spot || !!st.doorOpen !== !!cur.doorOpen;

@@ -775,7 +775,7 @@ test('ป้ายเพิ่ม 8 ชนิด: ตัวอักษร น�
   // บิลบอร์ดสูงจากพื้นอย่างน้อย 4 ม.
   assert.ok(C.geometry('billboard', 800, 400).lift >= 400);
   // ตัวเลือกหน้าตา: ค่าผิด → ค่าเริ่มต้น
-  assert.deepEqual(C.normalizeLook({ mat: 'x', light: 'disco', neon: 'red', lit: 0 }), { mat: 'color', light: 'none', neon: 'design', lit: true });
+  assert.deepEqual(C.normalizeLook({ mat: 'x', light: 'disco', neon: 'red', lit: 0 }), { mat: 'color', light: 'none', neon: 'design', lit: true, film: 'print' });
   assert.equal(C.normalizeLook({ neon: '#FF00AA' }).neon, '#ff00aa');
   assert.match(C.lookNote('letters', { mat: 'gold', light: 'halo' }), /ทอง.*ไฟส่องหลัง/);
   assert.equal(C.quote({ type: 'backdrop', w: 400, h: 250, qty: 1, rate: 300 }).total, 3000);
@@ -838,4 +838,62 @@ test('ใบสั่งผลิต: ความละเอียดไฟล
   // วางพอดี (contain) ใช้ด้านที่จำกัด
   assert.equal(C.printDpi(2000, 1000, 100, 100, 'contain'), 25);
   assert.equal(C.printDpi(0, 0, 100, 100), 0);
+});
+
+test('รูปทรงชิ้นงาน: มุมมน / วงกลม / ไดคัท + ขอบขาว — เฉพาะงานแผ่น สติ๊กเกอร์ บัตร สแตนดี้ ติดกระจก', async () => {
+  assert.deepEqual(C.normalizeShape({}), { kind: 'rect', border: 0.3, radius: 10 });
+  assert.deepEqual(C.normalizeShape({ kind: 'cut', border: 9, radius: 0.2 }), { kind: 'cut', border: 5, radius: 1 });
+  assert.deepEqual(C.normalizeShape({ kind: 'star', border: 'x', radius: 80 }), { kind: 'rect', border: 0.3, radius: 50 });
+  assert.equal(C.normalizeShape({ border: 0 }).border, 0); // 0 = ตัดชิดลาย
+  // ชนิดที่ไม่รองรับ = สี่เหลี่ยมเสมอ · สแตนดี้ไดคัทเสมอ
+  assert.equal(C.shapeKind('vinyl', { kind: 'circle' }), 'rect');
+  assert.equal(C.shapeKind('sticker', { kind: 'cut' }), 'cut');
+  assert.equal(C.shapeKind('card', { kind: 'round' }), 'round');
+  assert.equal(C.shapeKind('standee', {}), 'cut');
+  assert.equal(C.shapeKind('standee', { kind: 'circle' }), 'circle');
+  for (const t of ['sticker', 'foam', 'acrylic', 'card', 'standee', 'window']) assert.ok(C.SHAPE_TYPES.includes(t), t);
+  assert.equal(C.shapeNote('sticker', { kind: 'cut' }), 'ไดคัทตามรูป ขอบขาว 0.3 ซม.');
+  assert.equal(C.shapeNote('sticker', { kind: 'cut', border: 0 }), 'ไดคัทตามรูป');
+  assert.equal(C.shapeNote('card', { kind: 'round', radius: 8 }), 'มุมมน 8%');
+  assert.equal(C.shapeNote('foam', { kind: 'circle' }), 'ตัดวงกลม/วงรี');
+  assert.equal(C.shapeNote('vinyl', { kind: 'cut' }), '');
+  // ชนิดของร้านที่ยืมหน้าตาสติ๊กเกอร์ ก็ไดคัทได้
+  C.applyTypes([{ id: 'u-label', name: 'ฉลากสินค้า', base: 'sticker', unit: 'pcs', sizes: [[5, 5]] }]);
+  assert.equal(C.shapeKind('u-label', { kind: 'cut' }), 'cut');
+  C.applyTypes([]);
+  const html = readFileSync(new URL('../sign-mockup/index.html', import.meta.url), 'utf8');
+  for (const id of ['shapeField', 'shapeSeg', 'shapeBorder', 'shapeRadius', 'filmField', 'filmSeg']) assert.match(html, new RegExp('id="' + id + '"'), id);
+  for (const k of Object.keys(C.SHAPES)) assert.match(html, new RegExp('data-shape="' + k + '"'), k);
+  for (const k of Object.keys(C.FILMS)) assert.match(html, new RegExp('data-film="' + k + '"'), k);
+});
+
+test('สแตนดี้ไดคัท (ตั้งพื้น) + สติ๊กเกอร์ติดกระจก/ฟิล์มฝ้า บนฉาก "หน้าร้านกระจก"', () => {
+  const s = C.geometry('standee', 60, 170);
+  assert.equal(s.mount, 'floor');
+  assert.equal(s.depth, 0.5);
+  assert.equal(C.TYPES.standee.unit, 'set');
+  assert.equal(C.defaultScene('standee'), 'event');
+  const w = C.geometry('window', 100, 200);
+  assert.equal(w.mount, 'wall');
+  assert.equal(w.gap, 0);
+  assert.equal(C.TYPES.window.unit, 'sqm');
+  // ติดกระจกใช้ฉากหน้าร้านกระจกเท่านั้น · ฉากกระจกใช้กับป้ายติดผนังอื่นได้ด้วย
+  assert.equal(C.defaultScene('window'), 'glass');
+  assert.equal(C.sceneFits('glass', 'window'), true);
+  assert.equal(C.sceneFits('shop', 'window'), false);
+  assert.equal(C.sceneFits('glass', 'sticker'), true);
+  assert.equal(C.sceneFits('glass', 'card'), false);
+  assert.ok(C.SCENE_ORDER.includes('glass'));
+  // ติดกระจกระดับสายตา: กลางงานสูง ~150 ซม. แต่ขอบล่างไม่ต่ำกว่า 20 ซม. และไม่สูงเกิน 110 ซม.
+  assert.equal(C.mountBottom('glass', w, 'auto'), 50);
+  assert.equal(C.mountBottom('glass', C.geometry('window', 60, 40), 'auto'), 110);
+  assert.equal(C.mountBottom('glass', C.geometry('window', 300, 260), 'auto'), 20);
+  // ชนิดฟิล์ม
+  assert.equal(C.normalizeLook({}).film, 'print');
+  assert.equal(C.normalizeLook({ film: 'xx' }).film, 'print');
+  assert.equal(C.normalizeLook({ film: 'oneway' }).film, 'oneway');
+  assert.match(C.lookNote('window', { film: 'frost' }), /ฟิล์มฝ้า/);
+  assert.match(C.lookNote('window', { film: 'oneway' }), /One Way/);
+  assert.match(C.lookNote('standee', {}), /ขาค้ำ/);
+  assert.ok(C.TYPE_ORDER.indexOf('window') > C.TYPE_ORDER.indexOf('sticker'));
 });

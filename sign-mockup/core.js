@@ -158,10 +158,54 @@
     small: true,
     presets: [[14.8, 21, 'A5'], [21, 29.7, 'A4'], [10, 15, '4×6 นิ้ว'], [9.9, 21, 'DL']],
   };
-  var TYPE_ORDER = ['vinyl', 'frame', 'foam', 'sticker', 'acrylic', 'lightbox', 'letters', 'neon', 'blade', 'stand', 'cnc', 'billboard', 'backdrop', 'flag', 'rollup', 'xstand', 'card', 'poster', 'tablestand'];
+  TYPES.standee = {
+    name: 'สแตนดี้ไดคัท (ตั้งพื้น)',
+    desc: 'ฟิวเจอร์บอร์ด/โฟมไดคัทตามรูป มีขาค้ำหลัง ตั้งหน้าร้าน/บูธ',
+    unit: 'set',
+    mount: 'floor',
+    presets: [[60, 170], [80, 180], [50, 150], [100, 200], [40, 120]],
+  };
+  TYPES.window = {
+    name: 'สติ๊กเกอร์ติดกระจก / ฟิล์มฝ้า',
+    desc: 'พิมพ์สี · ฝ้าเว้นตัวอักษร · ตาข่ายมองทางเดียว ติดกระจกหน้าร้าน',
+    unit: 'sqm',
+    mount: 'wall',
+    presets: [[100, 200], [200, 100], [90, 60], [300, 200], [60, 40]],
+  };
+  var TYPE_ORDER = ['vinyl', 'frame', 'foam', 'sticker', 'window', 'acrylic', 'lightbox', 'letters', 'neon', 'blade', 'stand', 'cnc', 'billboard', 'backdrop', 'flag', 'standee', 'rollup', 'xstand', 'card', 'poster', 'tablestand'];
+  /* รูปทรงชิ้นงาน: สี่เหลี่ยม / มุมมน / วงกลม-วงรี / ไดคัทตามรูป (+ขอบขาว) — ใช้กับงานแผ่น/สติ๊กเกอร์/บัตร · สแตนดี้ไดคัทเสมอ */
+  var SHAPES = { rect: 'สี่เหลี่ยม', round: 'มุมมน', circle: 'วงกลม/วงรี', cut: 'ไดคัทตามรูป' };
+  var SHAPE_TYPES = ['sticker', 'foam', 'acrylic', 'card', 'standee', 'window'];
+  function normalizeShape(o) {
+    o = o && typeof o === 'object' ? o : {};
+    var b = num(o.border);
+    var r = num(o.radius);
+    return {
+      kind: SHAPES[o.kind] ? o.kind : 'rect',
+      border: isFinite(b) && b >= 0 ? Math.round(Math.min(5, b) * 10) / 10 : 0.3,
+      radius: isFinite(r) && r > 0 ? Math.round(Math.max(1, Math.min(50, r))) : 10,
+    };
+  }
+  // รูปทรงที่ใช้จริงกับชนิดงานนี้ (ชนิดที่ไม่รองรับ = สี่เหลี่ยม · สแตนดี้ ถ้าเลือกสี่เหลี่ยมก็ไดคัท)
+  function shapeKind(type, shape) {
+    var b = baseType(type);
+    if (SHAPE_TYPES.indexOf(b) < 0) return 'rect';
+    var k = normalizeShape(shape).kind;
+    if (b === 'standee' && k === 'rect') return 'cut';
+    return k;
+  }
   var BASE_TYPES = TYPE_ORDER.slice(); // ชนิดมาตรฐาน (ชนิดของร้านเพิ่มต่อท้าย)
+  // ข้อความรูปทรงสำหรับใบเสนอราคา/ใบสั่งผลิต ('' = สี่เหลี่ยมธรรมดา)
+  function shapeNote(type, shape) {
+    var k = shapeKind(type, shape);
+    if (k === 'rect') return '';
+    var sh = normalizeShape(shape);
+    if (k === 'round') return 'มุมมน ' + sh.radius + '%';
+    if (k === 'circle') return 'ตัดวงกลม/วงรี';
+    return 'ไดคัทตามรูป' + (sh.border > 0 ? ' ขอบขาว ' + sh.border + ' ซม.' : '');
+  }
   // ชนิดของร้านใช้หน้าตาของชนิดมาตรฐานเหล่านี้ได้ (ขาตั้งเหล็ก/CNC มีโครงสร้างเฉพาะ ไม่เปิดให้ยืม)
-  var LOOK_TYPES = ['vinyl', 'frame', 'foam', 'sticker', 'acrylic', 'lightbox', 'letters', 'neon', 'blade', 'flag', 'backdrop', 'billboard', 'rollup', 'xstand', 'card', 'tablestand'];
+  var LOOK_TYPES = ['vinyl', 'frame', 'foam', 'sticker', 'window', 'acrylic', 'lightbox', 'letters', 'neon', 'blade', 'flag', 'backdrop', 'billboard', 'standee', 'rollup', 'xstand', 'card', 'tablestand'];
   // ชนิดหน้าตาที่ใช้วาด (ชนิดของร้าน → ชนิดมาตรฐานที่ยืมหน้าตามา)
   function baseType(type) {
     var t = TYPES[type];
@@ -176,6 +220,7 @@
     table: { name: 'บนโต๊ะ / เคาน์เตอร์', desc: 'ตั้งบนโต๊ะในร้าน', small: true },
     event: { name: 'ห้องจัดงาน', desc: 'เวที บูธ งานอีเวนต์', big: true },
     road: { name: 'ริมถนน', desc: 'บิลบอร์ด ธง ป้ายตั้งพื้นกลางแจ้ง', big: true, floorOnly: true },
+    glass: { name: 'หน้าร้านกระจก', desc: 'สติ๊กเกอร์ติดกระจก ฟิล์มฝ้า', big: true },
     studio: { name: 'พื้นเรียบ', desc: 'โชว์งานชัด ๆ' },
     wall: { name: 'ผนังปูน', desc: 'ในร้าน / ในอาคาร' },
     brick: { name: 'ผนังอิฐ', desc: 'ร้านกาแฟ / ร้านอาหาร' },
@@ -193,7 +238,7 @@
     classroom: { name: 'ในห้องเรียน', desc: 'เหนือกระดาน / ผนังห้อง', spots: [['above', 'เหนือกระดาน'], ['beside', 'ข้างกระดาน']], tones: true, big: true },
     photo: { name: 'รูปหน้าร้านลูกค้า', desc: 'อัปโหลดรูป แล้วลากมุมป้าย' },
   };
-  var SCENE_ORDER = ['paper', 'hand', 'table', 'studio', 'wall', 'brick', 'shop', 'fence', 'road', 'event', 'classDoor', 'officeDoor', 'classroom', 'photo'];
+  var SCENE_ORDER = ['paper', 'hand', 'table', 'studio', 'wall', 'brick', 'shop', 'glass', 'fence', 'road', 'event', 'classDoor', 'officeDoor', 'classroom', 'photo'];
   var TABLE_H = 75; // ความสูงโต๊ะ/เคาน์เตอร์ (ซม.)
   // ฉากนี้ใช้กับชนิดงานนี้ได้ไหม (บัตร ↔ ป้าย) · ฉากเริ่มต้นของชนิดงาน
   function sceneFits(scene, type) {
@@ -204,6 +249,7 @@
     if (sc.big && t.small) return false;
     if (sc.wallOnly && TYPES[baseType(type)].mount === 'floor') return false; // ป้ายตั้งโต๊ะไม่วางบนกระดาษ/ไม่ถือในมือ
     if (sc.floorOnly && TYPES[baseType(type)].mount !== 'floor') return false; // ริมถนนไม่มีผนังให้ติด
+    if (baseType(type) === 'window' && scene !== 'glass') return false; // สติ๊กเกอร์ติดกระจก ใช้ฉากกระจก
     return true;
   }
   function defaultScene(type) {
@@ -214,6 +260,8 @@
     if (b === 'backdrop') return 'event';
     if (b === 'billboard' || b === 'flag') return 'road';
     if (b === 'neon') return 'brick';
+    if (b === 'window') return 'glass';
+    if (b === 'standee') return 'event';
     return 'shop';
   }
   // สีกระดาษรองบัตร (ฉาก "บนกระดาษ")
@@ -698,6 +746,12 @@
       g.gap = 0;
       g.fy = g.cap;
       g.bh = g.cap + h + g.lift;
+    } else if (t === 'standee') {
+      // บอร์ดหนา 5 มม. เอนหลัง 6° มีขาค้ำ (ตั้งพื้น)
+      g.depth = 0.5;
+      g.gap = 0;
+    } else if (t === 'window') {
+      g.gap = 0; // แนบกระจก
     } else if (t === 'tablestand') {
       // อะคริลิคพับ L ฐานลึก 7 ซม. หนา 0.5 ซม.
       g.lift = 0.5;
@@ -744,6 +798,7 @@
     if (sp === 'above') return scene === 'classroom' ? BOARD.y0 + BOARD.h + 15 : DOOR.h + 12; // เหนือวงกบ
     if (sp === 'beside') return Math.max(40, 150 - g.bh / 2);
     if (scene === 'shop') return 290; // เหนือประตูม้วน (สูง 270)
+    if (scene === 'glass') return Math.max(20, Math.min(110, 150 - g.bh / 2)); // บนกระจกหน้าร้าน ระดับสายตา
     if (scene === 'fence') return Math.max(25, 110 - g.bh / 2);
     return Math.max(40, 150 - g.bh / 2); // กลางป้ายระดับสายตา 150 ซม.
   }
@@ -947,6 +1002,8 @@
     billboard: 'เสาเดี่ยว + ทางเดิน + ไฟส่อง',
     poster: 'กระดาษอาร์ต 160 แกรม',
     tablestand: 'อะคริลิคใส ฐานลึก 7 ซม.',
+    standee: 'ฟิวเจอร์บอร์ด 5 มม. + ขาค้ำหลัง',
+    window: 'สติ๊กเกอร์ติดกระจก (ด้านนอก)',
   };
   function depthText(type) {
     return DEPTH[type] || DEPTH[baseType(type)] || '';
@@ -1496,8 +1553,10 @@
       light: LIGHTS[o.light] ? o.light : 'none',
       neon: neonOk ? String(o.neon).toLowerCase() : 'design',
       lit: o.lit !== false,
+      film: FILMS[o.film] ? o.film : 'print',
     };
   }
+  var FILMS = { print: 'พิมพ์สีติดกระจก', frost: 'ฟิล์มฝ้า เว้นลาย', oneway: 'ตาข่ายมองทางเดียว' };
   function lookNote(base, look) {
     look = normalizeLook(look);
     if (base === 'letters') return 'ตัวอักษร' + LETTER_MATS[look.mat] + ' · ' + LIGHTS[look.light];
@@ -1507,6 +1566,8 @@
     if (base === 'backdrop') return 'รวมโครงทรัส';
     if (base === 'billboard') return look.lit ? 'รวมโครงสร้าง + ไฟส่อง' : 'รวมโครงสร้าง';
     if (base === 'tablestand') return 'อะคริลิค + งานพิมพ์';
+    if (base === 'window') return FILMS[look.film] + (look.film === 'oneway' ? ' (One Way Vision)' : '');
+    if (base === 'standee') return 'ขาค้ำหลัง ตั้งพื้นได้';
     return '';
   }
 
@@ -1647,7 +1708,13 @@
     printDpi: printDpi,
     dpiVerdict: dpiVerdict,
     LETTER_MATS: LETTER_MATS,
+    SHAPES: SHAPES,
+    SHAPE_TYPES: SHAPE_TYPES,
+    normalizeShape: normalizeShape,
+    shapeKind: shapeKind,
+    shapeNote: shapeNote,
     LIGHTS: LIGHTS,
+    FILMS: FILMS,
     NEON_COLORS: NEON_COLORS,
     normalizeLook: normalizeLook,
     lookNote: lookNote,
