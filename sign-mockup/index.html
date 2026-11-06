@@ -442,6 +442,45 @@
                 </label>
               </div>
               <p class="readout price" id="priceReadout"></p>
+              <section class="bill stack" id="billPane">
+                <h3>ค่าใช้จ่ายเพิ่ม · ส่วนลด · VAT <small>ขึ้นในใบเสนอราคา</small></h3>
+                <div class="bill-list" id="billExtras"></div>
+                <div class="chips" id="billAdd">
+                  <button type="button" class="chip" data-add="ค่าออกแบบ">+ ค่าออกแบบ</button>
+                  <button type="button" class="chip" data-add="ค่าติดตั้ง">+ ค่าติดตั้ง</button>
+                  <button type="button" class="chip" data-add="ค่าขนส่ง">+ ค่าขนส่ง</button>
+                  <button type="button" class="chip" data-add="">+ รายการอื่น</button>
+                </div>
+                <div class="grid2">
+                  <label class="field">
+                    <span class="label">ส่วนลด</span>
+                    <span class="affix"><input id="billDiscount" type="text" inputmode="decimal" placeholder="0" /><i>บาท</i></span>
+                  </label>
+                  <label class="field">
+                    <span class="label">นัดรับงาน</span>
+                    <input id="billDue" type="date" />
+                  </label>
+                </div>
+                <label class="toggle"><input type="checkbox" id="billVat" /><span>คิด VAT 7% (บวกเพิ่มจากราคา)</span></label>
+                <div class="field">
+                  <span class="label">มัดจำ</span>
+                  <div class="seg small" id="billDeposit">
+                    <button type="button" data-dep="0">ไม่มี</button>
+                    <button type="button" data-dep="30">30%</button>
+                    <button type="button" data-dep="50">50%</button>
+                    <button type="button" data-dep="100">ชำระเต็ม</button>
+                  </div>
+                </div>
+                <label class="field">
+                  <span class="label">หมายเหตุถึงลูกค้า <em>ขึ้นในใบเสนอราคา</em></span>
+                  <input id="billNote" type="text" maxlength="200" placeholder="เช่น ยืนราคา 30 วัน · ไม่รวมค่าขออนุญาตติดตั้ง" />
+                </label>
+                <label class="field">
+                  <span class="label">หมายเหตุถึงช่าง <em>ขึ้นในใบสั่งผลิต</em></span>
+                  <input id="billWork" type="text" maxlength="300" placeholder="เช่น ใช้ไวนิลหนา 380 แกรม · พับขอบเย็บ · ติดตั้งชั้น 2" />
+                </label>
+                <p class="readout price" id="billReadout"></p>
+              </section>
               <label class="field">
                 <span class="label">ชื่อลูกค้า <em>ไม่ใส่ก็ได้</em></span>
                 <input id="customer" type="text" />
@@ -536,6 +575,7 @@
         <button type="button" data-fmt="html" id="fmtHtml">HTML พรีวิว 3 มิติ</button>
         <button type="button" data-fmt="print" id="fmtPrint" hidden>ไฟล์พิมพ์ (จัดหน้า)</button>
         <button type="button" data-fmt="compare" id="fmtCompare">เทียบ 2 แบบ</button>
+        <button type="button" data-fmt="job" id="fmtJob">ใบสั่งผลิต (ส่งช่าง)</button>
       </div>
       <div class="sheetbar" id="cmpBar" hidden>
         <span class="label">ไฟล์</span>

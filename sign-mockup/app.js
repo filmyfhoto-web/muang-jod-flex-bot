@@ -6,7 +6,7 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '4.0.0';
+  var APP_VERSION = '4.1.0';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp' });
 
@@ -41,6 +41,7 @@
     paper: 'white', // บัตร: สีกระดาษรองในฉาก "บนกระดาษ"
     cmpOut: 'jpg', // หน้าเทียบ 2 แบบ: รูป JPG / PDF
     look: { mat: 'color', light: 'none', neon: 'design', lit: true }, // ตัวอักษร: วัสดุ/ไฟ · นีออน: สี · ป้ายยื่น/บิลบอร์ด: เปิดไฟ
+    bill: { extras: [], discount: 0, vat: false, deposit: 0, due: '', note: '', work: '' }, // ค่าใช้จ่ายเพิ่ม ส่วนลด VAT มัดจำ นัดรับ หมายเหตุ
     panel: 'right', // แผงตั้งค่าอยู่ขวา/ซ้าย
     fmt: 'jpg', // ชนิดรูปที่ส่งออกล่าสุด (jpg / png)
     qty: 1,
@@ -89,6 +90,7 @@
     if (!C.PAPERS[s.paper]) s.paper = DEF.paper;
     if (s.cmpOut !== 'pdf') s.cmpOut = 'jpg';
     s.look = C.normalizeLook(Object.assign({}, DEF.look, s.look));
+    s.bill = C.normalizeBill(s.bill);
     if (!C.TYPES[s.type]) s.type = DEF.type;
     if (!C.SCENES[s.scene]) s.scene = DEF.scene;
     if (s.scene !== 'photo' && !C.sceneFits(s.scene, s.type)) s.scene = C.defaultScene(s.type);
@@ -266,6 +268,7 @@
   function footerInfo() {
     var t = C.TYPES[st.type];
     var q = quoteNow();
+    var bt0 = C.billTotals(q, st.bill);
     var unit = unitWord();
     var line2 = [];
     if (t.unit === 'sqm') line2.push('พื้นที่ ' + C.fmtArea(st.w, st.h));
@@ -281,8 +284,8 @@
       title: t.name + '  ' + C.sizeText(st.w, st.h),
       line2: line2.join(' · '),
       line3: line3.join(' · '),
-      price: q.has ? C.baht(q.total) + ' บาท' : '',
-      priceNote: q.has ? (q.qty > 1 ? 'ราคารวม (' + unit + 'ละ ' + C.baht(q.per) + ' บาท)' : 'ราคา') : '',
+      price: bt0.plain ? (q.has ? C.baht(q.total) + ' บาท' : '') : bt0.has ? C.money(bt0.grand) + ' บาท' : '',
+      priceNote: bt0.plain ? (q.has ? (q.qty > 1 ? 'ราคารวม (' + unit + 'ละ ' + C.baht(q.per) + ' บาท)' : 'ราคา') : '') : bt0.has ? 'ราคารวมทั้งหมด' + (bt0.vatOn ? ' (รวม VAT 7%)' : '') : '',
       logo: logoImg || (st.brandLogo ? brandImg.mark : null),
     };
   }
@@ -469,6 +472,7 @@
     $('sizeReadout').textContent = C.sizeText(st.w, st.h) + (t.unit === 'sqm' ? ' · พื้นที่ ' + C.fmtArea(st.w, st.h) : '');
     var unit = unitWord();
     $('qtyUnit').textContent = unit;
+    billSync();
     $('rateLabel').textContent = t.unit === 'sqm' ? 'ราคาต่อ ตร.ม.' : st.type === 'cnc' ? (C.cncPosts(st.steel) ? 'ราคาต่อป้าย (รวมเสา)' : 'ราคาต่อป้าย (ติดผนัง)') : st.type === 'stand' ? 'ราคาต่อชุด (รวมโครงเหล็ก)' : 'ราคาต่อ' + unit;
     runSync();
     var pr = $('priceReadout');
@@ -1484,15 +1488,17 @@
     x.fillText(C.quoteNo(now), W - M, y);
     x.fillText(C.thaiDate(now), W - M, y + 44);
 
-    // ภาพจำลอง
+    // ภาพจำลอง (เตี้ยลงเมื่อมีรายการเพิ่ม/ยอดหลายบรรทัด)
+    var T = C.billTotals(q, st.bill);
+    var nx = Math.min(T.extras.length, 6);
     var by = 352;
-    var bh = 640;
+    var bh = Math.max(300, 600 - nx * 52 - (T.plain ? 0 : 40) - (T.deposit && T.deposit < 100 ? 30 : 0));
     x.fillStyle = '#f3f1ec';
     rrect(x, M, by, CW, bh, 18);
     x.fill();
-    var sc = Math.min((CW - 24) / mock.width, (bh - 24) / mock.height);
-    var iw = mock.width * sc;
-    var ih = mock.height * sc;
+    var sc0 = Math.min((CW - 24) / mock.width, (bh - 24) / mock.height);
+    var iw = mock.width * sc0;
+    var ih = mock.height * sc0;
     var ix = M + (CW - iw) / 2;
     var iy = by + (bh - ih) / 2;
     x.save();
@@ -1501,96 +1507,144 @@
     x.drawImage(mock, ix, iy, iw, ih);
     x.restore();
 
-    // ตารางรายการ
-    var ty = by + bh + 40;
+    // ตารางรายการ: ป้าย + ค่าใช้จ่ายเพิ่ม
+    var ty = by + bh + 32;
     var col = { item: M + 22, size: M + 470, qty: M + 742, per: M + 905, total: W - M - 22 };
     x.fillStyle = NAVY;
-    rrect(x, M, ty, CW, 56, 10);
+    rrect(x, M, ty, CW, 54, 10);
     x.fill();
     x.fillStyle = '#ffffff';
     font(x, 600, 22, BODY);
     x.textAlign = 'left';
-    x.fillText('รายการ', col.item, ty + 37);
-    x.fillText('ขนาด', col.size, ty + 37);
+    x.fillText('รายการ', col.item, ty + 36);
+    x.fillText('ขนาด / รายละเอียด', col.size, ty + 36);
     x.textAlign = 'center';
-    x.fillText('จำนวน', col.qty, ty + 37);
+    x.fillText('จำนวน', col.qty, ty + 36);
     x.textAlign = 'right';
-    x.fillText('ราคา/' + unit, col.per, ty + 37);
-    x.fillText('รวม (บาท)', col.total, ty + 37);
-    var ry = ty + 56;
-    var rh = 132;
+    x.fillText('ราคา/หน่วย', col.per, ty + 36);
+    x.fillText('รวม (บาท)', col.total, ty + 36);
+    var ry = ty + 54;
+    var rh = 120;
     x.textAlign = 'left';
     x.fillStyle = INK;
-    fitText(x, t.name, col.item, ry + 46, 420, 600, 30, DISP);
+    fitText(x, '1. ' + t.name, col.item, ry + 42, 420, 600, 28, DISP);
     x.fillStyle = INK2;
-    fitText(x, t.desc, col.item, ry + 82, 420, 400, 20, BODY);
+    fitText(x, t.desc, col.item, ry + 76, 420, 400, 19, BODY);
     if (q.has && t.unit === 'sqm') {
       x.fillStyle = INK3;
-      fitText(x, 'คิดจาก ' + C.fmtAreaExact(st.w, st.h) + ' × ' + C.baht(q.rate) + ' บาท/ตร.ม.', col.item, ry + 114, 420, 400, 19, BODY);
+      fitText(x, 'คิดจาก ' + C.fmtAreaExact(st.w, st.h) + ' × ' + C.baht(q.rate) + ' บาท/ตร.ม.', col.item, ry + 105, 420, 400, 18, BODY);
     }
     x.fillStyle = INK;
-    font(x, 600, 26, BODY);
-    x.fillText(C.fmtCm(st.w) + ' × ' + C.fmtCm(st.h) + ' ซม.', col.size, ry + 46);
+    font(x, 600, 25, BODY);
+    x.fillText(C.fmtCm(st.w) + ' × ' + C.fmtCm(st.h) + ' ซม.', col.size, ry + 42);
     x.fillStyle = INK2;
-    font(x, 400, 20, BODY);
-    if (t.unit === 'sqm') x.fillText('พื้นที่ ' + C.fmtArea(st.w, st.h), col.size, ry + 82);
+    font(x, 400, 19, BODY);
+    if (t.unit === 'sqm') x.fillText('พื้นที่ ' + C.fmtArea(st.w, st.h), col.size, ry + 76);
     else {
       var note = st.type === 'cnc' ? (C.cncPosts(st.steel) ? 'รวมเสาเหล็ก 2 ต้น' : 'ติดผนัง ไม่มีเสา') : st.type === 'stand' ? 'รวมโครงเหล็ก + ฐาน' : bt() === 'rollup' || bt() === 'xstand' ? 'รวมขาตั้ง + กระเป๋า' : C.lookNote(bt(), st.look);
       if (runNow()) note = 'เลข ' + C.runText(st.run, 0) + (q.qty > 1 ? '–' + C.runText(st.run, q.qty - 1) : '');
-      if (note) fitText(x, note, col.size, ry + 82, col.qty - col.size - 70, 400, 20, BODY);
+      if (note) fitText(x, note, col.size, ry + 76, col.qty - col.size - 70, 400, 19, BODY);
     }
     x.textAlign = 'center';
     x.fillStyle = INK;
-    font(x, 600, 26, BODY);
-    x.fillText(q.qty + ' ' + unit, col.qty, ry + 46);
+    font(x, 600, 25, BODY);
+    x.fillText(q.qty + ' ' + unit, col.qty, ry + 42);
     x.textAlign = 'right';
-    x.fillText(q.has ? C.baht(q.per) : '—', col.per, ry + 46);
-    x.fillText(q.has ? C.baht(q.total) : '—', col.total, ry + 46);
+    x.fillText(q.has ? C.baht(q.per) : '—', col.per, ry + 42);
+    x.fillText(q.has ? C.baht(q.total) : '—', col.total, ry + 42);
     x.strokeStyle = LINE;
     x.lineWidth = 2;
-    x.beginPath();
-    x.moveTo(M, ry + rh);
-    x.lineTo(W - M, ry + rh);
-    x.stroke();
+    var line = function (yy) {
+      x.beginPath();
+      x.moveTo(M, yy);
+      x.lineTo(W - M, yy);
+      x.stroke();
+    };
+    line(ry + rh);
+    var ey = ry + rh;
+    T.extras.slice(0, 6).forEach(function (e, i) {
+      x.textAlign = 'left';
+      x.fillStyle = INK;
+      fitText(x, i + 2 + '. ' + (e.name || 'รายการเพิ่ม'), col.item, ey + 35, 600, 500, 24, BODY);
+      x.textAlign = 'center';
+      font(x, 500, 23, BODY);
+      x.fillText('1', col.qty, ey + 35);
+      x.textAlign = 'right';
+      x.fillText(C.money(e.amount), col.per, ey + 35);
+      x.fillText(C.money(e.amount), col.total, ey + 35);
+      ey += 52;
+      line(ey);
+    });
 
-    // ยอดรวม (ขวา) + หมายเหตุ (ซ้าย)
-    var sy = ry + rh + 30;
-    var tw = 430;
+    // ยอดรวม (ขวา): รวม · ส่วนลด · VAT · รวมทั้งสิ้น (ตัวหนังสือ) · มัดจำ/คงค้าง
+    var sy = ey + 24;
+    var tw = 470;
+    var lines2 = [];
+    if (!T.plain) {
+      lines2.push(['รวมเป็นเงิน', C.money(T.subtotal)]);
+      if (T.discount) lines2.push(['ส่วนลด', '−' + C.money(T.discount)]);
+      if (T.vatOn) lines2.push(['ภาษีมูลค่าเพิ่ม 7%', C.money(T.vat)]);
+    }
+    var dep = T.deposit && T.deposit < 100 ? [['มัดจำ ' + T.deposit + '%', C.money(T.depositAmt)], ['คงค้างวันรับงาน', C.money(T.balance)]] : T.deposit === 100 ? [['ชำระเต็มจำนวน', C.money(T.grand)]] : [];
+    var boxH = 24 + lines2.length * 34 + 128 + dep.length * 32 + (dep.length ? 10 : 0);
     x.fillStyle = '#fbe8dc';
-    rrect(x, W - M - tw, sy, tw, 150, 16);
+    rrect(x, W - M - tw, sy, tw, boxH, 16);
     x.fill();
-    x.textAlign = 'right';
-    x.fillStyle = INK2;
-    font(x, 500, 22, BODY);
-    x.fillText('รวมทั้งสิ้น', W - M - 24, sy + 40);
-    if (q.has) {
-      x.fillStyle = '#b8491a';
-      fitText(x, C.baht(q.total) + ' บาท', W - M - 24, sy + 96, tw - 48, 600, 50, DISP);
+    var ly = sy + 40;
+    lines2.forEach(function (l) {
+      x.textAlign = 'left';
       x.fillStyle = INK2;
-      fitText(x, '(' + C.bahtText(q.total) + ')', W - M - 24, sy + 132, tw - 48, 400, 19, BODY);
+      font(x, 500, 21, BODY);
+      x.fillText(l[0], W - M - tw + 24, ly);
+      x.textAlign = 'right';
+      x.fillStyle = INK;
+      x.fillText(l[1] + ' บาท', W - M - 24, ly);
+      ly += 34;
+    });
+    x.textAlign = 'left';
+    x.fillStyle = INK2;
+    font(x, 600, 22, BODY);
+    x.fillText('รวมทั้งสิ้น', W - M - tw + 24, ly + 4);
+    x.textAlign = 'right';
+    if (T.has) {
+      x.fillStyle = '#b8491a';
+      fitText(x, C.money(T.grand) + ' บาท', W - M - 24, ly + 56, tw - 48, 600, 46, DISP);
+      x.fillStyle = INK2;
+      fitText(x, '(' + C.bahtText(T.grand) + ')', W - M - 24, ly + 90, tw - 48, 400, 18, BODY);
     } else {
       x.fillStyle = INK3;
       font(x, 500, 26, BODY);
-      x.fillText('ยังไม่ได้ใส่ราคา', W - M - 24, sy + 96);
+      x.fillText('ยังไม่ได้ใส่ราคา', W - M - 24, ly + 56);
     }
+    ly += 128;
+    dep.forEach(function (l) {
+      x.textAlign = 'left';
+      x.fillStyle = INK2;
+      font(x, 500, 21, BODY);
+      x.fillText(l[0], W - M - tw + 24, ly);
+      x.textAlign = 'right';
+      x.fillStyle = INK;
+      font(x, 600, 22, BODY);
+      x.fillText(l[1] + ' บาท', W - M - 24, ly);
+      ly += 32;
+    });
     x.textAlign = 'left';
     x.fillStyle = INK;
     font(x, 600, 22, BODY);
     x.fillText('หมายเหตุ', M, sy + 32);
     x.fillStyle = INK2;
-    var notes = [
-      'ภาพจำลองเพื่อประกอบการตัดสินใจ สีและรายละเอียดจริงอาจต่างจากหน้าจอเล็กน้อย',
-      'กรุณาตรวจข้อความ ตัวสะกด เบอร์โทร และขนาด ก่อนยืนยันสั่งผลิต',
-      t.name + ': ' + C.depthText(st.type),
-    ];
+    var notes = [];
+    if (st.bill.due) notes.push('นัดรับงาน: ' + C.dueText(st.bill.due));
+    if (st.bill.note) notes.push(st.bill.note);
+    notes.push('ภาพจำลองเพื่อประกอบการตัดสินใจ สีและรายละเอียดจริงอาจต่างจากหน้าจอเล็กน้อย');
+    notes.push('กรุณาตรวจข้อความ ตัวสะกด เบอร์โทร และขนาด ก่อนยืนยันสั่งผลิต');
     var sc = steelNow();
     if (sc) {
       var so2 = sc.opts;
-      notes[2] =
-        'โครงเหล็กกล่อง ' + C.tubeText(so2) + ' · ' + (so2.cut === 'miter' ? 'ตัดเข้ามุม 45°' : 'ตัดตรงชน') + (sc.kind === 'stand' ? ' · สูงรวม ' + C.fmtCm(so2.total) + ' ซม. · ฐานลึก ' + C.fmtCm(so2.depth) + ' ซม.' : '') + ' · เหล็กรวม ' + C.fmtCm(sc.total) + ' ซม.';
-    }
-    notes.forEach(function (n, i) {
-      fitText(x, '• ' + n, M, sy + 68 + i * 34, CW - tw - 40, 400, 19, BODY);
+      notes.push('โครงเหล็กกล่อง ' + C.tubeText(so2) + ' · ' + (so2.cut === 'miter' ? 'ตัดเข้ามุม 45°' : 'ตัดตรงชน') + (sc.kind === 'stand' ? ' · สูงรวม ' + C.fmtCm(so2.total) + ' ซม. · ฐานลึก ' + C.fmtCm(so2.depth) + ' ซม.' : '') + ' · เหล็กรวม ' + C.fmtCm(sc.total) + ' ซม.');
+    } else notes.push(t.name + ': ' + C.depthText(st.type));
+    notes.slice(0, 6).forEach(function (n, i) {
+      fitText(x, '• ' + n, M, sy + 66 + i * 32, CW - tw - 40, 400, 18, BODY);
     });
 
     // ช่องเซ็นชื่อ
@@ -1939,6 +1993,179 @@
     x.arcTo(rx, ry, rx + rw, ry, rr);
     x.closePath();
   }
+  /* ---------- ใบสั่งผลิต (ส่งช่าง): สเปกงาน วัสดุ งานตกแต่ง ไฟล์ ความละเอียด นัดรับ ขั้นตอน ---------- */
+  function specRows() {
+    var t = C.TYPES[st.type];
+    var b = bt();
+    var q = quoteNow();
+    var rows = [];
+    rows.push(['ชนิดงาน', t.name + (t.mine ? ' (ชนิดของร้าน แบบ' + C.TYPES[b].name + ')' : '')]);
+    rows.push(['ขนาดงาน', C.sizeText(st.w, st.h) + (t.unit === 'sqm' ? ' · พื้นที่ ' + C.fmtArea(st.w, st.h) : '')]);
+    rows.push(['จำนวน', q.qty + ' ' + unitWord()]);
+    rows.push(['วัสดุ / โครงสร้าง', C.depthText(st.type)]);
+    var fin = '';
+    var sc = steelNow();
+    if (b === 'vinyl') fin = 'เจาะตาไก่ ' + C.eyelets(st.w, st.h).length + ' ตัว (ห่างขอบ 2.5 ซม. ระยะห่าง ≤ 50 ซม.)';
+    else if (b === 'acrylic') fin = 'เจาะรูหมุดสแตนเลส 4 มุม ลอยจากผนัง 2.5 ซม.';
+    else if (b === 'lightbox') fin = 'กล่องอะลูมิเนียม 12 ซม. + ไฟ LED ด้านใน + ขอบ 4 ซม.';
+    else if (b === 'foam') fin = 'พิมพ์ติดโฟมบอร์ด 5 มม. ตัดขอบตรง';
+    else if (b === 'sticker') fin = 'พิมพ์สติ๊กเกอร์ เคลือบ ไดคัทตามขนาด';
+    else if (b === 'cnc') fin = (C.cncPosts(st.steel) ? 'เสาเหล็กกล่อง 10×10 ซม. 2 ต้น + ฐานปูน ขอบล่างสูง 80 ซม.' : 'ติดผนัง (ขายึดหลังแผ่น)') + ' · อักษรนูนตัด CNC 1.5 ซม.';
+    else if (b === 'rollup' || b === 'xstand') fin = 'ขาตั้ง + กระเป๋าใส่';
+    else if (b === 'card') {
+      var r = runNow();
+      fin = r ? 'รันนัมเบอร์ ' + C.runText(r, 0) + '–' + C.runText(r, q.qty - 1) + (C.runSlots(r, st.w, st.h).stub ? ' · ต้นขั้ว ' + C.fmtCm(r.stub) + ' ซม. + ปรุ' : '') + ' · สีเลข ' + r.color : 'ตัดตามขนาด (ไม่มีเลขรัน)';
+    } else fin = C.lookNote(b, st.look);
+    if (sc) fin = (fin ? fin + ' · ' : '') + 'เหล็กกล่อง ' + C.tubeText(sc.opts) + ' ' + sc.pieces + ' ชิ้น รวม ' + C.fmtCm(sc.total) + ' ซม. (' + (sc.opts.cut === 'miter' ? 'เข้ามุม 45°' : 'ตัดตรงชน') + ')';
+    if (fin) rows.push(['งานตกแต่ง / อุปกรณ์', fin]);
+    if (st.mode === 'image' && imgDesign) {
+      var m = /(\d+)\D+(\d+)/.exec(imgDesign.px || '');
+      rows.push(['ไฟล์งาน', (imgDesign.name || 'ไฟล์รูป') + (imgDesign.px ? ' (' + imgDesign.px + ')' : '') + ' · ' + (st.fit === 'contain' ? 'วางพอดี เว้นขอบ' : 'ขยายเต็มป้าย')]);
+      if (m) {
+        var v = C.dpiVerdict(C.printDpi(+m[1], +m[2], st.w, st.h, st.fit), st.w, st.h);
+        rows.push([v.ok ? 'ความละเอียดตอนพิมพ์' : '⚠ ความละเอียดตอนพิมพ์', v.text]);
+      }
+      if (C.ratioMismatch(st.w, st.h, imgDesign.w, imgDesign.h)) rows.push(['⚠ ตรวจไฟล์', 'สัดส่วนรูปไม่ตรงขนาดงาน — ' + (st.fit === 'contain' ? 'จะมีขอบเว้นว่าง' : 'ขอบรูปจะถูกตัด')]);
+    } else {
+      var th = R.themes()[st.text.theme];
+      rows.push(['ไฟล์งาน', 'พิมพ์ข้อความในแอป' + (th ? ' (ชุดสี ' + th.name + ')' : '') + ' — ส่งออกไฟล์ JPG/PNG/ไฟล์พิมพ์จากแอป']);
+    }
+    if (st.bill.due) rows.push(['นัดรับงาน', C.dueText(st.bill.due)]);
+    return rows;
+  }
+  function jobPage(mock) {
+    var W = 1240;
+    var H = 1754;
+    var M = 70;
+    var CW = W - M * 2;
+    var NAVY = '#1f2a4d';
+    var ORANGE = '#d9622b';
+    var INK = '#18203a';
+    var INK2 = '#565e75';
+    var INK3 = '#868c9e';
+    var LINE = '#e0dcd4';
+    var c = document.createElement('canvas');
+    c.width = W;
+    c.height = H;
+    var x = c.getContext('2d');
+    var now = new Date();
+    x.fillStyle = '#ffffff';
+    x.fillRect(0, 0, W, H);
+    x.textBaseline = 'alphabetic';
+    // หัวกระดาษ
+    x.textAlign = 'left';
+    x.fillStyle = NAVY;
+    font(x, 600, 50, DISP);
+    x.fillText('ใบสั่งผลิต', M, 96);
+    x.fillStyle = INK3;
+    font(x, 500, 20, BODY);
+    x.fillText('JOB ORDER · ส่งช่าง / ฝ่ายผลิต', M, 130);
+    x.textAlign = 'right';
+    x.fillStyle = INK;
+    font(x, 600, 26, BODY);
+    x.fillText('เลขที่ ' + C.quoteNo(now).replace(/^Q/, 'J'), W - M, 80);
+    x.fillStyle = INK2;
+    font(x, 500, 22, BODY);
+    x.fillText('สั่งงาน ' + C.thaiDate(now), W - M, 114);
+    if (st.bill.due) {
+      x.fillStyle = '#b8491a';
+      font(x, 600, 24, BODY);
+      x.fillText('นัดรับ ' + C.dueText(st.bill.due), W - M, 148);
+    }
+    x.fillStyle = NAVY;
+    x.fillRect(M, 172, CW, 5);
+    x.fillStyle = ORANGE;
+    x.fillRect(M, 172, 150, 5);
+    // ลูกค้า
+    x.textAlign = 'left';
+    x.fillStyle = INK3;
+    font(x, 500, 21, BODY);
+    x.fillText('ลูกค้า', M, 224);
+    x.fillStyle = INK;
+    fitText(x, customer.trim() || '—', M + 90, 226, CW - 90, 600, 30, DISP);
+    // ภาพงาน
+    var by = 252;
+    var bh = 520;
+    x.fillStyle = '#f3f1ec';
+    rrect(x, M, by, CW, bh, 18);
+    x.fill();
+    var s0 = Math.min((CW - 24) / mock.width, (bh - 24) / mock.height);
+    var iw = mock.width * s0;
+    var ih = mock.height * s0;
+    x.save();
+    rrect(x, M + (CW - iw) / 2, by + (bh - ih) / 2, iw, ih, 10);
+    x.clip();
+    x.drawImage(mock, M + (CW - iw) / 2, by + (bh - ih) / 2, iw, ih);
+    x.restore();
+    // สเปก
+    var y = by + bh + 26;
+    var rows = specRows();
+    rows.forEach(function (r, i) {
+      var warn = /^⚠/.test(r[0]);
+      if (i % 2 === 0) {
+        x.fillStyle = '#f7f5f1';
+        x.fillRect(M, y, CW, 46);
+      }
+      x.textAlign = 'left';
+      x.fillStyle = warn ? '#b8491a' : INK3;
+      font(x, 500, 20, BODY);
+      x.fillText(r[0], M + 16, y + 31);
+      x.fillStyle = warn ? '#b8491a' : INK;
+      fitText(x, r[1], M + 290, y + 31, CW - 306, 500, 22, BODY);
+      y += 46;
+    });
+    // หมายเหตุถึงช่าง
+    y += 18;
+    x.fillStyle = INK;
+    font(x, 600, 22, BODY);
+    x.fillText('หมายเหตุถึงช่าง', M, y + 6);
+    x.strokeStyle = LINE;
+    x.lineWidth = 2;
+    rrect(x, M, y + 20, CW, 92, 12);
+    x.stroke();
+    x.fillStyle = INK2;
+    if (st.bill.work) fitText(x, st.bill.work, M + 18, y + 72, CW - 36, 500, 22, BODY);
+    // ขั้นตอนผลิต (ติ๊ก + ชื่อ/วันที่)
+    y += 140;
+    var steps = ['ตรวจไฟล์', 'พิมพ์ / ตัด', 'เคลือบ / ประกอบ', 'QC ตรวจงาน', 'ส่งมอบ / ติดตั้ง'];
+    var sw = CW / steps.length;
+    steps.forEach(function (stp, i) {
+      var sx = M + i * sw;
+      x.strokeStyle = INK2;
+      x.lineWidth = 2.5;
+      rrect(x, sx, y, 30, 30, 6);
+      x.stroke();
+      x.fillStyle = INK;
+      font(x, 600, 21, BODY);
+      x.textAlign = 'left';
+      fitText(x, stp, sx + 40, y + 23, sw - 50, 600, 21, BODY);
+      x.strokeStyle = LINE;
+      x.lineWidth = 1.5;
+      x.beginPath();
+      x.moveTo(sx, y + 74);
+      x.lineTo(sx + sw - 16, y + 74);
+      x.stroke();
+      x.fillStyle = INK3;
+      font(x, 400, 16, BODY);
+      x.fillText('ชื่อ / วันที่', sx, y + 96);
+    });
+    // ท้ายกระดาษ
+    x.fillStyle = LINE;
+    x.fillRect(M, H - 82, CW, 2);
+    x.textAlign = 'center';
+    x.fillStyle = INK3;
+    font(x, 400, 18, BODY);
+    x.fillText([st.shopName.trim(), st.shopPhone.trim() ? C.phoneText(st.shopPhone) : '', 'ใบสั่งผลิตภายในร้าน — ไม่ใช่ใบเสร็จ'].filter(Boolean).join('  ·  '), W / 2, H - 46);
+    return c;
+  }
+  function buildJob() {
+    var page = jobPage(mockupCanvas(1.2, false));
+    return toBlob(page, 'image/jpeg', 0.9).then(function (jpg) {
+      return blobBytes(jpg).then(function (bytes) {
+        return { blob: new Blob([C.pdfFromJpeg(bytes, page.width, page.height)], { type: 'application/pdf' }), name: fileName('joborder', 'pdf'), preview: jpg, canvas: page };
+      });
+    });
+  }
   function buildCompare() {
     if (!cmp[0] && !cmp[1]) return Promise.reject(new Error('empty'));
     var page = comparePage();
@@ -1952,6 +2179,7 @@
 
   function buildExport(fmt) {
     if (fmt === 'compare') return buildCompare();
+    if (fmt === 'job') return buildJob();
     if (fmt === 'print') return buildPrint();
     if (fmt === 'html') return buildHtml();
     if (fmt === 'glb') {
@@ -1989,6 +2217,7 @@
     pdf: 'ใบเสนอราคา A4 พร้อมภาพจำลอง ราคา และช่องเซ็นชื่อ ส่งทาง LINE หรือสั่งพิมพ์ได้เลย',
     glb: 'กด “สร้างลิงก์ดู 3 มิติ” ส่งลิงก์ให้ลูกค้าเปิดหมุนดูในมือถือได้เลย (ไม่ต้องลงแอป) · หรือดาวน์โหลดไฟล์ .glb เปิดใน 3D Viewer / ส่งทีมออกแบบ',
     print: 'ไฟล์ PDF ส่งโรงพิมพ์/เครื่องพิมพ์: จัดบัตรเต็มแผ่น เผื่อตัดตก 2 มม. มีเส้นตัด เลขรันเรียงทุกใบ',
+    job: 'ใบสั่งผลิต A4 สำหรับช่าง: สเปกงาน วัสดุ งานตกแต่ง (ตาไก่/โครงเหล็ก/เลขรัน) ไฟล์ + ความละเอียดตอนพิมพ์ นัดรับ หมายเหตุถึงช่าง และช่องติ๊กขั้นตอนผลิต',
     compare: 'แบบละครึ่งหน้า พร้อมชนิด ขนาด ราคา และช่องให้ลูกค้าติ๊กเลือก — ส่งเข้า LINE ให้ลูกค้าตอบ “แบบ 1” หรือ “แบบ 2”',
     html: 'ไฟล์เดียวจบ: ส่งทาง LINE / อีเมล / แฟลชไดรฟ์ ลูกค้าแตะหรือดับเบิลคลิกเปิดในเบราว์เซอร์ (Chrome / Safari / Edge) หมุนดูป้าย 3 มิติได้เลย ไม่ต้องลงแอป ไม่ต้องต่อเน็ต · มีปุ่มบันทึกรูปมุมที่ดู',
   };
@@ -2018,7 +2247,7 @@
     $('cmpBar').hidden = fmt !== 'compare';
     pressed('#cmpOutSeg button', 'cout', st.cmpOut);
     pressed('#sheetSeg button', 'sheet', st.sheet);
-    $('exportTitle').textContent = fmt === 'pdf' ? 'ใบเสนอราคา' : fmt === 'glb' ? 'ไฟล์ 3 มิติ' : fmt === 'html' ? 'ไฟล์ HTML พรีวิว 3 มิติ' : fmt === 'print' ? 'ไฟล์พิมพ์บัตร' : fmt === 'compare' ? 'แบบให้ลูกค้าเลือก' : 'รูปพร้อมส่งลูกค้า';
+    $('exportTitle').textContent = fmt === 'pdf' ? 'ใบเสนอราคา' : fmt === 'glb' ? 'ไฟล์ 3 มิติ' : fmt === 'html' ? 'ไฟล์ HTML พรีวิว 3 มิติ' : fmt === 'print' ? 'ไฟล์พิมพ์บัตร' : fmt === 'compare' ? 'แบบให้ลูกค้าเลือก' : fmt === 'job' ? 'ใบสั่งผลิต' : 'รูปพร้อมส่งลูกค้า';
     $('dlHint').textContent = inFrame && fmt !== 'glb' && fmt !== 'html' ? 'มือถือ: กดค้างที่รูปแล้วเลือก “บันทึกรูปภาพ” · คอมพิวเตอร์: คลิกขวาที่รูป แล้วเลือกบันทึกรูป' : FMT_HINT[fmt];
     $('dlStatus').textContent = 'กำลังเตรียมไฟล์…';
     ['dlShare', 'dlCopy', 'dlSave'].forEach(function (id) {
@@ -2172,7 +2401,7 @@
     if (!exp.blob) return;
     var file = new File([exp.blob], exp.name, { type: exp.blob.type });
     navigator
-      .share({ files: [file], title: exp.fmt === 'pdf' ? 'ใบเสนอราคา' : exp.fmt === 'compare' ? 'แบบให้เลือก' : 'ภาพจำลองป้าย' })
+      .share({ files: [file], title: exp.fmt === 'pdf' ? 'ใบเสนอราคา' : exp.fmt === 'compare' ? 'แบบให้เลือก' : exp.fmt === 'job' ? 'ใบสั่งผลิต' : 'ภาพจำลองป้าย' })
       .then(function () {
         $('dlStatus').textContent = 'เปิดหน้าแชร์แล้ว';
       })
@@ -3281,6 +3510,144 @@
     pressed('#metals .swatch', 'metal', cur);
     if (cur !== 'inox' && document.activeElement !== metalInput) metalInput.value = cur;
   }
+
+  // ---- ค่าใช้จ่ายเพิ่ม · ส่วนลด · VAT 7% · มัดจำ · นัดรับ · หมายเหตุ (ขั้น 4) ----
+  function billNow() {
+    return C.billTotals(quoteNow(), st.bill);
+  }
+  function setBill(k, v, quiet) {
+    var o = {};
+    o[k] = v;
+    st.bill = C.normalizeBill(Object.assign({}, st.bill, o));
+    save();
+    if (!quiet) billSync();
+    else billReadout();
+    footCache = null;
+    draw();
+  }
+  var billRows = -1;
+  function billSync() {
+    var b = st.bill;
+    var box = $('billExtras');
+    if (billRows !== b.extras.length) {
+      billRows = b.extras.length;
+      box.innerHTML = '';
+      b.extras.forEach(function (e, i) {
+        var row = document.createElement('div');
+        row.className = 'bill-row';
+        var nm = document.createElement('input');
+        nm.type = 'text';
+        nm.maxLength = 40;
+        nm.placeholder = 'ชื่อรายการ';
+        nm.setAttribute('aria-label', 'ชื่อรายการเพิ่ม ' + (i + 1));
+        nm.dataset.i = i;
+        nm.dataset.k = 'name';
+        var af = document.createElement('span');
+        af.className = 'affix';
+        var am = document.createElement('input');
+        am.type = 'text';
+        am.inputMode = 'decimal';
+        am.placeholder = '0';
+        am.setAttribute('aria-label', 'จำนวนเงิน ' + (i + 1));
+        am.dataset.i = i;
+        am.dataset.k = 'amount';
+        af.appendChild(am);
+        af.appendChild(document.createElement('i')).textContent = 'บาท';
+        var del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'btn-ghost small';
+        del.textContent = '×';
+        del.setAttribute('aria-label', 'ลบรายการ ' + (i + 1));
+        del.addEventListener('click', function () {
+          var ex = st.bill.extras.slice();
+          ex.splice(i, 1);
+          setBill('extras', ex);
+        });
+        [nm, am].forEach(function (inp) {
+          inp.addEventListener('input', function () {
+            var ex = st.bill.extras.map(function (x) {
+              return { name: x.name, amount: x.amount };
+            });
+            ex[+inp.dataset.i][inp.dataset.k] = inp.dataset.k === 'amount' ? C.num(inp.value) || 0 : inp.value;
+            setBill('extras', ex, true);
+          });
+        });
+        row.appendChild(nm);
+        row.appendChild(af);
+        row.appendChild(del);
+        box.appendChild(row);
+      });
+    }
+    box.querySelectorAll('input').forEach(function (inp) {
+      var e = b.extras[+inp.dataset.i];
+      if (!e || document.activeElement === inp) return;
+      inp.value = inp.dataset.k === 'amount' ? (e.amount ? String(e.amount) : '') : e.name;
+    });
+    $('billAdd').querySelectorAll('button').forEach(function (bt2) {
+      bt2.disabled = b.extras.length >= 8;
+    });
+    setVal('billDiscount', b.discount ? String(b.discount) : '');
+    setVal('billDue', b.due);
+    setVal('billNote', b.note);
+    setVal('billWork', b.work);
+    $('billVat').checked = b.vat;
+    pressed('#billDeposit button', 'dep', String(b.deposit));
+    billReadout();
+  }
+  function billReadout() {
+    var t = billNow();
+    var el = $('billReadout');
+    if (t.plain && !t.deposit) {
+      el.innerHTML = '';
+      el.hidden = true;
+      return;
+    }
+    el.hidden = false;
+    var rows = [];
+    var add = function (a, b2, strong) {
+      rows.push('<span' + (strong ? ' class="strong"' : '') + '><em>' + esc(a) + '</em><b>' + esc(b2) + '</b></span>');
+    };
+    add('ค่าป้าย', C.money(t.main) + ' บาท');
+    t.extras.forEach(function (e) {
+      add(e.name || 'รายการเพิ่ม', C.money(e.amount) + ' บาท');
+    });
+    if (t.discount) add('ส่วนลด', '−' + C.money(t.discount) + ' บาท');
+    if (t.vatOn) add('VAT 7%', C.money(t.vat) + ' บาท');
+    add('รวมทั้งสิ้น', C.money(t.grand) + ' บาท', true);
+    if (t.deposit && t.deposit < 100) {
+      add('มัดจำ ' + t.deposit + '%', C.money(t.depositAmt) + ' บาท');
+      add('คงค้างวันรับงาน', C.money(t.balance) + ' บาท');
+    } else if (t.deposit === 100) add('ชำระเต็มจำนวน', C.money(t.grand) + ' บาท');
+    el.innerHTML = rows.join('');
+  }
+  $('billAdd').querySelectorAll('button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (st.bill.extras.length >= 8) return;
+      setBill('extras', st.bill.extras.concat([{ name: b.dataset.add, amount: 0 }]));
+      var last = $('billExtras').lastElementChild;
+      if (last) last.querySelector(b.dataset.add ? 'input[data-k="amount"]' : 'input').focus();
+    });
+  });
+  $('billDiscount').addEventListener('input', function (e) {
+    setBill('discount', C.num(e.target.value) || 0, true);
+  });
+  $('billDue').addEventListener('change', function (e) {
+    setBill('due', e.target.value, true);
+  });
+  $('billNote').addEventListener('input', function (e) {
+    setBill('note', e.target.value, true);
+  });
+  $('billWork').addEventListener('input', function (e) {
+    setBill('work', e.target.value, true);
+  });
+  $('billVat').addEventListener('change', function (e) {
+    setBill('vat', e.target.checked);
+  });
+  document.querySelectorAll('#billDeposit button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      setBill('deposit', +b.dataset.dep);
+    });
+  });
 
   // ---- ชนิดงานของร้าน: ชื่อ หน้าตา (ยืมชนิดมาตรฐาน) วิธีคิดราคา หน่วย ขนาดที่ใช้บ่อย ----
   var tyEdit = null; // id ที่กำลังแก้ (null = เพิ่มใหม่)

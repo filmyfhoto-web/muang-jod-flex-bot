@@ -1935,3 +1935,57 @@ dialog.type-dlg {
   min-width: 0;
   white-space: normal;
 }
+
+/* ค่าใช้จ่ายเพิ่ม · ส่วนลด · VAT */
+.bill {
+  margin: 4px 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+.bill h3 {
+  margin: 0;
+}
+.bill h3 small {
+  margin-left: 6px;
+  font: 500 13px/1 var(--font-body);
+  color: var(--ink-3);
+}
+.bill-list {
+  display: grid;
+  gap: 6px;
+}
+.bill-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px auto;
+  gap: 6px;
+  align-items: center;
+}
+.bill-row input {
+  min-width: 0;
+  background: var(--surface);
+}
+.bill-row .affix input {
+  text-align: right;
+}
+.bill .readout {
+  margin: 0;
+}
+.bill .readout span {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.bill .readout {
+  display: grid;
+  gap: 2px;
+}
+.bill .readout em {
+  font-style: normal;
+  color: var(--ink-2);
+}
+.bill .readout .strong b {
+  font-size: 1.12em;
+  color: var(--accent-strong);
+}
