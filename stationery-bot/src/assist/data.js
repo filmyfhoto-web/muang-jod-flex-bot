@@ -230,7 +230,7 @@ export default {
       {
         "name": "โรงเรียนบ้านนางบง",
         "aliases": [],
-        "link": "https://www.nattagroup.com/29pne"
+        "link": "https://www.nattagroup.com/u24xp"
       },
       {
         "name": "โรงเรียนบ้านน้ำช้างพัฒนา",
@@ -315,12 +315,12 @@ export default {
       {
         "name": "โรงเรียนมัธยมพระราชทานเฉลิมพระเกียรติ",
         "aliases": [],
-        "link": "https://www.nattagroup.com/775kt"
+        "link": "https://www.nattagroup.com/mqrxg"
       },
       {
         "name": "โรงเรียนสกาดพัฒนา",
         "aliases": [],
-        "link": "https://www.nattagroup.com/kwpzu"
+        "link": "https://www.nattagroup.com/q23rg"
       },
       {
         "name": "โรงเรียนอนุบาลภูกามยาว",
