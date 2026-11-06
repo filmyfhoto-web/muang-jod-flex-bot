@@ -789,3 +789,53 @@ test('ป้ายเพิ่ม 8 ชนิด: ตัวอักษร น�
   const html = readFileSync(new URL('../sign-mockup/index.html', import.meta.url), 'utf8');
   for (const id of ['lookMat', 'lookLight', 'neonColors', 'lookLit']) assert.match(html, new RegExp('id="' + id + '"'), id);
 });
+
+test('ใบเสนอราคาหลายรายการ: ค่าใช้จ่ายเพิ่ม ส่วนลด VAT 7% มัดจำ · ตัวเลขมีสตางค์', async () => {
+  const q = C.quote({ type: 'vinyl', w: 300, h: 100, qty: 2, rate: 150 });
+  const t = C.billTotals(q, { extras: [{ name: 'ค่าออกแบบ', amount: 300 }, { name: 'ค่าติดตั้ง', amount: '500' }, { name: 'ค่าขออนุญาต', amount: 250 }, { name: 'ติดลบ', amount: -5 }], discount: 100, vat: true, deposit: 50 });
+  assert.equal(t.main, 900);
+  assert.equal(t.extraSum, 1050);
+  assert.equal(t.subtotal, 1950);
+  assert.equal(t.after, 1850);
+  assert.equal(t.vat, 129.5);
+  assert.equal(t.grand, 1979.5);
+  assert.equal(t.depositAmt, 989.75);
+  assert.equal(t.balance, 989.75);
+  assert.equal(t.plain, false);
+  assert.equal(C.money(1979.5), '1,979.50');
+  assert.equal(C.money(1500), '1,500');
+  assert.equal(C.bahtText(1979.5), 'หนึ่งพันเก้าร้อยเจ็ดสิบเก้าบาทห้าสิบสตางค์');
+  // ส่วนลดเกินยอด → ไม่ติดลบ · ไม่มีอะไรเพิ่ม = ยอดเท่าค่าป้าย
+  assert.equal(C.billTotals(q, { discount: 99999 }).grand, 0);
+  const plain = C.billTotals(q, {});
+  assert.equal(plain.plain, true);
+  assert.equal(plain.grand, 900);
+  // ข้อมูลแปลก ๆ ถูกตรวจ
+  const b = C.normalizeBill({ extras: Array(12).fill({ name: '<b>x</b>', amount: 1 }), deposit: 150, due: '20/11/2026', note: 'a<b>' });
+  assert.equal(b.extras.length, 8);
+  assert.equal(b.extras[0].name, 'bx/b');
+  assert.equal(b.deposit, 0);
+  assert.equal(b.due, '');
+  assert.equal(b.note, 'ab');
+  assert.equal(C.dueText('2026-11-20'), '20 พ.ย. 2569');
+  const { readFileSync } = await import('node:fs');
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  assert.match(app, /var T = C\.billTotals\(q, st\.bill\);/); // ใบเสนอราคาใช้ยอดรวมจากบิล
+  assert.match(app, /if \(fmt === 'job'\) return buildJob\(\);/);
+  const html = readFileSync(new URL('../sign-mockup/index.html', import.meta.url), 'utf8');
+  for (const id of ['billPane', 'billExtras', 'billAdd', 'billDiscount', 'billDue', 'billVat', 'billDeposit', 'billNote', 'billWork', 'billReadout', 'fmtJob']) assert.match(html, new RegExp('id="' + id + '"'), id);
+});
+
+test('ใบสั่งผลิต: ความละเอียดไฟล์ตอนพิมพ์จริง (dpi) และคำเตือนไฟล์เล็ก', () => {
+  // รูป 3000×1000 บนไวนิล 300×100 ซม. = 25.4 dpi → พอใช้สำหรับป้ายใหญ่ดูไกล
+  assert.equal(C.printDpi(3000, 1000, 300, 100, 'cover'), 25);
+  assert.equal(C.dpiVerdict(25, 300, 100).ok, true);
+  // รูป 600×400 บนโปสเตอร์ A4 = ~73 dpi → ต่ำ
+  const d = C.printDpi(600, 850, 21, 29.7, 'cover');
+  assert.ok(d < 100);
+  assert.equal(C.dpiVerdict(d, 21, 29.7).ok, false);
+  assert.match(C.dpiVerdict(d, 21, 29.7).text, /ต่ำ/);
+  // วางพอดี (contain) ใช้ด้านที่จำกัด
+  assert.equal(C.printDpi(2000, 1000, 100, 100, 'contain'), 25);
+  assert.equal(C.printDpi(0, 0, 100, 100), 0);
+});

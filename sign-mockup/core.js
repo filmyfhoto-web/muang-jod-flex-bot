@@ -290,6 +290,105 @@
     return String(r).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   }
 
+  // เงินมีสตางค์: 1605.5 → "1,605.50" · จำนวนเต็ม → "1,500"
+  function money(v) {
+    var c = Math.round(num(v) * 100);
+    if (!isFinite(c)) c = 0;
+    if (c % 100 === 0) return baht(c / 100);
+    var b = Math.floor(Math.abs(c) / 100);
+    var st = ('0' + (Math.abs(c) % 100)).slice(-2);
+    return (c < 0 ? '-' : '') + baht(b) + '.' + st;
+  }
+
+  /* ---------- บิล: ค่าใช้จ่ายเพิ่ม (ออกแบบ/ติดตั้ง/ขนส่ง/อื่น ๆ) ส่วนลด VAT 7% มัดจำ วันนัดรับ หมายเหตุ ---------- */
+  var round2 = function (v) {
+    return Math.round(v * 100) / 100;
+  };
+  function normalizeBill(b) {
+    b = b && typeof b === 'object' ? b : {};
+    var extras = (Array.isArray(b.extras) ? b.extras : []).slice(0, 8).map(function (e) {
+      e = e || {};
+      var a = num(e.amount);
+      return {
+        name: String(e.name == null ? '' : e.name)
+          .replace(/[\u0000-\u001f\u007f<>]/g, '')
+          .slice(0, 40),
+        amount: a > 0 ? round2(Math.min(a, 1e8)) : 0,
+      };
+    });
+    var dis = num(b.discount);
+    var dep = Math.round(num(b.deposit));
+    return {
+      extras: extras,
+      discount: dis > 0 ? round2(Math.min(dis, 1e8)) : 0,
+      vat: b.vat === true,
+      deposit: dep > 0 && dep <= 100 ? dep : 0,
+      due: /^\d{4}-\d{2}-\d{2}$/.test(String(b.due || '')) ? String(b.due) : '',
+      note: String(b.note == null ? '' : b.note)
+        .replace(/[\u0000-\u0009\u000b-\u001f\u007f<>]/g, '')
+        .slice(0, 200),
+      work: String(b.work == null ? '' : b.work)
+        .replace(/[\u0000-\u0009\u000b-\u001f\u007f<>]/g, '')
+        .slice(0, 300),
+    };
+  }
+  // ยอดเงิน: ค่าป้าย + ค่าใช้จ่ายเพิ่ม − ส่วนลด + VAT 7% → มัดจำ / คงค้าง
+  function billTotals(q, bill) {
+    bill = normalizeBill(bill);
+    var main = q && q.has ? q.total : 0;
+    var extras = bill.extras.filter(function (e) {
+      return e.amount > 0;
+    });
+    var extraSum = round2(
+      extras.reduce(function (a, e) {
+        return a + e.amount;
+      }, 0)
+    );
+    var subtotal = round2(main + extraSum);
+    var discount = Math.min(bill.discount, subtotal);
+    var after = round2(subtotal - discount);
+    var vat = bill.vat ? round2(after * 0.07) : 0;
+    var grand = round2(after + vat);
+    var depositAmt = bill.deposit ? round2((grand * bill.deposit) / 100) : 0;
+    return {
+      main: main,
+      extras: extras,
+      extraSum: extraSum,
+      subtotal: subtotal,
+      discount: discount,
+      after: after,
+      vatOn: bill.vat,
+      vat: vat,
+      grand: grand,
+      deposit: bill.deposit,
+      depositAmt: depositAmt,
+      balance: round2(grand - depositAmt),
+      has: main > 0 || extraSum > 0,
+      plain: !extraSum && !discount && !bill.vat, // ไม่มีอะไรเพิ่ม = ยอดเท่าค่าป้าย
+    };
+  }
+  // ความละเอียดตอนพิมพ์จริง (dpi) ของรูปขนาด ow×oh จุด บนป้าย wcm×hcm ตามการวาง (cover = ขยายเต็ม / contain = วางพอดี)
+  function printDpi(ow, oh, wcm, hcm, fit) {
+    if (!(ow > 0 && oh > 0 && wcm > 0 && hcm > 0)) return 0;
+    var a = ow / wcm;
+    var b = oh / hcm;
+    return Math.round(2.54 * (fit === 'contain' ? Math.min(a, b) : Math.max(a, b)));
+  }
+  // ระยะดูป้ายโดยทั่วไป: dpi ที่พอสำหรับงานนั้น (งานมือถือ/บัตร ต้องคม · ป้ายใหญ่ดูไกลใช้น้อยได้)
+  function dpiVerdict(dpi, wcm, hcm) {
+    var big = Math.max(wcm, hcm);
+    var need = big <= 60 ? 150 : big <= 200 ? 72 : big <= 500 ? 30 : 20; // ป้ายใหญ่ดูไกล ใช้ความละเอียดน้อยลงได้
+    if (dpi >= need) return { ok: true, text: dpi + ' dpi — คมพอสำหรับงานขนาดนี้' };
+    if (dpi >= need * 0.6) return { ok: true, text: dpi + ' dpi — พอใช้ (ดูใกล้อาจเห็นเม็ดภาพ)' };
+    return { ok: false, text: dpi + ' dpi — ต่ำ ภาพอาจแตก ขอไฟล์ใหญ่กว่านี้ (ควร ≥ ' + need + ' dpi)' };
+  }
+  // วันนัดรับ "2026-11-20" → "20 พ.ย. 2569"
+  function dueText(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+    if (!m) return '';
+    return thaiDate(new Date(+m[1], +m[2] - 1, +m[3]));
+  }
+
   // พื้นที่ละเอียดสำหรับบรรทัดคำนวณราคา: 6.075 (ไม่ปัดจนเลขคูณไม่ตรง)
   function fmtAreaExact(w, h) {
     return String(Math.round(areaSqm(w, h) * 10000) / 10000) + ' ตร.ม.';
@@ -1541,6 +1640,12 @@
     normalizeOptions: normalizeOptions,
     applyTones: applyTones,
     METALS: METALS,
+    money: money,
+    normalizeBill: normalizeBill,
+    billTotals: billTotals,
+    dueText: dueText,
+    printDpi: printDpi,
+    dpiVerdict: dpiVerdict,
     LETTER_MATS: LETTER_MATS,
     LIGHTS: LIGHTS,
     NEON_COLORS: NEON_COLORS,
