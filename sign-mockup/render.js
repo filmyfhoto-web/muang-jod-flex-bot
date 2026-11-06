@@ -805,8 +805,66 @@
     x.drawImage(h.art.front, h.x, h.y, h.w, h.h);
   }
 
+  // ฉากโต๊ะ/เคาน์เตอร์ และห้องจัดงาน (2 มิติ สำรอง)
+  function sceneTable(x, cam) {
+    var W = cam.W;
+    var H = cam.H;
+    var ty = Math.max(0, Math.min(H, Y(cam, C.TABLE_H)));
+    var bg = x.createLinearGradient(0, 0, 0, ty);
+    bg.addColorStop(0, '#ece4d8');
+    bg.addColorStop(1, '#cbbba6');
+    x.fillStyle = bg;
+    x.fillRect(0, 0, W, ty);
+    var t = x.createLinearGradient(0, ty, 0, H);
+    t.addColorStop(0, '#a77650');
+    t.addColorStop(1, '#7a5233');
+    x.fillStyle = t;
+    x.fillRect(0, ty, W, H - ty);
+    x.fillStyle = 'rgba(255,230,200,0.25)';
+    x.fillRect(0, ty, W, Math.max(1, 2 * cam.s));
+  }
+  function sceneEvent(x, cam) {
+    var W = cam.W;
+    var H = cam.H;
+    var fy = Math.min(cam.floorY, H);
+    x.fillStyle = '#2b3047';
+    x.fillRect(0, 0, W, fy);
+    for (var px = 0; px < W; px += Math.max(6, 18 * cam.s)) {
+      x.fillStyle = 'rgba(0,0,0,0.18)';
+      x.fillRect(px, 0, Math.max(2, 6 * cam.s), fy);
+    }
+    x.fillStyle = '#4c5466';
+    x.fillRect(0, fy, W, H - fy);
+    vignette(x, W, H, 0.3);
+  }
+  // ริมถนน: ท้องฟ้า ทุ่งหญ้า ทางเท้า + ถนนลาดยางด้านหน้า (ไม่มีรั้ว)
+  function sceneRoad(x, cam) {
+    var W = cam.W;
+    var H = cam.H;
+    var fy = Math.min(cam.floorY, H);
+    var hz = Math.max(0, Math.min(fy, Y(cam, 150)));
+    var sky = x.createLinearGradient(0, 0, 0, Math.max(1, hz));
+    sky.addColorStop(0, '#8cb6da');
+    sky.addColorStop(1, '#dce8ee');
+    x.fillStyle = sky;
+    x.fillRect(0, 0, W, hz);
+    var far = x.createLinearGradient(0, hz, 0, fy);
+    far.addColorStop(0, '#b7c99c');
+    far.addColorStop(1, '#8ea96a');
+    x.fillStyle = far;
+    x.fillRect(0, hz, W, fy - hz);
+    if (fy < H) {
+      var walk = Math.min(H, fy + Math.max(6, 40 * cam.s));
+      x.fillStyle = '#b9b4aa';
+      x.fillRect(0, fy, W, walk - fy);
+      x.fillStyle = '#e6e3dc';
+      x.fillRect(0, walk, W, Math.max(2, 6 * cam.s));
+      x.fillStyle = '#3b3e43';
+      x.fillRect(0, walk + Math.max(2, 6 * cam.s), W, H - walk);
+    }
+  }
   var SCENE_AFTER = { hand: sceneHandAfter }; // วาดทับหลังตัวงาน (นิ้วโป้งทับหน้าบัตร)
-  var SCENE_DRAW = { paper: scenePaper, hand: sceneHand, studio: sceneStudio, wall: sceneWall, brick: sceneBrick, shop: sceneShop, fence: sceneFence, classDoor: sceneClassDoor, officeDoor: sceneOfficeDoor, classroom: sceneClassroom };
+  var SCENE_DRAW = { paper: scenePaper, hand: sceneHand, table: sceneTable, event: sceneEvent, road: sceneRoad, studio: sceneStudio, wall: sceneWall, brick: sceneBrick, shop: sceneShop, fence: sceneFence, classDoor: sceneClassDoor, officeDoor: sceneOfficeDoor, classroom: sceneClassroom };
 
   /* ---------- คนยืนเทียบขนาด 170 ซม. — รูปการ์ตูนเจ้าของร้าน (ยังโหลดรูปไม่เสร็จ ใช้เงาคนสีเทาแทน) ---------- */
   var mascot = null;
@@ -1145,6 +1203,165 @@
     x.fillRect(0, 0, c.width, c.height);
     return c;
   }
+  /* นีออน: หลอดตามขอบตัวอักษร (ตัวอักษรหนา = ขอบรอบตัว · เส้นบาง = ทั้งเส้น) · color 'design' = สีตามงาน
+   * คืน { tube: หลอด (แกนกลางสว่าง), glow: แสงฟุ้งสีเดียวกัน } ขนาดเท่าภาพงาน */
+  function neonArt(src, bg, color) {
+    var L = letterMask(src, bg);
+    var W = L.width;
+    var H = L.height;
+    var r = Math.max(2, Math.round(Math.min(W, H) * 0.0075));
+    var er = mk(W, H);
+    var ex = ctx2d(er);
+    ex.drawImage(L, 0, 0);
+    ex.globalCompositeOperation = 'destination-in';
+    for (var a = 0; a < 8; a++) ex.drawImage(L, Math.cos((a * Math.PI) / 4) * r * 2, Math.sin((a * Math.PI) / 4) * r * 2);
+    var ring = mk(W, H);
+    var rx = ctx2d(ring);
+    rx.drawImage(L, 0, 0);
+    rx.globalCompositeOperation = 'destination-out';
+    rx.drawImage(er, 0, 0);
+    if (color && color !== 'design') {
+      rx.globalCompositeOperation = 'source-in';
+      rx.fillStyle = color;
+      rx.fillRect(0, 0, W, H);
+    }
+    var tube = mk(W, H);
+    var tx = ctx2d(tube);
+    tx.drawImage(ring, 0, 0);
+    tx.globalCompositeOperation = 'lighter';
+    tx.globalAlpha = 0.45;
+    tx.filter = 'blur(' + Math.max(0.5, r * 0.3) + 'px)';
+    tx.drawImage(ring, 0, 0);
+    tx.globalCompositeOperation = 'destination-in';
+    tx.globalAlpha = 1;
+    tx.filter = 'none';
+    tx.drawImage(ring, 0, 0);
+    var glow = mk(W, H);
+    var gx = ctx2d(glow);
+    gx.filter = 'blur(' + r * 3 + 'px)';
+    gx.drawImage(ring, 0, 0);
+    gx.drawImage(ring, 0, 0);
+    return { tube: tube, glow: glow };
+  }
+  var MTL2D = { inox: '#d4d8dc', gold: '#d4ad55', black: '#202124', white: '#f3f2ee' };
+  // 2 มิติ: ตัวอักษรลอยจากผนัง (เงาบนผนัง + ความหนาเฉียง + แสงส่องหลัง)
+  function lettersFace(x, g, k, d, fit, look) {
+    var w = Math.max(1, Math.round(g.w * k));
+    var h = Math.max(1, Math.round(g.h * k));
+    var art = mk(w, h);
+    paintDesign(ctx2d(art), d, 0, 0, w, h, fit);
+    var L = letterMask(art, (d && d.bg) || [31, 42, 77]);
+    var mt = look && MTL2D[look.mat];
+    var gap = g.gap * k;
+    var rel = g.relief * k;
+    x.save();
+    if (look && look.light === 'halo') {
+      x.filter = 'blur(' + Math.max(2, w * 0.015) + 'px)';
+      x.globalAlpha = 0.55;
+      x.drawImage(tinted(L, '#fff1d8'), 0, 0);
+    }
+    x.filter = 'blur(' + Math.max(1, gap * 0.5) + 'px)';
+    x.globalAlpha = 0.42;
+    x.drawImage(tinted(L, '#000000'), gap * 0.6, gap * 1.1);
+    x.restore();
+    var side = tinted(L, mt ? 'rgba(60,60,60,0.85)' : 'rgba(0,0,0,0.45)');
+    for (var i = 3; i >= 1; i--) x.drawImage(side, (rel * 0.35 * i) / 3, (rel * 0.5 * i) / 3);
+    x.drawImage(mt ? tinted(L, mt) : L, 0, 0);
+  }
+  // 2 มิติ: นีออนบนอะคริลิคใส
+  function neonFace(x, g, k, d, fit, look) {
+    var w = Math.max(1, Math.round(g.w * k));
+    var h = Math.max(1, Math.round(g.h * k));
+    var art = mk(w, h);
+    paintDesign(ctx2d(art), d, 0, 0, w, h, fit);
+    var a = neonArt(art, (d && d.bg) || [31, 42, 77], look ? look.neon : 'design');
+    x.save();
+    x.fillStyle = 'rgba(255,255,255,0.16)';
+    x.strokeStyle = 'rgba(255,255,255,0.65)';
+    x.lineWidth = Math.max(1, 0.3 * k);
+    x.beginPath();
+    rr(x, 0, 0, w, h, Math.min(w, h) * 0.03);
+    x.fill();
+    x.stroke();
+    x.globalAlpha = 0.6;
+    x.drawImage(a.glow, 0, 0);
+    x.globalAlpha = 1;
+    x.drawImage(a.tube, 0, 0);
+    x.restore();
+  }
+  // อุปกรณ์ของป้ายแบบใหม่ (ภาพ 2 มิติ)
+  function newHardware(x, g, k, look) {
+    var px = g.fx * k;
+    var py = g.fy * k;
+    var w = g.w * k;
+    var h = g.h * k;
+    x.save();
+    if (g.type === 'blade') {
+      x.fillStyle = '#2b2f35';
+      x.fillRect(0, py - 4 * k, px + w + 1 * k, 2.5 * k);
+      x.fillRect(0, py - 8 * k, 1.2 * k, 14 * k);
+      [px + w * 0.15, px + w * 0.85].forEach(function (hx) {
+        x.fillRect(hx - 0.3 * k, py - 2 * k, 0.6 * k, 2 * k);
+      });
+    } else if (g.type === 'flag') {
+      var pole = px - 2 * k;
+      x.fillStyle = '#c9cdd3';
+      x.fillRect(pole - 0.8 * k, py - 10 * k, 1.6 * k, h + g.lift * k + 8 * k);
+      x.fillRect(pole, py - 1.6 * k, w + 2.6 * k, 1.2 * k);
+      x.fillStyle = '#2b2f35';
+      x.beginPath();
+      x.ellipse(pole, py + h + g.lift * k - 6 * k, 22 * k, 6 * k, 0, 0, Math.PI * 2);
+      x.fill();
+    } else if (g.type === 'backdrop') {
+      var T = g.post * k;
+      var bw = (g.w + 2 * g.post) * k;
+      var bh = (g.post + g.h + g.lift) * k;
+      x.strokeStyle = '#b9bec6';
+      x.lineWidth = Math.max(1, 1.6 * k);
+      [[0, 0, T, bh], [bw - T, 0, T, bh], [0, 0, bw, T]].forEach(function (r) {
+        x.strokeRect(r[0], r[1], r[2], r[3]);
+        x.beginPath();
+        var vert = r[3] > r[2];
+        var n = Math.max(1, Math.round((vert ? r[3] : r[2]) / T));
+        for (var i = 0; i < n; i++) {
+          if (vert) {
+            x.moveTo(r[0] + (i % 2 ? T : 0), r[1] + (i * r[3]) / n);
+            x.lineTo(r[0] + (i % 2 ? 0 : T), r[1] + ((i + 1) * r[3]) / n);
+          } else {
+            x.moveTo(r[0] + (i * r[2]) / n, r[1] + (i % 2 ? T : 0));
+            x.lineTo(r[0] + ((i + 1) * r[2]) / n, r[1] + (i % 2 ? 0 : T));
+          }
+        }
+        x.stroke();
+      });
+    } else if (g.type === 'billboard') {
+      var R = Math.min(45, 18 + g.w * 0.02) * k;
+      var cx = px + w / 2;
+      x.fillStyle = '#8b9097';
+      x.fillRect(cx - R, py + h, R * 2, g.lift * k);
+      x.fillStyle = '#5d6168';
+      x.fillRect(px, py + h + 8 * k, w, 4 * k);
+      x.strokeStyle = '#8b9097';
+      x.lineWidth = Math.max(1, 2 * k);
+      x.strokeRect(px, py + h - 80 * k + 12 * k, w, 80 * k);
+      if (look && look.lit) {
+        var nl = Math.max(2, Math.round(g.w / 250));
+        for (var j = 0; j < nl; j++) {
+          var lx = px + (w * (j + 0.5)) / nl;
+          x.fillStyle = '#2b2f35';
+          x.fillRect(lx - 1.5 * k, py - 50 * k, 3 * k, 50 * k);
+          x.fillRect(lx - 17 * k, py - 55 * k, 34 * k, 12 * k);
+        }
+      }
+    } else if (g.type === 'tablestand') {
+      x.fillStyle = 'rgba(255,255,255,0.55)';
+      x.fillRect(px - 0.6 * k, py + h, w + 1.2 * k, Math.max(1.5, g.lift * k + 1));
+      x.strokeStyle = 'rgba(255,255,255,0.8)';
+      x.lineWidth = Math.max(1, 0.4 * k);
+      x.strokeRect(px - 0.6 * k, py - 0.4 * k, w + 1.2 * k, h + 0.8 * k);
+    }
+    x.restore();
+  }
   function cncPosts(x, g, k) {
     if (g.noPosts) return; // แบบติดผนัง ไม่มีเสา
     var pw = g.post * k;
@@ -1260,10 +1477,18 @@
 
   /* วาดชิ้นงานทั้งชิ้น (หน้าป้าย + ขาตั้ง/อุปกรณ์) ลงผืนแยก 1 ซม. = k พิกเซล */
   var PAD = 6;
-  function objectCanvas(g, k, d, fit) {
+  function objectCanvas(g, k, d, fit, look) {
     var c = mk(g.bw * k + PAD * 2, g.bh * k + PAD * 2);
     var x = ctx2d(c);
     x.translate(PAD, PAD);
+    if (g.type === 'letters') {
+      lettersFace(x, g, k, d, fit, look);
+      return c;
+    }
+    if (g.type === 'neon') {
+      neonFace(x, g, k, d, fit, look);
+      return c;
+    }
     var px = g.fx * k;
     var py = g.fy * k;
     var w = g.w * k;
@@ -1305,6 +1530,7 @@
     else if (g.type === 'acrylic') standoffs(x, g, k, px, py);
     else if (g.type === 'rollup') rollupHardware(x, g, k);
     else if (g.type === 'xstand') xstandHardware(x, g, k);
+    else newHardware(x, g, k, look);
     return c;
   }
 
@@ -1586,7 +1812,7 @@
     out.cam = cam;
     SCENE_DRAW[scene](x, cam, g, st.spot, st);
     var s = cam.s;
-    var oc = objectCanvas(g, s * scale, st.design, st.fit);
+    var oc = objectCanvas(g, s * scale, st.design, st.fit, st.look);
     var ox = cam.left;
     var oy = cam.floorY - cam.top * s;
     if (g.mount === 'floor') {
@@ -1594,7 +1820,7 @@
       var sh = x.createRadialGradient(0, 0, 0, 0, 0, 1);
       sh.addColorStop(0, 'rgba(0,0,0,0.38)');
       sh.addColorStop(1, 'rgba(0,0,0,0)');
-      x.translate(ox + (g.bw * s) / 2, cam.floorY);
+      x.translate(ox + (g.bw * s) / 2, oy + g.bh * s); // ใต้ชิ้นงาน (ฉากโต๊ะ: บนโต๊ะ)
       x.scale((g.bw * s) / 2 + 10 * s, Math.max(4, 6 * s));
       x.fillStyle = sh;
       circle(x, 0, 0, 1);
@@ -1668,7 +1894,7 @@
     }
     var maxSide = (opt.preview ? 1100 : 2000) * Math.min(scale, 1.5);
     var k = maxSide / Math.max(g.bw, g.bh);
-    var oc = objectCanvas(g, k, st.design, st.fit);
+    var oc = objectCanvas(g, k, st.design, st.fit, st.look);
     adjustBrightness(oc, st.brightness);
     var layer = mk(W * scale, H * scale);
     var lx = ctx2d(layer);
@@ -2025,6 +2251,7 @@
     faceCanvas: faceCanvas,
     cardArt: cardArt,
     handArt: handArt,
+    neonArt: neonArt,
     paperTex: paperTex,
     sheetPreview: sheetPreview,
     runFont: runFont,
