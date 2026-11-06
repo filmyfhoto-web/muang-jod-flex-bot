@@ -863,8 +863,136 @@
       x.fillRect(0, walk + Math.max(2, 6 * cam.s), W, H - walk);
     }
   }
+  // หน้าร้านกระจก: บานกระจกใหญ่กรอบอะลูมิเนียม เห็นในร้านลาง ๆ (ชั้นวางของ ไฟเพดาน) · ป้ายคาดด้านบน
+  function glassInterior(x, x0, y0, w, h, seed) {
+    var r = rng(seed);
+    var bg = x.createLinearGradient(0, y0, 0, y0 + h);
+    bg.addColorStop(0, '#5b5246');
+    bg.addColorStop(0.55, '#3a352f');
+    bg.addColorStop(1, '#25231f');
+    x.fillStyle = bg;
+    x.fillRect(x0, y0, w, h);
+    // ไฟเพดาน
+    for (var i = 0; i < 3; i++) {
+      var lx = x0 + w * (0.2 + 0.3 * i);
+      var g = x.createRadialGradient(lx, y0 + h * 0.06, 0, lx, y0 + h * 0.06, w * 0.22);
+      g.addColorStop(0, 'rgba(255,236,200,0.55)');
+      g.addColorStop(1, 'rgba(255,236,200,0)');
+      x.fillStyle = g;
+      x.fillRect(x0, y0, w, h * 0.5);
+    }
+    // ชั้นวางของ + ของบนชั้น
+    var cols = ['#c9a36b', '#8fb0c4', '#d07a5a', '#e2d6bd', '#7d9a6b', '#b78db0'];
+    for (var sx = 0; sx < 3; sx++) {
+      var shx = x0 + w * (0.08 + sx * 0.31);
+      var shw = w * 0.24;
+      for (var row = 0; row < 4; row++) {
+        var sy = y0 + h * (0.3 + row * 0.16);
+        x.fillStyle = 'rgba(20,18,15,0.55)';
+        x.fillRect(shx, sy, shw, h * 0.012);
+        var px = shx + 2;
+        while (px < shx + shw - 4) {
+          var bw = shw * (0.06 + r() * 0.08);
+          var bh = h * (0.05 + r() * 0.07);
+          x.fillStyle = cols[Math.floor(r() * cols.length)];
+          x.globalAlpha = 0.55;
+          x.fillRect(px, sy - bh, Math.min(bw, shx + shw - px), bh);
+          x.globalAlpha = 1;
+          px += bw + shw * 0.015;
+        }
+      }
+    }
+    x.fillStyle = 'rgba(30,26,22,0.35)';
+    x.fillRect(x0, y0 + h * 0.92, w, h * 0.08);
+  }
+  function sceneGlass(x, cam, g) {
+    var W = cam.W;
+    var H = cam.H;
+    var s = cam.s;
+    var fy = Math.min(cam.floorY, H);
+    var cx = g.bw / 2;
+    var mod = 400;
+    var pil = 30;
+    var gTop = 270;
+    x.fillStyle = '#e4ddd0';
+    x.fillRect(0, 0, W, fy);
+    grain(x, 0, 0, W, fy, 0.09, 1.4);
+    var xMin = -cam.left / s;
+    var xMax = (W - cam.left) / s;
+    var k0 = Math.floor((xMin - cx) / mod) - 1;
+    var k1 = Math.ceil((xMax - cx) / mod) + 1;
+    // ป้ายคาดหน้าร้าน (เหนือกระจก)
+    x.fillStyle = '#2e3239';
+    x.fillRect(0, Y(cam, gTop + 70), W, 70 * s);
+    x.fillStyle = 'rgba(255,255,255,0.08)';
+    x.fillRect(0, Y(cam, gTop + 70), W, Math.max(1, 3 * s));
+    for (var k = k0; k <= k1; k++) {
+      var b = cx + k * mod - mod / 2;
+      var gx = X(cam, b + pil / 2);
+      var gw = (mod - pil) * s;
+      var gy = Y(cam, gTop);
+      var gh = (gTop - 8) * s;
+      if (gx > W || gx + gw < 0) continue;
+      x.save();
+      x.beginPath();
+      x.rect(gx, gy, gw, gh);
+      x.clip();
+      // ในร้าน: วาดภาพเล็กแล้วขยาย = เบลอนุ่ม (มองผ่านกระจก ไม่แย่งสายตาจากงานบนกระจก)
+      var lw = Math.max(8, Math.round(gw / 3));
+      var lh = Math.max(8, Math.round(gh / 3));
+      var lo = mk(lw, lh);
+      glassInterior(ctx2d(lo), 0, 0, lw, lh, 31 + (k & 7));
+      x.drawImage(lo, gx, gy, gw, gh);
+      x.fillStyle = 'rgba(28,30,34,0.28)';
+      x.fillRect(gx, gy, gw, gh);
+      // สีกระจก + เงาสะท้อนเฉียง
+      x.fillStyle = 'rgba(150,180,192,0.16)';
+      x.fillRect(gx, gy, gw, gh);
+      x.fillStyle = 'rgba(255,255,255,0.12)';
+      x.beginPath();
+      x.moveTo(gx + gw * 0.08, gy);
+      x.lineTo(gx + gw * 0.36, gy);
+      x.lineTo(gx + gw * 0.12, gy + gh);
+      x.lineTo(gx - gw * 0.16, gy + gh);
+      x.closePath();
+      x.fill();
+      x.fillStyle = 'rgba(255,255,255,0.07)';
+      x.beginPath();
+      x.moveTo(gx + gw * 0.46, gy);
+      x.lineTo(gx + gw * 0.52, gy);
+      x.lineTo(gx + gw * 0.28, gy + gh);
+      x.lineTo(gx + gw * 0.22, gy + gh);
+      x.closePath();
+      x.fill();
+      x.restore();
+      // กรอบอะลูมิเนียม + ธรณีล่าง
+      var fw = Math.max(2, 5 * s);
+      x.strokeStyle = '#9ea4aa';
+      x.lineWidth = fw;
+      x.strokeRect(gx + fw / 2, gy + fw / 2, gw - fw, gh - fw);
+      x.strokeStyle = 'rgba(0,0,0,0.25)';
+      x.lineWidth = 1;
+      x.strokeRect(gx + fw, gy + fw, gw - fw * 2, gh - fw * 2);
+      x.fillStyle = '#7f858b';
+      x.fillRect(gx, Y(cam, 8), gw, 8 * s);
+    }
+    for (var p = k0; p <= k1 + 1; p++) {
+      var bx = cx + p * mod - mod / 2;
+      var L = X(cam, bx - pil / 2);
+      var pw = pil * s;
+      x.fillStyle = '#d8d0c2';
+      x.fillRect(L, Y(cam, gTop), pw, gTop * s);
+      x.fillStyle = 'rgba(255,255,255,0.18)';
+      x.fillRect(L, Y(cam, gTop), pw * 0.3, gTop * s);
+      x.fillStyle = 'rgba(0,0,0,0.12)';
+      x.fillRect(L + pw * 0.82, Y(cam, gTop), pw * 0.18, gTop * s);
+    }
+    topLight(x, W, H, X(cam, cx), 0.22);
+    if (cam.floorY < H) floor(x, cam, '#bdb6aa', '#9c958a', 40, 0.12);
+    vignette(x, W, H, 0.22);
+  }
   var SCENE_AFTER = { hand: sceneHandAfter }; // วาดทับหลังตัวงาน (นิ้วโป้งทับหน้าบัตร)
-  var SCENE_DRAW = { paper: scenePaper, hand: sceneHand, table: sceneTable, event: sceneEvent, road: sceneRoad, studio: sceneStudio, wall: sceneWall, brick: sceneBrick, shop: sceneShop, fence: sceneFence, classDoor: sceneClassDoor, officeDoor: sceneOfficeDoor, classroom: sceneClassroom };
+  var SCENE_DRAW = { paper: scenePaper, hand: sceneHand, table: sceneTable, event: sceneEvent, road: sceneRoad, glass: sceneGlass, studio: sceneStudio, wall: sceneWall, brick: sceneBrick, shop: sceneShop, fence: sceneFence, classDoor: sceneClassDoor, officeDoor: sceneOfficeDoor, classroom: sceneClassroom };
 
   /* ---------- คนยืนเทียบขนาด 170 ซม. — รูปการ์ตูนเจ้าของร้าน (ยังโหลดรูปไม่เสร็จ ใช้เงาคนสีเทาแทน) ---------- */
   var mascot = null;
@@ -1243,6 +1371,222 @@
     gx.drawImage(ring, 0, 0);
     return { tube: tube, glow: glow };
   }
+  /* ---------- รูปทรงชิ้นงาน: มุมมน / วงกลม-วงรี / ไดคัทตามรูป (+ ขอบขาว) ---------- */
+  // ไฟล์งานมีพื้นใส (PNG ตัดพื้น) ไหม — ดูจากภาพย่อ
+  function hasAlpha(src) {
+    try {
+      var c = mk(48, 48);
+      var x = c.getContext('2d', { willReadFrequently: true });
+      x.drawImage(src, 0, 0, 48, 48);
+      var d = x.getImageData(0, 0, 48, 48).data;
+      var n = 0;
+      for (var i = 3; i < d.length; i += 4) if (d[i] < 200) n++;
+      return n > 20;
+    } catch (e) {
+      return false;
+    }
+  }
+  /* เงาทึบรูปชิ้นงาน: ส่วนทึบของ fg ขยายออก r พิกเซล + อุดรูด้านใน (ไดคัทตัดแค่ขอบนอก)
+   * คำนวณที่ภาพย่อ (ด้านยาว 360) แล้วขยายกลับแบบนุ่ม → ขอบโค้งเนียน · คืนผืนขาวทึบเท่า fg หรือ null ถ้าแทบไม่มีเนื้องาน */
+  function cutSilhouette(fg, r, base) {
+    var W = fg.width;
+    var H = fg.height;
+    var f = Math.min(1, 360 / Math.max(W, H));
+    var P = 3;
+    var mw = Math.max(1, Math.round(W * f));
+    var mh = Math.max(1, Math.round(H * f));
+    var cw = mw + P * 2;
+    var ch = mh + P * 2;
+    var m = mk(cw, ch);
+    var mx = m.getContext('2d', { willReadFrequently: true });
+    mx.drawImage(fg, P, P, mw, mh);
+    var rs = r * f;
+    var rings = rs > 0.4 ? Math.max(1, Math.ceil(rs / 1.5)) : 0;
+    for (var q = 1; q <= rings; q++) {
+      var rq = (rs * q) / rings;
+      for (var a = 0; a < 16; a++) mx.drawImage(fg, P + Math.cos((a * Math.PI) / 8) * rq, P + Math.sin((a * Math.PI) / 8) * rq, mw, mh);
+    }
+    var img = mx.getImageData(0, 0, cw, ch);
+    var d = img.data;
+    var N = cw * ch;
+    var inside = new Uint8Array(N);
+    var cnt = 0;
+    for (var i = 0; i < N; i++) {
+      if (d[i * 4 + 3] > 90) {
+        inside[i] = 1;
+        cnt++;
+      }
+    }
+    if (cnt < mw * mh * 0.004) return null;
+    var out = new Uint8Array(N);
+    var stack = [];
+    var seed = function (p) {
+      if (!inside[p] && !out[p]) {
+        out[p] = 1;
+        stack.push(p);
+      }
+    };
+    for (var xx = 0; xx < cw; xx++) {
+      seed(xx);
+      seed((ch - 1) * cw + xx);
+    }
+    for (var yy = 0; yy < ch; yy++) {
+      seed(yy * cw);
+      seed(yy * cw + cw - 1);
+    }
+    while (stack.length) {
+      var p = stack.pop();
+      var px = p % cw;
+      if (px > 0) seed(p - 1);
+      if (px < cw - 1) seed(p + 1);
+      if (p >= cw) seed(p - cw);
+      if (p < N - cw) seed(p + cw);
+    }
+    // สแตนดี้: ฐานตัดตรงวางพื้นได้ — ส่วนล่างสุดของรูป (เท้า) ยืดลงถึงขอบล่าง + แผ่นเชื่อมฐานบาง ๆ
+    if (base) {
+      var lows = [];
+      var ybot = -1;
+      for (var bx = P; bx < cw - P; bx++) {
+        var low = -1;
+        for (var by = ch - 1; by >= 0; by--) {
+          if (!out[by * cw + bx]) {
+            low = by;
+            break;
+          }
+        }
+        lows.push(low);
+        if (low > ybot) ybot = low;
+      }
+      if (ybot >= 0) {
+        var band = Math.max(2, Math.round(mh * 0.04));
+        var x0 = -1;
+        var x1 = -1;
+        for (var li = 0; li < lows.length; li++) {
+          if (lows[li] >= 0 && lows[li] >= ybot - band) {
+            if (x0 < 0) x0 = li;
+            x1 = li;
+            for (var fy2 = lows[li]; fy2 < ch - P; fy2++) out[fy2 * cw + li + P] = 0;
+          }
+        }
+        var top = Math.max(0, ybot - Math.max(2, Math.round(mh * 0.03)));
+        for (var ry = top; ry < ch - P; ry++) for (var rx = x0; rx <= x1; rx++) out[ry * cw + rx + P] = 0;
+      }
+    }
+    for (var j = 0; j < N; j++) {
+      d[j * 4] = d[j * 4 + 1] = d[j * 4 + 2] = 255;
+      d[j * 4 + 3] = out[j] ? 0 : 255;
+    }
+    mx.putImageData(img, 0, 0);
+    var s = mk(W, H);
+    var sx = s.getContext('2d', { willReadFrequently: true });
+    sx.imageSmoothingEnabled = true;
+    sx.imageSmoothingQuality = 'high';
+    sx.drawImage(m, P, P, mw, mh, 0, 0, W, H);
+    var im = sx.getImageData(0, 0, W, H);
+    var e = im.data;
+    for (var k = 3; k < e.length; k += 4) {
+      var v = (e[k] - 100) * 4.5;
+      e[k] = v < 0 ? 0 : v > 255 ? 255 : v;
+      e[k - 1] = e[k - 2] = e[k - 3] = 255;
+    }
+    sx.putImageData(im, 0, 0);
+    return s;
+  }
+  /* src = งานเต็มชิ้นตามสัดส่วนจริง → ผืนเท่าเดิม นอกรูปทรงโปร่งใส
+   * o = { radius: % ของด้านสั้น (มุมมน), border: ขอบขาว ซม. (ไดคัท), k: พิกเซลต่อ ซม., bg: สีพื้นงาน, alpha: ไฟล์พื้นใส }
+   * ไดคัท: ไฟล์พื้นใส → ตัดตามรูป + ขอบขาว · ไฟล์มีพื้น → เก็บพื้นสีงานรอบลาย (ตามรูปตัวอักษร/โลโก้) แล้วขอบขาวรอบนอก */
+  function shapeFace(src, kind, o) {
+    o = o || {};
+    var W = src.width;
+    var H = src.height;
+    var c = mk(W, H);
+    var x = ctx2d(c);
+    if (kind === 'cut') {
+      var k = o.k > 0 ? o.k : W / 100;
+      var b = Math.min(Math.max(0, o.border || 0) * k, Math.min(W, H) * 0.2);
+      var pad = o.alpha ? 0 : Math.min(W, H) * 0.035;
+      var ins = b + pad;
+      var fg = mk(W, H);
+      var fx = ctx2d(fg);
+      var lm = o.alpha ? src : letterMask(src, o.bg || borderColor(src, W, H));
+      fx.drawImage(lm, ins, ins, Math.max(1, W - 2 * ins), Math.max(1, H - 2 * ins));
+      var outer = cutSilhouette(fg, ins, o.base);
+      if (outer) {
+        x.drawImage(outer, 0, 0);
+        if (pad > 0) {
+          var inner = cutSilhouette(fg, pad);
+          if (inner) x.drawImage(tinted(inner, rgb(o.bg || [255, 255, 255])), 0, 0);
+        }
+        x.drawImage(fg, 0, 0);
+        return c;
+      }
+      kind = 'round'; // แทบไม่มีเนื้องาน → มุมมนแทน
+    }
+    x.save();
+    x.beginPath();
+    if (kind === 'circle') x.ellipse(W / 2, H / 2, W / 2, H / 2, 0, 0, Math.PI * 2);
+    else if (kind === 'round') rr(x, 0, 0, W, H, (Math.min(W, H) * clamp(o.radius || 10, 1, 50)) / 100);
+    else x.rect(0, 0, W, H);
+    x.clip();
+    x.drawImage(src, 0, 0, W, H);
+    x.restore();
+    return c;
+  }
+  /* งานพร้อมรูปทรง (ใช้แทนงานเดิมทั้งภาพ 2 มิติ/3 มิติ) — วาดเต็มชิ้นตามสัดส่วนจริงก่อน แล้วตัดรูปทรง
+   * fit 'contain' + ไฟล์พื้นใส = ไม่เติมพื้น (ไดคัทตามรูปได้) */
+  function shapedDesign(d, wcm, hcm, fit, kind, sh, maxSide) {
+    sh = sh || {};
+    var long = maxSide || 1600;
+    var W = wcm >= hcm ? long : Math.max(1, Math.round((long * wcm) / hcm));
+    var H = wcm >= hcm ? Math.max(1, Math.round((long * hcm) / wcm)) : long;
+    var src = mk(W, H);
+    var x = ctx2d(src);
+    var alpha = !!(d && d.src) && hasAlpha(d.src);
+    if (alpha && kind === 'cut') fit = 'contain'; // ไดคัทจากไฟล์พื้นใส: เห็นทั้งรูป ขอบตัดตามรูปอยู่แล้ว
+    if (d && d.src && alpha && fit === 'contain') {
+      var r = C.containRect(d.w, d.h, W, H);
+      // สแตนดี้: รูปชิดล่าง (เท้าวางพื้น) ไม่ลอยกลางแผ่น
+      x.drawImage(d.src, r.dx, sh.base ? H - r.dh : r.dy, r.dw, r.dh);
+    } else paintDesign(x, d, 0, 0, W, H, fit);
+    var c = shapeFace(src, kind, { border: sh.border, radius: sh.radius, k: W / wcm, bg: d && d.bg, alpha: alpha, base: !!sh.base });
+    return { src: c, w: W, h: H, bg: (d && d.bg) || [255, 255, 255], shaped: kind };
+  }
+  /* ฟิล์มติดกระจก: print = พิมพ์สีทึบ · frost = ฟิล์มฝ้าขาวขุ่น ลายในงานตัดเป็นช่องใส · oneway = งานพิมพ์บนตาข่ายรูพรุน (มองจากในร้านเห็นข้างนอก)
+   * คืนผืนเท่าภาพงาน (frost มีความโปร่ง) */
+  function filmArt(src, film, bg, k) {
+    var W = src.width;
+    var H = src.height;
+    var c = mk(W, H);
+    var x = ctx2d(c);
+    if (film === 'frost') {
+      x.drawImage(src, 0, 0);
+      x.globalCompositeOperation = 'source-in';
+      x.fillStyle = 'rgba(236,241,243,0.8)';
+      x.fillRect(0, 0, W, H);
+      grain(x, 0, 0, W, H, 0.08, 0.6);
+      x.globalCompositeOperation = 'destination-in';
+      x.drawImage(src, 0, 0);
+      x.globalCompositeOperation = 'destination-out';
+      x.drawImage(letterMask(src, bg || borderColor(src, W, H)), 0, 0);
+      return c;
+    }
+    x.drawImage(src, 0, 0);
+    if (film === 'oneway') {
+      var step = Math.max(3, (k || W / 100) * 0.3);
+      var rad = step * 0.32;
+      x.globalCompositeOperation = 'source-atop';
+      x.fillStyle = 'rgba(14,17,22,0.5)';
+      x.beginPath();
+      for (var py = step / 2; py < H; py += step) {
+        for (var px = step / 2; px < W; px += step) {
+          x.moveTo(px + rad, py);
+          x.arc(px, py, rad, 0, Math.PI * 2);
+        }
+      }
+      x.fill();
+    }
+    return c;
+  }
   var MTL2D = { inox: '#d4d8dc', gold: '#d4ad55', black: '#202124', white: '#f3f2ee' };
   // 2 มิติ: ตัวอักษรลอยจากผนัง (เงาบนผนัง + ความหนาเฉียง + แสงส่องหลัง)
   function lettersFace(x, g, k, d, fit, look) {
@@ -1476,6 +1820,53 @@
   }
 
   /* วาดชิ้นงานทั้งชิ้น (หน้าป้าย + ขาตั้ง/อุปกรณ์) ลงผืนแยก 1 ซม. = k พิกเซล */
+  // 2 มิติ: ชิ้นงานรูปทรงพิเศษ (มุมมน/วงกลม/ไดคัท) — ความหนาเป็นเงาซ้อนตามรูป ไม่ใช่สี่เหลี่ยม
+  function shapedFace(x, g, k, d) {
+    var px = g.fx * k;
+    var py = g.fy * k;
+    var w = Math.max(1, g.w * k);
+    var h = Math.max(1, g.h * k);
+    var f = mk(w, h);
+    var fx = ctx2d(f);
+    fx.drawImage(d.src, 0, 0, f.width, f.height);
+    fx.globalCompositeOperation = 'source-atop';
+    if (g.type === 'acrylic') gloss(fx, 0, 0, f.width, f.height);
+    faceShade(fx, 0, 0, f.width, f.height);
+    var ex = g.depth ? Math.max(g.ex * k, g.type === 'card' ? 0.8 : 2) : 0;
+    if (ex > 0) {
+      var side = tinted(f, g.type === 'acrylic' ? 'rgba(176,212,222,0.95)' : '#d6d3cb');
+      var n = Math.max(1, Math.ceil(ex));
+      for (var i = n; i >= 1; i--) x.drawImage(side, px + (ex * i) / n, py + (ex * i) / n, w, h);
+    } else {
+      // สติ๊กเกอร์แนบผิว: เส้นขอบจาง ๆ ให้เห็นรูปทรงบนผนังสีอ่อน
+      x.save();
+      x.filter = 'blur(1px)';
+      x.globalAlpha = 0.35;
+      x.drawImage(tinted(f, '#000000'), px + 0.5, py + 1, w, h);
+      x.restore();
+    }
+    x.drawImage(f, px, py, w, h);
+    if (g.type === 'acrylic' && d.shaped === 'round') standoffs(x, g, k, px, py);
+  }
+  // 2 มิติ: ฟิล์ม/สติ๊กเกอร์ติดกระจก
+  function windowFace(x, g, k, d, fit, look) {
+    var px = g.fx * k;
+    var py = g.fy * k;
+    var w = Math.max(1, g.w * k);
+    var h = Math.max(1, g.h * k);
+    var f = mk(w, h);
+    var fx = ctx2d(f);
+    if (d && d.shaped) fx.drawImage(d.src, 0, 0, f.width, f.height);
+    else paintDesign(fx, d, 0, 0, f.width, f.height, fit);
+    var film = (look && look.film) || 'print';
+    x.drawImage(filmArt(f, film, d && d.bg, k), px, py, w, h);
+    // เงาสะท้อนกระจกทับฟิล์ม (ฟิล์มติดด้านนอก)
+    x.save();
+    x.globalAlpha = film === 'frost' ? 0.5 : 0.8;
+    x.globalCompositeOperation = 'source-atop';
+    gloss(x, px, py, w, h);
+    x.restore();
+  }
   var PAD = 6;
   function objectCanvas(g, k, d, fit, look) {
     var c = mk(g.bw * k + PAD * 2, g.bh * k + PAD * 2);
@@ -1487,6 +1878,15 @@
     }
     if (g.type === 'neon') {
       neonFace(x, g, k, d, fit, look);
+      return c;
+    }
+    if (g.type === 'window') {
+      windowFace(x, g, k, d, fit, look);
+      return c;
+    }
+    if (d && d.shaped) {
+      shapedFace(x, g, k, d);
+      if (g.type === 'standee') newHardware(x, g, k, look);
       return c;
     }
     var px = g.fx * k;
@@ -1834,7 +2234,7 @@
       x.shadowOffsetX = 12 * U * scale;
       x.shadowOffsetY = -2 * U * scale;
     } else {
-      x.shadowColor = g.type === 'sticker' ? 'rgba(0,0,0,0)' : 'rgba(0,0,0,0.32)';
+      x.shadowColor = g.type === 'sticker' || g.type === 'window' ? 'rgba(0,0,0,0)' : 'rgba(0,0,0,0.32)';
       x.shadowBlur = clamp(3 + g.gap * s * 1.8, 3, 42) * scale;
       x.shadowOffsetX = clamp(1 + g.gap * s * 0.35, 1, 14) * scale;
       x.shadowOffsetY = clamp(2 + g.gap * s * 0.8, 2, 30) * scale;
@@ -2252,6 +2652,11 @@
     cardArt: cardArt,
     handArt: handArt,
     neonArt: neonArt,
+    hasAlpha: hasAlpha,
+    shapeFace: shapeFace,
+    shapedDesign: shapedDesign,
+    filmArt: filmArt,
+    glassInterior: glassInterior,
     paperTex: paperTex,
     sheetPreview: sheetPreview,
     runFont: runFont,

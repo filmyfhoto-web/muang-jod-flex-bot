@@ -271,6 +271,35 @@
                 </div>
                 <p class="readout" id="runInfo"></p>
               </div>
+              <div class="field" id="shapeField" hidden>
+                <span class="label">รูปทรงชิ้นงาน</span>
+                <div class="seg small" id="shapeSeg">
+                  <button type="button" data-shape="rect">สี่เหลี่ยม</button>
+                  <button type="button" data-shape="round">มุมมน</button>
+                  <button type="button" data-shape="circle">วงกลม/วงรี</button>
+                  <button type="button" data-shape="cut">ไดคัทตามรูป</button>
+                </div>
+                <div class="grid2" id="shapeOpts">
+                  <label class="field" id="shapeBorderRow">
+                    <span class="label">ขอบขาวรอบรูป <small>0 = ตัดชิดลาย</small></span>
+                    <span class="affix"><input id="shapeBorder" type="text" inputmode="decimal" /><i>ซม.</i></span>
+                  </label>
+                  <label class="field" id="shapeRadiusRow">
+                    <span class="label">ความมนของมุม</span>
+                    <span class="affix"><input id="shapeRadius" type="text" inputmode="numeric" /><i>%</i></span>
+                  </label>
+                </div>
+                <p class="hint" id="shapeHint"></p>
+              </div>
+              <div class="field" id="filmField" hidden>
+                <span class="label">ชนิดฟิล์ม</span>
+                <div class="seg small" id="filmSeg">
+                  <button type="button" data-film="print">พิมพ์สีติดกระจก</button>
+                  <button type="button" data-film="frost">ฟิล์มฝ้า เว้นลาย</button>
+                  <button type="button" data-film="oneway">มองทางเดียว</button>
+                </div>
+                <p class="hint" id="filmHint"></p>
+              </div>
               <div class="field" id="lookMatField" hidden>
                 <span class="label">วัสดุตัวอักษร</span>
                 <div class="seg small" id="lookMat">
