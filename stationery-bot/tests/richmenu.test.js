@@ -90,10 +90,11 @@ test('the five buttons: talk to an admin (keyboard opens, the bot asks who) · o
   assert.equal(buildReply(shop.richMenu.areas[0].text, shop, {}).needsPhotos, true);
   assert.equal(buildReply(docsWords, shop, {}).needsPhotos, true);
   assert.equal(buildReply(docsWords, shop, {}).askText, shop.contact.documentAsk);
-  // the two web pages of the shop's site: the school-supplies page (the owner's link /อุปกรณ์, percent-encoded as LINE wants) and the print services
+  // the two web pages of the shop's site: the school shop page (#school, the owner's link of 6 Nov: pick the school, then order its supplies) and the print services
   assert.deepEqual([gear.type, gear.label], ['uri', 'อุปกรณ์การเรียน']);
   assert.equal(new URL(gear.uri).origin, 'https://www.nattagroup.com');
-  assert.equal(decodeURIComponent(new URL(gear.uri).pathname), '/อุปกรณ์');
+  assert.equal(new URL(gear.uri).pathname, '/');
+  assert.equal(new URL(gear.uri).hash, '#school');
   assert.ok(/^[\x20-\x7e]+$/.test(gear.uri)); // plain ASCII: nothing for LINE to mis-encode
   assert.deepEqual([print.type, print.label, print.uri], ['uri', 'บริการงานพิมพ์', 'https://www.nattagroup.com/#services']);
 });
