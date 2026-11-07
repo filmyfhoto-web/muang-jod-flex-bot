@@ -64,8 +64,10 @@
   const STG={talk:{t:'พูดคุย',c:'#7A8394'},quote:{t:'รอเสนอราคา',c:'#E8832A'},confirm:{t:'รอยืนยัน',c:'#1F9D55'},work:{t:'กำลังทำงาน',c:'#2F6FE4'},done:{t:'ปิดการขาย',c:'#0F7B45'},closed:{t:'จบการสนทนา',c:'#9AA3B2'}}
   const JOB=[['pending','รอดำเนินการ','#E8832A'],['awaiting','รอลูกค้ายืนยัน','#B5862A'],['working','กำลังทำ/จัดสินค้า','#2F6FE4'],['ready','พร้อมส่ง/พร้อมรับ','#8A5CC2'],['delivered','ส่งมอบแล้ว','#1F9D55'],['closed','ปิดออเดอร์','#0F7B45'],['canceled','ยกเลิก','#B42318']]
   const PAY=[['unpaid','ยังไม่ชำระ','#B42318'],['deposit','มัดจำแล้ว','#E8832A'],['partial','ชำระบางส่วน','#B5862A'],['paid','ชำระครบ','#0F7B45'],['account','ลงบัญชี','#5B4BC2']]
+  const TAG=[['inquiry','สอบถาม','#2F6FE4'],['problem','ปัญหา','#B42318'],['urgent','ด่วน','#E8832A'],['later','ตอบกลับภายหลัง','#6B7587']]
   const JN=Object.fromEntries(JOB.map(([k,t,c])=>[k,{t,c}]))
   const PN=Object.fromEntries(PAY.map(([k,t,c])=>[k,{t,c}]))
+  const TAGN=Object.fromEntries(TAG.map(([k,t,c])=>[k,{t,c}]))
   const OTYPE={goods:'สั่งเพื่อจัดสินค้า',docs:'สั่งเพื่อจัดทำเอกสาร'}
   const isOpenJob=s=>!['closed','canceled'].includes(s)
   const UNIT_LIST='รีม โหล แพ็ค แพค กล่อง เล่ม ด้าม แท่ง อัน ชิ้น ขวด ชุด ใบ ม้วน คู่ ห่อ ถุง ตัว แผ่น เมตร งาน หลอด ก้อน แผง ลัง'.split(' ')
@@ -81,7 +83,7 @@
     listLoading:false,msgsLoading:false,ordLoading:false,errList:'',errMsgs:'',errOrd:'',
     flash:'',flashErr:false,flashTok:0,busySend:false,busySave:false,attachBusy:false,chatAttachBusy:false,
     drafts:{},odrafts:{},urls:{},tok:0,ctok:0,ptok:0,picker:false,pick:[],pickQ:'',creating:false,note:false,oaLog:false,
-    prodOpen:false,prodQ:'',prodRows:[],prodPrice:{},prodBusy:false,modal:null,staff:'ทีมขาย',conflict:false,stageMenu:false,
+    prodOpen:false,prodQ:'',prodRows:[],prodPrice:{},prodBusy:false,modal:null,staff:'ทีมขาย',conflict:false,stageMenu:false,tagMenu:false,
     line:null,links:{},sendTok:{},busyRetry:{},poll:null,pollN:0,sig:'',probe:'',openStamp:'',linksOffUntil:0,statusOffUntil:0}
 
   // ---------- หน้าตา ----------
@@ -109,8 +111,9 @@
 #so_root .so-btn.sm{padding:5px 10px;font-size:12.5px;border-radius:9px}
 #so_root .so-btn:disabled{opacity:.5;cursor:default}
 #so_root .so-items{flex:1;overflow:auto;min-height:0}
-#so_root .so-row{display:flex;gap:12px;padding:12px 14px;border:0;border-bottom:1px solid var(--so-line);width:100%;background:#fff;text-align:left;font:inherit;color:inherit;cursor:pointer;align-items:center}
+#so_root .so-row{display:flex;gap:12px;padding:12px 14px;border:0;border-left:4px solid transparent;border-bottom:1px solid var(--so-line);width:100%;background:#fff;text-align:left;font:inherit;color:inherit;cursor:pointer;align-items:center}
 #so_root .so-row.on{background:var(--so-sky2)}
+#so_root .so-row.tagged{border-left-color:var(--tc,transparent)}
 #so_root .so-av{flex:0 0 44px;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:600;font-size:17px;background:#7A8394}
 #so_root .so-av.sm{flex-basis:40px;width:40px;height:40px;font-size:15px}
 #so_root .so-rw{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
@@ -450,7 +453,7 @@
     const errHtml=S.errList?`<div class="so-err">${E(S.errList)} <button type="button" class="so-btn sm" data-a="retrylist">ลองใหม่</button></div>`:''
     if(!rows.length){box.innerHTML=errHtml+`<div class="so-empty">${S.list.length?'ไม่มีแชตในแท็บนี้':(lineState().ok?'ยังไม่มีแชตในระบบ — ข้อความจากลูกค้าทาง LINE จะเข้ามาที่นี่เอง หรือกด "แชตใหม่" เพื่อเปิดแชตจากรายชื่อลูกค้า':'ยังไม่มีแชตในระบบ — กด "แชตใหม่" เพื่อเปิดแชตจากรายชื่อลูกค้า (LINE OA ยังไม่ได้เชื่อมต่อ ข้อความลูกค้าจึงยังไม่เข้ามาที่นี่)')}</div>`;return}
     box.innerHTML=errHtml+rows.map(t=>`
-      <button type="button" class="so-row${S.sel===t.id?' on':''}" data-a="open" data-id="${E(t.id)}">
+      <button type="button" class="so-row${S.sel===t.id?' on':''}${t.tag?' tagged':''}" style="${t.tag?'--tc:'+TAGN[t.tag].c:''}" data-a="open" data-id="${E(t.id)}" title="${t.tag?TAGN[t.tag].t:''}">
         <span class="so-av" style="background:${colorOf(t)}">${E(initial(t.title))}${avImg(t)}</span>
         <span class="so-rw">
           <span class="so-r1"><span class="so-nm">${isLine(t)?'<span class="so-src">LINE</span>':''}${E(t.title||'ไม่มีชื่อ')}</span><span class="so-tm">${E(tShort(t.last_at))}</span></span>
@@ -610,6 +613,8 @@
         <span id="so_lchip">${lineChip(t)}</span>
         <button type="button" class="so-stgbtn" style="--c:${st.c}" data-a="stagemenu" aria-haspopup="true" aria-expanded="${S.stageMenu}">${st.t} ▾</button>
         ${S.stageMenu?`<div class="so-stgmenu" role="menu">${Object.entries(STG).map(([k,v])=>`<button type="button" role="menuitem" data-a="stage" data-k="${k}">${t.stage===k?'✓ ':''}${v.t}</button>`).join('')}</div>`:''}
+        <button type="button" class="so-stgbtn" style="--c:${t.tag?TAGN[t.tag].c:'#9AA3B2'}" data-a="tagmenu" aria-haspopup="true" aria-expanded="${S.tagMenu}" title="ป้ายจัดหมวดแชต">${t.tag?TAGN[t.tag].t:'ป้าย'} ▾</button>
+        ${S.tagMenu?`<div class="so-stgmenu" role="menu">${TAG.map(([k,lb])=>`<button type="button" role="menuitem" data-a="tag" data-k="${k}">${t.tag===k?'✓ ':''}${lb}</button>`).join('')}<button type="button" role="menuitem" data-a="tag" data-k="">${!t.tag?'✓ ':''}ไม่มีป้าย</button></div>`:''}
       </div>
       ${line?'<div class="so-lnote">แชตจาก LINE OA · หน้านี้แสดงข้อความของลูกค้า คำตอบของบอท และข้อความที่ส่งจากหน้านี้ — คำตอบที่พิมพ์ตรงใน LINE OA Manager ไม่ขึ้นเอง — กดปุ่ม "จาก OA Manager" แล้ววางคำตอบนั้นเพื่อบันทึกให้ทุกคนเห็น หรือตอบจากหน้านี้เลย</div>':''}
       <div class="so-flashbox" data-where="chat"></div>
@@ -1288,6 +1293,20 @@
     flash('ย้ายไป "'+STG[k].t+'" แล้ว',false,'chat')
   }
 
+  async function setTag(k){
+    const id=S.sel,t=S.list.find(x=>x.id===id)
+    S.tagMenu=false
+    if(!id||!t||(k&&!TAGN[k])||t.tag===k){paintChat();return}
+    const now=new Date().toISOString()
+    const r=await q(()=>sb.from('sale_threads').update({tag:k,updated_at:now}).eq('id',id))
+    if(errMsg(r)){paintChat();flash('ติดป้ายไม่สำเร็จ: '+errMsg(r),true,'chat');return}
+    await q(()=>sb.from('sale_msgs').insert({thread_id:id,dir:'note',kind:'system',body:k?'ติดป้าย "'+TAGN[k].t+'"':'เอาป้ายออก',by_name:S.staff}))
+    t.tag=k
+    paintList()
+    await reloadMsgs(id)
+    flash(k?'ติดป้าย "'+TAGN[k].t+'" แล้ว':'เอาป้ายออกแล้ว',false,'chat')
+  }
+
   async function newThread(c,title){
     if(S.creating)return
     if(c){const old=S.list.find(x=>x.customer_id===c.id);if(old){S.picker=false;paintPicker();openThread(old.id);return}}
@@ -1623,8 +1642,10 @@
       const ta2=$('so_txt');if(ta2)ta2.focus()
       return
     }
-    if(a==='stagemenu'){S.stageMenu=!S.stageMenu;paintChat();return}
+    if(a==='stagemenu'){S.stageMenu=!S.stageMenu;S.tagMenu=false;paintChat();return}
     if(a==='stage'){setStage(el.dataset.k);return}
+    if(a==='tagmenu'){S.tagMenu=!S.tagMenu;S.stageMenu=false;paintChat();return}
+    if(a==='tag'){setTag(el.dataset.k||null);return}
     if(a==='picker'){S.picker=!S.picker;if(!S.picker){S.pick=[];S.pickQ=''}paintPicker();const i=$('so_cq');if(i)i.focus();return}
     if(a==='pickc'){const c=S.pick.find(x=>x.id===el.dataset.id);if(c)newThread(c);return}
     if(a==='picknew'){newThread(null,S.pickQ);return}

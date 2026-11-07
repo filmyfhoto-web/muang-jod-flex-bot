@@ -1,6 +1,8 @@
 // Writes the SQL that puts the back-office page "แชตและออเดอร์" (module saleorders, table app_modules) in place.
 // Run: node app-patches/sale-orders-page/make-sql.mjs   (from stationery-bot/)
-//   saleorders.module.js      the current version (v8: a reply typed in LINE OA Manager can be logged into the chat)
+//   saleorders.module.js      the current version (v10: colored tags on each chat — สอบถาม/ปัญหา/ด่วน/ตอบกลับภายหลัง)
+//   saleorders.module.v9.js   the version on the live back office since the closed-sales total (ปุ่ม "ยอดปิดงาน") (md5 00d486ee…)
+//   saleorders.module.v8.js   the version on the live back office since a reply typed in LINE OA Manager can be logged into the chat
 //   saleorders.module.v7.js   the version on the live back office since links in LINE messages open (md5 5a8b8f07…)
 //   saleorders.module.v6.js   the version on the live back office since the bot's answers show in the chat (md5 b78b1655…)
 //   saleorders.module.v5.js   the version on the live back office since the payment status "ลงบัญชี" (md5 6bdd44fa…)
@@ -16,8 +18,10 @@
 // upgrade-v5-to-v6.sql  v5 → v6 (the step run on the live back office) · downgrade-v6-to-v5.sql v6 → v5
 // upgrade-v6-to-v7.sql  v6 → v7 · downgrade-v7-to-v6.sql v7 → v6
 // upgrade-v7-to-v8.sql  v7 → v8 · downgrade-v8-to-v7.sql v8 → v7
-// upgrade-v3-to-v4.sql, upgrade-v4-to-v5.sql, upgrade-v5-to-v6.sql and upgrade-v6-to-v7.sql are the steps that ran on production: their bytes must not change (the tests check them)
-// reverse.sql           removes the module while its code is v1, v2, v3, v4, v5, v6, v7 or v8 (md5); an edited page is never removed
+// upgrade-v8-to-v9.sql  v8 → v9 (the step run on the live back office) · downgrade-v9-to-v8.sql v9 → v8
+// upgrade-v9-to-v10.sql v9 → v10 · downgrade-v10-to-v9.sql v10 → v9
+// upgrade-v3-to-v4.sql, upgrade-v4-to-v5.sql, upgrade-v5-to-v6.sql, upgrade-v6-to-v7.sql, upgrade-v7-to-v8.sql and upgrade-v8-to-v9.sql are the steps that ran on production: their bytes must not change (the tests check them)
+// reverse.sql           removes the module while its code is v1, v2, v3, v4, v5, v6, v7, v8 or v9 (md5); an edited page is never removed
 // upgrade-v1-to-v2.sql  the step run on 4 Nov 2569 — written once and frozen (this script does not regenerate it)
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
@@ -29,12 +33,13 @@ const SEQ = 66; // ข้าง ๆ salechat (66) — หน้าเดิม�
 
 export const md5Of = (text) => createHash('md5').update(text, 'utf8').digest('hex');
 
-// code = the current version (v7) · v6 / v5 / v4 / v3 / v2 / v1 = the earlier versions (optional). Returns every script as text.
-export function buildSql(code, { v8 = null, v7 = null, v6 = null, v5 = null, v4 = null, v3 = null, v2 = null, v1 = null } = {}) {
-  for (const [name, text] of [['module code', code], ['v8', v8], ['v7', v7], ['v6', v6], ['v5', v5], ['v4', v4], ['v3', v3], ['v2', v2], ['v1', v1]]) {
+// code = the current version (v10) · v9 / v8 / v7 / v6 / v5 / v4 / v3 / v2 / v1 = the earlier versions (optional). Returns every script as text.
+export function buildSql(code, { v9 = null, v8 = null, v7 = null, v6 = null, v5 = null, v4 = null, v3 = null, v2 = null, v1 = null } = {}) {
+  for (const [name, text] of [['module code', code], ['v9', v9], ['v8', v8], ['v7', v7], ['v6', v6], ['v5', v5], ['v4', v4], ['v3', v3], ['v2', v2], ['v1', v1]]) {
     if (text && text.includes(TAG)) throw new Error(`the ${name} contains ${TAG}; pick another tag`);
   }
   const md5 = md5Of(code);
+  const md5v9 = v9 ? md5Of(v9) : null;
   const md5v8 = v8 ? md5Of(v8) : null;
   const md5v7 = v7 ? md5Of(v7) : null;
   const md5v6 = v6 ? md5Of(v6) : null;
@@ -43,14 +48,15 @@ export function buildSql(code, { v8 = null, v7 = null, v6 = null, v5 = null, v4 
   const md5v3 = v3 ? md5Of(v3) : null;
   const md5v2 = v2 ? md5Of(v2) : null;
   const md5v1 = v1 ? md5Of(v1) : null;
-  const known = [md5, md5v8, md5v7, md5v6, md5v5, md5v4, md5v3, md5v2, md5v1].filter(Boolean).map((x) => `'${x}'`).join(', ');
+  const known = [md5, md5v9, md5v8, md5v7, md5v6, md5v5, md5v4, md5v3, md5v2, md5v1].filter(Boolean).map((x) => `'${x}'`).join(', ');
 
   const apply = `-- ติดตั้งหน้า "แชตและออเดอร์" (โมดูล saleorders) ในแอปหลังร้าน: แถวใหม่ในตาราง app_modules เท่านั้น
--- · ไม่แก้โมดูลเดิมแม้แต่บรรทัดเดียว · ติดตั้งซ้ำได้ (ถ้ามีแถวนี้อยู่แล้วจะไม่ทำอะไร — ถ้าเป็นรุ่นเก่าให้ใช้ upgrade-v8-to-v9.sql (หรือ upgrade-v7-to-v8.sql / upgrade-v6-to-v7.sql / upgrade-v5-to-v6.sql / upgrade-v4-to-v5.sql / upgrade-v3-to-v4.sql ตามรุ่นที่ติดตั้งอยู่))
+-- · ไม่แก้โมดูลเดิมแม้แต่บรรทัดเดียว · ติดตั้งซ้ำได้ (ถ้ามีแถวนี้อยู่แล้วจะไม่ทำอะไร — ถ้าเป็นรุ่นเก่าให้ใช้ upgrade-v9-to-v10.sql (หรือ upgrade-v8-to-v9.sql / upgrade-v7-to-v8.sql / upgrade-v6-to-v7.sql / upgrade-v5-to-v6.sql / upgrade-v4-to-v5.sql / upgrade-v3-to-v4.sql ตามรุ่นที่ติดตั้งอยู่))
 -- · ติดตั้งแบบปิดไว้ (enabled = false): เปิดหลังตรวจแล้วด้วย update app_modules set enabled = true where name = 'saleorders';
 -- · ต้องติดตั้ง migration db/migrations/002_sale_orders.sql ก่อน (หน้านี้เรียก sale_order_save / sale_order_log_send)
 -- · ส่วน LINE ใช้ได้ต่อเมื่อติดตั้ง db/migrations/003_sale_line_bridge.sql และเปิดสะพานที่บอท — ถ้ายังไม่ติดตั้ง หน้าแสดง "LINE OA: ยังไม่ได้เชื่อมต่อ"
 -- · ลูกค้าลงบัญชี การ์ด และสถานะ "ลงบัญชี" ต้องติดตั้ง db/migrations/004_sale_order_cards.sql และ 005_sale_order_account.sql ด้วย
+-- · ป้ายสีจัดหมวดแชต (สอบถาม/ปัญหา/ด่วน/ตอบกลับภายหลัง) ต้องติดตั้ง db/migrations/006_sale_thread_tags.sql ด้วย — ถ้ายังไม่ติดตั้ง ปุ่มป้ายจะใช้ไม่ได้ (คอลัมน์ tag ไม่มี)
 -- · ย้อนกลับ: reverse.sql
 -- md5 ของโค้ดที่ติดตั้ง: ${md5}
 do $do$
@@ -66,7 +72,7 @@ end
 $do$;
 `;
 
-  const reverse = `-- ย้อนกลับ apply.sql: ลบแถว saleorders ออกจาก app_modules · ลบเฉพาะเมื่อโค้ดยังเป็นรุ่นที่รู้จัก (md5 ${[md5, md5v8, md5v7, md5v6, md5v5, md5v4, md5v3, md5v2, md5v1].filter(Boolean).join(' · ')})
+  const reverse = `-- ย้อนกลับ apply.sql: ลบแถว saleorders ออกจาก app_modules · ลบเฉพาะเมื่อโค้ดยังเป็นรุ่นที่รู้จัก (md5 ${[md5, md5v9, md5v8, md5v7, md5v6, md5v5, md5v4, md5v3, md5v2, md5v1].filter(Boolean).join(' · ')})
 -- ถ้ามีคนแก้โค้ดหลังติดตั้ง จะไม่ลบและแจ้งเตือน (ให้ตรวจก่อนว่าจะลบหรือไม่)
 do $do$
 declare c text;
@@ -85,16 +91,28 @@ end
 $do$;
 `;
 
-  const out = { md5, md5v8, md5v7, md5v6, md5v5, md5v4, md5v3, md5v2, md5v1, apply, reverse };
-  if (v8) {
+  const out = { md5, md5v9, md5v8, md5v7, md5v6, md5v5, md5v4, md5v3, md5v2, md5v1, apply, reverse };
+  if (v9) {
+    out.upgrade910 = replaceScript({
+      note: 'อัปเกรดหน้าเป็นรุ่น 10: ป้ายสีจัดหมวดแชต (สอบถาม/ปัญหา/ด่วน/ตอบกลับภายหลัง — ต้องติดตั้ง db/migrations/006_sale_thread_tags.sql ก่อน)',
+      from: { label: 'v9', md5: md5v9 },
+      to: { label: 'v10', md5, code },
+    });
+    out.downgrade109 = replaceScript({
+      note: `ย้อนหน้า v10 กลับเป็น v9 ตรงทุกไบต์ (md5 ${md5v9})`,
+      from: { label: 'v10', md5 },
+      to: { label: 'v9', md5: md5v9, code: v9 },
+    });
+  }
+  if (v8 && v9) {
     out.upgrade89 = replaceScript({
       note: 'อัปเกรดหน้าเป็นรุ่น 9: ยอดปิดงานแยกตามผู้รับผิดชอบ (ปุ่ม "ยอดปิดงาน" ที่หัวรายการแชต)',
       from: { label: 'v8', md5: md5v8 },
-      to: { label: 'v9', md5, code },
+      to: { label: 'v9', md5: md5v9, code: v9 },
     });
     out.downgrade98 = replaceScript({
       note: `ย้อนหน้า v9 กลับเป็น v8 ตรงทุกไบต์ (md5 ${md5v8})`,
-      from: { label: 'v9', md5 },
+      from: { label: 'v9', md5: md5v9 },
       to: { label: 'v8', md5: md5v8, code: v8 },
     });
   }
@@ -205,6 +223,7 @@ $do$;
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const file = (name) => (existsSync(DIR + name) ? readFileSync(DIR + name, 'utf8') : null);
   const b = buildSql(file('saleorders.module.js'), {
+    v9: file('saleorders.module.v9.js'),
     v8: file('saleorders.module.v8.js'),
     v7: file('saleorders.module.v7.js'),
     v6: file('saleorders.module.v6.js'),
@@ -230,5 +249,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   writeFileSync(DIR + 'downgrade-v8-to-v7.sql', b.downgrade87);
   writeFileSync(DIR + 'upgrade-v8-to-v9.sql', b.upgrade89);
   writeFileSync(DIR + 'downgrade-v9-to-v8.sql', b.downgrade98);
-  console.log(`wrote the scripts (current md5 ${b.md5}; v8 ${b.md5v8}; v7 ${b.md5v7}; v6 ${b.md5v6}; v5 ${b.md5v5}; v4 ${b.md5v4}; v3 ${b.md5v3}; v2 ${b.md5v2}; v1 ${b.md5v1})`);
+  writeFileSync(DIR + 'upgrade-v9-to-v10.sql', b.upgrade910);
+  writeFileSync(DIR + 'downgrade-v10-to-v9.sql', b.downgrade109);
+  console.log(`wrote the scripts (current md5 ${b.md5}; v9 ${b.md5v9}; v8 ${b.md5v8}; v7 ${b.md5v7}; v6 ${b.md5v6}; v5 ${b.md5v5}; v4 ${b.md5v4}; v3 ${b.md5v3}; v2 ${b.md5v2}; v1 ${b.md5v1})`);
 }
