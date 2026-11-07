@@ -221,6 +221,7 @@
     event: { name: 'ห้องจัดงาน', desc: 'เวที บูธ งานอีเวนต์', big: true },
     road: { name: 'ริมถนน', desc: 'บิลบอร์ด ธง ป้ายตั้งพื้นกลางแจ้ง', big: true, floorOnly: true },
     glass: { name: 'หน้าร้านกระจก', desc: 'สติ๊กเกอร์ติดกระจก ฟิล์มฝ้า', big: true },
+    handPhoto: { name: 'มือจับ (รูปของร้าน)', desc: 'รูปมือจับบัตรที่ร้านถ่ายเอง', small: true, wallOnly: true },
     studio: { name: 'พื้นเรียบ', desc: 'โชว์งานชัด ๆ' },
     wall: { name: 'ผนังปูน', desc: 'ในร้าน / ในอาคาร' },
     brick: { name: 'ผนังอิฐ', desc: 'ร้านกาแฟ / ร้านอาหาร' },
@@ -238,7 +239,7 @@
     classroom: { name: 'ในห้องเรียน', desc: 'เหนือกระดาน / ผนังห้อง', spots: [['above', 'เหนือกระดาน'], ['beside', 'ข้างกระดาน']], tones: true, big: true },
     photo: { name: 'รูปหน้าร้านลูกค้า', desc: 'อัปโหลดรูป แล้วลากมุมป้าย' },
   };
-  var SCENE_ORDER = ['paper', 'hand', 'table', 'studio', 'wall', 'brick', 'shop', 'glass', 'fence', 'road', 'event', 'classDoor', 'officeDoor', 'classroom', 'photo'];
+  var SCENE_ORDER = ['paper', 'hand', 'handPhoto', 'table', 'studio', 'wall', 'brick', 'shop', 'glass', 'fence', 'road', 'event', 'classDoor', 'officeDoor', 'classroom', 'photo'];
   var TABLE_H = 75; // ความสูงโต๊ะ/เคาน์เตอร์ (ซม.)
   // ฉากนี้ใช้กับชนิดงานนี้ได้ไหม (บัตร ↔ ป้าย) · ฉากเริ่มต้นของชนิดงาน
   function sceneFits(scene, type) {
@@ -970,6 +971,330 @@
     ];
   }
 
+  /* ---------- ฉาก "มือจับ (รูปของร้าน)": หาบัตรเปล่าในรูป แล้ววางงานลงบนบัตร ----------
+   * findCards: px = RGBA ของภาพย่อ (ด้านยาว ~400 จุด) → { cards: [มุม TL,TR,BR,BL (0..1)] เรียงซ้าย→ขวา ไม่เกิน 2 ใบ, ref: ความสว่างหน้าบัตร }
+   * บัตรเปล่า = ก้อนสีอ่อนไม่มีสี (ขาว/เทาอ่อน) ที่ต่างจากพื้นหลัง ขนาดใหญ่พอ เป็นทรงสี่เหลี่ยม (นิ้วบังมุมได้ ใช้สี่เหลี่ยมเล็กสุดที่ครอบ) */
+  function hull(pts) {
+    pts = pts.slice().sort(function (a, b) {
+      return a[0] - b[0] || a[1] - b[1];
+    });
+    if (pts.length < 3) return pts;
+    var cross = function (o, a, b) {
+      return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    };
+    var lo = [];
+    var hi = [];
+    for (var i = 0; i < pts.length; i++) {
+      while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], pts[i]) <= 0) lo.pop();
+      lo.push(pts[i]);
+    }
+    for (var j = pts.length - 1; j >= 0; j--) {
+      while (hi.length >= 2 && cross(hi[hi.length - 2], hi[hi.length - 1], pts[j]) <= 0) hi.pop();
+      hi.push(pts[j]);
+    }
+    lo.pop();
+    hi.pop();
+    return lo.concat(hi);
+  }
+  // สี่เหลี่ยมพื้นที่เล็กสุดที่ครอบจุดทั้งหมด (หมุนได้) → มุม 4 จุด เรียง บนซ้าย บนขวา ล่างขวา ล่างซ้าย
+  function minRect(pts) {
+    var h = hull(pts);
+    var cands = [];
+    for (var i = 0; i < h.length; i++) {
+      var a = h[i];
+      var b = h[(i + 1) % h.length];
+      var len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (!len) continue;
+      var ex = (b[0] - a[0]) / len;
+      var ey = (b[1] - a[1]) / len;
+      var u0 = Infinity;
+      var u1 = -Infinity;
+      var v0 = Infinity;
+      var v1 = -Infinity;
+      for (var k = 0; k < h.length; k++) {
+        var u = h[k][0] * ex + h[k][1] * ey;
+        var v = -h[k][0] * ey + h[k][1] * ex;
+        if (u < u0) u0 = u;
+        if (u > u1) u1 = u;
+        if (v < v0) v0 = v;
+        if (v > v1) v1 = v;
+      }
+      cands.push({ area: (u1 - u0) * (v1 - v0), len: len, ex: ex, ey: ey, u0: u0, u1: u1, v0: v0, v1: v1 });
+    }
+    if (!cands.length) return null;
+    // พื้นที่ใกล้เคียงกัน (นิ้วบังมุม) → เลือกแนวตามขอบบัตรที่ยาวสุด (ขอบจริงของบัตร)
+    var minA = Math.min.apply(null, cands.map(function (c) { return c.area; }));
+    var best = null;
+    cands.forEach(function (c) {
+      if (c.area <= minA * 1.04 && (!best || c.len > best.len)) best = c;
+    });
+    var c = [[best.u0, best.v0], [best.u1, best.v0], [best.u1, best.v1], [best.u0, best.v1]].map(function (p) {
+      return [p[0] * best.ex - p[1] * best.ey, p[0] * best.ey + p[1] * best.ex];
+    });
+    return orderCorners(c);
+  }
+  function orderCorners(c) {
+    var s = c.slice().sort(function (a, b) {
+      return a[1] - b[1];
+    });
+    var top = s.slice(0, 2).sort(function (a, b) {
+      return a[0] - b[0];
+    });
+    var bot = s.slice(2).sort(function (a, b) {
+      return a[0] - b[0];
+    });
+    return [top[0], top[1], bot[1], bot[0]];
+  }
+  function findCards(px, W, H) {
+    var N = W * H;
+    var L = new Float32Array(N);
+    var Ch = new Uint8Array(N);
+    for (var i = 0; i < N; i++) {
+      var r = px[i * 4];
+      var g = px[i * 4 + 1];
+      var b = px[i * 4 + 2];
+      L[i] = 0.299 * r + 0.587 * g + 0.114 * b;
+      Ch[i] = Math.max(r, g, b) - Math.min(r, g, b);
+    }
+    // พื้นหลัง = ค่ากลางของขอบภาพ
+    var bl = [];
+    var bc = [];
+    var push = function (p) {
+      bl.push(L[p]);
+      bc.push(Ch[p]);
+    };
+    for (var x = 0; x < W; x += 2) {
+      push(x);
+      push((H - 1) * W + x);
+    }
+    for (var y = 0; y < H; y += 2) {
+      push(y * W);
+      push(y * W + W - 1);
+    }
+    var med = function (a) {
+      a.sort(function (p, q) {
+        return p - q;
+      });
+      return a[a.length >> 1];
+    };
+    var bgL = med(bl);
+    var bgLight = bgL > 200 && med(bc) < 22;
+    // ความสว่างเฉลี่ย 3×3 (ลดจุดรบกวน JPEG — บัตรขาวบนพื้นขาวต่างกันแค่ 5–10 ระดับ)
+    var Lb = new Float32Array(N);
+    for (var yb = 0; yb < H; yb++) {
+      for (var xb = 0; xb < W; xb++) {
+        var sum = 0;
+        var cnt = 0;
+        for (var dy = -1; dy <= 1; dy++) {
+          var yy = yb + dy;
+          if (yy < 0 || yy >= H) continue;
+          for (var dx = -1; dx <= 1; dx++) {
+            var xx = xb + dx;
+            if (xx < 0 || xx >= W) continue;
+            sum += L[yy * W + xx];
+            cnt++;
+          }
+        }
+        Lb[yb * W + xb] = sum / cnt;
+      }
+    }
+    // ลองหลายเกณฑ์ (เข้มก่อน) เลือกที่เจอบัตรครบสุด — บัตรขาวมากต้องใช้เกณฑ์ละเอียด
+    var best = null;
+    var thrs = bgLight ? [6, 3.5, 2] : [0];
+    for (var ti = 0; ti < thrs.length; ti++) {
+      var res = detect(thrs[ti]);
+      if (!best || res.cards.length > best.cards.length) best = res;
+    }
+    return best;
+    function morph(m, grow) {
+      var o = new Uint8Array(N);
+      for (var yy = 0; yy < H; yy++) {
+        for (var xx = 0; xx < W; xx++) {
+          var v = grow ? 0 : 1;
+          for (var dy = -1; dy <= 1 && v === (grow ? 0 : 1); dy++) {
+            for (var dx = -1; dx <= 1; dx++) {
+              var X = xx + dx;
+              var Y = yy + dy;
+              var mv = X < 0 || Y < 0 || X >= W || Y >= H ? 0 : m[Y * W + X];
+              if (grow ? mv : !mv) {
+                v = grow ? 1 : 0;
+                break;
+              }
+            }
+          }
+          o[yy * W + xx] = v;
+        }
+      }
+      return o;
+    }
+    function detect(thr) {
+    var cand = new Uint8Array(N);
+    for (var j = 0; j < N; j++) {
+      if (Ch[j] > 26 || L[j] < 150) continue;
+      if (bgLight ? Lb[j] < bgL - thr && L[j] < bgL - 1.5 : L[j] > 175) cand[j] = 1;
+    }
+    // ตัดเส้นบาง ๆ ที่เชื่อมก้อน (ลายน้ำ เส้นผม ขอบเงา): หด 2 รอบ แล้วขยายคืน 2 รอบ
+    cand = morph(morph(morph(morph(cand, 0), 0), 1), 1);
+    // ก้อนที่ติดกัน (4 ทิศ)
+    var lab = new Int32Array(N);
+    var stack = new Int32Array(N);
+    var found = [];
+    var n = 0;
+    for (var p0 = 0; p0 < N; p0++) {
+      if (!cand[p0] || lab[p0]) continue;
+      n++;
+      var sp = 0;
+      stack[sp++] = p0;
+      lab[p0] = n;
+      var area = 0;
+      var minX = W;
+      var maxX = 0;
+      var minY = H;
+      var maxY = 0;
+      var rows = {};
+      var sumL = [];
+      while (sp) {
+        var p = stack[--sp];
+        var px0 = p % W;
+        var py0 = (p - px0) / W;
+        area++;
+        if (px0 < minX) minX = px0;
+        if (px0 > maxX) maxX = px0;
+        if (py0 < minY) minY = py0;
+        if (py0 > maxY) maxY = py0;
+        var rw = rows[py0];
+        if (!rw) rows[py0] = [px0, px0];
+        else {
+          if (px0 < rw[0]) rw[0] = px0;
+          if (px0 > rw[1]) rw[1] = px0;
+        }
+        if ((area & 7) === 0) sumL.push(L[p]);
+        var nb = [px0 > 0 ? p - 1 : -1, px0 < W - 1 ? p + 1 : -1, p >= W ? p - W : -1, p < N - W ? p + W : -1];
+        for (var q = 0; q < 4; q++) {
+          var t = nb[q];
+          if (t >= 0 && cand[t] && !lab[t]) {
+            lab[t] = n;
+            stack[sp++] = t;
+          }
+        }
+      }
+      if (area < N * 0.012) continue;
+      var edges = (minX === 0) + (maxX === W - 1) + (minY === 0) + (maxY === H - 1);
+      if (edges >= 2) continue; // แถบพื้นหลังที่ต่อถึงขอบภาพ ไม่ใช่บัตร
+      var pts = [];
+      for (var ry in rows) {
+        var yy0 = +ry;
+        pts.push([rows[ry][0], yy0], [rows[ry][0], yy0 + 1], [rows[ry][1] + 1, yy0], [rows[ry][1] + 1, yy0 + 1]);
+      }
+      var rc = minRect(pts);
+      if (!rc) continue;
+      var w1 = Math.hypot(rc[1][0] - rc[0][0], rc[1][1] - rc[0][1]);
+      var h1 = Math.hypot(rc[3][0] - rc[0][0], rc[3][1] - rc[0][1]);
+      var asp = Math.max(w1, h1) / Math.max(1, Math.min(w1, h1));
+      var fill = area / Math.max(1, w1 * h1);
+      if (fill < 0.55 || asp > 4) continue;
+      found.push({ area: area, cx: (minX + maxX) / 2, quad: rc, ls: sumL });
+    }
+    found.sort(function (a, b) {
+      return b.area - a.area;
+    });
+    found = found.slice(0, 2);
+    // ใบที่ 2 เล็กกว่าใบแรกมาก = ไม่ใช่บัตร (เช่น เล็บ แสงสะท้อน)
+    if (found.length === 2 && found[1].area < found[0].area * 0.3) found.pop();
+    found.sort(function (a, b) {
+      return a.cx - b.cx;
+    });
+    var ls = [];
+    found.forEach(function (f) {
+      ls = ls.concat(f.ls);
+    });
+    ls.sort(function (a, b) {
+      return a - b;
+    });
+    return {
+      cards: found.map(function (f) {
+        return f.quad.map(function (c) {
+          return { x: Math.round((c[0] / W) * 10000) / 10000, y: Math.round((c[1] / H) * 10000) / 10000 };
+        });
+      }),
+      ref: ls.length ? Math.round(ls[Math.floor(ls.length * 0.9)]) : 240,
+    };
+    }
+  }
+  // บัตรตั้งต้นเมื่อหาในรูปไม่เจอ: 1 ใบกลางภาพ / 2 ใบซ้าย-ขวา (สัดส่วนตามงาน)
+  function handDefaults(n, imgW, imgH, gw, gh) {
+    var a = gw / gh;
+    var out = [];
+    for (var i = 0; i < n; i++) {
+      var cx = n === 1 ? 0.5 : i ? 0.72 : 0.28;
+      var w = imgW * (n === 1 ? 0.4 : 0.26);
+      var h = w / a;
+      if (h > imgH * 0.5) {
+        h = imgH * 0.5;
+        w = h * a;
+      }
+      var x0 = cx - w / imgW / 2;
+      var y0 = 0.5 - h / imgH / 2;
+      var x1 = x0 + w / imgW;
+      var y1 = y0 + h / imgH;
+      out.push([{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }]);
+    }
+    return out;
+  }
+  // ส่วนของรูปที่โชว์: สองมือ = ทั้งรูป · มือซ้าย/มือขวา = ตัดครึ่งที่กึ่งกลางระหว่างบัตร 2 ใบ
+  var HAND_VIEWS = { both: 'สองมือ', left: 'มือซ้าย', right: 'มือขวา' };
+  function handSplit(cards) {
+    if (!cards || cards.length < 2) return 0.5;
+    var r0 = Math.max.apply(null, cards[0].map(function (c) { return c.x; }));
+    var l1 = Math.min.apply(null, cards[1].map(function (c) { return c.x; }));
+    return Math.round(Math.max(0.2, Math.min(0.8, (r0 + l1) / 2)) * 10000) / 10000;
+  }
+  // split = เส้นแบ่งที่จำไว้ (ไม่ขยับตามตอนลากมุมบัตร ภาพจะได้ไม่กระตุก)
+  function handCrop(view, cards, split) {
+    var full = { x: 0, y: 0, w: 1, h: 1 };
+    if (!cards || cards.length < 2 || (view !== 'left' && view !== 'right')) return full;
+    var sp = split > 0.1 && split < 0.9 ? split : handSplit(cards);
+    return view === 'left' ? { x: 0, y: 0, w: sp, h: 1 } : { x: sp, y: 0, w: 1 - sp, h: 1 };
+  }
+  // ตำแหน่งบัตรที่เก็บไว้ (จากเครื่อง/ไฟล์) ต้องเป็นมุม 4 จุดตัวเลขจริง ไม่เกิน 2 ใบ เรียงซ้าย→ขวา
+  function normalizeCards(cards) {
+    if (!Array.isArray(cards)) return null;
+    var out = [];
+    for (var i = 0; i < cards.length && out.length < 2; i++) {
+      var q = cards[i];
+      if (!Array.isArray(q) || q.length !== 4) continue;
+      var ok = q.every(function (p) {
+        return p && isFinite(p.x) && isFinite(p.y) && p.x > -0.5 && p.x < 1.5 && p.y > -0.5 && p.y < 1.5;
+      });
+      if (ok) out.push(q.map(function (p) {
+        return { x: +p.x, y: +p.y };
+      }));
+    }
+    out.sort(function (a, b) {
+      return (a[0].x + a[2].x) - (b[0].x + b[2].x);
+    });
+    return out.length ? out : null;
+  }
+  // บัตรที่โชว์ในมุมนี้ (ลำดับในรายการบัตร)
+  function handShown(view, n) {
+    if (n < 2) return n ? [0] : [];
+    if (view === 'left') return [0];
+    if (view === 'right') return [1];
+    return [0, 1];
+  }
+  /* เรียงมุมบัตรใหม่ให้งานตั้งตรงตามแนวบัตร: บัตรในรูปตั้ง แต่งานแนวนอน (หรือกลับกัน) → หมุนงาน 90°
+   * q = มุม 4 จุด (พิกเซล) · turn = หมุนเพิ่มทีละ 90° ตามที่ร้านกด */
+  function fitQuad(q, gw, gh, turn) {
+    var d = function (a, b) {
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    };
+    var qw = (d(q[0], q[1]) + d(q[3], q[2])) / 2;
+    var qh = (d(q[0], q[3]) + d(q[1], q[2])) / 2;
+    var k = (qw >= qh) !== (gw >= gh) ? 1 : 0;
+    k = (((k + (turn | 0)) % 4) + 4) % 4;
+    return q.slice(k).concat(q.slice(0, k));
+  }
+
   function presetLabel(p) {
     return p[2] ? p[2] : fmtCm(p[0]) + '×' + fmtCm(p[1]);
   }
@@ -1681,6 +2006,15 @@
     isConvex: isConvex,
     pointInQuad: pointInQuad,
     defaultQuad: defaultQuad,
+    findCards: findCards,
+    minRect: minRect,
+    handDefaults: handDefaults,
+    HAND_VIEWS: HAND_VIEWS,
+    handCrop: handCrop,
+    handSplit: handSplit,
+    normalizeCards: normalizeCards,
+    handShown: handShown,
+    fitQuad: fitQuad,
     presetLabel: presetLabel,
     phoneText: phoneText,
     thaiDate: thaiDate,

@@ -856,6 +856,16 @@ textarea:focus {
   border-color: var(--active);
   color: var(--active-ink);
 }
+.chip.danger {
+  color: #b3261e;
+}
+.hand-pane {
+  display: grid;
+  gap: 8px;
+}
+.hand-pane .hint {
+  margin: 0;
+}
 
 .toggles {
   display: grid;

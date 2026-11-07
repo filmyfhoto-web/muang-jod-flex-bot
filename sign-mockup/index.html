@@ -412,6 +412,29 @@
               </div>
               <div class="scenes" id="scenes"></div>
               <p class="hint" id="sceneEmpty" hidden>ไม่พบฉากที่ค้นหา</p>
+              <div class="field hand-pane" id="handField" hidden>
+                <span class="label">รูปมือจับของร้าน</span>
+                <div class="seg small" id="handViewSeg">
+                  <button type="button" data-hview="both">สองมือ (รวม)</button>
+                  <button type="button" data-hview="left">มือซ้าย</button>
+                  <button type="button" data-hview="right">มือขวา</button>
+                </div>
+                <div class="seg small" id="handCountSeg">
+                  <button type="button" data-hcount="1">บัตรในรูป 1 ใบ</button>
+                  <button type="button" data-hcount="2">บัตรในรูป 2 ใบ</button>
+                </div>
+                <div class="chips hand-tools">
+                  <button type="button" class="chip" id="handEdit" aria-pressed="false">ปรับมุมบัตร</button>
+                  <button type="button" class="chip" id="handTurn">หมุนงาน 90°</button>
+                  <button type="button" class="chip" id="handFind">หาบัตรในรูปใหม่</button>
+                  <button type="button" class="chip" id="handChange">เปลี่ยนรูปมือ</button>
+                  <button type="button" class="chip" id="handAll">บันทึกครบ 3 ภาพ</button>
+                  <button type="button" class="chip danger" id="handDel">ลบรูปมือ</button>
+                </div>
+                <p class="readout" id="handInfo"></p>
+                <p class="hint">ใช้รูปที่ร้านถ่ายเอง หรือรูปที่ซื้อสิทธิ์แล้ว (ไม่มีลายน้ำ) · ถ่ายมือจับบัตรขาวเปล่าบนพื้นขาว แสงสว่างทั่ว ๆ — ระบบหาบัตรในรูปให้เอง วางงานพร้อมเงาตามรูปจริง นิ้วที่ทับบัตรยังอยู่ด้านหน้า</p>
+                <input type="file" id="handFile" accept="image/*" hidden />
+              </div>
               <div class="field" id="spotField" hidden>
                 <span class="label">ตำแหน่งติดป้าย</span>
                 <div class="seg small" id="spotSeg"></div>
