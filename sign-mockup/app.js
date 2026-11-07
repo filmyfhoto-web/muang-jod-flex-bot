@@ -6,7 +6,7 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '4.2.0';
+  var APP_VERSION = '4.3.0';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp' });
 
@@ -41,6 +41,7 @@
     paper: 'white', // บัตร: สีกระดาษรองในฉาก "บนกระดาษ"
     cmpOut: 'jpg', // หน้าเทียบ 2 แบบ: รูป JPG / PDF
     look: { mat: 'color', light: 'none', neon: 'design', lit: true, film: 'print' }, // ตัวอักษร: วัสดุ/ไฟ · นีออน: สี · ป้ายยื่น/บิลบอร์ด: เปิดไฟ · ติดกระจก: ชนิดฟิล์ม
+    handView: 'both', // ฉากมือจับ (รูปของร้าน): สองมือ / มือซ้าย / มือขวา
     shape: { kind: 'rect', border: 0.3, radius: 10 }, // รูปทรงชิ้นงาน (สติ๊กเกอร์/โฟม/อะคริลิค/บัตร/สแตนดี้/ติดกระจก)
     bill: { extras: [], discount: 0, vat: false, deposit: 0, due: '', note: '', work: '' }, // ค่าใช้จ่ายเพิ่ม ส่วนลด VAT มัดจำ นัดรับ หมายเหตุ
     panel: 'right', // แผงตั้งค่าอยู่ขวา/ซ้าย
@@ -92,6 +93,7 @@
     if (s.cmpOut !== 'pdf') s.cmpOut = 'jpg';
     s.look = C.normalizeLook(Object.assign({}, DEF.look, s.look));
     s.shape = C.normalizeShape(s.shape);
+    if (!C.HAND_VIEWS[s.handView]) s.handView = 'both';
     s.bill = C.normalizeBill(s.bill);
     if (!C.TYPES[s.type]) s.type = DEF.type;
     if (!C.SCENES[s.scene]) s.scene = DEF.scene;
@@ -322,13 +324,16 @@
       type: st.type,
       w: st.w,
       h: st.h,
-      scene: st.scene,
+      scene: sceneNow(),
       spot: st.spot,
       tone: st.tone,
       paper: st.paper,
       steel: st.steel,
       look: st.look,
       photo: photo,
+      handPhoto: handReady() ? handPhoto : null,
+      handView: st.handView,
+      handEdit: handEdit,
       person: personNow(),
       dims: st.dims,
       zoom: st.zoom,
@@ -345,7 +350,11 @@
 
   /* ---------- วาด ---------- */
   function is3d() {
-    return !!stage && !(st.scene === 'photo' && photo);
+    return !!stage && !(st.scene === 'photo' && photo) && !(st.scene === 'handPhoto' && handReady());
+  }
+  // ฉากที่วาดจริง: ฉากมือจับ (รูปของร้าน) ที่ยังไม่มีรูป ใช้ฉากมือจับแบบวาดไปก่อน
+  function sceneNow() {
+    return st.scene === 'handPhoto' && !handReady() ? 'hand' : st.scene;
   }
   var queued = false;
   function draw() {
@@ -360,7 +369,7 @@
         lastOut = R.render(view, renderState(), { preview: true });
         fitView();
       }
-      view.classList.toggle('editable', st.scene === 'photo' && !!photo);
+      view.classList.toggle('editable', (st.scene === 'photo' && !!photo) || (st.scene === 'handPhoto' && handReady() && handEdit));
       syncViewbar();
       summary();
       thumbsSoon();
@@ -400,7 +409,7 @@
       type: st.type,
       w: st.w,
       h: st.h,
-      scene: st.scene === 'photo' ? 'studio' : st.scene,
+      scene: st.scene === 'photo' ? 'studio' : sceneNow(),
       spot: st.spot,
       doorOpen: st.doorOpen,
       tone: st.tone,
@@ -739,10 +748,12 @@
       b.type = 'button';
       b.className = 'scene';
       b.dataset.scene = k;
-      b.innerHTML = '<span class="thumb">' + (k === 'photo' ? CAMERA_ICON : '<canvas width="16" height="10"></canvas>') + '</span><b>' + esc(sc.name) + '</b><small>' + esc(sc.desc) + '</small>';
+      var icon = k === 'photo' || (k === 'handPhoto' && !handReady()) ? CAMERA_ICON : '<canvas width="16" height="10"></canvas>';
+      b.innerHTML = '<span class="thumb">' + icon + '</span><b>' + esc(sc.name) + '</b><small>' + esc(k === 'handPhoto' && !handReady() ? 'กดเพื่อใส่รูปมือจับบัตรของร้าน' : sc.desc) + '</small>';
       b.addEventListener('click', function () {
         st.scene = k;
         if (k === 'photo' && !photo) $('photoFile').click();
+        if (k === 'handPhoto' && !handReady()) $('handFile').click();
         sync();
       });
       box.appendChild(b);
@@ -755,7 +766,7 @@
   }
   function drawThumbs() {
     document.querySelectorAll('.scene').forEach(function (b) {
-      if (stage && b.dataset.scene !== 'photo') {
+      if (stage && b.dataset.scene !== 'photo' && b.dataset.scene !== 'handPhoto') {
         var tc = b.querySelector('canvas');
         if (tc.width !== 320) {
           tc.width = 320;
@@ -774,7 +785,7 @@
         } else return;
       }
       if (!c) return;
-      var s = renderState({ scene: k, info: false, dims: false, aspect: 'landscape', zoom: 1 });
+      var s = renderState({ scene: k, info: false, dims: false, aspect: 'landscape', zoom: 1, handEdit: false });
       if (k !== 'photo') s.photo = null;
       R.render(c, s, { scale: 0.16 });
     });
@@ -1255,6 +1266,279 @@
   }
   view.addEventListener('pointerup', endDrag);
   view.addEventListener('pointercancel', endDrag);
+
+  /* ---------- ฉาก "มือจับ (รูปของร้าน)" ----------
+   * รูปมือจับบัตรของร้าน เก็บในเครื่อง (IndexedDB 'opt-hand-photo') ใช้ได้กับทุกงาน + ตำแหน่งบัตรในรูป (หาเองอัตโนมัติ ลากปรับได้)
+   * st.handView = มุมที่โชว์: สองมือ (ทั้งรูป) / มือซ้าย / มือขวา (ตัดครึ่งรูป) */
+  var HAND_ID = 'opt-hand-photo';
+  var handPhoto = null;
+  var handEdit = false;
+  var hdrag = null;
+  function handReady() {
+    return !!(handPhoto && handPhoto.img && handPhoto.cards && handPhoto.cards.length);
+  }
+  function handDetect(p) {
+    var f = Math.min(1, 420 / Math.max(p.w, p.h));
+    var c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(p.w * f));
+    c.height = Math.max(1, Math.round(p.h * f));
+    var x = c.getContext('2d', { willReadFrequently: true });
+    x.drawImage(p.img, 0, 0, c.width, c.height);
+    try {
+      return C.findCards(x.getImageData(0, 0, c.width, c.height).data, c.width, c.height);
+    } catch (e) {
+      return { cards: [], ref: 240 };
+    }
+  }
+  // หาบัตรในรูป (ไม่เจอ = วางกรอบตั้งต้นให้ลากเอง) · คืนจำนวนที่หาเจอ
+  function handFind(p, want) {
+    var r = handDetect(p);
+    var g = C.geometry(st.type, st.w, st.h);
+    p.cards = r.cards.length ? r.cards : C.handDefaults(want || 2, p.w, p.h, g.w, g.h);
+    p.ref = r.ref;
+    p.split = C.handSplit(p.cards);
+    p.layers = null;
+    return r.cards.length;
+  }
+  function saveHand() {
+    if (!NS.jobs || !handPhoto) return;
+    NS.jobs.put({ id: HAND_ID, at: Date.now(), blob: handPhoto.blob, cards: handPhoto.cards, ref: handPhoto.ref, turn: handPhoto.turn || 0 }).catch(function () {});
+  }
+  function setHandFile(file) {
+    if (!file) return;
+    if (!isImage(file)) {
+      toast('รูปนี้เปิดไม่ได้ ใช้ JPG หรือ PNG');
+      return;
+    }
+    photoFromBlob(file)
+      .then(function (p) {
+        p.turn = 0;
+        var n = handFind(p);
+        handPhoto = p;
+        handEdit = true;
+        st.scene = 'handPhoto';
+        st.handView = 'both';
+        saveHand();
+        buildScenes();
+        toast(n ? 'พบบัตร ' + n + ' ใบในรูป วางงานให้แล้ว — ลากจุดส้มปรับมุมได้ถ้ายังไม่ตรง' : 'หาบัตรในรูปไม่เจอ ลากจุดส้มให้ตรงมุมบัตรในรูป');
+        sync();
+      })
+      .catch(function () {
+        toast('อ่านรูปนี้ไม่ได้ ลองบันทึกเป็น JPG แล้วเลือกใหม่');
+      });
+  }
+  $('handFile').addEventListener('change', function (e) {
+    setHandFile(e.target.files[0]);
+    e.target.value = '';
+  });
+  // โหลดรูปมือของร้านที่เก็บไว้ตอนเปิดแอป
+  if (NS.jobs) {
+    NS.jobs
+      .get(HAND_ID)
+      .then(function (rec) {
+        if (!rec || !rec.blob) return;
+        return photoFromBlob(rec.blob).then(function (p) {
+          p.turn = rec.turn | 0;
+          var cards = C.normalizeCards(rec.cards);
+          if (cards) {
+            p.cards = cards;
+            p.ref = rec.ref > 0 ? rec.ref : 240;
+            p.split = C.handSplit(cards);
+          } else handFind(p);
+          handPhoto = p;
+          buildScenes();
+          sync();
+        });
+      })
+      .catch(function () {});
+  }
+  function handSync() {
+    var on = st.scene === 'handPhoto';
+    $('handField').hidden = !on;
+    if (!on) return;
+    var ready = handReady();
+    var n = ready ? handPhoto.cards.length : 0;
+    $('handViewSeg').hidden = n < 2;
+    $('handCountSeg').hidden = !ready;
+    ['handEdit', 'handTurn', 'handFind', 'handDel'].forEach(function (id) {
+      $(id).hidden = !ready;
+    });
+    $('handAll').hidden = n < 2;
+    $('handChange').textContent = ready ? 'เปลี่ยนรูปมือ' : '+ ใส่รูปมือจับบัตร';
+    pressed('#handViewSeg button', 'hview', st.handView);
+    pressed('#handCountSeg button', 'hcount', String(n));
+    $('handEdit').setAttribute('aria-pressed', String(handEdit));
+    $('handEdit').textContent = handEdit ? 'เสร็จ ซ่อนจุดมุม' : 'ปรับมุมบัตร';
+    $('handInfo').textContent = ready
+      ? 'บัตรในรูป ' + n + ' ใบ' + (handEdit ? ' · ลากจุดส้มที่มุมให้ตรงมุมบัตร (ลากกลางบัตร = ย้ายทั้งใบ)' : ' · งานวางบนบัตรพร้อมเงาตามรูปจริง')
+      : 'ยังไม่มีรูปมือ — กด “+ ใส่รูปมือจับบัตร” (ตอนนี้แสดงมือจับแบบวาดไปก่อน)';
+  }
+  document.querySelectorAll('#handViewSeg button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      st.handView = b.dataset.hview;
+      save();
+      sync();
+    });
+  });
+  document.querySelectorAll('#handCountSeg button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (!handReady()) return;
+      var n = +b.dataset.hcount;
+      var cards = handPhoto.cards.slice(0, n);
+      if (cards.length < n) {
+        var g = C.geometry(st.type, st.w, st.h);
+        var def = C.handDefaults(2, handPhoto.w, handPhoto.h, g.w, g.h);
+        var cx = (cards[0][0].x + cards[0][2].x) / 2;
+        cards.push(cx < 0.5 ? def[1] : def[0]);
+        cards = C.normalizeCards(cards);
+        handEdit = true;
+      }
+      handPhoto.cards = cards;
+      handPhoto.split = C.handSplit(cards);
+      if (n < 2) st.handView = 'both';
+      saveHand();
+      save();
+      sync();
+    });
+  });
+  $('handEdit').addEventListener('click', function () {
+    handEdit = !handEdit;
+    sync();
+  });
+  $('handTurn').addEventListener('click', function () {
+    if (!handReady()) return;
+    handPhoto.turn = ((handPhoto.turn | 0) + 1) % 4;
+    saveHand();
+    draw();
+  });
+  $('handFind').addEventListener('click', function () {
+    if (!handReady()) return;
+    var n = handFind(handPhoto, handPhoto.cards.length);
+    handEdit = true;
+    saveHand();
+    toast(n ? 'พบบัตร ' + n + ' ใบในรูป' : 'หาบัตรในรูปไม่เจอ ลากจุดส้มให้ตรงมุมบัตร');
+    sync();
+  });
+  $('handChange').addEventListener('click', function () {
+    $('handFile').click();
+  });
+  var handDelArmed = 0;
+  $('handDel').addEventListener('click', function () {
+    if (Date.now() - handDelArmed > 3000) {
+      handDelArmed = Date.now();
+      $('handDel').textContent = 'กดอีกครั้งเพื่อลบ';
+      setTimeout(function () {
+        $('handDel').textContent = 'ลบรูปมือ';
+      }, 3000);
+      return;
+    }
+    handDelArmed = 0;
+    $('handDel').textContent = 'ลบรูปมือ';
+    if (NS.jobs) NS.jobs.del(HAND_ID).catch(function () {});
+    handPhoto = null;
+    handEdit = false;
+    st.scene = 'hand';
+    buildScenes();
+    sync();
+  });
+  // บันทึกครบ 3 ภาพ: สองมือ + มือซ้าย + มือขวา (มือถือ: แชร์ทีเดียว 3 รูป · คอมพิวเตอร์: ดาวน์โหลด 3 ไฟล์)
+  $('handAll').addEventListener('click', function () {
+    if (!handReady() || handPhoto.cards.length < 2) return;
+    var btn = $('handAll');
+    btn.disabled = true;
+    var views = ['both', 'left', 'right'];
+    Promise.all(
+      views.map(function (v) {
+        var c = document.createElement('canvas');
+        R.render(c, renderState({ handView: v, handEdit: false }), { scale: 1.5, preview: false });
+        return toBlob(c, 'image/jpeg', 0.92).then(function (b) {
+          return new File([b], fileName('mockup-' + (v === 'both' ? 'two-hands' : v + '-hand'), 'jpg'), { type: 'image/jpeg' });
+        });
+      })
+    )
+      .then(function (files) {
+        if (navigator.canShare && navigator.canShare({ files: files }) && /Android|iPhone|iPad/i.test(navigator.userAgent)) {
+          return navigator.share({ files: files, title: 'ภาพจำลองบัตร' }).catch(function () {});
+        }
+        files.forEach(function (f, i) {
+          setTimeout(function () {
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(f);
+            a.download = f.name;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(function () {
+              URL.revokeObjectURL(a.href);
+            }, 4000);
+          }, i * 400);
+        });
+        toast('บันทึก 3 ภาพ: สองมือ · มือซ้าย · มือขวา');
+      })
+      .then(function () {
+        btn.disabled = false;
+      }, function () {
+        btn.disabled = false;
+        toast('บันทึกไม่สำเร็จ ลองอีกครั้ง');
+      });
+  });
+  // ลากมุมบัตร / ย้ายทั้งใบ (เฉพาะตอนกด "ปรับมุมบัตร")
+  view.addEventListener('pointerdown', function (e) {
+    if (st.scene !== 'handPhoto' || !handReady() || !handEdit || !lastOut || !lastOut.cards) return;
+    var p = toCanvas(e);
+    var best = null;
+    var bestD = 42 * lastOut.U * Math.max(1, lastOut.W / view.getBoundingClientRect().width / 1.6);
+    lastOut.cards.forEach(function (c) {
+      c.q.forEach(function (pt, j) {
+        var d = Math.hypot(pt.x - p.x, pt.y - p.y);
+        if (d < bestD) {
+          bestD = d;
+          best = { card: c.i, corner: j };
+        }
+      });
+    });
+    if (!best) {
+      lastOut.cards.forEach(function (c) {
+        if (!best && C.pointInQuad(p, c.q)) best = { card: c.i, corner: -1 };
+      });
+    }
+    if (!best) return;
+    e.preventDefault();
+    hdrag = {
+      card: best.card,
+      corner: best.corner,
+      start: p,
+      cr: C.handCrop(st.handView, handPhoto.cards, handPhoto.split),
+      orig: handPhoto.cards[best.card].map(function (c) {
+        return { x: c.x, y: c.y };
+      }),
+    };
+    view.setPointerCapture(e.pointerId);
+    view.classList.add('dragging');
+  });
+  view.addEventListener('pointermove', function (e) {
+    if (!hdrag) return;
+    var p = toCanvas(e);
+    var dx = ((p.x - hdrag.start.x) / lastOut.W) * hdrag.cr.w;
+    var dy = ((p.y - hdrag.start.y) / lastOut.H) * hdrag.cr.h;
+    var lim = function (v) {
+      return Math.max(-0.2, Math.min(1.2, v));
+    };
+    handPhoto.cards[hdrag.card] = hdrag.orig.map(function (c, i) {
+      if (hdrag.corner >= 0 && i !== hdrag.corner) return c;
+      return { x: lim(c.x + dx), y: lim(c.y + dy) };
+    });
+    draw();
+  });
+  function endHandDrag() {
+    if (!hdrag) return;
+    hdrag = null;
+    view.classList.remove('dragging');
+    saveHand();
+    if ((lastOut.cards || []).some(function (c) { return !C.isConvex(c.q); })) toast('มุมบัตรไขว้กันอยู่ ลากมุมให้เป็นสี่เหลี่ยมก่อน');
+  }
+  view.addEventListener('pointerup', endHandDrag);
+  view.addEventListener('pointercancel', endHandDrag);
 
   /* ---------- ขั้น 4: ราคา / ร้าน ---------- */
   $('rate').addEventListener('input', function (e) {
@@ -2268,6 +2552,10 @@
   function openExport(fmt) {
     if (st.scene === 'photo' && photo && !C.isConvex((lastOut && lastOut.quad) || [])) {
       toast('มุมป้ายไขว้กันอยู่ จัดมุมให้เป็นสี่เหลี่ยมก่อนบันทึก');
+      return;
+    }
+    if (st.scene === 'handPhoto' && handReady() && lastOut && (lastOut.cards || []).some(function (c) { return !C.isConvex(c.q); })) {
+      toast('มุมบัตรไขว้กันอยู่ กด “ปรับมุมบัตร” แล้วจัดมุมให้เป็นสี่เหลี่ยมก่อนบันทึก');
       return;
     }
     if ((fmt === 'glb' || fmt === 'html') && !is3d()) fmt = 'jpg';
@@ -3583,6 +3871,7 @@
   function buildMetals() {
     buildLook();
     buildShape();
+    handSync();
     var cnc = st.type === 'cnc';
     $('cncPostField').hidden = !cnc;
     if (cnc) pressed('#cncPostSeg button', 'posts', C.cncPosts(st.steel) ? '1' : '0');

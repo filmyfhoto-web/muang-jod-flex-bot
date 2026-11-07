@@ -2174,6 +2174,116 @@
     x.restore();
   }
 
+  /* ---------- ฉาก "มือจับ (รูปของร้าน)" ----------
+   * hp = { img, w, h, cards: [มุม 4 จุด 0..1], ref: ความสว่างหน้าบัตร, turn }
+   * ชั้นช่วย (ทำครั้งเดียวต่อรูป): shade = ความสว่างของบัตรจริง (คูณทับงาน → เงา/แสงตามรูป) · occ = นิ้ว/มือที่บังบัตร (วาดทับงานอีกชั้น) */
+  function handLayers(hp) {
+    if (hp.layers && hp.layers.img === hp.img) return hp.layers;
+    var W = hp.img.width;
+    var H = hp.img.height;
+    var c = mk(W, H);
+    var x = c.getContext('2d', { willReadFrequently: true });
+    x.drawImage(hp.img, 0, 0);
+    var im = x.getImageData(0, 0, W, H);
+    var d = im.data;
+    var sh = x.createImageData(W, H);
+    var oc = x.createImageData(W, H);
+    var s = sh.data;
+    var o = oc.data;
+    var ref = clamp(hp.ref || 240, 160, 255);
+    for (var i = 0; i < d.length; i += 4) {
+      var r = d[i];
+      var g = d[i + 1];
+      var b = d[i + 2];
+      var L = 0.299 * r + 0.587 * g + 0.114 * b;
+      var ch = Math.max(r, g, b) - Math.min(r, g, b);
+      var v = Math.min(255, (L * 255) / ref);
+      s[i] = s[i + 1] = s[i + 2] = v;
+      s[i + 3] = 255;
+      // ผิว/นิ้ว (มีสี) หรือเงาเข้มมาก = ของที่บังบัตร
+      var a = Math.max((ch - 18) / 14, (ref * 0.72 - L) / 40);
+      o[i] = r;
+      o[i + 1] = g;
+      o[i + 2] = b;
+      o[i + 3] = a <= 0 ? 0 : a >= 1 ? 255 : a * 255;
+    }
+    var shade = mk(W, H);
+    shade.getContext('2d').putImageData(sh, 0, 0);
+    var occ = mk(W, H);
+    occ.getContext('2d').putImageData(oc, 0, 0);
+    hp.layers = { img: hp.img, shade: shade, occ: occ };
+    return hp.layers;
+  }
+  function handCanvasSize(st) {
+    var hp = st.handPhoto;
+    var cr = C.handCrop(st.handView, hp.cards, hp.split);
+    return C.canvasSize('auto', null, { w: cr.w * hp.img.width, h: cr.h * hp.img.height });
+  }
+  function drawHandPhoto(x, st, g, W, H, U, scale, opt, out) {
+    var hp = st.handPhoto;
+    var iw = hp.img.width;
+    var ih = hp.img.height;
+    var cr = C.handCrop(st.handView, hp.cards, hp.split);
+    var src = [cr.x * iw, cr.y * ih, cr.w * iw, cr.h * ih];
+    x.drawImage(hp.img, src[0], src[1], src[2], src[3], 0, 0, W, H);
+    var lay = handLayers(hp);
+    var map = function (p) {
+      return { x: ((p.x - cr.x) / cr.w) * W, y: ((p.y - cr.y) / cr.h) * H };
+    };
+    out.cards = [];
+    var shown = C.handShown(st.handView, hp.cards.length);
+    var long = (opt.preview ? 1000 : 1800) * Math.min(Math.max(scale, 1), 1.5);
+    var art = null;
+    shown.forEach(function (i) {
+      var q = hp.cards[i].map(map);
+      out.cards.push({ i: i, q: q });
+      if (!C.isConvex(q)) return;
+      // งานตามขนาดจริง แล้ววางพอดีบัตรในรูป ไม่ยืดงาน (สัดส่วนต่างกัน → เติมสีพื้นงาน)
+      if (!art) art = faceCanvas(st.design, g.w, g.h, st.fit, long);
+      var fq = C.fitQuad(q, g.w, g.h, hp.turn);
+      var qw = (Math.hypot(fq[1].x - fq[0].x, fq[1].y - fq[0].y) + Math.hypot(fq[2].x - fq[3].x, fq[2].y - fq[3].y)) / 2;
+      var qh = (Math.hypot(fq[3].x - fq[0].x, fq[3].y - fq[0].y) + Math.hypot(fq[2].x - fq[1].x, fq[2].y - fq[1].y)) / 2;
+      var face = art;
+      if (Math.abs(qw / Math.max(1, qh) / (g.w / g.h) - 1) > 0.03) {
+        var fw = qw >= qh ? long : Math.max(1, Math.round((long * qw) / qh));
+        var fh = qw >= qh ? Math.max(1, Math.round((long * qh) / qw)) : long;
+        face = mk(fw, fh);
+        var fx = ctx2d(face);
+        if (!(st.design && st.design.shaped)) {
+          fx.fillStyle = st.design && st.design.bg ? rgb(st.design.bg) : '#ffffff';
+          fx.fillRect(0, 0, fw, fh);
+        }
+        var cr2 = C.containRect(art.width, art.height, fw, fh);
+        fx.drawImage(art, cr2.dx, cr2.dy, cr2.dw, cr2.dh);
+      }
+      var layer = mk(W * scale, H * scale);
+      var lx = ctx2d(layer);
+      lx.setTransform(scale, 0, 0, scale, 0, 0);
+      warp(lx, face, { x: 0, y: 0, w: face.width, h: face.height }, fq, opt.preview ? 12 : 24);
+      // แสงเงาจากบัตรจริงคูณทับงาน เฉพาะส่วนที่มีงาน
+      lx.globalCompositeOperation = 'multiply';
+      lx.drawImage(lay.shade, src[0], src[1], src[2], src[3], 0, 0, W, H);
+      lx.globalCompositeOperation = 'destination-in';
+      var mask = mk(W * scale, H * scale);
+      var mx = ctx2d(mask);
+      mx.setTransform(scale, 0, 0, scale, 0, 0);
+      warp(mx, face, { x: 0, y: 0, w: face.width, h: face.height }, fq, opt.preview ? 12 : 24);
+      lx.setTransform(1, 0, 0, 1, 0, 0);
+      lx.drawImage(mask, 0, 0);
+      x.save();
+      x.setTransform(1, 0, 0, 1, 0, 0);
+      x.drawImage(layer, 0, 0);
+      x.restore();
+    });
+    // นิ้ว/มือที่บังบัตร วาดทับงานอีกชั้น (นอกบัตรเหมือนรูปเดิมอยู่แล้ว)
+    x.drawImage(lay.occ, src[0], src[1], src[2], src[3], 0, 0, W, H);
+    if (opt.preview && st.handEdit) {
+      out.cards.forEach(function (c) {
+        handles(x, c.q, U);
+      });
+    }
+  }
+
   /* ---------- วาดทั้งภาพ ----------
    * st: { design, fit, type, w, h, scene, photo, person, dims, zoom, aspect, brightness, info, footer }
    * opt: { scale (ตัวคูณความละเอียดตอนส่งออก), preview (วาดจุดลากมุม) } */
@@ -2182,7 +2292,8 @@
     var scale = opt.scale || 1;
     var g = C.geometry(st.type, st.w, st.h, st.steel);
     var photo = st.scene === 'photo' && st.photo && st.photo.img ? st.photo : null;
-    var size = C.canvasSize(st.aspect, g, photo);
+    var hand = st.scene === 'handPhoto' && st.handPhoto && st.handPhoto.img && st.handPhoto.cards ? st.handPhoto : null;
+    var size = hand ? handCanvasSize(st) : C.canvasSize(st.aspect, g, photo);
     var W = size.W;
     var H = size.H;
     var U = C.unitScale(W, H);
@@ -2200,6 +2311,7 @@
     x.rect(0, 0, W, H);
     x.clip();
     if (photo) drawPhoto(x, st, g, W, H, U, scale, opt, out);
+    else if (hand) drawHandPhoto(x, st, g, W, H, U, scale, opt, out);
     else drawScene(x, st, g, W, H, U, scale, out);
     x.restore();
     if (F) footer(x, W, H, F, U, st.footer || {});
@@ -2656,6 +2768,7 @@
     shapeFace: shapeFace,
     shapedDesign: shapedDesign,
     filmArt: filmArt,
+    handLayers: handLayers,
     glassInterior: glassInterior,
     paperTex: paperTex,
     sheetPreview: sheetPreview,

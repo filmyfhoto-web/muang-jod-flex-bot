@@ -897,3 +897,63 @@ test('สแตนดี้ไดคัท (ตั้งพื้น) + สต�
   assert.match(C.lookNote('standee', {}), /ขาค้ำ/);
   assert.ok(C.TYPE_ORDER.indexOf('window') > C.TYPE_ORDER.indexOf('sticker'));
 });
+
+test('ฉากมือจับ (รูปของร้าน): หาบัตรเปล่าในรูปเอง (นิ้วบังมุม/เส้นบางพาดผ่าน) · ดูสองมือ/มือซ้าย/มือขวา · หมุนงานตามแนวบัตร', () => {
+  // รูปจำลอง: พื้นขาว · บัตรเทาอ่อนมาก 2 ใบ (ใบซ้ายขาวเกือบกลืนพื้น) · นิ้ว (สีผิว) บังมุมบัตรซ้าย · เส้นลายน้ำบาง ๆ พาดทั้งภาพ
+  const W = 400;
+  const H = 240;
+  const px = new Uint8ClampedArray(W * H * 4).fill(255);
+  const rect = (x0, y0, x1, y1, c) => {
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) px.set(c, (y * W + x) * 4);
+  };
+  rect(60, 70, 180, 140, [249, 249, 249]);
+  rect(250, 50, 320, 160, [238, 238, 236]);
+  rect(40, 120, 80, 180, [230, 180, 150]);
+  rect(0, 100, 400, 101, [240, 240, 240]);
+  const r = C.findCards(px, W, H);
+  assert.equal(r.cards.length, 2);
+  const [a, b] = r.cards;
+  near(a[0].x, 0.15, 1e-3);
+  near(a[0].y, 70 / 240, 1e-3);
+  near(a[2].x, 0.45, 1e-3); // มุมล่างซ้ายโดนนิ้วบัง ก็ยังได้สี่เหลี่ยมเต็มใบ
+  near(a[2].y, 140 / 240, 1e-3);
+  near(b[0].x, 0.625, 1e-3);
+  near(b[2].y, 160 / 240, 1e-3);
+  // ภาพไม่มีบัตร → ไม่เจอ (แอปวางกรอบตั้งต้นให้ลากเอง)
+  assert.equal(C.findCards(new Uint8ClampedArray(W * H * 4).fill(255), W, H).cards.length, 0);
+  const d = C.handDefaults(2, 1600, 1000, 18, 7);
+  assert.equal(d.length, 2);
+  assert.ok(d[0][0].x < 0.5 && d[1][0].x > 0.5);
+  near((d[0][1].x - d[0][0].x) * 1600 / ((d[0][3].y - d[0][0].y) * 1000), 18 / 7, 1e-6);
+  // มุมที่โชว์
+  assert.deepEqual(C.handCrop('both', r.cards), { x: 0, y: 0, w: 1, h: 1 });
+  const split = C.handSplit(r.cards);
+  near(split, (0.45 + 0.625) / 2, 1e-3);
+  assert.deepEqual(C.handCrop('left', r.cards, split), { x: 0, y: 0, w: split, h: 1 });
+  assert.equal(C.handCrop('right', r.cards, 0.4).x, 0.4);
+  assert.deepEqual(C.handShown('both', 2), [0, 1]);
+  assert.deepEqual(C.handShown('left', 2), [0]);
+  assert.deepEqual(C.handShown('right', 2), [1]);
+  assert.deepEqual(C.handShown('right', 1), [0]);
+  assert.deepEqual(Object.keys(C.HAND_VIEWS), ['both', 'left', 'right']);
+  // บัตรในรูปตั้ง แต่งานแนวนอน → หมุนงาน 90° · กดหมุนเพิ่มได้
+  const tall = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 30 }, { x: 0, y: 30 }];
+  assert.deepEqual(C.fitQuad(tall, 18, 7, 0)[0], { x: 10, y: 0 });
+  assert.deepEqual(C.fitQuad(tall, 7, 18, 0)[0], { x: 0, y: 0 });
+  assert.deepEqual(C.fitQuad(tall, 7, 18, 2)[0], { x: 10, y: 30 });
+  // ข้อมูลที่เก็บไว้ถูกตรวจ: เฉพาะมุม 4 จุดตัวเลข ไม่เกิน 2 ใบ เรียงซ้าย→ขวา
+  const q = (x) => [{ x, y: 0.1 }, { x: x + 0.2, y: 0.1 }, { x: x + 0.2, y: 0.5 }, { x, y: 0.5 }];
+  assert.deepEqual(C.normalizeCards([q(0.6), q(0.1), q(0.3)]).map((c) => c[0].x), [0.1, 0.6]);
+  assert.equal(C.normalizeCards([[{ x: 'a', y: 0 }]]), null);
+  assert.equal(C.normalizeCards('x'), null);
+  // ฉากนี้โชว์เฉพาะงานชิ้นเล็ก (บัตร) ที่ไม่ใช่ตั้งพื้น
+  assert.equal(C.sceneFits('handPhoto', 'card'), true);
+  assert.equal(C.sceneFits('handPhoto', 'vinyl'), false);
+  assert.equal(C.sceneFits('handPhoto', 'tablestand'), false);
+  assert.equal(C.SCENE_ORDER.indexOf('handPhoto'), C.SCENE_ORDER.indexOf('hand') + 1);
+  const html = readFileSync(new URL('../sign-mockup/index.html', import.meta.url), 'utf8');
+  for (const id of ['handField', 'handViewSeg', 'handCountSeg', 'handEdit', 'handTurn', 'handFind', 'handChange', 'handAll', 'handDel', 'handFile']) assert.match(html, new RegExp('id="' + id + '"'), id);
+  // รูปของร้านเก็บแยกจากรายการงาน (id ขึ้นต้น opt-)
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  assert.match(app, /var HAND_ID = 'opt-hand-photo';/);
+});
