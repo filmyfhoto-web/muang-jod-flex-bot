@@ -39,6 +39,24 @@ export function isJpeg(buf) {
   return Buffer.isBuffer(buf) && buf.length > 4 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
 }
 
+// ขนาดรูป JPEG (อ่านจากหัวไฟล์ SOF) — ใส่ใน og:image:width/height ให้ Facebook/LINE โชว์รูปตัวอย่างได้ทันที ไม่ต้องรอโหลดรูปก่อน
+export function jpegSize(buf) {
+  if (!isJpeg(buf)) return null;
+  let i = 2;
+  while (i + 9 < buf.length) {
+    if (buf[i] !== 0xff) return null;
+    const m = buf[i + 1];
+    const len = buf.readUInt16BE(i + 2);
+    if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) {
+      const h = buf.readUInt16BE(i + 5);
+      const w = buf.readUInt16BE(i + 7);
+      return w > 0 && h > 0 ? { w, h } : null;
+    }
+    i += 2 + len;
+  }
+  return null;
+}
+
 function clean(value, max) {
   return String(value ?? '')
     .replace(/[\u0000-\u001f\u007f<>]/g, '')

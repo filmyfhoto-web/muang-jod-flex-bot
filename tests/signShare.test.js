@@ -255,3 +255,25 @@ test('ปลุกเซิร์ฟเวอร์: GET /sign/api/ping ตอ�
   const sw = readFileSync(new URL('../sign-mockup/sw.js', import.meta.url), 'utf8');
   assert.match(sw, /\/\\\/sign\\\/\(v\|api\)\\\//);
 });
+
+test('รูปตัวอย่างตอนแปะลิงก์ (Facebook/LINE): บอกขนาดรูป + ลิงก์หลัก + การ์ดรูปใหญ่ ให้ขึ้นรูปทันที ไม่เป็นการ์ดเทา', async () => {
+  const { jpegSize } = await import('../src/utils/signShare.js');
+  // หัว JPEG: SOI + APP0 + SOF0 (สูง 300 กว้าง 600)
+  const head = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 16, 74, 70, 73, 70, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0xff, 0xc0, 0, 17, 8, 1, 0x2c, 2, 0x58, 3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1]);
+  assert.deepEqual(jpegSize(head), { w: 600, h: 300 });
+  assert.equal(jpegSize(Buffer.from('nope')), null);
+  const html = viewerHtml('abcdefghij', { poster: true, posterSize: { w: 1200, h: 750 }, meta: { title: 'บัตร', size: '6 × 11 ซม.' } }, 'https://shop.example.com');
+  assert.match(html, /og:image" content="https:\/\/shop\.example\.com\/sign\/v\/abcdefghij\/poster\.jpg"/);
+  assert.match(html, /og:image:width" content="1200"/);
+  assert.match(html, /og:image:height" content="750"/);
+  assert.match(html, /og:url" content="https:\/\/shop\.example\.com\/sign\/v\/abcdefghij"/);
+  assert.match(html, /twitter:card" content="summary_large_image"/);
+  // ลิงก์เก่าที่ไม่มีขนาดรูป ยังมีรูปตัวอย่าง (ไม่มีแท็กขนาด)
+  const old = viewerHtml('abcdefghij', { poster: true, meta: {} }, 'https://shop.example.com');
+  assert.match(old, /og:image"/);
+  assert.ok(!/og:image:width/.test(old));
+  // แอปใส่ป้าย "แตะเพื่อหมุนดู 3 มิติ" บนรูปตัวอย่าง
+  const { readFileSync } = await import('node:fs');
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  assert.match(app, /posterWithBadge\(mockupCanvas\(0\.75, false\)\)/);
+});
