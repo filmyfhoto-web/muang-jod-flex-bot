@@ -1,5 +1,6 @@
 // ลิงก์ดูป้าย 3 มิติ — ร้านกด "สร้างลิงก์" ในแอปจำลองป้าย แล้วส่งลิงก์ให้ลูกค้าเปิดหมุนดูในมือถือ
 //
+//   GET  /sign/api/ping           เช็กว่าเซิร์ฟเวอร์ตื่นแล้ว (แอปปลุกก่อนส่งไฟล์ — เซิร์ฟเวอร์ฟรีหลับ/กำลังอัปเดต)
 //   POST /sign/api/share          รับไฟล์ .glb (+ รูปตัวอย่าง) → { id, url }
 //   GET  /sign/v/:id              หน้าดู 3 มิติ (มีรูปตัวอย่างให้ LINE โชว์ตอนแปะลิงก์)
 //   GET  /sign/v/:id/model.glb    ไฟล์ 3 มิติ (?dl=1 = ดาวน์โหลด)
@@ -129,6 +130,11 @@ ${og}
 
 export function createSignShareRouter({ store, now = () => Date.now(), allow = rateLimiter() } = {}) {
   const router = express.Router();
+
+  router.get('/api/ping', (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json({ ok: true, at: now() });
+  });
 
   router.post('/api/share', express.json({ limit: '30mb' }), async (req, res) => {
     if (!allow(clientKey(req))) return res.status(429).json({ error: 'rate_limited', message: MESSAGES.rate_limited });

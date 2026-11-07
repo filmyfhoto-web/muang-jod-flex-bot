@@ -6,7 +6,7 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '4.3.2';
+  var APP_VERSION = '4.3.3';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp', hands: C.HAND_BUILTIN.src });
 
@@ -2697,6 +2697,27 @@
   }
 
   /* ---------- ลิงก์ดู 3 มิติ: อัปโหลดไฟล์ .glb ขึ้นเซิร์ฟเวอร์ร้าน แล้วได้ลิงก์ส่งลูกค้า ---------- */
+  // เรียก /sign/api/ping ทุก 3 วิ จนเซิร์ฟเวอร์ตอบ (สูงสุด ms) → true = ตื่นแล้ว
+  function wakeServer(ms) {
+    var until = Date.now() + ms;
+    function once() {
+      return fetch('api/ping', { cache: 'no-store' })
+        .then(function (r) {
+          return r.ok;
+        })
+        .catch(function () {
+          return false;
+        })
+        .then(function (ok) {
+          if (ok) return true;
+          if (Date.now() > until) return false;
+          return new Promise(function (r) {
+            setTimeout(r, 3000);
+          }).then(once);
+        });
+    }
+    return once();
+  }
   function showLink(url) {
     exp.link = url;
     $('linkUrl').value = url;
@@ -2708,19 +2729,32 @@
     if (exp.fmt !== 'glb' || !exp.blob) return;
     if (exp.link) return showLink(exp.link);
     var btn = $('mkLink');
+    if (location.protocol === 'file:') {
+      $('dlStatus').textContent = 'เปิดแอปจากไฟล์ในเครื่อง สร้างลิงก์ไม่ได้ — เปิดแอปจริงที่ https://muang-jod-flex-bot.onrender.com/sign/ แล้วกดใหม่';
+      return;
+    }
     btn.disabled = true;
     $('dlStatus').textContent = 'กำลังสร้างลิงก์…';
     var poster = mockupCanvas(0.5, false);
     Promise.all([blobToDataUrl(exp.blob), toBlob(poster, 'image/jpeg', 0.82).then(blobToDataUrl)])
       .then(function (r) {
-        return fetch('api/share', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            glb: r[0],
-            poster: r[1],
-            meta: { title: C.TYPES[st.type].name, size: C.sizeText(st.w, st.h), customer: customer.trim(), shop: st.shopName.trim(), phone: st.shopPhone.trim(), w: st.w, h: st.h },
-          }),
+        var body = JSON.stringify({
+          glb: r[0],
+          poster: r[1],
+          meta: { title: C.TYPES[st.type].name, size: C.sizeText(st.w, st.h), customer: customer.trim(), shop: st.shopName.trim(), phone: st.shopPhone.trim(), w: st.w, h: st.h },
+        });
+        var send = function () {
+          return fetch('api/share', { method: 'POST', headers: { 'content-type': 'application/json' }, body: body });
+        };
+        // ส่งไม่ถึงเซิร์ฟเวอร์ (หลับอยู่/กำลังอัปเดตรุ่น) → ปลุกจนตื่น แล้วส่งใหม่อีกครั้ง
+        return send().catch(function () {
+          if (navigator.onLine === false) throw new Error('ไม่มีอินเทอร์เน็ต');
+          $('dlStatus').textContent = 'กำลังปลุกเซิร์ฟเวอร์ร้าน (ไม่ได้ใช้นานจะหลับ หรือกำลังอัปเดตรุ่น) รอสักครู่…';
+          return wakeServer(90000).then(function (up) {
+            if (!up) throw new Error('ติดต่อเซิร์ฟเวอร์ร้านไม่ได้ ลองใหม่อีกครั้งใน 1–2 นาที');
+            $('dlStatus').textContent = 'เซิร์ฟเวอร์พร้อมแล้ว กำลังสร้างลิงก์…';
+            return send();
+          });
         });
       })
       .then(function (res) {

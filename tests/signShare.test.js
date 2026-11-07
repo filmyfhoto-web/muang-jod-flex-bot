@@ -236,3 +236,22 @@ test('ตัวดู 3 มิติรวมไฟล์เดียว (ไฟ
   assert.match(html, /id="poster"[^>]*hidden/);
   assert.match(html, /id="shot"/);
 });
+
+test('ปลุกเซิร์ฟเวอร์: GET /sign/api/ping ตอบทันที ไม่ให้จำ · แอปปลุกแล้วส่งใหม่เมื่อส่งไฟล์ไม่ถึง', async () => {
+  const s = await serve({ now: () => 1234 });
+  try {
+    const r = await fetch(`${s.base}/sign/api/ping`);
+    assert.equal(r.status, 200);
+    assert.equal(r.headers.get('cache-control'), 'no-store');
+    assert.deepEqual(await r.json(), { ok: true, at: 1234 });
+  } finally {
+    s.close();
+  }
+  const { readFileSync } = await import('node:fs');
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  assert.match(app, /fetch\('api\/ping', \{ cache: 'no-store' \}\)/);
+  assert.match(app, /return send\(\)\.catch\(function \(\) \{/);
+  // service worker ไม่จับ /sign/api/ (ของสดเสมอ)
+  const sw = readFileSync(new URL('../sign-mockup/sw.js', import.meta.url), 'utf8');
+  assert.match(sw, /\/\\\/sign\\\/\(v\|api\)\\\//);
+});
