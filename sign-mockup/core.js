@@ -2065,6 +2065,26 @@
     });
     return { x: (cam.f * c[0]) / c[2] + cam.W / 2, y: (cam.f * c[1]) / c[2] + cam.H / 2, z: c[2] };
   }
+  /* พิกเซล (u,v) → จุดบนฉากหลังแบบ "กล่อง": ผนัง (ระนาบ Z = zWall) + พื้น (ระนาบ Y = yGround แนวนอน หน้าผนัง)
+   * รังสีชนอะไรก่อนเอาอันนั้น → พื้นในรูปราบไปกับพื้นจริง ผนังตั้งขึ้น หมุนดูแล้วเป็น 3 มิติ (ไม่ใช่แผ่นภาพแบน)
+   * yGround = null → ผนังอย่างเดียว · ไม่ชน/ไกลเกิน far → ตัดที่ far */
+  function photoBoxPoint(cam, u, v, zWall, yGround, far) {
+    var R = cam.R;
+    var dc = [(u - cam.W / 2) / cam.f, (v - cam.H / 2) / cam.f, 1];
+    var dir = [0, 1, 2].map(function (j) {
+      return R[0][j] * dc[0] + R[1][j] * dc[1] + R[2][j] * dc[2];
+    });
+    var l = Math.hypot(dir[0], dir[1], dir[2]);
+    dir = dir.map(function (x) { return x / l; });
+    var s = Infinity;
+    if (dir[2] > 1e-6) s = (zWall - cam.C[2]) / dir[2];
+    if (yGround != null && cam.C[1] < yGround && dir[1] > 1e-6) {
+      var sg = (yGround - cam.C[1]) / dir[1];
+      if (sg > 0 && sg < s) s = sg;
+    }
+    if (!(s > 0) || s > far) s = far;
+    return [cam.C[0] + s * dir[0], cam.C[1] + s * dir[1], cam.C[2] + s * dir[2]];
+  }
   // พิกเซล (u,v) → จุดบนแนวรังสี ที่ความลึก (แกนกล้อง) = depth — วางคนยืนเทียบระยะเดียวกับป้าย (ตรงกับภาพ 2 มิติ)
   function photoDepthPoint(cam, u, v, depth) {
     var R = cam.R, t = cam.t;
@@ -2172,6 +2192,7 @@
     photoProject: photoProject,
     photoRayPoint: photoRayPoint,
     photoDepthPoint: photoDepthPoint,
+    photoBoxPoint: photoBoxPoint,
     PHOTO_FOV: PHOTO_FOV,
     DEPTH: DEPTH,
     quoteNo: quoteNo,

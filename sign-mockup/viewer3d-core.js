@@ -215,8 +215,11 @@ export function mountViewer(opts) {
     controls.maxAzimuthAngle = sph.theta + 0.4;
     controls.minPolarAngle = Math.max(0.12, sph.phi - 0.22);
     controls.maxPolarAngle = Math.min(Math.PI * 0.8, sph.phi + 0.22);
+    // จอแคบกว่ารูป (มือถือแนวตั้ง) รูปเต็มจอจะเล็ก → เริ่มใกล้เข้าไปหน่อย (ถอยออกดูทั้งรูปได้)
+    const near0 = Math.min(1, Math.max(0.55, Math.sqrt(camera.aspect / photo.aspect) * 1.1));
+    camera.position.copy(target).add(pos.clone().sub(target).multiplyScalar(near0));
     controls.update();
-    home = { pos: pos.clone(), target: target.clone() };
+    home = { pos: camera.position.clone(), target: target.clone() };
     sun.position.copy(target).add(new THREE.Vector3(1.5, 4, 3));
     sun.target.position.copy(target);
     const hint = $('hint');
@@ -267,8 +270,21 @@ export function mountViewer(opts) {
     controls.maxAzimuthAngle = az[1] == null ? Infinity : az[1];
     controls.minPolarAngle = 0.15;
     controls.maxPolarAngle = Math.PI * 0.6;
+    // ระยะเริ่มต้น: ป้าย + คนยืนเทียบพอดีจอนี้ (มุมมองเดียวกับในแอป) — ไม่ไกลเกินบนมือถือแนวตั้ง
+    const fb = new THREE.Box3();
+    ['NadponSignRoot', 'NadponPerson'].forEach((n) => {
+      const o = model.getObjectByName(n);
+      if (o) fb.union(new THREE.Box3().setFromObject(o));
+    });
+    if (!fb.isEmpty()) {
+      const fsz = fb.getSize(new THREE.Vector3());
+      const t = Math.tan((camera.fov * Math.PI) / 360);
+      const fit = Math.max(fsz.y / 2 / t, Math.max(fsz.x, fsz.z) / 2 / (t * camera.aspect)) * 1.3 + Math.min(fsz.x, fsz.z) / 2;
+      const d = Math.min(d0 * 1.8, Math.max(photo.dMin * 1.5, fit));
+      camera.position.copy(target).add(pos.clone().sub(target).setLength(d));
+    }
     controls.update();
-    home = { pos: pos.clone(), target: target.clone() };
+    home = { pos: camera.position.clone(), target: target.clone() };
     sun.position.copy(focus.target).add(new THREE.Vector3(3, 6, 5));
     sun.target.position.copy(focus.target);
     const r = Math.max(4, info.size[0] * 1.5, info.size[1] * 1.5);
@@ -286,7 +302,8 @@ export function mountViewer(opts) {
   // + ตำแหน่งป้ายในรูป (NDC) สำหรับเลื่อนจุดกึ่งกลางภาพ (เฉพาะรูปหน้างาน)
   function fitPhoto() {
     const tp = Math.tan((photo.fov * Math.PI) / 360);
-    const tv = Math.max(tp, (tp * photo.aspect) / camera.aspect) * (photo.q0 ? 1.06 : 1); // เผื่อขอบ (กล้องหันหาป้าย รูปเบี้ยวนิดหน่อย)
+    // ฉาก: ใช้มุมกล้องเดียวกับแอป (ระยะกล้องคิดใหม่ให้ป้าย + คนพอดีจอ) · รูปหน้างาน: เห็นทั้งรูป เผื่อขอบ (กล้องหันหาป้าย รูปเบี้ยวนิดหน่อย)
+    const tv = photo.q0 ? Math.max(tp, (tp * photo.aspect) / camera.aspect) * 1.06 : tp;
     camera.fov = (2 * Math.atan(tv) * 180) / Math.PI;
     if (!photo.q0) {
       photo.ndc.set(0, 0);
@@ -403,9 +420,74 @@ export function mountViewer(opts) {
       }, 'image/png');
     });
 
+  /* ปุ่มลูกศรบนจอ (กดค้างได้): ◀ ▶ หมุน · ▲ ▼ มุมสูง/ต่ำ · ＋ − ซูมเข้า/ออก — คอมใช้ปุ่มลูกศรบนคีย์บอร์ด และ + − ได้ */
+  const held = {};
+  const STEP = { left: [0.9, 0, 0], right: [-0.9, 0, 0], up: [0, -0.6, 0], down: [0, 0.6, 0], in: [0, 0, -1.1], out: [0, 0, 1.1] };
+  function nudge(k, dt) {
+    const v = STEP[k];
+    const off = camera.position.clone().sub(controls.target);
+    const sp = new THREE.Spherical().setFromVector3(off);
+    sp.theta += v[0] * dt;
+    sp.phi += v[1] * dt;
+    sp.radius *= Math.exp(v[2] * dt);
+    sp.makeSafe();
+    camera.position.copy(controls.target).add(new THREE.Vector3().setFromSpherical(sp));
+  }
+  function userMoved() {
+    tween = null;
+    setSpin(false);
+    const hint = $('hint');
+    if (hint) hint.hidden = true;
+  }
+  const pad = document.createElement('div');
+  pad.className = 'v-pad';
+  pad.innerHTML =
+    '<div class="v-dpad"><button type="button" data-k="up" aria-label="มุมสูงขึ้น">▲</button><button type="button" data-k="left" aria-label="หมุนซ้าย">◀</button>' +
+    '<button type="button" data-k="right" aria-label="หมุนขวา">▶</button><button type="button" data-k="down" aria-label="มุมต่ำลง">▼</button></div>' +
+    '<div class="v-zoom"><button type="button" data-k="in" aria-label="ซูมเข้า">＋</button><button type="button" data-k="out" aria-label="ซูมออก">−</button></div>';
+  stage.appendChild(pad);
+  pad.querySelectorAll('button').forEach((b) => {
+    const k = b.dataset.k;
+    const stop = () => {
+      delete held[k];
+      b.classList.remove('on');
+    };
+    b.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      userMoved();
+      held[k] = performance.now();
+      b.classList.add('on');
+      try {
+        b.setPointerCapture(e.pointerId);
+      } catch (x) {}
+    });
+    b.addEventListener('pointerup', stop);
+    b.addEventListener('pointercancel', stop);
+    b.addEventListener('lostpointercapture', stop);
+    b.addEventListener('click', (e) => {
+      // กดด้วยคีย์บอร์ด (Enter/Space) ขยับทีละนิด
+      if (e.detail === 0) {
+        userMoved();
+        nudge(k, 0.18);
+      }
+    });
+  });
+  const KEYS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', '+': 'in', '=': 'in', '-': 'out', _: 'out' };
+  window.addEventListener('keydown', (e) => {
+    const k = KEYS[e.key];
+    if (!k || e.altKey || e.ctrlKey || e.metaKey || /^(INPUT|TEXTAREA)$/.test((document.activeElement || {}).tagName || '') || document.querySelector('dialog[open]')) return;
+    e.preventDefault();
+    userMoved();
+    nudge(k, 0.12);
+  });
+  let lastT = 0;
+
   const sph = new THREE.Spherical();
   const pw = new THREE.Vector3();
   renderer.setAnimationLoop((now) => {
+    const dt = Math.min(0.05, lastT ? (now - lastT) / 1000 : 0);
+    lastT = now;
+    for (const k in held) nudge(k, dt);
     if (tween) {
       const k = Math.min(1, (now - tween.t0) / tween.ms);
       const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;

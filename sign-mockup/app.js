@@ -6,7 +6,7 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '4.8.0';
+  var APP_VERSION = '4.9.0';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp', hands: C.HAND_BUILTIN.src });
 
@@ -2172,6 +2172,10 @@
   function photo3dReady() {
     return glbWithScene() && photoSceneOk();
   }
+  // รูป 3 มิติ Facebook: ฉาก 3 มิติ หรือรูปหน้างานที่จัดมุมแล้ว (ฉากมือจับรูปจริงเป็นรูป 2 มิติ ทำไม่ได้)
+  function fb3dOk() {
+    return !!stage && !!stage.fbPhoto && !inFrame && (sceneGlbOk() || photoSceneOk()); // หน้าพรีวิวดาวน์โหลด 2 ไฟล์ไม่ได้
+  }
   function photoSceneOk() {
     return st.scene === 'photo' && photo && photo.quad && photo.w > 0 && C.isConvex(photo.quad) && !!stage && !!stage.exportPhotoGLB;
   }
@@ -2186,10 +2190,8 @@
     if (!pb || !(lastOut.W > 0)) return null;
     return { x: ((pb.x0 + pb.x1) / 2 / lastOut.W) * photo.w, y: ((pb.y1 - ((pb.x1 - pb.x0) * 6) / 64) / lastOut.H) * photo.h };
   }
-  function model3d() {
-    syncStage();
-    if (!photo3dReady()) return stage.exportGLB({ scene: glbWithScene() && sceneGlbOk() });
-    return stage.exportPhotoGLB({
+  function photoOpts() {
+    return {
       image: photo.img,
       W: photo.w,
       H: photo.h,
@@ -2197,6 +2199,27 @@
         return { x: p.x * photo.w, y: p.y * photo.h };
       }),
       feet: photoFeet(),
+    };
+  }
+  function model3d() {
+    syncStage();
+    if (!photo3dReady()) return stage.exportGLB({ scene: glbWithScene() && sceneGlbOk() });
+    return stage.exportPhotoGLB(photoOpts());
+  }
+  /* รูป 3 มิติ Facebook: รูป + แผนที่ความลึก (ชื่อเดียวกัน ต่อท้าย _depth) โพสต์ผ่าน Facebook บนคอม เลือก 2 ไฟล์พร้อมกัน
+   * → Facebook ทำเป็นรูป 3 มิติ คนเลื่อนฟีด/เอียงมือถือ/ลากดู รูปขยับเป็นมิติ (Facebook เลิกรับไฟล์ .glb แล้ว) */
+  function buildFb3d() {
+    syncStage();
+    var r = stage.fbPhoto(photoSceneOk() ? { photo: photoOpts(), long: 1600 } : { long: 1600 });
+    var base = fileName('sign3d-fb', 'jpg').replace(/\.jpg$/, '');
+    return Promise.all([toBlob(r.color, 'image/jpeg', 0.92), toBlob(r.depth, 'image/jpeg', 0.95)]).then(function (b) {
+      return {
+        blob: b[0],
+        name: base + '.jpg',
+        preview: b[0],
+        canvas: r.color,
+        extra: [{ blob: b[1], name: base + '_depth.jpg' }],
+      };
     });
   }
   function buildHtml() {
@@ -2650,6 +2673,7 @@
     if (fmt === 'print') return buildPrint();
     if (fmt === 'html') return buildHtml();
     if (fmt === 'reel') return buildReel();
+    if (fmt === 'fb3d') return buildFb3d();
     if (fmt === 'glb') {
       var withPhoto = photo3dReady();
       var withScene = !withPhoto && glbWithScene() && sceneGlbOk();
@@ -2820,6 +2844,7 @@
     print: 'ไฟล์ PDF ส่งโรงพิมพ์/เครื่องพิมพ์: จัดบัตรเต็มแผ่น เผื่อตัดตก 2 มม. มีเส้นตัด เลขรันเรียงทุกใบ',
     job: 'ใบสั่งผลิต A4 สำหรับช่าง: สเปกงาน วัสดุ งานตกแต่ง (ตาไก่/โครงเหล็ก/เลขรัน) ไฟล์ + ความละเอียดตอนพิมพ์ นัดรับ หมายเหตุถึงช่าง และช่องติ๊กขั้นตอนผลิต',
     compare: 'แบบละครึ่งหน้า พร้อมชนิด ขนาด ราคา และช่องให้ลูกค้าติ๊กเลือก — ส่งเข้า LINE ให้ลูกค้าตอบ “แบบ 1” หรือ “แบบ 2”',
+    fb3d: 'ได้ 2 ไฟล์: รูป + รูปความลึก (_depth ขาว = ใกล้ ดำ = ไกล) → เปิด Facebook บนคอม › สร้างโพสต์ › รูปภาพ/วิดีโอ › เลือกทั้ง 2 ไฟล์พร้อมกัน → ขึ้น “กำลังสร้างรูปภาพ 3 มิติ” คนเลื่อนฟีด/เอียงมือถือ รูปจะขยับเป็นมิติ (Facebook เลิกรับไฟล์ .glb แล้ว)',
     reel: 'วิดีโอแนวตั้ง 9:16 (1080×1920) ยาว 9 วินาที มีชื่อร้าน ขนาด ราคา และหน้าปิดท้ายเบอร์โทร — โพสต์ลง Facebook / Instagram Reels, TikTok, YouTube Shorts ได้เลย · ใส่เพลงในแอปตอนโพสต์',
     html: 'ไฟล์เดียวจบ: ส่งทาง LINE / อีเมล / แฟลชไดรฟ์ ลูกค้าแตะหรือดับเบิลคลิกเปิดในเบราว์เซอร์ (Chrome / Safari / Edge) หมุนดูป้าย 3 มิติได้เลย ไม่ต้องลงแอป ไม่ต้องต่อเน็ต · มีปุ่มบันทึกรูปมุมที่ดู',
   };
@@ -2839,6 +2864,7 @@
       return;
     }
     if ((fmt === 'glb' || fmt === 'html') && !stage) fmt = 'jpg';
+    if (fmt === 'fb3d' && !fb3dOk()) fmt = 'jpg';
     if (fmt === 'print' && !isCard()) fmt = 'jpg';
     exp.fmt = fmt;
     if ((fmt === 'jpg' || fmt === 'png') && st.fmt !== fmt) {
@@ -2848,6 +2874,7 @@
     pressed('#fmtSeg button', 'fmt', fmt);
     $('fmtGlb').hidden = !stage; // ฉากรูปถ่ายก็ได้ (ไฟล์มีแค่ตัวป้าย) — ไม่ได้เฉพาะเครื่องที่เปิด 3 มิติไม่ได้
     $('fmtHtml').hidden = !stage || inFrame; // หน้าพรีวิวโหลดตัวดูมาฝังไม่ได้
+    $('fmtFb3d').hidden = !fb3dOk();
     $('fmtPrint').hidden = !isCard();
     $('sheetBar').hidden = fmt !== 'print';
     $('sceneBar').hidden = !((fmt === 'glb' || fmt === 'html') && (photoSceneOk() || sceneGlbOk()));
@@ -2856,7 +2883,7 @@
     $('cmpBar').hidden = fmt !== 'compare';
     pressed('#cmpOutSeg button', 'cout', st.cmpOut);
     pressed('#sheetSeg button', 'sheet', st.sheet);
-    $('exportTitle').textContent = fmt === 'reel' ? 'วิดีโอ Reels (แนวตั้ง 9:16)' : fmt === 'pdf' ? 'ใบเสนอราคา' : fmt === 'glb' ? 'ไฟล์ 3 มิติ' : fmt === 'html' ? 'ไฟล์ HTML พรีวิว 3 มิติ' : fmt === 'print' ? 'ไฟล์พิมพ์บัตร' : fmt === 'compare' ? 'แบบให้ลูกค้าเลือก' : fmt === 'job' ? 'ใบสั่งผลิต' : 'รูปพร้อมส่งลูกค้า';
+    $('exportTitle').textContent = fmt === 'reel' ? 'วิดีโอ Reels (แนวตั้ง 9:16)' : fmt === 'pdf' ? 'ใบเสนอราคา' : fmt === 'glb' ? 'ไฟล์ 3 มิติ' : fmt === 'html' ? 'ไฟล์ HTML พรีวิว 3 มิติ' : fmt === 'fb3d' ? 'รูป 3 มิติ Facebook' : fmt === 'print' ? 'ไฟล์พิมพ์บัตร' : fmt === 'compare' ? 'แบบให้ลูกค้าเลือก' : fmt === 'job' ? 'ใบสั่งผลิต' : 'รูปพร้อมส่งลูกค้า';
     $('dlHint').textContent = inFrame && fmt !== 'glb' && fmt !== 'html' ? 'มือถือ: กดค้างที่รูปแล้วเลือก “บันทึกรูปภาพ” · คอมพิวเตอร์: คลิกขวาที่รูป แล้วเลือกบันทึกรูป' : FMT_HINT[fmt];
     $('dlStatus').textContent = fmt === 'reel' ? 'กำลังเตรียมวิดีโอ…' : 'กำลังเตรียมไฟล์…';
     if (fmt === 'reel') {
@@ -2888,6 +2915,7 @@
     if (exp.purl) URL.revokeObjectURL(exp.purl);
     exp.blob = r.blob;
     exp.name = r.name;
+    exp.extra = r.extra || [];
     exp.canvas = r.canvas;
     exp.url = URL.createObjectURL(r.blob);
     exp.purl = r.preview && r.preview !== r.blob ? URL.createObjectURL(r.preview) : '';
@@ -3273,21 +3301,42 @@
       if (b.dataset.fmt !== exp.fmt || !exp.blob) openExport(b.dataset.fmt);
     });
   });
-  $('dlSave').addEventListener('click', function () {
-    if (!exp.url) return;
+  function downloadBlob(href, name) {
     var a = document.createElement('a');
-    a.href = exp.url;
-    a.download = exp.name;
+    a.href = href;
+    a.download = name;
     document.body.appendChild(a);
     a.click();
     a.remove();
-    $('dlStatus').textContent = 'กำลังดาวน์โหลด ' + exp.name + (exp.fmt === 'jpg' || exp.fmt === 'png' ? ' — ถ้าไม่มีอะไรเกิดขึ้น ให้กดค้าง/คลิกขวาที่รูปเพื่อบันทึก' : '');
+  }
+  $('dlSave').addEventListener('click', function () {
+    if (!exp.url) return;
+    downloadBlob(exp.url, exp.name);
+    // ไฟล์คู่ (รูป 3 มิติ Facebook: รูปความลึก) — เว้นจังหวะ เบราว์เซอร์จะได้ไม่ตัดไฟล์ที่ 2
+    (exp.extra || []).forEach(function (x, i) {
+      setTimeout(function () {
+        var u = URL.createObjectURL(x.blob);
+        downloadBlob(u, x.name);
+        setTimeout(function () {
+          URL.revokeObjectURL(u);
+        }, 4000);
+      }, 700 * (i + 1));
+    });
+    $('dlStatus').textContent =
+      'กำลังดาวน์โหลด ' +
+      [exp.name].concat((exp.extra || []).map(function (x) { return x.name; })).join(' + ') +
+      (exp.fmt === 'jpg' || exp.fmt === 'png' ? ' — ถ้าไม่มีอะไรเกิดขึ้น ให้กดค้าง/คลิกขวาที่รูปเพื่อบันทึก' : exp.extra && exp.extra.length ? ' (ถ้าเบราว์เซอร์ถาม “ดาวน์โหลดหลายไฟล์” ให้กดอนุญาต)' : '');
   });
   $('dlShare').addEventListener('click', function () {
     if (!exp.blob) return;
     var file = new File([exp.blob], exp.name, { type: exp.blob.type });
+    var files = [file].concat(
+      (exp.extra || []).map(function (x) {
+        return new File([x.blob], x.name, { type: x.blob.type });
+      })
+    );
     navigator
-      .share({ files: [file], title: exp.fmt === 'reel' ? 'วิดีโอป้าย' : exp.fmt === 'pdf' ? 'ใบเสนอราคา' : exp.fmt === 'compare' ? 'แบบให้เลือก' : exp.fmt === 'job' ? 'ใบสั่งผลิต' : 'ภาพจำลองป้าย' })
+      .share({ files: files, title: exp.fmt === 'reel' ? 'วิดีโอป้าย' : exp.fmt === 'pdf' ? 'ใบเสนอราคา' : exp.fmt === 'compare' ? 'แบบให้เลือก' : exp.fmt === 'job' ? 'ใบสั่งผลิต' : 'ภาพจำลองป้าย' })
       .then(function () {
         $('dlStatus').textContent = 'เปิดหน้าแชร์แล้ว';
       })
