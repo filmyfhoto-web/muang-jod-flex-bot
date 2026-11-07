@@ -1,12 +1,13 @@
 -- ติดตั้งหน้า "แชตและออเดอร์" (โมดูล saleorders) ในแอปหลังร้าน: แถวใหม่ในตาราง app_modules เท่านั้น
--- · ไม่แก้โมดูลเดิมแม้แต่บรรทัดเดียว · ติดตั้งซ้ำได้ (ถ้ามีแถวนี้อยู่แล้วจะไม่ทำอะไร — ถ้าเป็นรุ่นเก่าให้ใช้ upgrade-v9-to-v10.sql (หรือ upgrade-v8-to-v9.sql / upgrade-v7-to-v8.sql / upgrade-v6-to-v7.sql / upgrade-v5-to-v6.sql / upgrade-v4-to-v5.sql / upgrade-v3-to-v4.sql ตามรุ่นที่ติดตั้งอยู่))
+-- · ไม่แก้โมดูลเดิมแม้แต่บรรทัดเดียว · ติดตั้งซ้ำได้ (ถ้ามีแถวนี้อยู่แล้วจะไม่ทำอะไร — ถ้าเป็นรุ่นเก่าให้ใช้ upgrade-v10-to-v11.sql (หรือ upgrade-v9-to-v10.sql / upgrade-v8-to-v9.sql / upgrade-v7-to-v8.sql / upgrade-v6-to-v7.sql / upgrade-v5-to-v6.sql / upgrade-v4-to-v5.sql / upgrade-v3-to-v4.sql ตามรุ่นที่ติดตั้งอยู่))
 -- · ติดตั้งแบบปิดไว้ (enabled = false): เปิดหลังตรวจแล้วด้วย update app_modules set enabled = true where name = 'saleorders';
 -- · ต้องติดตั้ง migration db/migrations/002_sale_orders.sql ก่อน (หน้านี้เรียก sale_order_save / sale_order_log_send)
 -- · ส่วน LINE ใช้ได้ต่อเมื่อติดตั้ง db/migrations/003_sale_line_bridge.sql และเปิดสะพานที่บอท — ถ้ายังไม่ติดตั้ง หน้าแสดง "LINE OA: ยังไม่ได้เชื่อมต่อ"
 -- · ลูกค้าลงบัญชี การ์ด และสถานะ "ลงบัญชี" ต้องติดตั้ง db/migrations/004_sale_order_cards.sql และ 005_sale_order_account.sql ด้วย
 -- · ป้ายสีจัดหมวดแชต (สอบถาม/ปัญหา/ด่วน/ตอบกลับภายหลัง) ต้องติดตั้ง db/migrations/006_sale_thread_tags.sql ด้วย — ถ้ายังไม่ติดตั้ง ปุ่มป้ายจะใช้ไม่ได้ (คอลัมน์ tag ไม่มี)
+-- · ผู้รับผิดชอบต่อแชตต้องติดตั้ง db/migrations/007_sale_thread_assignee.sql ด้วย — ถ้ายังไม่ติดตั้ง ปุ่มผู้รับผิดชอบจะใช้ไม่ได้ (คอลัมน์ assignee ไม่มี) · การ์ดลูกค้า/ยอดซื้อรวมใช้ customer_id และตาราง sale_orders ที่มีอยู่แล้ว ไม่ต้องติดตั้งอะไรเพิ่ม
 -- · ย้อนกลับ: reverse.sql
--- md5 ของโค้ดที่ติดตั้ง: 94897ce42e38bd38939f63072feb4b96
+-- md5 ของโค้ดที่ติดตั้ง: 787ac08bc3127734a790ad819b602829
 do $do$
 begin
   if exists (select 1 from app_modules where name = 'saleorders') then
@@ -87,7 +88,10 @@ begin
   const OTYPE={goods:'สั่งเพื่อจัดสินค้า',docs:'สั่งเพื่อจัดทำเอกสาร'}
   const isOpenJob=s=>!['closed','canceled'].includes(s)
   const UNIT_LIST='รีม โหล แพ็ค แพค กล่อง เล่ม ด้าม แท่ง อัน ชิ้น ขวด ชุด ใบ ม้วน คู่ ห่อ ถุง ตัว แผ่น เมตร งาน หลอด ก้อน แผง ลัง'.split(' ')
-  const TPL=[['ทักทาย','สวัสดีค่ะ ขอบคุณที่ติดต่อ NATTA GROUP ค่ะ มีอะไรให้ช่วยดูแลไหมคะ'],['รับรายการ','รับรายการแล้วนะคะ เดี๋ยวแอดมินสรุปราคาและแจ้งกลับค่ะ'],['กำหนดส่ง','สินค้าจัดเตรียมแล้วค่ะ จะแจ้งวันจัดส่งให้ทราบอีกครั้งนะคะ']]
+  // ปุ่มข้อความด่วน: ตามลำดับขั้นงานจริง (ภาพอ้างอิงของเจ้าของ 7 พ.ย. 2569) — กดแล้วแทรกข้อความลงช่องพิมพ์ ไม่ส่งเอง ตรวจก่อนกดส่งได้เสมอ
+  const TPL=[['รับรายละเอียดแล้ว','รับรายละเอียดงานแล้วนะคะ เดี๋ยวแอดมินดำเนินการให้ค่ะ'],['ขอไฟล์เพิ่ม','รบกวนขอไฟล์หรือรายละเอียดเพิ่มเติมอีกนิดนะคะ เพื่อให้ร้านจัดการได้ตรงตามที่ต้องการค่ะ'],['กำลังประเมินราคา','กำลังประเมินราคาให้อยู่นะคะ เดี๋ยวแจ้งกลับเร็ว ๆ นี้ค่ะ'],['ส่งแบบให้ตรวจ','ส่งแบบงานให้ตรวจสอบแล้วนะคะ รบกวนดูและแจ้งกลับด้วยค่ะ'],['งานพร้อมรับ','งานเสร็จเรียบร้อย พร้อมส่งมอบ/ให้รับแล้วนะคะ']]
+  // ผู้รับผิดชอบแชต: ข้อความอิสระเหมือน sale_orders.assignee เดิม (ไม่มีตารางรายชื่อพนักงานในระบบนี้) — 3 ชื่อนี้คือรายชื่อลัดเดียวกับช่อง "ผู้รับผิดชอบ" ในใบสั่งงาน (so_staff), พิมพ์ชื่ออื่นก็ได้
+  const STAFF=['หญิง','ฟิล์ม','พี่ปิ่น']
   const BUCKET='sale-order-files'
   const MAXF=10*1024*1024
   const OKTYPE=/^(image\/(png|jpeg|webp|gif)|application\/pdf)$/
@@ -99,7 +103,8 @@ begin
     listLoading:false,msgsLoading:false,ordLoading:false,errList:'',errMsgs:'',errOrd:'',
     flash:'',flashErr:false,flashTok:0,busySend:false,busySave:false,attachBusy:false,chatAttachBusy:false,
     drafts:{},odrafts:{},urls:{},tok:0,ctok:0,ptok:0,picker:false,pick:[],pickQ:'',creating:false,note:false,oaLog:false,
-    prodOpen:false,prodQ:'',prodRows:[],prodPrice:{},prodBusy:false,modal:null,staff:'ทีมขาย',conflict:false,stageMenu:false,tagMenu:false,
+    prodOpen:false,prodQ:'',prodRows:[],prodPrice:{},prodBusy:false,modal:null,staff:'ทีมขาย',conflict:false,stageMenu:false,tagMenu:false,assignMenu:false,
+    custStats:null,custLink:false,custLinkQ:'',custLinkRows:[],
     line:null,links:{},sendTok:{},busyRetry:{},poll:null,pollN:0,sig:'',probe:'',openStamp:'',linksOffUntil:0,statusOffUntil:0}
 
   // ---------- หน้าตา ----------
@@ -526,6 +531,55 @@ begin
     paintOrd()
   }
 
+  // การ์ดลูกค้าด้านบนใบสั่งงาน: ผูกแล้ว (t.customer_id มีค่า) → โชว์ชื่อ/เบอร์/ยอดซื้อรวม-จำนวนงาน-งานกำลังทำ (ทุกแชตของลูกค้ารายนี้)
+  // ยังไม่ผูก → โชว์ปุ่ม "ผูกกับลูกค้า" ให้ค้นหาและเลือกบัญชีเดิมได้ทันที ไม่ต้องรอให้มีใบสั่งงานก่อน (ปกติผูกอัตโนมัติตอนบันทึกใบแรก)
+  function custCard(t){
+    if(t.customer_id&&S.cust){
+      const cu=S.cust,st=S.custStats
+      return `<div style="border:1px solid var(--so-line);border-radius:12px;padding:10px 12px;margin-bottom:10px;display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><b>${E(cu.name||'ลูกค้า')}</b><span class="so-hint">${E(cu.phone||'ไม่มีเบอร์')}</span></div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center">
+          <div><b style="display:block;font-size:16px">${st?st.n:'-'}</b><span class="so-hint">งานทั้งหมด</span></div>
+          <div><b style="display:block;font-size:16px">${st?money(st.sum):'-'}</b><span class="so-hint">ยอดซื้อรวม (฿)</span></div>
+          <div><b style="display:block;font-size:16px">${st?st.open:'-'}</b><span class="so-hint">งานกำลังทำ</span></div>
+        </div>
+      </div>`
+    }
+    return `<div style="border:1px dashed var(--so-line);border-radius:12px;padding:10px 12px;margin-bottom:10px;display:flex;flex-direction:column;gap:8px">
+      <span class="so-hint">ยังไม่ผูกกับลูกค้าในระบบ (ผูกอัตโนมัติตอนบันทึกใบสั่งงานใบแรก หรือผูกเองตอนนี้ก็ได้)</span>
+      ${S.custLink?`<input id="so_clq" class="so-in" type="search" placeholder="ค้นหาชื่อหรือเบอร์ลูกค้า…" value="${E(S.custLinkQ)}" autocomplete="off" aria-label="ค้นหาลูกค้า"><div id="so_clsug" class="so-sug" hidden></div>`
+        :`<button type="button" class="so-btn sm" data-a="custlinktoggle">ผูกกับลูกค้า</button>`}
+    </div>`
+  }
+  async function searchThreadCust(text){
+    S.custLinkQ=text
+    const tk=S.cltok=(S.cltok||0)+1
+    const s=clean(text)
+    if(s.length<2){S.custLinkRows=[];const b=$('so_clsug');if(b){b.hidden=true;b.innerHTML=''}return}
+    const r=await q(()=>sb.from('customers').select('id,name,phone').or(`name.ilike.*${s}*,phone.ilike.*${s}*`).limit(6))
+    if(tk!==S.cltok)return
+    S.custLinkRows=errMsg(r)?[]:(r.data||[])
+    const b=$('so_clsug');if(!b)return
+    if(!S.custLinkRows.length){b.hidden=true;b.innerHTML='';return}
+    b.hidden=false
+    b.innerHTML=S.custLinkRows.map(c=>`<button type="button" class="pk" data-a="pickthreadcust" data-id="${E(c.id)}" data-n="${E(c.name||'')}" data-p="${E(c.phone||'')}"><b>${E(c.name||'ไม่มีชื่อ')}</b> <small style="color:var(--so-mut)">${E(c.phone||'ไม่มีเบอร์')}</small></button>`).join('')
+  }
+  async function pickThreadCust(id,name,phone){
+    const tid=S.sel,t=S.list.find(x=>x.id===tid)
+    if(!tid||!t||!id)return
+    const now=new Date().toISOString()
+    const r=await q(()=>sb.from('sale_threads').update({customer_id:id,updated_at:now}).eq('id',tid))
+    if(errMsg(r)){flash('ผูกกับลูกค้าไม่สำเร็จ: '+errMsg(r),true,'ord');return}
+    await q(()=>sb.from('sale_msgs').insert({thread_id:tid,dir:'note',kind:'system',body:'ผูกแชตนี้กับลูกค้า "'+(name||'')+'"',by_name:S.staff}))
+    t.customer_id=id
+    S.cust={id,name:name||'',phone:phone||''}
+    S.custLink=false;S.custLinkQ='';S.custLinkRows=[]
+    const cs=await q(()=>sb.from('sale_orders').select('total,job_status').eq('customer_id',id).limit(2000))
+    S.custStats=errMsg(cs)?null:{n:(cs.data||[]).length,sum:(cs.data||[]).reduce((a,r)=>a+num(r.total),0),open:(cs.data||[]).filter(r=>isOpenJob(r.job_status)).length}
+    paintOrd()
+    flash('ผูกกับลูกค้า "'+(name||'')+'" แล้ว',false,'ord')
+  }
+
   // ---------- ห้องแชต ----------
   // สถานะการส่งของข้อความที่ตอบทาง LINE — มาจากคิวส่ง (บอทแจ้งผลหลัง LINE ตอบ) ไม่ใช่จากหน้าจอ
   function deliveryHtml(m,t){
@@ -631,6 +685,8 @@ begin
         ${S.stageMenu?`<div class="so-stgmenu" role="menu">${Object.entries(STG).map(([k,v])=>`<button type="button" role="menuitem" data-a="stage" data-k="${k}">${t.stage===k?'✓ ':''}${v.t}</button>`).join('')}</div>`:''}
         <button type="button" class="so-stgbtn" style="--c:${t.tag?TAGN[t.tag].c:'#9AA3B2'}" data-a="tagmenu" aria-haspopup="true" aria-expanded="${S.tagMenu}" title="ป้ายจัดหมวดแชต">${t.tag?TAGN[t.tag].t:'ป้าย'} ▾</button>
         ${S.tagMenu?`<div class="so-stgmenu" role="menu">${TAG.map(([k,lb])=>`<button type="button" role="menuitem" data-a="tag" data-k="${k}">${t.tag===k?'✓ ':''}${lb}</button>`).join('')}<button type="button" role="menuitem" data-a="tag" data-k="">${!t.tag?'✓ ':''}ไม่มีป้าย</button></div>`:''}
+        <button type="button" class="so-stgbtn" style="--c:${t.assignee?'#5B4BC2':'#9AA3B2'}" data-a="assignmenu" aria-haspopup="true" aria-expanded="${S.assignMenu}" title="ผู้รับผิดชอบแชตนี้">${E(t.assignee||'ผู้รับผิดชอบ')} ▾</button>
+        ${S.assignMenu?`<div class="so-stgmenu" role="menu">${STAFF.map(nm=>`<button type="button" role="menuitem" data-a="assign" data-k="${E(nm)}">${t.assignee===nm?'✓ ':''}${E(nm)}</button>`).join('')}<button type="button" role="menuitem" data-a="assign" data-k="">${!t.assignee?'✓ ':''}ไม่ระบุ</button><div style="display:flex;gap:6px;padding:6px 4px 2px;border-top:1px solid var(--so-line);margin-top:4px"><input id="so_assignc" class="so-in" type="text" placeholder="ชื่ออื่น…" style="flex:1;padding:6px 8px;font-size:13px" value=""><button type="button" class="so-btn sm" data-a="assigncustom">ตั้งชื่อ</button></div></div>`:''}
       </div>
       ${line?'<div class="so-lnote">แชตจาก LINE OA · หน้านี้แสดงข้อความของลูกค้า คำตอบของบอท และข้อความที่ส่งจากหน้านี้ — คำตอบที่พิมพ์ตรงใน LINE OA Manager ไม่ขึ้นเอง — กดปุ่ม "จาก OA Manager" แล้ววางคำตอบนั้นเพื่อบันทึกให้ทุกคนเห็น หรือตอบจากหน้านี้เลย</div>':''}
       <div class="so-flashbox" data-where="chat"></div>
@@ -713,22 +769,25 @@ begin
     }
     const tok=++S.tok
     if(S.sel&&S.ord&&S.ord.thread_id===S.sel&&isDirty())S.odrafts[S.sel]=S.ord
-    if(id!==S.sel){S.msgs=[];S.cust=null;S.note=false;S.oaLog=false;S.stageMenu=false;S.prodOpen=false}
+    if(id!==S.sel){S.msgs=[];S.cust=null;S.custStats=null;S.custLink=false;S.custLinkQ='';S.custLinkRows=[];S.note=false;S.oaLog=false;S.stageMenu=false;S.tagMenu=false;S.assignMenu=false;S.prodOpen=false}
     S.sel=id;S.ord=null;S.ords=[];S.errMsgs='';S.errOrd='';S.conflict=false;S.openStamp=''
     S.msgsLoading=true;S.ordLoading=true
     if(S.mode==='list')S.mode='chat'
     paintAll()
     const t=S.list.find(x=>x.id===id)
     if(t&&t.unread>0){q(()=>sb.from('sale_threads').update({unread:0}).eq('id',id)).then(r=>{if(!errMsg(r)){t.unread=0;paintList();paintMTabs()}})}
-    const [m,c,o]=await Promise.all([
+    const [m,c,o,cs]=await Promise.all([
       q(()=>sb.from('sale_msgs').select('*').eq('thread_id',id).order('created_at',{ascending:true}).limit(400)),
       t&&t.customer_id?q(()=>sb.from('customers').select('id,name,phone,line_name,address,tax_id').eq('id',t.customer_id).limit(1)):Promise.resolve({data:[]}),
-      q(()=>sb.from('sale_orders').select('*').eq('thread_id',id).order('updated_at',{ascending:false}).limit(30))])
+      q(()=>sb.from('sale_orders').select('*').eq('thread_id',id).order('updated_at',{ascending:false}).limit(30)),
+      // การ์ดลูกค้า: ยอดซื้อรวม/จำนวนงาน/งานกำลังทำ นับจากออเดอร์ทุกใบของลูกค้ารายนี้ (ทุกแชต ไม่ใช่แค่แชตนี้) — เงียบถ้าพลาด การ์ดแค่โชว์ "-" ไม่บล็อกหน้า
+      t&&t.customer_id?q(()=>sb.from('sale_orders').select('total,job_status').eq('customer_id',t.customer_id).limit(2000)):Promise.resolve({data:[]})])
     if(tok!==S.tok)return
     S.msgsLoading=false
     S.errMsgs=errMsg(m)
     S.msgs=errMsg(m)?[]:(m.data||[])
     S.cust=(c&&Array.isArray(c.data)&&c.data[0])||null
+    S.custStats=errMsg(cs)?null:{n:(cs.data||[]).length,sum:(cs.data||[]).reduce((a,r)=>a+num(r.total),0),open:(cs.data||[]).filter(r=>isOpenJob(r.job_status)).length}
     if(errMsg(o)){S.errOrd='โหลดใบสั่งงานไม่ได้: '+errMsg(o);S.ords=[];S.ordLoading=false}
     else{
       S.ords=o.data||[]
@@ -851,6 +910,7 @@ begin
         <span class="ttl">${ic('cart',22)} ใบสั่งงาน / คำสั่งซื้อ</span>
         ${o.id?`<span class="so-chip" style="--c:${(JN[o.saved?o.saved.job_status:o.job_status]||{}).c||'#7A8394'}">${E((JN[o.saved?o.saved.job_status:o.job_status]||{}).t||'')}</span>`:'<span class="so-chip lite">ใบใหม่ ยังไม่บันทึก</span>'}
       </div>
+      ${custCard(t)}
       <div class="so-flashbox" data-where="ord" style="margin-top:-6px"></div>
       <div class="so-ob">
         ${osel}
@@ -1323,6 +1383,21 @@ begin
     flash(k?'ติดป้าย "'+TAGN[k].t+'" แล้ว':'เอาป้ายออกแล้ว',false,'chat')
   }
 
+  async function setAssignee(name){
+    const id=S.sel,t=S.list.find(x=>x.id===id)
+    S.assignMenu=false
+    const v=String(name||'').trim().slice(0,80)||null
+    if(!id||!t||t.assignee===v){paintChat();return}
+    const now=new Date().toISOString()
+    const r=await q(()=>sb.from('sale_threads').update({assignee:v,updated_at:now}).eq('id',id))
+    if(errMsg(r)){paintChat();flash('ตั้งผู้รับผิดชอบไม่สำเร็จ: '+errMsg(r),true,'chat');return}
+    await q(()=>sb.from('sale_msgs').insert({thread_id:id,dir:'note',kind:'system',body:v?'มอบหมายให้ "'+v+'" ดูแล':'เอาผู้รับผิดชอบออก',by_name:S.staff}))
+    t.assignee=v
+    paintList()
+    await reloadMsgs(id)
+    flash(v?'มอบหมายให้ "'+v+'" แล้ว':'เอาผู้รับผิดชอบออกแล้ว',false,'chat')
+  }
+
   async function newThread(c,title){
     if(S.creating)return
     if(c){const old=S.list.find(x=>x.customer_id===c.id);if(old){S.picker=false;paintPicker();openThread(old.id);return}}
@@ -1567,6 +1642,7 @@ begin
     if(t.id==='so_q'){S.q=t.value;paintList();return}
     if(t.id==='so_txt'){if(t.dataset.id)S.drafts[t.dataset.id]=t.value;return}
     if(t.id==='so_cq'){searchCust(t.value);return}
+    if(t.id==='so_clq'){searchThreadCust(t.value);return}
     if(t.id==='so_pq'){prodSearch(t.value);return}
     if(t.id==='so_ptxt'&&S.modal&&S.modal.kind==='parse'){S.modal.text=t.value;return}
     if(t.dataset&&t.dataset.pf&&S.modal&&S.modal.kind==='parse'){
@@ -1658,10 +1734,15 @@ begin
       const ta2=$('so_txt');if(ta2)ta2.focus()
       return
     }
-    if(a==='stagemenu'){S.stageMenu=!S.stageMenu;S.tagMenu=false;paintChat();return}
+    if(a==='stagemenu'){S.stageMenu=!S.stageMenu;S.tagMenu=false;S.assignMenu=false;paintChat();return}
     if(a==='stage'){setStage(el.dataset.k);return}
-    if(a==='tagmenu'){S.tagMenu=!S.tagMenu;S.stageMenu=false;paintChat();return}
+    if(a==='tagmenu'){S.tagMenu=!S.tagMenu;S.stageMenu=false;S.assignMenu=false;paintChat();return}
     if(a==='tag'){setTag(el.dataset.k||null);return}
+    if(a==='assignmenu'){S.assignMenu=!S.assignMenu;S.stageMenu=false;S.tagMenu=false;paintChat();return}
+    if(a==='assign'){setAssignee(el.dataset.k);return}
+    if(a==='assigncustom'){const i=$('so_assignc');setAssignee(i?i.value:'');return}
+    if(a==='custlinktoggle'){S.custLink=!S.custLink;S.custLinkQ='';S.custLinkRows=[];paintOrd();const i=$('so_clq');if(i)i.focus();return}
+    if(a==='pickthreadcust'){pickThreadCust(el.dataset.id,el.dataset.n,el.dataset.p);return}
     if(a==='picker'){S.picker=!S.picker;if(!S.picker){S.pick=[];S.pickQ=''}paintPicker();const i=$('so_cq');if(i)i.focus();return}
     if(a==='pickc'){const c=S.pick.find(x=>x.id===el.dataset.id);if(c)newThread(c);return}
     if(a==='picknew'){newThread(null,S.pickQ);return}

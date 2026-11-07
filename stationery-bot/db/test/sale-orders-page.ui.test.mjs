@@ -104,7 +104,7 @@ async function newContext(extra = {}, { signedIn = true } = {}) {
 before(async () => {
   if (!CHROMIUM) return;
   mkdirSync(SHOTS, { recursive: true });
-  db = await openSaleDb({ cards: true });
+  db = await openSaleDb({ cards: true, assignee: true });
   await db.query(`insert into stores (id, name, vat_rate, doc_prefix) values ($1, 'นัฐภรณ์ คัลเลอร์แล็ป', 7, 'RC-CL'), ($2, 'นัฐภรณ์ การพิมพ์', 0, 'RC-PR')`, [CL, PR]);
   await db.query(
     `insert into products (id, code, name, unit, price, stock_qty, tier_prices) values
@@ -450,4 +450,85 @@ test('typing a customer name offers the customers that already exist; choosing o
   assert.equal(await page.locator('#so_cn').inputValue(), 'โรงเรียนวัดใหม่');
   assert.equal(await page.locator('#so_ord input[data-f="phone"]').inputValue(), '053-111111');
   assert.equal(await page.locator('#so_cnsug').isVisible(), false, 'the list closes after a choice');
+});
+
+test('quick-reply buttons show the five job-flow messages (v11); clicking one inserts its text without sending anything', skipIt, async () => {
+  // the previous test left an unsaved customer pick on this chat's order (never saved, by design — it only checked the autocomplete) —
+  // reload the page fresh so every test from here on starts clean, the same as a staff member opening the page new
+  // (page.goto to the same URL+hash is a same-document no-op in this SPA; reload() forces an actual fresh load)
+  await page.reload();
+  await page.waitForSelector('#so_items .so-row');
+  await openRow('โรงเรียนบ้านตัวอย่าง');
+  await until(async () => (await chatTitle()) === 'โรงเรียนบ้านตัวอย่าง', 'the chat');
+  const labels = await page.locator('#so_root .so-qa .so-tplb').allInnerTexts();
+  assert.deepEqual(labels, ['รับรายละเอียดแล้ว', 'ขอไฟล์เพิ่ม', 'กำลังประเมินราคา', 'ส่งแบบให้ตรวจ', 'งานพร้อมรับ']);
+  const before = (await one('select count(*)::int n from sale_msgs where thread_id = $1', [T(1)])).n;
+  await page.locator('#so_txt').fill('');
+  await page.locator('#so_root .so-qa .so-tplb', { hasText: 'กำลังประเมินราคา' }).click();
+  assert.equal(await page.locator('#so_txt').inputValue(), 'กำลังประเมินราคาให้อยู่นะคะ เดี๋ยวแจ้งกลับเร็ว ๆ นี้ค่ะ');
+  assert.equal((await one('select count(*)::int n from sale_msgs where thread_id = $1', [T(1)])).n, before, 'inserting a template saves and sends nothing');
+  await page.locator('#so_txt').fill('');
+});
+
+test('the assignee pill (v11): three quick names, a free-text name, and "ไม่ระบุ" to clear — each writes sale_threads.assignee, logs a system note, and relabels the pill', skipIt, async () => {
+  assert.equal(await page.locator('#so_chat [data-a="assignmenu"]').innerText(), 'ผู้รับผิดชอบ ▾');
+  await page.locator('#so_chat [data-a="assignmenu"]').click();
+  const names = await page.locator('#so_root .so-stgmenu [data-a="assign"]').allInnerTexts();
+  assert.deepEqual(names, ['หญิง', 'ฟิล์ม', 'พี่ปิ่น', '✓ ไม่ระบุ'], 'no one is assigned yet, so "ไม่ระบุ" is the checked (current) choice — same convention as the stage and tag menus');
+  await page.locator('#so_root .so-stgmenu [data-a="assign"]', { hasText: 'ฟิล์ม' }).click();
+  await flashSays(/มอบหมายให้ "ฟิล์ม" แล้ว/);
+  assert.equal(await page.locator('#so_chat [data-a="assignmenu"]').innerText(), 'ฟิล์ม ▾');
+  assert.equal((await one('select assignee from sale_threads where id = $1', [T(1)])).assignee, 'ฟิล์ม');
+  let note = await one(`select body, kind from sale_msgs where thread_id = $1 order by created_at desc limit 1`, [T(1)]);
+  assert.equal(note.kind, 'system');
+  assert.match(note.body, /มอบหมายให้ "ฟิล์ม" ดูแล/);
+
+  await page.locator('#so_chat [data-a="assignmenu"]').click();
+  await page.locator('#so_root .so-stgmenu #so_assignc').fill('พี่แนน');
+  await page.locator('#so_root .so-stgmenu [data-a="assigncustom"]').click();
+  await flashSays(/มอบหมายให้ "พี่แนน" แล้ว/);
+  assert.equal(await page.locator('#so_chat [data-a="assignmenu"]').innerText(), 'พี่แนน ▾');
+  assert.equal((await one('select assignee from sale_threads where id = $1', [T(1)])).assignee, 'พี่แนน', 'a name outside the three shortcuts is accepted too');
+
+  await page.locator('#so_chat [data-a="assignmenu"]').click();
+  await page.locator('#so_root .so-stgmenu [data-a="assign"]', { hasText: 'ไม่ระบุ' }).click();
+  await flashSays(/เอาผู้รับผิดชอบออกแล้ว/);
+  assert.equal(await page.locator('#so_chat [data-a="assignmenu"]').innerText(), 'ผู้รับผิดชอบ ▾');
+  assert.equal((await one('select assignee from sale_threads where id = $1', [T(1)])).assignee, null);
+  note = await one(`select body, kind from sale_msgs where thread_id = $1 order by created_at desc limit 1`, [T(1)]);
+  assert.equal(note.kind, 'system');
+  assert.match(note.body, /เอาผู้รับผิดชอบออก/);
+});
+
+test('customer card (v11): an unlinked chat can be linked to an existing customer by search, and then shows that customer’s totals across every chat of theirs', skipIt, async () => {
+  await openRow('คุณสุภาวดี');
+  await until(async () => (await chatTitle()) === 'คุณสุภาวดี (ร้านหนังสือ)', 'the chat');
+  await page.waitForSelector('#so_cn');
+  assert.match(await page.locator('#so_ord').innerText(), /ยังไม่ผูกกับลูกค้าในระบบ/);
+  assert.equal(await page.locator('#so_ord [data-a="custlinktoggle"]').count(), 1);
+  assert.equal((await one('select customer_id from sale_threads where id = $1', [T(3)])).customer_id, null, 'seeded with no customer');
+
+  await page.locator('#so_ord [data-a="custlinktoggle"]').click();
+  await page.waitForSelector('#so_clq');
+  await page.locator('#so_clq').fill('บ้านตัวอย่าง');
+  await page.waitForSelector('#so_clsug button');
+  const offered = await page.locator('#so_clsug button').allInnerTexts();
+  assert.ok(offered.some((t) => t.includes('โรงเรียนบ้านตัวอย่าง')), 'the existing customer is offered by name search');
+  await page.locator('#so_clsug button', { hasText: 'โรงเรียนบ้านตัวอย่าง' }).click();
+  await flashSays(/ผูกกับลูกค้า "โรงเรียนบ้านตัวอย่าง" แล้ว/);
+
+  assert.equal((await one('select customer_id from sale_threads where id = $1', [T(3)])).customer_id, C1);
+  const note = await one(`select body, kind from sale_msgs where thread_id = $1 order by created_at desc limit 1`, [T(3)]);
+  assert.equal(note.kind, 'system');
+  assert.match(note.body, /ผูกแชตนี้กับลูกค้า "โรงเรียนบ้านตัวอย่าง"/);
+
+  // the card now shows the customer and their totals across EVERY chat of theirs, not just this one: C1's only order
+  // lives on thread 1 (ORD-xxxx-00001, closed, 2,942.50) — this chat (thread 3) never had an order of its own
+  await page.waitForSelector('#so_ord [data-a="custlinktoggle"]', { state: 'detached' });
+  const cardText = await page.locator('#so_ord').innerText();
+  assert.match(cardText, /โรงเรียนบ้านตัวอย่าง/);
+  assert.match(cardText, /053-000000/);
+  assert.match(cardText, /1\s*งานทั้งหมด/);
+  assert.match(cardText, /2,942\.50\s*ยอดซื้อรวม/);
+  assert.match(cardText, /0\s*งานกำลังทำ/, 'the one order is closed, so none are "in progress"');
 });
