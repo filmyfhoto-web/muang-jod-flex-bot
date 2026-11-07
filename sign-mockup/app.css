@@ -1124,13 +1124,31 @@ dialog[open] {
   display: none;
 }
 .ver {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 4px 8px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 999px;
+  background: none;
   color: var(--bar-ink-2);
   font: 500 11.5px/1 var(--font-body);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  cursor: pointer;
+}
+/* จุดสถานะอัปเดตเรียลไทม์: เขียว = ต่อสายสดกับเซิร์ฟเวอร์อยู่ (มีรุ่นใหม่อัปเดตเองทันที) */
+.ver::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+  flex: none;
+}
+.ver.live::before {
+  background: #3ddc84;
+  box-shadow: 0 0 0 2px rgba(61, 220, 132, 0.25);
 }
 
 /* panel on the left */
@@ -1864,7 +1882,8 @@ dialog.type-dlg {
 }
 @media (max-width: 600px) {
   .ver {
-    display: none;
+    padding: 3px 6px;
+    font-size: 10.5px;
   }
   .page-head {
     flex-wrap: wrap;
@@ -2079,4 +2098,19 @@ dialog.type-dlg {
 .bill .readout .strong b {
   font-size: 1.12em;
   color: var(--accent-strong);
+}
+
+/* จอแคบมาก (≤ 380px): เหลือแค่จุดสถานะ แตะดูรุ่น/เวลาขึ้นระบบ — ไม่ให้แถบบนล้นจอตอนมีปุ่มติดตั้ง */
+@media (max-width: 380px) {
+  .ver {
+    gap: 0;
+    padding: 6px;
+    font-size: 0;
+  }
+}
+/* จอมือถือที่ยังโชว์ปุ่มติดตั้ง: ที่ไม่พอ ซ่อนป้ายรุ่น (ติดตั้งแล้วปุ่มหาย ป้ายรุ่นกลับมา) */
+@media (max-width: 420px) {
+  .top-tools:has(#installBtn:not([hidden])) .ver {
+    display: none;
+  }
 }
