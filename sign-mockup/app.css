@@ -859,6 +859,75 @@ textarea:focus {
 .chip.danger {
   color: #b3261e;
 }
+/* ลิงก์ 3 มิติที่ส่งไป */
+.links-btn {
+  width: 100%;
+  margin: 2px 0 10px;
+}
+.links-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.links {
+  display: grid;
+  gap: 10px;
+  max-height: 60vh;
+  overflow: auto;
+}
+.link-card {
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--surface);
+}
+.link-card b {
+  display: block;
+  font-size: 15px;
+}
+.link-card small {
+  color: var(--ink-2, #6b7280);
+}
+.link-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 4px;
+}
+.link-stats span {
+  border-radius: 999px;
+  padding: 2px 10px;
+  background: var(--surface-2, rgba(127, 127, 127, 0.12));
+  font-size: 13px;
+}
+.link-stats span.hot {
+  background: #e07a3f;
+  color: #fff;
+}
+.link-leads {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+}
+.link-lead {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 10px;
+  border-left: 3px solid #e07a3f;
+  padding: 4px 0 4px 10px;
+  font-size: 14px;
+}
+.link-lead a {
+  align-self: center;
+  grid-row: span 2;
+}
+.link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
 .toggle.off {
   opacity: 0.6;
   cursor: default;

@@ -6,7 +6,7 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '4.4.1';
+  var APP_VERSION = '4.5.0';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp', hands: C.HAND_BUILTIN.src });
 
@@ -2966,13 +2966,183 @@
       })
       .then(function (j) {
         showLink(j.url);
-        $('dlStatus').textContent = 'ได้ลิงก์แล้ว ส่งให้ลูกค้าเปิดหมุนดูในมือถือได้เลย (ลิงก์ใช้ได้ 1 ปี)';
+        rememberLink(j);
+        $('dlStatus').textContent = 'ได้ลิงก์แล้ว ส่งให้ลูกค้าเปิดหมุนดูในมือถือได้เลย (ลิงก์ใช้ได้ 1 ปี) · ดูคนเปิดดู/ลูกค้าที่สนใจได้ที่ปุ่มด้านล่าง';
       })
       .catch(function (e) {
         btn.disabled = false;
         $('dlStatus').textContent = 'สร้างลิงก์ไม่สำเร็จ: ' + (navigator.onLine === false ? 'ไม่มีอินเทอร์เน็ต' : e.message || 'ลองใหม่อีกครั้ง');
       });
   });
+  /* ---------- ลิงก์ 3 มิติที่ส่งไป: คนเปิดดู + ลูกค้าที่สนใจ ----------
+   * ตอนสร้างลิงก์ เซิร์ฟเวอร์ให้ "กุญแจเจ้าของ" มา เก็บไว้ในเครื่องนี้ (IndexedDB 'opt-link-<id>')
+   * ใช้กุญแจถามยอดเปิด/รายชื่อลูกค้าที่กด "สนใจ" — เครื่องอื่นดูไม่ได้ */
+  var LINK_PREFIX = 'opt-link-';
+  function rememberLink(j) {
+    if (!j || !j.key || !NS.jobs) return;
+    try {
+      localStorage.setItem('own-' + j.id, '1'); // เปิดลิงก์ตัวเองจากเครื่องนี้ ไม่นับเป็นคนดู
+    } catch (e) {}
+    NS.jobs
+      .put({ id: LINK_PREFIX + j.id, link: j.id, key: j.key, url: j.url, title: C.TYPES[st.type].name, size: C.sizeText(st.w, st.h), customer: customer.trim(), created: Date.now(), seenLeads: 0 })
+      .catch(function () {});
+  }
+  function ago(t) {
+    if (!t) return '';
+    var m = Math.round((Date.now() - t) / 60000);
+    if (m < 1) return 'เมื่อสักครู่';
+    if (m < 60) return m + ' นาทีที่แล้ว';
+    var h = Math.round(m / 60);
+    if (h < 24) return h + ' ชม.ที่แล้ว';
+    return C.thaiDate(new Date(t));
+  }
+  function fetchStats(recs) {
+    return fetch('api/stats', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ links: recs.map(function (r) { return { id: r.link, key: r.key }; }) }),
+      cache: 'no-store',
+    }).then(function (r) {
+      if (!r.ok) throw new Error('stats');
+      return r.json();
+    });
+  }
+  function renderLinks(recs, data) {
+    var box = $('linksList');
+    box.innerHTML = '';
+    if (!recs.length) {
+      box.innerHTML = '<p class="hint">ยังไม่มีลิงก์ที่สร้างจากเครื่องนี้ — ส่งออก › ไฟล์/ลิงก์ 3 มิติ › สร้างลิงก์ดู 3 มิติ ส่งลูกค้า</p>';
+      return;
+    }
+    var byId = {};
+    ((data && data.links) || []).forEach(function (l) {
+      byId[l.id] = l;
+    });
+    recs.forEach(function (r) {
+      var l = byId[r.link];
+      var card = document.createElement('div');
+      card.className = 'link-card';
+      var head = '<b>' + esc(r.title + ' ' + (r.size || '')) + '</b><small>' + esc((r.customer ? 'ลูกค้า: ' + r.customer + ' · ' : '') + 'สร้าง ' + C.thaiDate(new Date(r.created))) + '</small>';
+      var stats = '';
+      var leadsHtml = '';
+      if (l && l.ok) {
+        var s = l.stats;
+        var leads = l.leads || [];
+        var fresh = leads.length - (r.seenLeads || 0);
+        stats =
+          '<div class="link-stats">' +
+          '<span>เปิดดู ' + s.views + ' ครั้ง</span>' +
+          '<span>' + s.visitors + ' คน</span>' +
+          (s.src.facebook ? '<span>Facebook ' + s.src.facebook + '</span>' : '') +
+          (s.src.line ? '<span>LINE ' + s.src.line + '</span>' : '') +
+          (s.src.other ? '<span>อื่น ๆ ' + s.src.other + '</span>' : '') +
+          (s.views ? '<span>มือถือ ' + s.dev.mobile + ' · คอม ' + s.dev.desktop + '</span>' : '') +
+          (s.last ? '<span>ล่าสุด ' + esc(ago(s.last)) + '</span>' : '') +
+          '<span class="' + (leads.length ? 'hot' : '') + '">สนใจ ' + leads.length + ' คน' + (fresh > 0 ? ' (ใหม่ ' + fresh + ')' : '') + '</span>' +
+          '</div>';
+        if (leads.length) {
+          leadsHtml =
+            '<div class="link-leads">' +
+            leads
+              .slice()
+              .reverse()
+              .map(function (d) {
+                var tel = String(d.phone || '').replace(/[^0-9+]/g, '');
+                return (
+                  '<div class="link-lead"><span><b>' + esc(d.name) + '</b> · ' + esc(d.phone) + '</span><a class="btn-ghost small" href="tel:' + esc(tel) + '">โทร</a><small>' +
+                  esc(ago(d.at) + ' · มาจาก ' + ({ facebook: 'Facebook', line: 'LINE' }[d.src] || 'อื่น ๆ') + (d.note ? ' · “' + d.note + '”' : '')) +
+                  '</small></div>'
+                );
+              })
+              .join('') +
+            '</div>';
+        }
+        if (fresh > 0) {
+          r.seenLeads = leads.length;
+          NS.jobs.put(r).catch(function () {});
+        }
+      } else if (l) stats = '<p class="hint">ลิงก์นี้ดูยอดไม่ได้ (หมดอายุหรือถูกลบ)</p>';
+      card.innerHTML =
+        head +
+        stats +
+        leadsHtml +
+        '<div class="link-row"><button type="button" class="btn-ghost small" data-act="copy">คัดลอกลิงก์</button><a class="btn-ghost small" href="' + esc(r.url) + '" target="_blank" rel="noopener">เปิดดู</a><button type="button" class="btn-ghost small" data-act="del">เอาออกจากรายการ</button></div>';
+      card.querySelector('[data-act="copy"]').addEventListener('click', function () {
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(r.url).then(function () { toast('คัดลอกลิงก์แล้ว'); });
+      });
+      card.querySelector('[data-act="del"]').addEventListener('click', function (e) {
+        if (e.target.dataset.armed !== '1') {
+          e.target.dataset.armed = '1';
+          e.target.textContent = 'กดอีกครั้งเพื่อเอาออก';
+          return;
+        }
+        NS.jobs.del(r.id).then(openLinks, openLinks);
+      });
+      box.appendChild(card);
+    });
+  }
+  function openLinks() {
+    if (!$('linksDlg').open) openDialog($('linksDlg'));
+    $('linksStatus').textContent = 'กำลังโหลด…';
+    var list = NS.jobs ? NS.jobs.byPrefix(LINK_PREFIX) : Promise.resolve([]);
+    list
+      .then(function (recs) {
+        recs.sort(function (a, b) {
+          return (b.created || 0) - (a.created || 0);
+        });
+        renderLinks(recs, null);
+        if (!recs.length) {
+          $('linksStatus').textContent = '';
+          return;
+        }
+        if (location.protocol === 'file:' || inFrame) {
+          $('linksStatus').textContent = 'ดูยอดได้เมื่อเปิดแอปจริงที่ /sign/';
+          return;
+        }
+        return fetchStats(recs)
+          .catch(function () {
+            $('linksStatus').textContent = 'กำลังปลุกเซิร์ฟเวอร์ร้าน…';
+            return wakeServer(90000).then(function (up) {
+              if (!up) throw new Error('down');
+              return fetchStats(recs);
+            });
+          })
+          .then(function (data) {
+            renderLinks(recs, data);
+            $('linksStatus').textContent = 'อัปเดต ' + new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+          });
+      })
+      .catch(function () {
+        $('linksStatus').textContent = 'ติดต่อเซิร์ฟเวอร์ร้านไม่ได้ ลองกด “อัปเดตตัวเลข” อีกครั้ง';
+      });
+  }
+  $('linksOpen').addEventListener('click', openLinks);
+  $('jobsLinks').addEventListener('click', function () {
+    closeDialog($('jobsDlg'));
+    openLinks();
+  });
+  $('linksRefresh').addEventListener('click', openLinks);
+  // เปิดแอปแล้วมีลูกค้ากด "สนใจ" ใหม่ → บอก (เช็กเงียบ ๆ หลังเปิดแอป 6 วินาที)
+  setTimeout(function () {
+    if (!NS.jobs || location.protocol === 'file:' || inFrame) return;
+    NS.jobs
+      .byPrefix(LINK_PREFIX)
+      .then(function (recs) {
+        recs = recs.filter(function (r) {
+          return Date.now() - (r.created || 0) < 400 * 86400000;
+        });
+        if (!recs.length) return;
+        return fetchStats(recs).then(function (data) {
+          var fresh = 0;
+          (data.links || []).forEach(function (l) {
+            var r = recs.find(function (x) { return x.link === l.id; });
+            if (l.ok && r) fresh += Math.max(0, (l.leads || []).length - (r.seenLeads || 0));
+          });
+          if (fresh > 0) toast('มีลูกค้ากด “สนใจ” ใหม่ ' + fresh + ' คน — ดูที่ งานของฉัน › ลิงก์ 3 มิติ');
+        });
+      })
+      .catch(function () {});
+  }, 6000);
   $('linkCopy').addEventListener('click', function () {
     var done = function () {
       $('dlStatus').textContent = 'คัดลอกลิงก์แล้ว วางในแชต LINE ได้เลย';
