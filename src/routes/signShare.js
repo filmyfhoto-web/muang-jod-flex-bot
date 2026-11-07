@@ -156,6 +156,7 @@ ${og}
 </dialog>
 <nav class="v-bar">
   <button type="button" id="spin" aria-pressed="true">หมุนอัตโนมัติ</button>
+  <button type="button" id="zoom" aria-pressed="false">ซูมดูป้าย</button>
   <button type="button" id="reset">มุมเริ่มต้น</button>
   <button type="button" id="full">เต็มจอ</button>
   <button type="button" id="shot">บันทึกรูป</button>

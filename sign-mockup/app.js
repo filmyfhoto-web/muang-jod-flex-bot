@@ -6,7 +6,7 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '4.6.0';
+  var APP_VERSION = '4.7.0';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp', hands: C.HAND_BUILTIN.src });
 
@@ -2158,12 +2158,36 @@
         return '';
       });
   }
-  function buildHtml() {
+  /* โมเดล 3 มิติสำหรับไฟล์/ลิงก์: ฉากรูปหน้างานลูกค้า → ป้าย + รูปถ่ายเป็นฉากหลัง (เปิดมาเห็นเหมือนรูป ซูมดูป้ายได้)
+   * ฉากอื่น → ตัวป้ายอย่างเดียว */
+  function photo3dReady() {
+    return st.scene === 'photo' && photo && photo.quad && photo.w > 0 && C.isConvex(photo.quad) && !!stage.exportPhotoGLB;
+  }
+  function photoFeet() {
+    if (!st.person) return null;
+    if (validFeet(photo.person)) return { x: photo.person.x * photo.w, y: photo.person.y * photo.h };
+    var pb = lastOut && lastOut.personBox;
+    if (!pb || !(lastOut.W > 0)) return null;
+    return { x: ((pb.x0 + pb.x1) / 2 / lastOut.W) * photo.w, y: ((pb.y1 - ((pb.x1 - pb.x0) * 6) / 64) / lastOut.H) * photo.h };
+  }
+  function model3d() {
     syncStage();
+    if (!photo3dReady()) return stage.exportGLB();
+    return stage.exportPhotoGLB({
+      image: photo.img,
+      W: photo.w,
+      H: photo.h,
+      quad: photo.quad.map(function (p) {
+        return { x: p.x * photo.w, y: p.y * photo.h };
+      }),
+      feet: photoFeet(),
+    });
+  }
+  function buildHtml() {
     var poster = mockupCanvas(0.6, false);
     var title = C.TYPES[st.type].name;
     return Promise.all([
-      stage.exportGLB().then(function (ab) {
+      model3d().then(function (ab) {
         return blobToDataUrl(new Blob([ab], { type: 'model/gltf-binary' }));
       }),
       fetchText('vendor/viewer3d.standalone.js'),
@@ -2611,10 +2635,11 @@
     if (fmt === 'html') return buildHtml();
     if (fmt === 'reel') return buildReel();
     if (fmt === 'glb') {
-      syncStage();
-      return stage.exportGLB().then(function (ab) {
+      var withPhoto = photo3dReady();
+      return model3d().then(function (ab) {
         var blob = new Blob([ab], { type: 'model/gltf-binary' });
-        return { blob: blob, name: fileName('sign3d', 'glb'), preview: null, canvas: null };
+        var info = withPhoto ? 'ไฟล์ 3 มิติ ป้าย + รูปหน้างาน · ' + kb(blob.size) + ' · ' + C.TYPES[st.type].name + ' ' + C.sizeText(st.w, st.h) : '';
+        return { blob: blob, name: fileName('sign3d', 'glb'), preview: null, canvas: null, info: info };
       });
     }
     return new Promise(function (resolve) {

@@ -3304,6 +3304,120 @@ export function createStage(opts) {
     return new GLTFExporter().parseAsync(root, { binary: true, onlyVisible: true, maxTextureSize: 2048 });
   }
 
+  /* 3 มิติบนรูปหน้างาน: ตัวป้าย + รูปถ่ายเป็นฉากหลัง + คนยืนเทียบ (ถ้าเปิด)
+   * หากล้องของรูปจาก 4 มุมป้ายที่ลากไว้ (C.photoCamera) แล้ววางทุกจุดของรูปบนแนวรังสีจากกล้องเดิม ไปชนผนัง (ระนาบเดียวกับป้าย)
+   * → มุมเริ่มต้นเห็นเหมือนรูปเป๊ะ ขยับมุมได้นิดหน่อย ซูมเข้าไปดูป้ายใกล้ ๆ ได้ (ป้ายคมกว่ารูป)
+   * ข้อมูลกล้องเก็บใน extras (npPhoto) ของไฟล์ ตัวดูใช้ตั้งมุมเริ่มต้น · o = { image, W, H, quad: [4 จุดพิกเซล], feet: {x,y}|null } */
+  async function exportPhotoGLB(o) {
+    if (!model) throw new Error('ยังไม่มีป้าย');
+    const { GLTFExporter } = await import('three/addons/exporters/GLTFExporter.js');
+    const root = new THREE.Group();
+    root.name = 'NadponSign';
+    const lift = model.floor ? 0 : model.h / 2;
+    const s = model.group.clone(true);
+    s.position.y += lift;
+    root.add(s);
+    if (ties.visible && ties.children.length) {
+      const t = ties.clone(true);
+      t.position.set(0, lift, 0);
+      root.add(t);
+    }
+    const drop = [];
+    root.traverse((m) => {
+      if (m.isLight || m.isSprite) drop.push(m);
+    });
+    drop.forEach((m) => m.parent && m.parent.remove(m));
+    root.updateMatrixWorld(true);
+    // กรอบป้ายมองจากด้านหน้า = สี่เหลี่ยมที่ลากมุมไว้บนรูป
+    const box = new THREE.Box3().setFromObject(root);
+    const w = box.max.x - box.min.x;
+    const h = box.max.y - box.min.y;
+    const cx = (box.min.x + box.max.x) / 2;
+    const cy = (box.min.y + box.max.y) / 2;
+    const front = typeof model.front === 'number' ? Math.min(model.front, box.max.z) : box.max.z;
+    const W = o.W;
+    const H = o.H;
+    const cam = C.photoCamera(o.quad, W, H, w, h);
+    // โลกของป้ายแบบ OpenCV (X ขวา Y ลง Z เข้าผนัง) → three.js (Y ขึ้น Z ออกจากผนัง)
+    const toThree = (P) => new THREE.Vector3(P[0] + cx, cy - P[1], front - P[2]);
+    const dirThree = (v) => new THREE.Vector3(v[0], -v[1], -v[2]);
+    const camPos = toThree(cam.C);
+    const dist = camPos.distanceTo(new THREE.Vector3(cx, cy, front));
+    const far = Math.max(dist * 4, 25);
+
+    // ฉากหลัง: ตารางจุดบนรูป ชนผนังหลังป้าย 1 ซม. (ไม่ซ้อนกับป้าย)
+    const zBack = front - box.min.z + 0.01;
+    const NX = 48;
+    const NY = Math.max(12, Math.round((NX * H) / W));
+    const pos = new Float32Array((NX + 1) * (NY + 1) * 3);
+    const uv = new Float32Array((NX + 1) * (NY + 1) * 2);
+    for (let j = 0, k = 0; j <= NY; j++) {
+      for (let i = 0; i <= NX; i++, k++) {
+        const P = toThree(C.photoRayPoint(cam, (i / NX) * W, (j / NY) * H, zBack, far));
+        pos[k * 3] = P.x;
+        pos[k * 3 + 1] = P.y;
+        pos[k * 3 + 2] = P.z;
+        uv[k * 2] = i / NX;
+        uv[k * 2 + 1] = 1 - j / NY;
+      }
+    }
+    const idx = [];
+    for (let j = 0; j < NY; j++) {
+      for (let i = 0; i < NX; i++) {
+        const a = j * (NX + 1) + i;
+        const b = a + 1;
+        const c = a + NX + 1;
+        const d = c + 1;
+        idx.push(a, c, b, b, c, d);
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    geo.setIndex(idx);
+    const k = Math.min(1, 2048 / Math.max(W, H));
+    const pc = mk(Math.round(W * k), Math.round(H * k));
+    pc.getContext('2d').drawImage(o.image, 0, 0, pc.width, pc.height);
+    const tex = new THREE.CanvasTexture(pc);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.userData.mimeType = 'image/jpeg';
+    const bg = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, side: THREE.DoubleSide }));
+    bg.name = 'NadponPhoto';
+    root.add(bg);
+
+    // คนยืนเทียบ: เท้าตรงจุดเดียวกับภาพ 2 มิติ ระยะห่างจากกล้องเท่าป้าย (ภาพ 2 มิติคิดขนาดคนจากป้าย) ขยับมาหน้า 30 ซม. หันเข้ากล้อง
+    if (o.feet && cur.person) {
+      const fp = toThree(C.photoDepthPoint(cam, o.feet.x, o.feet.y, Math.max(0.5, cam.t[2] - 0.3)));
+      const pp = person.clone(true);
+      pp.visible = true;
+      pp.position.copy(fp);
+      pp.rotation.set(0, Math.atan2(camPos.x - fp.x, camPos.z - fp.z), 0);
+      pp.traverse((m) => {
+        if (m.isMesh) m.rotation.y = 0;
+      });
+      root.add(pp);
+    }
+
+    const right = dirThree(cam.R[0]);
+    const up = dirThree(cam.R[1]).negate();
+    const back = dirThree(cam.R[2]).negate();
+    const quat = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(right, up, back));
+    root.userData.npPhoto = {
+      pos: camPos.toArray().map((v) => +v.toFixed(5)),
+      quat: quat.toArray().map((v) => +v.toFixed(6)),
+      fov: +((2 * Math.atan(H / 2 / cam.f) * 180) / Math.PI).toFixed(4),
+      aspect: +(W / H).toFixed(5),
+      target: [cx, cy, front].map((v) => +v.toFixed(5)),
+      size: [+w.toFixed(4), +h.toFixed(4)],
+    };
+    root.updateMatrixWorld(true);
+    const glb = await new GLTFExporter().parseAsync(root, { binary: true, onlyVisible: true, maxTextureSize: 2048 });
+    tex.dispose();
+    geo.dispose();
+    bg.material.dispose();
+    return glb;
+  }
+
   function setEnvIntensity() {
     scene.traverse((m) => {
       if (m.isMesh) (Array.isArray(m.material) ? m.material : [m.material]).forEach((mm) => (mm.envMapIntensity = LIGHT.env));
@@ -3337,6 +3451,7 @@ export function createStage(opts) {
     renderAt,
     thumb,
     exportGLB,
+    exportPhotoGLB,
     beginVideo,
     videoFrame,
     endVideo,

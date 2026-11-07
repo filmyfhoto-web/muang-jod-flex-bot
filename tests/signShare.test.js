@@ -391,3 +391,8 @@ test('อัปเดตเรียลไทม์: GET /sign/api/live เป�
   assert.match(app, /if \(tried === v\) return;/);
   assert.match(app, /if \(document\.visibilityState === 'hidden'\) \{\n        liveClose\(\);/);
 });
+
+test('หน้าลิงก์ 3 มิติมีปุ่ม "ซูมดูป้าย" (ไฟล์มีรูปหน้างาน: เปิดมาเหมือนรูป ซูมเข้าไปดูป้ายได้)', () => {
+  const html = viewerHtml('abcdefghij', { meta: { title: 'ป้าย' }, poster: true }, 'https://x.example');
+  assert.match(html, /<button type="button" id="zoom" aria-pressed="false">ซูมดูป้าย<\/button>/);
+});
