@@ -54,9 +54,10 @@ export function createSaleChatStore({ url, key, fetch: doFetch = fetch, bucket =
       if (it.error) throw new Error(`order items: ${it.error.message}`);
       return { order: o.data, items: it.data ?? [] };
     },
-    // orders saved since `sinceIso` that the team has not been sent a card for yet → [{ id }]
-    async teamPending(sinceIso, limit = 5) {
-      const r = await db.from('sale_orders').select('id').is('team_card_at', null).gte('created_at', sinceIso).order('created_at').limit(limit);
+    // every order the team has not been sent a card for yet, oldest first → [{ id }] (migration 004 marked every order from
+    // before this feature "sent", so this is never a backlog of old history — only orders genuinely still owed a card)
+    async teamPending(limit = 5) {
+      const r = await db.from('sale_orders').select('id').is('team_card_at', null).order('created_at').limit(limit);
       if (r.error) throw new Error(`team cards: ${r.error.message}`);
       return r.data ?? [];
     },

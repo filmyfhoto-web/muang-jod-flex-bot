@@ -1,7 +1,7 @@
 // The team's card (src/salechat/team.js): a new order → one card to each person on the contact list, once per order.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createTeamCards, MAX_TRIES, TEAM_WINDOW_MS } from '../src/salechat/team.js';
+import { createTeamCards } from '../src/salechat/team.js';
 
 const NOW = Date.parse('2026-11-04T12:00:00Z');
 const CARD = (id) => ({
@@ -15,8 +15,8 @@ function fakeStore({ pending = [], missing = [] } = {}) {
   return {
     marks,
     queries,
-    async teamPending(since, limit) {
-      queries.push({ since, limit });
+    async teamPending(limit) {
+      queries.push({ limit });
       return pending.map((id) => ({ id }));
     },
     async orderCard(id) {
@@ -78,7 +78,6 @@ test('each new order goes once to each person on the list, and is then marked se
   assert.match(pushes[0].messages[0].altText, /คำสั่งงานใหม่ ORD-o1/);
   assert.deepEqual(store.marks.map((m) => m.id), ['o1', 'o2']);
   assert.equal(store.queries[0].limit, 5);
-  assert.equal(store.queries[0].since, new Date(NOW - TEAM_WINDOW_MS).toISOString(), 'only orders saved in the last two hours');
 });
 
 test('a card LINE did not answer for is tried again later with the same keys; once everyone has it, the order is marked', async () => {
@@ -95,13 +94,14 @@ test('a card LINE did not answer for is tried again later with the same keys; on
   assert.deepEqual(keysAgain, keysFirst, 'the same retry keys, so LINE does not send it twice');
 });
 
-test('after three passes without an answer the card is given up on, and that is logged', async () => {
+test('a card LINE never answers for is tried again every tick, forever — never marked sent on a guess', async () => {
   const store = fakeStore({ pending: ['o1'] });
-  const errors = [];
-  const { worker } = setup({ store, push: NO_ANSWER, errors });
-  for (let i = 0; i < MAX_TRIES; i++) await worker.tick();
-  assert.deepEqual(store.marks.map((m) => m.id), ['o1'], 'given up: not asked for again');
-  assert.ok(errors.some((e) => /given up/.test(e)));
+  const { worker, pushes } = setup({ store, push: NO_ANSWER });
+  for (let i = 0; i < 50; i++) await worker.tick();
+  assert.equal(store.marks.length, 0, 'still not marked: LINE never actually said it arrived');
+  assert.equal(pushes.length, 100, '50 ticks × two people, same retry keys each time');
+  const keys = pushes.map((p) => p.key);
+  assert.deepEqual(new Set(keys).size, 2, 'only two distinct keys across all 50 tries — one per person, never a new one');
 });
 
 test('a refusal that a retry will not fix is logged and the order is marked, so it is not tried forever', async () => {
