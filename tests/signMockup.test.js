@@ -1132,3 +1132,20 @@ test('ฉากหลังรูปหน้างานแบบกล่อ�
   const css = readFileSync(new URL('../sign-mockup/viewer3d.css', import.meta.url), 'utf8');
   assert.match(css, /\.v-pad \{/);
 });
+
+test('ตัวดู 3 มิติแบบโปรแกรม 3D: ลูกศรโค้งวนรอบป้าย (แตะหมุนได้) · พื้นตาราง + แกน X Y Z · ปุ่มไอคอนลูกศรโค้ง', () => {
+  const v = readFileSync(new URL('../sign-mockup/viewer3d-core.js', import.meta.url), 'utf8');
+  assert.match(v, /function buildOrbit\(center, rx, rz, front\)/);
+  assert.match(v, /make\(-0\.25, -1\.45, 'left'\);\n    make\(0\.25, 1\.45, 'right'\);/);
+  assert.match(v, /new THREE\.ConeGeometry\(/); // หัวลูกศร
+  assert.match(v, /const side = orbitHit\(e\);\n    if \(side\) \{/); // แตะลูกศร = หมุน
+  assert.match(v, /let best = 30;/); // แตะใกล้ ๆ ก็โดน
+  assert.match(v, /function buildGrid\(box\)/);
+  for (const t of ["'X', '#d9534f'", "'Y', '#3a9d5d'", "'Z', '#3d6fd1'"]) assert.ok(v.includes(t), t);
+  assert.match(v, /arcMat\.opacity = 0\.6 \* Math\.max\(0/); // ซูมใกล้แล้วจาง
+  // ฉาก/รูปหน้างาน: วงอยู่ใต้ขอบล่างป้าย ไม่ทับหน้าป้าย · ป้ายยื่นหมุนวงตามหน้าป้าย
+  assert.match(v, /-info\.size\[1\] \/ 2 - 0\.04/);
+  assert.match(v, /orbitG\.rotation\.set\(0, front \? Math\.atan2\(front\.x, front\.z\) : 0, 0\);/);
+  const css = readFileSync(new URL('../sign-mockup/viewer3d.css', import.meta.url), 'utf8');
+  assert.match(css, /\.v-pad svg \{/);
+});
