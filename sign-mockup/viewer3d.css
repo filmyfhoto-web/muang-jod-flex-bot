@@ -255,8 +255,8 @@ body {
 }
 .v-dpad {
   display: grid;
-  grid-template-columns: repeat(3, 38px);
-  grid-template-rows: repeat(3, 38px);
+  grid-template-columns: repeat(3, 40px);
+  grid-template-rows: repeat(3, 40px);
   grid-template-areas: '. up .' 'left . right' '. down .';
 }
 .v-dpad [data-k='up'] {
@@ -276,11 +276,11 @@ body {
   gap: 6px;
 }
 .v-pad button {
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   padding: 0;
   border: 1px solid rgba(31, 42, 77, 0.18);
-  border-radius: 10px;
+  border-radius: 50%;
   background: rgba(255, 255, 255, 0.86);
   color: #1f2a4d;
   font: 600 15px/1 system-ui, sans-serif;
@@ -290,6 +290,16 @@ body {
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
+}
+.v-pad svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vertical-align: middle;
 }
 .v-pad button.on {
   background: #1f2a4d;

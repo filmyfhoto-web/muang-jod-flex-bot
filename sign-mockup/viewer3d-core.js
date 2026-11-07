@@ -75,6 +75,99 @@ export function mountViewer(opts) {
   ring.position.y = 0.001;
   scene.add(ring);
 
+  /* ลูกศรโค้งวนรอบป้าย (แบบโปรแกรม 3D อย่าง Blender): บอกว่าหมุนรอบได้ · แตะลูกศรซ้าย/ขวา = หมุนไปทางนั้น
+   * ป้ายติดผนัง: ลูกศรอยู่หน้าผนังทั้งสองข้าง · ป้ายตั้งอิสระ: ลูกศรวนรอบข้างซ้าย-ขวา · ซูมเข้าใกล้ ลูกศรจางหายไม่บังป้าย */
+  const orbitG = new THREE.Group();
+  orbitG.visible = false;
+  scene.add(orbitG);
+  const arcMat = new THREE.MeshBasicMaterial({ color: 0x1f2a4d, transparent: true, opacity: 0.6, depthWrite: false, toneMapped: false });
+  let orbitR = 1;
+  /* วงรีรอบป้าย (rx ตามความกว้าง · rz ตามความหนา) ลูกศรโค้ง 2 เส้นด้านหน้าซ้าย-ขวา หัวลูกศรชี้วนทางเดียวกัน
+   * กล้องอยู่ระดับเดียวกับวง (มองแล้วเป็นเส้นตรง) → เอียงวงให้ด้านหน้าต่ำลง เห็นเป็นวงรีชัด ๆ แบบภาพโปรแกรม 3D */
+  let orbitPts = []; // จุดบนลูกศร (ในวง) ไว้เช็กว่าแตะโดนลูกศรไหน
+  function buildOrbit(center, rx, rz, front) {
+    orbitG.clear();
+    orbitPts = [];
+    orbitG.position.copy(center);
+    // แกนวงตามหน้าป้าย (ป้ายยื่นหันหน้าออกด้านข้าง ตั้งฉากกับผนัง)
+    orbitG.rotation.set(0, front ? Math.atan2(front.x, front.z) : 0, 0);
+    orbitR = Math.max(rx, rz);
+    const tube = Math.max(0.005, orbitR * 0.012);
+    const make = (a0, a1, side) => {
+      const pts = [];
+      for (let i = 0; i <= 40; i++) {
+        const a = a0 + ((a1 - a0) * i) / 40;
+        pts.push(new THREE.Vector3(rx * Math.sin(a), 0, rz * Math.cos(a)));
+      }
+      orbitPts.push(...pts.map((v) => [v, side]));
+      const curve = new THREE.CatmullRomCurve3(pts);
+      const arc = new THREE.Mesh(new THREE.TubeGeometry(curve, 48, tube, 8), arcMat);
+      arc.userData.side = side;
+      const tip = pts[pts.length - 1];
+      const tan = tip.clone().sub(pts[pts.length - 2]).normalize();
+      const head = new THREE.Mesh(new THREE.ConeGeometry(tube * 3.4, tube * 9, 16), arcMat);
+      head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tan);
+      head.position.copy(tip).addScaledVector(tan, tube * 3);
+      head.userData.side = side;
+      orbitG.add(arc, head);
+    };
+    // หน้าป้าย = มุม 0 (แกน +z) · ซ้ายวนลง ขวาวนขึ้น (เหมือนลูกศรวนรอบตัวในภาพตัวอย่าง)
+    make(-0.25, -1.45, 'left');
+    make(0.25, 1.45, 'right');
+    // มุมเงยของกล้องเทียบวง: ต่ำกว่า ~22° เอียงวงเข้าหากล้อง
+    const off = camera.position.clone().sub(center);
+    const el = Math.atan2(off.y, Math.hypot(off.x, off.z));
+    const tilt = Math.max(0, Math.min(0.42, 0.38 - el));
+    const th = Math.atan2(off.x, off.z);
+    orbitG.rotateOnWorldAxis(new THREE.Vector3(Math.cos(th), 0, -Math.sin(th)), tilt);
+    // หน้าป้ายหันไปอีกฝั่ง (ป้ายยื่นมองจากด้านหลัง) ลูกศรด้านหน้าจะอยู่หลังป้าย → กลับด้านวง
+    if (front && front.x * off.x + front.z * off.z < 0) orbitG.rotateY(Math.PI);
+    orbitG.visible = true;
+  }
+  // พื้นตาราง + เส้นแกน X (กว้าง) Y (สูง) Z (หนา) — สีเดียวกับกล่องขนาดในแอป (แดง/เขียว/น้ำเงิน)
+  function axisLabel(text, color) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const x = c.getContext('2d');
+    x.font = '600 40px system-ui, sans-serif';
+    x.textAlign = 'center';
+    x.textBaseline = 'middle';
+    x.fillStyle = color;
+    x.fillText(text, 32, 34);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, toneMapped: false }));
+    return sp;
+  }
+  function buildGrid(box) {
+    const size = box.getSize(new THREE.Vector3());
+    const r = Math.max(size.x, size.z, 0.3);
+    const step = r > 2 ? 0.5 : r > 0.6 ? 0.1 : 0.05;
+    const half = Math.ceil((r * 1.4) / step) * step;
+    const grid = new THREE.GridHelper(half * 2, Math.round((half * 2) / step), 0x8e97aa, 0xc7ccd6);
+    grid.material.transparent = true;
+    grid.material.opacity = 0.55;
+    grid.material.depthWrite = false;
+    grid.position.y = 0.0006;
+    scene.add(grid);
+    const L = Math.max(size.x, size.z) / 2 + Math.max(0.15, r * 0.18);
+    const H = size.y * 1.15 + 0.1;
+    const axes = [
+      ['X', '#d9534f', [-L, 0.001, 0], [L, 0.001, 0]],
+      ['Y', '#3a9d5d', [0, 0, 0], [0, H, 0]],
+      ['Z', '#3d6fd1', [0, 0.001, -L], [0, 0.001, L]],
+    ];
+    const ls = Math.max(0.06, r * 0.07);
+    for (const [t, col, a, b] of axes) {
+      const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...a), new THREE.Vector3(...b)]);
+      const line = new THREE.Line(g, new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.75, depthWrite: false, toneMapped: false }));
+      scene.add(line);
+      const lab = axisLabel(t, col);
+      lab.scale.setScalar(ls);
+      lab.position.set(b[0] * 1.04, b[1] + (t === 'Y' ? ls * 0.6 : ls * 0.4), b[2] * 1.04);
+      scene.add(lab);
+    }
+    ring.visible = false;
+  }
+
   let home = null;
   let photo = null; // ฉากรูปหน้างาน (ไฟล์มีรูปถ่าย + ข้อมูลกล้องของรูป)
   let focus = null; // จุดซูมดูป้าย { target, size:[w,h], normal }
@@ -167,6 +260,8 @@ export function mountViewer(opts) {
     const fc = box.getCenter(new THREE.Vector3());
     const fs = box.getSize(new THREE.Vector3());
     focus = { target: new THREE.Vector3(fc.x, fc.y, box.max.z), size: [fs.x, fs.y], normal: new THREE.Vector3(0, 0.12, 1).normalize() };
+    buildGrid(box);
+    buildOrbit(new THREE.Vector3(fc.x, box.min.y + fs.y * 0.3, fc.z), fs.x / 2 + Math.max(0.06, fs.x * 0.08), Math.max(fs.z / 2 + 0.08, fs.x * 0.28));
     if (load) load.hidden = true;
   };
 
@@ -222,6 +317,8 @@ export function mountViewer(opts) {
     home = { pos: camera.position.clone(), target: target.clone() };
     sun.position.copy(target).add(new THREE.Vector3(1.5, 4, 3));
     sun.target.position.copy(target);
+    // ป้ายติดผนัง: วงลูกศรอยู่ใต้ขอบล่างป้าย ไม่พาดทับหน้าป้าย
+    buildOrbit(target.clone().addScaledVector(new THREE.Vector3(0, 1, 0), -info.size[1] / 2 - 0.04), info.size[0] / 2 + Math.max(0.05, info.size[0] * 0.1), Math.max(0.12, info.size[0] * 0.28));
     const hint = $('hint');
     if (hint) hint.textContent = 'ลากเพื่อขยับมุม · ถ่างนิ้ว/แตะสองครั้งเพื่อซูมดูป้าย';
     setSpin(true);
@@ -294,6 +391,8 @@ export function mountViewer(opts) {
     sc.near = 0.1;
     sc.far = 40;
     sc.updateProjectionMatrix();
+    const fr = new THREE.Vector3(focus.normal.x, 0, focus.normal.z).normalize();
+    buildOrbit(focus.target.clone().add(new THREE.Vector3(0, -info.size[1] / 2 - 0.04, 0)), info.size[0] / 2 + Math.max(0.05, info.size[0] * 0.1), Math.max(0.12, info.size[0] * 0.28), fr);
     const hint = $('hint');
     if (hint) hint.textContent = 'ลากเพื่อหมุนดู · ถ่างนิ้ว/แตะสองครั้งเพื่อซูมดูป้าย';
     setSpin(true);
@@ -356,8 +455,44 @@ export function mountViewer(opts) {
   canvas.addEventListener('pointerdown', (e) => {
     tap = { x: e.clientX, y: e.clientY, t: performance.now() };
   });
+  // แตะใกล้ลูกศร (ระยะบนจอไม่เกิน ~30 px) นับว่าแตะโดน — นิ้วไม่ต้องโดนเส้นพอดี
+  function orbitHit(e) {
+    if (!orbitG.visible || arcMat.opacity < 0.15) return '';
+    const r = canvas.getBoundingClientRect();
+    orbitG.updateMatrixWorld(true);
+    const v = new THREE.Vector3();
+    let best = 30;
+    let side = '';
+    for (const [p, sd] of orbitPts) {
+      v.copy(p).applyMatrix4(orbitG.matrixWorld).project(camera);
+      if (v.z > 1) continue;
+      const d = Math.hypot(r.left + ((v.x + 1) / 2) * r.width - e.clientX, r.top + ((1 - v.y) / 2) * r.height - e.clientY);
+      if (d < best) {
+        best = d;
+        side = sd;
+      }
+    }
+    return side;
+  }
+  // แตะลูกศรโค้ง: หมุนรอบป้ายไปทางนั้น ~35°
+  function turn(side) {
+    userMoved();
+    const off = camera.position.clone().sub(controls.target);
+    const sp = new THREE.Spherical().setFromVector3(off);
+    sp.theta += side === 'right' ? 0.6 : -0.6;
+    const lo = controls.minAzimuthAngle;
+    const hi = controls.maxAzimuthAngle;
+    if (isFinite(lo) && isFinite(hi) && lo <= hi) sp.theta = Math.max(lo, Math.min(hi, sp.theta));
+    flyTo(controls.target.clone().add(new THREE.Vector3().setFromSpherical(sp)), controls.target.clone());
+  }
   canvas.addEventListener('pointerup', (e) => {
     if (!tap || Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 12 || performance.now() - tap.t > 300) return;
+    const side = orbitHit(e);
+    if (side) {
+      lastTap = 0;
+      turn(side);
+      return;
+    }
     const now = performance.now();
     if (now - lastTap < 340) {
       lastTap = 0;
@@ -420,7 +555,7 @@ export function mountViewer(opts) {
       }, 'image/png');
     });
 
-  /* ปุ่มลูกศรบนจอ (กดค้างได้): ◀ ▶ หมุน · ▲ ▼ มุมสูง/ต่ำ · ＋ − ซูมเข้า/ออก — คอมใช้ปุ่มลูกศรบนคีย์บอร์ด และ + − ได้ */
+  /* ปุ่มลูกศรโค้งบนจอ (กดค้างได้): ↺ ↻ หมุน · มุมสูง/ต่ำ · แว่นขยาย ซูมเข้า/ออก — คอมใช้ปุ่มลูกศรบนคีย์บอร์ด และ + − ได้ */
   const held = {};
   const STEP = { left: [0.9, 0, 0], right: [-0.9, 0, 0], up: [0, -0.6, 0], down: [0, 0.6, 0], in: [0, 0, -1.1], out: [0, 0, 1.1] };
   function nudge(k, dt) {
@@ -441,10 +576,17 @@ export function mountViewer(opts) {
   }
   const pad = document.createElement('div');
   pad.className = 'v-pad';
+  const ico = (d) => '<svg viewBox="0 0 24 24" aria-hidden="true">' + d + '</svg>';
   pad.innerHTML =
-    '<div class="v-dpad"><button type="button" data-k="up" aria-label="มุมสูงขึ้น">▲</button><button type="button" data-k="left" aria-label="หมุนซ้าย">◀</button>' +
-    '<button type="button" data-k="right" aria-label="หมุนขวา">▶</button><button type="button" data-k="down" aria-label="มุมต่ำลง">▼</button></div>' +
-    '<div class="v-zoom"><button type="button" data-k="in" aria-label="ซูมเข้า">＋</button><button type="button" data-k="out" aria-label="ซูมออก">−</button></div>';
+    '<div class="v-dpad">' +
+    '<button type="button" data-k="up" aria-label="มุมสูงขึ้น" title="มุมสูงขึ้น">' + ico('<path d="M8 20c-3-4-3-10 2-14"/><path d="M6.5 6.5 10 5.5l1 3.5"/><path d="M15 20c3-4 3-10-2-14"/>') + '</button>' +
+    '<button type="button" data-k="left" aria-label="หมุนซ้าย" title="หมุนซ้าย">' + ico('<path d="M5.5 13a7 7 0 1 0 2.2-6.2"/><path d="M4.5 4v4.5H9"/>') + '</button>' +
+    '<button type="button" data-k="right" aria-label="หมุนขวา" title="หมุนขวา">' + ico('<path d="M18.5 13a7 7 0 1 1-2.2-6.2"/><path d="M19.5 4v4.5H15"/>') + '</button>' +
+    '<button type="button" data-k="down" aria-label="มุมต่ำลง" title="มุมต่ำลง">' + ico('<path d="M8 4c-3 4-3 10 2 14"/><path d="M6.5 17.5 10 18.5l1-3.5"/><path d="M15 4c3 4 3 10-2 14"/>') + '</button>' +
+    '</div><div class="v-zoom">' +
+    '<button type="button" data-k="in" aria-label="ซูมเข้า" title="ซูมเข้า">' + ico('<circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5M10.5 8v5M8 10.5h5"/>') + '</button>' +
+    '<button type="button" data-k="out" aria-label="ซูมออก" title="ซูมออก">' + ico('<circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5M8 10.5h5"/>') + '</button>' +
+    '</div>';
   stage.appendChild(pad);
   pad.querySelectorAll('button').forEach((b) => {
     const k = b.dataset.k;
@@ -502,6 +644,11 @@ export function mountViewer(opts) {
       camera.position.copy(controls.target).add(new THREE.Vector3().setFromSpherical(sph));
     }
     controls.update();
+    if (orbitG.visible) {
+      // ใกล้ป้ายมาก (ซูมดู) ลูกศรค่อย ๆ จางหาย
+      const d = camera.position.distanceTo(controls.target);
+      arcMat.opacity = 0.6 * Math.max(0, Math.min(1, (d / orbitR - 1.5) / 1.2));
+    }
     if (photo && photo.q0) applyOffset();
     if (personCard) {
       personCard.getWorldPosition(pw);
