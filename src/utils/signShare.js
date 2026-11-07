@@ -3,7 +3,7 @@
 // ใครก็กดสร้างลิงก์ได้ (แอปเปิดสาธารณะ) จึงรับเฉพาะ GLB ที่หัวไฟล์ถูกต้อง + รูปตัวอย่าง JPEG
 // ข้อความทุกช่องตัดตัวควบคุม/แท็ก จำกัดความยาว — หน้าดูยัง escape ซ้ำอีกชั้นตอนพิมพ์ลง HTML
 
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
 
 export const MAX_GLB = 20 * 1024 * 1024;
 export const MAX_POSTER = 3 * 1024 * 1024;
@@ -102,6 +102,89 @@ export function parseShareRequest(body) {
     if (!poster || !isJpeg(poster)) return { error: 'bad_poster' };
   }
   return { glb, poster, meta: cleanMeta(body.meta) };
+}
+
+/* ---------- คนเปิดดูลิงก์ + ลูกค้าที่สนใจ ----------
+ * ร้านที่สร้างลิงก์ได้ "กุญแจเจ้าของ" กลับไปเก็บในเครื่อง (เซิร์ฟเวอร์เก็บแค่ค่าแฮช)
+ * ดูยอดเปิด/รายชื่อลูกค้าที่สนใจได้เฉพาะคนที่ถือกุญแจ — เบอร์โทรลูกค้าไม่เปิดสาธารณะ */
+export function newOwnerKey() {
+  return randomBytes(18).toString('base64url');
+}
+export function hashKey(key) {
+  return createHash('sha256').update(String(key || '')).digest('hex');
+}
+export function keyMatches(key, hash) {
+  if (typeof key !== 'string' || !key || typeof hash !== 'string' || hash.length !== 64) return false;
+  const a = Buffer.from(hashKey(key), 'hex');
+  const b = Buffer.from(hash, 'hex');
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+export const VIEW_SOURCES = ['facebook', 'line', 'other'];
+export const VIEW_DEVICES = ['mobile', 'desktop'];
+// เหตุการณ์ "เปิดดู" จากหน้า 3 มิติ (ค่าแปลก ๆ = other/mobile)
+export function cleanView(b) {
+  const o = b && typeof b === 'object' ? b : {};
+  return {
+    src: VIEW_SOURCES.includes(o.src) ? o.src : 'other',
+    dev: VIEW_DEVICES.includes(o.dev) ? o.dev : 'mobile',
+    first: o.first === true,
+  };
+}
+// รวมยอดเปิดดู (ไม่แก้ของเดิม) · days เก็บย้อนหลัง 60 วัน
+export function mergeStats(old, views, at) {
+  const s = old && typeof old === 'object' ? old : {};
+  const out = {
+    views: Number(s.views) || 0,
+    visitors: Number(s.visitors) || 0,
+    first: Number(s.first) || 0,
+    last: Number(s.last) || 0,
+    src: Object.assign({ facebook: 0, line: 0, other: 0 }, s.src),
+    dev: Object.assign({ mobile: 0, desktop: 0 }, s.dev),
+    days: Object.assign({}, s.days),
+  };
+  for (const v of views) {
+    out.views++;
+    if (v.first) out.visitors++;
+    out.src[v.src] = (out.src[v.src] || 0) + 1;
+    out.dev[v.dev] = (out.dev[v.dev] || 0) + 1;
+    const t = v.at || at;
+    const d = new Date(t + 7 * 3600000).toISOString().slice(0, 10); // วันตามเวลาไทย
+    out.days[d] = (out.days[d] || 0) + 1;
+    if (!out.first || t < out.first) out.first = t;
+    if (t > out.last) out.last = t;
+  }
+  const keep = Object.keys(out.days).sort().slice(-60);
+  out.days = Object.fromEntries(keep.map((k) => [k, out.days[k]]));
+  return out;
+}
+// ฟอร์ม "สนใจ / ขอราคา": ชื่อ + เบอร์ (ตัวเลข 9–15 หลัก) + ข้อความสั้น ๆ
+export function cleanLead(b) {
+  const o = b && typeof b === 'object' ? b : {};
+  const name = clean(o.name, 60);
+  const phoneRaw = clean(o.phone, 30).replace(/[^\d+\-\s()]/g, '');
+  const digits = phoneRaw.replace(/\D/g, '');
+  const note = clean(o.note, 300);
+  if (!name) return { error: 'lead_name' };
+  if (digits.length < 9 || digits.length > 15) return { error: 'lead_phone' };
+  return { name, phone: phoneRaw.trim(), note, src: VIEW_SOURCES.includes(o.src) ? o.src : 'other' };
+}
+// ข้อความแจ้งร้านทาง LINE
+export function leadText(rec, lead, url) {
+  const m = (rec && rec.meta) || {};
+  const from = { facebook: 'Facebook', line: 'LINE', other: 'ลิงก์ตรง/อื่น ๆ' }[lead.src] || 'อื่น ๆ';
+  return [
+    '🔔 มีลูกค้าสนใจป้าย',
+    [m.title, m.size].filter(Boolean).join(' ') || 'ป้าย',
+    m.customer ? `(งานของ ${m.customer})` : '',
+    `ชื่อ: ${lead.name}`,
+    `โทร: ${lead.phone}`,
+    lead.note ? `ข้อความ: ${lead.note}` : '',
+    `มาจาก: ${from}`,
+    url ? `ภาพ 3 มิติ: ${url}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
+    .slice(0, 1800);
 }
 
 // จำกัดจำนวนลิงก์ต่อเครื่อง (ต่อ IP) และรวมทั้งวัน กันคนยิงไฟล์ใส่จนพื้นที่เต็ม

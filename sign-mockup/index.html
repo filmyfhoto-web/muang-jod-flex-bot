@@ -663,6 +663,7 @@
             <a class="btn-ghost small" id="linkOpen" href="#" target="_blank" rel="noopener">เปิดดู</a>
           </div>
         </div>
+        <button type="button" class="btn-ghost small" id="linksOpen">ดูคนเปิดดู / ลูกค้าที่สนใจ</button>
       </div>
       <p class="hint" id="dlHint">มือถือ: กดค้างที่รูปแล้วเลือก “บันทึกรูปภาพ” · คอมพิวเตอร์: คลิกขวาที่รูป หรือกดดาวน์โหลด</p>
       <div class="dlg-actions">
@@ -686,8 +687,22 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" /></svg>
         <input id="jobSearch" type="search" placeholder="ค้นหางาน ชื่อลูกค้า หรือชนิดป้าย" aria-label="ค้นหางาน" />
       </label>
+      <button type="button" class="btn-ghost small links-btn" id="jobsLinks">ลิงก์ 3 มิติที่ส่งไป · คนเปิดดู · ลูกค้าที่สนใจ</button>
       <div class="jobs" id="jobList"></div>
       <p class="hint">งานเก็บไว้ในเครื่องนี้เท่านั้น (รวมไฟล์งานและรูปหน้าร้าน) ล้างข้อมูลเบราว์เซอร์แล้วงานจะหาย</p>
+    </dialog>
+
+    <dialog id="linksDlg" class="jobs-dlg links-dlg" aria-labelledby="linksTitle">
+      <div class="dlg-head">
+        <h2 id="linksTitle">ลิงก์ 3 มิติ · คนเปิดดู · ลูกค้าที่สนใจ</h2>
+        <button type="button" class="btn-ghost small" data-close>ปิด</button>
+      </div>
+      <div class="links-bar">
+        <button type="button" class="btn-ghost small" id="linksRefresh">อัปเดตตัวเลข</button>
+        <span class="readout" id="linksStatus"></span>
+      </div>
+      <div class="links" id="linksList"></div>
+      <p class="hint">นับเฉพาะลิงก์ที่สร้างจากเครื่องนี้ · บอกได้ว่าเปิดกี่ครั้ง กี่คน มาจาก Facebook / LINE / ที่อื่น ใช้มือถือหรือคอม — ไม่รู้ชื่อคนเปิด (Facebook ไม่ให้ข้อมูลนี้) · คนที่กด “สนใจ / ขอราคา” ในหน้า 3 มิติ จะขึ้นชื่อกับเบอร์ที่นี่ และแจ้งเข้า LINE ของร้าน (บอทม่วงจด ถึงคนในรายชื่อหลังร้าน)</p>
     </dialog>
 
     <dialog id="optDlg" class="opt-dlg" aria-labelledby="optTitle">

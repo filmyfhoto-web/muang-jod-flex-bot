@@ -277,3 +277,86 @@ test('รูปตัวอย่างตอนแปะลิงก์ (Facebo
   const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
   assert.match(app, /posterWithBadge\(mockupCanvas\(0\.75, false\)\)/);
 });
+
+test('คนเปิดดูลิงก์ + ลูกค้ากด "สนใจ": นับที่มา (Facebook/LINE) · ฟอร์มตรวจเบอร์ · แจ้งร้าน · ดูได้เฉพาะเครื่องที่ถือกุญแจ', async () => {
+  const sent = [];
+  let t = Date.UTC(2026, 10, 7, 5);
+  const s = await serve({ now: () => t, flushMs: 5, notify: async (text) => (sent.push(text), true) });
+  const post = (path, body, ip) =>
+    fetch(`${s.base}${path}`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-forwarded-for': ip || '1.1.1.1' }, body: JSON.stringify(body) });
+  try {
+    const c = await post('/sign/api/share', { glb: tinyGlb().toString('base64'), meta: { title: 'บัตรสมนาคุณ', size: '6 × 11 ซม.', shop: 'นัดพอน' } });
+    const j = await c.json();
+    assert.ok(j.key && j.key.length >= 20, 'ได้กุญแจเจ้าของ');
+    const meta = JSON.parse(s.files.get(`${j.id}/meta.json`).toString());
+    assert.equal(meta.ownerHash.length, 64);
+    assert.ok(!JSON.stringify(meta).includes(j.key), 'เซิร์ฟเวอร์ไม่เก็บกุญแจตรง ๆ');
+
+    // เปิดดู 3 ครั้ง: Facebook มือถือ, LINE, และคนเดิมรีเฟรชซ้ำใน 1 นาที (ไม่นับซ้ำ)
+    assert.equal((await post(`/sign/v/${j.id}/seen`, { src: 'facebook', dev: 'mobile', first: true }, '2.2.2.2')).status, 204);
+    await post(`/sign/v/${j.id}/seen`, { src: 'facebook', dev: 'mobile', first: false }, '2.2.2.2');
+    await post(`/sign/v/${j.id}/seen`, { src: 'line', dev: 'desktop', first: true }, '3.3.3.3');
+    await post(`/sign/v/${j.id}/seen`, { src: '<b>x', dev: 'tv' }, '4.4.4.4');
+    await post('/sign/v/zzzzzzzzzz/seen', { src: 'line' }, '5.5.5.5'); // ลิงก์ที่ไม่มีจริง
+    await new Promise((r) => setTimeout(r, 60));
+    const st = JSON.parse(s.files.get(`${j.id}/stats.json`).toString());
+    assert.equal(st.views, 3);
+    assert.equal(st.visitors, 2);
+    assert.deepEqual(st.src, { facebook: 1, line: 1, other: 1 });
+    assert.deepEqual(st.dev, { mobile: 2, desktop: 1 });
+    assert.ok(!s.files.has('zzzzzzzzzz/stats.json'));
+
+    // ฟอร์มสนใจ: เบอร์ผิด → 400 · ถูก → 201 + แจ้งร้าน
+    const bad = await post(`/sign/v/${j.id}/lead`, { name: 'สมชาย', phone: '12' });
+    assert.equal(bad.status, 400);
+    assert.match((await bad.json()).message, /เบอร์/);
+    const ok = await post(`/sign/v/${j.id}/lead`, { name: 'สมชาย <b>ใจดี</b>', phone: '081-234-5678', note: 'ขอราคา 500 ใบ', src: 'facebook' });
+    assert.equal(ok.status, 201);
+    assert.equal((await ok.json()).notified, true);
+    assert.equal(sent.length, 1);
+    assert.match(sent[0], /สมชาย bใจดี\/b/);
+    assert.match(sent[0], /081-234-5678/);
+    assert.match(sent[0], /มาจาก: Facebook/);
+    assert.match(sent[0], new RegExp(`/sign/v/${j.id}`));
+    assert.equal((await post('/sign/v/zzzzzzzzzz/lead', { name: 'a', phone: '0812345678' })).status, 404);
+
+    // ดูยอด: กุญแจผิด = ไม่ได้ข้อมูล · ถูก = ยอด + รายชื่อ
+    const wrong = await (await post('/sign/api/stats', { links: [{ id: j.id, key: 'nope' }] })).json();
+    assert.deepEqual(wrong.links, [{ id: j.id, ok: false }]);
+    const mine = await (await post('/sign/api/stats', { links: [{ id: j.id, key: j.key }] })).json();
+    assert.equal(mine.links[0].ok, true);
+    assert.equal(mine.links[0].stats.views, 3);
+    assert.equal(mine.links[0].leads.length, 1);
+    assert.equal(mine.links[0].leads[0].phone, '081-234-5678');
+  } finally {
+    s.close();
+  }
+  // ส่งฟอร์มถี่เกิน → 429
+  const s2 = await serve({ allowLead: () => false, notify: async () => false });
+  try {
+    const c = await fetch(`${s2.base}/sign/api/share`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ glb: tinyGlb().toString('base64') }) });
+    const j = await c.json();
+    const r = await fetch(`${s2.base}/sign/v/${j.id}/lead`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'ก', phone: '0812345678' }) });
+    assert.equal(r.status, 429);
+  } finally {
+    s2.close();
+  }
+  // หน้า 3 มิติมีปุ่ม/ฟอร์ม และสคริปต์นับคนเปิด (เครื่องของร้านเองไม่นับ)
+  const html = viewerHtml('abcdefghij', { poster: false, meta: { shop: 'นัดพอน' } }, 'https://x');
+  assert.match(html, /id="lead"/);
+  assert.match(html, /id="leadForm"/);
+  const { readFileSync } = await import('node:fs');
+  const v = readFileSync(new URL('../sign-mockup/viewer3d.js', import.meta.url), 'utf8');
+  assert.match(v, /fetch\(`\/sign\/v\/\$\{data\.id\}\/seen`/);
+  assert.match(v, /if \(!store\('own-' \+ data\.id\)\)/);
+});
+
+test('แจ้งเตือนลูกค้าสนใจ: ส่งถึง SIGN_NOTIFY_LINE_IDS ถ้าตั้งไว้ ไม่งั้นคนในรายชื่อหลังร้าน (ALLOWED_LINE_USER_IDS)', async () => {
+  const { notifyIds } = await import('../src/routes/signShare.js');
+  const A = 'U' + 'a'.repeat(32);
+  const B = 'U' + 'b'.repeat(32);
+  assert.deepEqual(notifyIds({ ALLOWED_LINE_USER_IDS: `${A}, ${B}` }), [A, B]);
+  assert.deepEqual(notifyIds({ ALLOWED_LINE_USER_IDS: A, SIGN_NOTIFY_LINE_IDS: B }), [B]);
+  assert.deepEqual(notifyIds({ SIGN_NOTIFY_LINE_IDS: 'not-an-id' }), []);
+  assert.deepEqual(notifyIds({}), []);
+});
