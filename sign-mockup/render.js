@@ -2256,6 +2256,16 @@
         var cr2 = C.containRect(art.width, art.height, fw, fh);
         fx.drawImage(art, cr2.dx, cr2.dy, cr2.dw, cr2.dh);
       }
+      // มุมบัตรในรูปโค้ง → ลบมุมงานให้ตรงกัน
+      if (hp.round > 0) {
+        var rc = mk(face.width, face.height);
+        var rx2 = ctx2d(rc);
+        rx2.beginPath();
+        rr(rx2, 0, 0, rc.width, rc.height, Math.min(rc.width, rc.height) * hp.round);
+        rx2.clip();
+        rx2.drawImage(face, 0, 0);
+        face = rc;
+      }
       var layer = mk(W * scale, H * scale);
       var lx = ctx2d(layer);
       lx.setTransform(scale, 0, 0, scale, 0, 0);

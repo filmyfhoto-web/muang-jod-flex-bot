@@ -6,9 +6,9 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '4.3.0';
+  var APP_VERSION = '4.3.1';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
-  var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp' });
+  var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp', hands: C.HAND_BUILTIN.src });
 
   var UNIT_WORD = { vinyl: 'ผืน', frame: 'ผืน', foam: 'แผ่น', sticker: 'แผ่น', acrylic: 'แผ่น', lightbox: 'ป้าย', stand: 'ชุด', cnc: 'ป้าย', rollup: 'ชุด', xstand: 'ชุด', card: 'ใบ', letters: 'ชุด', neon: 'ป้าย', blade: 'ป้าย', flag: 'ผืน', backdrop: 'ชุด', billboard: 'ป้าย', poster: 'แผ่น', tablestand: 'อัน', standee: 'ชิ้น', window: 'ชิ้น' };
   // ชนิดงานของร้าน (ตัวเลือกของร้าน) ต้องลงทะเบียนก่อนโหลดงานที่บันทึกไว้ ไม่งั้นงานชนิดนั้นจะกลายเป็นไวนิล
@@ -1300,9 +1300,50 @@
     p.layers = null;
     return r.cards.length;
   }
+  // รูปพื้นใส (PNG/WebP) วางบนพื้นขาวก่อน ไม่งั้นส่งออก JPG พื้นกลายเป็นสีดำ
+  function handFromBlob(blob) {
+    return photoFromBlob(blob).then(function (p) {
+      var c = document.createElement('canvas');
+      c.width = p.w;
+      c.height = p.h;
+      var x = c.getContext('2d');
+      x.fillStyle = '#ffffff';
+      x.fillRect(0, 0, p.w, p.h);
+      x.drawImage(p.img, 0, 0, p.w, p.h);
+      p.img = c;
+      return p;
+    });
+  }
+  // รูปมาตรฐานของแอป (ตำแหน่งบัตรวัดไว้แล้ว) — cards = ตำแหน่งที่ร้านปรับเองไว้ (ถ้ามี)
+  function loadBuiltinHand(cards, turn) {
+    var B = C.HAND_BUILTIN;
+    return fetch(B.src)
+      .then(function (r) {
+        if (!r.ok) throw new Error('no hand photo');
+        return r.blob();
+      })
+      .then(handFromBlob)
+      .then(function (p) {
+        p.builtin = true;
+        p.blob = null;
+        p.cards = cards || B.cards.map(function (q) {
+          return q.map(function (c) {
+            return { x: c.x, y: c.y };
+          });
+        });
+        p.ref = B.ref;
+        p.round = B.round;
+        p.turn = turn | 0;
+        p.split = C.handSplit(p.cards);
+        return p;
+      });
+  }
   function saveHand() {
     if (!NS.jobs || !handPhoto) return;
-    NS.jobs.put({ id: HAND_ID, at: Date.now(), blob: handPhoto.blob, cards: handPhoto.cards, ref: handPhoto.ref, turn: handPhoto.turn || 0 }).catch(function () {});
+    var rec = { id: HAND_ID, at: Date.now(), cards: handPhoto.cards, ref: handPhoto.ref, turn: handPhoto.turn || 0 };
+    if (handPhoto.builtin) rec.builtin = true;
+    else rec.blob = handPhoto.blob;
+    NS.jobs.put(rec).catch(function () {});
   }
   function setHandFile(file) {
     if (!file) return;
@@ -1310,7 +1351,7 @@
       toast('รูปนี้เปิดไม่ได้ ใช้ JPG หรือ PNG');
       return;
     }
-    photoFromBlob(file)
+    handFromBlob(file)
       .then(function (p) {
         p.turn = 0;
         var n = handFind(p);
@@ -1331,27 +1372,33 @@
     setHandFile(e.target.files[0]);
     e.target.value = '';
   });
-  // โหลดรูปมือของร้านที่เก็บไว้ตอนเปิดแอป
-  if (NS.jobs) {
-    NS.jobs
-      .get(HAND_ID)
+  // ตอนเปิดแอป: รูปมือของร้านที่เก็บไว้ หรือรูปมาตรฐานของแอป
+  function bootHand() {
+    var get = NS.jobs ? NS.jobs.get(HAND_ID).catch(function () { return null; }) : Promise.resolve(null);
+    return get
       .then(function (rec) {
-        if (!rec || !rec.blob) return;
-        return photoFromBlob(rec.blob).then(function (p) {
-          p.turn = rec.turn | 0;
-          var cards = C.normalizeCards(rec.cards);
-          if (cards) {
-            p.cards = cards;
-            p.ref = rec.ref > 0 ? rec.ref : 240;
-            p.split = C.handSplit(cards);
-          } else handFind(p);
-          handPhoto = p;
-          buildScenes();
-          sync();
-        });
+        var cards = rec ? C.normalizeCards(rec.cards) : null;
+        if (rec && rec.blob) {
+          return handFromBlob(rec.blob).then(function (p) {
+            p.turn = rec.turn | 0;
+            if (cards) {
+              p.cards = cards;
+              p.ref = rec.ref > 0 ? rec.ref : 240;
+              p.split = C.handSplit(cards);
+            } else handFind(p);
+            return p;
+          });
+        }
+        return loadBuiltinHand(rec && rec.builtin ? cards : null, rec && rec.builtin ? rec.turn : 0);
+      })
+      .then(function (p) {
+        handPhoto = p;
+        buildScenes();
+        sync();
       })
       .catch(function () {});
   }
+  bootHand();
   function handSync() {
     var on = st.scene === 'handPhoto';
     $('handField').hidden = !on;
@@ -1360,18 +1407,21 @@
     var n = ready ? handPhoto.cards.length : 0;
     $('handViewSeg').hidden = n < 2;
     $('handCountSeg').hidden = !ready;
-    ['handEdit', 'handTurn', 'handFind', 'handDel'].forEach(function (id) {
+    ['handEdit', 'handTurn', 'handFind'].forEach(function (id) {
       $(id).hidden = !ready;
     });
+    var own = ready && !handPhoto.builtin;
+    $('handDel').hidden = !own;
+    $('handFind').textContent = ready && handPhoto.builtin ? 'จัดมุมบัตรใหม่' : 'หาบัตรในรูปใหม่';
     $('handAll').hidden = n < 2;
-    $('handChange').textContent = ready ? 'เปลี่ยนรูปมือ' : '+ ใส่รูปมือจับบัตร';
+    $('handChange').textContent = own ? 'เปลี่ยนรูปมือ' : '+ ใช้รูปมือของร้านเอง';
     pressed('#handViewSeg button', 'hview', st.handView);
     pressed('#handCountSeg button', 'hcount', String(n));
     $('handEdit').setAttribute('aria-pressed', String(handEdit));
     $('handEdit').textContent = handEdit ? 'เสร็จ ซ่อนจุดมุม' : 'ปรับมุมบัตร';
     $('handInfo').textContent = ready
-      ? 'บัตรในรูป ' + n + ' ใบ' + (handEdit ? ' · ลากจุดส้มที่มุมให้ตรงมุมบัตร (ลากกลางบัตร = ย้ายทั้งใบ)' : ' · งานวางบนบัตรพร้อมเงาตามรูปจริง')
-      : 'ยังไม่มีรูปมือ — กด “+ ใส่รูปมือจับบัตร” (ตอนนี้แสดงมือจับแบบวาดไปก่อน)';
+      ? (handPhoto.builtin ? 'รูปมาตรฐานของแอป · ' : 'รูปของร้าน · ') + 'บัตรในรูป ' + n + ' ใบ' + (handEdit ? ' · ลากจุดส้มที่มุมให้ตรงมุมบัตร (ลากกลางบัตร = ย้ายทั้งใบ)' : ' · งานวางบนบัตรพร้อมเงาตามรูปจริง')
+      : 'กำลังโหลดรูปมือ…';
   }
   document.querySelectorAll('#handViewSeg button').forEach(function (b) {
     b.addEventListener('click', function () {
@@ -1413,6 +1463,18 @@
   });
   $('handFind').addEventListener('click', function () {
     if (!handReady()) return;
+    if (handPhoto.builtin) {
+      // รูปมาตรฐาน: กลับไปตำแหน่งบัตรที่วัดไว้
+      handPhoto.cards = C.HAND_BUILTIN.cards.map(function (q) {
+        return q.map(function (c) {
+          return { x: c.x, y: c.y };
+        });
+      });
+      handPhoto.split = C.handSplit(handPhoto.cards);
+      saveHand();
+      sync();
+      return;
+    }
     var n = handFind(handPhoto, handPhoto.cards.length);
     handEdit = true;
     saveHand();
@@ -1428,18 +1490,20 @@
       handDelArmed = Date.now();
       $('handDel').textContent = 'กดอีกครั้งเพื่อลบ';
       setTimeout(function () {
-        $('handDel').textContent = 'ลบรูปมือ';
+        $('handDel').textContent = 'ลบรูปของร้าน';
       }, 3000);
       return;
     }
     handDelArmed = 0;
-    $('handDel').textContent = 'ลบรูปมือ';
-    if (NS.jobs) NS.jobs.del(HAND_ID).catch(function () {});
-    handPhoto = null;
+    $('handDel').textContent = 'ลบรูปของร้าน';
     handEdit = false;
-    st.scene = 'hand';
-    buildScenes();
-    sync();
+    // กลับไปใช้รูปมาตรฐานของแอป
+    (NS.jobs ? NS.jobs.del(HAND_ID).catch(function () {}) : Promise.resolve()).then(function () {
+      handPhoto = null;
+      st.handView = 'both';
+      return bootHand();
+    });
+    toast('ลบรูปของร้านแล้ว กลับไปใช้รูปมาตรฐาน');
   });
   // บันทึกครบ 3 ภาพ: สองมือ + มือซ้าย + มือขวา (มือถือ: แชร์ทีเดียว 3 รูป · คอมพิวเตอร์: ดาวน์โหลด 3 ไฟล์)
   $('handAll').addEventListener('click', function () {
