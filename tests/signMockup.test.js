@@ -1014,12 +1014,70 @@ test('ฉากรูปถ่ายหน้าร้าน: มีไฟล์
   const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
   assert.match(app, /\$\('fmtGlb'\)\.hidden = !stage;/);
   assert.match(app, /\(fmt === 'glb' \|\| fmt === 'html'\) && !stage\) fmt = 'jpg'/);
-  assert.match(app, /function buildHtml\(\) \{\n    syncStage\(\);/);
-  assert.match(app, /if \(fmt === 'glb'\) \{\n      syncStage\(\);/);
+  assert.match(app, /function model3d\(\) \{\n    syncStage\(\);/); // ไฟล์ .glb / HTML / ลิงก์ ใช้ model3d() ทั้งหมด
   assert.match(app, /st\.scene === 'photo' \? 'studio' : st\.scene === 'handPhoto' \? 'hand'/);
   assert.match(app, /drag = \{ person: true/);
   assert.match(app, /person: pp,/);
   const render = readFileSync(new URL('../sign-mockup/render.js', import.meta.url), 'utf8');
   assert.match(render, /if \(st\.person\) photoPerson\(/);
   assert.match(render, /out\.personBox = /);
+});
+
+test('3 มิติบนรูปหน้างาน: หากล้องจาก 4 มุมป้าย (มุมกล้องจริง/มือถือปกติ) ฉายกลับตรงมุมเดิม · ลากมุมไม่เป๊ะก็ไม่เพี้ยน', () => {
+  const C = require('../sign-mockup/core.js');
+  const rot = (yaw, pitch) => {
+    const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+    return [[cy, 0, sy], [sp * sy, cp, -sp * cy], [-cp * sy, sp, cp * cy]];
+  };
+  const corners = (w, h) => [[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]];
+  // กล้องจริง (เอียงชัด) → ได้ f และตำแหน่งกล้องคืนมาตรง
+  for (const [W, H, hfov, yaw, pitch] of [[4032, 3024, 70, -0.5, -0.15], [1600, 1200, 40, 0.25, 0.05]]) {
+    const f = W / 2 / Math.tan((hfov * Math.PI) / 360);
+    const cam = { f, R: rot(yaw, pitch), t: [0.4, 0.2, 5], W, H };
+    const q = corners(3, 1).map((P) => C.photoProject(cam, [P[0], P[1], 0]));
+    const got = C.photoCamera(q, W, H, 3, 1);
+    near(got.f, f, f * 0.001);
+    assert.ok(got.err < 0.01);
+    const Ct = [0, 1, 2].map((i) => -(cam.R[0][i] * cam.t[0] + cam.R[1][i] * cam.t[1] + cam.R[2][i] * cam.t[2]));
+    assert.ok(Math.hypot(...got.C.map((c, i) => c - Ct[i])) < 0.01);
+    // จุดบนรูป → กลับไปที่ระนาบป้าย (Z = 0) ตรงมุมป้าย
+    const back = C.photoRayPoint(got, q[2].x, q[2].y, 0, 100);
+    near(back[0], 1.5, 0.01);
+    near(back[1], 0.5, 0.01);
+    // จุดที่ความลึกเท่าป้าย ฉายกลับมาที่พิกเซลเดิม
+    const dp = C.photoDepthPoint(got, 100, 200, got.t[2]);
+    const pr = C.photoProject(got, dp);
+    near(pr.x, 100, 0.01);
+    near(pr.y, 200, 0.01);
+  }
+  // ป้ายเล็กในรูป ลากมุมคลาดนิดหน่อย → ไม่เชื่อค่า f ที่ประมาณได้ ใช้มุมกล้องมือถือปกติ (~66°)
+  const small = [[222, 340], [434, 344], [431, 476], [220, 466]].map(([x, y]) => ({ x, y }));
+  const cs = C.photoCamera(small, 1018, 764, 0.9, 0.6);
+  near(cs.f, 509 / Math.tan((C.PHOTO_FOV * Math.PI) / 360), 0.5);
+  assert.ok(cs.C[2] < 0, 'กล้องอยู่หน้าป้าย');
+  assert.ok(cs.err < 12);
+  // หน้าตรงไม่มีเปอร์สเปกทีฟ → มุมกล้องปกติ
+  const flat = C.photoCamera([{ x: 300, y: 300 }, { x: 700, y: 300 }, { x: 700, y: 500 }, { x: 300, y: 500 }], 1000, 800, 2, 1);
+  assert.equal(flat.auto, false);
+  near(flat.R[0][0], 1, 1e-9);
+});
+
+test('3 มิติบนรูปหน้างาน: ไฟล์/HTML/ลิงก์ในฉากรูปลูกค้าใส่รูปเป็นฉากหลัง · ตัวดูเปิดมาเหมือนรูป มีปุ่มซูมดูป้าย', () => {
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  assert.match(app, /if \(!photo3dReady\(\)\) return stage\.exportGLB\(\);\n    return stage\.exportPhotoGLB\(\{/);
+  assert.match(app, /model3d\(\)\.then\(function \(ab\) \{\n        return blobToDataUrl/); // HTML พรีวิว
+  assert.match(app, /var withPhoto = photo3dReady\(\);\n      return model3d\(\)/); // ไฟล์ .glb → ลิงก์ใช้ไฟล์นี้
+  const s3 = readFileSync(new URL('../sign-mockup/scene3d.js', import.meta.url), 'utf8');
+  assert.match(s3, /    exportPhotoGLB,\n/);
+  assert.match(s3, /bg\.name = 'NadponPhoto';/);
+  assert.match(s3, /root\.userData\.npPhoto = \{/);
+  assert.match(s3, /tex\.userData\.mimeType = 'image\/jpeg';/);
+  const v = readFileSync(new URL('../sign-mockup/viewer3d-core.js', import.meta.url), 'utf8');
+  assert.match(v, /o\.userData\.npPhoto/);
+  assert.match(v, /function showPhoto\(/);
+  assert.match(v, /function toggleZoom\(\)/);
+  assert.match(v, /m\.toneMapped = false/); // รูปถ่ายสีตรงตามรูป
+  const C = require('../sign-mockup/core.js');
+  const html = C.viewerFile({ glb: '', poster: '', title: 'ป้าย' });
+  assert.match(html, /<button type="button" id="zoom" aria-pressed="false">ซูมดูป้าย<\/button>/);
 });

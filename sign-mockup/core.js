@@ -1685,6 +1685,7 @@
       '<p class="v-hint" id="hint">ลากเพื่อหมุน · ถ่างนิ้วหรือเลื่อนล้อเมาส์เพื่อซูม</p></main>\n' +
       '<section class="v-info"><h1>' + escHtml(o.title || 'ป้าย') + '</h1><p>' + escHtml([o.size, o.customer ? 'ลูกค้า: ' + o.customer : ''].filter(Boolean).join(' · ')) + '</p></section>\n' +
       '<nav class="v-bar"><button type="button" id="spin" aria-pressed="true">หมุนอัตโนมัติ</button>' +
+      '<button type="button" id="zoom" aria-pressed="false">ซูมดูป้าย</button>' +
       '<button type="button" id="reset">มุมเริ่มต้น</button><button type="button" id="full">เต็มจอ</button>' +
       '<button type="button" id="shot">บันทึกรูปมุมนี้</button></nav>\n' +
       '<p class="v-foot">ภาพจำลอง 3 มิติจาก ' + escHtml(o.shop || 'NATTAPRON') + ' · เปิดได้โดยไม่ต้องต่อเน็ต · สีจริงอาจต่างจากหน้าจอเล็กน้อย</p>\n' +
@@ -1951,6 +1952,141 @@
     return '';
   }
 
+  /* กล้องของรูปหน้างาน (ทำ 3 มิติบนรูปจริง): จาก 4 มุมป้ายบนรูป (พิกเซล) + ขนาดป้ายจริง w×h (เมตร)
+   * หาระยะโฟกัส f (พิกเซล) และท่ากล้อง — แกนแบบ OpenCV: ป้ายอยู่บนระนาบ Z = 0 กลางป้าย = จุดกำเนิด
+   * X ขวา · Y ลง · Z เข้าผนัง · กล้อง: x ขวา y ลง z มองไปข้างหน้า · จุดในกล้อง = R·P + t
+   * รูปตรงหน้าเกินไป (ไม่มีมุมเปอร์สเปกทีฟ) หา f ไม่ได้ → ใช้มุมกล้องมือถือปกติ (ด้านยาวกว้าง ~66°) */
+  var PHOTO_FOV = 66;
+  function photoCamera(q, W, H, w, h) {
+    var hu = homography(q);
+    // หน่วย (u,v) → ระนาบ (X,Y) แล้วย้ายจุดศูนย์กลางภาพมาเป็น 0
+    var cx = W / 2, cy = H / 2;
+    var A = [
+      [hu[0], hu[1], hu[2]],
+      [hu[3], hu[4], hu[5]],
+      [hu[6], hu[7], 1],
+    ];
+    var col = function (j) {
+      // คอลัมน์ j ของ Tc·A·S⁻¹ — S⁻¹: u = X/w + ½ · v = Y/h + ½
+      var c = [0, 0, 0];
+      for (var i = 0; i < 3; i++) {
+        var v = j === 0 ? A[i][0] / w : j === 1 ? A[i][1] / h : A[i][0] / 2 + A[i][1] / 2 + A[i][2];
+        c[i] = v;
+      }
+      return [c[0] - cx * c[2], c[1] - cy * c[2], c[2]];
+    };
+    var h1 = col(0), h2 = col(1), h3 = col(2);
+    var n = h3[2] || 1e-12;
+    for (var k = 0; k < 3; k++) {
+      h1[k] /= n;
+      h2[k] /= n;
+      h3[k] /= n;
+    }
+    var L = Math.max(W, H) / 2;
+    var fDef = L / Math.tan((PHOTO_FOV * Math.PI) / 360);
+    var fMin = L / Math.tan((120 * Math.PI) / 360); // ถึงเลนส์มุมกว้าง 0.5x
+    var fMax = L / Math.tan((22 * Math.PI) / 360);
+    var cands = [fDef];
+    var tilt = Math.max(Math.abs(h1[2]) * w, Math.abs(h2[2]) * h); // เปอร์สเปกทีฟข้ามป้าย (สัดส่วน)
+    if (tilt > 0.04) {
+      var est = [];
+      var d1 = h1[2] * h2[2];
+      if (Math.abs(d1) > 1e-12) {
+        var f1 = -(h1[0] * h2[0] + h1[1] * h2[1]) / d1;
+        if (f1 > 0) est.push(f1);
+      }
+      var d2 = h2[2] * h2[2] - h1[2] * h1[2];
+      if (Math.abs(d2) > 1e-12) {
+        var f2 = (h1[0] * h1[0] + h1[1] * h1[1] - h2[0] * h2[0] - h2[1] * h2[1]) / d2;
+        if (f2 > 0) est.push(f2);
+      }
+      if (est.length) {
+        var g2 = est.reduce(function (x, y) { return x * y; }, 1);
+        var fe = Math.sqrt(Math.pow(g2, 1 / est.length));
+        if (fe >= fMin && fe <= fMax) cands.unshift(fe);
+      }
+    }
+    var len = function (v) { return Math.hypot(v[0], v[1], v[2]); };
+    var unit = function (v) { var l = len(v) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+    var pts = [[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]];
+    function poseFor(f) {
+      var m1 = [h1[0] / f, h1[1] / f, h1[2]];
+      var m2 = [h2[0] / f, h2[1] / f, h2[2]];
+      var m3 = [h3[0] / f, h3[1] / f, h3[2]];
+      var lam = 2 / (len(m1) + len(m2));
+      if (m3[2] < 0) lam = -lam; // ป้ายต้องอยู่หน้ากล้อง
+      var p = unit(m1), qq = unit(m2);
+      if (lam < 0) {
+        p = p.map(function (v) { return -v; });
+        qq = qq.map(function (v) { return -v; });
+      }
+      // ทำให้ตั้งฉากกันแบบสมมาตร (เฉลี่ยความคลาดเคลื่อนให้สองแกนเท่ากัน)
+      var b = unit([p[0] + qq[0], p[1] + qq[1], p[2] + qq[2]]);
+      var d = unit([p[0] - qq[0], p[1] - qq[1], p[2] - qq[2]]);
+      var r1 = [(b[0] + d[0]) / Math.SQRT2, (b[1] + d[1]) / Math.SQRT2, (b[2] + d[2]) / Math.SQRT2];
+      var r2 = [(b[0] - d[0]) / Math.SQRT2, (b[1] - d[1]) / Math.SQRT2, (b[2] - d[2]) / Math.SQRT2];
+      var r3 = [r1[1] * r2[2] - r1[2] * r2[1], r1[2] * r2[0] - r1[0] * r2[2], r1[0] * r2[1] - r1[1] * r2[0]];
+      var t = [m3[0] * lam, m3[1] * lam, m3[2] * lam];
+      var R = [
+        [r1[0], r2[0], r3[0]],
+        [r1[1], r2[1], r3[1]],
+        [r1[2], r2[2], r3[2]],
+      ];
+      // จุดกล้องในโลกของป้าย = −Rᵀt
+      var Cw = [0, 1, 2].map(function (j) {
+        return -(R[0][j] * t[0] + R[1][j] * t[1] + R[2][j] * t[2]);
+      });
+      var cam = { f: f, auto: f !== fDef, R: R, t: t, C: Cw, W: W, H: H };
+      // ความคลาดเคลื่อนเฉลี่ย (พิกเซล) ของมุมป้ายที่ฉายกลับเทียบกับที่ลากไว้
+      var err = 0;
+      pts.forEach(function (P, i) {
+        var pr = photoProject(cam, [P[0], P[1], 0]);
+        err += Math.hypot(pr.x - q[i].x, pr.y - q[i].y) / 4;
+      });
+      cam.err = err;
+      return cam;
+    }
+    // ลากมุมไม่เป๊ะ ค่า f ที่ประมาณได้เพี้ยนง่าย (ป้ายเล็กในรูป) — ใช้มุมกล้องมือถือปกติ
+    // เว้นแต่ค่าที่ประมาณได้ฉายมุมป้ายกลับได้ตรงกว่าชัดเจน (คลาดน้อยกว่าครึ่ง และต่างกันเกิน 2 พิกเซล)
+    var cam = poseFor(fDef);
+    cam.errDef = cam.err;
+    if (cands.length > 1) {
+      var ce = poseFor(cands[0]);
+      ce.errDef = cam.err;
+      if (ce.err < cam.err * 0.5 && cam.err - ce.err > 2) cam = ce;
+    }
+    return cam;
+  }
+  // จุด P (โลกของป้าย) → พิกเซลบนรูป
+  function photoProject(cam, P) {
+    var R = cam.R, t = cam.t;
+    var c = [0, 1, 2].map(function (i) {
+      return R[i][0] * P[0] + R[i][1] * P[1] + R[i][2] * P[2] + t[i];
+    });
+    return { x: (cam.f * c[0]) / c[2] + cam.W / 2, y: (cam.f * c[1]) / c[2] + cam.H / 2, z: c[2] };
+  }
+  // พิกเซล (u,v) → จุดบนแนวรังสี ที่ความลึก (แกนกล้อง) = depth — วางคนยืนเทียบระยะเดียวกับป้าย (ตรงกับภาพ 2 มิติ)
+  function photoDepthPoint(cam, u, v, depth) {
+    var R = cam.R, t = cam.t;
+    var pc = [((u - cam.W / 2) / cam.f) * depth - t[0], ((v - cam.H / 2) / cam.f) * depth - t[1], depth - t[2]];
+    return [0, 1, 2].map(function (j) {
+      return R[0][j] * pc[0] + R[1][j] * pc[1] + R[2][j] * pc[2];
+    });
+  }
+  // พิกเซล (u,v) → จุดบนแนวรังสีจากกล้อง ที่ระนาบ Z = z0 (โลกของป้าย) · ไกลเกิน/ไม่ชนระนาบ → ตัดที่ระยะ far
+  function photoRayPoint(cam, u, v, z0, far) {
+    var R = cam.R;
+    var dc = [(u - cam.W / 2) / cam.f, (v - cam.H / 2) / cam.f, 1];
+    var dir = [0, 1, 2].map(function (j) {
+      return R[0][j] * dc[0] + R[1][j] * dc[1] + R[2][j] * dc[2];
+    });
+    var l = Math.hypot(dir[0], dir[1], dir[2]);
+    dir = dir.map(function (x) { return x / l; });
+    var s = dir[2] > 1e-6 ? (z0 - cam.C[2]) / dir[2] : Infinity;
+    if (!(s > 0) || s > far) s = far;
+    return [cam.C[0] + s * dir[0], cam.C[1] + s * dir[1], cam.C[2] + s * dir[2]];
+  }
+
   function thaiDate(d) {
     var months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
     return d.getDate() + ' ' + months[d.getMonth()] + ' ' + (d.getFullYear() + 543);
@@ -2032,6 +2168,11 @@
     presetLabel: presetLabel,
     phoneText: phoneText,
     thaiDate: thaiDate,
+    photoCamera: photoCamera,
+    photoProject: photoProject,
+    photoRayPoint: photoRayPoint,
+    photoDepthPoint: photoDepthPoint,
+    PHOTO_FOV: PHOTO_FOV,
     DEPTH: DEPTH,
     quoteNo: quoteNo,
     pdfFromJpeg: pdfFromJpeg,
