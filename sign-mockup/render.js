@@ -2430,8 +2430,33 @@
     x.shadowOffsetY = 6 * U * scale;
     x.drawImage(layer, 0, 0);
     x.restore();
+    if (st.person) photoPerson(x, st, g, q, W, H, U, out);
     if (st.dims) dimsQuad(x, faceQuad(q, g), g, U);
     if (opt.preview) handles(x, q, U);
+  }
+  /* คนยืนเทียบบนรูปหน้าร้านลูกค้า: ขนาดคิดจากป้ายในรูป (ป้ายกว้างจริง N ซม. = กี่พิกเซล) ยืนระยะเดียวกับป้าย
+   * ตำแหน่งเท้า = st.photo.person (0..1 ลากย้ายได้) หรือข้างป้าย ระดับพื้นโดยประมาณ */
+  function photoPerson(x, st, g, q, W, H, U, out) {
+    var d = function (a, b) {
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    };
+    var s = ((d(q[0], q[1]) + d(q[3], q[2])) / 2 / g.bw + (d(q[0], q[3]) + d(q[1], q[2])) / 2 / g.bh) / 2;
+    if (!(s > 0)) return;
+    var P = C.PERSON;
+    var feet;
+    if (st.photo.person) feet = { x: st.photo.person.x * W, y: st.photo.person.y * H };
+    else {
+      var xs = q.map(function (p) {
+        return p.x;
+      });
+      var bottom = Math.max(q[2].y, q[3].y);
+      var fx = Math.max.apply(null, xs) + (P.gap + P.w / 2) * s;
+      if (fx + (P.w / 2) * s > W) fx = Math.min.apply(null, xs) - (P.gap + P.w / 2) * s;
+      var lift = g.mount === 'floor' ? 0 : Math.max(40, Math.min(300, 150 - g.bh / 2));
+      feet = { x: fx, y: Math.min(H * 0.98, bottom + lift * s) };
+    }
+    person(x, { s: s, personX: feet.x, floorY: feet.y }, U);
+    out.personBox = { x0: feet.x - 32 * s, x1: feet.x + 32 * s, y0: feet.y - 178 * s, y1: feet.y + 6 * s };
   }
 
   /* ---------- งานพิมพ์ข้อความเร็ว (ยังไม่มีไฟล์งาน) ---------- */
