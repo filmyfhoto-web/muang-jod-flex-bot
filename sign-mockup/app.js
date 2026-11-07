@@ -6,7 +6,7 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '4.7.0';
+  var APP_VERSION = '4.8.0';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp', hands: C.HAND_BUILTIN.src });
 
@@ -2158,10 +2158,26 @@
         return '';
       });
   }
-  /* โมเดล 3 มิติสำหรับไฟล์/ลิงก์: ฉากรูปหน้างานลูกค้า → ป้าย + รูปถ่ายเป็นฉากหลัง (เปิดมาเห็นเหมือนรูป ซูมดูป้ายได้)
-   * ฉากอื่น → ตัวป้ายอย่างเดียว */
+  /* โมเดล 3 มิติสำหรับไฟล์/ลิงก์ (เลือกได้ในหน้าต่างบันทึก: ป้าย + ฉาก / เฉพาะป้าย — จำไว้ในเครื่อง)
+   * ฉากรูปหน้างานลูกค้า → ป้าย + รูปถ่ายเป็นฉากหลัง (เปิดมาเห็นเหมือนรูป ซูมดูป้ายได้)
+   * ฉาก 3 มิติ (หน้าร้าน ผนัง ประตู ฯลฯ) → ป้ายติดในฉาก + คนยืนเทียบ มุมเริ่มต้นเหมือนในแอป */
+  var GLB_KEY = 'np-sign-glb';
+  function glbWithScene() {
+    try {
+      return localStorage.getItem(GLB_KEY) !== 'sign';
+    } catch (e) {
+      return true;
+    }
+  }
   function photo3dReady() {
-    return st.scene === 'photo' && photo && photo.quad && photo.w > 0 && C.isConvex(photo.quad) && !!stage.exportPhotoGLB;
+    return glbWithScene() && photoSceneOk();
+  }
+  function photoSceneOk() {
+    return st.scene === 'photo' && photo && photo.quad && photo.w > 0 && C.isConvex(photo.quad) && !!stage && !!stage.exportPhotoGLB;
+  }
+  // ฉาก 3 มิติที่ใส่ในไฟล์ได้ (ฉากมือจับรูปจริงเป็นรูป 2 มิติ ใส่ได้แค่ตัวป้าย)
+  function sceneGlbOk() {
+    return is3d() && st.scene !== 'handPhoto';
   }
   function photoFeet() {
     if (!st.person) return null;
@@ -2172,7 +2188,7 @@
   }
   function model3d() {
     syncStage();
-    if (!photo3dReady()) return stage.exportGLB();
+    if (!photo3dReady()) return stage.exportGLB({ scene: glbWithScene() && sceneGlbOk() });
     return stage.exportPhotoGLB({
       image: photo.img,
       W: photo.w,
@@ -2636,9 +2652,11 @@
     if (fmt === 'reel') return buildReel();
     if (fmt === 'glb') {
       var withPhoto = photo3dReady();
+      var withScene = !withPhoto && glbWithScene() && sceneGlbOk();
       return model3d().then(function (ab) {
         var blob = new Blob([ab], { type: 'model/gltf-binary' });
-        var info = withPhoto ? 'ไฟล์ 3 มิติ ป้าย + รูปหน้างาน · ' + kb(blob.size) + ' · ' + C.TYPES[st.type].name + ' ' + C.sizeText(st.w, st.h) : '';
+        var what = withPhoto ? 'ป้าย + รูปหน้างาน' : withScene ? 'ป้าย + ฉาก' + (C.SCENES[sceneNow()] ? ' ' + C.SCENES[sceneNow()].name : '') : 'เฉพาะป้าย';
+        var info = 'ไฟล์ 3 มิติ ' + what + ' · ' + kb(blob.size) + ' · ' + C.TYPES[st.type].name + ' ' + C.sizeText(st.w, st.h);
         return { blob: blob, name: fileName('sign3d', 'glb'), preview: null, canvas: null, info: info };
       });
     }
@@ -2832,6 +2850,9 @@
     $('fmtHtml').hidden = !stage || inFrame; // หน้าพรีวิวโหลดตัวดูมาฝังไม่ได้
     $('fmtPrint').hidden = !isCard();
     $('sheetBar').hidden = fmt !== 'print';
+    $('sceneBar').hidden = !((fmt === 'glb' || fmt === 'html') && (photoSceneOk() || sceneGlbOk()));
+    $('sceneWith').textContent = photoSceneOk() ? 'ป้าย + รูปหน้างาน' : 'ป้าย + ฉาก';
+    pressed('#sceneSeg button', 'g', glbWithScene() ? 'scene' : 'sign');
     $('cmpBar').hidden = fmt !== 'compare';
     pressed('#cmpOutSeg button', 'cout', st.cmpOut);
     pressed('#sheetSeg button', 'sheet', st.sheet);
@@ -3236,6 +3257,15 @@
       st.sheet = b.dataset.sheet;
       save();
       openExport('print');
+    });
+  });
+  document.querySelectorAll('#sceneSeg button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if ((b.dataset.g === 'scene') === glbWithScene() && exp.blob) return;
+      try {
+        localStorage.setItem(GLB_KEY, b.dataset.g);
+      } catch (e) {}
+      openExport(exp.fmt);
     });
   });
   document.querySelectorAll('#fmtSeg button').forEach(function (b) {

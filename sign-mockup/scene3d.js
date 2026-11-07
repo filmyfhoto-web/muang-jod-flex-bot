@@ -3280,8 +3280,10 @@ export function createStage(opts) {
   }
 
   // ไฟล์ 3 มิติ (.glb) เฉพาะตัวป้าย (ขอบล่างวางที่พื้น y = 0) — เปิดดูได้ใน Windows 3D Viewer / เว็บดูไฟล์ glb / ส่งต่อให้ทีมออกแบบ
-  async function exportGLB() {
+  // o.scene = ใส่ฉากที่เปิดอยู่ด้วย (หน้าร้าน ผนัง ประตู ฯลฯ + คนยืนเทียบ) ลูกค้าเห็นป้ายติดที่หน้างานเหมือนในแอป
+  async function exportGLB(o) {
     if (!model) throw new Error('ยังไม่มีป้าย');
+    if (o && o.scene && envKey && envs[envKey]) return exportSceneGLB();
     const { GLTFExporter } = await import('three/addons/exporters/GLTFExporter.js');
     const root = new THREE.Group();
     root.name = 'NadponSign';
@@ -3301,6 +3303,64 @@ export function createStage(opts) {
     });
     drop.forEach((o) => o.parent && o.parent.remove(o));
     root.updateMatrixWorld(true);
+    return new GLTFExporter().parseAsync(root, { binary: true, onlyVisible: true, maxTextureSize: 2048 });
+  }
+
+  /* ป้าย + ฉาก: ตำแหน่งจริงในฉาก (ไม่ย้ายป้ายลงพื้น) · มุมกล้องตอนนี้เป็นมุมเริ่มต้นของตัวดู (extras npScene)
+   * ผิวฉากที่ไม่โปร่งใสเก็บเป็น JPEG ไฟล์ไม่ใหญ่ · คนยืนเทียบหันเข้ากล้อง (ตัวดูหมุนตามกล้องให้เอง) */
+  async function exportSceneGLB() {
+    const { GLTFExporter } = await import('three/addons/exporters/GLTFExporter.js');
+    const root = new THREE.Group();
+    root.name = 'NadponScene';
+    const env = envs[envKey].group.clone(true);
+    env.name = 'NadponEnv';
+    env.visible = true;
+    root.add(env);
+    const sg = signRoot.clone(true);
+    sg.name = 'NadponSignRoot';
+    root.add(sg);
+    if (ties.visible && ties.children.length) root.add(ties.clone(true));
+    if (person.visible) {
+      const pp = person.clone(true);
+      pp.name = 'NadponPerson';
+      pp.rotation.set(0, 0, 0);
+      pp.children[0].name = 'NadponPersonCard';
+      pp.children[0].rotation.set(0, Math.atan2(camera.position.x - person.position.x, camera.position.z - person.position.z), 0);
+      root.add(pp);
+    }
+    const drop = [];
+    root.traverse((m) => {
+      if (m.isLight || m.isSprite || m.isPoints || m.isLine) drop.push(m);
+      else if (m.isMesh) {
+        (Array.isArray(m.material) ? m.material : [m.material]).forEach((mm) => {
+          if (!mm || mm.transparent || mm.alphaTest > 0) return;
+          ['map', 'roughnessMap', 'metalnessMap', 'normalMap', 'aoMap', 'bumpMap', 'emissiveMap'].forEach((k) => {
+            if (mm[k] && !mm[k].userData.mimeType) mm[k].userData.mimeType = 'image/jpeg';
+          });
+        });
+      }
+    });
+    drop.forEach((m) => m.parent && m.parent.remove(m));
+    root.updateMatrixWorld(true);
+    const b = bounds(false);
+    const fc = b.getCenter(new THREE.Vector3());
+    const fs = b.getSize(new THREE.Vector3());
+    // ทิศหน้าป้าย (ซูมดูป้ายเข้าทางนี้): ป้ายยื่นหน้าตั้งฉากกับผนัง → ด้านที่หันหากล้อง · ป้ายอื่นหันออกจากผนัง
+    const blade = model.type === 'blade';
+    const nrm = blade ? [camera.position.x >= fc.x ? 1 : -1, 0, 0] : [0, 0, 1];
+    root.userData.npScene = {
+      pos: camera.position.toArray().map((v) => +v.toFixed(4)),
+      target: controls.target.toArray().map((v) => +v.toFixed(4)),
+      fov: camera.fov,
+      aspect: +camera.aspect.toFixed(4),
+      focus: [fc.x, fc.y, blade ? fc.z : b.max.z].map((v) => +v.toFixed(4)),
+      size: [+(blade ? fs.z : fs.x).toFixed(4), +fs.y.toFixed(4)],
+      normal: nrm,
+      az: [controls.minAzimuthAngle, controls.maxAzimuthAngle].map((v) => (isFinite(v) ? +v.toFixed(4) : null)),
+      floor: !!(model && model.floor),
+      bg: envs[envKey].sky ? '#a9c9e3' : '#' + (envs[envKey].bg || new THREE.Color(0xe7e5e0)).getHexString(),
+      fog: envs[envKey].fog ? [+envs[envKey].fog[1], +envs[envKey].fog[2]] : null,
+    };
     return new GLTFExporter().parseAsync(root, { binary: true, onlyVisible: true, maxTextureSize: 2048 });
   }
 

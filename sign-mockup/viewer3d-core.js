@@ -7,6 +7,7 @@
  * วางป้ายบนพื้นมีเงา หมุนโชว์เองจนกว่าลูกค้าจะลากหมุนเอง
  * ใช้ element ตาม id: c (canvas) stage load hint · ปุ่ม spin reset zoom full shot (ไม่มีก็ได้) · poster (รูปสำรองเครื่องที่ไม่มี 3 มิติ)
  * ไฟล์ที่มีรูปหน้างาน (extras npPhoto) → เปิดมาเห็นเหมือนรูปถ่าย ขยับมุมได้ช่วงหนึ่ง ซูมดูป้ายได้ (ปุ่ม zoom / แตะสองครั้ง)
+ * ไฟล์ป้าย + ฉาก (extras npScene) → เปิดมามุมเดียวกับในแอป หมุนดูรอบ ๆ ได้ ซูมดูป้ายได้
  * opts: { url } หรือ { glb: ArrayBuffer } · name = ชื่อไฟล์ตอนบันทึกรูป */
 import * as THREE from './vendor/three.module.min.js';
 import { OrbitControls } from './vendor/addons/controls/OrbitControls.js';
@@ -138,6 +139,17 @@ export function mountViewer(opts) {
       return;
     }
     model.traverse((o) => {
+      if (!info && o.userData && o.userData.npScene) {
+        info = o.userData.npScene;
+        holder = o;
+      }
+    });
+    if (info) {
+      showScene(model, holder, info);
+      if (load) load.hidden = true;
+      return;
+    }
+    model.traverse((o) => {
       if (o.isMesh) {
         o.castShadow = true;
         o.receiveShadow = true;
@@ -184,7 +196,7 @@ export function mountViewer(opts) {
     const q0 = new THREE.Quaternion().fromArray(info.quat).premultiply(new THREE.Quaternion().setFromRotationMatrix(m));
     const normal = new THREE.Vector3(0, 0, 1).transformDirection(m);
     const d0 = pos.distanceTo(target);
-    photo = { pos, target, q0, d0, fov: info.fov, aspect: info.aspect, ndc: new THREE.Vector2(), dMin: 0 };
+    photo = { kind: 'photo', pos, target, q0, d0, fov: info.fov, aspect: info.aspect, ndc: new THREE.Vector2(), dMin: 0 };
     focus = { target: target.clone(), size: info.size, normal };
     controls.autoRotate = false;
     controls.enablePan = false;
@@ -211,11 +223,75 @@ export function mountViewer(opts) {
     if (hint) hint.textContent = 'ลากเพื่อขยับมุม · ถ่างนิ้ว/แตะสองครั้งเพื่อซูมดูป้าย';
     setSpin(true);
   }
-  // มุมกล้องของจอให้เห็นทั้งรูป (ไม่ครอป) + ตำแหน่งป้ายในรูป (NDC) สำหรับเลื่อนจุดกึ่งกลางภาพ
+  /* ป้าย + ฉาก (หน้าร้าน ผนัง ประตู ฯลฯ): เปิดมามุมเดียวกับในแอป ส่ายกล้องโชว์ ลากหมุนดูรอบ ๆ ได้ ซูมดูป้ายได้
+   * คนยืนเทียบหันหากล้องเสมอ */
+  let personCard = null;
+  function showScene(model, holder, info) {
+    scene.add(model);
+    model.updateMatrixWorld(true);
+    const envRoot = model.getObjectByName('NadponEnv');
+    model.traverse((o) => {
+      if (!o.isMesh) return;
+      let inEnv = false;
+      for (let p = o; p; p = p.parent) if (p === envRoot) inEnv = true;
+      o.castShadow = !inEnv;
+      o.receiveShadow = true;
+    });
+    personCard = model.getObjectByName('NadponPersonCard') || null;
+    ground.visible = ring.visible = false;
+    if (info.bg) {
+      scene.background = new THREE.Color(info.bg);
+      if (info.fog) scene.fog = new THREE.Fog(info.bg, info.fog[0], info.fog[1]);
+    }
+    const m = holder.matrixWorld;
+    const pos = new THREE.Vector3().fromArray(info.pos).applyMatrix4(m);
+    const target = new THREE.Vector3().fromArray(info.target).applyMatrix4(m);
+    const d0 = pos.distanceTo(target);
+    photo = { kind: 'scene', pos, target, q0: null, d0, fov: info.fov, aspect: info.aspect || camera.aspect, ndc: new THREE.Vector2(), dMin: 0 };
+    const nv = new THREE.Vector3().fromArray(info.normal || [0, 0, 1]);
+    nv.y += 0.08;
+    focus = { target: new THREE.Vector3().fromArray(info.focus).applyMatrix4(m), size: info.size, normal: nv.transformDirection(m).normalize() };
+    controls.autoRotate = false;
+    controls.enablePan = false;
+    controls.target.copy(target);
+    camera.position.copy(pos);
+    camera.near = Math.max(0.01, d0 / 300);
+    camera.far = 300;
+    fitPhoto();
+    camera.updateProjectionMatrix();
+    photo.dMin = closeDist(info.size) * 0.45;
+    controls.minDistance = photo.dMin;
+    controls.maxDistance = d0 * 2.2;
+    const az = info.az || [];
+    controls.minAzimuthAngle = az[0] == null ? -Infinity : az[0];
+    controls.maxAzimuthAngle = az[1] == null ? Infinity : az[1];
+    controls.minPolarAngle = 0.15;
+    controls.maxPolarAngle = Math.PI * 0.6;
+    controls.update();
+    home = { pos: pos.clone(), target: target.clone() };
+    sun.position.copy(focus.target).add(new THREE.Vector3(3, 6, 5));
+    sun.target.position.copy(focus.target);
+    const r = Math.max(4, info.size[0] * 1.5, info.size[1] * 1.5);
+    const sc = sun.shadow.camera;
+    sc.left = sc.bottom = -r;
+    sc.right = sc.top = r;
+    sc.near = 0.1;
+    sc.far = 40;
+    sc.updateProjectionMatrix();
+    const hint = $('hint');
+    if (hint) hint.textContent = 'ลากเพื่อหมุนดู · ถ่างนิ้ว/แตะสองครั้งเพื่อซูมดูป้าย';
+    setSpin(true);
+  }
+  // มุมกล้องของจอ: รูปหน้างาน = เห็นทั้งรูป (ไม่ครอป) · ฉาก = กว้างเท่ามุมในแอป (จอแคบ/มือถือแนวตั้งขยายมุมให้ป้ายไม่ล้นข้าง)
+  // + ตำแหน่งป้ายในรูป (NDC) สำหรับเลื่อนจุดกึ่งกลางภาพ (เฉพาะรูปหน้างาน)
   function fitPhoto() {
     const tp = Math.tan((photo.fov * Math.PI) / 360);
-    const tv = Math.max(tp, (tp * photo.aspect) / camera.aspect) * 1.06; // เผื่อขอบ (กล้องหันหาป้าย รูปเบี้ยวนิดหน่อย)
+    const tv = Math.max(tp, (tp * photo.aspect) / camera.aspect) * (photo.q0 ? 1.06 : 1); // เผื่อขอบ (กล้องหันหาป้าย รูปเบี้ยวนิดหน่อย)
     camera.fov = (2 * Math.atan(tv) * 180) / Math.PI;
+    if (!photo.q0) {
+      photo.ndc.set(0, 0);
+      return;
+    }
     const c = photo.target.clone().sub(photo.pos).applyQuaternion(photo.q0.clone().invert());
     photo.ndc.set(c.x / -c.z / (tv * camera.aspect), c.y / -c.z / tv);
   }
@@ -328,6 +404,7 @@ export function mountViewer(opts) {
     });
 
   const sph = new THREE.Spherical();
+  const pw = new THREE.Vector3();
   renderer.setAnimationLoop((now) => {
     if (tween) {
       const k = Math.min(1, (now - tween.t0) / tween.ms);
@@ -336,14 +413,18 @@ export function mountViewer(opts) {
       controls.target.lerpVectors(tween.c0, tween.c1, e);
       if (k >= 1) tween = null;
     } else if (sway) {
-      // ส่ายกล้องซ้าย-ขวา ±8° รอบป้าย เริ่มจากมุมเดิมแบบนุ่ม ๆ
+      // ส่ายกล้องซ้าย-ขวารอบป้าย (รูปหน้างาน ±8° · ฉาก ±18°) เริ่มจากมุมเดิมแบบนุ่ม ๆ
       const off = camera.position.clone().sub(controls.target);
       sph.setFromVector3(off);
-      sph.theta = sway.theta0 + 0.14 * Math.sin(((now - sway.t0) / 1000) * 0.75);
+      sph.theta = sway.theta0 + (photo.kind === 'scene' ? 0.32 : 0.14) * Math.sin(((now - sway.t0) / 1000) * (photo.kind === 'scene' ? 0.55 : 0.75));
       camera.position.copy(controls.target).add(new THREE.Vector3().setFromSpherical(sph));
     }
     controls.update();
-    if (photo) applyOffset();
+    if (photo && photo.q0) applyOffset();
+    if (personCard) {
+      personCard.getWorldPosition(pw);
+      personCard.rotation.y = Math.atan2(camera.position.x - pw.x, camera.position.z - pw.z);
+    }
     renderer.render(scene, camera);
   });
   return { renderer, scene, camera, controls };

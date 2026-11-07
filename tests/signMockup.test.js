@@ -1064,9 +1064,9 @@ test('3 มิติบนรูปหน้างาน: หากล้อง�
 
 test('3 มิติบนรูปหน้างาน: ไฟล์/HTML/ลิงก์ในฉากรูปลูกค้าใส่รูปเป็นฉากหลัง · ตัวดูเปิดมาเหมือนรูป มีปุ่มซูมดูป้าย', () => {
   const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
-  assert.match(app, /if \(!photo3dReady\(\)\) return stage\.exportGLB\(\);\n    return stage\.exportPhotoGLB\(\{/);
+  assert.match(app, /if \(!photo3dReady\(\)\) return stage\.exportGLB\(\{ scene: glbWithScene\(\) && sceneGlbOk\(\) \}\);\n    return stage\.exportPhotoGLB\(\{/);
   assert.match(app, /model3d\(\)\.then\(function \(ab\) \{\n        return blobToDataUrl/); // HTML พรีวิว
-  assert.match(app, /var withPhoto = photo3dReady\(\);\n      return model3d\(\)/); // ไฟล์ .glb → ลิงก์ใช้ไฟล์นี้
+  assert.match(app, /var withPhoto = photo3dReady\(\);\n      var withScene = [^\n]+\n      return model3d\(\)/); // ไฟล์ .glb → ลิงก์ใช้ไฟล์นี้
   const s3 = readFileSync(new URL('../sign-mockup/scene3d.js', import.meta.url), 'utf8');
   assert.match(s3, /    exportPhotoGLB,\n/);
   assert.match(s3, /bg\.name = 'NadponPhoto';/);
@@ -1080,4 +1080,23 @@ test('3 มิติบนรูปหน้างาน: ไฟล์/HTML/ล�
   const C = require('../sign-mockup/core.js');
   const html = C.viewerFile({ glb: '', poster: '', title: 'ป้าย' });
   assert.match(html, /<button type="button" id="zoom" aria-pressed="false">ซูมดูป้าย<\/button>/);
+});
+
+test('ไฟล์/ลิงก์ 3 มิติ "ป้าย + ฉาก": ใส่ฉากที่เปิดอยู่ + คนยืนเทียบ มุมเริ่มต้นเหมือนในแอป · เลือก "เฉพาะป้าย" ได้ (จำไว้ในเครื่อง)', () => {
+  const html = readFileSync(new URL('../sign-mockup/index.html', import.meta.url), 'utf8');
+  assert.match(html, /<div class="seg small" id="sceneSeg">\s*<button type="button" data-g="scene" id="sceneWith">ป้าย \+ ฉาก<\/button>\s*<button type="button" data-g="sign">เฉพาะป้าย<\/button>/);
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  assert.match(app, /return stage\.exportGLB\(\{ scene: glbWithScene\(\) && sceneGlbOk\(\) \}\);/);
+  assert.match(app, /return is3d\(\) && st\.scene !== 'handPhoto';/); // มือจับรูปจริงเป็นรูป 2 มิติ ใส่ได้แค่ป้าย
+  assert.match(app, /localStorage\.getItem\(GLB_KEY\) !== 'sign'/); // ค่าเริ่มต้น = ป้าย + ฉาก
+  assert.match(app, /\$\('sceneBar'\)\.hidden = !\(\(fmt === 'glb' \|\| fmt === 'html'\) && \(photoSceneOk\(\) \|\| sceneGlbOk\(\)\)\);/);
+  const s3 = readFileSync(new URL('../sign-mockup/scene3d.js', import.meta.url), 'utf8');
+  assert.match(s3, /if \(o && o\.scene && envKey && envs\[envKey\]\) return exportSceneGLB\(\);/);
+  assert.match(s3, /root\.userData\.npScene = \{/);
+  assert.match(s3, /mm\[k\]\.userData\.mimeType = 'image\/jpeg'/); // ผิวฉากทึบเก็บ JPEG ไฟล์ไม่ใหญ่
+  assert.match(s3, /const nrm = blade \?/); // ป้ายยื่น: ซูมเข้าหน้าป้ายด้านข้าง
+  const v = readFileSync(new URL('../sign-mockup/viewer3d-core.js', import.meta.url), 'utf8');
+  assert.match(v, /o\.userData\.npScene/);
+  assert.match(v, /function showScene\(/);
+  assert.match(v, /personCard\.rotation\.y = Math\.atan2/); // คนยืนเทียบหันหากล้อง
 });
