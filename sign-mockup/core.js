@@ -221,7 +221,7 @@
     event: { name: 'ห้องจัดงาน', desc: 'เวที บูธ งานอีเวนต์', big: true },
     road: { name: 'ริมถนน', desc: 'บิลบอร์ด ธง ป้ายตั้งพื้นกลางแจ้ง', big: true, floorOnly: true },
     glass: { name: 'หน้าร้านกระจก', desc: 'สติ๊กเกอร์ติดกระจก ฟิล์มฝ้า', big: true },
-    handPhoto: { name: 'มือจับ (รูปของร้าน)', desc: 'รูปมือจับบัตรที่ร้านถ่ายเอง', small: true, wallOnly: true },
+    handPhoto: { name: 'มือจับ (รูปถ่ายจริง)', desc: 'รูปถ่ายมือจับบัตร เปลี่ยนเป็นรูปของร้านได้', small: true, wallOnly: true },
     studio: { name: 'พื้นเรียบ', desc: 'โชว์งานชัด ๆ' },
     wall: { name: 'ผนังปูน', desc: 'ในร้าน / ในอาคาร' },
     brick: { name: 'ผนังอิฐ', desc: 'ร้านกาแฟ / ร้านอาหาร' },
@@ -1221,6 +1221,19 @@
     };
     }
   }
+  /* รูปมือจับบัตรมาตรฐานของแอป (brand/hands-cards.webp 1729×910 พื้นขาว): ตำแหน่งบัตรวัดจากรูปแล้ว (ซ้ายนอน · ขวาตั้ง)
+   * round = มุมบัตรในรูปโค้ง (สัดส่วนของด้านสั้น) */
+  var HAND_BUILTIN = {
+    src: 'brand/hands-cards.webp',
+    w: 1729,
+    h: 910,
+    ref: 240,
+    round: 0.04,
+    cards: [
+      [{ x: 0.2608, y: 0.2308 }, { x: 0.5113, y: 0.2308 }, { x: 0.5113, y: 0.5275 }, { x: 0.2608, y: 0.5275 }],
+      [{ x: 0.5737, y: 0.2484 }, { x: 0.7496, y: 0.2484 }, { x: 0.7496, y: 0.7758 }, { x: 0.5737, y: 0.7758 }],
+    ],
+  };
   // บัตรตั้งต้นเมื่อหาในรูปไม่เจอ: 1 ใบกลางภาพ / 2 ใบซ้าย-ขวา (สัดส่วนตามงาน)
   function handDefaults(n, imgW, imgH, gw, gh) {
     var a = gw / gh;
@@ -2009,6 +2022,7 @@
     findCards: findCards,
     minRect: minRect,
     handDefaults: handDefaults,
+    HAND_BUILTIN: HAND_BUILTIN,
     HAND_VIEWS: HAND_VIEWS,
     handCrop: handCrop,
     handSplit: handSplit,

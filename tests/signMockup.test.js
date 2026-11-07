@@ -957,3 +957,25 @@ test('ฉากมือจับ (รูปของร้าน): หาบั
   const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
   assert.match(app, /var HAND_ID = 'opt-hand-photo';/);
 });
+
+test('ฉากมือจับ (รูปถ่ายจริง): มีรูปมาตรฐานในแอป (พื้นขาว บัตร 2 ใบวัดตำแหน่งไว้แล้ว) ใช้ได้ทันที ไม่ต้องอัปโหลด', () => {
+  const B = C.HAND_BUILTIN;
+  assert.equal(B.src, 'brand/hands-cards.webp');
+  const file = new URL('../sign-mockup/' + B.src, import.meta.url);
+  assert.ok(existsSync(file));
+  const buf = readFileSync(file);
+  assert.equal(buf.toString('ascii', 0, 4), 'RIFF');
+  assert.equal(buf.toString('ascii', 8, 12), 'WEBP');
+  assert.ok(buf.length < 150 * 1024, 'รูปมาตรฐานไม่ควรใหญ่เกิน 150 KB (โหลดเร็ว/ออฟไลน์)');
+  // ตำแหน่งบัตรถูกต้องตามรูปแบบที่เก็บ · ใบซ้ายนอน ใบขวาตั้ง สัดส่วนบัตรมาตรฐาน 85.6 × 54 มม.
+  const cards = C.normalizeCards(B.cards);
+  assert.equal(cards.length, 2);
+  const size = (q) => [(q[1].x - q[0].x) * B.w, (q[3].y - q[0].y) * B.h];
+  const [lw, lh] = size(cards[0]);
+  const [rw, rh] = size(cards[1]);
+  near(lw / lh, 85.6 / 54, 0.05);
+  near(rh / rw, 85.6 / 54, 0.05);
+  assert.ok(B.round > 0 && B.round < 0.1);
+  const sw = readFileSync(new URL('../sign-mockup/sw.js', import.meta.url), 'utf8');
+  assert.match(sw, /'brand\/hands-cards\.webp'/); // ใช้ออฟไลน์ได้
+});
