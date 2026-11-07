@@ -6,7 +6,7 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '4.4.0';
+  var APP_VERSION = '4.4.1';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp', hands: C.HAND_BUILTIN.src });
 
@@ -2851,6 +2851,48 @@
   }
 
   /* ---------- ลิงก์ดู 3 มิติ: อัปโหลดไฟล์ .glb ขึ้นเซิร์ฟเวอร์ร้าน แล้วได้ลิงก์ส่งลูกค้า ---------- */
+  // รูปตัวอย่างตอนแปะลิงก์ใน Facebook/LINE: ภาพป้าย + ป้าย "แตะเพื่อหมุนดู 3 มิติ" ชวนกด
+  function posterWithBadge(c) {
+    var x = c.getContext('2d');
+    var W = c.width;
+    var H = c.height;
+    var u = W / 1200;
+    var text = 'แตะเพื่อหมุนดู 3 มิติ';
+    x.save();
+    x.setTransform(1, 0, 0, 1, 0, 0); // ผืนภาพจากการส่งออกอาจยังย่อ/ขยาย/จัดกลางค้างอยู่
+    x.textAlign = 'left';
+    x.font = '600 ' + Math.round(40 * u) + 'px ' + DISP;
+    var tw = x.measureText(text).width;
+    var bh = 84 * u;
+    var bw = tw + 150 * u;
+    var bx = (W - bw) / 2;
+    var by = H - bh - 36 * u;
+    x.fillStyle = 'rgba(15,20,40,0.82)';
+    x.beginPath();
+    if (x.roundRect) x.roundRect(bx, by, bw, bh, bh / 2);
+    else x.rect(bx, by, bw, bh);
+    x.fill();
+    // ไอคอนหมุนรอบ
+    var cx = bx + 58 * u;
+    var cy = by + bh / 2;
+    x.strokeStyle = '#ffb27d';
+    x.lineWidth = 5 * u;
+    x.beginPath();
+    x.ellipse(cx, cy, 24 * u, 11 * u, 0, Math.PI * 0.15, Math.PI * 1.85);
+    x.stroke();
+    x.fillStyle = '#ffb27d';
+    x.beginPath();
+    x.moveTo(cx + 26 * u, cy - 14 * u);
+    x.lineTo(cx + 26 * u, cy + 2 * u);
+    x.lineTo(cx + 12 * u, cy - 4 * u);
+    x.closePath();
+    x.fill();
+    x.fillStyle = '#ffffff';
+    x.textBaseline = 'middle';
+    x.fillText(text, bx + 104 * u, cy + 2 * u);
+    x.restore();
+    return c;
+  }
   // เรียก /sign/api/ping ทุก 3 วิ จนเซิร์ฟเวอร์ตอบ (สูงสุด ms) → true = ตื่นแล้ว
   function wakeServer(ms) {
     var until = Date.now() + ms;
@@ -2889,7 +2931,7 @@
     }
     btn.disabled = true;
     $('dlStatus').textContent = 'กำลังสร้างลิงก์…';
-    var poster = mockupCanvas(0.5, false);
+    var poster = posterWithBadge(mockupCanvas(0.75, false));
     Promise.all([blobToDataUrl(exp.blob), toBlob(poster, 'image/jpeg', 0.82).then(blobToDataUrl)])
       .then(function (r) {
         var body = JSON.stringify({

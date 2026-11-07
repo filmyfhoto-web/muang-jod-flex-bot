@@ -12,7 +12,7 @@
 
 import express from 'express';
 import { escapeHtml } from '../utils/html.js';
-import { newShareId, isShareId, parseShareRequest, rateLimiter, SHARE_DAYS, SHARE_BUCKET, SHARE_TYPES, MAX_GLB } from '../utils/signShare.js';
+import { newShareId, isShareId, parseShareRequest, rateLimiter, jpegSize, SHARE_DAYS, SHARE_BUCKET, SHARE_TYPES, MAX_GLB } from '../utils/signShare.js';
 
 export function supabaseStore(client, bucket = SHARE_BUCKET) {
   let ready = null;
@@ -78,7 +78,20 @@ export function viewerHtml(id, rec, origin) {
   const m = rec.meta || {};
   const title = [m.title, m.size].filter(Boolean).join(' ');
   const desc = ['หมุนดูป้ายแบบ 3 มิติ', m.customer ? `สำหรับ ${m.customer}` : '', m.shop].filter(Boolean).join(' · ');
-  const og = rec.poster ? `<meta property="og:image" content="${escapeHtml(`${origin}/sign/v/${id}/poster.jpg`)}">` : '';
+  const img = `${origin}/sign/v/${id}/poster.jpg`;
+  const ps = rec.posterSize;
+  const og = rec.poster
+    ? [
+        `<meta property="og:image" content="${escapeHtml(img)}">`,
+        `<meta property="og:image:secure_url" content="${escapeHtml(img)}">`,
+        '<meta property="og:image:type" content="image/jpeg">',
+        ps ? `<meta property="og:image:width" content="${ps.w | 0}">\n<meta property="og:image:height" content="${ps.h | 0}">` : '',
+        `<meta property="og:image:alt" content="${escapeHtml(title)}">`,
+        '<meta name="twitter:card" content="summary_large_image">',
+      ]
+        .filter(Boolean)
+        .join('\n')
+    : '';
   // ข้อมูลส่งให้สคริปต์ — กัน </script> ด้วยการหนี "<"
   const data = JSON.stringify({ id, meta: m, poster: !!rec.poster }).replace(/</g, '\\u003c');
   return `<!doctype html>
@@ -89,6 +102,7 @@ export function viewerHtml(id, rec, origin) {
 <title>${escapeHtml(title)} — ภาพ 3 มิติ</title>
 <meta name="description" content="${escapeHtml(desc)}">
 <meta property="og:type" content="website">
+<meta property="og:url" content="${escapeHtml(`${origin}/sign/v/${id}`)}">
 <meta property="og:title" content="${escapeHtml(title)} — ภาพ 3 มิติ">
 <meta property="og:description" content="${escapeHtml(desc)}">
 ${og}
@@ -145,6 +159,8 @@ export function createSignShareRouter({ store, now = () => Date.now(), allow = r
     const id = newShareId();
     const created = now();
     const rec = { id, created, expires: created + SHARE_DAYS * 86400000, poster: !!parsed.poster, meta: parsed.meta };
+    const ps = parsed.poster ? jpegSize(parsed.poster) : null;
+    if (ps) rec.posterSize = ps;
     try {
       await store.put(`${id}/model.glb`, parsed.glb, 'model/gltf-binary');
       if (parsed.poster) await store.put(`${id}/poster.jpg`, parsed.poster, 'image/jpeg');
