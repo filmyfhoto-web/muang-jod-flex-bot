@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import express from 'express';
-import { createSignShareRouter, viewerHtml } from '../src/routes/signShare.js';
+import { createSignShareRouter, viewerHtml, deployedApp } from '../src/routes/signShare.js';
 import { isGlb, isJpeg, cleanMeta, fromBase64, parseShareRequest, rateLimiter, isShareId, newShareId } from '../src/utils/signShare.js';
 
 // GLB เล็กที่สุดที่ถูกต้อง: หัวไฟล์ 12 ไบต์ + ก้อน JSON
@@ -359,4 +359,35 @@ test('แจ้งเตือนลูกค้าสนใจ: ส่งถึ
   assert.deepEqual(notifyIds({ ALLOWED_LINE_USER_IDS: A, SIGN_NOTIFY_LINE_IDS: B }), [B]);
   assert.deepEqual(notifyIds({ SIGN_NOTIFY_LINE_IDS: 'not-an-id' }), []);
   assert.deepEqual(notifyIds({}), []);
+});
+
+test('อัปเดตเรียลไทม์: GET /sign/api/live เป็นสายสด (SSE) ส่งรุ่นที่ขึ้นระบบทันที + หัวใจกันสายเงียบ · รุ่นอ่านจาก sw.js ที่ deploy', async () => {
+  const { readFileSync } = await import('node:fs');
+  const sw = readFileSync(new URL('../sign-mockup/sw.js', import.meta.url), 'utf8');
+  const real = deployedApp();
+  assert.equal(real.v, sw.match(/VERSION = 'sign-mockup-([\d.]+)'/)[1]);
+  assert.ok(real.at > 0);
+  assert.deepEqual(deployedApp(new URL('file:///no/such/sw.js')), { v: '', at: 0 });
+
+  const s = await serve({ app: { v: '9.8.7', at: 1700000000000 }, beatMs: 30 });
+  const ac = new AbortController();
+  try {
+    const r = await fetch(`${s.base}/sign/api/live`, { signal: ac.signal });
+    assert.equal(r.status, 200);
+    assert.match(r.headers.get('content-type'), /^text\/event-stream/);
+    assert.equal(r.headers.get('cache-control'), 'no-store');
+    const reader = r.body.getReader();
+    let text = '';
+    while (!/: beat/.test(text)) text += new TextDecoder().decode((await reader.read()).value);
+    assert.match(text, /^retry: 3000\nevent: version\ndata: \{"v":"9\.8\.7","at":1700000000000\}\n\n/);
+  } finally {
+    ac.abort();
+    s.close();
+  }
+  // แอปต่อสายหลังหน้าโหลด · ได้รุ่นใหม่กว่า → อัปเดตเอง (ไม่วนโหลดถ้ายังได้รุ่นเดิม) · พับแอปปิดสาย
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  assert.match(app, /new EventSource\('api\/live'\)/);
+  assert.match(app, /if \(live\.v && newerVer\(live\.v, APP_VERSION\)\) liveUpdate\(live\.v\);/);
+  assert.match(app, /if \(tried === v\) return;/);
+  assert.match(app, /if \(document\.visibilityState === 'hidden'\) \{\n        liveClose\(\);/);
 });

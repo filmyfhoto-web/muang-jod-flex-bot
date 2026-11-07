@@ -6,7 +6,7 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '4.5.1';
+  var APP_VERSION = '4.6.0';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp', hands: C.HAND_BUILTIN.src });
 
@@ -555,7 +555,7 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () {
       el.hidden = true;
-    }, 3200);
+    }, Math.min(8000, Math.max(3200, String(msg).length * 55))); // ข้อความยาวค้างนานพอให้อ่านจบ
   }
 
   /* ---------- ขั้นตอน ---------- */
@@ -4751,7 +4751,8 @@
     toast('ติดตั้งแล้ว เปิดได้จากไอคอนบนหน้าจอ');
   });
   /* ---------- อัปเดตอัตโนมัติ ----------
-   * แอปเช็กรุ่นใหม่ทุก 10 นาที + ทุกครั้งที่กลับมาเปิดหน้า เจอแล้วเก็บงานปัจจุบันแล้วโหลดรุ่นใหม่เอง (ไม่ต้องลบแอปติดตั้งใหม่) */
+   * เรียลไทม์: ต่อสายสดกับเซิร์ฟเวอร์ร้าน (api/live) ขึ้นรุ่นใหม่เมื่อไหร่ แอปที่เปิดอยู่รู้ภายในไม่กี่วินาที
+   * สำรอง: เช็กรุ่นใหม่ทุก 10 นาที + ทุกครั้งที่กลับมาเปิดหน้า · เจอแล้วเก็บงานปัจจุบันแล้วโหลดรุ่นใหม่เอง (ไม่ต้องลบแอปติดตั้งใหม่) */
   var UPDATED_KEY = 'np-sign-updated';
   function safeToReload() {
     if (document.visibilityState === 'hidden') return true;
@@ -4760,6 +4761,7 @@
     return !typing && !drag && !document.querySelector('dialog[open]') && !(stage && stage.showing);
   }
   var reloading = false;
+  var swReg = null;
   function reloadWhenSafe() {
     if (!safeToReload()) {
       setTimeout(reloadWhenSafe, 2500);
@@ -4777,6 +4779,7 @@
     navigator.serviceWorker
       .register('sw.js')
       .then(function (reg) {
+        swReg = reg;
         var check = function () {
           if (navigator.onLine !== false) reg.update().catch(function () {});
         };
@@ -4795,10 +4798,138 @@
       }
       if (reloading) return;
       reloading = true;
-      toast('มีรุ่นใหม่ กำลังอัปเดต… งานที่ทำอยู่ไม่หาย');
+      announce(newerVer(live.v, APP_VERSION) ? live.v : '');
       setTimeout(reloadWhenSafe, 1200);
     });
   }
+
+  /* สายสดบอกรุ่น — พับแอป/สลับไปแอปอื่นปิดสาย (ประหยัดแบต ให้เซิร์ฟเวอร์ได้พัก) กลับมาต่อใหม่ + ได้รุ่นล่าสุดทันที
+   * ตอนขึ้นรุ่นใหม่ เซิร์ฟเวอร์เก่าดับ สายหลุด เบราว์เซอร์ต่อใหม่เอง เจอเซิร์ฟเวอร์ใหม่ → รุ่นใหม่ → อัปเดตเลย */
+  var LIVE_TRIED = 'np-sign-live-tried';
+  var live = { es: null, ok: false, v: '', at: 0, wait: 0, timer: 0, pending: '', announced: false };
+  function verNum(v) {
+    return String(v || '')
+      .split('.')
+      .map(function (n) {
+        return parseInt(n, 10) || 0;
+      });
+  }
+  function newerVer(a, b) {
+    var x = verNum(a);
+    var y = verNum(b);
+    for (var i = 0; i < Math.max(x.length, y.length); i++) {
+      if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
+    }
+    return false;
+  }
+  function two(n) {
+    return (n < 10 ? '0' : '') + n;
+  }
+  function verText() {
+    var s = 'รุ่น v' + APP_VERSION;
+    if (live.at && live.v === APP_VERSION) {
+      var d = new Date(live.at);
+      s += ' · ขึ้นระบบ ' + C.thaiDate(d) + ' ' + two(d.getHours()) + ':' + two(d.getMinutes()) + ' น.';
+    }
+    return s + (live.ok ? ' · อัปเดตเรียลไทม์ ● เชื่อมต่ออยู่ มีรุ่นใหม่แอปอัปเดตเองทันที' : ' · อัปเดตเรียลไทม์ ○ ยังไม่ได้เชื่อมต่อ (เช็กรุ่นใหม่ทุกครั้งที่เปิดแอป)');
+  }
+  function paintVer() {
+    var el = $('verLabel');
+    el.classList.toggle('live', live.ok);
+    el.title = verText();
+    el.setAttribute('aria-label', verText());
+  }
+  function announce(v) {
+    if (live.announced) return;
+    live.announced = true;
+    toast('มีรุ่นใหม่' + (v ? ' v' + v : '') + ' กำลังอัปเดต… งานที่ทำอยู่ไม่หาย');
+  }
+  function liveUpdate(v) {
+    if (reloading || live.pending === v) return;
+    var tried = '';
+    try {
+      tried = sessionStorage.getItem(LIVE_TRIED) || '';
+    } catch (e) {}
+    if (tried === v) return; // โหลดใหม่ไปแล้วยังได้รุ่นเดิม (เน็ตช้า ใช้ของในเครื่อง) — ไม่วนโหลด รอเปิดรอบหน้า
+    live.pending = v;
+    announce(v);
+    if (swReg) swReg.update().catch(function () {});
+    // ปกติ service worker รุ่นใหม่ติดตั้งเสร็จแล้วสั่งโหลดใหม่เอง (controllerchange) — ไม่มาภายใน 20 วิ โหลดใหม่เองเลย
+    setTimeout(
+      function () {
+        if (reloading) return;
+        reloading = true;
+        try {
+          sessionStorage.setItem(LIVE_TRIED, v);
+        } catch (e) {}
+        reloadWhenSafe();
+      },
+      swReg ? 20000 : 1500
+    );
+  }
+  function liveClose() {
+    clearTimeout(live.timer);
+    if (live.es) live.es.close();
+    live.es = null;
+    live.ok = false;
+  }
+  function liveConnect() {
+    if (live.es || !window.EventSource || document.visibilityState === 'hidden') return;
+    var es;
+    try {
+      es = new EventSource('api/live');
+    } catch (e) {
+      return;
+    }
+    live.es = es;
+    es.addEventListener('version', function (e) {
+      var d;
+      try {
+        d = JSON.parse(e.data);
+      } catch (x) {
+        return;
+      }
+      live.ok = true;
+      live.wait = 0;
+      live.v = String(d.v || '');
+      live.at = +d.at || 0;
+      paintVer();
+      if (live.v && newerVer(live.v, APP_VERSION)) liveUpdate(live.v);
+    });
+    es.onerror = function () {
+      live.ok = false;
+      paintVer();
+      // หลุดระหว่างทาง (กำลังขึ้นรุ่นใหม่/เซิร์ฟเวอร์หลับ) เบราว์เซอร์ต่อใหม่เอง · ปิดถาวร (ไม่มีเซิร์ฟเวอร์ร้าน) ลองใหม่ช้า ๆ
+      if (es.readyState === 2) {
+        liveClose();
+        live.wait = Math.min((live.wait || 15000) * 2, 5 * 60 * 1000);
+        live.timer = setTimeout(liveConnect, live.wait);
+      }
+    };
+  }
+  if (!inFrame && /^https?:$/.test(location.protocol)) {
+    // ต่อสายหลังหน้าโหลดเสร็จ (สายที่ค้างไว้ไม่ให้หน้าขึ้นวงหมุน "กำลังโหลด")
+    if (document.readyState === 'complete') setTimeout(liveConnect, 300);
+    else
+      window.addEventListener('load', function () {
+        setTimeout(liveConnect, 300);
+      });
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') {
+        liveClose();
+        paintVer();
+      } else {
+        live.wait = 0;
+        liveConnect();
+      }
+    });
+    window.addEventListener('online', function () {
+      if (!live.es) liveConnect();
+    });
+  }
+  $('verLabel').addEventListener('click', function () {
+    toast(verText());
+  });
 
   /* ---------- เริ่ม ---------- */
   try {
@@ -4808,6 +4939,7 @@
   }
   applySide();
   $('verLabel').textContent = 'v' + APP_VERSION;
+  paintVer();
   loadOpts();
   if (!R.themes()[st.text.theme]) st.text.theme = 'brand';
   if (!C.WALL_TONES[st.tone]) st.tone = 'pink';

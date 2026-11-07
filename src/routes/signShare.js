@@ -1,6 +1,7 @@
 // ลิงก์ดูป้าย 3 มิติ — ร้านกด "สร้างลิงก์" ในแอปจำลองป้าย แล้วส่งลิงก์ให้ลูกค้าเปิดหมุนดูในมือถือ
 //
 //   GET  /sign/api/ping           เช็กว่าเซิร์ฟเวอร์ตื่นแล้ว (แอปปลุกก่อนส่งไฟล์ — เซิร์ฟเวอร์ฟรีหลับ/กำลังอัปเดต)
+//   GET  /sign/api/live           สายสด (Server-Sent Events) บอกรุ่นแอปที่ขึ้นระบบอยู่ + เวลาที่ขึ้น — แอปที่เปิดค้างรู้ทันทีว่ามีรุ่นใหม่
 //   POST /sign/api/share          รับไฟล์ .glb (+ รูปตัวอย่าง) → { id, url }
 //   GET  /sign/v/:id              หน้าดู 3 มิติ (มีรูปตัวอย่างให้ LINE โชว์ตอนแปะลิงก์)
 //   GET  /sign/v/:id/model.glb    ไฟล์ 3 มิติ (?dl=1 = ดาวน์โหลด)
@@ -14,6 +15,7 @@
 // (หรือรัน supabase/migrations/023_sign_share_bucket.sql) · เซิร์ฟเวอร์อ่านส่งต่อเอง ไม่เปิด bucket สาธารณะ
 
 import express from 'express';
+import { readFileSync, statSync } from 'node:fs';
 import { escapeHtml } from '../utils/html.js';
 import { newShareId, isShareId, parseShareRequest, rateLimiter, jpegSize, newOwnerKey, hashKey, keyMatches, cleanView, mergeStats, cleanLead, leadText, SHARE_DAYS, SHARE_BUCKET, SHARE_TYPES, MAX_GLB } from '../utils/signShare.js';
 import { allowedUserIds, LINE_USER_ID } from '../utils/access.js';
@@ -182,12 +184,42 @@ async function lineNotify(text) {
   return sent.some(Boolean);
 }
 
-export function createSignShareRouter({ store, now = () => Date.now(), allow = rateLimiter(), allowLead = rateLimiter({ perHour: 5, perDay: 300 }), notify = lineNotify, flushMs = 4000 } = {}) {
+// รุ่นแอปที่เซิร์ฟเวอร์นี้เสิร์ฟอยู่ (อ่านจาก sw.js ที่ deploy มา) + เวลาที่ไฟล์ลงเครื่อง ≈ เวลาขึ้นระบบ
+const SW_FILE = new URL('../../sign-mockup/sw.js', import.meta.url);
+export function deployedApp(file = SW_FILE) {
+  try {
+    const m = readFileSync(file, 'utf8').match(/VERSION = 'sign-mockup-([\d.]+)'/);
+    return { v: m ? m[1] : '', at: Math.round(statSync(file).mtimeMs) };
+  } catch {
+    return { v: '', at: 0 };
+  }
+}
+
+export function createSignShareRouter({ store, now = () => Date.now(), allow = rateLimiter(), allowLead = rateLimiter({ perHour: 5, perDay: 300 }), notify = lineNotify, flushMs = 4000, app = deployedApp(), beatMs = 25000, liveMs = 15 * 60 * 1000 } = {}) {
   const router = express.Router();
 
   router.get('/api/ping', (req, res) => {
     res.set('Cache-Control', 'no-store');
     res.json({ ok: true, at: now() });
+  });
+
+  // สายสดบอกรุ่น: ต่อเมื่อไหร่ได้รุ่นปัจจุบันทันที · ตอน deploy เซิร์ฟเวอร์เก่าดับ สายหลุด → เบราว์เซอร์ต่อใหม่เอง
+  // (retry 3 วิ) เจอเซิร์ฟเวอร์ใหม่ → ได้รุ่นใหม่ → แอปอัปเดตเอง · ส่งหัวใจทุก 25 วิ กันพร็อกซีตัดสายเงียบ
+  // ตัดสายเองทุก 15 นาที (แอปต่อใหม่) ไม่ให้มีสายค้างนาน ๆ
+  router.get('/api/live', (req, res) => {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-store',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+    res.write(`retry: 3000\nevent: version\ndata: ${JSON.stringify({ v: app.v, at: app.at })}\n\n`);
+    const beat = setInterval(() => res.write(': beat\n\n'), beatMs);
+    const end = setTimeout(() => res.end(), liveMs);
+    req.on('close', () => {
+      clearInterval(beat);
+      clearTimeout(end);
+    });
   });
 
   router.post('/api/share', express.json({ limit: '30mb' }), async (req, res) => {
