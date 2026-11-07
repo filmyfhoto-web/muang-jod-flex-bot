@@ -859,6 +859,10 @@ textarea:focus {
 .chip.danger {
   color: #b3261e;
 }
+.toggle.off {
+  opacity: 0.6;
+  cursor: default;
+}
 .hand-pane {
   display: grid;
   gap: 8px;

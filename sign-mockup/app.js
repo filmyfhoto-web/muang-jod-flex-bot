@@ -6,7 +6,7 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '4.3.1';
+  var APP_VERSION = '4.3.2';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp', hands: C.HAND_BUILTIN.src });
 
@@ -915,6 +915,11 @@
     setVal('shopName', st.shopName);
     setVal('shopPhone', st.shopPhone);
     $('person').checked = st.person;
+    // งานชิ้นเล็ก (บัตร/โปสเตอร์/ป้ายตั้งโต๊ะ) ไม่โชว์คนยืน — บอกให้ชัด ไม่ใช่คนหายไปเฉย ๆ
+    var smallNow = !!C.TYPES[st.type].small;
+    $('person').disabled = smallNow;
+    $('personRow').classList.toggle('off', smallNow);
+    $('personText').textContent = smallNow ? 'คนยืนเทียบขนาด — ไม่โชว์กับงานชิ้นเล็ก (บัตร/โปสเตอร์/ป้ายตั้งโต๊ะ เล็กจนมองไม่เห็นข้างคน) เปลี่ยนเป็นงานป้ายแล้วคนยืนกลับมาเอง' : 'คนยืนเทียบขนาด (สูง 170 ซม.)';
     $('dims').checked = st.dims;
     $('info').checked = st.info;
     $('zoom').value = st.zoom;
