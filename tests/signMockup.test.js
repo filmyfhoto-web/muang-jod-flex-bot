@@ -1064,7 +1064,7 @@ test('3 มิติบนรูปหน้างาน: หากล้อง�
 
 test('3 มิติบนรูปหน้างาน: ไฟล์/HTML/ลิงก์ในฉากรูปลูกค้าใส่รูปเป็นฉากหลัง · ตัวดูเปิดมาเหมือนรูป มีปุ่มซูมดูป้าย', () => {
   const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
-  assert.match(app, /if \(!photo3dReady\(\)\) return stage\.exportGLB\(\{ scene: glbWithScene\(\) && sceneGlbOk\(\) \}\);\n    return stage\.exportPhotoGLB\(\{/);
+  assert.match(app, /if \(!photo3dReady\(\)\) return stage\.exportGLB\(\{ scene: glbWithScene\(\) && sceneGlbOk\(\) \}\);\n    return stage\.exportPhotoGLB\(photoOpts\(\)\);/);
   assert.match(app, /model3d\(\)\.then\(function \(ab\) \{\n        return blobToDataUrl/); // HTML พรีวิว
   assert.match(app, /var withPhoto = photo3dReady\(\);\n      var withScene = [^\n]+\n      return model3d\(\)/); // ไฟล์ .glb → ลิงก์ใช้ไฟล์นี้
   const s3 = readFileSync(new URL('../sign-mockup/scene3d.js', import.meta.url), 'utf8');
@@ -1099,4 +1099,36 @@ test('ไฟล์/ลิงก์ 3 มิติ "ป้าย + ฉาก": �
   assert.match(v, /o\.userData\.npScene/);
   assert.match(v, /function showScene\(/);
   assert.match(v, /personCard\.rotation\.y = Math\.atan2/); // คนยืนเทียบหันหากล้อง
+});
+
+test('ฉากหลังรูปหน้างานแบบกล่อง (ผนัง + พื้น) · รูป 3 มิติ Facebook (รูป + _depth) · ปุ่มลูกศรบนตัวดู', () => {
+  const C = require('../sign-mockup/core.js');
+  // กล้องตรงหน้าผนัง สูงกว่าพื้น: แถวล่างของรูปชนพื้น (Y = พื้น) แถวบนชนผนัง (Z = ผนัง)
+  const cam = { f: 800, R: [[1, 0, 0], [0, 1, 0], [0, 0, 1]], t: [0, 0, 3], W: 1000, H: 800, C: [0, 0, -3] };
+  const top = C.photoBoxPoint(cam, 500, 100, 0.01, 1.2, 50);
+  near(top[2], 0.01, 1e-9); // ผนัง
+  const bottom = C.photoBoxPoint(cam, 500, 790, 0.01, 1.2, 50);
+  near(bottom[1], 1.2, 1e-9); // พื้น
+  assert.ok(bottom[2] < 0.01); // อยู่หน้าผนัง
+  const wallOnly = C.photoBoxPoint(cam, 500, 790, 0.01, null, 50);
+  near(wallOnly[2], 0.01, 1e-9);
+  // จุดบนรังสีเดิมเสมอ (มุมเริ่มต้นเห็นเหมือนรูป)
+  const pr = C.photoProject(Object.assign({}, cam), bottom);
+  near(pr.x, 500, 1e-6);
+  near(pr.y, 790, 1e-6);
+
+  const s3 = readFileSync(new URL('../sign-mockup/scene3d.js', import.meta.url), 'utf8');
+  assert.match(s3, /C\.photoBoxPoint\(cam, \(i \/ NX\) \* W, \(j \/ NY\) \* H, zBack, yGround, far\)/);
+  assert.match(s3, /    fbPhoto,\n/);
+  assert.match(s3, /depthPacking: THREE\.RGBADepthPacking/);
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  assert.match(app, /if \(fmt === 'fb3d'\) return buildFb3d\(\);/);
+  assert.match(app, /extra: \[\{ blob: b\[1\], name: base \+ '_depth\.jpg' \}\]/); // ชื่อเดียวกัน ต่อท้าย _depth (Facebook จับคู่เอง)
+  const html = readFileSync(new URL('../sign-mockup/index.html', import.meta.url), 'utf8');
+  assert.match(html, /data-fmt="fb3d" id="fmtFb3d">รูป 3 มิติ Facebook</);
+  const v = readFileSync(new URL('../sign-mockup/viewer3d-core.js', import.meta.url), 'utf8');
+  for (const k of ['up', 'left', 'right', 'down', 'in', 'out']) assert.match(v, new RegExp('data-k="' + k + '"'), k);
+  assert.match(v, /for \(const k in held\) nudge\(k, dt\);/); // กดค้าง = ขยับต่อเนื่อง
+  const css = readFileSync(new URL('../sign-mockup/viewer3d.css', import.meta.url), 'utf8');
+  assert.match(css, /\.v-pad \{/);
 });

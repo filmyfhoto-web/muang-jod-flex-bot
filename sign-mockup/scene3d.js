@@ -3371,6 +3371,13 @@ export function createStage(opts) {
   async function exportPhotoGLB(o) {
     if (!model) throw new Error('ยังไม่มีป้าย');
     const { GLTFExporter } = await import('three/addons/exporters/GLTFExporter.js');
+    const P = buildPhotoRoot(o);
+    const glb = await new GLTFExporter().parseAsync(P.root, { binary: true, onlyVisible: true, maxTextureSize: 2048 });
+    P.dispose();
+    return glb;
+  }
+  // ฉากรูปหน้างาน (ป้าย + ฉากหลังแบบกล่อง + คน) — ใช้ทั้งไฟล์ .glb และรูป 3 มิติ Facebook
+  function buildPhotoRoot(o) {
     const root = new THREE.Group();
     root.name = 'NadponSign';
     const lift = model.floor ? 0 : model.h / 2;
@@ -3405,15 +3412,19 @@ export function createStage(opts) {
     const dist = camPos.distanceTo(new THREE.Vector3(cx, cy, front));
     const far = Math.max(dist * 4, 25);
 
-    // ฉากหลัง: ตารางจุดบนรูป ชนผนังหลังป้าย 1 ซม. (ไม่ซ้อนกับป้าย)
+    // ฉากหลังแบบกล่อง: ผนังหลังป้าย 1 ซม. (ไม่ซ้อนกับป้าย) + พื้นแนวนอนหน้าผนัง
+    // ระดับพื้น = เท้าคนยืนเทียบ (ภาพ 2 มิติวางให้แล้ว) หรือประมาณจากป้าย (ติดผนัง: ขอบล่างสูงจากพื้น ~1.5 ม. ลบครึ่งป้าย · ตั้งพื้น: ขอบล่าง)
     const zBack = front - box.min.z + 0.01;
-    const NX = 48;
-    const NY = Math.max(12, Math.round((NX * H) / W));
+    let yGround;
+    if (o.feet) yGround = C.photoDepthPoint(cam, o.feet.x, o.feet.y, Math.max(0.5, cam.t[2] - 0.3))[1];
+    else yGround = h / 2 + (model.floor ? 0 : Math.max(0.4, Math.min(3, 1.5 - h / 2)));
+    const NX = 96;
+    const NY = Math.max(24, Math.round((NX * H) / W));
     const pos = new Float32Array((NX + 1) * (NY + 1) * 3);
     const uv = new Float32Array((NX + 1) * (NY + 1) * 2);
     for (let j = 0, k = 0; j <= NY; j++) {
       for (let i = 0; i <= NX; i++, k++) {
-        const P = toThree(C.photoRayPoint(cam, (i / NX) * W, (j / NY) * H, zBack, far));
+        const P = toThree(C.photoBoxPoint(cam, (i / NX) * W, (j / NY) * H, zBack, yGround, far));
         pos[k * 3] = P.x;
         pos[k * 3 + 1] = P.y;
         pos[k * 3 + 2] = P.z;
@@ -3471,11 +3482,152 @@ export function createStage(opts) {
       size: [+w.toFixed(4), +h.toFixed(4)],
     };
     root.updateMatrixWorld(true);
-    const glb = await new GLTFExporter().parseAsync(root, { binary: true, onlyVisible: true, maxTextureSize: 2048 });
-    tex.dispose();
-    geo.dispose();
-    bg.material.dispose();
-    return glb;
+    return {
+      root,
+      W,
+      H,
+      camPos,
+      quat,
+      fov: (2 * Math.atan(H / 2 / cam.f) * 180) / Math.PI,
+      dispose() {
+        tex.dispose();
+        geo.dispose();
+        bg.material.dispose();
+      },
+    };
+  }
+
+  /* รูป 3 มิติของ Facebook: รูป + แผนที่ความลึก (ขาว = ใกล้ ดำ = ไกล) ขนาดเดียวกัน
+   * ฉาก 3 มิติ = มุมกล้องตอนนี้ · o.photo = ฉากรูปหน้างาน (ข้อมูลเดียวกับ exportPhotoGLB) มุมกล้องตอนถ่าย
+   * ความลึกเรนเดอร์จากโมเดลจริง (ป้าย คน ผนัง พื้น) — ไม่ต้องเดา · o.long = ด้านยาวของรูป (พิกเซล) */
+  function fbPhoto(o) {
+    o = o || {};
+    if (!model) throw new Error('ยังไม่มีป้าย');
+    stopShow();
+    const L = o.long || 1600;
+    const keepSize = lastSize.slice();
+    const keepBg = scene.background;
+    const keepFog = scene.fog;
+    const hidden = [];
+    const hide = (m) => {
+      if (m.visible) {
+        m.visible = false;
+        hidden.push(m);
+      }
+    };
+    let cam3;
+    let P = null;
+    let w;
+    let h;
+    if (o.photo) {
+      P = buildPhotoRoot(o.photo);
+      const k = L / Math.max(P.W, P.H);
+      w = Math.round(P.W * k);
+      h = Math.round(P.H * k);
+      cam3 = new THREE.PerspectiveCamera(P.fov, P.W / P.H, 0.05, 400);
+      cam3.position.copy(P.camPos);
+      cam3.quaternion.copy(P.quat);
+      for (const kk in envs) hide(envs[kk].group);
+      [signRoot, person, ties].forEach(hide);
+      scene.add(P.root);
+      scene.fog = null; // รูปถ่ายไม่ให้หมอกทับ
+    } else {
+      const a = camera.aspect;
+      w = a >= 1 ? L : Math.round(L * a);
+      h = a >= 1 ? Math.round(L / a) : L;
+      cam3 = camera.clone();
+      cam3.aspect = w / h;
+      cam3.near = Math.max(0.02, camera.near);
+      cam3.far = Math.min(camera.far, 400);
+    }
+    cam3.updateProjectionMatrix();
+    cam3.updateMatrixWorld(true);
+    renderer.setSize(w, h, false);
+    renderer.render(scene, cam3);
+    const color = mk(w, h);
+    color.getContext('2d').drawImage(renderer.domElement, 0, 0, w, h);
+
+    // ความลึก: วัสดุทุกชิ้นเป็น MeshDepthMaterial (เก็บค่า 32 บิตใน RGBA) — ชิ้นที่มีลายโปร่ง (คน ป้ายไดคัท) ตัดตามลาย
+    const swaps = [];
+    const cache = new Map();
+    scene.traverseVisible((m) => {
+      if (!m.isMesh) return;
+      const mats = Array.isArray(m.material) ? m.material : [m.material];
+      const soft = mats.every((mm) => mm && mm.transparent && !(mm.alphaTest > 0) && mm.depthWrite === false);
+      if (soft) return hide(m); // เงาเบลอ แสงฟุ้ง ไม่ใช่ผิววัตถุ
+      const dm = mats.map((mm) => {
+        if (!cache.has(mm)) {
+          const cut = mm && (mm.alphaTest > 0 || mm.transparent) && mm.map;
+          cache.set(mm, new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: cut ? mm.map : null, alphaTest: cut ? Math.max(0.3, mm.alphaTest || 0) : 0, side: mm ? mm.side : THREE.FrontSide }));
+        }
+        return cache.get(mm);
+      });
+      swaps.push([m, m.material]);
+      m.material = Array.isArray(m.material) ? dm : dm[0];
+    });
+    scene.background = null;
+    scene.fog = null;
+    const rt = new THREE.WebGLRenderTarget(w, h);
+    const keepClear = renderer.getClearColor(new THREE.Color());
+    const keepAlpha = renderer.getClearAlpha();
+    renderer.setClearColor(0xffffff, 1);
+    renderer.setRenderTarget(rt);
+    renderer.clear();
+    renderer.render(scene, cam3);
+    const px = new Uint8Array(w * h * 4);
+    renderer.readRenderTargetPixels(rt, 0, 0, w, h, px);
+    renderer.setRenderTarget(null);
+    renderer.setClearColor(keepClear, keepAlpha);
+    rt.dispose();
+    swaps.forEach(([m, mat]) => (m.material = mat));
+    cache.forEach((dm) => dm.dispose());
+
+    // z-buffer → ระยะจริง → ความใกล้ (1/ระยะ) ปรับช่วงตามฉาก ขาวสุด = ใกล้สุด
+    const n = cam3.near;
+    const f = cam3.far;
+    const dist = new Float32Array(w * h);
+    const vals = [];
+    for (let i = 0; i < w * h; i++) {
+      const d = (255 / 256) * (px[i * 4] / 255 / 16777216 + px[i * 4 + 1] / 255 / 65536 + px[i * 4 + 2] / 255 / 256 + px[i * 4 + 3] / 255);
+      if (d >= 0.9999) {
+        dist[i] = Infinity;
+        continue;
+      }
+      const z = (n * f) / (f - d * (f - n));
+      dist[i] = z;
+      if (i % 7 === 0) vals.push(z);
+    }
+    vals.sort((a, b) => a - b);
+    const z0 = vals.length ? vals[Math.floor(vals.length * 0.01)] : 1;
+    const z1 = vals.length ? vals[Math.floor(vals.length * 0.99)] : 10;
+    const depth = mk(w, h);
+    const dx = depth.getContext('2d');
+    const img = dx.createImageData(w, h);
+    const i0 = 1 / Math.max(1e-3, z0);
+    const i1 = 1 / Math.max(z0 * 1.01, z1);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const z = dist[(h - 1 - y) * w + x]; // พิกเซลจาก GPU กลับหัว
+        const g = z === Infinity ? 0 : Math.max(0, Math.min(1, (1 / z - i1) / (i0 - i1)));
+        const v = Math.round(g * 255);
+        const j = (y * w + x) * 4;
+        img.data[j] = img.data[j + 1] = img.data[j + 2] = v;
+        img.data[j + 3] = 255;
+      }
+    }
+    dx.putImageData(img, 0, 0);
+
+    hidden.forEach((m) => (m.visible = true));
+    scene.background = keepBg;
+    scene.fog = keepFog;
+    if (P) {
+      scene.remove(P.root);
+      P.dispose();
+    }
+    renderer.setSize(keepSize[0], keepSize[1], false);
+    camera.updateProjectionMatrix();
+    needs = true;
+    return { color, depth };
   }
 
   function setEnvIntensity() {
@@ -3512,6 +3664,7 @@ export function createStage(opts) {
     thumb,
     exportGLB,
     exportPhotoGLB,
+    fbPhoto,
     beginVideo,
     videoFrame,
     endVideo,
