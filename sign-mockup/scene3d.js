@@ -3088,6 +3088,7 @@ export function createStage(opts) {
   let raf = 0;
   function tick(now) {
     raf = requestAnimationFrame(tick);
+    if (video) return; // กำลังทำวิดีโอ: วาดทีละเฟรมเอง
     let moved = false;
     if (show) {
       stepShow(now);
@@ -3200,6 +3201,49 @@ export function createStage(opts) {
     needs = true;
   }
 
+  /* วิดีโอ (Reels แนวตั้ง): beginVideo → videoFrame(t) ทีละเฟรม (t = 0..1) → endVideo คืนกล้อง/ขนาดเดิม
+   * กล้องส่ายจากซ้ายไปขวาช้า ๆ ซูมเข้านิด ๆ (ป้ายตั้งพื้นในสตูดิโอ หมุนรอบ) */
+  let video = null;
+  function beginVideo(w, h) {
+    stopShow();
+    video = { size: lastSize.slice(), pos: camera.position.clone(), keep: controls.target.clone(), aspect: camera.aspect };
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    const a = aimFor('front', camera.aspect);
+    video.aim = a.target;
+    video.sph = new THREE.Spherical().setFromVector3(new THREE.Vector3().subVectors(a.pos, a.target));
+    video.full = envKey === 'studio' && !!model && model.floor;
+    video.lim = envKey === 'hand' ? 0.3 : smallNow() ? 0.42 : 0.55;
+  }
+  function videoFrame(t) {
+    const v = video;
+    if (!v) return null;
+    const e = t * t * (3 - 2 * t);
+    const s = v.sph.clone();
+    s.theta = v.full ? v.sph.theta - 0.7 + e * 1.4 : v.sph.theta + (e - 0.5) * 2 * v.lim;
+    s.phi = Math.max(0.2, v.sph.phi - 0.05 * Math.sin(Math.PI * t));
+    s.radius = v.sph.radius * (1.06 - 0.14 * e);
+    camera.position.setFromSpherical(s).add(v.aim);
+    if (camera.position.y < 0.12) camera.position.y = 0.12;
+    camera.lookAt(v.aim);
+    renderer.render(scene, camera);
+    return renderer.domElement;
+  }
+  function endVideo() {
+    const v = video;
+    if (!v) return;
+    video = null;
+    renderer.setSize(v.size[0], v.size[1], false);
+    camera.aspect = v.aspect;
+    camera.updateProjectionMatrix();
+    camera.position.copy(v.pos);
+    controls.target.copy(v.keep);
+    camera.lookAt(controls.target);
+    controls.update();
+    needs = true;
+  }
+
   // ภาพย่อของแต่ละฉาก (ใช้ป้ายปัจจุบัน มุมเฉียง)
   function thumb(key, out) {
     if (!model || !BUILD[key]) return;
@@ -3288,6 +3332,9 @@ export function createStage(opts) {
     renderAt,
     thumb,
     exportGLB,
+    beginVideo,
+    videoFrame,
+    endVideo,
     // กลับไปมุมกล้องเริ่มต้นของมุมที่เลือกอยู่
     resetView() {
       stopShow();

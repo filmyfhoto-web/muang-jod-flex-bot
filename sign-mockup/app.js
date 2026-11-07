@@ -6,7 +6,7 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '4.3.3';
+  var APP_VERSION = '4.4.0';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp', hands: C.HAND_BUILTIN.src });
 
@@ -387,6 +387,7 @@
     return faceCache;
   }
 
+  var lastStage = null; // สถานะล่าสุดที่ส่งให้เวที 3 มิติ (วิดีโอสลับกลางวัน/กลางคืนจากค่านี้)
   function draw3d() {
     var g = C.geometry(st.type, st.w, st.h, st.steel);
     var size = C.canvasSize(st.aspect, g, null);
@@ -405,7 +406,7 @@
     stage.setEnabled(true);
     stage.setSize(cw, Math.round(size.H * f));
     var fc = face3d();
-    stage.update({
+    stage.update((lastStage = {
       type: st.type,
       w: st.w,
       h: st.h,
@@ -422,7 +423,7 @@
       face: fc.canvas,
       faceKey: fc.key,
       edge: fc.bg,
-    });
+    }));
     footCache = null;
     stage.requestRender();
   }
@@ -2573,6 +2574,7 @@
     if (fmt === 'job') return buildJob();
     if (fmt === 'print') return buildPrint();
     if (fmt === 'html') return buildHtml();
+    if (fmt === 'reel') return buildReel();
     if (fmt === 'glb') {
       return stage.exportGLB().then(function (ab) {
         var blob = new Blob([ab], { type: 'model/gltf-binary' });
@@ -2599,6 +2601,135 @@
       });
     });
   }
+  /* ---------- วิดีโอ Reels (แนวตั้ง 9:16) ----------
+   * 3 มิติ: กล้องส่ายรอบป้าย ซูมเข้านิด ๆ · ป้ายมีไฟ: กลางวัน → ค่อย ๆ เป็นกลางคืนกลางคลิป
+   * 2 มิติ/รูปถ่าย: ภาพเต็มกว้าง ซูมช้า ๆ บนฉากหลังเบลอ · มือจับ (รูปถ่ายจริง) 2 ใบ: สองมือ → มือซ้าย → มือขวา
+   * ทับด้วยชื่อร้าน ชนิด ขนาด ราคา + หน้าปิดท้ายเบอร์โทร (reels.js) */
+  function litNow() {
+    var b = bt();
+    var L = st.look;
+    return b === 'lightbox' || b === 'neon' || (b === 'letters' && L.light !== 'none') || ((b === 'blade' || b === 'billboard') && L.lit);
+  }
+  function reelInfo() {
+    var q = quoteNow();
+    var T = C.billTotals(q, st.bill);
+    var price = T.plain ? (q.has ? 'ราคา ' + C.baht(q.total) + ' บาท' : '') : T.has ? 'ราคา ' + C.money(T.grand) + ' บาท' : '';
+    var note = [C.shapeNote(st.type, st.shape), bt() === 'window' ? C.FILMS[st.look.film] : C.lookNote(bt(), st.look)].filter(Boolean).join(' · ');
+    return {
+      shop: st.shopName.trim(),
+      phone: st.shopPhone.trim() ? C.phoneText(st.shopPhone) : '',
+      title: C.TYPES[st.type].name,
+      size: C.sizeText(st.w, st.h),
+      price: price,
+      note: note,
+      logo: logoImg || (st.brandLogo ? brandImg.mark : null),
+    };
+  }
+  function fontsReady() {
+    if (!document.fonts || !document.fonts.load) return Promise.resolve();
+    return Promise.all([document.fonts.load('600 66px Kanit'), document.fonts.load('700 84px Kanit'), document.fonts.load('500 44px "IBM Plex Sans Thai"')]).catch(function () {});
+  }
+  function reel3d(RL) {
+    var base = Object.assign({}, lastStage);
+    var lit = litNow() && !st.night;
+    var nightOn = !!st.night;
+    var setNight = function (n) {
+      if (n === nightOn) return;
+      nightOn = n;
+      stage.update(Object.assign({}, base, { night: n }));
+    };
+    stage.beginVideo(RL.W, RL.H);
+    return {
+      frame: function (x, i, N) {
+        var t = i / (N - 1);
+        var k = lit ? RL.ease((t - 0.42) / 0.14) : 0;
+        if (k < 1) {
+          setNight(false || !!st.night);
+          x.drawImage(stage.videoFrame(t), 0, 0, RL.W, RL.H);
+        }
+        if (k > 0) {
+          setNight(true);
+          x.globalAlpha = k;
+          x.drawImage(stage.videoFrame(t), 0, 0, RL.W, RL.H);
+          x.globalAlpha = 1;
+        }
+      },
+      done: function () {
+        stage.endVideo();
+        if (nightOn !== !!st.night) stage.update(Object.assign({}, base, { night: !!st.night }));
+        draw();
+      },
+    };
+  }
+  function reel2d(RL) {
+    var views = st.scene === 'handPhoto' && handReady() && handPhoto.cards.length > 1 ? ['both', 'left', 'right'] : [null];
+    var shots = views.map(function (v) {
+      var c = document.createElement('canvas');
+      var over = { info: false, dims: false, handEdit: false, aspect: 'portrait' };
+      if (v) over.handView = v;
+      R.render(c, renderState(over), { scale: 1.2, preview: false });
+      return c;
+    });
+    var span = RL.SEC - RL.END + 0.5; // ภาพสุดท้ายโชว์ก่อนหน้าปิดท้าย
+    return {
+      frame: function (x, i) {
+        var sec = i / RL.FPS;
+        var n = shots.length;
+        var seg = Math.min(0.9999, sec / span) * n;
+        var k = Math.min(n - 1, Math.floor(seg));
+        var local = seg - k;
+        RL.placeFlat(x, shots[k], 1 + 0.08 * RL.ease(local), 0, 0);
+        if (k < n - 1 && local > 0.84) {
+          x.globalAlpha = (local - 0.84) / 0.16;
+          RL.placeFlat(x, shots[k + 1], 1, 0, 0);
+          x.globalAlpha = 1;
+        }
+      },
+      done: function () {},
+    };
+  }
+  function buildReel() {
+    var RL = NS.reels;
+    if (!RL) return Promise.reject(new Error('reel'));
+    var info = reelInfo();
+    var N = RL.frames;
+    var out = document.createElement('canvas');
+    out.width = RL.W;
+    out.height = RL.H;
+    var x = out.getContext('2d');
+    var job = exp.job;
+    var src = null;
+    return fontsReady()
+      .then(function () {
+        src = is3d() ? reel3d(RL) : reel2d(RL);
+        return RL.encode({
+          frames: N,
+          fps: RL.FPS,
+          draw: function (i) {
+            x.globalAlpha = 1;
+            src.frame(x, i, N);
+            RL.overlay(x, i / RL.FPS, info);
+            return out;
+          },
+          progress: function (p) {
+            if (job === exp.job) $('dlStatus').textContent = 'กำลังทำวิดีโอ ' + Math.round(p * 100) + '% — รอสักครู่ ไม่ต้องปิดหน้านี้';
+          },
+          cancelled: function () {
+            return job !== exp.job || !$('exportDlg').open;
+          },
+        });
+      })
+      .then(
+        function (r) {
+          if (src) src.done();
+          return { blob: r.blob, name: fileName('reel', r.ext), ext: r.ext, preview: null, canvas: null };
+        },
+        function (e) {
+          if (src) src.done();
+          throw e;
+        }
+      );
+  }
   function kb(n) {
     return n >= 1048576 ? (Math.round((n / 1048576) * 10) / 10).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
   }
@@ -2610,6 +2741,7 @@
     print: 'ไฟล์ PDF ส่งโรงพิมพ์/เครื่องพิมพ์: จัดบัตรเต็มแผ่น เผื่อตัดตก 2 มม. มีเส้นตัด เลขรันเรียงทุกใบ',
     job: 'ใบสั่งผลิต A4 สำหรับช่าง: สเปกงาน วัสดุ งานตกแต่ง (ตาไก่/โครงเหล็ก/เลขรัน) ไฟล์ + ความละเอียดตอนพิมพ์ นัดรับ หมายเหตุถึงช่าง และช่องติ๊กขั้นตอนผลิต',
     compare: 'แบบละครึ่งหน้า พร้อมชนิด ขนาด ราคา และช่องให้ลูกค้าติ๊กเลือก — ส่งเข้า LINE ให้ลูกค้าตอบ “แบบ 1” หรือ “แบบ 2”',
+    reel: 'วิดีโอแนวตั้ง 9:16 (1080×1920) ยาว 9 วินาที มีชื่อร้าน ขนาด ราคา และหน้าปิดท้ายเบอร์โทร — โพสต์ลง Facebook / Instagram Reels, TikTok, YouTube Shorts ได้เลย · ใส่เพลงในแอปตอนโพสต์',
     html: 'ไฟล์เดียวจบ: ส่งทาง LINE / อีเมล / แฟลชไดรฟ์ ลูกค้าแตะหรือดับเบิลคลิกเปิดในเบราว์เซอร์ (Chrome / Safari / Edge) หมุนดูป้าย 3 มิติได้เลย ไม่ต้องลงแอป ไม่ต้องต่อเน็ต · มีปุ่มบันทึกรูปมุมที่ดู',
   };
   function planText(p) {
@@ -2642,9 +2774,14 @@
     $('cmpBar').hidden = fmt !== 'compare';
     pressed('#cmpOutSeg button', 'cout', st.cmpOut);
     pressed('#sheetSeg button', 'sheet', st.sheet);
-    $('exportTitle').textContent = fmt === 'pdf' ? 'ใบเสนอราคา' : fmt === 'glb' ? 'ไฟล์ 3 มิติ' : fmt === 'html' ? 'ไฟล์ HTML พรีวิว 3 มิติ' : fmt === 'print' ? 'ไฟล์พิมพ์บัตร' : fmt === 'compare' ? 'แบบให้ลูกค้าเลือก' : fmt === 'job' ? 'ใบสั่งผลิต' : 'รูปพร้อมส่งลูกค้า';
+    $('exportTitle').textContent = fmt === 'reel' ? 'วิดีโอ Reels (แนวตั้ง 9:16)' : fmt === 'pdf' ? 'ใบเสนอราคา' : fmt === 'glb' ? 'ไฟล์ 3 มิติ' : fmt === 'html' ? 'ไฟล์ HTML พรีวิว 3 มิติ' : fmt === 'print' ? 'ไฟล์พิมพ์บัตร' : fmt === 'compare' ? 'แบบให้ลูกค้าเลือก' : fmt === 'job' ? 'ใบสั่งผลิต' : 'รูปพร้อมส่งลูกค้า';
     $('dlHint').textContent = inFrame && fmt !== 'glb' && fmt !== 'html' ? 'มือถือ: กดค้างที่รูปแล้วเลือก “บันทึกรูปภาพ” · คอมพิวเตอร์: คลิกขวาที่รูป แล้วเลือกบันทึกรูป' : FMT_HINT[fmt];
-    $('dlStatus').textContent = 'กำลังเตรียมไฟล์…';
+    $('dlStatus').textContent = fmt === 'reel' ? 'กำลังเตรียมวิดีโอ…' : 'กำลังเตรียมไฟล์…';
+    if (fmt === 'reel') {
+      // ระหว่างทำวิดีโอ ยังไม่มีภาพตัวอย่าง
+      $('dlgImg').hidden = true;
+      $('dlgFile').hidden = true;
+    }
     ['dlShare', 'dlCopy', 'dlSave'].forEach(function (id) {
       $(id).disabled = true;
     });
@@ -2656,6 +2793,10 @@
       })
       .catch(function (e) {
         if (job !== exp.job) return;
+        if (fmt === 'reel') {
+          $('dlStatus').textContent = e && e.message === 'cancel' ? 'ยกเลิกการทำวิดีโอแล้ว' : 'ทำวิดีโอไม่สำเร็จ — ลองเปิดแอปใน Chrome / Edge / Safari รุ่นใหม่ แล้วลองอีกครั้ง';
+          return;
+        }
         $('dlStatus').textContent =
           fmt === 'glb' || fmt === 'html' ? 'สร้างไฟล์ 3 มิติไม่สำเร็จ ลองใหม่อีกครั้ง (ไฟล์ HTML ต้องเปิดแอปจากเซิร์ฟเวอร์ร้านอย่างน้อยครั้งแรก)' : fmt === 'print' && e && e.message === 'too_big' ? 'บัตรใหญ่เกินกระดาษนี้ ลองเลือกกระดาษใหญ่ขึ้น' : fmt === 'compare' && e && e.message === 'empty' ? 'ยังไม่ได้เก็บแบบ — ไปขั้น 4 กด “เก็บภาพนี้เป็นแบบที่ 1” ก่อน' : 'บันทึกไฟล์ไม่สำเร็จ ลองลดขนาดรูปที่ใส่แล้วลองใหม่';
       });
@@ -2668,8 +2809,20 @@
     exp.canvas = r.canvas;
     exp.url = URL.createObjectURL(r.blob);
     exp.purl = r.preview && r.preview !== r.blob ? URL.createObjectURL(r.preview) : '';
-    $('dlgImg').hidden = !r.preview;
-    $('dlgFile').hidden = !!r.preview;
+    var vid = $('exportVid');
+    var isVid = exp.fmt === 'reel';
+    $('dlgImg').hidden = !r.preview && !isVid;
+    $('dlgFile').hidden = !!r.preview || isVid;
+    $('exportImg').hidden = isVid;
+    vid.hidden = !isVid;
+    if (isVid) {
+      vid.src = exp.url;
+      vid.play().catch(function () {});
+    } else if (vid.getAttribute('src')) {
+      vid.pause();
+      vid.removeAttribute('src');
+      vid.load();
+    }
     if (r.preview) $('exportImg').src = exp.purl || exp.url;
     else {
       $('dlgFileName').textContent = r.name;
@@ -2683,6 +2836,7 @@
     // เปิดอยู่ในกรอบของเว็บอื่น (พรีวิว) ดาวน์โหลด/แชร์/คัดลอกถูกปิด เหลือกดค้าง/คลิกขวาที่รูป
     $('dlShare').hidden = inFrame || !canShare;
     $('dlCopy').hidden = inFrame || !r.canvas || exp.fmt === 'print' || !(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write);
+    if (isVid) $('dlHint').textContent = kb(r.blob.size) + ' · ' + (r.ext === 'mp4' ? 'MP4' : 'WebM (Facebook/TikTok รับได้ · Instagram อาจไม่รับ ลองเปิดแอปใน Chrome/Safari รุ่นใหม่)') + ' — ' + FMT_HINT.reel;
     if (r.plan) $('dlHint').textContent = planText(r.plan) + ' · ' + kb(r.blob.size) + ' — ' + FMT_HINT.print;
     $('dlSave').hidden = inFrame;
     $('dlCopy').textContent = exp.fmt === 'pdf' ? 'คัดลอกเป็นรูป' : 'คัดลอกรูป';
@@ -2830,7 +2984,7 @@
     if (!exp.blob) return;
     var file = new File([exp.blob], exp.name, { type: exp.blob.type });
     navigator
-      .share({ files: [file], title: exp.fmt === 'pdf' ? 'ใบเสนอราคา' : exp.fmt === 'compare' ? 'แบบให้เลือก' : exp.fmt === 'job' ? 'ใบสั่งผลิต' : 'ภาพจำลองป้าย' })
+      .share({ files: [file], title: exp.fmt === 'reel' ? 'วิดีโอป้าย' : exp.fmt === 'pdf' ? 'ใบเสนอราคา' : exp.fmt === 'compare' ? 'แบบให้เลือก' : exp.fmt === 'job' ? 'ใบสั่งผลิต' : 'ภาพจำลองป้าย' })
       .then(function () {
         $('dlStatus').textContent = 'เปิดหน้าแชร์แล้ว';
       })
