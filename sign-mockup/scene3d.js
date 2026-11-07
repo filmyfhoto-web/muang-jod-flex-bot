@@ -3027,6 +3027,7 @@ export function createStage(opts) {
     eye: { az: -0.18, eye: 1.6 },
     side: { az: -1.0, el: 0.08 },
     close: { az: -0.22, el: 0.04, tight: true }, // ใกล้ป้าย: เห็นงานชัด ไม่เอาคน/ประตูมาคิดระยะ
+    video: { az: 0, el: 0.05, tight: true }, // วิดีโอ Reels: ป้ายเต็มตา (คนยืนอาจล้นขอบภาพได้)
   };
   function aimFor(name, aspect) {
     const v = VIEWS[name] || VIEWS.angle;
@@ -3210,11 +3211,15 @@ export function createStage(opts) {
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
-    const a = aimFor('front', camera.aspect);
+    // บัตรบนกระดาษ: เงานุ่มใต้กองบัตรใหญ่กว่าบัตรมาก ไม่เอามาคิดกรอบ (บัตรจะเล็กนิดเดียว)
+    const stack = !!stackG.parent;
+    if (stack) signRoot.remove(stackG);
+    const a = aimFor('video', camera.aspect);
+    if (stack) signRoot.add(stackG);
     video.aim = a.target;
     video.sph = new THREE.Spherical().setFromVector3(new THREE.Vector3().subVectors(a.pos, a.target));
     video.full = envKey === 'studio' && !!model && model.floor;
-    video.lim = envKey === 'hand' ? 0.3 : smallNow() ? 0.42 : 0.55;
+    video.lim = envKey === 'hand' ? 0.3 : smallNow() ? 0.38 : 0.48;
   }
   function videoFrame(t) {
     const v = video;
@@ -3223,7 +3228,7 @@ export function createStage(opts) {
     const s = v.sph.clone();
     s.theta = v.full ? v.sph.theta - 0.7 + e * 1.4 : v.sph.theta + (e - 0.5) * 2 * v.lim;
     s.phi = Math.max(0.2, v.sph.phi - 0.05 * Math.sin(Math.PI * t));
-    s.radius = v.sph.radius * (1.06 - 0.14 * e);
+    s.radius = v.sph.radius * (1.02 - 0.16 * e);
     camera.position.setFromSpherical(s).add(v.aim);
     if (camera.position.y < 0.12) camera.position.y = 0.12;
     camera.lookAt(v.aim);
