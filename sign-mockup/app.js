@@ -6,7 +6,7 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '4.5.0';
+  var APP_VERSION = '4.5.1';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp', hands: C.HAND_BUILTIN.src });
 
@@ -141,6 +141,10 @@
         })
       : null;
   }
+  // ตำแหน่งเท้าคนยืนเทียบบนรูปหน้าร้าน (0..1) ที่เก็บไว้ ต้องเป็นตัวเลขจริง
+  function validFeet(p) {
+    return p && isFinite(p.x) && isFinite(p.y) && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1 ? { x: +p.x, y: +p.y } : null;
+  }
   function snapshot() {
     var o = {};
     Object.keys(st).forEach(function (k) {
@@ -148,8 +152,10 @@
     });
     var json = JSON.stringify(o);
     var q = photo ? copyQuad(photo.quad) : null;
+    var pp = photo && photo.person ? { x: photo.person.x, y: photo.person.y } : null;
     return {
-      key: json + '|' + (imgDesign ? imgDesign.id : '') + '|' + (photo ? photo.id + JSON.stringify(q) : ''),
+      key: json + '|' + (imgDesign ? imgDesign.id : '') + '|' + (photo ? photo.id + JSON.stringify(q) + JSON.stringify(pp) : ''),
+      person: pp,
       json: json,
       img: imgDesign,
       photo: photo,
@@ -185,6 +191,7 @@
     if (photo && s.quad) {
       photo.quad = copyQuad(s.quad);
       photo.touched = s.touched;
+      photo.person = s.person ? { x: s.person.x, y: s.person.y } : null;
     }
     if (st.mode === 'image' && !imgDesign) st.mode = 'text';
     if (st.scene === 'photo' && !photo) st.scene = DEF.scene;
@@ -405,12 +412,19 @@
     fitView();
     stage.setEnabled(true);
     stage.setSize(cw, Math.round(size.H * f));
+    stage.update((lastStage = stageState()));
+    footCache = null;
+    stage.requestRender();
+  }
+  // สถานะที่ส่งให้เวที 3 มิติ (ฉากรูปถ่ายใช้ฉากพื้นเรียบ/มือถือบัตรแทน เพราะตัวป้ายเหมือนกัน)
+  function stageState() {
     var fc = face3d();
-    stage.update((lastStage = {
+    var sc = st.scene === 'photo' ? 'studio' : st.scene === 'handPhoto' ? 'hand' : sceneNow();
+    return {
       type: st.type,
       w: st.w,
       h: st.h,
-      scene: st.scene === 'photo' ? 'studio' : sceneNow(),
+      scene: sc,
       spot: st.spot,
       doorOpen: st.doorOpen,
       tone: st.tone,
@@ -423,9 +437,11 @@
       face: fc.canvas,
       faceKey: fc.key,
       edge: fc.bg,
-    }));
-    footCache = null;
-    stage.requestRender();
+    };
+  }
+  // ฉากรูปถ่าย (2 มิติ) ก็ส่งออกไฟล์/ลิงก์ 3 มิติได้ — ไฟล์มีแค่ตัวป้าย ให้เวที 3 มิติตามงานล่าสุดก่อน
+  function syncStage() {
+    if (stage && !is3d()) stage.update((lastStage = stageState()));
   }
 
   function footerCanvas() {
@@ -1213,7 +1229,10 @@
   }
   $('resetQuad').addEventListener('click', function () {
     refreshPhotoQuad(true);
-    if (photo) photo.touched = false;
+    if (photo) {
+      photo.touched = false;
+      photo.person = null;
+    }
     save();
     draw();
   });
@@ -1240,6 +1259,16 @@
         best = i;
       }
     }
+    // ลากคนยืนเทียบ (ไม่ได้จับมุมป้าย แต่จับที่ตัวคน)
+    var pb = lastOut.personBox;
+    if (best < 0 && pb && p.x >= pb.x0 && p.x <= pb.x1 && p.y >= pb.y0 && p.y <= pb.y1) {
+      e.preventDefault();
+      var feet = photo.person || { x: (pb.x0 + pb.x1) / 2 / lastOut.W, y: (pb.y1 - (pb.y1 - pb.y0) * (6 / 184)) / lastOut.H };
+      drag = { person: true, start: p, feet: { x: feet.x, y: feet.y } };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add('dragging');
+      return;
+    }
     if (best < 0 && !C.pointInQuad(p, q)) return;
     e.preventDefault();
     drag = { corner: best, start: p, quad: photo.quad.map(function (c) {
@@ -1256,6 +1285,11 @@
     var lim = function (v) {
       return Math.max(-0.25, Math.min(1.25, v));
     };
+    if (drag.person) {
+      photo.person = { x: Math.max(0, Math.min(1, drag.feet.x + dx)), y: Math.max(0.05, Math.min(1, drag.feet.y + dy)) };
+      draw();
+      return;
+    }
     photo.quad = drag.quad.map(function (c, i) {
       if (drag.corner >= 0 && i !== drag.corner) return c;
       return { x: lim(c.x + dx), y: lim(c.y + dy) };
@@ -2125,6 +2159,7 @@
       });
   }
   function buildHtml() {
+    syncStage();
     var poster = mockupCanvas(0.6, false);
     var title = C.TYPES[st.type].name;
     return Promise.all([
@@ -2576,6 +2611,7 @@
     if (fmt === 'html') return buildHtml();
     if (fmt === 'reel') return buildReel();
     if (fmt === 'glb') {
+      syncStage();
       return stage.exportGLB().then(function (ab) {
         var blob = new Blob([ab], { type: 'model/gltf-binary' });
         return { blob: blob, name: fileName('sign3d', 'glb'), preview: null, canvas: null };
@@ -2759,7 +2795,7 @@
       toast('มุมบัตรไขว้กันอยู่ กด “ปรับมุมบัตร” แล้วจัดมุมให้เป็นสี่เหลี่ยมก่อนบันทึก');
       return;
     }
-    if ((fmt === 'glb' || fmt === 'html') && !is3d()) fmt = 'jpg';
+    if ((fmt === 'glb' || fmt === 'html') && !stage) fmt = 'jpg';
     if (fmt === 'print' && !isCard()) fmt = 'jpg';
     exp.fmt = fmt;
     if ((fmt === 'jpg' || fmt === 'png') && st.fmt !== fmt) {
@@ -2767,8 +2803,8 @@
       save();
     }
     pressed('#fmtSeg button', 'fmt', fmt);
-    $('fmtGlb').hidden = !is3d();
-    $('fmtHtml').hidden = !is3d() || inFrame; // หน้าพรีวิวโหลดตัวดูมาฝังไม่ได้
+    $('fmtGlb').hidden = !stage; // ฉากรูปถ่ายก็ได้ (ไฟล์มีแค่ตัวป้าย) — ไม่ได้เฉพาะเครื่องที่เปิด 3 มิติไม่ได้
+    $('fmtHtml').hidden = !stage || inFrame; // หน้าพรีวิวโหลดตัวดูมาฝังไม่ได้
     $('fmtPrint').hidden = !isCard();
     $('sheetBar').hidden = fmt !== 'print';
     $('cmpBar').hidden = fmt !== 'compare';
@@ -3411,7 +3447,7 @@
       thumb: jobThumb(),
       label: C.TYPES[st.type].name + ' · ' + C.sizeText(st.w, st.h),
       design: imgDesign && imgDesign.blob ? { blob: imgDesign.blob, name: imgDesign.name } : null,
-      photo: photo && photo.blob ? { blob: photo.blob, quad: copyQuad(photo.quad), touched: photo.touched } : null,
+      photo: photo && photo.blob ? { blob: photo.blob, quad: copyQuad(photo.quad), touched: photo.touched, person: photo.person || null } : null,
     };
     return NS.jobs.put(j).then(function () {
       curJob = { id: id, name: name };
@@ -3436,6 +3472,7 @@
       if (photo) {
         photo.quad = copyQuad(j.photo.quad);
         photo.touched = !!j.photo.touched;
+        photo.person = validFeet(j.photo.person);
         if (!photo.quad) refreshPhotoQuad(true);
       }
       if (st.mode === 'image' && !imgDesign) st.mode = 'text';
@@ -3602,6 +3639,7 @@
         scene: st.scene,
         quad: photo ? copyQuad(photo.quad) : null,
         touched: photo ? photo.touched : false,
+        person: photo && photo.person ? photo.person : null,
         updated: Date.now(),
       }),
     ];
@@ -3651,6 +3689,7 @@
             if (cur.quad) {
               photo.quad = copyQuad(cur.quad);
               photo.touched = !!cur.touched;
+              photo.person = validFeet(cur.person);
             } else refreshPhotoQuad(true);
             if (want.scene === 'photo') st.scene = 'photo';
           }

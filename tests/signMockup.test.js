@@ -1009,3 +1009,17 @@ test('วิดีโอ Reels: แนวตั้ง 9:16 1080×1920 30 fps 9 �
   const s3 = readFileSync(new URL('../sign-mockup/scene3d.js', import.meta.url), 'utf8');
   for (const f of ['beginVideo', 'videoFrame', 'endVideo']) assert.match(s3, new RegExp('    ' + f + ',\\n'), f);
 });
+
+test('ฉากรูปถ่ายหน้าร้าน: มีไฟล์/ลิงก์ 3 มิติ (ตัวป้าย) และคนยืนเทียบตามขนาดป้ายจริง ลากวางได้ จำตำแหน่งไว้', () => {
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  assert.match(app, /\$\('fmtGlb'\)\.hidden = !stage;/);
+  assert.match(app, /\(fmt === 'glb' \|\| fmt === 'html'\) && !stage\) fmt = 'jpg'/);
+  assert.match(app, /function buildHtml\(\) \{\n    syncStage\(\);/);
+  assert.match(app, /if \(fmt === 'glb'\) \{\n      syncStage\(\);/);
+  assert.match(app, /st\.scene === 'photo' \? 'studio' : st\.scene === 'handPhoto' \? 'hand'/);
+  assert.match(app, /drag = \{ person: true/);
+  assert.match(app, /person: pp,/);
+  const render = readFileSync(new URL('../sign-mockup/render.js', import.meta.url), 'utf8');
+  assert.match(render, /if \(st\.person\) photoPerson\(/);
+  assert.match(render, /out\.personBox = /);
+});
