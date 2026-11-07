@@ -2,7 +2,7 @@
  * ไฟล์แอป: ขอจากเซิร์ฟเวอร์ก่อน (ได้รุ่นล่าสุดเสมอ) เน็ตหลุดค่อยใช้ของในเครื่อง
  * three.js / ไอคอน / โลโก้: ใช้ของในเครื่องก่อน (ไม่เปลี่ยนบ่อย เปิดเร็ว)
  * เปลี่ยนไฟล์แอปเมื่อไหร่ ให้เลื่อน VERSION ให้ตรงกับ APP_VERSION ใน app.js (มีเทสต์เช็ก) */
-var VERSION = 'sign-mockup-4.3.3';
+var VERSION = 'sign-mockup-4.4.0';
 var APP = [
   './',
   'index.html',
@@ -10,6 +10,7 @@ var APP = [
   'core.js',
   'render.js',
   'jobs.js',
+  'reels.js',
   'app.js',
   'scene3d.js',
   'vendor/three.module.min.js',
@@ -19,6 +20,7 @@ var APP = [
   'vendor/addons/exporters/GLTFExporter.js',
   'vendor/addons/utils/TextureUtils.js',
   'vendor/viewer3d.standalone.js',
+  'vendor/mp4-muxer.min.js',
   'viewer3d.css',
   'brand/ntp-logo.png',
   'brand/ntp-mark.png',

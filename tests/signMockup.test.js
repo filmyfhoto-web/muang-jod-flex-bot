@@ -979,3 +979,33 @@ test('ฉากมือจับ (รูปถ่ายจริง): มีร
   const sw = readFileSync(new URL('../sign-mockup/sw.js', import.meta.url), 'utf8');
   assert.match(sw, /'brand\/hands-cards\.webp'/); // ใช้ออฟไลน์ได้
 });
+
+test('วิดีโอ Reels: แนวตั้ง 9:16 1080×1920 30 fps 9 วินาที · H.264 ก่อน (ทุกแอปรับ) · ไฟล์รวม MP4 เก็บไว้ใช้ออฟไลน์', () => {
+  const RL = require('../sign-mockup/reels.js');
+  assert.equal(RL.W, 1080);
+  assert.equal(RL.H, 1920);
+  assert.equal(RL.FPS, 30);
+  assert.equal(RL.frames, 270);
+  assert.ok(RL.END > 1 && RL.END < 3);
+  assert.equal(RL.CODECS[0][0], 'avc');
+  assert.ok(RL.CODECS.some((c) => c[0] === 'vp9'));
+  near(RL.ease(0), 0);
+  near(RL.ease(0.5), 0.5);
+  near(RL.ease(2), 1);
+  const mux = readFileSync(new URL('../sign-mockup/vendor/mp4-muxer.min.js', import.meta.url), 'utf8');
+  assert.match(mux, /mp4-muxer 5\.2\.2.*MIT License/);
+  assert.match(mux, /var Mp4Muxer=/);
+  const sw = readFileSync(new URL('../sign-mockup/sw.js', import.meta.url), 'utf8');
+  assert.match(sw, /'reels\.js'/);
+  assert.match(sw, /'vendor\/mp4-muxer\.min\.js'/);
+  const html = readFileSync(new URL('../sign-mockup/index.html', import.meta.url), 'utf8');
+  assert.match(html, /data-fmt="reel"/);
+  assert.match(html, /id="exportVid"/);
+  assert.ok(html.indexOf('src="reels.js"') > 0 && html.indexOf('src="reels.js"') < html.indexOf('src="app.js"'));
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  assert.match(app, /if \(fmt === 'reel'\) return buildReel\(\);/);
+  // ป้ายมีไฟ → คลิปเปลี่ยนเป็นกลางคืนกลางทาง
+  assert.match(app, /return b === 'lightbox' \|\| b === 'neon'/);
+  const s3 = readFileSync(new URL('../sign-mockup/scene3d.js', import.meta.url), 'utf8');
+  for (const f of ['beginVideo', 'videoFrame', 'endVideo']) assert.match(s3, new RegExp('    ' + f + ',\\n'), f);
+});

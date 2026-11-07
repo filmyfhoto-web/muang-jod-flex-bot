@@ -628,6 +628,7 @@
         <button type="button" data-fmt="print" id="fmtPrint" hidden>ไฟล์พิมพ์ (จัดหน้า)</button>
         <button type="button" data-fmt="compare" id="fmtCompare">เทียบ 2 แบบ</button>
         <button type="button" data-fmt="job" id="fmtJob">ใบสั่งผลิต (ส่งช่าง)</button>
+        <button type="button" data-fmt="reel" id="fmtReel">วิดีโอ Reels</button>
       </div>
       <div class="sheetbar" id="cmpBar" hidden>
         <span class="label">ไฟล์</span>
@@ -644,7 +645,7 @@
           <button type="button" data-sheet="s13">13×19 นิ้ว</button>
         </div>
       </div>
-      <div class="dlg-img" id="dlgImg"><img id="exportImg" alt="ภาพจำลองป้ายสำหรับส่งลูกค้า" /></div>
+      <div class="dlg-img" id="dlgImg"><img id="exportImg" alt="ภาพจำลองป้ายสำหรับส่งลูกค้า" /><video id="exportVid" playsinline muted loop controls hidden></video></div>
       <div class="dlg-file" id="dlgFile" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z" /><path d="m4 7.5 8 4.5 8-4.5M12 12v9" /></svg>
         <div><b id="dlgFileName"></b><small id="dlgFileInfo"></small></div>
@@ -863,6 +864,7 @@
     <script src="core.js"></script>
     <script src="render.js"></script>
     <script src="jobs.js"></script>
+    <script src="reels.js"></script>
     <script src="app.js"></script>
     <script type="module" src="scene3d.js"></script>
   </body>
