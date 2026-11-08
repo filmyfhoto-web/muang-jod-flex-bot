@@ -2107,6 +2107,30 @@
     return [cam.C[0] + s * dir[0], cam.C[1] + s * dir[1], cam.C[2] + s * dir[2]];
   }
 
+  /* ข้อความโพสต์ Facebook (ชุดโพสต์): ชื่องาน ขนาด ลิงก์ดู 3 มิติ ชวนทัก ชื่อร้าน เบอร์ แฮชแท็ก — ไม่ใส่ชื่อลูกค้า (โพสต์สาธารณะ) */
+  function fbCaption(o) {
+    o = o || {};
+    var clean = function (v, n) {
+      return String(v || '').replace(/[\r\n]+/g, ' ').trim().slice(0, n || 80);
+    };
+    var title = clean(o.title, 60) || 'ป้าย';
+    var size = clean(o.size, 40);
+    var shop = clean(o.shop, 60);
+    var phone = clean(o.phone, 30).replace(/^โทร\s*/, '');
+    var url = /^https?:\/\/\S+$/.test(String(o.url || '')) ? String(o.url) : '';
+    var tag = title.replace(/\(.*?\)/g, '').replace(/[^\u0E00-\u0E7FA-Za-z0-9]+/g, '');
+    var lines = ['✨ ตัวอย่างงาน' + title + (size ? ' ขนาด ' + size : '')];
+    if (url) {
+      lines.push('👉 แตะลิงก์ หมุนดูแบบ 3 มิติรอบป้าย ซูมดูใกล้ ๆ ได้');
+      lines.push(url);
+    }
+    lines.push('');
+    lines.push('สนใจทำแบบนี้ / สอบถามราคา ทักได้เลย');
+    if (shop || phone) lines.push('📞 ' + [shop, phone ? 'โทร ' + phone : ''].filter(Boolean).join(' '));
+    lines.push('#ป้าย #รับทำป้าย' + (tag ? ' #' + tag : ''));
+    return lines.join('\n');
+  }
+
   function thaiDate(d) {
     var months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
     return d.getDate() + ' ' + months[d.getMonth()] + ' ' + (d.getFullYear() + 543);
@@ -2188,6 +2212,7 @@
     presetLabel: presetLabel,
     phoneText: phoneText,
     thaiDate: thaiDate,
+    fbCaption: fbCaption,
     photoCamera: photoCamera,
     photoProject: photoProject,
     photoRayPoint: photoRayPoint,

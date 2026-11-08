@@ -2114,3 +2114,20 @@ dialog.type-dlg {
     display: none;
   }
 }
+
+/* ชุดโพสต์ Facebook: ข้อความโพสต์พร้อมลิงก์ (แก้ได้) */
+.postbox {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 4px;
+}
+.postbox label {
+  color: var(--ink-2);
+  font-size: 13px;
+}
+.postbox textarea {
+  width: 100%;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+}

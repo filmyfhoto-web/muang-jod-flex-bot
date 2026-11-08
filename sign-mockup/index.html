@@ -625,6 +625,7 @@
         <button type="button" data-fmt="pdf">ใบเสนอราคา PDF</button>
         <button type="button" data-fmt="glb" id="fmtGlb">ไฟล์/ลิงก์ 3 มิติ</button>
         <button type="button" data-fmt="html" id="fmtHtml">HTML พรีวิว 3 มิติ</button>
+        <button type="button" data-fmt="fbpack" id="fmtFbPack">ชุดโพสต์ Facebook</button>
         <button type="button" data-fmt="fb3d" id="fmtFb3d">รูป 3 มิติ Facebook</button>
         <button type="button" data-fmt="print" id="fmtPrint" hidden>ไฟล์พิมพ์ (จัดหน้า)</button>
         <button type="button" data-fmt="compare" id="fmtCompare">เทียบ 2 แบบ</button>
@@ -657,6 +658,11 @@
       <div class="dlg-file" id="dlgFile" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z" /><path d="m4 7.5 8 4.5 8-4.5M12 12v9" /></svg>
         <div><b id="dlgFileName"></b><small id="dlgFileInfo"></small></div>
+      </div>
+      <div class="postbox" id="postBox" hidden>
+        <label for="postText">ข้อความโพสต์ (แก้ได้)</label>
+        <textarea id="postText" rows="7"></textarea>
+        <button type="button" class="btn-primary" id="postCopy">คัดลอกข้อความโพสต์</button>
       </div>
       <div class="share3d" id="share3d" hidden>
         <button type="button" class="btn-primary" id="mkLink">
