@@ -1127,31 +1127,25 @@ test('ฉากหลังรูปหน้างานแบบกล่อ�
   const html = readFileSync(new URL('../sign-mockup/index.html', import.meta.url), 'utf8');
   assert.match(html, /data-fmt="fb3d" id="fmtFb3d">รูป 3 มิติ Facebook</);
   const v = readFileSync(new URL('../sign-mockup/viewer3d-core.js', import.meta.url), 'utf8');
-  for (const k of ['left', 'right', 'in', 'out']) assert.match(v, new RegExp('data-k="' + k + '"'), k);
+  for (const k of ['in', 'out']) assert.match(v, new RegExp('data-k="' + k + '"'), k);
   assert.match(v, /for \(const k in held\) nudge\(k, dt\);/); // กดค้าง = ขยับต่อเนื่อง
   const css = readFileSync(new URL('../sign-mockup/viewer3d.css', import.meta.url), 'utf8');
   assert.match(css, /\.v-pad \{/);
 });
 
-test('ตัวดู 3 มิติแบบโปรแกรม 3D: ลูกศรโค้งวนรอบป้าย (แตะหมุนได้) · พื้นตาราง + แกน X Y Z · ปุ่มไอคอนลูกศรโค้ง', () => {
+test('ตัวดู 3 มิติ: ไม่มีลูกศรบนภาพ หมุนด้วยเมาส์/นิ้วลาก · ปุ่มซูม ＋ − · พื้นตาราง + แกน X Y Z (ไฟล์เฉพาะป้าย)', () => {
   const v = readFileSync(new URL('../sign-mockup/viewer3d-core.js', import.meta.url), 'utf8');
-  assert.match(v, /function buildOrbit\(center, rx, rz, front\)/);
-  assert.match(v, /make\(-0\.25, -1\.45, 'left'\);\n    make\(0\.25, 1\.45, 'right'\);/);
-  assert.match(v, /new THREE\.ConeGeometry\(/); // หัวลูกศร
-  assert.match(v, /const side = orbitHit\(e\);\n    if \(side\) \{/); // แตะลูกศร = หมุน
-  assert.match(v, /let best = 30;/); // แตะใกล้ ๆ ก็โดน
+  for (const gone of ['buildOrbit', 'orbitHit', 'arcMat', 'data-k="left"', 'data-k="right"']) assert.ok(!v.includes(gone), gone);
+  assert.match(v, /data-k="in" aria-label="ซูมเข้า"/);
+  assert.match(v, /data-k="out" aria-label="ซูมออก"/);
   assert.match(v, /function buildGrid\(box\)/);
   for (const t of ["'X', '#d9534f'", "'Y', '#3a9d5d'", "'Z', '#3d6fd1'"]) assert.ok(v.includes(t), t);
-  assert.match(v, /arcMat\.opacity = ARC_A \* tf \* Math\.max\(0/); // ซูมใกล้แล้วจาง · ใช้งานแล้วจางหาย
-  assert.match(v, /const ARC_A = 0\.32;/); // จาง ๆ
-  assert.match(v, /const tube = orbitR \* 0\.005;/); // เส้นบางตามขนาดชิ้นงาน (บัตรเล็กไม่เทอะทะ)
   assert.match(v, /const ls = Math\.max\(0\.008, r \* 0\.09\);/);
   assert.match(v, /'gesturestart', 'gesturechange'/); // ไม่ซูมทั้งหน้า
-  // ฉาก/รูปหน้างาน: วงอยู่ใต้ขอบล่างป้าย ไม่ทับหน้าป้าย · ป้ายยื่นหมุนวงตามหน้าป้าย
-  assert.match(v, /-info\.size\[1\] \/ 2 - Math\.min\(0\.04, info\.size\[1\] \* 0\.08\)/);
-  assert.match(v, /orbitG\.rotation\.set\(0, front \? Math\.atan2\(front\.x, front\.z\) : 0, 0\);/);
   const css = readFileSync(new URL('../sign-mockup/viewer3d.css', import.meta.url), 'utf8');
   assert.match(css, /\.v-pad svg \{/);
+  const C = require('../sign-mockup/core.js');
+  assert.match(C.viewerFile({ glb: '', poster: '', title: 'ป้าย' }), /ลากเมาส์\/นิ้วเพื่อหมุน/);
 });
 
 test('ชุดโพสต์ Facebook: รูป 3 มิติ + ลิงก์ดู 3 มิติ (สร้างเอง ใช้ซ้ำ) + ข้อความโพสต์พร้อมลิงก์ (ไม่มีชื่อลูกค้า)', () => {
@@ -1191,11 +1185,9 @@ test('ตัวดู 3 มิติดูโปร: สีหน้าป้า
   assert.match(v, /const pivotT = pos\.clone\(\)\.addScaledVector\(fwd, ta\);/);
   assert.match(v, /q0: null/);
   assert.match(v, /function blurBack\(img, aspect\)/);
-  assert.match(v, /'<span class="v-sep" aria-hidden="true"><\/span>'/);
   assert.ok(!/data-k="up"/.test(v));
   const s3 = readFileSync(new URL('../sign-mockup/scene3d.js', import.meta.url), 'utf8');
   assert.match(s3, /if \(m && m\.isMaterial\) m\.name = 'NadponFace';/);
   const css = readFileSync(new URL('../sign-mockup/viewer3d.css', import.meta.url), 'utf8');
   assert.match(css, /backdrop-filter: blur\(8px\);/);
-  assert.match(css, /\.v-sep \{/);
 });

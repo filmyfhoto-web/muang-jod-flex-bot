@@ -1682,7 +1682,7 @@
       (poster ? '<img class="v-poster" id="poster" src="data:image/jpeg;base64,' + poster + '" alt="รูปตัวอย่างป้าย" hidden>' : '') +
       '<canvas id="c" aria-label="ภาพ 3 มิติของป้าย หมุนดูได้"></canvas>' +
       '<p class="v-load" id="load">กำลังเปิดภาพ 3 มิติ…</p>' +
-      '<p class="v-hint" id="hint">ลากเพื่อหมุน · ถ่างนิ้วหรือเลื่อนล้อเมาส์เพื่อซูม</p></main>\n' +
+      '<p class="v-hint" id="hint">ลากเมาส์/นิ้วเพื่อหมุน · ปุ่ม ＋ − ล้อเมาส์ หรือถ่างนิ้วเพื่อซูม</p></main>\n' +
       '<section class="v-info"><h1>' + escHtml(o.title || 'ป้าย') + '</h1><p>' + escHtml([o.size, o.customer ? 'ลูกค้า: ' + o.customer : ''].filter(Boolean).join(' · ')) + '</p></section>\n' +
       '<nav class="v-bar"><button type="button" id="spin" aria-pressed="true">หมุนอัตโนมัติ</button>' +
       '<button type="button" id="zoom" aria-pressed="false">ซูมดูป้าย</button>' +

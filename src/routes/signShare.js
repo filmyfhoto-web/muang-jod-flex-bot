@@ -132,7 +132,7 @@ ${og}
   ${rec.poster ? `<img class="v-poster" id="poster" src="/sign/v/${id}/poster.jpg" alt="รูปตัวอย่างป้าย" hidden>` : ''}
   <canvas id="c" aria-label="ภาพ 3 มิติของป้าย หมุนดูได้"></canvas>
   <p class="v-load" id="load">กำลังโหลดภาพ 3 มิติ…</p>
-  <p class="v-hint" id="hint">ลากเพื่อหมุน · ถ่างนิ้วหรือเลื่อนล้อเมาส์เพื่อซูม</p>
+  <p class="v-hint" id="hint">ลากเมาส์/นิ้วเพื่อหมุน · ปุ่ม ＋ − ล้อเมาส์ หรือถ่างนิ้วเพื่อซูม</p>
 </main>
 <section class="v-info">
   <h1>${escapeHtml(m.title || 'ป้าย')}</h1>
