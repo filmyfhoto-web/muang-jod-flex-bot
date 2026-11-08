@@ -681,10 +681,25 @@
         </div>
       </div>
       <div class="postbox promobox" id="promoBox" hidden>
+        <div class="promo-top">
+          <canvas id="promoPrev" width="216" height="384" aria-label="ตัวอย่างแบบวิดีโอ"></canvas>
+          <div class="promo-opts">
+            <span class="label">ธีมสีฉาก</span>
+            <div class="promo-themes" id="promoThemes" role="group" aria-label="ธีมสีฉาก"></div>
+            <label class="label" for="promoFont">ฟอนต์หัวเรื่อง</label>
+            <select id="promoFont"></select>
+            <span class="label">ลูกเล่นตัวอักษร</span>
+            <div class="seg small" id="promoAnim">
+              <button type="button" data-anim="rise">เลื่อนขึ้น</button>
+              <button type="button" data-anim="pop">เด้งขยาย</button>
+              <button type="button" data-anim="wipe">กวาดเปิด</button>
+            </div>
+          </div>
+        </div>
         <label for="promoText">ข้อความ 5 ฉาก — บรรทัดละฉาก · ใส่ / เพื่อขึ้นบรรทัดใหม่ · บรรทัดท้ายของฉากเป็นตัวไล่สี</label>
         <textarea id="promoText" rows="5" spellcheck="false"></textarea>
         <div class="row">
-          <button type="button" class="btn-primary small" id="promoGo">ทำวิดีโอใหม่ด้วยข้อความนี้</button>
+          <button type="button" class="btn-primary small" id="promoGo">ทำวิดีโอแบบนี้</button>
           <button type="button" class="btn-ghost small" id="promoReset">ใช้ข้อความตั้งต้น</button>
         </div>
       </div>
