@@ -2131,3 +2131,29 @@ dialog.type-dlg {
   line-height: 1.5;
   resize: vertical;
 }
+
+/* วิดีโอโปรโมท: ข้อความ 5 ฉาก */
+.promobox .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.promobox textarea {
+  font-family: inherit;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* ปฏิทินตั้งโต๊ะ: รูปประจำเดือนย่อ */
+.calthumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.calthumbs canvas {
+  width: 48px;
+  height: 33px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+}

@@ -169,6 +169,145 @@
       x.restore();
     }
   }
+  /* ---------- วิดีโอโปรโมท 5 ฉาก (16 วินาที) ----------
+   * plan = { shots: [[บรรทัด, …] × 5], shop, phone, logo, cuts: [0, 3, 6.2, 9.6, 12.8, 16] }
+   * หัวเรื่องกลางบน: บรรทัดท้ายของแต่ละฉากเป็นตัวไล่สีชมพู→ม่วง เลื่อนขึ้นทีละบรรทัด · เปลี่ยนฉากมืดวูบสั้น ๆ
+   * ฉากสุดท้าย: การ์ดชื่อร้าน + โลโก้ + เบอร์โทร (เหนือแถบปุ่มของแอป ~420 จุดล่าง) */
+  var PROMO_SEC = 16;
+  var PROMO_CUTS = [0, 3, 6.2, 9.6, 12.8, 16];
+  var GRAD = ['#ff6fb1', '#c063ff', '#7f8cff'];
+  function promoShotAt(sec, cuts) {
+    var i = 0;
+    while (i < cuts.length - 2 && sec >= cuts[i + 1]) i++;
+    return { i: i, local: sec - cuts[i], dur: cuts[i + 1] - cuts[i] };
+  }
+  function promoOverlay(x, sec, plan) {
+    var cuts = (plan && plan.cuts) || PROMO_CUTS;
+    var S = promoShotAt(sec, cuts);
+    var last = S.i === cuts.length - 2;
+    var lines = ((plan && plan.shots) || [])[S.i] || [];
+    x.save();
+    x.textAlign = 'center';
+    x.textBaseline = 'alphabetic';
+    // ไล่เงาเข้มด้านบน ให้หัวเรื่องอ่านง่าย
+    var gt = x.createLinearGradient(0, 0, 0, 900);
+    gt.addColorStop(0, 'rgba(6,5,12,0.62)');
+    gt.addColorStop(0.55, 'rgba(6,5,12,0.25)');
+    gt.addColorStop(1, 'rgba(6,5,12,0)');
+    x.fillStyle = gt;
+    x.fillRect(0, 0, W, 900);
+    // ชื่อร้านเล็ก ๆ ด้านบน (ฉาก 1–4)
+    if (!last && plan && plan.shop) {
+      x.globalAlpha = 0.78 * fadeIn(sec, 0.3, 0.6);
+      x.fillStyle = '#ffffff';
+      fit(x, plan.shop, 640, 34, 500, BODY);
+      x.fillText(plan.shop, W / 2, 262);
+      x.globalAlpha = 1;
+    }
+    // หัวเรื่อง
+    var out = last ? 1 : 1 - ease((S.local - (S.dur - 0.28)) / 0.24);
+    var y = 410;
+    var big = S.i === 0 || last ? 118 : 104;
+    for (var j = 0; j < lines.length; j++) {
+      var a = ease((S.local - 0.18 - j * 0.16) / 0.42) * out;
+      var t = lines[j];
+      var grad = j === lines.length - 1;
+      var size = fit(x, t, 940, grad ? big : Math.round(big * 0.82), 700, DISPLAY);
+      if (a > 0.01) {
+        x.save();
+        x.globalAlpha = a;
+        x.translate(0, (1 - a) * 56);
+        if (grad) {
+          var tw = x.measureText(t).width;
+          var g = x.createLinearGradient(W / 2 - tw / 2, 0, W / 2 + tw / 2, 0);
+          g.addColorStop(0, GRAD[0]);
+          g.addColorStop(0.55, GRAD[1]);
+          g.addColorStop(1, GRAD[2]);
+          x.shadowColor = 'rgba(170,90,255,0.6)';
+          x.shadowBlur = 34;
+          x.fillStyle = g;
+        } else {
+          x.shadowColor = 'rgba(0,0,0,0.45)';
+          x.shadowBlur = 18;
+          x.fillStyle = '#ffffff';
+        }
+        x.fillText(t, W / 2, y + size * 0.82);
+        x.restore();
+      }
+      y += Math.round(size * 1.2);
+    }
+    // ขีดเส้นไล่สีใต้หัวเรื่อง
+    if (lines.length) {
+      var la = ease((S.local - 0.5) / 0.4) * out;
+      if (la > 0.01) {
+        var lw = 220 * la;
+        var lg = x.createLinearGradient(W / 2 - lw / 2, 0, W / 2 + lw / 2, 0);
+        lg.addColorStop(0, GRAD[0]);
+        lg.addColorStop(1, GRAD[2]);
+        x.fillStyle = lg;
+        rr(x, W / 2 - lw / 2, y + 22, lw, 10, 5);
+        x.fill();
+      }
+    }
+    // การ์ดปิดท้าย: โลโก้ + ชื่อร้าน + เบอร์โทร
+    if (last) promoCard(x, S.local, plan || {});
+    // เปลี่ยนฉาก: เริ่มคลิปค่อย ๆ สว่าง · ต้นฉากถัดไปมืดวูบ 0.18 วินาที
+    var dark = S.i === 0 ? 1 - ease(S.local / 0.45) : 1 - ease(S.local / 0.18);
+    if (dark > 0.01) {
+      x.globalAlpha = dark;
+      x.fillStyle = '#05040a';
+      x.fillRect(0, 0, W, H);
+    }
+    x.restore();
+  }
+  function promoCard(x, local, plan) {
+    var a = ease((local - 0.55) / 0.5);
+    if (a <= 0.01) return;
+    var shop = plan.shop || 'ร้านป้าย';
+    x.save();
+    x.globalAlpha = a;
+    x.translate(0, (1 - a) * 70);
+    var top = 1180;
+    var h = plan.phone ? 300 : 210;
+    x.fillStyle = 'rgba(255,255,255,0.95)';
+    x.shadowColor = 'rgba(0,0,0,0.35)';
+    x.shadowBlur = 40;
+    rr(x, 80, top, W - 160, h, 44);
+    x.fill();
+    x.shadowBlur = 0;
+    var cx = W / 2;
+    var nameY = top + 92;
+    if (plan.logo && plan.logo.width) {
+      var lh = 96;
+      var lw = Math.min(220, (plan.logo.width / plan.logo.height) * lh);
+      lh = (lw * plan.logo.height) / plan.logo.width;
+      x.drawImage(plan.logo, 120, top + 34 + (96 - lh) / 2, lw, lh);
+      cx = 120 + lw + (W - 120 - lw - 120) / 2 + 10;
+    }
+    x.textAlign = 'center';
+    x.fillStyle = '#1d1730';
+    fit(x, shop, cx === W / 2 ? 820 : 600, 64, 700, DISPLAY);
+    x.fillText(shop, cx, nameY);
+    x.fillStyle = '#6b6680';
+    x.font = '500 34px ' + BODY;
+    x.fillText('ทักแชต / โทรสั่งทำได้เลย', cx, nameY + 52);
+    if (plan.phone) {
+      x.font = '600 58px ' + DISPLAY;
+      var pw = Math.min(W - 240, x.measureText(plan.phone).width + 130);
+      var py = top + h - 116;
+      var g = x.createLinearGradient(W / 2 - pw / 2, 0, W / 2 + pw / 2, 0);
+      g.addColorStop(0, GRAD[0]);
+      g.addColorStop(1, GRAD[1]);
+      x.fillStyle = g;
+      rr(x, W / 2 - pw / 2, py, pw, 88, 44);
+      x.fill();
+      x.fillStyle = '#ffffff';
+      x.textBaseline = 'middle';
+      x.fillText(plan.phone, W / 2, py + 46);
+    }
+    x.restore();
+  }
+
   /* ภาพ 2 มิติ (สัดส่วนใดก็ได้) วางในเฟรมแนวตั้ง: เต็มความกว้าง + ฉากหลังเบลอจากภาพเดียวกัน · zoom = ซูมเข้า (1 = พอดีกว้าง) */
   var blurCache = { src: null, c: null };
   function placeFlat(x, src, zoom, panX, panY) {
@@ -354,6 +493,6 @@
     });
   }
 
-  NS.reels = { W: W, H: H, FPS: FPS, SEC: SEC, END: END, frames: FPS * SEC, ease: ease, overlay: overlay, placeFlat: placeFlat, encode: encode, loadMuxer: loadMuxer, CODECS: CODECS };
+  NS.reels = { W: W, H: H, FPS: FPS, SEC: SEC, END: END, frames: FPS * SEC, ease: ease, overlay: overlay, placeFlat: placeFlat, encode: encode, loadMuxer: loadMuxer, CODECS: CODECS, PROMO_SEC: PROMO_SEC, PROMO_CUTS: PROMO_CUTS, promoFrames: FPS * PROMO_SEC, promoOverlay: promoOverlay, promoShotAt: promoShotAt };
   if (typeof module === 'object' && module.exports) module.exports = NS.reels;
 })(typeof self !== 'undefined' ? self : this);
