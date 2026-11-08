@@ -253,7 +253,7 @@ body {
   background: #141b30;
 }
 
-/* แถบเครื่องมือขอบขวา: หมุน ↺ ↻ · ซูม ＋ − (กดค้างได้) — กระจกเข้ม ไอคอนขาว เล็ก ไม่ทับกลางภาพ */
+/* ปุ่มซูม ＋ − ขอบขวา (กดค้างได้) — กระจกเข้ม ไอคอนขาว เล็ก ไม่ทับกลางภาพ · หมุนใช้เมาส์/นิ้วลาก */
 .v-pad {
   position: absolute;
   right: 10px;
@@ -299,10 +299,4 @@ body {
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-.v-sep {
-  width: 18px;
-  height: 1px;
-  margin: 3px 0;
-  background: rgba(255, 255, 255, 0.25);
 }
