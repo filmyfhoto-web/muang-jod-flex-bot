@@ -16,6 +16,7 @@ import { parseOrderText } from '../../src/picklist.js';
 const DIR = fileURLToPath(new URL('../../app-patches/sale-orders-page/', import.meta.url));
 const read = (f) => readFileSync(DIR + f, 'utf8');
 const code = read('saleorders.module.js');
+const v11 = read('saleorders.module.v11.js');
 const v10 = read('saleorders.module.v10.js');
 const v9 = read('saleorders.module.v9.js');
 const v8 = read('saleorders.module.v8.js');
@@ -26,7 +27,7 @@ const v4 = read('saleorders.module.v4.js');
 const v3 = read('saleorders.module.v3.js');
 const v2 = read('saleorders.module.v2.js');
 const v1 = read('saleorders.module.v1.js');
-const built = buildSql(code, { v10, v9, v8, v7, v6, v5, v4, v3, v2, v1 });
+const built = buildSql(code, { v11, v10, v9, v8, v7, v6, v5, v4, v3, v2, v1 });
 const V1_MD5 = '9559832beab918cf7261079338771178'; // what the first installed version hashes to (checked against production on 4 Nov 2569)
 const V2_MD5 = '021d0e36d3e31cb66c46c58e62a7ea7e'; // what the version the back office had before v3 hashes to (checked against production)
 const V3_MD5 = '9f5e3e414a69ce2f89c2ab0e135af1a1'; // what the v3 version (live since the LINE bridge) hashes to
@@ -43,6 +44,8 @@ const V9_MD5 = '00d486ee6556e47e95203879d4f96360'; // what the v9 version (live 
 const RAN_V8_TO_V9_MD5 = '4a849c63ac36253293b15a93ac3c6767'; // the exact script that ran on production when v9 was installed
 const V10_MD5 = '94897ce42e38bd38939f63072feb4b96'; // what the v10 version (live since colored tags on each chat) hashes to
 const RAN_V9_TO_V10_MD5 = 'aee2ac964fae662b65518c96693e0d5f'; // the exact script that ran on production when v10 was installed
+const V11_MD5 = '787ac08bc3127734a790ad819b602829'; // what the v11 version (live since the job-flow quick replies, assignee and customer card) hashes to
+const RAN_V10_TO_V11_MD5 = '09f786ca7e2116c0e5c531a52bed47e7'; // the exact script that ran on production when v11 was installed
 const FROZEN_V1_TO_V2_MD5 = 'd0be45e0a86f17d62229ac898a4e5645'; // the exact script that ran on production on 4 Nov 2569
 const RAN_V3_TO_V4_MD5 = '02861dcf8aaa83d7ac8a2875be68029b'; // the exact script that ran on production when v4 was installed
 
@@ -91,6 +94,8 @@ test('the committed scripts are the ones these files give, and the ten versions 
     ['downgrade109', 'downgrade-v10-to-v9.sql'],
     ['upgrade1011', 'upgrade-v10-to-v11.sql'],
     ['downgrade1110', 'downgrade-v11-to-v10.sql'],
+    ['upgrade1112', 'upgrade-v11-to-v12.sql'],
+    ['downgrade1211', 'downgrade-v12-to-v11.sql'],
   ]) {
     assert.equal(read(file), built[key], `${file} is stale: run node app-patches/sale-orders-page/make-sql.mjs`);
   }
@@ -104,7 +109,8 @@ test('the committed scripts are the ones these files give, and the ten versions 
   assert.equal(built.md5v5, V5_MD5, 'saleorders.module.v5.js is byte for byte the version live since ลงบัญชี');
   assert.equal(built.md5v9, V9_MD5, 'saleorders.module.v9.js is byte for byte the version live since the closed-sales total');
   assert.equal(built.md5v10, V10_MD5, 'saleorders.module.v10.js is byte for byte the version live since colored tags on each chat');
-  assert.equal(new Set([built.md5, built.md5v10, built.md5v9, built.md5v8, built.md5v7, built.md5v6, built.md5v5, built.md5v4, built.md5v3, built.md5v2, built.md5v1]).size, 11, 'the current version differs from each earlier one');
+  assert.equal(built.md5v11, V11_MD5, 'saleorders.module.v11.js is byte for byte the version live since the job-flow quick replies, assignee and customer card');
+  assert.equal(new Set([built.md5, built.md5v11, built.md5v10, built.md5v9, built.md5v8, built.md5v7, built.md5v6, built.md5v5, built.md5v4, built.md5v3, built.md5v2, built.md5v1]).size, 12, 'the current version differs from each earlier one');
   assert.equal(md5Of(read('upgrade-v1-to-v2.sql')), FROZEN_V1_TO_V2_MD5, 'upgrade-v1-to-v2.sql is the script that ran on production, unchanged');
   assert.equal(md5Of(read('upgrade-v3-to-v4.sql')), RAN_V3_TO_V4_MD5, 'upgrade-v3-to-v4.sql is the script that ran on production when v4 was installed');
   assert.equal(md5Of(read('upgrade-v4-to-v5.sql')), RAN_V4_TO_V5_MD5, 'upgrade-v4-to-v5.sql is the script that ran on production when v5 was installed');
@@ -113,6 +119,7 @@ test('the committed scripts are the ones these files give, and the ten versions 
   assert.equal(md5Of(read('upgrade-v7-to-v8.sql')), RAN_V7_TO_V8_MD5, 'upgrade-v7-to-v8.sql is the script that ran on production when v8 was installed');
   assert.equal(md5Of(read('upgrade-v8-to-v9.sql')), RAN_V8_TO_V9_MD5, 'upgrade-v8-to-v9.sql is the script that ran on production when v9 was installed');
   assert.equal(md5Of(read('upgrade-v9-to-v10.sql')), RAN_V9_TO_V10_MD5, 'upgrade-v9-to-v10.sql is the script that ran on production when v10 was installed');
+  assert.equal(md5Of(read('upgrade-v10-to-v11.sql')), RAN_V10_TO_V11_MD5, 'upgrade-v10-to-v11.sql is the script that ran on production when v11 was installed');
 });
 
 test('the module code is valid JavaScript (compiled, not run) and names no other page as its own', () => {
@@ -694,8 +701,8 @@ test('upgrade-v10-to-v11.sql moves the page from v10 to v11: only its code chang
       const others0 = await othersOf(d);
       await d.exec(built.upgrade1011);
       const r = await rowOf(d);
-      assert.equal(r.code, code, 'the stored code is exactly the current (v11) file');
-      assert.equal(await md5In(d, r.code), built.md5);
+      assert.equal(r.code, v11, 'the stored code is exactly the v11 file');
+      assert.equal(await md5In(d, r.code), built.md5v11);
       assert.deepEqual([r.enabled, r.seq], [enabled, 66], 'switched on stays on, switched off stays off');
       assert.deepEqual(await othersOf(d), others0, 'salechat and the other modules are exactly as they were');
       await d.exec(built.upgrade1011);
@@ -745,26 +752,82 @@ test('downgrade-v11-to-v10.sql puts v10 back byte for byte, keeps enabled and se
   }
 });
 
-test('ป้ายสีจัดหมวดแชต (tags) are offered as a small menu next to the stage button, and the list row shows the color as a left border', () => {
+test('upgrade-v11-to-v12.sql moves the page from v11 to v12: only its code changes (enabled and seq stay), and running it again does nothing', async () => {
+  for (const enabled of [true, false]) {
+    const d = await installed(v11, enabled);
+    try {
+      const others0 = await othersOf(d);
+      await d.exec(built.upgrade1112);
+      const r = await rowOf(d);
+      assert.equal(r.code, code, 'the stored code is exactly the current (v12) file');
+      assert.equal(await md5In(d, r.code), built.md5);
+      assert.deepEqual([r.enabled, r.seq], [enabled, 66], 'switched on stays on, switched off stays off');
+      assert.deepEqual(await othersOf(d), others0, 'salechat and the other modules are exactly as they were');
+      await d.exec(built.upgrade1112);
+      assert.deepEqual(await rowOf(d), r, 'run twice: nothing more changes');
+    } finally {
+      await d.close();
+    }
+  }
+});
+
+test('upgrade-v11-to-v12.sql refuses a page that is neither v11 nor v12, and never overwrites an edited one', async () => {
+  const edited = await installed(v11 + '\n// a later edit');
+  try {
+    const kept = (await rowOf(edited)).code;
+    await assert.rejects(edited.exec(built.upgrade1112), /neither v11 nor v12/);
+    assert.equal((await rowOf(edited)).code, kept, 'the edited code is still there');
+  } finally {
+    await edited.close();
+  }
+  const old = await installed(v10);
+  try {
+    await assert.rejects(old.exec(built.upgrade1112), /neither v11 nor v12/);
+    assert.equal((await rowOf(old)).code, v10, 'the v10 page is still there, untouched');
+  } finally {
+    await old.close();
+  }
+});
+
+test('downgrade-v12-to-v11.sql puts v11 back byte for byte, keeps enabled and seq, refuses an edited v12, and is harmless twice', async () => {
+  const d = await installed(v11);
+  try {
+    await d.exec(built.upgrade1112);
+    const others0 = await othersOf(d);
+    await d.exec(built.downgrade1211);
+    const r = await rowOf(d);
+    assert.equal(r.code, v11);
+    assert.equal(await md5In(d, r.code), V11_MD5, 'the md5 the v11 page had before the upgrade');
+    assert.deepEqual([r.enabled, r.seq], [true, 66]);
+    assert.deepEqual(await othersOf(d), others0);
+    await d.exec(built.downgrade1211);
+    assert.equal((await rowOf(d)).code, v11, 'run twice: still v11');
+    await d.exec(built.upgrade1112);
+    await d.query("update app_modules set code = code || E'\\n// edited' where name = 'saleorders'");
+    await assert.rejects(d.exec(built.downgrade1211), /neither v12 nor v11/);
+  } finally {
+    await d.close();
+  }
+});
+
+test('ป้ายสีจัดหมวดแชต (tags) are a persistent colored row above the quick-reply row (v12), not a menu behind a button; the list row shows the color as a left border', () => {
   assert.match(code, /const TAG=\[\['inquiry','สอบถาม'/, 'the four tags are defined');
-  assert.ok(code.includes("data-a=\"tagmenu\""), 'the header has a tag button');
-  assert.ok(code.includes("if(a==='tagmenu'){S.tagMenu=!S.tagMenu;S.stageMenu=false;"), 'opening the tag menu closes the stage menu');
-  assert.ok(code.includes("if(a==='stagemenu'){S.stageMenu=!S.stageMenu;S.tagMenu=false;"), 'opening the stage menu closes the tag menu');
-  assert.ok(code.includes("if(a==='tag'){setTag(el.dataset.k||null);return}"));
+  assert.doesNotMatch(code, /data-a="tagmenu"/, 'v10’s dropdown-behind-a-button tag menu is gone');
+  assert.ok(code.includes('class="so-tagrow"'), 'the four tag buttons are always visible, one row, no click-to-open step');
+  assert.ok(code.includes("if(a==='tag'){const th=S.list.find(x=>x.id===S.sel);setTag(th&&th.tag===el.dataset.k?null:el.dataset.k);return}"), 'clicking the already-active tag clears it; clicking a different one switches to it — one click either way');
   assert.ok(code.includes('async function setTag(k){'));
   assert.ok(code.includes(".update({tag:k,updated_at:now})"), 'the tag is written straight to sale_threads, like the stage');
   assert.ok(code.includes("so-row.tagged{border-left-color:var(--tc,transparent)}"), 'an untagged row keeps a transparent border — no visual change');
 });
 
-test('the quick-reply buttons follow the job flow, and a chat has a per-thread responsible person next to its tag', () => {
+test('the quick-reply buttons follow the job flow, and a chat has a per-thread responsible person', () => {
   assert.match(code, /const TPL=\[\['รับรายละเอียดแล้ว'/, 'the quick-reply buttons are the job-flow set, not the old generic greeting set');
   assert.ok(code.includes("['งานพร้อมรับ','"), 'the last step of the flow is there too');
   assert.doesNotMatch(code, /'ทักทาย'/, 'the old generic greeting template is gone, not just added to');
   assert.match(code, /const STAFF=\['หญิง','ฟิล์ม','พี่ปิ่น'\]/, 'the assignee quick-pick list is the same 3 names as the order form’s own staff datalist');
   assert.ok(code.includes('data-a="assignmenu"'), 'the header has an assignee button');
-  assert.ok(code.includes("if(a==='assignmenu'){S.assignMenu=!S.assignMenu;S.stageMenu=false;S.tagMenu=false;"), 'opening the assignee menu closes the other two');
-  assert.ok(code.includes("if(a==='tagmenu'){S.tagMenu=!S.tagMenu;S.stageMenu=false;S.assignMenu=false;"), 'opening the tag menu also closes the assignee menu');
-  assert.ok(code.includes("if(a==='stagemenu'){S.stageMenu=!S.stageMenu;S.tagMenu=false;S.assignMenu=false;"), 'opening the stage menu also closes the assignee menu');
+  assert.ok(code.includes("if(a==='assignmenu'){S.assignMenu=!S.assignMenu;S.stageMenu=false;"), 'opening the assignee menu closes the stage menu');
+  assert.ok(code.includes("if(a==='stagemenu'){S.stageMenu=!S.stageMenu;S.assignMenu=false;"), 'opening the stage menu closes the assignee menu');
   assert.ok(code.includes("if(a==='assign'){setAssignee(el.dataset.k);return}"));
   assert.ok(code.includes('async function setAssignee(name){'));
   assert.ok(code.includes('.update({assignee:v,updated_at:now})'), 'the assignee is written straight to sale_threads, like the stage and the tag');

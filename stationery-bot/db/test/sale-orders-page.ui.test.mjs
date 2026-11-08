@@ -104,7 +104,7 @@ async function newContext(extra = {}, { signedIn = true } = {}) {
 before(async () => {
   if (!CHROMIUM) return;
   mkdirSync(SHOTS, { recursive: true });
-  db = await openSaleDb({ cards: true, assignee: true });
+  db = await openSaleDb({ cards: true, assignee: true, tags: true });
   await db.query(`insert into stores (id, name, vat_rate, doc_prefix) values ($1, 'นัฐภรณ์ คัลเลอร์แล็ป', 7, 'RC-CL'), ($2, 'นัฐภรณ์ การพิมพ์', 0, 'RC-PR')`, [CL, PR]);
   await db.query(
     `insert into products (id, code, name, unit, price, stock_qty, tier_prices) values
@@ -474,7 +474,7 @@ test('the assignee pill (v11): three quick names, a free-text name, and "ไม�
   assert.equal(await page.locator('#so_chat [data-a="assignmenu"]').innerText(), 'ผู้รับผิดชอบ ▾');
   await page.locator('#so_chat [data-a="assignmenu"]').click();
   const names = await page.locator('#so_root .so-stgmenu [data-a="assign"]').allInnerTexts();
-  assert.deepEqual(names, ['หญิง', 'ฟิล์ม', 'พี่ปิ่น', '✓ ไม่ระบุ'], 'no one is assigned yet, so "ไม่ระบุ" is the checked (current) choice — same convention as the stage and tag menus');
+  assert.deepEqual(names, ['หญิง', 'ฟิล์ม', 'พี่ปิ่น', '✓ ไม่ระบุ'], 'no one is assigned yet, so "ไม่ระบุ" is the checked (current) choice — same convention as the stage menu');
   await page.locator('#so_root .so-stgmenu [data-a="assign"]', { hasText: 'ฟิล์ม' }).click();
   await flashSays(/มอบหมายให้ "ฟิล์ม" แล้ว/);
   assert.equal(await page.locator('#so_chat [data-a="assignmenu"]').innerText(), 'ฟิล์ม ▾');
@@ -531,4 +531,34 @@ test('customer card (v11): an unlinked chat can be linked to an existing custome
   assert.match(cardText, /1\s*งานทั้งหมด/);
   assert.match(cardText, /2,942\.50\s*ยอดซื้อรวม/);
   assert.match(cardText, /0\s*งานกำลังทำ/, 'the one order is closed, so none are "in progress"');
+});
+
+test('the tag row (v12): all four colors are always visible, one click sets a color, the same click again clears it, and the list row picks up the border', skipIt, async () => {
+  await openRow('โรงเรียนบ้านตัวอย่าง');
+  await until(async () => (await chatTitle()) === 'โรงเรียนบ้านตัวอย่าง', 'the chat');
+  const labels = await page.locator('#so_root .so-tagrow .so-tagbtn').allInnerTexts();
+  assert.deepEqual(labels, ['สอบถาม', 'ปัญหา', 'ด่วน', 'ตอบกลับภายหลัง'], 'all four are on screen at once — no button to open first');
+  assert.equal(await page.locator('#so_root .so-tagrow .so-tagbtn.on').count(), 0, 'nothing is tagged yet, so none is highlighted');
+  assert.equal((await one('select tag from sale_threads where id = $1', [T(1)])).tag, null);
+
+  await page.locator('#so_root .so-tagrow .so-tagbtn', { hasText: 'ด่วน' }).click();
+  await flashSays(/ติดป้าย "ด่วน" แล้ว/);
+  assert.equal((await one('select tag from sale_threads where id = $1', [T(1)])).tag, 'urgent');
+  let note = await one(`select body, kind from sale_msgs where thread_id = $1 order by created_at desc limit 1`, [T(1)]);
+  assert.equal(note.kind, 'system');
+  assert.match(note.body, /ติดป้าย "ด่วน"/);
+  const onNow = page.locator('#so_root .so-tagrow .so-tagbtn.on');
+  await assert.doesNotReject(onNow.waitFor());
+  assert.equal(await onNow.innerText(), 'ด่วน', 'the active color is the only one highlighted');
+  const row = page.locator('#so_items .so-row', { hasText: 'โรงเรียนบ้านตัวอย่าง' });
+  assert.match((await row.getAttribute('class')) || '', /\btagged\b/);
+  assert.match((await row.getAttribute('style')) || '', /--tc:#E8832A/, 'the list row carries this exact tag’s color, not just any color');
+
+  await page.locator('#so_root .so-tagrow .so-tagbtn', { hasText: 'ด่วน' }).click();
+  await flashSays(/เอาป้ายออกแล้ว/);
+  assert.equal((await one('select tag from sale_threads where id = $1', [T(1)])).tag, null, 'clicking the already-active color again clears it — no separate "ไม่มีป้าย" button needed');
+  assert.equal(await page.locator('#so_root .so-tagrow .so-tagbtn.on').count(), 0);
+  note = await one(`select body, kind from sale_msgs where thread_id = $1 order by created_at desc limit 1`, [T(1)]);
+  assert.match(note.body, /เอาป้ายออก/);
+  assert.doesNotMatch((await row.getAttribute('class')) || '', /\btagged\b/);
 });
