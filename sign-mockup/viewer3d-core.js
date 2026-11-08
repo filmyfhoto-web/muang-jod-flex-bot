@@ -80,7 +80,8 @@ export function mountViewer(opts) {
   const orbitG = new THREE.Group();
   orbitG.visible = false;
   scene.add(orbitG);
-  const arcMat = new THREE.MeshBasicMaterial({ color: 0x1f2a4d, transparent: true, opacity: 0.6, depthWrite: false, toneMapped: false });
+  const ARC_A = 0.32; // ลูกศรจาง ๆ ไม่แย่งสายตาจากป้าย
+  const arcMat = new THREE.MeshBasicMaterial({ color: 0x1f2a4d, transparent: true, opacity: ARC_A, depthWrite: false, toneMapped: false });
   let orbitR = 1;
   /* วงรีรอบป้าย (rx ตามความกว้าง · rz ตามความหนา) ลูกศรโค้ง 2 เส้นด้านหน้าซ้าย-ขวา หัวลูกศรชี้วนทางเดียวกัน
    * กล้องอยู่ระดับเดียวกับวง (มองแล้วเป็นเส้นตรง) → เอียงวงให้ด้านหน้าต่ำลง เห็นเป็นวงรีชัด ๆ แบบภาพโปรแกรม 3D */
@@ -92,7 +93,7 @@ export function mountViewer(opts) {
     // แกนวงตามหน้าป้าย (ป้ายยื่นหันหน้าออกด้านข้าง ตั้งฉากกับผนัง)
     orbitG.rotation.set(0, front ? Math.atan2(front.x, front.z) : 0, 0);
     orbitR = Math.max(rx, rz);
-    const tube = Math.max(0.005, orbitR * 0.012);
+    const tube = orbitR * 0.005; // เส้นบาง ๆ ตามขนาดชิ้นงาน (บัตรเล็กก็เส้นเล็ก)
     const make = (a0, a1, side) => {
       const pts = [];
       for (let i = 0; i <= 40; i++) {
@@ -105,7 +106,7 @@ export function mountViewer(opts) {
       arc.userData.side = side;
       const tip = pts[pts.length - 1];
       const tan = tip.clone().sub(pts[pts.length - 2]).normalize();
-      const head = new THREE.Mesh(new THREE.ConeGeometry(tube * 3.4, tube * 9, 16), arcMat);
+      const head = new THREE.Mesh(new THREE.ConeGeometry(tube * 3, tube * 8, 16), arcMat);
       head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tan);
       head.position.copy(tip).addScaledVector(tan, tube * 3);
       head.userData.side = side;
@@ -140,7 +141,7 @@ export function mountViewer(opts) {
   function buildGrid(box) {
     const size = box.getSize(new THREE.Vector3());
     const r = Math.max(size.x, size.z, 0.3);
-    const step = r > 2 ? 0.5 : r > 0.6 ? 0.1 : 0.05;
+    const step = r > 2 ? 0.5 : r > 0.6 ? 0.1 : r > 0.15 ? 0.05 : 0.01;
     const half = Math.ceil((r * 1.4) / step) * step;
     const grid = new THREE.GridHelper(half * 2, Math.round((half * 2) / step), 0x8e97aa, 0xc7ccd6);
     grid.material.transparent = true;
@@ -148,14 +149,14 @@ export function mountViewer(opts) {
     grid.material.depthWrite = false;
     grid.position.y = 0.0006;
     scene.add(grid);
-    const L = Math.max(size.x, size.z) / 2 + Math.max(0.15, r * 0.18);
+    const L = Math.max(size.x, size.z) / 2 + Math.max(0.03, r * 0.3);
     const H = size.y * 1.15 + 0.1;
     const axes = [
       ['X', '#d9534f', [-L, 0.001, 0], [L, 0.001, 0]],
       ['Y', '#3a9d5d', [0, 0, 0], [0, H, 0]],
       ['Z', '#3d6fd1', [0, 0.001, -L], [0, 0.001, L]],
     ];
-    const ls = Math.max(0.06, r * 0.07);
+    const ls = Math.max(0.008, r * 0.09); // ป้ายอักษรแกนตามขนาดชิ้นงาน (บัตรเล็กไม่ใช่ตัว Z ยักษ์)
     for (const [t, col, a, b] of axes) {
       const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...a), new THREE.Vector3(...b)]);
       const line = new THREE.Line(g, new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.75, depthWrite: false, toneMapped: false }));
@@ -261,7 +262,7 @@ export function mountViewer(opts) {
     const fs = box.getSize(new THREE.Vector3());
     focus = { target: new THREE.Vector3(fc.x, fc.y, box.max.z), size: [fs.x, fs.y], normal: new THREE.Vector3(0, 0.12, 1).normalize() };
     buildGrid(box);
-    buildOrbit(new THREE.Vector3(fc.x, box.min.y + fs.y * 0.3, fc.z), fs.x / 2 + Math.max(0.06, fs.x * 0.08), Math.max(fs.z / 2 + 0.08, fs.x * 0.28));
+    buildOrbit(new THREE.Vector3(fc.x, box.min.y + fs.y * 0.3, fc.z), fs.x / 2 + Math.max(0.01, fs.x * 0.12), Math.max(fs.z / 2 + fs.x * 0.1, fs.x * 0.28));
     if (load) load.hidden = true;
   };
 
@@ -318,7 +319,7 @@ export function mountViewer(opts) {
     sun.position.copy(target).add(new THREE.Vector3(1.5, 4, 3));
     sun.target.position.copy(target);
     // ป้ายติดผนัง: วงลูกศรอยู่ใต้ขอบล่างป้าย ไม่พาดทับหน้าป้าย
-    buildOrbit(target.clone().addScaledVector(new THREE.Vector3(0, 1, 0), -info.size[1] / 2 - 0.04), info.size[0] / 2 + Math.max(0.05, info.size[0] * 0.1), Math.max(0.12, info.size[0] * 0.28));
+    buildOrbit(target.clone().addScaledVector(new THREE.Vector3(0, 1, 0), -info.size[1] / 2 - Math.min(0.04, info.size[1] * 0.08)), info.size[0] / 2 + Math.max(0.02, info.size[0] * 0.1), Math.max(0.04, info.size[0] * 0.28));
     const hint = $('hint');
     if (hint) hint.textContent = 'ลากเพื่อขยับมุม · ถ่างนิ้ว/แตะสองครั้งเพื่อซูมดูป้าย';
     setSpin(true);
@@ -392,7 +393,7 @@ export function mountViewer(opts) {
     sc.far = 40;
     sc.updateProjectionMatrix();
     const fr = new THREE.Vector3(focus.normal.x, 0, focus.normal.z).normalize();
-    buildOrbit(focus.target.clone().add(new THREE.Vector3(0, -info.size[1] / 2 - 0.04, 0)), info.size[0] / 2 + Math.max(0.05, info.size[0] * 0.1), Math.max(0.12, info.size[0] * 0.28), fr);
+    buildOrbit(focus.target.clone().add(new THREE.Vector3(0, -info.size[1] / 2 - Math.min(0.04, info.size[1] * 0.08), 0)), info.size[0] / 2 + Math.max(0.02, info.size[0] * 0.1), Math.max(0.04, info.size[0] * 0.28), fr);
     const hint = $('hint');
     if (hint) hint.textContent = 'ลากเพื่อหมุนดู · ถ่างนิ้ว/แตะสองครั้งเพื่อซูมดูป้าย';
     setSpin(true);
@@ -457,7 +458,7 @@ export function mountViewer(opts) {
   });
   // แตะใกล้ลูกศร (ระยะบนจอไม่เกิน ~30 px) นับว่าแตะโดน — นิ้วไม่ต้องโดนเส้นพอดี
   function orbitHit(e) {
-    if (!orbitG.visible || arcMat.opacity < 0.15) return '';
+    if (!orbitG.visible || arcMat.opacity < 0.08) return '';
     const r = canvas.getBoundingClientRect();
     orbitG.updateMatrixWorld(true);
     const v = new THREE.Vector3();
@@ -574,6 +575,8 @@ export function mountViewer(opts) {
     const hint = $('hint');
     if (hint) hint.hidden = true;
   }
+  // กันหน้าเว็บทั้งหน้าซูม (นิ้วนึงอยู่นอกภาพตอนถ่างนิ้ว / แตะสองครั้ง) — หน้ากว้างเกินจอ ปุ่มหลุดขอบ · ซูมภาพ 3 มิติยังใช้ได้
+  ['gesturestart', 'gesturechange'].forEach((t) => document.addEventListener(t, (e) => e.preventDefault(), { passive: false }));
   const pad = document.createElement('div');
   pad.className = 'v-pad';
   const ico = (d) => '<svg viewBox="0 0 24 24" aria-hidden="true">' + d + '</svg>';
@@ -647,7 +650,7 @@ export function mountViewer(opts) {
     if (orbitG.visible) {
       // ใกล้ป้ายมาก (ซูมดู) ลูกศรค่อย ๆ จางหาย
       const d = camera.position.distanceTo(controls.target);
-      arcMat.opacity = 0.6 * Math.max(0, Math.min(1, (d / orbitR - 1.5) / 1.2));
+      arcMat.opacity = ARC_A * Math.max(0, Math.min(1, (d / orbitR - 1.5) / 1.2));
     }
     if (photo && photo.q0) applyOffset();
     if (personCard) {

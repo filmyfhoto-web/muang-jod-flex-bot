@@ -1142,9 +1142,13 @@ test('ตัวดู 3 มิติแบบโปรแกรม 3D: ลูก
   assert.match(v, /let best = 30;/); // แตะใกล้ ๆ ก็โดน
   assert.match(v, /function buildGrid\(box\)/);
   for (const t of ["'X', '#d9534f'", "'Y', '#3a9d5d'", "'Z', '#3d6fd1'"]) assert.ok(v.includes(t), t);
-  assert.match(v, /arcMat\.opacity = 0\.6 \* Math\.max\(0/); // ซูมใกล้แล้วจาง
+  assert.match(v, /arcMat\.opacity = ARC_A \* Math\.max\(0/); // ซูมใกล้แล้วจาง
+  assert.match(v, /const ARC_A = 0\.32;/); // จาง ๆ
+  assert.match(v, /const tube = orbitR \* 0\.005;/); // เส้นบางตามขนาดชิ้นงาน (บัตรเล็กไม่เทอะทะ)
+  assert.match(v, /const ls = Math\.max\(0\.008, r \* 0\.09\);/);
+  assert.match(v, /'gesturestart', 'gesturechange'/); // ไม่ซูมทั้งหน้า
   // ฉาก/รูปหน้างาน: วงอยู่ใต้ขอบล่างป้าย ไม่ทับหน้าป้าย · ป้ายยื่นหมุนวงตามหน้าป้าย
-  assert.match(v, /-info\.size\[1\] \/ 2 - 0\.04/);
+  assert.match(v, /-info\.size\[1\] \/ 2 - Math\.min\(0\.04, info\.size\[1\] \* 0\.08\)/);
   assert.match(v, /orbitG\.rotation\.set\(0, front \? Math\.atan2\(front\.x, front\.z\) : 0, 0\);/);
   const css = readFileSync(new URL('../sign-mockup/viewer3d.css', import.meta.url), 'utf8');
   assert.match(css, /\.v-pad svg \{/);
