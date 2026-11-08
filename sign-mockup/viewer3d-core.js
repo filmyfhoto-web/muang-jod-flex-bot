@@ -51,8 +51,8 @@ export function mountViewer(opts) {
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
   controls.maxPolarAngle = Math.PI * 0.495; // ไม่มุดใต้พื้น
-  controls.autoRotate = true;
-  controls.autoRotateSpeed = 1.4;
+  controls.autoRotate = false; // เริ่มหมุนโชว์หลังเปิดภาพเสร็จ (ไฟล์เฉพาะป้าย) — ช้า ๆ แบบโชว์สินค้า
+  controls.autoRotateSpeed = 0.9;
 
   scene.add(new THREE.HemisphereLight(0xffffff, 0xd9d4ca, 0.9));
   const sun = new THREE.DirectionalLight(0xffffff, 1.6);
@@ -169,6 +169,33 @@ export function mountViewer(opts) {
     ring.visible = false;
   }
 
+  /* สีงานพิมพ์ตรงไฟล์: หน้าป้าย/บัตร ไม่ให้แสง + tone mapping กดสีจนหม่น (รูปถ่ายฉากหลังสดอยู่แล้ว ป้ายจะดูซีดกว่า)
+   * แสงจากตัวหน้าป้ายเอง (emissive = ลายงาน) ~70% + แสงในฉากเหลือ ~30% ให้ยังมีมิติตอนหมุน · หาหน้าป้ายจากชื่อวัสดุ NadponFace
+   * (ไฟล์เก่าไม่มีชื่อ: วัสดุที่ลายใหญ่ที่สุดของตัวป้าย) */
+  function printLook(meshes) {
+    const mats = new Set();
+    meshes.forEach((o) => (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m && m.isMeshStandardMaterial && m.map && mats.add(m)));
+    const list = [...mats];
+    let faces = list.filter((m) => /NadponFace/.test(m.name || ''));
+    if (!faces.length) {
+      const area = (m) => (m.map.image ? (m.map.image.width || 0) * (m.map.image.height || 0) : 0);
+      const big = list.reduce((a, m) => Math.max(a, area(m)), 0);
+      faces = big ? list.filter((m) => area(m) >= big * 0.5) : [];
+    }
+    faces.forEach((m) => {
+      m.emissive = new THREE.Color(0xffffff);
+      m.emissiveMap = m.map;
+      m.emissiveIntensity = PRINT.e;
+      m.color.multiplyScalar(PRINT.k);
+      m.envMapIntensity = 0.5;
+      m.toneMapped = false;
+      m.needsUpdate = true;
+    });
+    return faces.length;
+  }
+  const PRINT = { e: 0.66, k: 0.4 };
+  let arcFade = 0; // เวลาที่ลูกศรโค้งเริ่มจาง (ใช้งานแล้ว / ครบ 6 วิ)
+
   let home = null;
   let photo = null; // ฉากรูปหน้างาน (ไฟล์มีรูปถ่าย + ข้อมูลกล้องของรูป)
   let focus = null; // จุดซูมดูป้าย { target, size:[w,h], normal }
@@ -261,11 +288,42 @@ export function mountViewer(opts) {
     const fc = box.getCenter(new THREE.Vector3());
     const fs = box.getSize(new THREE.Vector3());
     focus = { target: new THREE.Vector3(fc.x, fc.y, box.max.z), size: [fs.x, fs.y], normal: new THREE.Vector3(0, 0.12, 1).normalize() };
+    printLook(meshesOf(model));
     buildGrid(box);
     buildOrbit(new THREE.Vector3(fc.x, box.min.y + fs.y * 0.3, fc.z), fs.x / 2 + Math.max(0.01, fs.x * 0.12), Math.max(fs.z / 2 + fs.x * 0.1, fs.x * 0.28));
+    controls.autoRotate = false;
+    intro();
+    // ไฟล์เฉพาะป้าย: หลังภาพเปิดเสร็จ หมุนรอบช้า ๆ แบบโชว์สินค้า (แตะ/ลากเมื่อไหร่หยุด)
+    setTimeout(() => {
+      if (!userTouched) setSpin(true);
+    }, 2400);
     if (load) load.hidden = true;
   };
 
+  function meshesOf(root, skip) {
+    const out = [];
+    root.traverse((o) => {
+      if (o.isMesh && !(skip && skip(o))) out.push(o);
+    });
+    return out;
+  }
+  // เปิดมา: กล้องเลื่อนจากมุมเยื้องเข้าหามุมเริ่มต้นนุ่ม ๆ ครั้งเดียว แล้วนิ่ง (ไม่ส่ายไปมา)
+  function intro() {
+    if (!home) return;
+    const off = home.pos.clone().sub(home.target);
+    const sp = new THREE.Spherical().setFromVector3(off);
+    sp.theta += 0.32;
+    sp.phi = Math.max(0.15, sp.phi - 0.06);
+    sp.radius *= 1.12;
+    const lo = controls.minAzimuthAngle;
+    const hi = controls.maxAzimuthAngle;
+    if (isFinite(lo) && isFinite(hi) && lo <= hi) sp.theta = Math.max(lo, Math.min(hi, sp.theta));
+    if (sp.radius > controls.maxDistance) sp.radius = controls.maxDistance;
+    camera.position.copy(home.target).add(new THREE.Vector3().setFromSpherical(sp));
+    controls.target.copy(home.target);
+    tween = { t0: performance.now() + 250, ms: 1900, p0: camera.position.clone(), c0: home.target.clone(), p1: home.pos.clone(), c1: home.target.clone(), ease: 'out' };
+    arcFade = performance.now() + 6000;
+  }
   /* ฉากรูปหน้างาน: เปิดมาเห็นเหมือนรูปถ่าย (กล้องตำแหน่งเดียวกับตอนถ่าย) ขยับมุมได้ช่วงหนึ่ง ซูมเข้าไปดูป้ายได้
    * กล้องหันหาป้ายเสมอ — เลื่อนจุดกึ่งกลางภาพ (principal point) ให้ป้ายอยู่ตำแหน่งเดิมในรูป ซูมเข้าค่อย ๆ เลื่อนป้ายมากลางจอ */
   function showPhoto(model, holder, info) {
@@ -292,37 +350,56 @@ export function mountViewer(opts) {
     const q0 = new THREE.Quaternion().fromArray(info.quat).premultiply(new THREE.Quaternion().setFromRotationMatrix(m));
     const normal = new THREE.Vector3(0, 0, 1).transformDirection(m);
     const d0 = pos.distanceTo(target);
-    photo = { kind: 'photo', pos, target, q0, d0, fov: info.fov, aspect: info.aspect, ndc: new THREE.Vector2(), dMin: 0 };
+    // จุดหมุน = จุดบนแกนกล้อง (กลางรูป) ที่ระนาบป้าย → มุมเริ่มต้นตรงกับรูปเป๊ะ ไม่เอียงเป็นคางหมู
+    const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(q0);
+    let ta = target.clone().sub(pos).dot(normal) / Math.min(-1e-6, fwd.dot(normal));
+    if (!(ta > 0) || ta > d0 * 5) ta = d0;
+    const pivotT = pos.clone().addScaledVector(fwd, ta);
+    photo = { kind: 'photo', pos, target: pivotT, q0: null, d0: pos.distanceTo(pivotT), fov: info.fov, aspect: info.aspect, ndc: new THREE.Vector2(), dMin: 0 };
     focus = { target: target.clone(), size: info.size, normal };
+    printLook(meshesOf(model, (o) => /^NadponPhoto/.test(o.name)));
+    const ph = model.getObjectByName('NadponPhoto');
+    if (ph && ph.material && ph.material.map && ph.material.map.image) blurBack(ph.material.map.image, info.aspect);
     controls.autoRotate = false;
     controls.enablePan = false;
-    controls.target.copy(target);
+    controls.target.copy(pivotT);
     camera.position.copy(pos);
     camera.near = Math.max(0.01, d0 / 300);
     camera.far = d0 * 12 + 30;
     fitPhoto();
     camera.updateProjectionMatrix();
-    photo.dMin = Math.min(d0 * 0.9, closeDist(info.size) * 0.55);
+    photo.dMin = Math.min(photo.d0 * 0.9, closeDist(info.size) * 0.55);
     controls.minDistance = photo.dMin;
-    controls.maxDistance = d0 * 1.02;
-    const sph = new THREE.Spherical().setFromVector3(pos.clone().sub(target));
+    controls.maxDistance = photo.d0 * 1.02;
+    const sph = new THREE.Spherical().setFromVector3(pos.clone().sub(pivotT));
     // ขยับได้ซ้าย-ขวา ±23° ขึ้น-ลง ±13° (รูปถ่ายเป็นแผ่นเรียบ หมุนมากกว่านี้เห็นขอบรูปเยอะ)
     controls.minAzimuthAngle = sph.theta - 0.4;
     controls.maxAzimuthAngle = sph.theta + 0.4;
     controls.minPolarAngle = Math.max(0.12, sph.phi - 0.22);
     controls.maxPolarAngle = Math.min(Math.PI * 0.8, sph.phi + 0.22);
-    // จอแคบกว่ารูป (มือถือแนวตั้ง) รูปเต็มจอจะเล็ก → เริ่มใกล้เข้าไปหน่อย (ถอยออกดูทั้งรูปได้)
-    const near0 = Math.min(1, Math.max(0.55, Math.sqrt(camera.aspect / photo.aspect) * 1.1));
-    camera.position.copy(target).add(pos.clone().sub(target).multiplyScalar(near0));
     controls.update();
-    home = { pos: camera.position.clone(), target: target.clone() };
+    home = { pos: pos.clone(), target: pivotT.clone() };
     sun.position.copy(target).add(new THREE.Vector3(1.5, 4, 3));
     sun.target.position.copy(target);
     // ป้ายติดผนัง: วงลูกศรอยู่ใต้ขอบล่างป้าย ไม่พาดทับหน้าป้าย
     buildOrbit(target.clone().addScaledVector(new THREE.Vector3(0, 1, 0), -info.size[1] / 2 - Math.min(0.04, info.size[1] * 0.08)), info.size[0] / 2 + Math.max(0.02, info.size[0] * 0.1), Math.max(0.04, info.size[0] * 0.28));
     const hint = $('hint');
     if (hint) hint.textContent = 'ลากเพื่อขยับมุม · ถ่างนิ้ว/แตะสองครั้งเพื่อซูมดูป้าย';
-    setSpin(true);
+    setSpin(false);
+    intro();
+  }
+  // ขอบนอกรูป (จอไม่เท่าสัดส่วนรูป): ใช้รูปเดิมย่อเล็กแล้วขยายเต็มพื้น = เบลอนุ่ม ๆ แทนแถบดำ
+  function blurBack(img, aspect) {
+    try {
+      const c = document.createElement('canvas');
+      c.width = 40;
+      c.height = Math.max(8, Math.round(40 / (aspect || 1.33)));
+      const x = c.getContext('2d');
+      x.drawImage(img, 0, 0, c.width, c.height);
+      x.fillStyle = 'rgba(12,16,30,0.42)';
+      x.fillRect(0, 0, c.width, c.height);
+      stage.style.background = '#141b30 center / cover no-repeat url(' + c.toDataURL('image/jpeg', 0.8) + ')';
+    } catch (e) {}
   }
   /* ป้าย + ฉาก (หน้าร้าน ผนัง ประตู ฯลฯ): เปิดมามุมเดียวกับในแอป ส่ายกล้องโชว์ ลากหมุนดูรอบ ๆ ได้ ซูมดูป้ายได้
    * คนยืนเทียบหันหากล้องเสมอ */
@@ -394,16 +471,19 @@ export function mountViewer(opts) {
     sc.updateProjectionMatrix();
     const fr = new THREE.Vector3(focus.normal.x, 0, focus.normal.z).normalize();
     buildOrbit(focus.target.clone().add(new THREE.Vector3(0, -info.size[1] / 2 - Math.min(0.04, info.size[1] * 0.08), 0)), info.size[0] / 2 + Math.max(0.02, info.size[0] * 0.1), Math.max(0.04, info.size[0] * 0.28), fr);
+    const sr = model.getObjectByName('NadponSignRoot');
+    if (sr) printLook(meshesOf(sr));
     const hint = $('hint');
     if (hint) hint.textContent = 'ลากเพื่อหมุนดู · ถ่างนิ้ว/แตะสองครั้งเพื่อซูมดูป้าย';
-    setSpin(true);
+    setSpin(false);
+    intro();
   }
   // มุมกล้องของจอ: รูปหน้างาน = เห็นทั้งรูป (ไม่ครอป) · ฉาก = กว้างเท่ามุมในแอป (จอแคบ/มือถือแนวตั้งขยายมุมให้ป้ายไม่ล้นข้าง)
   // + ตำแหน่งป้ายในรูป (NDC) สำหรับเลื่อนจุดกึ่งกลางภาพ (เฉพาะรูปหน้างาน)
   function fitPhoto() {
     const tp = Math.tan((photo.fov * Math.PI) / 360);
     // ฉาก: ใช้มุมกล้องเดียวกับแอป (ระยะกล้องคิดใหม่ให้ป้าย + คนพอดีจอ) · รูปหน้างาน: เห็นทั้งรูป เผื่อขอบ (กล้องหันหาป้าย รูปเบี้ยวนิดหน่อย)
-    const tv = photo.q0 ? Math.max(tp, (tp * photo.aspect) / camera.aspect) * 1.06 : tp;
+    const tv = photo.kind === 'photo' ? Math.max(tp, (tp * photo.aspect) / camera.aspect) : tp;
     camera.fov = (2 * Math.atan(tv) * 180) / Math.PI;
     if (!photo.q0) {
       photo.ndc.set(0, 0);
@@ -507,6 +587,7 @@ export function mountViewer(opts) {
 
   // ลูกค้าแตะ/ลากเมื่อไหร่ หยุดหมุนอัตโนมัติ
   const spin = $('spin');
+  let userTouched = false;
   function setSpin(on) {
     if (photo) {
       sway = on ? { t0: performance.now(), theta0: new THREE.Spherical().setFromVector3(camera.position.clone().sub(controls.target)).theta } : null;
@@ -514,6 +595,9 @@ export function mountViewer(opts) {
     if (spin) spin.setAttribute('aria-pressed', String(on));
   }
   controls.addEventListener('start', () => {
+    userTouched = true;
+    tween = null;
+    if (!arcFade || arcFade > performance.now()) arcFade = performance.now();
     setSpin(false);
     const hint = $('hint');
     if (hint) hint.hidden = true;
@@ -525,6 +609,7 @@ export function mountViewer(opts) {
       if (!home) return;
       tween = null;
       zoomed = false;
+      arcFade = performance.now() + 4000;
       setZoomLabel();
       camera.position.copy(home.pos);
       controls.target.copy(home.target);
@@ -556,7 +641,7 @@ export function mountViewer(opts) {
       }, 'image/png');
     });
 
-  /* ปุ่มลูกศรโค้งบนจอ (กดค้างได้): ↺ ↻ หมุน · มุมสูง/ต่ำ · แว่นขยาย ซูมเข้า/ออก — คอมใช้ปุ่มลูกศรบนคีย์บอร์ด และ + − ได้ */
+  /* แถบเครื่องมือเล็ก ๆ ขอบขวา (กดค้างได้): ↺ ↻ หมุน · ＋ − ซูม — ไม่ทับกลางภาพ · คอมใช้ลูกศรบนคีย์บอร์ด (ขึ้น/ลง = มุมสูง/ต่ำ) และ + − */
   const held = {};
   const STEP = { left: [0.9, 0, 0], right: [-0.9, 0, 0], up: [0, -0.6, 0], down: [0, 0.6, 0], in: [0, 0, -1.1], out: [0, 0, 1.1] };
   function nudge(k, dt) {
@@ -571,6 +656,8 @@ export function mountViewer(opts) {
   }
   function userMoved() {
     tween = null;
+    userTouched = true;
+    if (!arcFade || arcFade > performance.now()) arcFade = performance.now();
     setSpin(false);
     const hint = $('hint');
     if (hint) hint.hidden = true;
@@ -581,15 +668,11 @@ export function mountViewer(opts) {
   pad.className = 'v-pad';
   const ico = (d) => '<svg viewBox="0 0 24 24" aria-hidden="true">' + d + '</svg>';
   pad.innerHTML =
-    '<div class="v-dpad">' +
-    '<button type="button" data-k="up" aria-label="มุมสูงขึ้น" title="มุมสูงขึ้น">' + ico('<path d="M8 20c-3-4-3-10 2-14"/><path d="M6.5 6.5 10 5.5l1 3.5"/><path d="M15 20c3-4 3-10-2-14"/>') + '</button>' +
-    '<button type="button" data-k="left" aria-label="หมุนซ้าย" title="หมุนซ้าย">' + ico('<path d="M5.5 13a7 7 0 1 0 2.2-6.2"/><path d="M4.5 4v4.5H9"/>') + '</button>' +
-    '<button type="button" data-k="right" aria-label="หมุนขวา" title="หมุนขวา">' + ico('<path d="M18.5 13a7 7 0 1 1-2.2-6.2"/><path d="M19.5 4v4.5H15"/>') + '</button>' +
-    '<button type="button" data-k="down" aria-label="มุมต่ำลง" title="มุมต่ำลง">' + ico('<path d="M8 4c-3 4-3 10 2 14"/><path d="M6.5 17.5 10 18.5l1-3.5"/><path d="M15 4c3 4 3 10-2 14"/>') + '</button>' +
-    '</div><div class="v-zoom">' +
-    '<button type="button" data-k="in" aria-label="ซูมเข้า" title="ซูมเข้า">' + ico('<circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5M10.5 8v5M8 10.5h5"/>') + '</button>' +
-    '<button type="button" data-k="out" aria-label="ซูมออก" title="ซูมออก">' + ico('<circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5M8 10.5h5"/>') + '</button>' +
-    '</div>';
+    '<button type="button" data-k="left" aria-label="หมุนซ้าย" title="หมุนซ้าย">' + ico('<path d="M4.5 12a7.5 7.5 0 1 0 2.3-5.4"/><path d="M4 3.5V8h4.5"/>') + '</button>' +
+    '<button type="button" data-k="right" aria-label="หมุนขวา" title="หมุนขวา">' + ico('<path d="M19.5 12a7.5 7.5 0 1 1-2.3-5.4"/><path d="M20 3.5V8h-4.5"/>') + '</button>' +
+    '<span class="v-sep" aria-hidden="true"></span>' +
+    '<button type="button" data-k="in" aria-label="ซูมเข้า" title="ซูมเข้า">' + ico('<path d="M12 5v14M5 12h14"/>') + '</button>' +
+    '<button type="button" data-k="out" aria-label="ซูมออก" title="ซูมออก">' + ico('<path d="M5 12h14"/>') + '</button>';
   stage.appendChild(pad);
   pad.querySelectorAll('button').forEach((b) => {
     const k = b.dataset.k;
@@ -634,8 +717,8 @@ export function mountViewer(opts) {
     lastT = now;
     for (const k in held) nudge(k, dt);
     if (tween) {
-      const k = Math.min(1, (now - tween.t0) / tween.ms);
-      const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      const k = Math.max(0, Math.min(1, (now - tween.t0) / tween.ms));
+      const e = tween.ease === 'out' ? 1 - Math.pow(1 - k, 3) : k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
       camera.position.lerpVectors(tween.p0, tween.p1, e);
       controls.target.lerpVectors(tween.c0, tween.c1, e);
       if (k >= 1) tween = null;
@@ -643,14 +726,16 @@ export function mountViewer(opts) {
       // ส่ายกล้องซ้าย-ขวารอบป้าย (รูปหน้างาน ±8° · ฉาก ±18°) เริ่มจากมุมเดิมแบบนุ่ม ๆ
       const off = camera.position.clone().sub(controls.target);
       sph.setFromVector3(off);
-      sph.theta = sway.theta0 + (photo.kind === 'scene' ? 0.32 : 0.14) * Math.sin(((now - sway.t0) / 1000) * (photo.kind === 'scene' ? 0.55 : 0.75));
+      // ส่ายช้า ๆ นุ่ม ๆ (กดปุ่มหมุนอัตโนมัติเท่านั้น) — รอบละ ~14 วิ
+      sph.theta = sway.theta0 + (photo.kind === 'scene' ? 0.26 : 0.1) * Math.sin(((now - sway.t0) / 1000) * 0.45);
       camera.position.copy(controls.target).add(new THREE.Vector3().setFromSpherical(sph));
     }
     controls.update();
     if (orbitG.visible) {
       // ใกล้ป้ายมาก (ซูมดู) ลูกศรค่อย ๆ จางหาย
       const d = camera.position.distanceTo(controls.target);
-      arcMat.opacity = ARC_A * Math.max(0, Math.min(1, (d / orbitR - 1.5) / 1.2));
+      const tf = arcFade ? Math.max(0, 1 - (now - arcFade) / 700) : 1; // ใช้งานแล้ว/ครบเวลา ลูกศรค่อย ๆ จางหาย
+      arcMat.opacity = ARC_A * tf * Math.max(0, Math.min(1, (d / orbitR - 1.5) / 1.2));
     }
     if (photo && photo.q0) applyOffset();
     if (personCard) {
