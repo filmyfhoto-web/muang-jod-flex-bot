@@ -2563,6 +2563,155 @@ function buildTableStand(w, h, map) {
   return { group: g, face, front: 0.004, faceY: [0.004, 0.004 + h * ct], corners };
 }
 
+/* ปฏิทินตั้งโต๊ะ: ขาตั้งจั่ว (บอร์ดหน้าเอนหลัง + บอร์ดหลัง) · สันห่วงลวดตามขอบบน · หน้า 13 แผ่น (ปก + 12 เดือน) แขวนจากห่วง
+ * ปก = ลายงาน (map) · เดือน = รูปประจำเดือน (NS.calPhotos) หรือลายปก + ตารางวันที่ (ทำตอนต้องใช้)
+ * model.setPage(k): พลิกหน้าข้ามห่วงไปด้านหลัง (k = 0..12 ทศนิยมได้ = กำลังพลิก)
+ * model.setExplode(e): 12 เดือนบินออกจากห่วงไปลอยเรียงเป็นผนัง 3×4 เหนือปฏิทิน (0..1 · ทีละแผ่นต่อกัน) ปกอยู่ที่เดิม */
+const CAL_PAGES = 13;
+function buildDeskCal(w, h, map) {
+  const g = new THREE.Group();
+  const a = 0.3; // บอร์ดหน้าเอนหลัง ~17°
+  const yTop = (h + 0.014) * Math.cos(a);
+  const Lf = yTop / Math.cos(a);
+  const D = Math.max(h * 0.5, Lf * Math.sin(a) + 0.03);
+  const b = Math.max(0.12, Math.atan((D - Lf * Math.sin(a)) / yTop));
+  const Lb = yTop / Math.cos(b);
+  const zTop = D / 2 - Lf * Math.sin(a);
+  const hinge = new THREE.Vector3(0, yTop + 0.002, zTop);
+  const board = std({ color: 0x23262c, roughness: 0.62, metalness: 0 });
+  const paperBack = std({ color: 0xf3f2ee, roughness: 0.85, side: THREE.BackSide });
+  // บอร์ดหน้า/หลัง หมุนรอบแนวห่วง
+  const fb = new THREE.Group();
+  fb.position.copy(hinge);
+  fb.rotation.x = -a;
+  const fbm = box(w + 0.006, Lf, 0.0022, board);
+  fb.add(fbm);
+  fbm.position.set(0, -Lf / 2, -0.0016);
+  const bb = new THREE.Group();
+  bb.position.copy(hinge);
+  bb.rotation.x = b;
+  const bbm = box(w + 0.006, Lb, 0.0022, board);
+  bb.add(bbm);
+  bbm.position.set(0, -Lb / 2, 0.0016);
+  g.add(fb, bb);
+  // หน้าปฏิทิน: ขอบบนอยู่ใต้ห่วง 4 มม.
+  const pageGeo = new THREE.PlaneGeometry(w, h).translate(0, -h / 2 - 0.004, 0);
+  const face = std({ map, roughness: 0.5, metalness: 0 });
+  const monthMats = [];
+  const pages = [];
+  for (let i = 0; i < CAL_PAGES; i++) {
+    const pg = new THREE.Group();
+    pg.position.copy(hinge);
+    const mat = i === 0 ? face : std({ color: 0xffffff, roughness: 0.55, metalness: 0 });
+    if (i) monthMats.push(mat);
+    const front = new THREE.Mesh(pageGeo, mat);
+    const back = new THREE.Mesh(pageGeo, paperBack);
+    pg.add(front, back);
+    pg.userData.i = i;
+    pages.push(pg);
+    g.add(pg);
+  }
+  // ห่วงลวด (ช่องเปิดหันลงหลัง)
+  const ringGeo = new THREE.TorusGeometry(0.0052, 0.00075, 6, 20, Math.PI * 2 * 0.86);
+  const metal = std({ color: 0xdfe2e6, metalness: 0.85, roughness: 0.28 });
+  const n = Math.max(6, Math.floor((w - 0.01) / 0.0085));
+  const x0 = -((n - 1) * 0.0085) / 2;
+  for (let i = 0; i < n; i++) {
+    const r = new THREE.Mesh(ringGeo, metal);
+    r.position.set(x0 + i * 0.0085, hinge.y - 0.0012, hinge.z);
+    r.rotation.set(0, Math.PI / 2, 0);
+    r.rotateZ(-0.9);
+    g.add(r);
+  }
+  let pageK = 0;
+  let explode = 0;
+  const ease = (t) => t * t * (3 - 2 * t);
+  function place() {
+    pages.forEach((pg, i) => {
+      const f = Math.max(0, Math.min(1, pageK - i));
+      const th = -a + (b - 2 * Math.PI + a) * ease(f);
+      pg.rotation.set(th, 0, 0);
+      // ซ้อนกันบนบอร์ด: หน้าที่ยังไม่พลิก ปกอยู่นอกสุด · พลิกแล้วซ้อนออกด้านนอกบอร์ดหลัง
+      const off = f < 0.5 ? 0.0006 + (CAL_PAGES - 1 - i) * 0.00035 : -0.0006 - i * 0.00035;
+      pg.position.copy(hinge);
+      pg.children.forEach((m) => (m.position.z = off));
+      if (explode > 0 && i > 0 && f < 0.5) {
+        // บินไปช่องของเดือน (ม.ค. ซ้ายบน → ธ.ค. ขวาล่าง) แถวข้างโค้งเข้าหากลาง · ระหว่างบินโค้งออกหน้า หมุนนิด ๆ
+        const t = ease(Math.max(0, Math.min(1, explode * 1.5 - (i - 1) * 0.045)));
+        if (t > 0) {
+          const col = (i - 1) % 3;
+          const row = Math.floor((i - 1) / 3);
+          const side = col - 1;
+          const tx = side * w * 1.1;
+          const ty = yTop + h * 0.4 + (3 - row) * h * 1.12 + h + 0.004;
+          const tz = hinge.z - 0.03 + Math.abs(side) * w * 0.16;
+          const arc = Math.sin(Math.PI * t);
+          pg.position.set(hinge.x + (tx - hinge.x) * t, hinge.y + (ty - hinge.y) * t, hinge.z + (tz - hinge.z) * t + arc * h * 0.28);
+          pg.rotation.set(-a * (1 - t), -side * 0.3 * t, arc * 0.18 * (side || 1));
+          pg.children.forEach((m) => (m.position.z = 0));
+        }
+      }
+    });
+  }
+  place();
+  // ผิวหน้ารายเดือน: ทำเมื่อต้องใช้ (พลิก/กาง/วิดีโอ/ไฟล์ 3 มิติ) — ลายปกเปลี่ยนก็ทำใหม่
+  let dirty = true;
+  let src = map;
+  function ensureMonths() {
+    if (!dirty || !NS.render || !NS.render.calPage) return;
+    dirty = false;
+    const year = (NS.calYear || (C.calYear && C.calYear())) || new Date().getFullYear() + 1;
+    const photos = Array.isArray(NS.calPhotos) && NS.calPhotos.length ? NS.calPhotos : null;
+    const W = 1024;
+    const H = Math.max(400, Math.min(1400, Math.round((1024 * h) / w)));
+    monthMats.forEach((m, k) => {
+      const c = NS.render.calPage({ photo: photos ? photos[k % photos.length] : src && src.image, month: C.calMonth(year, k), W, H, accent: NS.calAccent || '#c0392b' });
+      if (m.map) m.map.dispose();
+      const t = new THREE.CanvasTexture(c);
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = ANISO;
+      t.userData.mimeType = 'image/jpeg';
+      m.map = t;
+      m.needsUpdate = true;
+    });
+  }
+  const bottom = yTop - (0.004 + h) * Math.cos(a);
+  const top = yTop - 0.004 * Math.cos(a);
+  const zf = (y) => hinge.z + ((hinge.y - y) * Math.tan(a));
+  const corners = [[-w / 2, top, zf(top) + 0.005], [w / 2, top, zf(top) + 0.005], [w / 2, bottom, zf(bottom) + 0.005], [-w / 2, bottom, zf(bottom) + 0.005]];
+  return {
+    group: g,
+    face,
+    front: D / 2,
+    faceY: [bottom, top],
+    corners,
+    calendar: true,
+    pages: CAL_PAGES,
+    tilt: a,
+    setFace(m) {
+      src = m;
+      if (!(Array.isArray(NS.calPhotos) && NS.calPhotos.length)) dirty = true;
+    },
+    refreshMonths() {
+      dirty = true;
+    },
+    ensureMonths,
+    setPage(k) {
+      pageK = Math.max(0, Math.min(CAL_PAGES - 1, k));
+      if (pageK > 0) ensureMonths();
+      place();
+    },
+    setExplode(e) {
+      explode = Math.max(0, Math.min(1, e));
+      if (explode > 0) ensureMonths();
+      place();
+    },
+    dispose() {
+      monthMats.forEach((m) => m.map && m.map.dispose());
+    },
+  };
+}
+
 // หุ่นคนสเกลแบบโมเดลสถาปัตย์ สูง 170 ซม. — ไว้เทียบขนาดป้าย
 /* ---------------- คนเทียบขนาด: การ์ตูนเจ้าของร้าน (รูปวาดจริง) สูง 170 ซม. ----------------
  * เป็นป้ายรูปคนตั้งพื้นที่หันหน้าเข้ากล้องเสมอ (หมุนรอบแกนตั้งอย่างเดียว เท้าติดพื้นทุกมุม)
@@ -2812,6 +2961,7 @@ export function createStage(opts) {
     else if (bt === 'backdrop') model = buildBackdrop(w, h, map);
     else if (bt === 'billboard') model = buildBillboard(w, h, map, C.normalizeLook(s.look));
     else if (bt === 'tablestand') model = buildTableStand(w, h, map);
+    else if (bt === 'deskcal') model = buildDeskCal(w, h, map);
     else if (bt === 'standee') model = buildStandee(w, h, map);
     else if (bt === 'window') model = buildWindow(w, h, map, C.normalizeLook(s.look), s.shaped || '', s.edge || [255, 255, 255]);
     else if (s.shaped && ['foam', 'acrylic', 'card', 'sticker'].indexOf(bt) >= 0) model = buildShaped(bt, w, h, map, s.shaped);
@@ -3093,7 +3243,7 @@ export function createStage(opts) {
   let raf = 0;
   function tick(now) {
     raf = requestAnimationFrame(tick);
-    if (video) return; // กำลังทำวิดีโอ: วาดทีละเฟรมเอง
+    if (video || promo) return; // กำลังทำวิดีโอ: วาดทีละเฟรมเอง
     let moved = false;
     if (show) {
       stepShow(now);
@@ -3253,6 +3403,280 @@ export function createStage(opts) {
     needs = true;
   }
 
+  /* ---------- วิดีโอโปรโมท 5 ฉาก (แบบโฆษณาสินค้า) ----------
+   * ชิ้นงานตั้งบนพื้นดำมันวาว มีเงาสะท้อน ฉากหลังมืดแสงม่วงจาง ๆ ไฟขอบด้านหลัง
+   * ① ใกล้มาก ส่ายช้า ② เฉียง หมุนเข้าหาหน้า ③ หน้าตรง (ปฏิทิน: พลิกหน้า) ④ มุมข้าง (ปฏิทิน: กางทุกเดือนลอยเป็นชั้น) ⑤ ภาพรวม + ปิดท้าย
+   * beginPromo(w, h) → promoFrame(วินาที) ทีละเฟรม → endPromo() คืนฉากเดิมทั้งหมด */
+  const PROMO_CUTS = [0, 3, 6.2, 9.6, 12.8, 16];
+  let promo = null;
+  let promoKit = null;
+  function promoParts() {
+    if (promoKit) return promoKit;
+    const bc = mk(270, 480);
+    const bx = bc.getContext('2d');
+    const bg = bx.createRadialGradient(135, 205, 6, 135, 235, 330);
+    bg.addColorStop(0, '#5a4090');
+    bg.addColorStop(0.42, '#221a3e');
+    bg.addColorStop(1, '#07060c');
+    bx.fillStyle = bg;
+    bx.fillRect(0, 0, 270, 480);
+    const back = new THREE.CanvasTexture(bc);
+    back.colorSpace = THREE.SRGBColorSpace;
+    // พื้น: กลางโปร่งนิด ๆ ให้เห็นเงาสะท้อน · ขอบจางหายไปกับฉากหลัง
+    const ac = mk(256, 256);
+    const ax = ac.getContext('2d');
+    const ag = ax.createRadialGradient(128, 128, 0, 128, 128, 128);
+    ag.addColorStop(0, '#9c9c9c');
+    ag.addColorStop(0.08, '#d0d0d0');
+    ag.addColorStop(0.22, '#f2f2f2');
+    ag.addColorStop(0.55, '#c8c8c8');
+    ag.addColorStop(1, '#000000');
+    ax.fillStyle = ag;
+    ax.fillRect(0, 0, 256, 256);
+    const alpha = new THREE.CanvasTexture(ac);
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(1, 72), new THREE.MeshStandardMaterial({ color: 0x0b0a12, roughness: 0.26, metalness: 0, transparent: true, alphaMap: alpha, envMapIntensity: 0.16 }));
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    const rim = new THREE.DirectionalLight(0xb9a8ff, 0); // ไฟขอบด้านหลัง (ม่วง)
+    const kick = new THREE.DirectionalLight(0xffa3d2, 0); // ไฟข้างขวา (ชมพู)
+    const group = new THREE.Group();
+    group.add(floor, rim, rim.target, kick, kick.target);
+    promoKit = { back, floor, rim, kick, group };
+    return promoKit;
+  }
+  // มุมหน้าชิ้นงานในโลก (ซ้ายบน ขวาบน ขวาล่าง ซ้ายล่าง) → จุดกลาง กว้าง สูง แกนขวา/บน/ทิศหน้า
+  function faceFrame() {
+    const w = model.w;
+    const h = model.h;
+    let pts;
+    if (model.corners) pts = model.corners.map(([x, y, z]) => new THREE.Vector3(x, y, z));
+    else if (model.floor) {
+      const [y0, y1] = model.faceY;
+      pts = [[-w / 2, y1], [w / 2, y1], [w / 2, y0], [-w / 2, y0]].map(([x, y]) => new THREE.Vector3(x, y, model.front));
+    } else pts = [[-w / 2, h / 2], [w / 2, h / 2], [w / 2, -h / 2], [-w / 2, -h / 2]].map(([x, y]) => new THREE.Vector3(x, y, model.front || 0.003));
+    pts = pts.map((p) => signRoot.localToWorld(p));
+    const c = pts.reduce((a, p) => a.add(p), new THREE.Vector3()).multiplyScalar(0.25);
+    const right = new THREE.Vector3().subVectors(pts[1], pts[0]);
+    const up = new THREE.Vector3().subVectors(pts[0], pts[3]);
+    const fw = right.length();
+    const fh = up.length();
+    right.normalize();
+    up.normalize();
+    const n = new THREE.Vector3().crossVectors(right, up).normalize();
+    return { c, fw, fh, right, up, n, az: Math.atan2(n.x, n.z), el: Math.asin(Math.max(-1, Math.min(1, n.y))) };
+  }
+  function beginPromo(w, h) {
+    if (!model) return false;
+    stopShow();
+    const P = promoParts();
+    const p = (promo = { size: lastSize.slice(), pos: camera.position.clone(), keep: controls.target.clone(), aspect: camera.aspect, fov: camera.fov, w, h, cal: !!model.calendar });
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.fov = 34;
+    camera.updateProjectionMatrix();
+    for (const k in envs) envs[k].group.visible = false;
+    person.visible = false;
+    ties.visible = false;
+    if (glow) glow.visible = false;
+    if (handG.parent) signRoot.remove(handG);
+    if (stackG.parent) signRoot.remove(stackG);
+    signRoot.rotation.set(0, 0, 0);
+    signRoot.position.set(0, 0, 0);
+    if (p.cal) {
+      model.setExplode(0);
+      model.setPage(0);
+    }
+    // ตั้งบนพื้นกลางเวที (ป้ายติดผนังก็ตั้งพื้นโชว์)
+    signRoot.updateMatrixWorld(true);
+    const b0 = new THREE.Box3().setFromObject(signRoot);
+    p.base = new THREE.Vector3(-(b0.min.x + b0.max.x) / 2, -b0.min.y + 0.0004, -(b0.min.z + b0.max.z) / 2);
+    signRoot.position.copy(p.base);
+    signRoot.updateMatrixWorld(true);
+    p.box = new THREE.Box3().setFromObject(signRoot);
+    p.face = faceFrame();
+    // ปฏิทินกางหน้า: ยกทั้งชุดขึ้นลอย ให้หน้าล่างสุดไม่จมพื้น
+    if (p.cal) {
+      model.setExplode(1);
+      signRoot.updateMatrixWorld(true);
+      const bx = new THREE.Box3().setFromObject(signRoot);
+      p.lift = Math.max(0, p.box.min.y - bx.min.y);
+      bx.translate(new THREE.Vector3(0, p.lift, 0));
+      p.boxX = bx;
+      model.setExplode(0);
+    }
+    const c = p.box.getCenter(new THREE.Vector3());
+    const R = Math.max(0.05, p.box.getSize(new THREE.Vector3()).length() / 2);
+    p.R = R;
+    P.floor.scale.setScalar(Math.max(R * 30, 4));
+    P.floor.position.set(c.x, 0, c.z);
+    scene.add(P.group);
+    scene.background = P.back;
+    scene.fog = null;
+    scene.environment = roomEnv;
+    renderer.toneMappingExposure = LIGHT.exposure;
+    // ไฟ: หลักซ้ายบนหน้า (มีเงา) + ไฟขอบหลัง + ไฟข้าง
+    const L = Math.max(R, 0.15) * (p.cal ? 1.6 : 1);
+    key.position.set(c.x - L * 1.5, c.y + L * 2.6, c.z + L * 2.1);
+    key.target.position.copy(c);
+    key.intensity = LIGHT.key;
+    const sc = key.shadow.camera;
+    sc.left = -L * 1.6;
+    sc.right = L * 1.6;
+    sc.top = L * 1.6;
+    sc.bottom = -L * 1.6;
+    sc.near = 0.05;
+    sc.far = L * 9;
+    sc.updateProjectionMatrix();
+    fill.position.set(c.x + L * 2.2, c.y + L * 0.8, c.z + L * 1.6);
+    fill.target.position.copy(c);
+    fill.intensity = LIGHT.fill * 0.85;
+    hemi.intensity = LIGHT.hemi * 0.7;
+    spot.intensity = 0;
+    P.rim.position.set(c.x + L * 0.8, c.y + L * 2.2, c.z - L * 2.6);
+    P.rim.target.position.copy(c);
+    P.rim.intensity = 1.5;
+    P.kick.position.set(c.x + L * 2.6, c.y + L * 0.5, c.z - L * 0.4);
+    P.kick.target.position.copy(c);
+    P.kick.intensity = 0.6;
+    return true;
+  }
+  const smooth = (t) => {
+    t = Math.max(0, Math.min(1, t));
+    return t * t * (3 - 2 * t);
+  };
+  // ระยะกล้องที่ทำให้ครึ่งกว้าง hw / ครึ่งสูง hh พอดีช่วงภาพแนวตั้ง zone = [บน, ล่าง] (สัดส่วนของความสูงภาพ)
+  function promoDist(hw, hh, zone) {
+    const tV = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+    const tH = tV * camera.aspect;
+    return Math.max(hw / (tH * 0.92), hh / (tV * (zone[1] - zone[0])));
+  }
+  // กล้องแต่ละช่วง: { t (จุดเล็ง), az, el, d, zone, k (หน้าปฏิทิน), ex (กาง) }
+  function promoShot(i, u) {
+    const p = promo;
+    const F = p.face;
+    const e = smooth(u);
+    const c = p.box.getCenter(new THREE.Vector3());
+    const R = p.R;
+    const full = [0.33, 0.93]; // ช่วงภาพที่วางชิ้นงาน (บนเว้นให้ข้อความหัวเรื่อง)
+    if (i === 0) {
+      // ใกล้มาก: มุมซ้ายบนของหน้า (ปฏิทิน: ห่วงลวด + ภาพปก)
+      const t = F.c.clone().addScaledVector(F.up, F.fh * 0.26).addScaledVector(F.right, -F.fw * 0.18);
+      const d = ((F.fw * 0.36) / (Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * camera.aspect)) * (1.06 - 0.12 * e);
+      return { t, az: F.az - 0.55 + 0.25 * e, el: Math.max(0.12, F.el * 0.7 + 0.24 - 0.06 * e), d, zone: [0.12, 1.02] };
+    }
+    if (i === 1) {
+      return { t: c, az: F.az + 0.9 - 0.62 * e, el: 0.3 + 0.05 * e, d: promoDist(R * 0.95, R * 0.95, full) * (1.08 - 0.08 * e), zone: full };
+    }
+    if (i === 2) {
+      // หน้าตรง: ปฏิทินพลิก 3 หน้า (พลิกแล้วค้างให้อ่าน)
+      let k = 0;
+      if (p.cal) {
+        const q = Math.max(0, Math.min(2.9999, ((u - 0.06) / 0.86) * 3));
+        k = Math.floor(q) + smooth((q - Math.floor(q)) / 0.42);
+        if (u > 0.92) k = 3;
+      }
+      const zf = p.cal ? [0.4, 0.95] : full; // ปฏิทิน: เว้นที่ด้านบนให้หน้าที่กำลังพลิก
+      return { t: F.c, az: F.az + 0.12 - 0.14 * e, el: F.el + 0.07, d: promoDist(F.fw * 0.56, F.fh * 0.58, zf) * (1.14 - 0.12 * e), zone: zf, k };
+    }
+    if (i === 3) {
+      if (p.cal) {
+        // 12 เดือนบินออกไปเรียงเป็นผนังเหนือปฏิทิน: กล้องถอยออกตามไปพร้อมกัน แล้วส่ายช้า ๆ
+        const x = Math.max(0, Math.min(1, (u - 0.04) / 0.5));
+        const m = smooth(x);
+        const bx = p.box.clone().union(p.boxX);
+        const cc = c.clone().lerp(bx.getCenter(new THREE.Vector3()), m);
+        const sz = p.box.getSize(new THREE.Vector3()).lerp(bx.getSize(new THREE.Vector3()), m);
+        const zone = [0.38, 0.97];
+        return { t: cc, az: F.az - 0.34 + 0.24 * e, el: 0.14 + 0.04 * e, d: promoDist(Math.max(sz.x, sz.z) * 0.56, sz.y * 0.54, zone) * (1.04 - 0.04 * e), zone, ex: x, lift: p.lift * m };
+      }
+      // มุมต่ำด้านซ้าย ดูหนา/ขอบงาน
+      return { t: c, az: F.az - 0.8 + 0.34 * e, el: 0.06 + 0.06 * e, d: promoDist(R * 0.9, R * 0.9, full) * (1.02 - 0.06 * e), zone: full };
+    }
+    // ภาพรวม + ปิดท้าย (ล่างเว้นให้แถบชื่อร้าน/เบอร์โทร) · ปฏิทินพับหน้ากลับเข้าที่
+    const back = p.cal ? 1 - Math.max(0, Math.min(1, u / 0.3)) : 0;
+    const zone = [0.34, 0.62];
+    let t = c;
+    let d = promoDist(R * 0.92, R * 0.92, zone) * (1.0 + 0.1 * e);
+    if (back > 0) {
+      const bx = p.box.clone().union(p.boxX);
+      const sb = smooth(back);
+      t = c.clone().lerp(bx.getCenter(new THREE.Vector3()), sb);
+      const sz = p.box.getSize(new THREE.Vector3()).lerp(bx.getSize(new THREE.Vector3()), sb);
+      d = Math.max(d, promoDist(Math.max(sz.x, sz.z) * 0.56, sz.y * 0.54, zone));
+    }
+    return { t, az: F.az + 0.42 - 0.3 * e, el: 0.24 - 0.04 * e, d, zone, ex: back, lift: p.cal ? p.lift * back : 0 };
+  }
+  // วาด 2 รอบ: ① ชิ้นงานกลับหัวใต้พื้น (เงาสะท้อน) ② ของจริง + พื้นมัน (โปร่งนิด ๆ) ทับ
+  function promoRender(lift) {
+    const p = promo;
+    const P = promoKit;
+    const y = p.base.y + (lift || 0);
+    renderer.autoClear = false;
+    renderer.clear();
+    P.floor.visible = false;
+    signRoot.scale.y = -1;
+    signRoot.position.set(p.base.x, -y, p.base.z);
+    renderer.render(scene, camera);
+    signRoot.scale.y = 1;
+    signRoot.position.set(p.base.x, y, p.base.z);
+    P.floor.visible = true;
+    const bg = scene.background;
+    scene.background = null;
+    renderer.clearDepth();
+    renderer.render(scene, camera);
+    scene.background = bg;
+    renderer.autoClear = true;
+  }
+  function promoFrame(sec) {
+    const p = promo;
+    if (!p) return null;
+    let i = 0;
+    while (i < 4 && sec >= PROMO_CUTS[i + 1]) i++;
+    const u = Math.max(0, Math.min(1, (sec - PROMO_CUTS[i]) / (PROMO_CUTS[i + 1] - PROMO_CUTS[i])));
+    const s = promoShot(i, u);
+    if (p.cal) {
+      model.setExplode(s.ex || 0);
+      model.setPage(s.k || 0);
+    }
+    const ce = Math.cos(s.el);
+    camera.position.set(s.t.x + Math.sin(s.az) * ce * s.d, s.t.y + Math.sin(s.el) * s.d, s.t.z + Math.cos(s.az) * ce * s.d);
+    if (camera.position.y < 0.015) camera.position.y = 0.015;
+    camera.lookAt(s.t);
+    // เลื่อนภาพให้ชิ้นงานอยู่กลางช่วง zone (ไม่เปลี่ยนมุมมอง)
+    const mid = (s.zone[0] + s.zone[1]) / 2;
+    camera.setViewOffset(p.w, p.h, 0, -(mid - 0.5) * p.h, p.w, p.h);
+    camera.updateProjectionMatrix();
+    promoRender(s.lift);
+    return renderer.domElement;
+  }
+  function endPromo() {
+    const p = promo;
+    if (!p) return;
+    promo = null;
+    if (promoKit) {
+      scene.remove(promoKit.group);
+      promoKit.rim.intensity = 0;
+      promoKit.kick.intensity = 0;
+    }
+    renderer.autoClear = true;
+    signRoot.scale.set(1, 1, 1);
+    if (model && model.calendar) {
+      model.setExplode(0);
+      model.setPage(0);
+    }
+    camera.clearViewOffset();
+    camera.fov = p.fov;
+    renderer.setSize(p.size[0], p.size[1], false);
+    camera.aspect = p.aspect;
+    camera.updateProjectionMatrix();
+    if (model) layout(cur.scene); // ฉาก คน ไฟ ฉากหลัง ตำแหน่งป้าย กลับเหมือนเดิม
+    camera.position.copy(p.pos);
+    controls.target.copy(p.keep);
+    camera.lookAt(controls.target);
+    controls.update();
+    needs = true;
+  }
+
   // ภาพย่อของแต่ละฉาก (ใช้ป้ายปัจจุบัน มุมเฉียง)
   function thumb(key, out) {
     if (!model || !BUILD[key]) return;
@@ -3287,6 +3711,7 @@ export function createStage(opts) {
   // o.scene = ใส่ฉากที่เปิดอยู่ด้วย (หน้าร้าน ผนัง ประตู ฯลฯ + คนยืนเทียบ) ลูกค้าเห็นป้ายติดที่หน้างานเหมือนในแอป
   async function exportGLB(o) {
     if (!model) throw new Error('ยังไม่มีป้าย');
+    if (model.ensureMonths) model.ensureMonths();
     if (o && o.scene && envKey && envs[envKey]) return exportSceneGLB();
     const { GLTFExporter } = await import('three/addons/exporters/GLTFExporter.js');
     const root = new THREE.Group();
@@ -3667,11 +4092,27 @@ export function createStage(opts) {
     renderAt,
     thumb,
     exportGLB,
+    // ปฏิทินตั้งโต๊ะ: พลิกหน้า k (0..12) + กางหน้า e (0..1) · รูปประจำเดือนเปลี่ยน → ทำผิวหน้าใหม่
+    calendarPose(k, e) {
+      if (!model || !model.calendar) return false;
+      model.setExplode(e || 0);
+      model.setPage(k || 0);
+      needs = true;
+      return true;
+    },
+    refreshCalendar() {
+      if (model && model.refreshMonths) model.refreshMonths();
+      needs = true;
+    },
     exportPhotoGLB,
     fbPhoto,
     beginVideo,
     videoFrame,
     endVideo,
+    beginPromo,
+    promoFrame,
+    endPromo,
+    promoCuts: PROMO_CUTS,
     // กลับไปมุมกล้องเริ่มต้นของมุมที่เลือกอยู่
     resetView() {
       stopShow();

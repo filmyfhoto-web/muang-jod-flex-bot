@@ -1229,6 +1229,117 @@
     }
   }
 
+  /* ปฏิทินตั้งโต๊ะ (ภาพหน้าตรง): ขอบขาตั้งสีเข้มโผล่ใต้หน้า + ห่วงลวดเรียงตามขอบบน (เว้นช่องกลางไว้แขวน) */
+  function deskcalHardware(x, g, k, px, py, w, h) {
+    var lift = Math.max(2, g.lift * k);
+    var bg = x.createLinearGradient(0, py + h, 0, py + h + lift);
+    bg.addColorStop(0, '#2b2f37');
+    bg.addColorStop(1, '#15181e');
+    x.fillStyle = bg;
+    x.fillRect(px - 0.4 * k, py + h, w + 0.8 * k, lift);
+    x.fillStyle = '#20242b';
+    x.fillRect(px - 0.4 * k, py - 0.5 * k, w + 0.8 * k, Math.max(1.5, 0.6 * k));
+    var pitch = 0.85 * k; // ห่วงละ ~8.5 มม.
+    var rw = Math.max(1.2, 0.18 * k);
+    var top = Math.max(1, (g.rings - 1.25) * k);
+    var n = Math.max(6, Math.floor((g.w - 1.2) / 0.85));
+    var gapAt = Math.floor(n / 2);
+    var start = px + (w - (n - 1) * pitch) / 2;
+    x.lineCap = 'round';
+    for (var i = 0; i < n; i++) {
+      if (n > 12 && Math.abs(i - gapAt) <= 1) continue; // ช่องกลางสำหรับแขวน
+      var cx = start + i * pitch;
+      var gr = x.createLinearGradient(cx - rw, 0, cx + rw, 0);
+      gr.addColorStop(0, '#9aa0a8');
+      gr.addColorStop(0.45, '#f5f6f8');
+      gr.addColorStop(1, '#7c838c');
+      x.strokeStyle = gr;
+      x.lineWidth = rw;
+      x.beginPath();
+      x.moveTo(cx, py + 0.6 * k);
+      x.bezierCurveTo(cx - 0.32 * k, py - 0.1 * k, cx - 0.3 * k, top, cx + 0.05 * k, top);
+      x.stroke();
+      x.fillStyle = 'rgba(20,24,30,0.55)';
+      x.beginPath();
+      x.arc(cx, py + 0.55 * k, Math.max(0.8, 0.12 * k), 0, Math.PI * 2);
+      x.fill();
+    }
+  }
+
+  /* หน้าปฏิทินรายเดือน: รูปด้านบน + ชื่อเดือน + ตารางวันที่ (อาทิตย์สีแดง) — ใช้ทำผิวหน้าปฏิทิน 3 มิติ/วิดีโอ
+   * o = { photo (รูป/ผืนภาพ), month: C.calMonth(...), accent: '#rrggbb', W, H } */
+  function calPage(o) {
+    var W = o.W || 1024;
+    var H = o.H || 768;
+    var c = mk(W, H);
+    var x = ctx2d(c);
+    var M = o.month;
+    var acc = o.accent || '#c0392b';
+    x.fillStyle = '#ffffff';
+    x.fillRect(0, 0, W, H);
+    var land = W >= H;
+    var ph = Math.round(H * (land ? 0.56 : 0.54));
+    if (o.photo) {
+      var iw = o.photo.naturalWidth || o.photo.width;
+      var ih = o.photo.naturalHeight || o.photo.height;
+      var s = Math.max(W / iw, ph / ih);
+      x.drawImage(o.photo, (W - iw * s) / 2, (ph - ih * s) / 2, iw * s, ih * s);
+    } else {
+      x.fillStyle = '#e9e6e0';
+      x.fillRect(0, 0, W, ph);
+    }
+    var pad = Math.round(Math.min(W, H) * 0.05);
+    var gy = ph + pad * 0.8;
+    var gh = H - gy - pad * 0.7;
+    var gx = pad;
+    var gw = W - pad * 2;
+    if (land) {
+      // ซ้าย: ชื่อเดือน + ปี · ขวา: ตาราง
+      var lw = Math.round(W * 0.3);
+      x.fillStyle = acc;
+      x.font = '700 ' + Math.round(H * 0.085) + 'px ' + DISPLAY;
+      x.textBaseline = 'top';
+      x.textAlign = 'left';
+      x.fillText(M.name, pad, gy);
+      x.fillStyle = '#5b6170';
+      x.font = '500 ' + Math.round(H * 0.045) + 'px ' + BODY;
+      x.fillText(M.en + ' ' + M.year, pad, gy + H * 0.1);
+      x.fillText('พ.ศ. ' + M.be, pad, gy + H * 0.16);
+      gx = pad + lw;
+      gw = W - gx - pad;
+    } else {
+      x.fillStyle = acc;
+      x.font = '700 ' + Math.round(W * 0.07) + 'px ' + DISPLAY;
+      x.textBaseline = 'top';
+      x.textAlign = 'center';
+      x.fillText(M.name + ' ' + M.be, W / 2, gy);
+      gy += W * 0.1;
+      gh = H - gy - pad * 0.6;
+    }
+    var rows = M.weeks.length + 1;
+    var cw = gw / 7;
+    var rh = gh / rows;
+    x.textAlign = 'center';
+    x.textBaseline = 'middle';
+    var days = (NS.core && NS.core.TH_DAYS) || ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+    x.font = '600 ' + Math.round(rh * 0.5) + 'px ' + BODY;
+    for (var d = 0; d < 7; d++) {
+      x.fillStyle = d === 0 ? acc : '#3b4252';
+      x.fillText(days[d], gx + cw * (d + 0.5), gy + rh * 0.5);
+    }
+    x.fillStyle = '#e3e0da';
+    x.fillRect(gx, gy + rh * 0.95, gw, Math.max(1, rh * 0.04));
+    x.font = '500 ' + Math.round(rh * 0.56) + 'px ' + BODY;
+    M.weeks.forEach(function (wk, r) {
+      wk.forEach(function (n, dd) {
+        if (!n) return;
+        x.fillStyle = dd === 0 ? acc : '#1f2633';
+        x.fillText(String(n), gx + cw * (dd + 0.5), gy + rh * (r + 1.5));
+      });
+    });
+    return c;
+  }
+
   function rollupHardware(x, g, k) {
     var fx = g.fx * k;
     var fw = g.w * k;
@@ -1930,6 +2041,7 @@
     else if (g.type === 'acrylic') standoffs(x, g, k, px, py);
     else if (g.type === 'rollup') rollupHardware(x, g, k);
     else if (g.type === 'xstand') xstandHardware(x, g, k);
+    else if (g.type === 'deskcal') deskcalHardware(x, g, k, px, py, w, h);
     else newHardware(x, g, k, look);
     return c;
   }
@@ -2805,6 +2917,7 @@
     filmArt: filmArt,
     handLayers: handLayers,
     glassInterior: glassInterior,
+    calPage: calPage,
     paperTex: paperTex,
     sheetPreview: sheetPreview,
     runFont: runFont,

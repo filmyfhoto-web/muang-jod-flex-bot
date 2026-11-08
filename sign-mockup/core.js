@@ -158,6 +158,15 @@
     small: true,
     presets: [[14.8, 21, 'A5'], [21, 29.7, 'A4'], [10, 15, '4×6 นิ้ว'], [9.9, 21, 'DL']],
   };
+  TYPES.deskcal = {
+    name: 'ปฏิทินตั้งโต๊ะ',
+    desc: 'ขาตั้งจั่วสามเหลี่ยม สันห่วงลวด ปก + 12 เดือน (ตารางวันที่ให้อัตโนมัติ)',
+    unit: 'pcs',
+    word: 'ชุด',
+    mount: 'floor',
+    small: true,
+    presets: [[20, 15, '8×6 นิ้ว'], [15, 20, '6×8 นิ้ว แนวตั้ง'], [21, 14.8, 'A5 แนวนอน'], [23, 17, '9×7 นิ้ว'], [14.8, 21, 'A5 แนวตั้ง']],
+  };
   TYPES.standee = {
     name: 'สแตนดี้ไดคัท (ตั้งพื้น)',
     desc: 'ฟิวเจอร์บอร์ด/โฟมไดคัทตามรูป มีขาค้ำหลัง ตั้งหน้าร้าน/บูธ',
@@ -172,7 +181,7 @@
     mount: 'wall',
     presets: [[100, 200], [200, 100], [90, 60], [300, 200], [60, 40]],
   };
-  var TYPE_ORDER = ['vinyl', 'frame', 'foam', 'sticker', 'window', 'acrylic', 'lightbox', 'letters', 'neon', 'blade', 'stand', 'cnc', 'billboard', 'backdrop', 'flag', 'standee', 'rollup', 'xstand', 'card', 'poster', 'tablestand'];
+  var TYPE_ORDER = ['vinyl', 'frame', 'foam', 'sticker', 'window', 'acrylic', 'lightbox', 'letters', 'neon', 'blade', 'stand', 'cnc', 'billboard', 'backdrop', 'flag', 'standee', 'rollup', 'xstand', 'card', 'poster', 'tablestand', 'deskcal'];
   /* รูปทรงชิ้นงาน: สี่เหลี่ยม / มุมมน / วงกลม-วงรี / ไดคัทตามรูป (+ขอบขาว) — ใช้กับงานแผ่น/สติ๊กเกอร์/บัตร · สแตนดี้ไดคัทเสมอ */
   var SHAPES = { rect: 'สี่เหลี่ยม', round: 'มุมมน', circle: 'วงกลม/วงรี', cut: 'ไดคัทตามรูป' };
   var SHAPE_TYPES = ['sticker', 'foam', 'acrylic', 'card', 'standee', 'window'];
@@ -759,6 +768,15 @@
       g.depth = 7;
       g.gap = 0;
       g.bh = h + g.lift;
+    } else if (t === 'deskcal') {
+      // ปฏิทินตั้งโต๊ะ: ห่วงลวดเหนือหน้า 1.4 ซม. — หน้าปฏิทิน — ขอบขาตั้งใต้หน้า 0.8 ซม. · ขาตั้งจั่วลึก ~ครึ่งความสูง (3 มิติ)
+      g.rings = 1.4;
+      g.lift = 0.8;
+      g.depth = 0.3;
+      g.baseD = Math.round(h * 0.5 * 10) / 10;
+      g.gap = 0;
+      g.fy = g.rings;
+      g.bh = g.rings + h + g.lift;
     } else if (t === 'xstand') {
       // ป้ายลอยจากพื้น 18 ซม. ขาไขว้ต่อเลยมุมล่างลงพื้น เอียงตามแนวทแยงของป้าย
       g.lift = 18;
@@ -1340,6 +1358,7 @@
     billboard: 'เสาเดี่ยว + ทางเดิน + ไฟส่อง',
     poster: 'กระดาษอาร์ต 160 แกรม',
     tablestand: 'อะคริลิคใส ฐานลึก 7 ซม.',
+    deskcal: 'ขาตั้งจั่ว + สันห่วงลวด',
     standee: 'ฟิวเจอร์บอร์ด 5 มม. + ขาค้ำหลัง',
     window: 'สติ๊กเกอร์ติดกระจก (ด้านนอก)',
   };
@@ -1905,6 +1924,7 @@
     if (base === 'backdrop') return 'รวมโครงทรัส';
     if (base === 'billboard') return look.lit ? 'รวมโครงสร้าง + ไฟส่อง' : 'รวมโครงสร้าง';
     if (base === 'tablestand') return 'อะคริลิค + งานพิมพ์';
+    if (base === 'deskcal') return 'ปก + 12 เดือน · สันห่วงลวด · ขาตั้งจั่ว';
     if (base === 'window') return FILMS[look.film] + (look.film === 'oneway' ? ' (One Way Vision)' : '');
     if (base === 'standee') return 'ขาค้ำหลัง ตั้งพื้นได้';
     return '';
@@ -2107,6 +2127,59 @@
     return [cam.C[0] + s * dir[0], cam.C[1] + s * dir[1], cam.C[2] + s * dir[2]];
   }
 
+  /* ปฏิทิน: ชื่อเดือน/วันภาษาไทย + ตารางวันที่ของเดือน (สัปดาห์เริ่มวันอาทิตย์) · ปีที่ทำปฏิทิน: ก.ค. เป็นต้นไปทำของปีหน้า */
+  var TH_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+  var EN_MONTHS = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
+  var TH_DAYS = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+  function calYear(now) {
+    var d = now || new Date();
+    return d.getMonth() >= 6 ? d.getFullYear() + 1 : d.getFullYear();
+  }
+  function calMonth(year, m) {
+    var first = new Date(year, m, 1).getDay();
+    var n = new Date(year, m + 1, 0).getDate();
+    var cells = [];
+    for (var i = 0; i < first; i++) cells.push(0);
+    for (var d = 1; d <= n; d++) cells.push(d);
+    while (cells.length % 7) cells.push(0);
+    var weeks = [];
+    for (var j = 0; j < cells.length; j += 7) weeks.push(cells.slice(j, j + 7));
+    return { m: m, name: TH_MONTHS[m], en: EN_MONTHS[m], year: year, be: year + 543, weeks: weeks, days: n };
+  }
+
+  /* วิดีโอโปรโมท 5 ฉาก: ข้อความตั้งต้น (บรรทัดละฉาก · "/" ขึ้นบรรทัดใหม่ในฉาก · บรรทัดท้ายของฉากเป็นตัวไล่สี)
+   * o = { size, price, year } */
+  var PROMO_SHOTS = 5;
+  function promoTexts(type, o) {
+    o = o || {};
+    var t = TYPES[type] ? type : 'vinyl';
+    if (baseType(t) === 'deskcal') {
+      var be = (o.year || calYear()) + 543;
+      return ['ปฏิทินตั้งโต๊ะ / ปี ' + be, 'พิมพ์สีสด / คมชัดทุกหน้า', 'ใส่รูป-โลโก้ร้าน / ได้ทุกเดือน', 'ครบ 12 เดือน / พร้อมปก 13 แผ่น', 'สั่งทำเลย! / ปฏิทินของร้านคุณเอง'];
+    }
+    var name = TYPES[t].name.replace(/\s*\/\s*/g, ' · '); // ชื่อชนิดงานที่มี / (บัตร / บัตรสมนาคุณ) ไม่ให้แตกเป็น 2 บรรทัด
+    return [name + (o.size ? ' / ' + o.size : ''), 'พิมพ์สีสด / คมชัด ทนทาน', 'ออกแบบตาม / แบรนด์ของคุณ', 'งานละเอียด / ทุกมุม', 'สั่งทำเลย! / ' + (o.price || 'งานไว ทันใช้')];
+  }
+  // ข้อความในช่อง → 5 ฉาก ฉากละ 0–3 บรรทัด (บรรทัดว่าง = ฉากนั้นไม่มีข้อความ · บรรทัดไม่ครบใช้ข้อความตั้งต้น)
+  function parsePromo(text, defs) {
+    var rows = String(text == null ? '' : text).replace(/\r/g, '').split('\n');
+    while (rows.length && !rows[rows.length - 1].trim()) rows.pop();
+    var out = [];
+    for (var i = 0; i < PROMO_SHOTS; i++) {
+      var r = i < rows.length ? rows[i] : (defs && defs[i]) || '';
+      out.push(
+        String(r)
+          .split('/')
+          .map(function (v) {
+            return v.trim().slice(0, 40);
+          })
+          .filter(Boolean)
+          .slice(0, 3)
+      );
+    }
+    return out;
+  }
+
   /* ข้อความโพสต์ Facebook (ชุดโพสต์): ชื่องาน ขนาด ลิงก์ดู 3 มิติ ชวนทัก ชื่อร้าน เบอร์ แฮชแท็ก — ไม่ใส่ชื่อลูกค้า (โพสต์สาธารณะ) */
   function fbCaption(o) {
     o = o || {};
@@ -2213,6 +2286,13 @@
     phoneText: phoneText,
     thaiDate: thaiDate,
     fbCaption: fbCaption,
+    calYear: calYear,
+    calMonth: calMonth,
+    promoTexts: promoTexts,
+    parsePromo: parsePromo,
+    PROMO_SHOTS: PROMO_SHOTS,
+    TH_MONTHS: TH_MONTHS,
+    TH_DAYS: TH_DAYS,
     photoCamera: photoCamera,
     photoProject: photoProject,
     photoRayPoint: photoRayPoint,

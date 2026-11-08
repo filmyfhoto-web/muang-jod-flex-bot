@@ -1191,3 +1191,82 @@ test('ตัวดู 3 มิติดูโปร: สีหน้าป้า
   const css = readFileSync(new URL('../sign-mockup/viewer3d.css', import.meta.url), 'utf8');
   assert.match(css, /backdrop-filter: blur\(8px\);/);
 });
+
+test('ปฏิทินตั้งโต๊ะ: ชนิดใหม่ ตั้งบนโต๊ะ ขาตั้งจั่ว + ห่วงลวด · ตารางวันที่ไทยถูกวัน · ปี พ.ศ. ของปฏิทิน (ก.ค. ขึ้นไปทำปีหน้า)', () => {
+  assert.ok(C.TYPE_ORDER.includes('deskcal'));
+  const t = C.TYPES.deskcal;
+  assert.equal(t.name, 'ปฏิทินตั้งโต๊ะ');
+  assert.equal(t.unit, 'pcs');
+  const g = C.geometry('deskcal', 20, 15);
+  assert.equal(g.mount, 'floor');
+  assert.ok(g.rings > 0 && g.baseD > 0 && g.bh > g.h);
+  assert.equal(C.defaultScene('deskcal'), 'table');
+  for (const s of ['table', 'studio']) assert.ok(C.sceneFits(s, 'deskcal'), s);
+  assert.match(C.depthText('deskcal'), /ห่วงลวด/);
+  // ก.พ. 2570 (2027): 1 ก.พ. เป็นวันจันทร์ 28 วัน · ตารางเริ่มวันอาทิตย์ ครบสัปดาห์ละ 7 ช่อง
+  const m = C.calMonth(2027, 1);
+  assert.equal(m.name, 'กุมภาพันธ์');
+  assert.equal(m.be, 2570);
+  assert.equal(m.days, 28);
+  assert.deepEqual(m.weeks[0], [0, 1, 2, 3, 4, 5, 6]);
+  assert.ok(m.weeks.every((w) => w.length === 7));
+  assert.equal(m.weeks.flat().filter(Boolean).length, 28);
+  // ปี 2028 อธิกสุรทิน: ก.พ. 29 วัน
+  assert.equal(C.calMonth(2028, 1).days, 29);
+  assert.equal(C.TH_DAYS[0], 'อา');
+  assert.equal(C.calYear(new Date(2026, 5, 30)), 2026);
+  assert.equal(C.calYear(new Date(2026, 6, 1)), 2027);
+  const render = readFileSync(new URL('../sign-mockup/render.js', import.meta.url), 'utf8');
+  assert.match(render, /function calPage\(o\)/);
+  assert.match(render, /g\.type === 'deskcal'\) deskcalHardware\(/);
+  const s3 = readFileSync(new URL('../sign-mockup/scene3d.js', import.meta.url), 'utf8');
+  assert.match(s3, /const CAL_PAGES = 13;/);
+  assert.match(s3, /else if \(bt === 'deskcal'\) model = buildDeskCal\(w, h, map\);/);
+  assert.match(s3, /if \(model\.ensureMonths\) model\.ensureMonths\(\);|model\.ensureMonths\(\)/); // ไฟล์ 3 มิติมีหน้าเดือนครบ
+  const html = readFileSync(new URL('../sign-mockup/index.html', import.meta.url), 'utf8');
+  for (const id of ['calField', 'calYear', 'calPick', 'calClear', 'calThumbs', 'calFile']) assert.match(html, new RegExp('id="' + id + '"'), id);
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  assert.match(app, /\$\('calField'\)\.hidden = b !== 'deskcal';/);
+});
+
+test('วิดีโอโปรโมท 5 ฉาก (16 วิ): พื้นดำเงาสะท้อน · ข้อความแต่ละฉากแก้ได้ (บรรทัดละฉาก, / ขึ้นบรรทัด) · ใช้ได้ทุกชนิดงาน', () => {
+  const RL = require('../sign-mockup/reels.js');
+  assert.equal(RL.PROMO_SEC, 16);
+  assert.equal(RL.promoFrames, 16 * 30);
+  assert.deepEqual(RL.PROMO_CUTS, [0, 3, 6.2, 9.6, 12.8, 16]);
+  assert.equal(typeof RL.promoOverlay, 'function');
+  assert.deepEqual(RL.promoShotAt(0, RL.PROMO_CUTS).i, 0);
+  assert.deepEqual(RL.promoShotAt(9.7, RL.PROMO_CUTS).i, 3);
+  assert.deepEqual(RL.promoShotAt(15.99, RL.PROMO_CUTS).i, 4);
+  // ตัวเวที 3 มิติตัดฉากตรงเวลาเดียวกับข้อความ
+  const s3 = readFileSync(new URL('../sign-mockup/scene3d.js', import.meta.url), 'utf8');
+  assert.match(s3, /const PROMO_CUTS = \[0, 3, 6\.2, 9\.6, 12\.8, 16\];/);
+  for (const f of ['beginPromo', 'promoFrame', 'endPromo']) assert.match(s3, new RegExp('function ' + f + '\\('), f);
+  assert.match(s3, /signRoot\.scale\.y = -1;/); // เงาสะท้อนบนพื้น
+  assert.match(s3, /if \(video \|\| promo\) return;/); // ระหว่างทำวิดีโอ หน้าจอไม่วาดแทรก
+  assert.match(s3, /if \(model\) layout\(cur\.scene\);/); // ทำเสร็จคืนฉากเดิม
+  // ข้อความตั้งต้น: ปฏิทิน (ปี พ.ศ.) / ชนิดอื่น (ชื่อ + ขนาด) · ชื่อชนิดที่มี / ไม่แตกบรรทัด
+  const cal = C.promoTexts('deskcal', { year: 2027 });
+  assert.equal(cal.length, 5);
+  assert.equal(cal[0], 'ปฏิทินตั้งโต๊ะ / ปี 2570');
+  const card = C.promoTexts('card', { size: '9 × 5.4 ซม.', price: 'ราคา 350 บาท' });
+  assert.equal(card[0], 'บัตร · บัตรสมนาคุณ / 9 × 5.4 ซม.');
+  assert.equal(card[4], 'สั่งทำเลย! / ราคา 350 บาท');
+  // แปลงข้อความ: บรรทัดว่าง = ฉากนั้นไม่มีข้อความ · ไม่ครบ 5 บรรทัดเติมข้อความตั้งต้น · ฉากละไม่เกิน 3 บรรทัด
+  const p = C.parsePromo('หนึ่ง / สอง\n\n ก/ข/ค/ง \n', cal);
+  assert.deepEqual(p[0], ['หนึ่ง', 'สอง']);
+  assert.deepEqual(p[1], []);
+  assert.deepEqual(p[2], ['ก', 'ข', 'ค']);
+  assert.deepEqual(p[3], ['ครบ 12 เดือน', 'พร้อมปก 13 แผ่น']);
+  assert.equal(p.length, 5);
+  // แอป: เลือกแบบวิดีโอ + ช่องข้อความ (จำไว้ในเครื่องแยกตามชนิดงาน)
+  const html = readFileSync(new URL('../sign-mockup/index.html', import.meta.url), 'utf8');
+  assert.match(html, /data-rs="promo">โปรโมท 5 ฉาก/);
+  assert.match(html, /data-rs="spin">หมุนโชว์/);
+  assert.match(html, /<textarea id="promoText"/);
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  assert.match(app, /if \(reelStyle\(\) === 'promo' && stage && stage\.beginPromo\) return buildPromo\(\);/);
+  assert.match(app, /localStorage\.setItem\(PROMO_KEY \+ bt\(\), \$\('promoText'\)\.value\);/);
+  assert.match(app, /bt\(\) === 'deskcal' \? 'promo' : 'spin'/); // ปฏิทินเริ่มที่แบบโปรโมท
+  assert.match(app, /RL\.promoOverlay\(x, sec, plan\);/);
+});

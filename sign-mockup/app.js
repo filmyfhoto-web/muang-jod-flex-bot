@@ -6,11 +6,11 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '4.12.1';
+  var APP_VERSION = '4.13.0';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp', hands: C.HAND_BUILTIN.src });
 
-  var UNIT_WORD = { vinyl: 'ผืน', frame: 'ผืน', foam: 'แผ่น', sticker: 'แผ่น', acrylic: 'แผ่น', lightbox: 'ป้าย', stand: 'ชุด', cnc: 'ป้าย', rollup: 'ชุด', xstand: 'ชุด', card: 'ใบ', letters: 'ชุด', neon: 'ป้าย', blade: 'ป้าย', flag: 'ผืน', backdrop: 'ชุด', billboard: 'ป้าย', poster: 'แผ่น', tablestand: 'อัน', standee: 'ชิ้น', window: 'ชิ้น' };
+  var UNIT_WORD = { vinyl: 'ผืน', frame: 'ผืน', foam: 'แผ่น', sticker: 'แผ่น', acrylic: 'แผ่น', lightbox: 'ป้าย', stand: 'ชุด', cnc: 'ป้าย', rollup: 'ชุด', xstand: 'ชุด', card: 'ใบ', letters: 'ชุด', neon: 'ป้าย', blade: 'ป้าย', flag: 'ผืน', backdrop: 'ชุด', billboard: 'ป้าย', poster: 'แผ่น', tablestand: 'อัน', deskcal: 'ชุด', standee: 'ชิ้น', window: 'ชิ้น' };
   // ชนิดงานของร้าน (ตัวเลือกของร้าน) ต้องลงทะเบียนก่อนโหลดงานที่บันทึกไว้ ไม่งั้นงานชนิดนั้นจะกลายเป็นไวนิล
   var OPT_KEY = 'np-sign-options-v1';
   try {
@@ -614,6 +614,7 @@
     standee: '<svg viewBox="0 0 44 34"><path d="M22 3c3 0 5 2.2 5 5s-1.6 4.2-2.6 4.8c4 .9 6.6 3.6 6.6 8.2V30H13V21c0-4.6 2.6-7.3 6.6-8.2C18.6 12.2 17 10.8 17 8c0-2.8 2-5 5-5z"/><path d="M8 31h28"/></svg>',
     window: '<svg viewBox="0 0 44 34"><rect x="4" y="3" width="36" height="28" rx="1"/><path d="M22 3v28"/><rect x="8" y="10" width="11" height="12" rx="1"/><path d="M27 8l-3 5M33 8l-7 12"/></svg>',
     tablestand: '<svg viewBox="0 0 44 34"><path d="M14 4l4 25M30 4l-4 25"/><rect x="15" y="5" width="14" height="19" rx="1"/><path d="M9 30h26"/><path d="M18 10h8M18 14h6"/></svg>',
+    deskcal: '<svg viewBox="0 0 44 34"><path d="M10 30 16 6h12l6 24"/><path d="M15 4v4M19 4v4M23 4v4M27 4v4"/><path d="M14 13h16M13 18h18M12 23h20"/><path d="M8 30h28"/></svg>',
   };
 
   function buildTypes() {
@@ -1310,6 +1311,105 @@
   /* ---------- ฉาก "มือจับ (รูปของร้าน)" ----------
    * รูปมือจับบัตรของร้าน เก็บในเครื่อง (IndexedDB 'opt-hand-photo') ใช้ได้กับทุกงาน + ตำแหน่งบัตรในรูป (หาเองอัตโนมัติ ลากปรับได้)
    * st.handView = มุมที่โชว์: สองมือ (ทั้งรูป) / มือซ้าย / มือขวา (ตัดครึ่งรูป) */
+  /* ---- ปฏิทินตั้งโต๊ะ: ปีปฏิทิน + รูปประจำเดือน (เรียง ม.ค.–ธ.ค. ไม่ครบวนใช้ซ้ำ) เก็บในเครื่อง ใช้ได้ทุกงาน ---- */
+  var CAL_ID = 'opt-cal-photos';
+  var calPhotos = []; // { img: ผืนภาพย่อ, blob: JPEG }
+  NS.calYear = C.calYear();
+  function calApply() {
+    NS.calPhotos = calPhotos.map(function (p) {
+      return p.img;
+    });
+    if (stage && stage.refreshCalendar) stage.refreshCalendar();
+    calShow();
+  }
+  function calShow() {
+    $('calYear').value = String(NS.calYear + 543);
+    $('calClear').hidden = !calPhotos.length;
+    $('calInfo').textContent = calPhotos.length
+      ? 'รูปประจำเดือน ' + calPhotos.length + ' รูป' + (calPhotos.length < 12 ? ' (วนใช้ซ้ำให้ครบ 12 เดือน)' : '') + ' · ตารางวันที่ปี ' + (NS.calYear + 543) + ' ใส่ให้อัตโนมัติ'
+      : 'ยังไม่ใส่รูปประจำเดือน — ทุกเดือนใช้ลายปก · ตารางวันที่ปี ' + (NS.calYear + 543) + ' ใส่ให้อัตโนมัติ';
+    var box = $('calThumbs');
+    box.textContent = '';
+    calPhotos.forEach(function (p, i) {
+      var c = document.createElement('canvas');
+      c.width = 64;
+      c.height = 44;
+      var x = c.getContext('2d');
+      var s = Math.max(64 / p.img.width, 44 / p.img.height);
+      x.drawImage(p.img, (64 - p.img.width * s) / 2, (44 - p.img.height * s) / 2, p.img.width * s, p.img.height * s);
+      c.title = C.TH_MONTHS[i];
+      box.appendChild(c);
+    });
+  }
+  function calSave() {
+    if (!NS.jobs) return;
+    NS.jobs
+      .put({ id: CAL_ID, at: Date.now(), year: NS.calYear, blobs: calPhotos.map(function (p) { return p.blob; }) })
+      .catch(function () {});
+  }
+  // ย่อรูปให้ด้านยาวไม่เกิน 1400 px (พอสำหรับหน้าปฏิทิน ไม่กินหน่วยความจำ)
+  function calLoad(blob) {
+    return new Promise(function (resolve, reject) {
+      var u = URL.createObjectURL(blob);
+      var im = new Image();
+      im.onload = function () {
+        var k = Math.min(1, 1400 / Math.max(im.width, im.height));
+        var c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(im.width * k));
+        c.height = Math.max(1, Math.round(im.height * k));
+        c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(u);
+        c.toBlob(function (b) {
+          resolve({ img: c, blob: b || blob });
+        }, 'image/jpeg', 0.88);
+      };
+      im.onerror = function () {
+        URL.revokeObjectURL(u);
+        reject(new Error('bad image'));
+      };
+      im.src = u;
+    });
+  }
+  $('calPick').addEventListener('click', function () {
+    $('calFile').click();
+  });
+  $('calFile').addEventListener('change', function (e) {
+    var files = [].slice.call(e.target.files || [], 0, 12);
+    e.target.value = '';
+    if (!files.length) return;
+    $('calInfo').textContent = 'กำลังเตรียมรูป…';
+    Promise.all(files.map(function (f) { return calLoad(f).catch(function () { return null; }); })).then(function (list) {
+      calPhotos = list.filter(Boolean);
+      calApply();
+      calSave();
+      toast(calPhotos.length ? 'ใส่รูปประจำเดือน ' + calPhotos.length + ' รูปแล้ว' : 'เปิดรูปไม่ได้ ลองรูปอื่น');
+    });
+  });
+  $('calClear').addEventListener('click', function () {
+    calPhotos = [];
+    calApply();
+    calSave();
+  });
+  $('calYear').addEventListener('change', function () {
+    var v = parseInt($('calYear').value, 10);
+    if (v > 2400) v -= 543; // พิมพ์ พ.ศ. มา
+    if (!(v >= 2000 && v <= 2200)) {
+      calShow();
+      return;
+    }
+    NS.calYear = v;
+    calApply();
+    calSave();
+  });
+  (NS.jobs ? NS.jobs.get(CAL_ID).catch(function () { return null; }) : Promise.resolve(null)).then(function (rec) {
+    if (rec && rec.year >= 2000) NS.calYear = rec.year;
+    var blobs = (rec && rec.blobs) || [];
+    return Promise.all(blobs.map(function (b) { return calLoad(b).catch(function () { return null; }); })).then(function (list) {
+      calPhotos = list.filter(Boolean);
+      calApply();
+    });
+  });
+
   var HAND_ID = 'opt-hand-photo';
   var handPhoto = null;
   var handEdit = false;
@@ -2536,6 +2636,7 @@
     else if (b === 'sticker') fin = 'พิมพ์สติ๊กเกอร์ เคลือบ ไดคัทตามขนาด';
     else if (b === 'cnc') fin = (C.cncPosts(st.steel) ? 'เสาเหล็กกล่อง 10×10 ซม. 2 ต้น + ฐานปูน ขอบล่างสูง 80 ซม.' : 'ติดผนัง (ขายึดหลังแผ่น)') + ' · อักษรนูนตัด CNC 1.5 ซม.';
     else if (b === 'rollup' || b === 'xstand') fin = 'ขาตั้ง + กระเป๋าใส่';
+    else if (b === 'deskcal') fin = '13 แผ่น (ปก + 12 เดือน ปี ' + ((NS.calYear || C.calYear()) + 543) + ')' + (calPhotos.length ? ' · รูปประจำเดือน ' + calPhotos.length + ' รูป' : '') + ' · เจาะรูสันห่วงลวด · ขาตั้งจั่ว';
     else if (b === 'card') {
       var r = runNow();
       fin = r ? 'รันนัมเบอร์ ' + C.runText(r, 0) + '–' + C.runText(r, q.qty - 1) + (C.runSlots(r, st.w, st.h).stub ? ' · ต้นขั้ว ' + C.fmtCm(r.stub) + ' ซม. + ปรุ' : '') + ' · สีเลข ' + r.color : 'ตัดตามขนาด (ไม่มีเลขรัน)';
@@ -2828,9 +2929,85 @@
       done: function () {},
     };
   }
+  /* วิดีโอโปรโมท 5 ฉาก (16 วิ): ชิ้นงานบนพื้นดำเงาสะท้อน กล้องตัดฉาก + หัวเรื่องไล่สีที่ร้านแก้เองได้ + การ์ดปิดท้าย
+   * ใช้ได้ทุกชนิดงานเมื่อเปิด 3 มิติได้ (ฉากรูปถ่ายก็ได้ ใช้ตัวงานล่าสุด) · ปฏิทินตั้งโต๊ะ: พลิกหน้า + กางทุกเดือน */
+  var REEL_KEY = 'np-sign-reel';
+  var PROMO_KEY = 'np-sign-promo-';
+  function reelStyle() {
+    if (!stage) return 'spin';
+    var v = '';
+    try {
+      v = localStorage.getItem(REEL_KEY) || '';
+    } catch (e) {}
+    return v === 'promo' || v === 'spin' ? v : bt() === 'deskcal' ? 'promo' : 'spin';
+  }
+  function promoDefaults() {
+    var info = reelInfo();
+    return C.promoTexts(st.type, { size: info.size, price: info.price, year: NS.calYear });
+  }
+  function promoTextNow() {
+    var v = null;
+    try {
+      v = localStorage.getItem(PROMO_KEY + bt());
+    } catch (e) {}
+    return v != null ? v : promoDefaults().join('\n');
+  }
+  function buildPromo() {
+    var RL = NS.reels;
+    var info = reelInfo();
+    var text = $('promoText').value;
+    var plan = { shots: C.parsePromo(text.trim() ? text : promoTextNow(), promoDefaults()), shop: info.shop, phone: info.phone, logo: info.logo, cuts: stage.promoCuts || RL.PROMO_CUTS };
+    var N = RL.promoFrames;
+    var out = document.createElement('canvas');
+    out.width = RL.W;
+    out.height = RL.H;
+    var x = out.getContext('2d');
+    var job = exp.job;
+    var begun = false;
+    function done() {
+      if (!begun) return;
+      begun = false;
+      stage.endPromo();
+      draw();
+    }
+    syncStage(); // ฉากรูปถ่าย: ให้ตัวงาน 3 มิติตามงานล่าสุดก่อน
+    return fontsReady()
+      .then(function () {
+        if (!stage.beginPromo(RL.W, RL.H)) throw new Error('reel');
+        begun = true;
+        return RL.encode({
+          frames: N,
+          fps: RL.FPS,
+          draw: function (i) {
+            var sec = i / RL.FPS;
+            x.globalAlpha = 1;
+            x.drawImage(stage.promoFrame(sec), 0, 0, RL.W, RL.H);
+            RL.promoOverlay(x, sec, plan);
+            return out;
+          },
+          progress: function (p) {
+            if (job === exp.job) $('dlStatus').textContent = 'กำลังทำวิดีโอโปรโมท ' + Math.round(p * 100) + '% — รอสักครู่ ไม่ต้องปิดหน้านี้';
+          },
+          cancelled: function () {
+            return job !== exp.job || !$('exportDlg').open;
+          },
+        });
+      })
+      .then(
+        function (r) {
+          done();
+          return { blob: r.blob, name: fileName('promo', r.ext), ext: r.ext, preview: null, canvas: null };
+        },
+        function (e) {
+          done();
+          throw e;
+        }
+      );
+  }
   function buildReel() {
     var RL = NS.reels;
     if (!RL) return Promise.reject(new Error('reel'));
+    if (reelStyle() === 'promo' && stage && stage.beginPromo) return buildPromo();
     var info = reelInfo();
     var N = RL.frames;
     var out = document.createElement('canvas');
@@ -2883,6 +3060,7 @@
     compare: 'แบบละครึ่งหน้า พร้อมชนิด ขนาด ราคา และช่องให้ลูกค้าติ๊กเลือก — ส่งเข้า LINE ให้ลูกค้าตอบ “แบบ 1” หรือ “แบบ 2”',
     fbpack: '① กด “ดาวน์โหลด” ได้ 2 ไฟล์ (รูป + _depth) ② กด “คัดลอกข้อความโพสต์” ③ เปิด Facebook บนคอม › สร้างโพสต์ › วางข้อความ › รูปภาพ/วิดีโอ › เลือกทั้ง 2 ไฟล์พร้อมกัน → โพสต์ · คนเลื่อนฟีดเห็นรูปขยับเป็น 3 มิติ แตะลิงก์ในข้อความหมุนดูรอบป้ายได้ · ใครเปิด/กดสนใจ ดูได้ที่ “ดูคนเปิดดู / ลูกค้าที่สนใจ”',
     fb3d: 'ได้ 2 ไฟล์: รูป + รูปความลึก (_depth ขาว = ใกล้ ดำ = ไกล) → เปิด Facebook บนคอม › สร้างโพสต์ › รูปภาพ/วิดีโอ › เลือกทั้ง 2 ไฟล์พร้อมกัน → ขึ้น “กำลังสร้างรูปภาพ 3 มิติ” คนเลื่อนฟีด/เอียงมือถือ รูปจะขยับเป็นมิติ (Facebook เลิกรับไฟล์ .glb แล้ว)',
+    promo: 'วิดีโอโปรโมทแนวตั้ง 9:16 (1080×1920) ยาว 16 วินาที 5 ฉาก: พื้นดำเงาสะท้อน กล้องตัดมุมแบบโฆษณา หัวเรื่องไล่สี (แก้ข้อความด้านบนได้) ปิดท้ายชื่อร้าน + เบอร์โทร — โพสต์ Story / Reels / TikTok ได้เลย · ใส่เพลงในแอปตอนโพสต์',
     reel: 'วิดีโอแนวตั้ง 9:16 (1080×1920) ยาว 9 วินาที มีชื่อร้าน ขนาด ราคา และหน้าปิดท้ายเบอร์โทร — โพสต์ลง Facebook / Instagram Reels, TikTok, YouTube Shorts ได้เลย · ใส่เพลงในแอปตอนโพสต์',
     html: 'ไฟล์เดียวจบ: ส่งทาง LINE / อีเมล / แฟลชไดรฟ์ ลูกค้าแตะหรือดับเบิลคลิกเปิดในเบราว์เซอร์ (Chrome / Safari / Edge) หมุนดูป้าย 3 มิติได้เลย ไม่ต้องลงแอป ไม่ต้องต่อเน็ต · มีปุ่มบันทึกรูปมุมที่ดู',
   };
@@ -2921,10 +3099,14 @@
     $('sceneWith').textContent = photoSceneOk() ? 'ป้าย + รูปหน้างาน' : 'ป้าย + ฉาก';
     pressed('#sceneSeg button', 'g', glbWithScene() ? 'scene' : 'sign');
     $('cmpBar').hidden = fmt !== 'compare';
+    $('reelBar').hidden = fmt !== 'reel' || !stage;
+    $('promoBox').hidden = fmt !== 'reel' || reelStyle() !== 'promo';
+    pressed('#reelSeg button', 'rs', reelStyle());
+    if (fmt === 'reel' && document.activeElement !== $('promoText')) $('promoText').value = promoTextNow();
     pressed('#cmpOutSeg button', 'cout', st.cmpOut);
     pressed('#sheetSeg button', 'sheet', st.sheet);
-    $('exportTitle').textContent = fmt === 'reel' ? 'วิดีโอ Reels (แนวตั้ง 9:16)' : fmt === 'pdf' ? 'ใบเสนอราคา' : fmt === 'glb' ? 'ไฟล์ 3 มิติ' : fmt === 'html' ? 'ไฟล์ HTML พรีวิว 3 มิติ' : fmt === 'fb3d' ? 'รูป 3 มิติ Facebook' : fmt === 'fbpack' ? 'ชุดโพสต์ Facebook' : fmt === 'print' ? 'ไฟล์พิมพ์บัตร' : fmt === 'compare' ? 'แบบให้ลูกค้าเลือก' : fmt === 'job' ? 'ใบสั่งผลิต' : 'รูปพร้อมส่งลูกค้า';
-    $('dlHint').textContent = inFrame && fmt !== 'glb' && fmt !== 'html' ? 'มือถือ: กดค้างที่รูปแล้วเลือก “บันทึกรูปภาพ” · คอมพิวเตอร์: คลิกขวาที่รูป แล้วเลือกบันทึกรูป' : FMT_HINT[fmt];
+    $('exportTitle').textContent = fmt === 'reel' ? (reelStyle() === 'promo' ? 'วิดีโอโปรโมท 5 ฉาก (9:16)' : 'วิดีโอ Reels (แนวตั้ง 9:16)') : fmt === 'pdf' ? 'ใบเสนอราคา' : fmt === 'glb' ? 'ไฟล์ 3 มิติ' : fmt === 'html' ? 'ไฟล์ HTML พรีวิว 3 มิติ' : fmt === 'fb3d' ? 'รูป 3 มิติ Facebook' : fmt === 'fbpack' ? 'ชุดโพสต์ Facebook' : fmt === 'print' ? 'ไฟล์พิมพ์บัตร' : fmt === 'compare' ? 'แบบให้ลูกค้าเลือก' : fmt === 'job' ? 'ใบสั่งผลิต' : 'รูปพร้อมส่งลูกค้า';
+    $('dlHint').textContent = inFrame && fmt !== 'glb' && fmt !== 'html' ? 'มือถือ: กดค้างที่รูปแล้วเลือก “บันทึกรูปภาพ” · คอมพิวเตอร์: คลิกขวาที่รูป แล้วเลือกบันทึกรูป' : FMT_HINT[fmt === 'reel' && reelStyle() === 'promo' ? 'promo' : fmt];
     $('dlStatus').textContent = fmt === 'reel' ? 'กำลังเตรียมวิดีโอ…' : 'กำลังเตรียมไฟล์…';
     if (fmt === 'reel') {
       // ระหว่างทำวิดีโอ ยังไม่มีภาพตัวอย่าง
@@ -2987,7 +3169,7 @@
     // เปิดอยู่ในกรอบของเว็บอื่น (พรีวิว) ดาวน์โหลด/แชร์/คัดลอกถูกปิด เหลือกดค้าง/คลิกขวาที่รูป
     $('dlShare').hidden = inFrame || !canShare;
     $('dlCopy').hidden = inFrame || !r.canvas || exp.fmt === 'print' || !(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write);
-    if (isVid) $('dlHint').textContent = kb(r.blob.size) + ' · ' + (r.ext === 'mp4' ? 'MP4' : 'WebM (Facebook/TikTok รับได้ · Instagram อาจไม่รับ ลองเปิดแอปใน Chrome/Safari รุ่นใหม่)') + ' — ' + FMT_HINT.reel;
+    if (isVid) $('dlHint').textContent = kb(r.blob.size) + ' · ' + (r.ext === 'mp4' ? 'MP4' : 'WebM (Facebook/TikTok รับได้ · Instagram อาจไม่รับ ลองเปิดแอปใน Chrome/Safari รุ่นใหม่)') + ' — ' + FMT_HINT[reelStyle() === 'promo' ? 'promo' : 'reel'];
     if (r.plan) $('dlHint').textContent = planText(r.plan) + ' · ' + kb(r.blob.size) + ' — ' + FMT_HINT.print;
     $('dlSave').hidden = inFrame;
     $('dlCopy').textContent = exp.fmt === 'pdf' ? 'คัดลอกเป็นรูป' : 'คัดลอกรูป';
@@ -3347,6 +3529,30 @@
       openExport(exp.fmt);
     });
   });
+  document.querySelectorAll('#reelSeg button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (b.dataset.rs === reelStyle() && exp.blob) return;
+      try {
+        localStorage.setItem(REEL_KEY, b.dataset.rs);
+      } catch (e) {}
+      openExport('reel');
+    });
+  });
+  $('promoText').addEventListener('input', function () {
+    try {
+      localStorage.setItem(PROMO_KEY + bt(), $('promoText').value);
+    } catch (e) {}
+  });
+  $('promoGo').addEventListener('click', function () {
+    openExport('reel');
+  });
+  $('promoReset').addEventListener('click', function () {
+    try {
+      localStorage.removeItem(PROMO_KEY + bt());
+    } catch (e) {}
+    $('promoText').value = promoDefaults().join('\n');
+    openExport('reel');
+  });
   document.querySelectorAll('#fmtSeg button').forEach(function (b) {
     b.addEventListener('click', function () {
       if (b.dataset.fmt !== exp.fmt || !exp.blob) openExport(b.dataset.fmt);
@@ -3462,6 +3668,7 @@
     standee: 'standee สแตนดี้ ไดคัท ตั้งพื้น คนยืน ตัวการ์ตูน มาสคอต ฟิวเจอร์บอร์ด ตัดตามรูป ถ่ายรูป หน้าร้าน งานอีเวนต์',
     window: 'window glass กระจก ติดกระจก สติ๊กเกอร์ติดกระจก ฟิล์ม ฟิล์มฝ้า ฝ้า ฟิล์มขุ่น one way วันเวย์ มองทางเดียว ตาข่าย หน้าร้าน ประตูกระจก ตู้กระจก',
     tablestand: 'table ป้ายตั้งโต๊ะ เมนู เมนูตั้งโต๊ะ อะคริลิค สแตนดี้ ตั้งเคาน์เตอร์ qr code',
+    deskcal: 'calendar ปฏิทิน ปฏิทินตั้งโต๊ะ ของขวัญปีใหม่ ปีใหม่ ของชำร่วย desk',
     card: 'card บัตร การ์ด คูปอง coupon voucher ticket บัตรสมนาคุณ บัตรกำนัล ส่วนลด นามบัตร รันนัมเบอร์ รันเบอร์ เลขรัน running number ต้นขั้ว บัตรคิว บัตรเชิญ สมาชิก',
     rollup: 'roll up rollup โรลอัพ ขาตั้ง',
     xstand: 'x-stand xstand เอ็กซ์สแตนด์ ขาตั้ง',
@@ -4490,6 +4697,7 @@
     var on = C.SHAPE_TYPES.indexOf(b) >= 0;
     $('shapeField').hidden = !on;
     $('filmField').hidden = b !== 'window';
+    $('calField').hidden = b !== 'deskcal';
     if (b === 'window') {
       pressed('#filmSeg button', 'film', st.look.film);
       $('filmHint').textContent = FILM_HINT[st.look.film] || '';

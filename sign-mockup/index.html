@@ -291,6 +291,25 @@
                 </div>
                 <p class="hint" id="shapeHint"></p>
               </div>
+              <div class="field" id="calField" hidden>
+                <span class="label">ปฏิทินตั้งโต๊ะ</span>
+                <div class="grid2">
+                  <label class="field">
+                    <span class="label">ปีปฏิทิน (พ.ศ.)</span>
+                    <input id="calYear" type="text" inputmode="numeric" maxlength="4" />
+                  </label>
+                  <div class="field">
+                    <span class="label">รูปประจำเดือน <small>ไม่ใส่ = ใช้ลายปก</small></span>
+                    <div class="row">
+                      <button type="button" class="btn-ghost small" id="calPick">เลือกรูป (สูงสุด 12)</button>
+                      <button type="button" class="btn-ghost small" id="calClear" hidden>ลบรูป</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="calthumbs" id="calThumbs"></div>
+                <p class="hint" id="calInfo"></p>
+                <input type="file" id="calFile" accept="image/*" multiple hidden />
+              </div>
               <div class="field" id="filmField" hidden>
                 <span class="label">ชนิดฟิล์ม</span>
                 <div class="seg small" id="filmSeg">
@@ -652,6 +671,21 @@
         <div class="seg small" id="sceneSeg">
           <button type="button" data-g="scene" id="sceneWith">ป้าย + ฉาก</button>
           <button type="button" data-g="sign">เฉพาะป้าย</button>
+        </div>
+      </div>
+      <div class="sheetbar" id="reelBar" hidden>
+        <span class="label">แบบวิดีโอ</span>
+        <div class="seg small" id="reelSeg">
+          <button type="button" data-rs="promo">โปรโมท 5 ฉาก (16 วิ)</button>
+          <button type="button" data-rs="spin">หมุนโชว์ (9 วิ)</button>
+        </div>
+      </div>
+      <div class="postbox promobox" id="promoBox" hidden>
+        <label for="promoText">ข้อความ 5 ฉาก — บรรทัดละฉาก · ใส่ / เพื่อขึ้นบรรทัดใหม่ · บรรทัดท้ายของฉากเป็นตัวไล่สี</label>
+        <textarea id="promoText" rows="5" spellcheck="false"></textarea>
+        <div class="row">
+          <button type="button" class="btn-primary small" id="promoGo">ทำวิดีโอใหม่ด้วยข้อความนี้</button>
+          <button type="button" class="btn-ghost small" id="promoReset">ใช้ข้อความตั้งต้น</button>
         </div>
       </div>
       <div class="dlg-img" id="dlgImg"><img id="exportImg" alt="ภาพจำลองป้ายสำหรับส่งลูกค้า" /><video id="exportVid" playsinline muted loop controls hidden></video></div>
