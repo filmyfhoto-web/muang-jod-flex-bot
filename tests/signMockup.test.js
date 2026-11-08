@@ -1218,6 +1218,7 @@ test('ปฏิทินตั้งโต๊ะ: ชนิดใหม่ ต�
   assert.equal(C.calYear(new Date(2026, 6, 1)), 2027);
   const render = readFileSync(new URL('../sign-mockup/render.js', import.meta.url), 'utf8');
   assert.match(render, /function calPage\(o\)/);
+  assert.match(render, /x\.rect\(0, 0, W, ph\);\n\s*x\.clip\(\);/); // รูปประจำเดือนไม่ล้นทับตารางวันที่
   assert.match(render, /g\.type === 'deskcal'\) deskcalHardware\(/);
   const s3 = readFileSync(new URL('../sign-mockup/scene3d.js', import.meta.url), 'utf8');
   assert.match(s3, /const CAL_PAGES = 13;/);

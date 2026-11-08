@@ -1283,7 +1283,13 @@
       var iw = o.photo.naturalWidth || o.photo.width;
       var ih = o.photo.naturalHeight || o.photo.height;
       var s = Math.max(W / iw, ph / ih);
+      // ตัดรูปให้อยู่ในช่องรูป (รูปสูงกว่าช่อง ไม่ล้นลงมาทับชื่อเดือน/ตารางวันที่)
+      x.save();
+      x.beginPath();
+      x.rect(0, 0, W, ph);
+      x.clip();
       x.drawImage(o.photo, (W - iw * s) / 2, (ph - ih * s) / 2, iw * s, ih * s);
+      x.restore();
     } else {
       x.fillStyle = '#e9e6e0';
       x.fillRect(0, 0, W, ph);
