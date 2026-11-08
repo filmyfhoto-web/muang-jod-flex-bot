@@ -1271,3 +1271,39 @@ test('วิดีโอโปรโมท 5 ฉาก (16 วิ): พื้น
   assert.match(app, /bt\(\) === 'deskcal' \? 'promo' : 'spin'/); // ปฏิทินเริ่มที่แบบโปรโมท
   assert.match(app, /RL\.promoOverlay\(x, sec, plan\);/);
 });
+
+test('วิดีโอโปรโมท: ตัวหนังสือเป็นภาพย่อย (iPhone ไม่เลื่อน/ไม่โดนตัด) · ธีมสี 7 แบบ ฟอนต์ ลูกเล่น 3 แบบ + ภาพตัวอย่าง · ระหว่างทำคลิปฉากเดิมไม่แทรก', () => {
+  const RL = require('../sign-mockup/reels.js');
+  const src = readFileSync(new URL('../sign-mockup/reels.js', import.meta.url), 'utf8');
+  // ไม่พึ่ง textAlign center / ไล่สีบนตัวอักษรโดยตรง (Safari บน iPhone เพี้ยน) — วัดขอบหมึกจริงจากพิกเซล
+  assert.ok(!/textAlign = 'center'/.test(src));
+  assert.match(src, /function textSprite\(o\)/);
+  assert.match(src, /getImageData\(0, 0, cw, ch\)/);
+  assert.match(src, /globalCompositeOperation = 'source-in'/);
+  assert.deepEqual(RL.PROMO_THEME_ORDER, ['neon', 'gold', 'ocean', 'fire', 'emerald', 'white', 'pastel']);
+  for (const k of RL.PROMO_THEME_ORDER) {
+    const T = RL.PROMO_THEMES[k];
+    assert.ok(T.name && T.bg.length === 3 && T.grad.length === 3 && T.ink, k);
+    for (const c of [...T.bg, T.floor, T.rim, T.kick, ...T.grad]) assert.match(c, /^#[0-9a-f]{6}$/i, k + ' ' + c);
+  }
+  assert.ok(RL.PROMO_THEMES.white.light && RL.PROMO_THEMES.pastel.light && !RL.PROMO_THEMES.neon.light);
+  assert.equal(RL.promoTheme('nope'), RL.PROMO_THEMES.neon);
+  assert.deepEqual(Object.keys(RL.PROMO_ANIMS), ['rise', 'pop', 'wipe']);
+  const s3 = readFileSync(new URL('../sign-mockup/scene3d.js', import.meta.url), 'utf8');
+  assert.match(s3, /function beginPromo\(w, h, look\)/);
+  assert.match(s3, /function promoLook\(P, look\)/);
+  assert.match(s3, /scene\.backgroundIntensity = p\.light \? 1\.9 : 1\.45;/);
+  // แอปวาดจอใหม่ระหว่างทำคลิป → เก็บไว้ใช้ตอนเสร็จ ไม่ให้ฉากหน้าร้าน/ขนาดจอแทรกเข้ามาในวิดีโอ
+  assert.match(s3, /if \(video \|\| promo\) \{\n\s*pendSize = \[w, h\];/);
+  assert.match(s3, /if \(promo\) \{\n\s*pendState = st;/);
+  assert.match(s3, /promoBusy: \(\) => !!promo,/);
+  const html = readFileSync(new URL('../sign-mockup/index.html', import.meta.url), 'utf8');
+  for (const id of ['promoPrev', 'promoThemes', 'promoFont', 'promoAnim']) assert.match(html, new RegExp('id="' + id + '"'), id);
+  for (const a of ['rise', 'pop', 'wipe']) assert.match(html, new RegExp('data-anim="' + a + '"'), a);
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  assert.match(app, /\['fontTitle', 'fontSub', 'promoFont'\]/);
+  assert.match(app, /localStorage\.setItem\('np-sign-promo-style', JSON\.stringify\(s\)\);/);
+  assert.match(app, /stage\.beginPromo\(RL\.W, RL\.H, promoLook\(plan\)\)/);
+  assert.match(app, /function promoPreview\(\)/);
+  assert.match(app, /exp\.job\+\+;/); // เปลี่ยนแบบ = หยุดคลิปแบบเก่า
+});

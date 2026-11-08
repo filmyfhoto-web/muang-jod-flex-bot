@@ -6,7 +6,7 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '4.13.1';
+  var APP_VERSION = '4.14.0';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp', hands: C.HAND_BUILTIN.src });
 
@@ -2952,11 +2952,134 @@
     } catch (e) {}
     return v != null ? v : promoDefaults().join('\n');
   }
-  function buildPromo() {
+  /* แบบวิดีโอโปรโมท: ธีมสีฉาก ฟอนต์หัวเรื่อง ลูกเล่นตัวอักษร (จำไว้ในเครื่อง) */
+  function promoStyle() {
+    var v = {};
+    try {
+      v = JSON.parse(localStorage.getItem('np-sign-promo-style') || '{}') || {};
+    } catch (e) {}
+    var RL = NS.reels || {};
+    return {
+      theme: RL.PROMO_THEMES && RL.PROMO_THEMES[v.theme] ? v.theme : 'neon',
+      font: typeof v.font === 'string' ? v.font.slice(0, 80) : '',
+      anim: RL.PROMO_ANIMS && RL.PROMO_ANIMS[v.anim] ? v.anim : 'rise',
+    };
+  }
+  function setPromoStyle(k, v) {
+    var s = promoStyle();
+    s[k] = v;
+    try {
+      localStorage.setItem('np-sign-promo-style', JSON.stringify(s));
+    } catch (e) {}
+  }
+  // น้ำหนักตัวหนังสือ: ฟอนต์ที่มีตัวหนา 700 ใช้ตัวหนา · ฟอนต์น้ำหนักเดียว/ฟอนต์ของร้านใช้ตามที่มี (ไม่ให้เบราว์เซอร์ทำหนาปลอม)
+  function promoWeight(font) {
+    if (!font) return 700;
+    var g = C.FONTS.filter(function (f) {
+      return f[0] === font;
+    })[0];
+    return g && /700/.test(g[1]) ? 700 : 400;
+  }
+  function promoFontReady(font) {
+    if (!font) return Promise.resolve();
+    var w = promoWeight(font);
+    var load = document.fonts && document.fonts.load ? document.fonts.load(w + ' 100px "' + font.replace(/"/g, '') + '"', 'กขคง ABC 0123').catch(function () {}) : Promise.resolve();
+    return C.fontCssUrl(font) ? ensureFont(font).then(function () {
+      return load;
+    }) : load;
+  }
+  function promoPlan() {
     var RL = NS.reels;
     var info = reelInfo();
     var text = $('promoText').value;
-    var plan = { shots: C.parsePromo(text.trim() ? text : promoTextNow(), promoDefaults()), shop: info.shop, phone: info.phone, logo: info.logo, cuts: stage.promoCuts || RL.PROMO_CUTS };
+    var S = promoStyle();
+    return {
+      shots: C.parsePromo(text.trim() ? text : promoTextNow(), promoDefaults()),
+      shop: info.shop,
+      phone: info.phone,
+      logo: info.logo,
+      cuts: (stage && stage.promoCuts) || RL.PROMO_CUTS,
+      theme: S.theme,
+      font: S.font,
+      weight: promoWeight(S.font),
+      anim: S.anim,
+    };
+  }
+  function promoLook(plan) {
+    var T = NS.reels.promoTheme(plan.theme);
+    return { bg: T.bg, floor: T.floor, rim: T.rim, kick: T.kick, light: !!T.light };
+  }
+  // ภาพตัวอย่างเล็ก ๆ ในหน้าส่งออก (ฉาก 2 หัวเรื่องขึ้นครบ) — เปลี่ยนธีม/ฟอนต์/ลูกเล่นเห็นทันที ไม่ต้องรอทำคลิป
+  var promoPrevTimer = 0;
+  var promoBig = null;
+  function promoPreviewSoon(wait) {
+    clearTimeout(promoPrevTimer);
+    promoPrevTimer = setTimeout(promoPreview, wait == null ? 120 : wait);
+  }
+  function promoPreview() {
+    if (!stage || !stage.beginPromo || $('promoBox').hidden) return;
+    if (stage.promoBusy && stage.promoBusy()) return promoPreviewSoon(300); // กำลังทำคลิป/เพิ่งยกเลิก รอให้เวทีว่างก่อน
+    var RL = NS.reels;
+    var plan = promoPlan();
+    syncStage();
+    Promise.all([fontsReady(), promoFontReady(plan.font)]).then(function () {
+      if ($('promoBox').hidden || (stage.promoBusy && stage.promoBusy())) return promoPreviewSoon(300);
+      var sec = 4.6;
+      if (!stage.beginPromo(270, 480, promoLook(plan))) return;
+      if (!promoBig) {
+        promoBig = document.createElement('canvas');
+        promoBig.width = RL.W;
+        promoBig.height = RL.H;
+      }
+      var bx = promoBig.getContext('2d');
+      bx.globalAlpha = 1;
+      bx.drawImage(stage.promoFrame(sec), 0, 0, RL.W, RL.H);
+      stage.endPromo();
+      RL.resetSprites();
+      RL.promoOverlay(bx, sec, plan);
+      var pc = $('promoPrev');
+      pc.getContext('2d').drawImage(promoBig, 0, 0, pc.width, pc.height);
+      draw();
+    });
+  }
+  function syncPromoUI() {
+    var RL = NS.reels;
+    var S = promoStyle();
+    var box = $('promoThemes');
+    if (!box.children.length) {
+      box.innerHTML = RL.PROMO_THEME_ORDER.map(function (k) {
+        var T = RL.PROMO_THEMES[k];
+        return '<button type="button" data-theme="' + k + '" title="' + esc(T.name) + '"><i style="background:radial-gradient(circle at 50% 38%,' + T.bg[0] + ',' + T.bg[2] + ' 72%),' + T.bg[2] + ';box-shadow:inset 0 -9px 0 -4px ' + T.grad[1] + '"></i><span>' + esc(T.name) + '</span></button>';
+      }).join('');
+      box.querySelectorAll('button').forEach(function (b) {
+        b.addEventListener('click', function () {
+          setPromoStyle('theme', b.dataset.theme);
+          promoChanged();
+        });
+      });
+    }
+    pressed('#promoThemes button', 'theme', S.theme);
+    pressed('#promoAnim button', 'anim', S.anim);
+    var known = !S.font || shopFonts.some(function (f) { return f.family === S.font; }) || C.FONTS.some(function (f) { return f[0] === S.font; });
+    $('promoFont').value = known ? S.font : '';
+  }
+  // เปลี่ยนแบบ: หยุดคลิปเดิมที่กำลังทำ (แบบเก่า) ดูตัวอย่าง แล้วกด “ทำวิดีโอแบบนี้”
+  function promoChanged() {
+    syncPromoUI();
+    promoPreviewSoon();
+    if (exp.fmt !== 'reel' || !$('exportDlg').open) return;
+    exp.job++;
+    ['dlShare', 'dlCopy', 'dlSave'].forEach(function (id) {
+      $(id).disabled = true;
+    });
+    var vid = $('exportVid');
+    if (vid.getAttribute('src')) vid.pause();
+    $('dlgImg').hidden = true;
+    $('dlStatus').textContent = 'เปลี่ยนแบบแล้ว — ดูภาพตัวอย่างด้านบน แล้วกด “ทำวิดีโอแบบนี้”';
+  }
+  function buildPromo() {
+    var RL = NS.reels;
+    var plan = promoPlan();
     var N = RL.promoFrames;
     var out = document.createElement('canvas');
     out.width = RL.W;
@@ -2971,9 +3094,12 @@
       draw();
     }
     syncStage(); // ฉากรูปถ่าย: ให้ตัวงาน 3 มิติตามงานล่าสุดก่อน
-    return fontsReady()
+    return Promise.all([fontsReady(), promoFontReady(plan.font)])
       .then(function () {
-        if (!stage.beginPromo(RL.W, RL.H)) throw new Error('reel');
+        if (job !== exp.job) throw new Error('cancel');
+        if (stage.promoBusy && stage.promoBusy()) throw new Error('cancel');
+        RL.resetSprites(); // ฟอนต์เพิ่งโหลดเสร็จ: ไม่ใช้ภาพตัวหนังสือเก่าที่วาดด้วยฟอนต์สำรอง
+        if (!stage.beginPromo(RL.W, RL.H, promoLook(plan))) throw new Error('reel');
         begun = true;
         return RL.encode({
           frames: N,
@@ -3103,6 +3229,10 @@
     $('promoBox').hidden = fmt !== 'reel' || reelStyle() !== 'promo';
     pressed('#reelSeg button', 'rs', reelStyle());
     if (fmt === 'reel' && document.activeElement !== $('promoText')) $('promoText').value = promoTextNow();
+    if (fmt === 'reel' && reelStyle() === 'promo' && stage) {
+      syncPromoUI();
+      promoPreview();
+    }
     pressed('#cmpOutSeg button', 'cout', st.cmpOut);
     pressed('#sheetSeg button', 'sheet', st.sheet);
     $('exportTitle').textContent = fmt === 'reel' ? (reelStyle() === 'promo' ? 'วิดีโอโปรโมท 5 ฉาก (9:16)' : 'วิดีโอ Reels (แนวตั้ง 9:16)') : fmt === 'pdf' ? 'ใบเสนอราคา' : fmt === 'glb' ? 'ไฟล์ 3 มิติ' : fmt === 'html' ? 'ไฟล์ HTML พรีวิว 3 มิติ' : fmt === 'fb3d' ? 'รูป 3 มิติ Facebook' : fmt === 'fbpack' ? 'ชุดโพสต์ Facebook' : fmt === 'print' ? 'ไฟล์พิมพ์บัตร' : fmt === 'compare' ? 'แบบให้ลูกค้าเลือก' : fmt === 'job' ? 'ใบสั่งผลิต' : 'รูปพร้อมส่งลูกค้า';
@@ -3538,10 +3668,21 @@
       openExport('reel');
     });
   });
+  document.querySelectorAll('#promoAnim button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      setPromoStyle('anim', b.dataset.anim);
+      promoChanged();
+    });
+  });
+  $('promoFont').addEventListener('change', function () {
+    setPromoStyle('font', $('promoFont').value);
+    promoChanged();
+  });
   $('promoText').addEventListener('input', function () {
     try {
       localStorage.setItem(PROMO_KEY + bt(), $('promoText').value);
     } catch (e) {}
+    promoPreviewSoon(700);
   });
   $('promoGo').addEventListener('click', function () {
     openExport('reel');
@@ -4290,7 +4431,7 @@
     });
   }
   function buildFontSelects() {
-    ['fontTitle', 'fontSub'].forEach(function (id) {
+    ['fontTitle', 'fontSub', 'promoFont'].forEach(function (id) {
       var sel = $(id);
       var html = '<option value="">Kanit (ค่าเริ่มต้น)</option>';
       if (shopFonts.length) {
@@ -4313,6 +4454,8 @@
     };
     $('fontTitle').value = known(st.text.font) ? st.text.font || '' : '';
     $('fontSub').value = known(st.text.font2) ? st.text.font2 || '' : '';
+    var pf = promoStyle().font;
+    $('promoFont').value = known(pf) ? pf : '';
   }
   [['fontTitle', 'font'], ['fontSub', 'font2']].forEach(function (f) {
     $(f[0]).addEventListener('change', function (e) {

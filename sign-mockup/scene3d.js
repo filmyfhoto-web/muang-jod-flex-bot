@@ -3261,7 +3261,21 @@ export function createStage(opts) {
   });
   raf = requestAnimationFrame(tick);
 
+  // ระหว่างทำวิดีโอ: ขนาดภาพ/สถานะงานที่แอปส่งมา เก็บไว้ใช้ตอนทำเสร็จ (ไม่ให้ฉากเดิมหรือขนาดจอแทรกเข้ามาในคลิป)
+  let pendSize = null;
+  let pendState = null;
+  function flushPending() {
+    const sz = pendSize;
+    const u = pendState;
+    pendSize = pendState = null;
+    if (sz) setSize(sz[0], sz[1]);
+    if (u) update(u);
+  }
   function setSize(w, h) {
+    if (video || promo) {
+      pendSize = [w, h];
+      return;
+    }
     w = Math.max(2, Math.round(w));
     h = Math.max(2, Math.round(h));
     if (w === lastSize[0] && h === lastSize[1]) return;
@@ -3276,6 +3290,10 @@ export function createStage(opts) {
 
   // st: { type, w, h (ซม.), scene, person, night, face (canvas), faceKey, edge }
   function update(st) {
+    if (promo) {
+      pendState = st;
+      return;
+    }
     let reframe = false;
     if (st.faceKey !== faceKey) {
       const old = faceTex;
@@ -3400,6 +3418,7 @@ export function createStage(opts) {
     controls.target.copy(v.keep);
     camera.lookAt(controls.target);
     controls.update();
+    flushPending();
     needs = true;
   }
 
@@ -3413,13 +3432,6 @@ export function createStage(opts) {
   function promoParts() {
     if (promoKit) return promoKit;
     const bc = mk(270, 480);
-    const bx = bc.getContext('2d');
-    const bg = bx.createRadialGradient(135, 205, 6, 135, 235, 330);
-    bg.addColorStop(0, '#5a4090');
-    bg.addColorStop(0.42, '#221a3e');
-    bg.addColorStop(1, '#07060c');
-    bx.fillStyle = bg;
-    bx.fillRect(0, 0, 270, 480);
     const back = new THREE.CanvasTexture(bc);
     back.colorSpace = THREE.SRGBColorSpace;
     // พื้น: กลางโปร่งนิด ๆ ให้เห็นเงาสะท้อน · ขอบจางหายไปกับฉากหลัง
@@ -3441,8 +3453,27 @@ export function createStage(opts) {
     const kick = new THREE.DirectionalLight(0xffa3d2, 0); // ไฟข้างขวา (ชมพู)
     const group = new THREE.Group();
     group.add(floor, rim, rim.target, kick, kick.target);
-    promoKit = { back, floor, rim, kick, group };
+    promoKit = { back, bc, floor, rim, kick, group };
     return promoKit;
+  }
+  // ธีมสีฉาก: ฉากหลังไล่สีวงกลม (กลาง → ขอบ) · สีพื้น · สีไฟขอบ/ไฟข้าง · ฉากสว่าง
+  const PROMO_LOOK = { bg: ['#5a4090', '#221a3e', '#07060c'], floor: '#0b0a12', rim: '#b9a8ff', kick: '#ffa3d2', light: false };
+  function promoLook(P, look) {
+    const L = Object.assign({}, PROMO_LOOK, look || {});
+    const hex = (v, d) => (/^#[0-9a-f]{6}$/i.test(String(v)) ? v : d);
+    const bx = P.bc.getContext('2d');
+    const bg = bx.createRadialGradient(135, 205, 6, 135, 235, 330);
+    bg.addColorStop(0, hex(L.bg[0], PROMO_LOOK.bg[0]));
+    bg.addColorStop(0.42, hex(L.bg[1], PROMO_LOOK.bg[1]));
+    bg.addColorStop(1, hex(L.bg[2], PROMO_LOOK.bg[2]));
+    bx.fillStyle = bg;
+    bx.fillRect(0, 0, 270, 480);
+    P.back.needsUpdate = true;
+    P.floor.material.color.set(hex(L.floor, PROMO_LOOK.floor));
+    P.floor.material.roughness = L.light ? 0.2 : 0.26;
+    P.rim.color.set(hex(L.rim, PROMO_LOOK.rim));
+    P.kick.color.set(hex(L.kick, PROMO_LOOK.kick));
+    return L;
   }
   // มุมหน้าชิ้นงานในโลก (ซ้ายบน ขวาบน ขวาล่าง ซ้ายล่าง) → จุดกลาง กว้าง สูง แกนขวา/บน/ทิศหน้า
   function faceFrame() {
@@ -3465,7 +3496,7 @@ export function createStage(opts) {
     const n = new THREE.Vector3().crossVectors(right, up).normalize();
     return { c, fw, fh, right, up, n, az: Math.atan2(n.x, n.z), el: Math.asin(Math.max(-1, Math.min(1, n.y))) };
   }
-  function beginPromo(w, h) {
+  function beginPromo(w, h, look) {
     if (!model) return false;
     stopShow();
     const P = promoParts();
@@ -3510,7 +3541,11 @@ export function createStage(opts) {
     P.floor.scale.setScalar(Math.max(R * 30, 4));
     P.floor.position.set(c.x, 0, c.z);
     scene.add(P.group);
+    p.light = !!promoLook(P, look).light;
     scene.background = P.back;
+    // ฉากสว่าง: ชดเชยการปรับโทนสีของภาพ ไม่ให้ฉากหลังขาวกลายเป็นเทาหม่น
+    p.bgI = scene.backgroundIntensity;
+    scene.backgroundIntensity = p.light ? 1.9 : 1.45;
     scene.fog = null;
     scene.environment = roomEnv;
     renderer.toneMappingExposure = LIGHT.exposure;
@@ -3530,14 +3565,14 @@ export function createStage(opts) {
     fill.position.set(c.x + L * 2.2, c.y + L * 0.8, c.z + L * 1.6);
     fill.target.position.copy(c);
     fill.intensity = LIGHT.fill * 0.85;
-    hemi.intensity = LIGHT.hemi * 0.7;
+    hemi.intensity = LIGHT.hemi * (p.light ? 1 : 0.7);
     spot.intensity = 0;
     P.rim.position.set(c.x + L * 0.8, c.y + L * 2.2, c.z - L * 2.6);
     P.rim.target.position.copy(c);
-    P.rim.intensity = 1.5;
+    P.rim.intensity = p.light ? 0.9 : 1.5;
     P.kick.position.set(c.x + L * 2.6, c.y + L * 0.5, c.z - L * 0.4);
     P.kick.target.position.copy(c);
-    P.kick.intensity = 0.6;
+    P.kick.intensity = p.light ? 0.4 : 0.6;
     return true;
   }
   const smooth = (t) => {
@@ -3659,6 +3694,7 @@ export function createStage(opts) {
       promoKit.kick.intensity = 0;
     }
     renderer.autoClear = true;
+    scene.backgroundIntensity = p.bgI == null ? 1 : p.bgI;
     signRoot.scale.set(1, 1, 1);
     if (model && model.calendar) {
       model.setExplode(0);
@@ -3674,12 +3710,13 @@ export function createStage(opts) {
     controls.target.copy(p.keep);
     camera.lookAt(controls.target);
     controls.update();
+    flushPending();
     needs = true;
   }
 
   // ภาพย่อของแต่ละฉาก (ใช้ป้ายปัจจุบัน มุมเฉียง)
   function thumb(key, out) {
-    if (!model || !BUILD[key]) return;
+    if (!model || !BUILD[key] || video || promo) return;
     const keepEnv = envKey;
     const keepPos = camera.position.clone();
     const keepTarget = controls.target.clone();
@@ -4112,6 +4149,7 @@ export function createStage(opts) {
     beginPromo,
     promoFrame,
     endPromo,
+    promoBusy: () => !!promo,
     promoCuts: PROMO_CUTS,
     // กลับไปมุมกล้องเริ่มต้นของมุมที่เลือกอยู่
     resetView() {
