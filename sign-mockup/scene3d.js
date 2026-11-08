@@ -2819,6 +2819,10 @@ export function createStage(opts) {
     model.type = bt;
     model.w = w;
     model.h = h;
+    // ชื่อวัสดุหน้าป้าย: ตัวดู 3 มิติหาเจอแล้วแสดงสีตรงไฟล์งานพิมพ์
+    (Array.isArray(model.face) ? model.face : [model.face]).forEach((m) => {
+      if (m && m.isMaterial) m.name = 'NadponFace';
+    });
     model.floor = C.geometry(s.type, s.w, s.h, s.steel).mount === 'floor';
     shadowy(model.group, true, true);
     if (bt === 'vinyl') model.group.children.slice(0, 2).forEach((m) => (m.receiveShadow = false));

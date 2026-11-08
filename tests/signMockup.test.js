@@ -1127,7 +1127,7 @@ test('ฉากหลังรูปหน้างานแบบกล่อ�
   const html = readFileSync(new URL('../sign-mockup/index.html', import.meta.url), 'utf8');
   assert.match(html, /data-fmt="fb3d" id="fmtFb3d">รูป 3 มิติ Facebook</);
   const v = readFileSync(new URL('../sign-mockup/viewer3d-core.js', import.meta.url), 'utf8');
-  for (const k of ['up', 'left', 'right', 'down', 'in', 'out']) assert.match(v, new RegExp('data-k="' + k + '"'), k);
+  for (const k of ['left', 'right', 'in', 'out']) assert.match(v, new RegExp('data-k="' + k + '"'), k);
   assert.match(v, /for \(const k in held\) nudge\(k, dt\);/); // กดค้าง = ขยับต่อเนื่อง
   const css = readFileSync(new URL('../sign-mockup/viewer3d.css', import.meta.url), 'utf8');
   assert.match(css, /\.v-pad \{/);
@@ -1142,7 +1142,7 @@ test('ตัวดู 3 มิติแบบโปรแกรม 3D: ลูก
   assert.match(v, /let best = 30;/); // แตะใกล้ ๆ ก็โดน
   assert.match(v, /function buildGrid\(box\)/);
   for (const t of ["'X', '#d9534f'", "'Y', '#3a9d5d'", "'Z', '#3d6fd1'"]) assert.ok(v.includes(t), t);
-  assert.match(v, /arcMat\.opacity = ARC_A \* Math\.max\(0/); // ซูมใกล้แล้วจาง
+  assert.match(v, /arcMat\.opacity = ARC_A \* tf \* Math\.max\(0/); // ซูมใกล้แล้วจาง · ใช้งานแล้วจางหาย
   assert.match(v, /const ARC_A = 0\.32;/); // จาง ๆ
   assert.match(v, /const tube = orbitR \* 0\.005;/); // เส้นบางตามขนาดชิ้นงาน (บัตรเล็กไม่เทอะทะ)
   assert.match(v, /const ls = Math\.max\(0\.008, r \* 0\.09\);/);
@@ -1176,4 +1176,26 @@ test('ชุดโพสต์ Facebook: รูป 3 มิติ + ลิงก
   assert.match(app, /if \(packLink\.key === key && packLink\.url\) \{/); // งานเดิมใช้ลิงก์เดิม
   assert.match(app, /function uploadShare\(glb, say\)/); // ปุ่มสร้างลิงก์ + ชุดโพสต์ใช้ตัวเดียวกัน
   assert.match(app, /uploadShare\(exp\.blob, function \(t\) \{/);
+});
+
+test('ตัวดู 3 มิติดูโปร: สีหน้าป้ายตรงไฟล์ · เปิดมาเลื่อนกล้องครั้งเดียวไม่ส่าย · รูปหน้างานตรงไม่เอียง ขอบเบลอ · แถบเครื่องมือเล็ก', () => {
+  const v = readFileSync(new URL('../sign-mockup/viewer3d-core.js', import.meta.url), 'utf8');
+  assert.match(v, /function printLook\(meshes\)/);
+  assert.match(v, /m\.emissiveMap = m\.map;/);
+  assert.match(v, /m\.toneMapped = false;/);
+  assert.match(v, /\/NadponFace\/\.test\(m\.name \|\| ''\)/);
+  assert.match(v, /function intro\(\)/);
+  assert.match(v, /ease: 'out'/);
+  assert.match(v, /controls\.autoRotate = false; \/\/ เริ่มหมุนโชว์หลังเปิดภาพเสร็จ/);
+  // รูปหน้างาน: จุดหมุนอยู่บนแกนกล้อง → มุมเริ่มต้นตรงกับรูป (ไม่ต้องเลื่อนจุดกึ่งกลางภาพ)
+  assert.match(v, /const pivotT = pos\.clone\(\)\.addScaledVector\(fwd, ta\);/);
+  assert.match(v, /q0: null/);
+  assert.match(v, /function blurBack\(img, aspect\)/);
+  assert.match(v, /'<span class="v-sep" aria-hidden="true"><\/span>'/);
+  assert.ok(!/data-k="up"/.test(v));
+  const s3 = readFileSync(new URL('../sign-mockup/scene3d.js', import.meta.url), 'utf8');
+  assert.match(s3, /if \(m && m\.isMaterial\) m\.name = 'NadponFace';/);
+  const css = readFileSync(new URL('../sign-mockup/viewer3d.css', import.meta.url), 'utf8');
+  assert.match(css, /backdrop-filter: blur\(8px\);/);
+  assert.match(css, /\.v-sep \{/);
 });
