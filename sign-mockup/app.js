@@ -6,7 +6,7 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '4.10.1';
+  var APP_VERSION = '4.11.0';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp', hands: C.HAND_BUILTIN.src });
 
@@ -2208,6 +2208,42 @@
   }
   /* รูป 3 มิติ Facebook: รูป + แผนที่ความลึก (ชื่อเดียวกัน ต่อท้าย _depth) โพสต์ผ่าน Facebook บนคอม เลือก 2 ไฟล์พร้อมกัน
    * → Facebook ทำเป็นรูป 3 มิติ คนเลื่อนฟีด/เอียงมือถือ/ลากดู รูปขยับเป็นมิติ (Facebook เลิกรับไฟล์ .glb แล้ว) */
+  /* ชุดโพสต์ Facebook: รูป 3 มิติ (รูป + _depth) + ลิงก์ดู 3 มิติ (สร้างให้เอง) + ข้อความโพสต์พร้อมลิงก์ (แก้ได้ กดคัดลอก)
+   * งานเดิม (ไม่ได้แก้อะไร) กดซ้ำใช้ลิงก์เดิม ไม่สร้างลิงก์ใหม่ทุกครั้ง · ลิงก์ไม่สำเร็จ ยังได้รูป + ข้อความ (บอกให้ลองใหม่) */
+  var packLink = { key: '', url: '' };
+  function buildFbPack() {
+    return buildFb3d().then(function (r) {
+      var key = snapshot().key + '|' + glbWithScene();
+      var cap = function (url) {
+        return C.fbCaption({ title: C.TYPES[st.type].name, size: C.sizeText(st.w, st.h), url: url, shop: st.shopName.trim(), phone: st.shopPhone.trim() });
+      };
+      if (packLink.key === key && packLink.url) {
+        r.post = cap(packLink.url);
+        r.link = packLink.url;
+        return r;
+      }
+      $('dlStatus').textContent = 'ได้รูป 3 มิติแล้ว กำลังสร้างลิงก์ดู 3 มิติ…';
+      return model3d()
+        .then(function (ab) {
+          return uploadShare(new Blob([ab], { type: 'model/gltf-binary' }), function (t) {
+            $('dlStatus').textContent = t;
+          });
+        })
+        .then(
+          function (j) {
+            packLink = { key: key, url: j.url };
+            r.post = cap(j.url);
+            r.link = j.url;
+            return r;
+          },
+          function (e) {
+            r.post = cap('');
+            r.linkError = 'สร้างลิงก์ดู 3 มิติไม่สำเร็จ (' + (navigator.onLine === false ? 'ไม่มีอินเทอร์เน็ต' : e.message || 'ลองใหม่') + ') — รูป 3 มิติใช้ได้ ข้อความยังไม่มีลิงก์ กดเลือก “ชุดโพสต์ Facebook” อีกครั้งเพื่อลองใหม่';
+            return r;
+          }
+        );
+    });
+  }
   function buildFb3d() {
     syncStage();
     var r = stage.fbPhoto(photoSceneOk() ? { photo: photoOpts(), long: 1600 } : { long: 1600 });
@@ -2674,6 +2710,7 @@
     if (fmt === 'html') return buildHtml();
     if (fmt === 'reel') return buildReel();
     if (fmt === 'fb3d') return buildFb3d();
+    if (fmt === 'fbpack') return buildFbPack();
     if (fmt === 'glb') {
       var withPhoto = photo3dReady();
       var withScene = !withPhoto && glbWithScene() && sceneGlbOk();
@@ -2844,6 +2881,7 @@
     print: 'ไฟล์ PDF ส่งโรงพิมพ์/เครื่องพิมพ์: จัดบัตรเต็มแผ่น เผื่อตัดตก 2 มม. มีเส้นตัด เลขรันเรียงทุกใบ',
     job: 'ใบสั่งผลิต A4 สำหรับช่าง: สเปกงาน วัสดุ งานตกแต่ง (ตาไก่/โครงเหล็ก/เลขรัน) ไฟล์ + ความละเอียดตอนพิมพ์ นัดรับ หมายเหตุถึงช่าง และช่องติ๊กขั้นตอนผลิต',
     compare: 'แบบละครึ่งหน้า พร้อมชนิด ขนาด ราคา และช่องให้ลูกค้าติ๊กเลือก — ส่งเข้า LINE ให้ลูกค้าตอบ “แบบ 1” หรือ “แบบ 2”',
+    fbpack: '① กด “ดาวน์โหลด” ได้ 2 ไฟล์ (รูป + _depth) ② กด “คัดลอกข้อความโพสต์” ③ เปิด Facebook บนคอม › สร้างโพสต์ › วางข้อความ › รูปภาพ/วิดีโอ › เลือกทั้ง 2 ไฟล์พร้อมกัน → โพสต์ · คนเลื่อนฟีดเห็นรูปขยับเป็น 3 มิติ แตะลิงก์ในข้อความหมุนดูรอบป้ายได้ · ใครเปิด/กดสนใจ ดูได้ที่ “ดูคนเปิดดู / ลูกค้าที่สนใจ”',
     fb3d: 'ได้ 2 ไฟล์: รูป + รูปความลึก (_depth ขาว = ใกล้ ดำ = ไกล) → เปิด Facebook บนคอม › สร้างโพสต์ › รูปภาพ/วิดีโอ › เลือกทั้ง 2 ไฟล์พร้อมกัน → ขึ้น “กำลังสร้างรูปภาพ 3 มิติ” คนเลื่อนฟีด/เอียงมือถือ รูปจะขยับเป็นมิติ (Facebook เลิกรับไฟล์ .glb แล้ว)',
     reel: 'วิดีโอแนวตั้ง 9:16 (1080×1920) ยาว 9 วินาที มีชื่อร้าน ขนาด ราคา และหน้าปิดท้ายเบอร์โทร — โพสต์ลง Facebook / Instagram Reels, TikTok, YouTube Shorts ได้เลย · ใส่เพลงในแอปตอนโพสต์',
     html: 'ไฟล์เดียวจบ: ส่งทาง LINE / อีเมล / แฟลชไดรฟ์ ลูกค้าแตะหรือดับเบิลคลิกเปิดในเบราว์เซอร์ (Chrome / Safari / Edge) หมุนดูป้าย 3 มิติได้เลย ไม่ต้องลงแอป ไม่ต้องต่อเน็ต · มีปุ่มบันทึกรูปมุมที่ดู',
@@ -2864,7 +2902,7 @@
       return;
     }
     if ((fmt === 'glb' || fmt === 'html') && !stage) fmt = 'jpg';
-    if (fmt === 'fb3d' && !fb3dOk()) fmt = 'jpg';
+    if ((fmt === 'fb3d' || fmt === 'fbpack') && !fb3dOk()) fmt = 'jpg';
     if (fmt === 'print' && !isCard()) fmt = 'jpg';
     exp.fmt = fmt;
     if ((fmt === 'jpg' || fmt === 'png') && st.fmt !== fmt) {
@@ -2875,6 +2913,8 @@
     $('fmtGlb').hidden = !stage; // ฉากรูปถ่ายก็ได้ (ไฟล์มีแค่ตัวป้าย) — ไม่ได้เฉพาะเครื่องที่เปิด 3 มิติไม่ได้
     $('fmtHtml').hidden = !stage || inFrame; // หน้าพรีวิวโหลดตัวดูมาฝังไม่ได้
     $('fmtFb3d').hidden = !fb3dOk();
+    $('fmtFbPack').hidden = !fb3dOk();
+    $('postBox').hidden = true;
     $('fmtPrint').hidden = !isCard();
     $('sheetBar').hidden = fmt !== 'print';
     $('sceneBar').hidden = !((fmt === 'glb' || fmt === 'html') && (photoSceneOk() || sceneGlbOk()));
@@ -2883,7 +2923,7 @@
     $('cmpBar').hidden = fmt !== 'compare';
     pressed('#cmpOutSeg button', 'cout', st.cmpOut);
     pressed('#sheetSeg button', 'sheet', st.sheet);
-    $('exportTitle').textContent = fmt === 'reel' ? 'วิดีโอ Reels (แนวตั้ง 9:16)' : fmt === 'pdf' ? 'ใบเสนอราคา' : fmt === 'glb' ? 'ไฟล์ 3 มิติ' : fmt === 'html' ? 'ไฟล์ HTML พรีวิว 3 มิติ' : fmt === 'fb3d' ? 'รูป 3 มิติ Facebook' : fmt === 'print' ? 'ไฟล์พิมพ์บัตร' : fmt === 'compare' ? 'แบบให้ลูกค้าเลือก' : fmt === 'job' ? 'ใบสั่งผลิต' : 'รูปพร้อมส่งลูกค้า';
+    $('exportTitle').textContent = fmt === 'reel' ? 'วิดีโอ Reels (แนวตั้ง 9:16)' : fmt === 'pdf' ? 'ใบเสนอราคา' : fmt === 'glb' ? 'ไฟล์ 3 มิติ' : fmt === 'html' ? 'ไฟล์ HTML พรีวิว 3 มิติ' : fmt === 'fb3d' ? 'รูป 3 มิติ Facebook' : fmt === 'fbpack' ? 'ชุดโพสต์ Facebook' : fmt === 'print' ? 'ไฟล์พิมพ์บัตร' : fmt === 'compare' ? 'แบบให้ลูกค้าเลือก' : fmt === 'job' ? 'ใบสั่งผลิต' : 'รูปพร้อมส่งลูกค้า';
     $('dlHint').textContent = inFrame && fmt !== 'glb' && fmt !== 'html' ? 'มือถือ: กดค้างที่รูปแล้วเลือก “บันทึกรูปภาพ” · คอมพิวเตอร์: คลิกขวาที่รูป แล้วเลือกบันทึกรูป' : FMT_HINT[fmt];
     $('dlStatus').textContent = fmt === 'reel' ? 'กำลังเตรียมวิดีโอ…' : 'กำลังเตรียมไฟล์…';
     if (fmt === 'reel') {
@@ -2916,6 +2956,7 @@
     exp.blob = r.blob;
     exp.name = r.name;
     exp.extra = r.extra || [];
+    exp.post = r.post || '';
     exp.canvas = r.canvas;
     exp.url = URL.createObjectURL(r.blob);
     exp.purl = r.preview && r.preview !== r.blob ? URL.createObjectURL(r.preview) : '';
@@ -2955,6 +2996,12 @@
     });
     $('dlStatus').textContent = inFrame && (exp.fmt === 'glb' || exp.fmt === 'html') ? 'หน้าพรีวิวดาวน์โหลดไฟล์/สร้างลิงก์ไม่ได้ เปิดแอปจริงที่ /sign/ เพื่อใช้งาน' : '';
     $('share3d').hidden = exp.fmt !== 'glb' || inFrame;
+    $('postBox').hidden = !exp.post;
+    if (exp.post) {
+      $('postText').value = exp.post;
+      if (r.linkError) $('dlStatus').textContent = r.linkError;
+      else if (r.link) $('dlStatus').textContent = 'พร้อมโพสต์: รูป 3 มิติ 2 ไฟล์ + ข้อความพร้อมลิงก์ดู 3 มิติ (ลิงก์ใช้ได้ 1 ปี)';
+    }
     $('linkBox').hidden = true;
     $('mkLink').disabled = false;
     exp.link = '';
@@ -3031,18 +3078,12 @@
     $('linkBox').hidden = false;
     $('linkShare').hidden = !navigator.share;
   }
-  $('mkLink').addEventListener('click', function () {
-    if (exp.fmt !== 'glb' || !exp.blob) return;
-    if (exp.link) return showLink(exp.link);
-    var btn = $('mkLink');
-    if (location.protocol === 'file:') {
-      $('dlStatus').textContent = 'เปิดแอปจากไฟล์ในเครื่อง สร้างลิงก์ไม่ได้ — เปิดแอปจริงที่ https://muang-jod-flex-bot.onrender.com/sign/ แล้วกดใหม่';
-      return;
-    }
-    btn.disabled = true;
-    $('dlStatus').textContent = 'กำลังสร้างลิงก์…';
+  /* อัปโหลดไฟล์ .glb (+ รูปตัวอย่าง) ขึ้นเซิร์ฟเวอร์ร้าน → { id, url, key } · ส่งไม่ถึง (เซิร์ฟเวอร์หลับ/กำลังอัปเดต) ปลุกแล้วส่งใหม่
+   * say(ข้อความ) = บอกความคืบหน้า · ใช้ทั้งปุ่ม "สร้างลิงก์" และ "ชุดโพสต์ Facebook" */
+  function uploadShare(glb, say) {
+    if (location.protocol === 'file:') return Promise.reject(new Error('เปิดแอปจากไฟล์ในเครื่อง สร้างลิงก์ไม่ได้ — เปิดแอปจริงที่ https://muang-jod-flex-bot.onrender.com/sign/'));
     var poster = posterWithBadge(mockupCanvas(0.75, false));
-    Promise.all([blobToDataUrl(exp.blob), toBlob(poster, 'image/jpeg', 0.82).then(blobToDataUrl)])
+    return Promise.all([blobToDataUrl(glb), toBlob(poster, 'image/jpeg', 0.82).then(blobToDataUrl)])
       .then(function (r) {
         var body = JSON.stringify({
           glb: r[0],
@@ -3055,10 +3096,10 @@
         // ส่งไม่ถึงเซิร์ฟเวอร์ (หลับอยู่/กำลังอัปเดตรุ่น) → ปลุกจนตื่น แล้วส่งใหม่อีกครั้ง
         return send().catch(function () {
           if (navigator.onLine === false) throw new Error('ไม่มีอินเทอร์เน็ต');
-          $('dlStatus').textContent = 'กำลังปลุกเซิร์ฟเวอร์ร้าน (ไม่ได้ใช้นานจะหลับ หรือกำลังอัปเดตรุ่น) รอสักครู่…';
+          say('กำลังปลุกเซิร์ฟเวอร์ร้าน (ไม่ได้ใช้นานจะหลับ หรือกำลังอัปเดตรุ่น) รอสักครู่…');
           return wakeServer(90000).then(function (up) {
             if (!up) throw new Error('ติดต่อเซิร์ฟเวอร์ร้านไม่ได้ ลองใหม่อีกครั้งใน 1–2 นาที');
-            $('dlStatus').textContent = 'เซิร์ฟเวอร์พร้อมแล้ว กำลังสร้างลิงก์…';
+            say('เซิร์ฟเวอร์พร้อมแล้ว กำลังสร้างลิงก์…');
             return send();
           });
         });
@@ -3071,12 +3112,22 @@
           })
           .then(function (j) {
             if (!res.ok || !j.url) throw new Error(j.message || 'เซิร์ฟเวอร์ไม่ตอบ');
+            rememberLink(j);
             return j;
           });
-      })
+      });
+  }
+  $('mkLink').addEventListener('click', function () {
+    if (exp.fmt !== 'glb' || !exp.blob) return;
+    if (exp.link) return showLink(exp.link);
+    var btn = $('mkLink');
+    btn.disabled = true;
+    $('dlStatus').textContent = 'กำลังสร้างลิงก์…';
+    uploadShare(exp.blob, function (t) {
+      $('dlStatus').textContent = t;
+    })
       .then(function (j) {
         showLink(j.url);
-        rememberLink(j);
         $('dlStatus').textContent = 'ได้ลิงก์แล้ว ส่งให้ลูกค้าเปิดหมุนดูในมือถือได้เลย (ลิงก์ใช้ได้ 1 ปี) · ดูคนเปิดดู/ลูกค้าที่สนใจได้ที่ปุ่มด้านล่าง';
       })
       .catch(function (e) {
@@ -3336,7 +3387,7 @@
       })
     );
     navigator
-      .share({ files: files, title: exp.fmt === 'reel' ? 'วิดีโอป้าย' : exp.fmt === 'pdf' ? 'ใบเสนอราคา' : exp.fmt === 'compare' ? 'แบบให้เลือก' : exp.fmt === 'job' ? 'ใบสั่งผลิต' : 'ภาพจำลองป้าย' })
+      .share({ files: files, text: exp.post ? $('postText').value : undefined, title: exp.fmt === 'reel' ? 'วิดีโอป้าย' : exp.fmt === 'pdf' ? 'ใบเสนอราคา' : exp.fmt === 'compare' ? 'แบบให้เลือก' : exp.fmt === 'job' ? 'ใบสั่งผลิต' : 'ภาพจำลองป้าย' })
       .then(function () {
         $('dlStatus').textContent = 'เปิดหน้าแชร์แล้ว';
       })
@@ -3344,6 +3395,24 @@
         if (e && e.name === 'AbortError') return;
         $('dlStatus').textContent = 'แชร์ไม่ได้ในเบราว์เซอร์นี้ ใช้ดาวน์โหลด หรือกดค้างที่รูปแทน';
       });
+  });
+  $('postCopy').addEventListener('click', function () {
+    var ta = $('postText');
+    var done = function () {
+      $('dlStatus').textContent = 'คัดลอกข้อความโพสต์แล้ว ไปวางในช่องโพสต์ Facebook ได้เลย';
+    };
+    var old = function () {
+      ta.focus();
+      ta.select();
+      try {
+        document.execCommand('copy');
+        done();
+      } catch (e) {
+        $('dlStatus').textContent = 'คัดลอกไม่ได้ในเบราว์เซอร์นี้ กดค้างที่ข้อความแล้วเลือกคัดลอกแทน';
+      }
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(done, old);
+    else old();
   });
   $('dlCopy').addEventListener('click', function () {
     if (!exp.canvas) return;

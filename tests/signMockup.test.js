@@ -1153,3 +1153,27 @@ test('ตัวดู 3 มิติแบบโปรแกรม 3D: ลูก
   const css = readFileSync(new URL('../sign-mockup/viewer3d.css', import.meta.url), 'utf8');
   assert.match(css, /\.v-pad svg \{/);
 });
+
+test('ชุดโพสต์ Facebook: รูป 3 มิติ + ลิงก์ดู 3 มิติ (สร้างเอง ใช้ซ้ำ) + ข้อความโพสต์พร้อมลิงก์ (ไม่มีชื่อลูกค้า)', () => {
+  const C = require('../sign-mockup/core.js');
+  const t = C.fbCaption({ title: 'ป้ายยื่น (แขวนสองหน้า)', size: '100 × 55 ซม.', url: 'https://x.example/sign/v/abcdefghij', shop: 'นัฐภรณ์ การพิมพ์\nอ.เชียงกลาง', phone: 'โทร 0932296596', customer: 'ลูกค้าลับ' });
+  assert.match(t, /^✨ ตัวอย่างงานป้ายยื่น \(แขวนสองหน้า\) ขนาด 100 × 55 ซม\.\n/);
+  assert.match(t, /\nhttps:\/\/x\.example\/sign\/v\/abcdefghij\n/);
+  assert.match(t, /📞 นัฐภรณ์ การพิมพ์ อ\.เชียงกลาง โทร 0932296596/); // ขึ้นบรรทัดในชื่อร้านถูกเก็บ · ไม่ซ้ำคำว่าโทร
+  assert.match(t, /#ป้าย #รับทำป้าย #ป้ายยื่น$/);
+  assert.ok(!t.includes('ลูกค้าลับ'));
+  // ไม่มีลิงก์ (สร้างไม่สำเร็จ) / ลิงก์แปลก ๆ → ไม่ใส่บรรทัดลิงก์
+  for (const url of ['', 'javascript:alert(1)']) {
+    const n = C.fbCaption({ title: 'ไวนิล', url });
+    assert.ok(!/แตะลิงก์/.test(n) && !/javascript/.test(n));
+  }
+  const html = readFileSync(new URL('../sign-mockup/index.html', import.meta.url), 'utf8');
+  assert.match(html, /data-fmt="fbpack" id="fmtFbPack">ชุดโพสต์ Facebook</);
+  assert.match(html, /<textarea id="postText"/);
+  assert.match(html, /id="postCopy">คัดลอกข้อความโพสต์</);
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  assert.match(app, /if \(fmt === 'fbpack'\) return buildFbPack\(\);/);
+  assert.match(app, /if \(packLink\.key === key && packLink\.url\) \{/); // งานเดิมใช้ลิงก์เดิม
+  assert.match(app, /function uploadShare\(glb, say\)/); // ปุ่มสร้างลิงก์ + ชุดโพสต์ใช้ตัวเดียวกัน
+  assert.match(app, /uploadShare\(exp\.blob, function \(t\) \{/);
+});
