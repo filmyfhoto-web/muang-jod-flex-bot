@@ -87,7 +87,7 @@
     flash:'',flashErr:false,flashTok:0,busySend:false,busySave:false,attachBusy:false,chatAttachBusy:false,
     drafts:{},odrafts:{},urls:{},tok:0,ctok:0,ptok:0,picker:false,pick:[],pickQ:'',creating:false,note:false,oaLog:false,
     prodOpen:false,prodQ:'',prodRows:[],prodPrice:{},prodBusy:false,modal:null,staff:'ทีมขาย',conflict:false,stageMenu:false,assignMenu:false,
-    custStats:null,custLink:false,custLinkQ:'',custLinkRows:[],
+    custStats:null,custLink:false,custLinkQ:'',custLinkRows:[],autolinkBusy:false,
     line:null,links:{},sendTok:{},busyRetry:{},poll:null,pollN:0,sig:'',probe:'',openStamp:'',linksOffUntil:0,statusOffUntil:0}
 
   // ---------- หน้าตา ----------
@@ -734,7 +734,36 @@
     if(quiet&&sig===S.sig)return false
     S.sig=sig
     paintList();paintMTabs()
+    autolinkSweep()
     return true
+  }
+
+  // แชตจาก LINE ที่ยังไม่มีบัญชีลูกค้า → ผูกให้เองด้วยชื่อเล่น LINE (sale_thread_autolink_customer, migration 008)
+  // ทำเงียบ ๆ อยู่เบื้องหลัง พลาดก็ไม่แจ้งเตือนพนักงาน (เหมือนรูปโปรไฟล์ที่ดึงจาก sale_line_links เงียบ ๆ เช่นกัน) ลองใหม่ได้เองรอบหน้า
+  async function autolinkSweep(){
+    if(S.autolinkBusy)return
+    const targets=S.list.filter(t=>t.source==='line'&&!t.customer_id&&S.links[t.id]&&S.links[t.id].line_name)
+    if(!targets.length)return
+    S.autolinkBusy=true
+    try{
+      for(const t of targets){
+        const r=await q(()=>sb.rpc('sale_thread_autolink_customer',{p_thread_id:t.id}))
+        if(errMsg(r)||!r.data)continue
+        t.customer_id=r.data
+      }
+      paintList()
+      const opened=S.sel&&targets.find(t=>t.id===S.sel)
+      if(opened&&opened.customer_id&&!(S.ord&&isDirty())){
+        const [c,cs]=await Promise.all([
+          q(()=>sb.from('customers').select('id,name,phone,line_name,address,tax_id').eq('id',opened.customer_id).limit(1)),
+          q(()=>sb.from('sale_orders').select('total,job_status').eq('customer_id',opened.customer_id).limit(2000))])
+        S.cust=(c&&Array.isArray(c.data)&&c.data[0])||null
+        S.custStats=errMsg(cs)?null:{n:(cs.data||[]).length,sum:(cs.data||[]).reduce((a,r)=>a+num(r.total),0),open:(cs.data||[]).filter(r=>isOpenJob(r.job_status)).length}
+        paintOrd()
+      }
+    } finally {
+      S.autolinkBusy=false
+    }
   }
 
   async function reloadMsgs(id){

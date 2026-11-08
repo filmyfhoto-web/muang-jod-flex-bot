@@ -16,6 +16,7 @@ import { parseOrderText } from '../../src/picklist.js';
 const DIR = fileURLToPath(new URL('../../app-patches/sale-orders-page/', import.meta.url));
 const read = (f) => readFileSync(DIR + f, 'utf8');
 const code = read('saleorders.module.js');
+const v12 = read('saleorders.module.v12.js');
 const v11 = read('saleorders.module.v11.js');
 const v10 = read('saleorders.module.v10.js');
 const v9 = read('saleorders.module.v9.js');
@@ -27,7 +28,7 @@ const v4 = read('saleorders.module.v4.js');
 const v3 = read('saleorders.module.v3.js');
 const v2 = read('saleorders.module.v2.js');
 const v1 = read('saleorders.module.v1.js');
-const built = buildSql(code, { v11, v10, v9, v8, v7, v6, v5, v4, v3, v2, v1 });
+const built = buildSql(code, { v12, v11, v10, v9, v8, v7, v6, v5, v4, v3, v2, v1 });
 const V1_MD5 = '9559832beab918cf7261079338771178'; // what the first installed version hashes to (checked against production on 4 Nov 2569)
 const V2_MD5 = '021d0e36d3e31cb66c46c58e62a7ea7e'; // what the version the back office had before v3 hashes to (checked against production)
 const V3_MD5 = '9f5e3e414a69ce2f89c2ab0e135af1a1'; // what the v3 version (live since the LINE bridge) hashes to
@@ -46,6 +47,8 @@ const V10_MD5 = '94897ce42e38bd38939f63072feb4b96'; // what the v10 version (liv
 const RAN_V9_TO_V10_MD5 = 'aee2ac964fae662b65518c96693e0d5f'; // the exact script that ran on production when v10 was installed
 const V11_MD5 = '787ac08bc3127734a790ad819b602829'; // what the v11 version (live since the job-flow quick replies, assignee and customer card) hashes to
 const RAN_V10_TO_V11_MD5 = '09f786ca7e2116c0e5c531a52bed47e7'; // the exact script that ran on production when v11 was installed
+const V12_MD5 = '7fdbca68a1d462f83410a8e70db67f80'; // what the v12 version (live since the four tags became a persistent colored row) hashes to
+const RAN_V11_TO_V12_MD5 = '9d7a9f33d78546b17fd5d5e7133a1e69'; // the exact script that ran on production when v12 was installed
 const FROZEN_V1_TO_V2_MD5 = 'd0be45e0a86f17d62229ac898a4e5645'; // the exact script that ran on production on 4 Nov 2569
 const RAN_V3_TO_V4_MD5 = '02861dcf8aaa83d7ac8a2875be68029b'; // the exact script that ran on production when v4 was installed
 
@@ -96,6 +99,8 @@ test('the committed scripts are the ones these files give, and the ten versions 
     ['downgrade1110', 'downgrade-v11-to-v10.sql'],
     ['upgrade1112', 'upgrade-v11-to-v12.sql'],
     ['downgrade1211', 'downgrade-v12-to-v11.sql'],
+    ['upgrade1213', 'upgrade-v12-to-v13.sql'],
+    ['downgrade1312', 'downgrade-v13-to-v12.sql'],
   ]) {
     assert.equal(read(file), built[key], `${file} is stale: run node app-patches/sale-orders-page/make-sql.mjs`);
   }
@@ -110,7 +115,8 @@ test('the committed scripts are the ones these files give, and the ten versions 
   assert.equal(built.md5v9, V9_MD5, 'saleorders.module.v9.js is byte for byte the version live since the closed-sales total');
   assert.equal(built.md5v10, V10_MD5, 'saleorders.module.v10.js is byte for byte the version live since colored tags on each chat');
   assert.equal(built.md5v11, V11_MD5, 'saleorders.module.v11.js is byte for byte the version live since the job-flow quick replies, assignee and customer card');
-  assert.equal(new Set([built.md5, built.md5v11, built.md5v10, built.md5v9, built.md5v8, built.md5v7, built.md5v6, built.md5v5, built.md5v4, built.md5v3, built.md5v2, built.md5v1]).size, 12, 'the current version differs from each earlier one');
+  assert.equal(built.md5v12, V12_MD5, 'saleorders.module.v12.js is byte for byte the version live since the four tags became a persistent colored row');
+  assert.equal(new Set([built.md5, built.md5v12, built.md5v11, built.md5v10, built.md5v9, built.md5v8, built.md5v7, built.md5v6, built.md5v5, built.md5v4, built.md5v3, built.md5v2, built.md5v1]).size, 13, 'the current version differs from each earlier one');
   assert.equal(md5Of(read('upgrade-v1-to-v2.sql')), FROZEN_V1_TO_V2_MD5, 'upgrade-v1-to-v2.sql is the script that ran on production, unchanged');
   assert.equal(md5Of(read('upgrade-v3-to-v4.sql')), RAN_V3_TO_V4_MD5, 'upgrade-v3-to-v4.sql is the script that ran on production when v4 was installed');
   assert.equal(md5Of(read('upgrade-v4-to-v5.sql')), RAN_V4_TO_V5_MD5, 'upgrade-v4-to-v5.sql is the script that ran on production when v5 was installed');
@@ -120,6 +126,7 @@ test('the committed scripts are the ones these files give, and the ten versions 
   assert.equal(md5Of(read('upgrade-v8-to-v9.sql')), RAN_V8_TO_V9_MD5, 'upgrade-v8-to-v9.sql is the script that ran on production when v9 was installed');
   assert.equal(md5Of(read('upgrade-v9-to-v10.sql')), RAN_V9_TO_V10_MD5, 'upgrade-v9-to-v10.sql is the script that ran on production when v10 was installed');
   assert.equal(md5Of(read('upgrade-v10-to-v11.sql')), RAN_V10_TO_V11_MD5, 'upgrade-v10-to-v11.sql is the script that ran on production when v11 was installed');
+  assert.equal(md5Of(read('upgrade-v11-to-v12.sql')), RAN_V11_TO_V12_MD5, 'upgrade-v11-to-v12.sql is the script that ran on production when v12 was installed');
 });
 
 test('the module code is valid JavaScript (compiled, not run) and names no other page as its own', () => {
@@ -759,8 +766,8 @@ test('upgrade-v11-to-v12.sql moves the page from v11 to v12: only its code chang
       const others0 = await othersOf(d);
       await d.exec(built.upgrade1112);
       const r = await rowOf(d);
-      assert.equal(r.code, code, 'the stored code is exactly the current (v12) file');
-      assert.equal(await md5In(d, r.code), built.md5);
+      assert.equal(r.code, v12, 'the stored code is exactly the v12 file');
+      assert.equal(await md5In(d, r.code), built.md5v12);
       assert.deepEqual([r.enabled, r.seq], [enabled, 66], 'switched on stays on, switched off stays off');
       assert.deepEqual(await othersOf(d), others0, 'salechat and the other modules are exactly as they were');
       await d.exec(built.upgrade1112);
@@ -810,6 +817,64 @@ test('downgrade-v12-to-v11.sql puts v11 back byte for byte, keeps enabled and se
   }
 });
 
+test('upgrade-v12-to-v13.sql moves the page from v12 to v13: only its code changes (enabled and seq stay), and running it again does nothing', async () => {
+  for (const enabled of [true, false]) {
+    const d = await installed(v12, enabled);
+    try {
+      const others0 = await othersOf(d);
+      await d.exec(built.upgrade1213);
+      const r = await rowOf(d);
+      assert.equal(r.code, code, 'the stored code is exactly the current (v13) file');
+      assert.equal(await md5In(d, r.code), built.md5);
+      assert.deepEqual([r.enabled, r.seq], [enabled, 66], 'switched on stays on, switched off stays off');
+      assert.deepEqual(await othersOf(d), others0, 'salechat and the other modules are exactly as they were');
+      await d.exec(built.upgrade1213);
+      assert.deepEqual(await rowOf(d), r, 'run twice: nothing more changes');
+    } finally {
+      await d.close();
+    }
+  }
+});
+
+test('upgrade-v12-to-v13.sql refuses a page that is neither v12 nor v13, and never overwrites an edited one', async () => {
+  const edited = await installed(v12 + '\n// a later edit');
+  try {
+    const kept = (await rowOf(edited)).code;
+    await assert.rejects(edited.exec(built.upgrade1213), /neither v12 nor v13/);
+    assert.equal((await rowOf(edited)).code, kept, 'the edited code is still there');
+  } finally {
+    await edited.close();
+  }
+  const old = await installed(v11);
+  try {
+    await assert.rejects(old.exec(built.upgrade1213), /neither v12 nor v13/);
+    assert.equal((await rowOf(old)).code, v11, 'the v11 page is still there, untouched');
+  } finally {
+    await old.close();
+  }
+});
+
+test('downgrade-v13-to-v12.sql puts v12 back byte for byte, keeps enabled and seq, refuses an edited v13, and is harmless twice', async () => {
+  const d = await installed(v12);
+  try {
+    await d.exec(built.upgrade1213);
+    const others0 = await othersOf(d);
+    await d.exec(built.downgrade1312);
+    const r = await rowOf(d);
+    assert.equal(r.code, v12);
+    assert.equal(await md5In(d, r.code), V12_MD5, 'the md5 the v12 page had before the upgrade');
+    assert.deepEqual([r.enabled, r.seq], [true, 66]);
+    assert.deepEqual(await othersOf(d), others0);
+    await d.exec(built.downgrade1312);
+    assert.equal((await rowOf(d)).code, v12, 'run twice: still v12');
+    await d.exec(built.upgrade1213);
+    await d.query("update app_modules set code = code || E'\\n// edited' where name = 'saleorders'");
+    await assert.rejects(d.exec(built.downgrade1312), /neither v13 nor v12/);
+  } finally {
+    await d.close();
+  }
+});
+
 test('ป้ายสีจัดหมวดแชต (tags) are a persistent colored row above the quick-reply row (v12), not a menu behind a button; the list row shows the color as a left border', () => {
   assert.match(code, /const TAG=\[\['inquiry','สอบถาม'/, 'the four tags are defined');
   assert.doesNotMatch(code, /data-a="tagmenu"/, 'v10’s dropdown-behind-a-button tag menu is gone');
@@ -840,6 +905,16 @@ test('the customer card offers linking before any order exists, and its purchase
   assert.ok(code.includes(".update({customer_id:id,updated_at:now}).eq('id',tid)"), 'picking a customer writes straight to sale_threads.customer_id');
   assert.ok(code.includes("sb.from('sale_orders').select('total,job_status').eq('customer_id',t.customer_id)"), 'the stats query is scoped to the customer, across every thread of theirs');
   assert.ok(code.includes('isOpenJob(r.job_status)).length'), 'the in-progress count reuses the same open-job rule as the rest of the page');
+});
+
+test('a LINE thread with no customer is auto-linked in the background after each list load, through the RPC only — never a direct write to customers', () => {
+  assert.ok(code.includes('async function autolinkSweep(){'));
+  assert.ok(code.includes("t.source==='line'&&!t.customer_id&&S.links[t.id]&&S.links[t.id].line_name"), 'only unlinked LINE threads we already have a display name for are swept');
+  assert.ok(code.includes("sb.rpc('sale_thread_autolink_customer',{p_thread_id:t.id})"), 'linking goes through the migration 008 function, consistent with every other write to customers on this page');
+  assert.ok(code.includes('autolinkSweep()'), 'the sweep is actually called');
+  const loadListBody = code.slice(code.indexOf('async function loadList('), code.indexOf('async function loadList(') + code.slice(code.indexOf('async function loadList(')).indexOf('\n  }\n'));
+  assert.ok(loadListBody.includes('autolinkSweep()'), 'the sweep runs once per fresh loadList() resolution, not from every render');
+  assert.ok(code.includes('S.autolinkBusy'), 'a second sweep while one is already running is skipped, not stacked');
 });
 
 test('the closed-sales summary adds up the orders that are closed by responsible person; delivered-but-not-closed is shown apart and not added in', () => {

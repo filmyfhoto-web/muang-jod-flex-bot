@@ -1,13 +1,14 @@
 -- ติดตั้งหน้า "แชตและออเดอร์" (โมดูล saleorders) ในแอปหลังร้าน: แถวใหม่ในตาราง app_modules เท่านั้น
--- · ไม่แก้โมดูลเดิมแม้แต่บรรทัดเดียว · ติดตั้งซ้ำได้ (ถ้ามีแถวนี้อยู่แล้วจะไม่ทำอะไร — ถ้าเป็นรุ่นเก่าให้ใช้ upgrade-v11-to-v12.sql (หรือ upgrade-v10-to-v11.sql / upgrade-v9-to-v10.sql / upgrade-v8-to-v9.sql / upgrade-v7-to-v8.sql / upgrade-v6-to-v7.sql / upgrade-v5-to-v6.sql / upgrade-v4-to-v5.sql / upgrade-v3-to-v4.sql ตามรุ่นที่ติดตั้งอยู่))
+-- · ไม่แก้โมดูลเดิมแม้แต่บรรทัดเดียว · ติดตั้งซ้ำได้ (ถ้ามีแถวนี้อยู่แล้วจะไม่ทำอะไร — ถ้าเป็นรุ่นเก่าให้ใช้ upgrade-v12-to-v13.sql (หรือ upgrade-v11-to-v12.sql / upgrade-v10-to-v11.sql / upgrade-v9-to-v10.sql / upgrade-v8-to-v9.sql / upgrade-v7-to-v8.sql / upgrade-v6-to-v7.sql / upgrade-v5-to-v6.sql / upgrade-v4-to-v5.sql / upgrade-v3-to-v4.sql ตามรุ่นที่ติดตั้งอยู่))
 -- · ติดตั้งแบบปิดไว้ (enabled = false): เปิดหลังตรวจแล้วด้วย update app_modules set enabled = true where name = 'saleorders';
 -- · ต้องติดตั้ง migration db/migrations/002_sale_orders.sql ก่อน (หน้านี้เรียก sale_order_save / sale_order_log_send)
 -- · ส่วน LINE ใช้ได้ต่อเมื่อติดตั้ง db/migrations/003_sale_line_bridge.sql และเปิดสะพานที่บอท — ถ้ายังไม่ติดตั้ง หน้าแสดง "LINE OA: ยังไม่ได้เชื่อมต่อ"
 -- · ลูกค้าลงบัญชี การ์ด และสถานะ "ลงบัญชี" ต้องติดตั้ง db/migrations/004_sale_order_cards.sql และ 005_sale_order_account.sql ด้วย
 -- · ป้ายสีจัดหมวดแชต (สอบถาม/ปัญหา/ด่วน/ตอบกลับภายหลัง) ต้องติดตั้ง db/migrations/006_sale_thread_tags.sql ด้วย — ถ้ายังไม่ติดตั้ง ปุ่มป้ายจะใช้ไม่ได้ (คอลัมน์ tag ไม่มี)
 -- · ผู้รับผิดชอบต่อแชตต้องติดตั้ง db/migrations/007_sale_thread_assignee.sql ด้วย — ถ้ายังไม่ติดตั้ง ปุ่มผู้รับผิดชอบจะใช้ไม่ได้ (คอลัมน์ assignee ไม่มี) · การ์ดลูกค้า/ยอดซื้อรวมใช้ customer_id และตาราง sale_orders ที่มีอยู่แล้ว ไม่ต้องติดตั้งอะไรเพิ่ม
+-- · การผูกลูกค้าอัตโนมัติจาก LINE ต้องติดตั้ง db/migrations/008_sale_thread_autolink.sql ด้วย — ถ้ายังไม่ติดตั้ง หน้าเงียบ ๆ ไม่ผูกให้ (ไม่ใช่ข้อผิดพลาด)
 -- · ย้อนกลับ: reverse.sql
--- md5 ของโค้ดที่ติดตั้ง: 7fdbca68a1d462f83410a8e70db67f80
+-- md5 ของโค้ดที่ติดตั้ง: 70a1a2dba93ccb8a886cff5b2a427e80
 do $do$
 begin
   if exists (select 1 from app_modules where name = 'saleorders') then
@@ -104,7 +105,7 @@ begin
     flash:'',flashErr:false,flashTok:0,busySend:false,busySave:false,attachBusy:false,chatAttachBusy:false,
     drafts:{},odrafts:{},urls:{},tok:0,ctok:0,ptok:0,picker:false,pick:[],pickQ:'',creating:false,note:false,oaLog:false,
     prodOpen:false,prodQ:'',prodRows:[],prodPrice:{},prodBusy:false,modal:null,staff:'ทีมขาย',conflict:false,stageMenu:false,assignMenu:false,
-    custStats:null,custLink:false,custLinkQ:'',custLinkRows:[],
+    custStats:null,custLink:false,custLinkQ:'',custLinkRows:[],autolinkBusy:false,
     line:null,links:{},sendTok:{},busyRetry:{},poll:null,pollN:0,sig:'',probe:'',openStamp:'',linksOffUntil:0,statusOffUntil:0}
 
   // ---------- หน้าตา ----------
@@ -751,7 +752,36 @@ begin
     if(quiet&&sig===S.sig)return false
     S.sig=sig
     paintList();paintMTabs()
+    autolinkSweep()
     return true
+  }
+
+  // แชตจาก LINE ที่ยังไม่มีบัญชีลูกค้า → ผูกให้เองด้วยชื่อเล่น LINE (sale_thread_autolink_customer, migration 008)
+  // ทำเงียบ ๆ อยู่เบื้องหลัง พลาดก็ไม่แจ้งเตือนพนักงาน (เหมือนรูปโปรไฟล์ที่ดึงจาก sale_line_links เงียบ ๆ เช่นกัน) ลองใหม่ได้เองรอบหน้า
+  async function autolinkSweep(){
+    if(S.autolinkBusy)return
+    const targets=S.list.filter(t=>t.source==='line'&&!t.customer_id&&S.links[t.id]&&S.links[t.id].line_name)
+    if(!targets.length)return
+    S.autolinkBusy=true
+    try{
+      for(const t of targets){
+        const r=await q(()=>sb.rpc('sale_thread_autolink_customer',{p_thread_id:t.id}))
+        if(errMsg(r)||!r.data)continue
+        t.customer_id=r.data
+      }
+      paintList()
+      const opened=S.sel&&targets.find(t=>t.id===S.sel)
+      if(opened&&opened.customer_id&&!(S.ord&&isDirty())){
+        const [c,cs]=await Promise.all([
+          q(()=>sb.from('customers').select('id,name,phone,line_name,address,tax_id').eq('id',opened.customer_id).limit(1)),
+          q(()=>sb.from('sale_orders').select('total,job_status').eq('customer_id',opened.customer_id).limit(2000))])
+        S.cust=(c&&Array.isArray(c.data)&&c.data[0])||null
+        S.custStats=errMsg(cs)?null:{n:(cs.data||[]).length,sum:(cs.data||[]).reduce((a,r)=>a+num(r.total),0),open:(cs.data||[]).filter(r=>isOpenJob(r.job_status)).length}
+        paintOrd()
+      }
+    } finally {
+      S.autolinkBusy=false
+    }
   }
 
   async function reloadMsgs(id){

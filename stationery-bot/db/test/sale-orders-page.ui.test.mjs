@@ -104,7 +104,7 @@ async function newContext(extra = {}, { signedIn = true } = {}) {
 before(async () => {
   if (!CHROMIUM) return;
   mkdirSync(SHOTS, { recursive: true });
-  db = await openSaleDb({ cards: true, assignee: true, tags: true });
+  db = await openSaleDb({ cards: true, assignee: true, tags: true, line: true, autolink: true });
   await db.query(`insert into stores (id, name, vat_rate, doc_prefix) values ($1, 'นัฐภรณ์ คัลเลอร์แล็ป', 7, 'RC-CL'), ($2, 'นัฐภรณ์ การพิมพ์', 0, 'RC-PR')`, [CL, PR]);
   await db.query(
     `insert into products (id, code, name, unit, price, stock_qty, tier_prices) values
@@ -125,6 +125,8 @@ before(async () => {
   await thread(4, null, 'บริษัท เอ.บี. เทรดดิ้ง จำกัด', null, 'quote', 0, 'ขอใบเสนอราคากระดาษ A4 10 รีมค่ะ', 60 * 26);
   await thread(5, null, 'โรงเรียนหนองไผ่', null, 'done', 0, 'งานพิมพ์ปกแบบฝึกหัด 200 เล่มค่ะ', 60 * 27);
   await thread(6, null, 'คุณกิตติ', null, 'talk', 0, 'รับของได้วันไหนครับ', 60 * 24 * 5);
+  await db.query(`insert into sale_threads (id, title, source, stage, unread, last_text, last_at) values ($1, 'ริงโกลาเฟ009', 'line', 'talk', 1, 'สนใจค่ะ', now() - make_interval(mins => 2))`, [T(7)]);
+  await db.query(`insert into sale_line_links (thread_id, channel_key, line_user_id, line_name) values ($1, 'main', 'U-ringolafe009', 'ริงโกลาเฟ009')`, [T(7)]);
   const msg = (n, dir, body, minsAgo, kind = 'text', meta = null, by = null) =>
     db.query(`insert into sale_msgs (thread_id, dir, kind, body, meta, by_name, created_at) values ($1, $2, $3, $4, $5, $6, now() - make_interval(secs => $7))`,
       [T(n), dir, kind, body, meta && JSON.stringify(meta), by, Math.round(minsAgo * 60)]);
@@ -160,16 +162,16 @@ test('the list shows the chats from the database with real counts, the menu entr
   await page.goto(`${shell.url}/#saleorders`);
   await page.waitForSelector('#so_items .so-row');
   assert.deepEqual(await page.evaluate(() => [typeof window.ROUTES, typeof window.VIEWS, typeof window.sb]), ['undefined', 'undefined', 'undefined'], 'as in the live shell, ROUTES / VIEWS / sb are const (not window properties) — and the page still works');
-  assert.equal(await page.locator('#so_items .so-row').count(), 6);
+  assert.equal(await page.locator('#so_items .so-row').count(), 7);
   const tabs = await page.locator('#so_tabs .so-tab').allInnerTexts();
-  assert.deepEqual(tabs, ['ทั้งหมด (6)', 'รอตอบ (3)', 'กำลังสั่งงาน (1)', 'เสร็จแล้ว (1)']);
+  assert.deepEqual(tabs, ['ทั้งหมด (7)', 'รอตอบ (4)', 'กำลังสั่งงาน (1)', 'เสร็จแล้ว (1)']);
   assert.deepEqual(await page.locator('.so-chan .so-chip').allInnerTexts(), ['LINE OA: ยังไม่ได้เชื่อมต่อ', 'Facebook: ยังไม่ได้เชื่อมต่อ']);
   assert.deepEqual(await page.locator('#nav a').allInnerTexts(), ['หน้าหลัก', 'แชทขายสินค้า', 'แชตและออเดอร์', 'ออเดอร์ทั้งหมด'], 'the page sits next to the old chat page, which stays');
   await page.locator('#so_q').fill('วัดใหม่');
   assert.equal(await page.locator('#so_items .so-row').count(), 1);
   await page.locator('#so_q').fill('');
   await page.locator('#so_tabs .so-tab', { hasText: 'รอตอบ' }).click();
-  assert.equal(await page.locator('#so_items .so-row').count(), 3);
+  assert.equal(await page.locator('#so_items .so-row').count(), 4);
   await page.locator('#so_tabs .so-tab', { hasText: 'ทั้งหมด' }).click();
   assert.deepEqual(pageErrors, []);
 });
@@ -561,4 +563,20 @@ test('the tag row (v12): all four colors are always visible, one click sets a co
   note = await one(`select body, kind from sale_msgs where thread_id = $1 order by created_at desc limit 1`, [T(1)]);
   assert.match(note.body, /เอาป้ายออก/);
   assert.doesNotMatch((await row.getAttribute('class')) || '', /\btagged\b/);
+});
+
+test('a LINE chat with no customer yet is linked automatically, in the background, named after their LINE display name (v13)', skipIt, async () => {
+  // this thread (T7, "ริงโกลาเฟ009") was seeded from LINE with no customer_id — the sweep runs after every list load,
+  // including the very first one at the top of this file, so by now it may already be linked; either way this waits for it
+  await until(async () => (await one('select customer_id from sale_threads where id = $1', [T(7)])).customer_id !== null, 'the background autolink');
+  const { customer_id } = await one('select customer_id from sale_threads where id = $1', [T(7)]);
+  const cust = await one('select name, line_name, phone, source from customers where id = $1', [customer_id]);
+  assert.deepEqual(cust, { name: 'ริงโกลาเฟ009', line_name: 'ริงโกลาเฟ009', phone: null, source: 'LINE OA (เพิ่มเพื่อน)' });
+
+  await openRow('ริงโกลาเฟ009');
+  await until(async () => (await chatTitle()) === 'ริงโกลาเฟ009', 'the chat');
+  await page.waitForSelector('#so_cn');
+  const cardText = await page.locator('#so_ord').innerText();
+  assert.match(cardText, /ริงโกลาเฟ009/, 'the card shows the auto-linked customer, not "ยังไม่ผูกกับลูกค้าในระบบ"');
+  assert.doesNotMatch(cardText, /ยังไม่ผูกกับลูกค้าในระบบ/);
 });
