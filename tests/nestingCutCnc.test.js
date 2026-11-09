@@ -294,3 +294,23 @@ test('รันนัมเบอร์: ตัวเลขอื่นในง
   assert.match(main, /function layoutPlan\(r, picked, qty\)/);
   assert.match(main, /var pages = Math\.ceil\(qty \/ T\);/); // ปัดเต็มแผ่น
 });
+
+test('รันเลข: ไฟล์เล็ก (งานเป็น Symbol เลขเป็นตัวหนังสือด้านบน) + บันทึก PDF ให้เลย (ไม่เก็บข้อมูลแก้ไข AI · ชื่อไม่ทับไฟล์เดิม)', () => {
+  const host = readFileSync(new URL('../adobe/nesting-cut/illustrator/host.jsx', import.meta.url), 'utf8');
+  const main = readFileSync(new URL('../adobe/nesting-cut/illustrator/main.js', import.meta.url), 'utf8');
+  const html = readFileSync(new URL('../adobe/nesting-cut/illustrator.html', import.meta.url), 'utf8');
+  assert.match(host, /function np_symbolize\(doc, lay, master, targets\)/);
+  assert.match(host, /var symbol = doc\.symbols\.add\(work\);/);
+  assert.match(host, /tf\.move\(nums, ElementPlacement\.PLACEATEND\);/); // กล่องเลขดึงออกมาเป็นตัวหนังสือ
+  assert.match(host, /var inst = lay\.symbolItems\.add\(sym\.symbol\);/);
+  assert.match(host, /sym\.nums\.duplicate\(lay, ElementPlacement\.PLACEATBEGINNING\)/); // เลขอยู่บนงาน
+  assert.match(host, /var sym = args\.symbol \? np_symbolize\(doc, lay, master, args\.targets\) : null;/); // ทำไม่ได้ → สำเนาธรรมดา
+  assert.match(host, /function np_saveNumberPdf\(doc, srcDoc, save\)/);
+  assert.match(host, /o\.preserveEditability = false;/);
+  assert.match(host, /o\.colorDownsamplingImageThreshold = 450;/);
+  assert.match(host, /for \(var k = 2; f\.exists && k < 100; k\+\+\)/);
+  for (const k of ['numSymbol', 'numSave']) assert.match(html, new RegExp('data-setting="' + k + '"'), k);
+  assert.match(html, /id="btnNumSaveDir"/);
+  assert.match(main, /symbol: s\.numSymbol !== false,/);
+  assert.match(main, /save: s\.numSave \? \{ folder: s\.numSaveDir \|\| ''/);
+});

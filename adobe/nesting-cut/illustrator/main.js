@@ -60,7 +60,7 @@
   var STORE_KEY = 'nongploy.nestingcut.settings.v2';
   // ค่าที่บันทึกจากรุ่นก่อน UI_VERSION: หัวงานเคยเปิดเป็นค่าเริ่มต้น → ปิดให้ครั้งเดียว
   var UI_VERSION = 6;
-  var PANEL_VERSION = '1.11.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
+  var PANEL_VERSION = '1.12.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
   var PV_W = 300; // กรอบพรีวิวขนาดคงที่ (px) — ต้องตรงกับ #previewBox ใน panel.css
   var PV_H = 400;
   var WIDE_MIN = 734; // แผงกว้างพอวางพรีวิว (334) คู่ช่องคำสั่ง (400) — ตรงกับ --pv-col + --ctl-w ใน panel.css
@@ -192,6 +192,9 @@
     numMarks: true,
     numPageNote: true,
     numLayout: 'sheet',
+    numSymbol: true,
+    numSave: true,
+    numSaveDir: '',
     numUseAb: true,
     numPos: 'bottom-center',
     numMargin: 10,
@@ -3222,8 +3225,14 @@
             labelX: plan.layoutMode ? Math.max(6, plan.grid.x0) : Math.max(6, num('numSheetMargin') * PT * 0.5),
             labelY: plan.layoutMode ? plan.labelY : Math.max(4, num('numSheetMargin') * PT * 0.35),
             font: s.numFont || '',
+            symbol: s.numSymbol !== false,
+            save: s.numSave ? { folder: s.numSaveDir || '', name: plan.layoutMode ? plan.firstText + '-' + plan.lastText : plan.items[0].text + '-' + plan.items[plan.items.length - 1].text } : null,
           })
           .then(function (out) {
+            if (out.saved) {
+              status('เสร็จแล้ว ' + out.pages + ' หน้า ' + (plan.layoutMode ? plan.qty : out.count) + ' ใบ' + (out.symbol ? ' (ไฟล์เล็ก)' : '') + ' — บันทึก PDF แล้วที่ ' + out.saved, 'ok');
+              return;
+            }
             status('สร้างไฟล์ใหม่แล้ว ' + out.pages + ' หน้า ' + (plan.layoutMode ? plan.qty : out.count) + ' ใบ (' + (plan.layoutMode ? plan.firstText + ' … ' + plan.lastText : plan.items[0].text + ' … ' + plan.items[plan.items.length - 1].text) + ')' + (out.marks ? ' พร้อมครอปมาร์ก' : '') + (plan.single ? ' — หน้าละ 1 ใบ ชื่ออาร์ตบอร์ดตามเลข' : '') + ' — ตรวจแล้วบันทึกเป็น PDF ส่งพิมพ์ได้เลย', 'ok');
           });
       }
@@ -3535,6 +3544,9 @@
     show('[data-num-multi]', s.numMode === 'sheet' && !single && !fromLayout);
     show('[data-num-pages]', s.numMode === 'sheet' && !single);
     show('[data-num-sheet-custom]', s.numMode === 'sheet' && !single && !fromLayout && s.numSheet === 'custom');
+    show('[data-num-save]', s.numMode === 'sheet' && !!s.numSave);
+    $('numSaveDirLabel').textContent = 'บันทึกที่: ' + (s.numSaveDir || 'โฟลเดอร์เดียวกับไฟล์ต้นฉบับ (ไฟล์ยังไม่ได้บันทึก → Documents/NestingCut)');
+    $('btnNumSaveDirReset').hidden = !s.numSaveDir;
     if (s.numMode !== 'sheet') $('numSheetPrev').hidden = true;
     show('[data-num-style]', s.numStyle === 'custom');
     show('[data-run-custom]', s.runSize === 'custom');
@@ -4051,6 +4063,20 @@
     };
     $('btnSelectCut').onclick = function () {
       run(selectCutLines);
+    };
+    $('btnNumSaveDir').onclick = function () {
+      run(function () {
+        return host.call('np_chooseFolder', { title: 'เลือกโฟลเดอร์สำหรับไฟล์ PDF รันเลข' }).then(function (r) {
+          if (r.folder) setSetting('numSaveDir', r.folder);
+          saveSettings();
+          syncFields();
+        });
+      });
+    };
+    $('btnNumSaveDirReset').onclick = function () {
+      setSetting('numSaveDir', '');
+      saveSettings();
+      syncFields();
     };
     $('btnFolder').onclick = function () {
       run(function () {

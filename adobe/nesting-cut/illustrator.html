@@ -373,6 +373,13 @@
         <label class="check" data-num-multi><input type="checkbox" data-setting="numRotate" /> หมุนงาน 90° ถ้าวางได้มากกว่า</label>
         <label class="check" data-num-multi><input type="checkbox" data-setting="numMarks" /> ครอปมาร์ก (แนวตัด) ที่ขอบกระดาษ</label>
         <label class="check" data-num-pages><input type="checkbox" data-setting="numPageNote" /> เขียนหน้าที่ + ช่วงเลขที่ขอบล่าง (เช่น หน้า 1/5 · NO.0001–NO.0009)</label>
+        <label class="check"><input type="checkbox" data-setting="numSymbol" /> ไฟล์เล็ก บันทึกไว (งานเป็น Symbol รูปเก็บชุดเดียว · เลขเป็นตัวหนังสือแก้ได้)</label>
+        <label class="check"><input type="checkbox" data-setting="numSave" /> บันทึกเป็น PDF ให้เลยหลังรันเสร็จ (ไม่ต้อง Save As เอง)</label>
+        <div class="row numsave" data-num-save>
+          <span class="hint" id="numSaveDirLabel"></span>
+          <button type="button" id="btnNumSaveDir" class="ghost">เลือกโฟลเดอร์</button>
+          <button type="button" id="btnNumSaveDirReset" class="ghost" hidden>ข้างไฟล์ต้นฉบับ</button>
+        </div>
         <canvas id="numSheetPrev" class="numsheet" width="560" height="380" hidden></canvas>
       </div>
       <div data-num="page">

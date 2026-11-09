@@ -2108,25 +2108,42 @@ function np_impose(args) {
       } catch (eN) {}
     }
   }
+  // small, fast file: the artwork (photos stored once) becomes one Symbol, the number boxes stay live text on top
+  var sym = args.symbol ? np_symbolize(doc, lay, master, args.targets) : null;
   var count = 0;
   for (var n = 0; n < args.items.length; n++) {
     var it = args.items[n];
     var ab = rects[it.page];
     var slot = args.slots[it.slot];
     if (!ab || !slot) continue;
-    var dup = master.duplicate(lay, ElementPlacement.PLACEATEND);
-    dup.name = it.text;
-    dup.translate(ab[0] + slot.x - mb[0], ab[1] - slot.y - mb[1]);
+    var dx = ab[0] + slot.x - mb[0];
+    var dy = ab[1] - slot.y - mb[1];
     var tfs = [];
-    np_walkTexts(dup, tfs, 0);
+    if (sym) {
+      var inst = lay.symbolItems.add(sym.symbol);
+      var ig = inst.geometricBounds;
+      inst.translate(sym.gb[0] + dx - ig[0], sym.gb[1] + dy - ig[1]);
+      inst.name = it.text;
+      var nd = sym.nums.duplicate(lay, ElementPlacement.PLACEATBEGINNING);
+      nd.name = it.text;
+      nd.translate(dx, dy);
+      np_walkTexts(nd, tfs, 0);
+    } else {
+      var dup = master.duplicate(lay, ElementPlacement.PLACEATEND);
+      dup.name = it.text;
+      dup.translate(dx, dy);
+      np_walkTexts(dup, tfs, 0);
+    }
     for (var t = 0; t < args.targets.length; t++) {
-      var tf = tfs[args.targets[t].idx];
+      // symbol: the number boxes were pulled out in target order - copies: the template's own text order
+      var tf = sym ? tfs[t] : tfs[args.targets[t].idx];
       // a laid-out sheet: one number per ticket (it.texts[ticket]) - otherwise one number for the whole piece
       var value = it.texts ? it.texts[args.targets[t].ticket] : it.text;
       if (tf && value != null) np_putNumber(tf, args.targets[t], value);
     }
     count++;
   }
+  if (sym) sym.nums.remove();
   master.remove();
   if (!count) throw np_E('COPY_FAILED');
   // the copies must sit on the artboards (a different coordinate setup would put them elsewhere)
@@ -2168,7 +2185,78 @@ function np_impose(args) {
   try {
     app.executeMenuCommand('fitall');
   } catch (eF) {}
-  return { pages: pages, count: count, marks: marks };
+  var saved = args.save ? np_saveNumberPdf(doc, srcDoc, args.save) : '';
+  return { pages: pages, count: count, marks: marks, symbol: !!sym, saved: saved };
+}
+
+// pull the number boxes out of a copy of the template and turn the rest into a Symbol
+// -> { symbol, nums (group of number boxes, in target order), gb (bounds of the symbol art) } or null (then plain copies)
+function np_symbolize(doc, lay, master, targets) {
+  var work = null;
+  var nums = null;
+  try {
+    work = master.duplicate(lay, ElementPlacement.PLACEATEND);
+    nums = lay.groupItems.add();
+    nums.name = 'Number boxes';
+    var tfs = [];
+    np_walkTexts(work, tfs, 0);
+    for (var k = 0; k < targets.length; k++) {
+      var tf = tfs[targets[k].idx];
+      if (!tf) throw np_E('COPY_FAILED');
+      tf.move(nums, ElementPlacement.PLACEATEND);
+    }
+    var gb = work.geometricBounds;
+    var symbol = doc.symbols.add(work);
+    symbol.name = 'NudPon number art';
+    work.remove();
+    return { symbol: symbol, nums: nums, gb: gb };
+  } catch (e) {
+    try {
+      if (work) work.remove();
+    } catch (e1) {}
+    try {
+      if (nums) nums.remove();
+    } catch (e2) {}
+    return null;
+  }
+}
+
+// Save As PDF right away: no Illustrator editing data (that doubles the file and the save time),
+// photos above 450 ppi brought down to 300 ppi, JPEG maximum quality, all artboards as pages
+// save: { folder ('' = next to the original file), name (number range) } -> full path
+function np_saveNumberPdf(doc, srcDoc, save) {
+  var folder = null;
+  if (save.folder) folder = new Folder(save.folder);
+  else {
+    try {
+      if (srcDoc.path && srcDoc.path.fsName) folder = srcDoc.path;
+    } catch (eP) {}
+    if (!folder) folder = new Folder(Folder.myDocuments.fsName + '/NestingCut');
+  }
+  if (!folder.exists && !folder.create()) throw np_E('FOLDER', folder.fsName);
+  var base = String(srcDoc.name || 'numbers').replace(/\.[^.]+$/, '');
+  base = (base + ' ' + (save.name || '')).replace(/[\\\/:*?"<>|]+/g, '-').replace(/\s+$/, '');
+  var f = new File(folder.fsName + '/' + base + '.pdf');
+  for (var k = 2; f.exists && k < 100; k++) f = new File(folder.fsName + '/' + base + ' (' + k + ').pdf');
+  var o = new PDFSaveOptions();
+  o.compatibility = PDFCompatibility.ACROBAT7;
+  o.preserveEditability = false;
+  o.viewAfterSaving = false;
+  try {
+    o.generateThumbnails = false;
+    o.optimization = false;
+    o.colorDownsampling = 300;
+    o.colorDownsamplingImageThreshold = 450;
+    o.colorDownsamplingMethod = DownsampleMethod.BICUBICDOWNSAMPLE;
+    o.grayscaleDownsampling = 300;
+    o.grayscaleDownsamplingImageThreshold = 450;
+    o.grayscaleDownsamplingMethod = DownsampleMethod.BICUBICDOWNSAMPLE;
+    o.colorCompression = CompressionQuality.JPEGMAXIMUM;
+    o.grayscaleCompression = CompressionQuality.JPEGMAXIMUM;
+    o.compressArt = true;
+  } catch (eO) {}
+  doc.saveAs(f, o);
+  return f.fsName;
 }
 
 // ---------------------------------------------------------------- one-key workflow
