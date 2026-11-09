@@ -233,18 +233,20 @@
     return lines;
   }
 
-  /* อาร์ตบอร์ดหลายหน้าในไฟล์ใหม่: เรียงเป็นตาราง ไม่ให้เกินพื้นที่ทำงานของ Illustrator (~227 นิ้ว)
-   * → { cols, rows } หรือ null ถ้าหน้าเยอะเกิน */
-  function artboardGrid(pages, w, h, spacing, canvas) {
+  /* อาร์ตบอร์ดหลายหน้าในไฟล์ใหม่: เรียงเป็นตาราง ไม่ให้เกินพื้นที่ทำงานของ Illustrator (~227 นิ้ว) และไม่เกิน 1,000 อาร์ตบอร์ด
+   * square = จำนวนคอลัมน์ ≈ จำนวนแถว (หน้าละ 1 ใบ: 9 ใบ = 3 × 3) · → { cols, rows } หรือ null ถ้าหน้าเยอะเกิน */
+  function artboardGrid(pages, w, h, spacing, canvas, square) {
+    if (pages > 1000) return null;
     var room = canvas || 15800;
     var sp = spacing == null ? 28 : spacing;
     var maxCols = Math.max(1, Math.floor((room + sp) / (w + sp)));
-    var cols = Math.max(1, Math.min(pages, maxCols, Math.ceil(Math.sqrt(pages * (h + sp) / (w + sp)))));
+    var want = square ? Math.ceil(Math.sqrt(pages)) : Math.ceil(Math.sqrt(pages * (h + sp) / (w + sp)));
+    var cols = Math.max(1, Math.min(pages, maxCols, want));
     var rows = Math.ceil(pages / cols);
     if (rows * (h + sp) - sp > room) {
       cols = maxCols;
       rows = Math.ceil(pages / cols);
-      if (rows * (h + sp) - sp > room || pages > 1000) return null;
+      if (rows * (h + sp) - sp > room) return null;
     }
     return { cols: cols, rows: rows };
   }

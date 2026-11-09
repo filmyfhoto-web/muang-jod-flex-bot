@@ -1935,7 +1935,26 @@ function np_readNumberArt(args) {
   NP.numDoc = app.activeDocument;
   var out = [];
   for (var j = 0; j < texts.length; j++) out.push(texts[j].contents);
-  return { w: np_r(b[2] - b[0]), h: np_r(b[1] - b[3]), texts: out, count: items.length };
+  return { w: np_r(b[2] - b[0]), h: np_r(b[1] - b[3]), texts: out, count: items.length, ab: np_artboardOf(app.activeDocument, b) };
+}
+
+// the artboard the art sits on, when it is about the size of the art (a card-sized artboard; bleed may hang outside)
+// -> { w, h, dx, dy (art top-left from the artboard top-left, y down), index } or null
+function np_artboardOf(doc, b) {
+  try {
+    var cx = (b[0] + b[2]) / 2;
+    var cy = (b[1] + b[3]) / 2;
+    var tol = (12 * 72) / 25.4;
+    for (var a = 0; a < doc.artboards.length; a++) {
+      var r = doc.artboards[a].artboardRect;
+      if (cx < r[0] || cx > r[2] || cy > r[1] || cy < r[3]) continue;
+      var aw = r[2] - r[0];
+      var ah = r[1] - r[3];
+      if (Math.abs(aw - (b[2] - b[0])) > tol || Math.abs(ah - (b[1] - b[3])) > tol) return null;
+      return { w: np_r(aw), h: np_r(ah), dx: np_r(b[0] - r[0]), dy: np_r(r[1] - b[1]), index: a };
+    }
+  } catch (e) {}
+  return null;
 }
 
 // replace parts of a text frame with value, keeping the look of the rest (ranges = [[start, length], ...])
@@ -1961,11 +1980,12 @@ function np_putNumber(tf, t, value) {
 // new document with one artboard per sheet (grid layout); tries columns first, then rows, for older Illustrator builds
 function np_sheetDoc(space, w, h, pages, cols, spacing) {
   if (pages <= 1) return app.documents.add(space, w, h);
-  var tries = [cols, Math.ceil(pages / cols)];
+  var tries = [[cols, spacing], [Math.ceil(pages / cols), spacing]];
+  if (spacing < 1) tries.push([cols, 1], [Math.ceil(pages / cols), 1]); // in case 0 spacing is refused
   var err = null;
   for (var i = 0; i < tries.length; i++) {
     try {
-      return app.documents.add(space, w, h, pages, DocumentArtboardLayout.GridByRow, spacing, Math.max(1, tries[i]));
+      return app.documents.add(space, w, h, pages, DocumentArtboardLayout.GridByRow, tries[i][1], Math.max(1, tries[i][0]));
     } catch (e) {
       err = e;
     }
@@ -1983,7 +2003,7 @@ function np_imposeNumbers(args) {
   var srcDoc = np_alive(NP.numDoc) ? NP.numDoc : app.activeDocument;
   var space = srcDoc.documentColorSpace;
   var pages = Math.max(1, args.pages);
-  var doc = np_sheetDoc(space, args.sheetW, args.sheetH, pages, Math.max(1, args.cols || 1), args.spacing || 28);
+  var doc = np_sheetDoc(space, args.sheetW, args.sheetH, pages, Math.max(1, args.cols || 1), args.spacing == null ? 28 : args.spacing);
   var lay = doc.layers[0];
   lay.name = 'Numbered';
   // the template: a copy of the selection as one group (turned 90 deg when that fits more per sheet)
@@ -1997,6 +2017,14 @@ function np_imposeNumbers(args) {
   var mb = np_unionBounds(kids);
   var rects = [];
   for (var p = 0; p < doc.artboards.length; p++) rects.push(doc.artboards[p].artboardRect);
+  // one piece per page: name each artboard after its number (Export > Use Artboards names the files the same)
+  if (args.names) {
+    for (var nm = 0; nm < args.items.length; nm++) {
+      try {
+        if (doc.artboards[args.items[nm].page]) doc.artboards[args.items[nm].page].name = args.items[nm].text;
+      } catch (eN) {}
+    }
+  }
   var count = 0;
   for (var n = 0; n < args.items.length; n++) {
     var it = args.items[n];
