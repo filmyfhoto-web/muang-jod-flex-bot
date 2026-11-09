@@ -82,6 +82,14 @@
     demo: false,
     extensionRoot: extensionRoot,
     call: call,
+    // หลังอัปเดตปลั๊กอิน: โหลด host.jsx รุ่นใหม่เข้า Illustrator (ไม่ต้องปิดโปรแกรม)
+    reloadHost: function () {
+      hostLoaded = false;
+      var file = extensionRoot() + '/illustrator/host.jsx';
+      return evalScript('$.evalFile(' + toAscii(JSON.stringify(file)) + ')').then(function () {
+        hostLoaded = true;
+      });
+    },
     readText: function (path) {
       return fsResult(fs.readFile(path, enc.UTF8));
     },

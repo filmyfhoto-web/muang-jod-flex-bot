@@ -58,7 +58,7 @@
   var STORE_KEY = 'nongploy.nestingcut.settings.v2';
   // ค่าที่บันทึกจากรุ่นก่อน UI_VERSION: หัวงานเคยเปิดเป็นค่าเริ่มต้น → ปิดให้ครั้งเดียว
   var UI_VERSION = 6;
-  var PANEL_VERSION = '1.9.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
+  var PANEL_VERSION = '1.10.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
   var PV_W = 300; // กรอบพรีวิวขนาดคงที่ (px) — ต้องตรงกับ #previewBox ใน panel.css
   var PV_H = 400;
   var WIDE_MIN = 734; // แผงกว้างพอวางพรีวิว (334) คู่ช่องคำสั่ง (400) — ตรงกับ --pv-col + --ctl-w ใน panel.css
@@ -3143,6 +3143,163 @@
     });
   }
 
+  // ---------------------------------------------------------------- อัปเดตปลั๊กอิน
+  // เซิร์ฟเวอร์ของร้าน (ขึ้นระบบพร้อมบอต) บอกรุ่นล่าสุด + ไฟล์ทุกไฟล์ → แผงโหลดเฉพาะไฟล์ที่เปลี่ยน เขียนทับในโฟลเดอร์ปลั๊กอิน แล้วโหลดตัวเองใหม่
+
+  var UPDATE_URL = 'https://muang-jod-flex-bot.onrender.com/nesting-cut';
+  var U = NC.update;
+  var upd = { info: null, busy: false };
+
+  function updShow(text, kind, closable) {
+    var bar = $('updBar');
+    bar.hidden = false;
+    bar.className = 'updbar' + (kind ? ' ' + kind : '');
+    $('updTitle').textContent = kind === 'warn' ? 'อัปเดต' : kind === 'ok' ? '✓' : '⟳';
+    $('updText').textContent = text;
+    $('updNotes').innerHTML = '';
+    $('btnUpdGo').hidden = true;
+    $('btnUpdLater').hidden = !closable;
+    $('btnUpdLater').textContent = 'ปิด';
+  }
+
+  function showUpdateBar(info) {
+    var bar = $('updBar');
+    bar.hidden = false;
+    bar.className = 'updbar';
+    $('updTitle').textContent = 'มีรุ่นใหม่ ' + info.version;
+    $('updText').textContent = '(ตอนนี้รุ่น ' + PANEL_VERSION + ') — กดอัปเดตได้เลย ไม่ต้องปิด Illustrator';
+    var ul = $('updNotes');
+    ul.innerHTML = '';
+    (info.notes || []).slice(0, 5).forEach(function (n) {
+      ul.appendChild(el('li', null, n));
+    });
+    $('btnUpdGo').hidden = false;
+    $('btnUpdLater').hidden = false;
+    $('btnUpdLater').textContent = 'ไว้ทีหลัง';
+  }
+
+  function fetchJson(url, ms) {
+    return Promise.race([
+      fetch(url, { cache: 'no-store' }).then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      }),
+      new Promise(function (ok, no) {
+        setTimeout(function () {
+          no(new Error('เซิร์ฟเวอร์ไม่ตอบ'));
+        }, ms);
+      }),
+    ]);
+  }
+
+  // manual = กดเช็กเอง (บอกผลทุกกรณี) · เปิดแผงเช็กเงียบ ๆ (บอกเฉพาะตอนมีรุ่นใหม่)
+  function checkUpdate(manual) {
+    if (host.demo) {
+      if (manual) updShow('โหมดทดลอง — เช็กอัปเดตได้เมื่อเปิดในแผงของ Illustrator', 'warn', true);
+      return Promise.resolve(null);
+    }
+    if (manual) updShow('กำลังเช็กรุ่นใหม่… (เซิร์ฟเวอร์หลับอยู่อาจรอครึ่งนาที)');
+    return fetchJson(UPDATE_URL + '/update.json', manual ? 90000 : 60000)
+      .then(function (info) {
+        upd.info = info;
+        if (U.compareVersion(info.version, PANEL_VERSION) > 0) showUpdateBar(info);
+        else if (manual) updShow('ใช้รุ่นล่าสุดอยู่แล้ว (รุ่น ' + PANEL_VERSION + ')', 'ok', true);
+        return info;
+      })
+      .catch(function (e) {
+        if (manual) updShow('เช็กอัปเดตไม่ได้ — ต่อเน็ตแล้วลองใหม่ (' + e.message + ')', 'warn', true);
+        return null;
+      });
+  }
+
+  function toBase64(buf) {
+    var bytes = new Uint8Array(buf);
+    var out = '';
+    for (var i = 0; i < bytes.length; i += 0x8000) out += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(out);
+  }
+
+  function doUpdate() {
+    if (upd.busy || !upd.info) return Promise.resolve();
+    upd.busy = true;
+    var info = upd.info;
+    var dir = host.extensionRoot();
+    var state = null;
+    try {
+      state = JSON.parse(host.readText(dir + '/update-state.json'));
+    } catch (e) {}
+    var need = U.filesToFetch(info, state);
+    var got = [];
+    var i = 0;
+    function next() {
+      if (i >= need.length) return Promise.resolve();
+      var f = need[i++];
+      updShow('กำลังดาวน์โหลดรุ่น ' + info.version + ' … ' + i + '/' + need.length + ' ไฟล์');
+      var url = UPDATE_URL + '/file/' + f.path.split('/').map(encodeURIComponent).join('/');
+      return fetch(url, { cache: 'no-store' })
+        .then(function (r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + f.path);
+          return r.arrayBuffer();
+        })
+        .then(function (buf) {
+          if (buf.byteLength !== f.size) throw new Error('ไฟล์มาไม่ครบ ' + f.path);
+          got.push({ path: f.path, b64: toBase64(buf) });
+          return next();
+        });
+    }
+    return next()
+      .then(function () {
+        // ดาวน์โหลดครบทุกไฟล์แล้วค่อยเขียนทับ (ไม่ให้ปลั๊กอินเหลือครึ่งเก่าครึ่งใหม่เพราะเน็ตหลุด)
+        U.dirsFor(got.map(function (g) {
+          return g.path;
+        })).forEach(function (d) {
+          host.makeDir(dir + '/' + d);
+        });
+        got.forEach(function (g) {
+          host.writeBase64(dir + '/' + g.path, g.b64);
+        });
+        host.writeText(dir + '/update-state.json', JSON.stringify(U.newState(info, new Date().toISOString())));
+        updShow('อัปเดตเป็นรุ่น ' + info.version + ' แล้ว — กำลังโหลดแผงใหม่…', 'ok');
+        return (host.reloadHost ? host.reloadHost() : Promise.resolve()).then(function () {
+          setTimeout(function () {
+            location.reload();
+          }, 700);
+        });
+      })
+      .catch(function (e) {
+        upd.busy = false;
+        updShow(
+          e && e.code === 'FS'
+            ? 'เขียนไฟล์ลงโฟลเดอร์ปลั๊กอินไม่ได้ — ดาวน์โหลดตัวติดตั้งใหม่ที่ ' + UPDATE_URL + ' แล้วติดตั้งทับ'
+            : 'อัปเดตไม่สำเร็จ (' + (e && e.message) + ') — ลองกด “เช็กอัปเดต” ใหม่อีกครั้ง',
+          'warn',
+          true
+        );
+      });
+  }
+
+  function bindUpdate() {
+    $('guideVer').textContent = PANEL_VERSION;
+    $('btnUpdGo').onclick = function () {
+      doUpdate();
+    };
+    $('btnUpdLater').onclick = function () {
+      $('updBar').hidden = true;
+    };
+    $('btnUpdCheck').onclick = function () {
+      checkUpdate(true);
+    };
+    $('appVer').title = 'กดเพื่อเช็กอัปเดต';
+    $('appVer').style.cursor = 'pointer';
+    $('appVer').onclick = function () {
+      checkUpdate(true);
+    };
+    // เปิดแผง: เช็กเงียบ ๆ (รอให้แผงพร้อมก่อน)
+    if (!host.demo) setTimeout(function () {
+      checkUpdate(false);
+    }, 2500);
+  }
+
   // ---------------------------------------------------------------- ปุ่มลัด (One-key)
 
   var QUICK_EVENT = 'com.nongploy.nestingcut.quick';
@@ -3802,6 +3959,7 @@
       run(exportAll);
     };
     $('appVer').textContent = 'รุ่น ' + PANEL_VERSION;
+    bindUpdate();
     $('btnStRead').onclick = function () {
       run(stampRead);
     };
