@@ -259,3 +259,18 @@ test('รันเลข หน้าละ 1 ใบ: อาร์ตบอร�
   assert.match(main, /function singlePlan\(r, picked, qty\)/);
   assert.match(main, /spacing: plan\.single \? 0 : 28,/);
 });
+
+test('รันเลข + จัดเรียง: คัดลอกงานไปไฟล์ใหม่ผ่านเลเยอร์ก่อน (ตรงเข้ากลุ่มของอีกไฟล์ได้ของว่าง) · พิกัดเอกสาร · เช็กว่างานอยู่บนอาร์ตบอร์ด', () => {
+  const host = readFileSync(new URL('../adobe/nesting-cut/illustrator/host.jsx', import.meta.url), 'utf8');
+  const main = readFileSync(new URL('../adobe/nesting-cut/illustrator/main.js', import.meta.url), 'utf8');
+  const fn = host.slice(host.indexOf('function np_impose(args)'), host.indexOf('function np_impose(args)') + 3000);
+  assert.match(fn, /copies\.push\(src\[i\]\.duplicate\(lay, ElementPlacement\.PLACEATEND\)\)/);
+  assert.match(fn, /copies\[j\]\.move\(master, ElementPlacement\.PLACEATEND\)/);
+  assert.ok(!/duplicate\(master,/.test(fn), 'ไม่คัดลอกข้ามไฟล์เข้ากลุ่มตรง ๆ');
+  assert.match(fn, /if \(!master\.pageItems\.length\) throw np_E\('COPY_FAILED'\)/);
+  assert.match(host, /app\.coordinateSystem = CoordinateSystem\.DOCUMENTCOORDINATESYSTEM;/);
+  assert.match(host, /function np_countOnArtboard\(doc, index\)/);
+  assert.match(host, /if \(onPage === 0\) throw np_E\('PLACE_OFF'\)/);
+  assert.match(main, /COPY_FAILED: '/);
+  assert.match(main, /PLACE_OFF: '/);
+});
