@@ -339,8 +339,10 @@
           <select data-setting="numLayout">
             <option value="sheet">หลายใบต่อแผ่น (เต็มกระดาษ + ครอปมาร์ก)</option>
             <option value="single">หน้าละ 1 ใบ (อาร์ตบอร์ดเท่างาน ต่อกันไป)</option>
+            <option value="layout">ใช้แผ่นที่วางไว้แล้ว (รันต่อทุกหน้า)</option>
           </select></label
         >
+        <p class="hint" data-num-layout>เลือก <b>งานทั้งแผ่น</b> ที่วางไว้แล้วบนอาร์ตบอร์ด (เช่น 20 ใบ — คลิกอาร์ตบอร์ดแล้ว Ctrl/Cmd+A) → ได้ไฟล์ใหม่หลายหน้า หน้าตาเหมือนแผ่นเดิม เลขต่อกันทุกหน้า: หน้า 1 = 0001–0020 หน้า 2 = 0021–0040 … (ปัดจำนวนให้เต็มแผ่น) · ใบที่มีต้นขั้ว ให้จัดกลุ่มแต่ละใบ (Ctrl/Cmd+G) ก่อน เลขใบหลัก + ต้นขั้วจะตรงกัน</p>
         <p class="hint" data-num-single>ได้อาร์ตบอร์ดเท่าขนาดงานวางชิดกันเป็นตาราง หน้าที่ 1 = NO.0001 หน้าที่ 2 = NO.0002 … ต่อกันไปจนครบ (บันทึก PDF ได้หน้าละ 1 ใบ) · สูงสุด 1,000 หน้าต่อไฟล์</p>
         <label class="check" data-num-single><input type="checkbox" data-setting="numUseAb" /> ใช้ขนาดอาร์ตบอร์ดของงานต้นแบบ (ถ้างานวางบนอาร์ตบอร์ดขนาดเท่างาน — ส่วนเผื่อตัดล้นออกนอกหน้าได้)</label>
         <div class="grid2">
@@ -360,7 +362,7 @@
           <label data-num-sheet-custom data-num-multi>สูง (มม.) <input type="number" min="20" step="1" data-setting="numSheetH" /></label>
           <label data-num-multi>ขอบกระดาษ (มม.) <input type="number" min="0" step="1" data-setting="numSheetMargin" /></label>
           <label data-num-multi>ระยะห่างชิ้น (มม.) <input type="number" min="0" step="0.5" data-setting="numGap" /></label>
-          <label data-num-multi
+          <label data-num-pages
             >เรียงเลข
             <select data-setting="numSheetOrder">
               <option value="page">ทีละหน้า (หน้า 1 = เลขแรก ๆ)</option>
@@ -370,7 +372,7 @@
         </div>
         <label class="check" data-num-multi><input type="checkbox" data-setting="numRotate" /> หมุนงาน 90° ถ้าวางได้มากกว่า</label>
         <label class="check" data-num-multi><input type="checkbox" data-setting="numMarks" /> ครอปมาร์ก (แนวตัด) ที่ขอบกระดาษ</label>
-        <label class="check" data-num-multi><input type="checkbox" data-setting="numPageNote" /> เขียนหน้าที่ + ช่วงเลขที่ขอบล่าง (เช่น หน้า 1/5 · NO.0001–NO.0009)</label>
+        <label class="check" data-num-pages><input type="checkbox" data-setting="numPageNote" /> เขียนหน้าที่ + ช่วงเลขที่ขอบล่าง (เช่น หน้า 1/5 · NO.0001–NO.0009)</label>
         <canvas id="numSheetPrev" class="numsheet" width="560" height="380" hidden></canvas>
       </div>
       <div data-num="page">

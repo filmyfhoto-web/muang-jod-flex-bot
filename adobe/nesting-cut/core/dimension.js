@@ -199,6 +199,11 @@
     return { pages: pages, cells: cells };
   }
 
+  // ลำดับเลขของช่อง slot บนหน้า page (ตรงข้ามกับ sheetNumbers): 'page' = ทีละหน้า · 'stack' = ตัดทั้งปึกวางซ้อนกอง
+  function sheetIndex(page, slot, perSheet, pages, order) {
+    return order === 'stack' ? slot * pages + page : page * perSheet + slot;
+  }
+
   /* ครอปมาร์กรอบกริด: เส้นสั้นในระยะขอบกระดาษ ตรงแนวตัดทุกเส้น (ตัดกิโยตินทั้งปึกได้) · ชิ้นชิดกันใช้แนวตัดร่วม
    * o = { offset, length } → [[x1, y1, x2, y2], …] (มุมซ้ายบนกระดาษ แกน y ชี้ลง) */
   function sheetMarks(grid, o) {
@@ -253,7 +258,7 @@
 
   /* กล่องข้อความที่จะใส่เลข (จากข้อความทั้งหมดในชิ้นงานต้นแบบ): texts = ['ข้อความ', …] · o = { token, prefix, suffix }
    * ① กล่องที่มี {%n} (แทนเฉพาะตรงนั้น) ② ติ๊ก “แทนเฉพาะ {%n}” แต่ไม่มี → error ③ มีกล่องเดียว → กล่องนั้น
-   * ④ ข้อความสั้น ๆ ที่มีตัวเลข เช่น NO.0000 (ใบหลัก + ต้นขั้ว ได้เลขเดียวกันทุกกล่อง) ⑤ ไม่รู้ว่ากล่องไหน → error
+   * ④ กล่องที่ขึ้นต้นด้วย Prefix หรือเลขศูนย์ล้วนแบบ NO.0000 (ใบหลัก + ต้นขั้ว ได้เลขเดียวกันทุกกล่อง) ⑤ ไม่รู้ว่ากล่องไหน → error
    * → { targets: [{ idx, ranges: [[เริ่ม, ยาว], …] } | { idx, all: true }], why } · ranges = ส่วนที่แทนด้วยเลข (คงสี/ฟอนต์ส่วนอื่น) */
   function numberTargets(texts, o) {
     o = o || {};
@@ -299,13 +304,21 @@
       var s = t.replace(/^\s+|\s+$/g, '');
       if (s.length <= 24 && /\d/.test(s) && !/\s{2,}|[\r\n]/.test(s)) looks.push(i);
     });
+    // งานมีตัวเลขอื่นเยอะ (ราคา เวลา เงินรางวัล): ไม่เหมาเอาทุกกล่องที่มีตัวเลข
+    // ① ขึ้นต้นด้วย Prefix ② เลขแบบที่จองไว้ใส่เลขรัน (ศูนย์ล้วน เช่น NO.0000 / 000) ③ มีกล่องตัวเลขกล่องเดียว
     if (o.prefix) {
       var pre = looks.filter(function (i) {
         return list[i].replace(/^\s+/, '').indexOf(o.prefix) === 0;
       });
-      if (pre.length) looks = pre;
+      if (pre.length) return { why: 'prefix', targets: pre.map(target) };
     }
-    if (looks.length) return { why: 'digits', targets: looks.map(target) };
+    // ตัวเลขชุดท้ายทั้งก้อน (รวม , .) ต้องเป็นศูนย์ล้วน: NO.0000 ✓ · 5,000 / 12.00 ✗ (เป็นราคา/เวลา)
+    var zeros = looks.filter(function (i) {
+      var m = /(\d[\d,.]*\d|\d)(?!.*\d)/.exec(list[i]);
+      return m && m[1].replace(/[,.]/g, '').length >= 2 && /^0+$/.test(m[1]);
+    });
+    if (zeros.length) return { why: 'digits', targets: zeros.map(target) };
+    if (looks.length === 1) return { why: 'digits', targets: [target(looks[0])] };
     throw new Error('WHICH_TEXT');
   }
 
@@ -322,6 +335,7 @@
     pagePosition: pagePosition,
     sheetGrid: sheetGrid,
     sheetNumbers: sheetNumbers,
+    sheetIndex: sheetIndex,
     sheetMarks: sheetMarks,
     artboardGrid: artboardGrid,
     numberTargets: numberTargets,

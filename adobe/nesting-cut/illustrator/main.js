@@ -60,7 +60,7 @@
   var STORE_KEY = 'nongploy.nestingcut.settings.v2';
   // ค่าที่บันทึกจากรุ่นก่อน UI_VERSION: หัวงานเคยเปิดเป็นค่าเริ่มต้น → ปิดให้ครั้งเดียว
   var UI_VERSION = 6;
-  var PANEL_VERSION = '1.10.1'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
+  var PANEL_VERSION = '1.11.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
   var PV_W = 300; // กรอบพรีวิวขนาดคงที่ (px) — ต้องตรงกับ #previewBox ใน panel.css
   var PV_H = 400;
   var WIDE_MIN = 734; // แผงกว้างพอวางพรีวิว (334) คู่ช่องคำสั่ง (400) — ตรงกับ --pv-col + --ctl-w ใน panel.css
@@ -2824,6 +2824,7 @@
       }
       var qty = Math.max(1, Math.min(5000, Math.round(num('numQty'))));
       if (s.numLayout === 'single') return singlePlan(r, picked, qty);
+      if (s.numLayout === 'layout') return layoutPlan(r, picked, qty);
       var sz = numSheetSize();
       var margin = Math.max(0, num('numSheetMargin')) * PT;
       var grid = D.sheetGrid({ itemW: r.w, itemH: r.h, sheetW: sz.w * PT, sheetH: sz.h * PT, margin: margin, gap: Math.max(0, num('numGap')) * PT, rotate: !!s.numRotate });
@@ -2906,6 +2907,113 @@
     };
   }
 
+  // ใช้แผ่นที่วางไว้แล้ว: ทั้งแผ่นซ้ำทุกหน้า แต่ละใบในแผ่นได้เลขของตัวเอง (กล่องเลขในใบเดียวกันเลขเดียวกัน)
+  // เรียงใบตามแถว (บน→ล่าง ซ้าย→ขวา) · จำนวนปัดขึ้นให้เต็มแผ่น
+  function layoutPlan(r, picked, qty) {
+    var s = S.settings;
+    if (!r.page) throw new Error('งานที่เลือกไม่ได้วางอยู่บนอาร์ตบอร์ด — วางแผ่นงานไว้บนอาร์ตบอร์ดก่อน แล้วเลือกงานทั้งแผ่น');
+    var byTicket = {};
+    picked.targets.forEach(function (t) {
+      var k = r.ticketOf ? r.ticketOf[t.idx] : 0;
+      (byTicket[k] = byTicket[k] || []).push(t);
+    });
+    var order = D.orderItems(
+      Object.keys(byTicket).map(function (k) {
+        return { k: +k, vb: r.tickets[+k].vb };
+      }),
+      'rows'
+    );
+    var T = order.length;
+    var rank = {};
+    order.forEach(function (o, j) {
+      rank[o.k] = j;
+    });
+    var pages = Math.ceil(qty / T);
+    if (pages > 1000) throw new Error(pages + ' หน้าเกิน 1,000 หน้าต่อไฟล์ (ข้อจำกัดของ Illustrator) — แบ่งทำหลายรอบ (รอบถัดไปตั้ง Start ต่อจากเลขสุดท้าย)');
+    var abg = D.artboardGrid(pages, r.page.w, r.page.h, 28);
+    if (!abg) throw new Error(pages + ' หน้าเยอะเกินพื้นที่ของ Illustrator — แบ่งทำหลายรอบ (รอบถัดไปตั้ง Start ต่อจากเลขสุดท้าย)');
+    var total = pages * T;
+    var opts = numOpts(total);
+    var stack = s.numSheetOrder === 'stack';
+    var items = [];
+    for (var p = 0; p < pages; p++) {
+      var texts = [];
+      for (var j = 0; j < T; j++) texts.push(D.numberText(D.sheetIndex(p, j, T, pages, s.numSheetOrder), opts));
+      items.push({ page: p, slot: 0, texts: texts, text: texts[0] + (T > 1 ? ' – ' + texts[T - 1] : '') });
+    }
+    var labels = items.map(function (it, p) {
+      return 'หน้า ' + (p + 1) + '/' + pages + ' · ' + it.text + (stack ? ' (ซ้อนกอง)' : '');
+    });
+    // ป้ายหน้าที่ใส่เฉพาะเมื่อขอบล่างของแผ่นเหลือพอ (ไม่ทับงาน)
+    var bottom = r.page.h - (r.page.dy + r.h);
+    var rect = r.page.rect;
+    return {
+      mode: 'sheet',
+      layoutMode: true,
+      art: r,
+      picked: {
+        targets: picked.targets.map(function (t) {
+          var c = {};
+          for (var key in t) c[key] = t[key];
+          c.ticket = rank[r.ticketOf ? r.ticketOf[t.idx] : 0];
+          return c;
+        }),
+      },
+      grid: { cols: 1, rows: 1, perSheet: 1, rot: false, landscape: false, sheetW: r.page.w, sheetH: r.page.h, cellW: r.w, cellH: r.h, gap: 0, x0: r.page.dx, y0: r.page.dy, gridW: r.w, gridH: r.h, slots: [{ x: r.page.dx, y: r.page.dy }] },
+      pages: pages,
+      cols: abg.cols,
+      rows: abg.rows,
+      perPage: T,
+      items: items,
+      byPage: items.map(function (it) {
+        return [it];
+      }),
+      marks: [],
+      labels: s.numPageNote && bottom >= 4 * PT ? labels : [],
+      labelY: Math.max(2, (bottom - 6) / 2),
+      allLabels: labels,
+      qty: total,
+      asked: qty,
+      firstText: D.numberText(0, opts),
+      lastText: D.numberText(total - 1, opts),
+      boxes: order.map(function (o) {
+        var vb = r.tickets[o.k].vb;
+        return { x: vb[0] - rect[0], y: rect[1] - vb[1], w: vb[2] - vb[0], h: vb[1] - vb[3] };
+      }),
+    };
+  }
+
+  // ใช้แผ่นที่วางไว้แล้ว: ภาพแผ่นแรก (ตำแหน่งใบจริง + เลขของหน้าแรก)
+  function drawNumLayout(plan) {
+    var c = $('numSheetPrev');
+    c.hidden = false;
+    var x = c.getContext('2d');
+    var W = c.width;
+    var H = c.height;
+    x.clearRect(0, 0, W, H);
+    var g = plan.grid;
+    var k = Math.min((W - 24) / g.sheetW, (H - 24) / g.sheetH);
+    var ox = (W - g.sheetW * k) / 2;
+    var oy = (H - g.sheetH * k) / 2;
+    x.fillStyle = '#ffffff';
+    x.fillRect(ox, oy, g.sheetW * k, g.sheetH * k);
+    x.textAlign = 'center';
+    x.textBaseline = 'middle';
+    var texts = plan.items[0].texts;
+    plan.boxes.forEach(function (b, j) {
+      var px = ox + b.x * k;
+      var py = oy + b.y * k;
+      x.fillStyle = '#fde3d3';
+      x.fillRect(px, py, b.w * k, b.h * k);
+      x.strokeStyle = '#d9622b';
+      x.lineWidth = 1;
+      x.strokeRect(px + 0.5, py + 0.5, b.w * k - 1, b.h * k - 1);
+      x.fillStyle = '#1f2a4d';
+      x.font = '600 ' + Math.max(7, Math.min(16, b.h * k * 0.18, ((b.w * k) / Math.max(4, texts[j].length)) * 1.6)) + 'px sans-serif';
+      x.fillText(texts[j], px + (b.w * k) / 2, py + (b.h * k) / 2);
+    });
+  }
+
   // หน้าละ 1 ใบ: ภาพอาร์ตบอร์ดชิดกันเป็นตาราง (แสดงไม่เกิน 4 แถวแรก)
   function drawNumPages(plan) {
     var c = $('numSheetPrev');
@@ -2945,6 +3053,7 @@
   // ภาพหน้าแรก: กระดาษ ช่องงาน เลข และครอปมาร์ก
   function drawNumSheet(plan) {
     if (plan && plan.single) return drawNumPages(plan);
+    if (plan && plan.layoutMode) return drawNumLayout(plan);
     var c = $('numSheetPrev');
     if (!c || !plan || plan.mode !== 'sheet') return;
     c.hidden = false;
@@ -3039,7 +3148,7 @@
       });
     } else if (plan.mode === 'sheet') {
       plan.allLabels.forEach(function (lb, p) {
-        rows.push(['หน้า ' + (p + 1) + ' (' + plan.byPage[p].length + ' ใบ)', lb.replace(/^หน้า [0-9]+\/[0-9]+ · /, '')]);
+        rows.push(['หน้า ' + (p + 1) + ' (' + (plan.layoutMode ? plan.perPage : plan.byPage[p].length) + ' ใบ)', lb.replace(/^หน้า [0-9]+\/[0-9]+ · /, '')]);
       });
     } else {
       plan.items.forEach(function (it) {
@@ -3060,6 +3169,9 @@
     var mm = function (v) {
       return Math.round((v / PT) * 10) / 10;
     };
+    if (plan.layoutMode) {
+      return 'ใช้แผ่นที่วางไว้: หน้าละ ' + plan.perPage + ' ใบ · ' + plan.pages + ' หน้า = ' + plan.qty + ' ใบ' + (plan.qty > plan.asked ? ' (ปัดจาก ' + plan.asked + ' ให้เต็มแผ่น)' : '') + ' · แผ่น ' + mm(g.sheetW) + ' × ' + mm(g.sheetH) + ' มม.';
+    }
     if (plan.single) {
       return 'หน้าละ 1 ใบ · อาร์ตบอร์ด ' + mm(g.sheetW) + ' × ' + mm(g.sheetH) + ' มม.' + (plan.fromArtboard ? ' (ตามอาร์ตบอร์ดต้นแบบ)' : ' (ตามขนาดงาน)') + ' · ' + plan.pages + ' หน้า เรียง ' + plan.cols + ' × ' + plan.rows + ' ชิดกัน';
     }
@@ -3107,12 +3219,12 @@
             targets: plan.picked.targets,
             marks: plan.marks,
             labels: plan.labels,
-            labelX: Math.max(6, num('numSheetMargin') * PT * 0.5),
-            labelY: Math.max(4, num('numSheetMargin') * PT * 0.35),
+            labelX: plan.layoutMode ? Math.max(6, plan.grid.x0) : Math.max(6, num('numSheetMargin') * PT * 0.5),
+            labelY: plan.layoutMode ? plan.labelY : Math.max(4, num('numSheetMargin') * PT * 0.35),
             font: s.numFont || '',
           })
           .then(function (out) {
-            status('สร้างไฟล์ใหม่แล้ว ' + out.pages + ' หน้า ' + out.count + ' ใบ (' + plan.items[0].text + ' … ' + plan.items[plan.items.length - 1].text + ')' + (out.marks ? ' พร้อมครอปมาร์ก' : '') + (plan.single ? ' — หน้าละ 1 ใบ ชื่ออาร์ตบอร์ดตามเลข' : '') + ' — ตรวจแล้วบันทึกเป็น PDF ส่งพิมพ์ได้เลย', 'ok');
+            status('สร้างไฟล์ใหม่แล้ว ' + out.pages + ' หน้า ' + (plan.layoutMode ? plan.qty : out.count) + ' ใบ (' + (plan.layoutMode ? plan.firstText + ' … ' + plan.lastText : plan.items[0].text + ' … ' + plan.items[plan.items.length - 1].text) + ')' + (out.marks ? ' พร้อมครอปมาร์ก' : '') + (plan.single ? ' — หน้าละ 1 ใบ ชื่ออาร์ตบอร์ดตามเลข' : '') + ' — ตรวจแล้วบันทึกเป็น PDF ส่งพิมพ์ได้เลย', 'ok');
           });
       }
       if (plan.mode === 'page') {
@@ -3417,9 +3529,12 @@
     show('[data-num="page"]', s.numMode === 'page');
     show('[data-num-token]', s.numMode !== 'page');
     var single = s.numMode === 'sheet' && s.numLayout === 'single';
+    var fromLayout = s.numMode === 'sheet' && s.numLayout === 'layout';
     show('[data-num-single]', single);
-    show('[data-num-multi]', s.numMode === 'sheet' && !single);
-    show('[data-num-sheet-custom]', s.numMode === 'sheet' && !single && s.numSheet === 'custom');
+    show('[data-num-layout]', fromLayout);
+    show('[data-num-multi]', s.numMode === 'sheet' && !single && !fromLayout);
+    show('[data-num-pages]', s.numMode === 'sheet' && !single);
+    show('[data-num-sheet-custom]', s.numMode === 'sheet' && !single && !fromLayout && s.numSheet === 'custom');
     if (s.numMode !== 'sheet') $('numSheetPrev').hidden = true;
     show('[data-num-style]', s.numStyle === 'custom');
     show('[data-run-custom]', s.runSize === 'custom');

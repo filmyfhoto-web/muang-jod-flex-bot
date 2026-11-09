@@ -274,3 +274,23 @@ test('รันเลข + จัดเรียง: คัดลอกงาน
   assert.match(main, /COPY_FAILED: '/);
   assert.match(main, /PLACE_OFF: '/);
 });
+
+test('รันนัมเบอร์: ตัวเลขอื่นในงาน (ราคา เงินรางวัล เวลา) ไม่ถูกแทน · ใช้แผ่นที่วางไว้แล้ว รันต่อทุกหน้า (เลขต่อใบ ใบหลัก+ต้นขั้วตรงกัน)', () => {
+  // ตั๋ว: NO.0000 + ราคา/เงินรางวัล/เวลา → เปลี่ยนเฉพาะ NO.0000
+  assert.deepEqual(D.numberTargets(['NO.0000', 'เงินรางวัล 5,000', '100 บาท', '12.00 น.'], {}).targets.map((t) => t.idx), [0]);
+  assert.equal(D.numberTargets(['NO.0000', 'เงินรางวัล 5,000', '100 บาท'], { prefix: 'NO.' }).why, 'prefix');
+  assert.throws(() => D.numberTargets(['5,000', '100 บาท'], {}), /WHICH_TEXT/);
+  assert.deepEqual(D.numberTargets(['No. 000', 'x'], {}).targets, [{ idx: 0, ranges: [[4, 3]] }]);
+  // เลขของใบที่ j บนหน้า p: ทีละหน้า 20 ใบ/หน้า → หน้า 2 ใบแรก = 21 · ซ้อนกอง 3 หน้า → ใบที่ 2 ของหน้า 1 = 4
+  assert.equal(D.sheetIndex(1, 0, 20, 3, 'page'), 20);
+  assert.equal(D.sheetIndex(0, 1, 20, 3, 'stack'), 3);
+  const host = readFileSync(new URL('../adobe/nesting-cut/illustrator/host.jsx', import.meta.url), 'utf8');
+  const main = readFileSync(new URL('../adobe/nesting-cut/illustrator/main.js', import.meta.url), 'utf8');
+  const html = readFileSync(new URL('../adobe/nesting-cut/illustrator.html', import.meta.url), 'utf8');
+  assert.match(host, /function np_ticketLevel\(items\)/);
+  assert.match(host, /function np_pageOf\(doc, b\)/);
+  assert.match(host, /var value = it\.texts \? it\.texts\[args\.targets\[t\]\.ticket\] : it\.text;/);
+  assert.match(html, /<option value="layout">ใช้แผ่นที่วางไว้แล้ว/);
+  assert.match(main, /function layoutPlan\(r, picked, qty\)/);
+  assert.match(main, /var pages = Math\.ceil\(qty \/ T\);/); // ปัดเต็มแผ่น
+});
