@@ -1928,14 +1928,60 @@ function np_frontFirst(items) {
 // the template piece for running numbers: size + every text inside (in walk order)
 function np_readNumberArt(args) {
   var items = np_frontFirst(np_selItems());
+  // a laid-out sheet: each top-level piece (usually one group per ticket) is a ticket; number boxes in the
+  // same ticket get the same number. Walking the tickets in order gives the same text order as walking items.
+  var level = np_ticketLevel(items);
   var texts = [];
-  for (var i = 0; i < items.length; i++) np_walkTexts(items[i], texts, 0);
+  var ticketOf = [];
+  var tickets = [];
+  for (var k = 0; k < level.length; k++) {
+    var before = texts.length;
+    np_walkTexts(level[k], texts, 0);
+    for (var q = before; q < texts.length; q++) ticketOf.push(k);
+    tickets.push({ vb: np_rb(np_artBounds(level[k])) });
+  }
   var b = np_unionBounds(items);
   NP.numArt = items;
   NP.numDoc = app.activeDocument;
   var out = [];
   for (var j = 0; j < texts.length; j++) out.push(texts[j].contents);
-  return { w: np_r(b[2] - b[0]), h: np_r(b[1] - b[3]), texts: out, count: items.length, ab: np_artboardOf(app.activeDocument, b) };
+  return {
+    w: np_r(b[2] - b[0]),
+    h: np_r(b[1] - b[3]),
+    vb: np_rb(b),
+    texts: out,
+    ticketOf: ticketOf,
+    tickets: tickets,
+    count: items.length,
+    ab: np_artboardOf(app.activeDocument, b),
+    page: np_pageOf(app.activeDocument, b)
+  };
+}
+
+// one selected group holding everything (or a group inside a group) -> look at its children
+function np_ticketLevel(items) {
+  var level = items;
+  for (var guard = 0; guard < 10; guard++) {
+    if (level.length !== 1 || level[0].typename !== 'GroupItem' || level[0].pageItems.length < 2) break;
+    var kids = [];
+    for (var i = 0; i < level[0].pageItems.length; i++) kids.push(level[0].pageItems[i]);
+    level = kids;
+  }
+  return level;
+}
+
+// the artboard (paper) under the art, any size -> { w, h, dx, dy, rect, index } or null
+function np_pageOf(doc, b) {
+  try {
+    var cx = (b[0] + b[2]) / 2;
+    var cy = (b[1] + b[3]) / 2;
+    for (var a = 0; a < doc.artboards.length; a++) {
+      var r = doc.artboards[a].artboardRect;
+      if (cx < r[0] || cx > r[2] || cy > r[1] || cy < r[3]) continue;
+      return { w: np_r(r[2] - r[0]), h: np_r(r[1] - r[3]), dx: np_r(b[0] - r[0]), dy: np_r(r[1] - b[1]), rect: np_rb(r), index: a };
+    }
+  } catch (e) {}
+  return null;
 }
 
 // the artboard the art sits on, when it is about the size of the art (a card-sized artboard; bleed may hang outside)
@@ -2075,7 +2121,9 @@ function np_impose(args) {
     np_walkTexts(dup, tfs, 0);
     for (var t = 0; t < args.targets.length; t++) {
       var tf = tfs[args.targets[t].idx];
-      if (tf) np_putNumber(tf, args.targets[t], it.text);
+      // a laid-out sheet: one number per ticket (it.texts[ticket]) - otherwise one number for the whole piece
+      var value = it.texts ? it.texts[args.targets[t].ticket] : it.text;
+      if (tf && value != null) np_putNumber(tf, args.targets[t], value);
     }
     count++;
   }

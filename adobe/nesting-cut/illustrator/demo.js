@@ -546,6 +546,21 @@
     // รันเลข + จัดเรียง: บัตรกำนัล 90 × 55 มม. มีเลขที่ใบหลัก + ต้นขั้ว
     np_readNumberArt: function () {
       var k = 72 / 25.4;
+      var lay = document.querySelector('[data-setting="numLayout"]');
+      if (lay && lay.value === 'layout') {
+        // แผ่นที่วางไว้แล้ว: A4 วางตั๋ว 3 × 4 ใบ (แต่ละใบเป็นกลุ่ม มีเลขใบหลัก + ต้นขั้ว)
+        var texts = [];
+        var ticketOf = [];
+        var tickets = [];
+        for (var t = 0; t < 12; t++) {
+          var cx = 15 + (t % 3) * 60;
+          var cy = 297 - 20 - Math.floor(t / 3) * 64;
+          texts.push('ตั๋วชกมวย', 'NO.0000', 'ราคา 100 บาท', 'NO.0000');
+          ticketOf.push(t, t, t, t);
+          tickets.push({ vb: [cx * k, cy * k, (cx + 60) * k, (cy - 64) * k] });
+        }
+        return { w: 180 * k, h: 256 * k, vb: [15 * k, 277 * k, 195 * k, 21 * k], texts: texts, ticketOf: ticketOf, tickets: tickets, count: 12, ab: null, page: { w: 210 * k, h: 297 * k, dx: 15 * k, dy: 20 * k, rect: [0, 297 * k, 210 * k, 0], index: 0 } };
+      }
       return { w: 96 * k, h: 61 * k, texts: ['บัตรกำนัล ร้านนัดพอน', 'NO.0000', 'NO.0000'], count: 1, ab: { w: 90 * k, h: 55 * k, dx: -3 * k, dy: -3 * k, index: 0 } };
     },
     np_imposeNumbers: function (a) {
