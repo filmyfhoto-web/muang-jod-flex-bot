@@ -58,7 +58,7 @@
   var STORE_KEY = 'nongploy.nestingcut.settings.v2';
   // ค่าที่บันทึกจากรุ่นก่อน UI_VERSION: หัวงานเคยเปิดเป็นค่าเริ่มต้น → ปิดให้ครั้งเดียว
   var UI_VERSION = 6;
-  var PANEL_VERSION = '1.8.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
+  var PANEL_VERSION = '1.9.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
   var PV_W = 300; // กรอบพรีวิวขนาดคงที่ (px) — ต้องตรงกับ #previewBox ใน panel.css
   var PV_H = 400;
   var WIDE_MIN = 734; // แผงกว้างพอวางพรีวิว (334) คู่ช่องคำสั่ง (400) — ตรงกับ --pv-col + --ctl-w ใน panel.css
@@ -189,6 +189,8 @@
     numRotate: true,
     numMarks: true,
     numPageNote: true,
+    numLayout: 'sheet',
+    numUseAb: true,
     numPos: 'bottom-center',
     numMargin: 10,
     numSkip: 0,
@@ -2819,6 +2821,7 @@
         throw new Error(NUM_ERR[e.message] || e.message);
       }
       var qty = Math.max(1, Math.min(5000, Math.round(num('numQty'))));
+      if (s.numLayout === 'single') return singlePlan(r, picked, qty);
       var sz = numSheetSize();
       var margin = Math.max(0, num('numSheetMargin')) * PT;
       var grid = D.sheetGrid({ itemW: r.w, itemH: r.h, sheetW: sz.w * PT, sheetH: sz.h * PT, margin: margin, gap: Math.max(0, num('numGap')) * PT, rotate: !!s.numRotate });
@@ -2865,8 +2868,81 @@
     });
   }
 
+  // หน้าละ 1 ใบ: อาร์ตบอร์ดเท่างาน (หรือเท่าอาร์ตบอร์ดต้นแบบ) วางชิดกันเป็นตาราง เลขต่อกันทีละหน้า
+  function singlePlan(r, picked, qty) {
+    var s = S.settings;
+    var ab = s.numUseAb !== false && r.ab ? r.ab : null;
+    var pw = ab ? ab.w : r.w;
+    var ph = ab ? ab.h : r.h;
+    var at = { x: ab ? ab.dx : 0, y: ab ? ab.dy : 0 };
+    if (qty > 1000) throw new Error('หน้าละ 1 ใบ ทำได้สูงสุด 1,000 หน้าต่อไฟล์ (ข้อจำกัดของ Illustrator) — แบ่งทำหลายรอบ (รอบถัดไปตั้ง Start ต่อจากเลขสุดท้าย) หรือเลือก “หลายใบต่อแผ่น”');
+    var abg = D.artboardGrid(qty, pw, ph, 0, null, true);
+    if (!abg) throw new Error(qty + ' หน้าเยอะเกินพื้นที่ของ Illustrator — แบ่งทำหลายรอบ (รอบถัดไปตั้ง Start ต่อจากเลขสุดท้าย)');
+    var opts = numOpts(qty);
+    var items = [];
+    for (var i = 0; i < qty; i++) items.push({ page: i, slot: 0, text: D.numberText(i, opts) });
+    return {
+      mode: 'sheet',
+      single: true,
+      fromArtboard: !!ab,
+      art: r,
+      picked: picked,
+      grid: { cols: 1, rows: 1, perSheet: 1, rot: false, landscape: false, sheetW: pw, sheetH: ph, cellW: r.w, cellH: r.h, gap: 0, x0: at.x, y0: at.y, gridW: r.w, gridH: r.h, slots: [at] },
+      pages: qty,
+      cols: abg.cols,
+      rows: abg.rows,
+      items: items,
+      byPage: items.map(function (it) {
+        return [it];
+      }),
+      marks: [],
+      labels: [],
+      allLabels: items.map(function (it, i) {
+        return 'หน้า ' + (i + 1) + '/' + qty + ' · ' + it.text;
+      }),
+      qty: qty,
+    };
+  }
+
+  // หน้าละ 1 ใบ: ภาพอาร์ตบอร์ดชิดกันเป็นตาราง (แสดงไม่เกิน 4 แถวแรก)
+  function drawNumPages(plan) {
+    var c = $('numSheetPrev');
+    c.hidden = false;
+    var x = c.getContext('2d');
+    var W = c.width;
+    var H = c.height;
+    x.clearRect(0, 0, W, H);
+    var cols = Math.min(plan.cols, 8);
+    var rows = Math.min(Math.ceil(plan.pages / plan.cols), 4);
+    var pw = plan.grid.sheetW;
+    var ph = plan.grid.sheetH;
+    var k = Math.min((W - 24) / (cols * pw), (H - 24) / (rows * ph));
+    var ox = (W - cols * pw * k) / 2;
+    var oy = (H - rows * ph * k) / 2;
+    x.textAlign = 'center';
+    x.textBaseline = 'middle';
+    for (var r = 0; r < rows; r++) {
+      for (var q = 0; q < cols; q++) {
+        var i = r * plan.cols + q;
+        if (i >= plan.pages) continue;
+        var px = ox + q * pw * k;
+        var py = oy + r * ph * k;
+        x.fillStyle = '#ffffff';
+        x.fillRect(px, py, pw * k, ph * k);
+        x.strokeStyle = i === 0 ? '#111111' : '#9aa0aa';
+        x.lineWidth = i === 0 ? 2 : 1;
+        x.strokeRect(px + 0.5, py + 0.5, pw * k - 1, ph * k - 1);
+        var t = plan.items[i].text;
+        x.fillStyle = '#1f2a4d';
+        x.font = '600 ' + Math.max(8, Math.min(16, (ph * k) * 0.16, ((pw * k) / Math.max(4, t.length)) * 1.6)) + 'px sans-serif';
+        x.fillText(t, px + (pw * k) / 2, py + (ph * k) / 2);
+      }
+    }
+  }
+
   // ภาพหน้าแรก: กระดาษ ช่องงาน เลข และครอปมาร์ก
   function drawNumSheet(plan) {
+    if (plan && plan.single) return drawNumPages(plan);
     var c = $('numSheetPrev');
     if (!c || !plan || plan.mode !== 'sheet') return;
     c.hidden = false;
@@ -2982,6 +3058,9 @@
     var mm = function (v) {
       return Math.round((v / PT) * 10) / 10;
     };
+    if (plan.single) {
+      return 'หน้าละ 1 ใบ · อาร์ตบอร์ด ' + mm(g.sheetW) + ' × ' + mm(g.sheetH) + ' มม.' + (plan.fromArtboard ? ' (ตามอาร์ตบอร์ดต้นแบบ)' : ' (ตามขนาดงาน)') + ' · ' + plan.pages + ' หน้า เรียง ' + plan.cols + ' × ' + plan.rows + ' ชิดกัน';
+    }
     var empty = plan.pages * g.perSheet - plan.qty;
     return (
       'งาน ' + mm(plan.art.w) + ' × ' + mm(plan.art.h) + ' มม. · หน้าละ ' + g.perSheet + ' ใบ (' + g.cols + ' × ' + g.rows + (g.landscape ? ' กระดาษแนวนอน' : '') + (g.rot ? ' หมุนงาน 90°' : '') + ') · ' + plan.pages + ' หน้า ' + plan.qty + ' ใบ' + (empty > 0 ? ' (ช่องว่าง ' + empty + ')' : '')
@@ -3018,7 +3097,8 @@
             sheetH: g.sheetH,
             pages: plan.pages,
             cols: plan.cols,
-            spacing: 28,
+            spacing: plan.single ? 0 : 28,
+            names: !!plan.single,
             rot: g.rot,
             slots: g.slots,
             items: plan.items,
@@ -3030,7 +3110,7 @@
             font: s.numFont || '',
           })
           .then(function (out) {
-            status('สร้างไฟล์ใหม่แล้ว ' + out.pages + ' หน้า ' + out.count + ' ใบ (' + plan.items[0].text + ' … ' + plan.items[plan.items.length - 1].text + ')' + (out.marks ? ' พร้อมครอปมาร์ก' : '') + ' — ตรวจแล้วบันทึกเป็น PDF ส่งพิมพ์ได้เลย', 'ok');
+            status('สร้างไฟล์ใหม่แล้ว ' + out.pages + ' หน้า ' + out.count + ' ใบ (' + plan.items[0].text + ' … ' + plan.items[plan.items.length - 1].text + ')' + (out.marks ? ' พร้อมครอปมาร์ก' : '') + (plan.single ? ' — หน้าละ 1 ใบ ชื่ออาร์ตบอร์ดตามเลข' : '') + ' — ตรวจแล้วบันทึกเป็น PDF ส่งพิมพ์ได้เลย', 'ok');
           });
       }
       if (plan.mode === 'page') {
@@ -3177,7 +3257,10 @@
     show('[data-num="sheet"]', s.numMode === 'sheet');
     show('[data-num="page"]', s.numMode === 'page');
     show('[data-num-token]', s.numMode !== 'page');
-    show('[data-num-sheet-custom]', s.numMode === 'sheet' && s.numSheet === 'custom');
+    var single = s.numMode === 'sheet' && s.numLayout === 'single';
+    show('[data-num-single]', single);
+    show('[data-num-multi]', s.numMode === 'sheet' && !single);
+    show('[data-num-sheet-custom]', s.numMode === 'sheet' && !single && s.numSheet === 'custom');
     if (s.numMode !== 'sheet') $('numSheetPrev').hidden = true;
     show('[data-num-style]', s.numStyle === 'custom');
     show('[data-run-custom]', s.runSize === 'custom');

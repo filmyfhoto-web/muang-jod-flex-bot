@@ -546,7 +546,7 @@
     // รันเลข + จัดเรียง: บัตรกำนัล 90 × 55 มม. มีเลขที่ใบหลัก + ต้นขั้ว
     np_readNumberArt: function () {
       var k = 72 / 25.4;
-      return { w: 90 * k, h: 55 * k, texts: ['บัตรกำนัล ร้านนัดพอน', 'NO.0000', 'NO.0000'], count: 1 };
+      return { w: 96 * k, h: 61 * k, texts: ['บัตรกำนัล ร้านนัดพอน', 'NO.0000', 'NO.0000'], count: 1, ab: { w: 90 * k, h: 55 * k, dx: -3 * k, dy: -3 * k, index: 0 } };
     },
     np_imposeNumbers: function (a) {
       return { pages: a.pages, count: a.items.length, marks: a.marks.length * a.pages };

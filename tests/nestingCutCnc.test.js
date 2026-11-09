@@ -241,3 +241,21 @@ test('รันเลข + จัดเรียง: หากล่องเล
   // ข้อความเตือนโหมดเดิมไม่หลอก: ไม่ได้ติ๊ก {%n} ก็ไม่บอกว่าติ๊ก
   assert.match(main, /เลขที่จะใส่ตรงกับข้อความเดิมอยู่แล้ว/);
 });
+
+test('รันเลข หน้าละ 1 ใบ: อาร์ตบอร์ดเท่างาน (หรือเท่าอาร์ตบอร์ดต้นแบบ) ชิดกันเป็นตาราง 9 ใบ = 3 × 3 · ชื่ออาร์ตบอร์ดตามเลข · สูงสุด 1,000 หน้า', () => {
+  assert.deepEqual(D.artboardGrid(9, 156, 255, 0, null, true), { cols: 3, rows: 3 });
+  assert.deepEqual(D.artboardGrid(50, 156, 255, 0, null, true), { cols: 8, rows: 7 });
+  assert.equal(D.artboardGrid(1001, 156, 255, 0, null, true), null);
+  assert.equal(D.artboardGrid(1001, 595, 842, 28), null);
+  const host = readFileSync(new URL('../adobe/nesting-cut/illustrator/host.jsx', import.meta.url), 'utf8');
+  const main = readFileSync(new URL('../adobe/nesting-cut/illustrator/main.js', import.meta.url), 'utf8');
+  const html = readFileSync(new URL('../adobe/nesting-cut/illustrator.html', import.meta.url), 'utf8');
+  assert.match(host, /function np_artboardOf\(doc, b\)/); // งานวางบนอาร์ตบอร์ดเท่างาน: ใช้ขนาดอาร์ตบอร์ด (ส่วนเผื่อตัดล้นได้)
+  assert.match(host, /doc\.artboards\[args\.items\[nm\]\.page\]\.name = args\.items\[nm\]\.text;/);
+  assert.match(host, /args\.spacing == null \? 28 : args\.spacing/); // ชิดกัน 0 ต้องไม่กลายเป็น 28
+  assert.match(host, /if \(spacing < 1\) tries\.push/);
+  assert.match(html, /<option value="single">หน้าละ 1 ใบ/);
+  assert.match(html, /data-setting="numUseAb"/);
+  assert.match(main, /function singlePlan\(r, picked, qty\)/);
+  assert.match(main, /spacing: plan\.single \? 0 : 28,/);
+});
