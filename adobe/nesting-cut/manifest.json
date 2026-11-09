@@ -2,7 +2,7 @@
   "manifestVersion": 5,
   "id": "com.nongploy.nestingcut.ps",
   "name": "Nong Ploy Nesting Cut",
-  "version": "1.10.0",
+  "version": "1.10.1",
   "main": "photoshop.html",
   "host": {
     "app": "PS",

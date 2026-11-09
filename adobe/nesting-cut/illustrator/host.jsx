@@ -1993,10 +1993,40 @@ function np_sheetDoc(space, w, h, pages, cols, spacing) {
   throw np_E('TOO_MANY_PAGES', err && err.message ? err.message : '');
 }
 
+// how many page items sit on one artboard (-1 when Illustrator can't tell)
+function np_countOnArtboard(doc, index) {
+  try {
+    doc.artboards.setActiveArtboardIndex(index);
+    doc.selection = null;
+    doc.selectObjectsOnActiveArtboard();
+    var n = doc.selection ? doc.selection.length : 0;
+    doc.selection = null;
+    return n;
+  } catch (e) {
+    return -1;
+  }
+}
+
 // args: { sheetW, sheetH (pt), pages, cols, spacing, rot, slots: [{ x, y }], items: [{ page, slot, text }],
 //         targets: [{ idx, ranges } | { idx, all }], marks: [[x1, y1, x2, y2]], labels: ['...'], font }
 // builds a NEW document with one artboard per sheet; slot x/y = top-left of the piece from the sheet's top-left (y down)
 function np_imposeNumbers(args) {
+  // page items and artboardRect must use the same (document) coordinates; put back whatever was set
+  var keepCS = null;
+  try {
+    keepCS = app.coordinateSystem;
+    app.coordinateSystem = CoordinateSystem.DOCUMENTCOORDINATESYSTEM;
+  } catch (eC) {}
+  try {
+    return np_impose(args);
+  } finally {
+    try {
+      if (keepCS !== null) app.coordinateSystem = keepCS;
+    } catch (eR) {}
+  }
+}
+
+function np_impose(args) {
   var src = NP.numArt || [];
   if (!src.length) throw np_E('NO_SELECTION');
   for (var a = 0; a < src.length; a++) if (!np_alive(src[a])) throw np_E('PART_GONE');
@@ -2006,15 +2036,22 @@ function np_imposeNumbers(args) {
   var doc = np_sheetDoc(space, args.sheetW, args.sheetH, pages, Math.max(1, args.cols || 1), args.spacing == null ? 28 : args.spacing);
   var lay = doc.layers[0];
   lay.name = 'Numbered';
-  // the template: a copy of the selection as one group (turned 90 deg when that fits more per sheet)
+  // the template: copy the selection onto the new document's layer first (copying straight into a group
+  // of another document can come out empty), then group the copies inside the new document
+  var copies = [];
+  for (var i = 0; i < src.length; i++) copies.push(src[i].duplicate(lay, ElementPlacement.PLACEATEND));
   var master = lay.groupItems.add();
   master.name = 'Number template';
-  for (var i = src.length - 1; i >= 0; i--) src[i].duplicate(master, ElementPlacement.PLACEATBEGINNING);
+  for (var j = 0; j < copies.length; j++) {
+    if (np_alive(copies[j])) copies[j].move(master, ElementPlacement.PLACEATEND);
+  }
+  if (!master.pageItems.length) throw np_E('COPY_FAILED');
   if (args.rot) master.rotate(90);
   // bounds from the pieces themselves (a group's visibleBounds counts art hidden by clipping masks)
   var kids = [];
   for (var c = 0; c < master.pageItems.length; c++) kids.push(master.pageItems[c]);
   var mb = np_unionBounds(kids);
+  if (!mb) throw np_E('COPY_FAILED');
   var rects = [];
   for (var p = 0; p < doc.artboards.length; p++) rects.push(doc.artboards[p].artboardRect);
   // one piece per page: name each artboard after its number (Export > Use Artboards names the files the same)
@@ -2043,6 +2080,10 @@ function np_imposeNumbers(args) {
     count++;
   }
   master.remove();
+  if (!count) throw np_E('COPY_FAILED');
+  // the copies must sit on the artboards (a different coordinate setup would put them elsewhere)
+  var onPage = np_countOnArtboard(doc, args.items[0] ? args.items[0].page : 0);
+  if (onPage === 0) throw np_E('PLACE_OFF');
   // crop marks + a small page note in the margin
   var marks = 0;
   if ((args.marks && args.marks.length) || (args.labels && args.labels.length)) {
