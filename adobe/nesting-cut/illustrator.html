@@ -29,6 +29,16 @@
       <button type="button" id="btnClear" class="ghost icon" title="ล้างรายการชิ้นงาน ผลคำนวณ และพรีวิว (เลือกลบชีตเก่าในไฟล์ได้)">ล้าง</button>
     </header>
 
+    <!-- มีรุ่นใหม่: กดอัปเดตในแผงได้เลย (ไฟล์มาจากเซิร์ฟเวอร์ของร้าน) -->
+    <div id="updBar" class="updbar" role="status" hidden>
+      <div class="upd-head"><b id="updTitle">มีรุ่นใหม่</b> <span id="updText"></span></div>
+      <ul id="updNotes" class="upd-notes"></ul>
+      <div class="row" id="updBtns">
+        <button type="button" id="btnUpdGo">อัปเดตเลย</button>
+        <button type="button" id="btnUpdLater" class="ghost">ไว้ทีหลัง</button>
+      </div>
+    </div>
+
     <!-- จัดวางดวง / ไดคัทต่อเนื่อง: หน้าเดียว — บรรทัดบอกว่าตอนนี้ต้องทำอะไร -->
     <nav class="steps" id="steps" data-for="nest run">
       <p id="stepHint" class="step-hint"></p>
@@ -54,6 +64,7 @@
       <h2>วันนี้จะทำอะไร?</h2>
       <p class="hint">กดเลือกงาน แล้วแผงจะแสดงทีละขั้น — กดปุ่มส้มด้านล่างไปเรื่อย ๆ จนเสร็จ</p>
       <div class="guide-list" id="guideList"></div>
+      <p class="hint upd-line">รุ่น <span id="guideVer"></span> · <button type="button" id="btnUpdCheck" class="linkish">เช็กอัปเดต</button></p>
       <div class="row">
         <button type="button" id="btnGuideOff" class="ghost">ปิด</button>
       </div>
@@ -843,6 +854,7 @@
     <script src="core/dimension.js"></script>
     <script src="core/pack.js"></script>
     <script src="core/price.js"></script>
+    <script src="core/update.js"></script>
     <script src="core/bridge.js"></script>
     <script src="illustrator/host-bridge.js"></script>
     <script src="illustrator/demo.js"></script>

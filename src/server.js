@@ -60,6 +60,11 @@ app.use(
   })
 );
 
+/* ปลั๊กอิน Illustrator "นัดพอน Nesting Cut": หน้าดาวน์โหลดตัวติดตั้ง + ระบบอัปเดตในแผง
+ * (/nesting-cut, /nesting-cut/update.json, /nesting-cut/file/…, /nesting-cut/nesting-cut.zip) */
+const { default: nestingCutRouter } = await import('./routes/nestingCut.js');
+app.use('/nesting-cut', nestingCutRouter);
+
 // Printable receipt, readable by anyone holding the bill's share token.
 app.use('/r', receiptRouter);
 

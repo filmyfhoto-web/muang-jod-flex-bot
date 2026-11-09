@@ -241,6 +241,33 @@ body.choosing #scroller > :not(#guideStart) {
 .clearbox .row button {
   flex: 1;
 }
+/* มีรุ่นใหม่ (อยู่ใต้หัวแผง เห็นทุกเครื่องมือ) */
+.updbar {
+  margin: 6px 10px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  font-size: 12px;
+}
+.updbar .upd-head {
+  margin-bottom: 4px;
+}
+.updbar .upd-notes {
+  margin: 2px 0 6px;
+  padding-left: 18px;
+}
+.updbar .upd-notes:empty {
+  display: none;
+}
+.updbar.ok {
+  border-color: #2f9e6b;
+}
+.updbar.warn {
+  border-style: dashed;
+}
+.upd-line {
+  margin-top: 8px;
+}
 .banner {
   background: var(--accent-soft);
   border: 1px dashed var(--accent);
