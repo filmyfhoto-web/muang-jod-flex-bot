@@ -655,6 +655,7 @@
   function paintChat(){
     const box=$('so_chat');if(!box)return
     keepDraft()
+    const txt=$('so_txt'),focus=txt&&document.activeElement===txt?{start:txt.selectionStart,end:txt.selectionEnd}:null // กำลังพิมพ์อยู่ตอนวาดใหม่ (เช่น ติดป้าย): คืนโฟกัสให้ช่องพิมพ์ ไม่งั้นคีย์บอร์ดมือถือปิดเอง
     const t=S.list.find(x=>x.id===S.sel)
     if(!t){box.innerHTML=`<div class="so-empty"><b>เลือกแชตทางซ้ายเพื่อเริ่มงาน</b><p>ข้อความ ใบสั่งงาน และสถานะของลูกค้าแต่ละรายจะอยู่ด้วยกันในหน้านี้</p></div>`;return}
     const old=$('so_msgs')
@@ -689,6 +690,7 @@
     paintFlash()
     const ms=$('so_msgs')
     if(ms)ms.scrollTop=!keep||keep.stick?ms.scrollHeight:keep.top
+    if(focus){const ta=$('so_txt');if(ta){ta.focus();try{ta.setSelectionRange(focus.start,focus.end)}catch{}}}
     paintMTabs()
   }
 

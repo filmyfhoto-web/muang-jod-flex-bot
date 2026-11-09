@@ -565,6 +565,44 @@ test('the tag row (v12): all four colors are always visible, one click sets a co
   assert.doesNotMatch((await row.getAttribute('class')) || '', /\btagged\b/);
 });
 
+test('typing in the message box survives tapping a tag button (v14): focus and the cursor position come back after the repaint', skipIt, async () => {
+  // iOS Safari famously does NOT move focus to a tapped <button> the way desktop Chromium does — a tap there leaves the
+  // textarea focused right up until paintChat() tears the DOM down and rebuilds it. We reproduce exactly that ordering with
+  // a scripted (non-trusted) click event, which fires the same delegated handler without Chromium's own native
+  // mousedown-driven focus-steal muddying what we're testing: whether paintChat() itself preserves focus when it finds it.
+  await openRow('โรงเรียนบ้านตัวอย่าง');
+  await until(async () => (await chatTitle()) === 'โรงเรียนบ้านตัวอย่าง', 'the chat');
+  await page.locator('#so_txt').fill('สวัสดีค่ะ ขอบคุณที่อุดหนุนนะคะ');
+  const before = await page.evaluate(() => {
+    const ta = document.getElementById('so_txt');
+    ta.focus();
+    ta.setSelectionRange(8, 8); // mid-string, not the start or end — a reset would be easy to miss at either edge
+    return { id: document.activeElement && document.activeElement.id, start: ta.selectionStart, end: ta.selectionEnd };
+  });
+  assert.deepEqual(before, { id: 'so_txt', start: 8, end: 8 }, 'test setup: the textarea is focused with the cursor mid-string before the tag is clicked');
+
+  await page.evaluate(() => {
+    const btn = [...document.querySelectorAll('#so_root .so-tagrow .so-tagbtn')].find((b) => b.textContent.includes('สอบถาม'));
+    btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+  });
+  await flashSays(/ติดป้าย "สอบถาม" แล้ว/);
+  const after = await page.evaluate(() => {
+    const ta = document.getElementById('so_txt');
+    return { id: document.activeElement && document.activeElement.id, value: ta.value, start: ta.selectionStart, end: ta.selectionEnd };
+  });
+  assert.equal(after.id, 'so_txt', 'the (new) textarea has focus again after the repaint — a real phone keyboard stays open instead of flickering shut');
+  assert.equal(after.value, 'สวัสดีค่ะ ขอบคุณที่อุดหนุนนะคะ', 'the draft text the repaint restores is unaffected');
+  assert.equal(after.start, 8, 'the cursor position is restored, not reset to the start or end');
+  assert.equal(after.end, 8);
+
+  await page.evaluate(() => {
+    const btn = [...document.querySelectorAll('#so_root .so-tagrow .so-tagbtn')].find((b) => b.textContent.includes('สอบถาม'));
+    btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+  });
+  await flashSays(/เอาป้ายออกแล้ว/);
+  await page.locator('#so_txt').fill('');
+});
+
 test('a LINE chat with no customer yet is linked automatically, in the background, named after their LINE display name (v13)', skipIt, async () => {
   // this thread (T7, "ริงโกลาเฟ009") was seeded from LINE with no customer_id — the sweep runs after every list load,
   // including the very first one at the top of this file, so by now it may already be linked; either way this waits for it
