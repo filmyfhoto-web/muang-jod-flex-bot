@@ -888,6 +888,18 @@ details.steps > summary::before {
   margin-right: 4px;
   vertical-align: -1px;
 }
+/* รันเลข: โฟลเดอร์บันทึก PDF */
+.numsave {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.numsave .hint {
+  flex: 1 1 100%;
+  margin: 0;
+  word-break: break-all;
+}
+
 /* รันเลข + จัดเรียงหลายหน้า: ภาพหน้าแรก */
 .numsheet {
   display: block;
