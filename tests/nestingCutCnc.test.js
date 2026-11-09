@@ -174,3 +174,70 @@ test('host.jsx + แผง: ตรายางเลเซอร์ และป
   // ชีตที่สร้างต้องมีชื่อขึ้นต้นด้วยเครื่องหมายเดียวกับที่ปุ่มล้างใช้หา
   assert.match(main, /name: SHEET_MARK \+ 'แผ่น '/);
 });
+
+test('รันเลข + จัดเรียงหลายหน้า: หน้าละกี่ใบ (หมุน/กระดาษนอน) · เรียงทีละหน้า / ตัดซ้อนกอง · ครอปมาร์ก · อาร์ตบอร์ดไม่เกินพื้นที่', () => {
+  const PT = D.PT_PER_MM;
+  // บัตร 85×54 บน A4 ขอบ 10 ห่าง 2: กระดาษตั้ง 2×4 = 8 · กระดาษนอน 3×3 = 9 → เลือกนอน (ไม่ต้องหมุนงาน)
+  const g = D.sheetGrid({ itemW: 85 * PT, itemH: 54 * PT, sheetW: 210 * PT, sheetH: 297 * PT, margin: 10 * PT, gap: 2 * PT, rotate: true });
+  assert.equal(g.perSheet, 9);
+  assert.equal(g.landscape, true);
+  assert.equal(g.rot, false);
+  assert.equal(g.slots.length, 9);
+  // จัดกลางแผ่น: ขอบซ้าย = ขอบขวา
+  assert.ok(Math.abs(g.x0 - (g.sheetW - g.x0 - g.gridW)) < 1e-6);
+  assert.ok(Math.abs(g.slots[1].x - g.slots[0].x - (85 + 2) * PT) < 1e-6);
+  // งานแนวตั้งยาวบนกระดาษนอนไม่ได้ ต้องหมุน: 60×200 บน 300×100 (ขอบ 0) → หมุนแล้ว 1×... / ไม่หมุนวางไม่ได้
+  assert.equal(D.sheetGrid({ itemW: 60, itemH: 200, sheetW: 300, sheetH: 100, margin: 0, gap: 0, rotate: false }).landscape, true);
+  assert.equal(D.sheetGrid({ itemW: 400, itemH: 400, sheetW: 300, sheetH: 100, margin: 0, gap: 0, rotate: true }), null);
+  // ทีละหน้า: 20 ใบ หน้าละ 9 → 3 หน้า ใบที่ 10 อยู่หน้า 2 ช่องแรก
+  const a = D.sheetNumbers(20, 9, 'page');
+  assert.equal(a.pages, 3);
+  assert.deepEqual(a.cells[9], { page: 1, slot: 0, i: 9 });
+  // ตัดซ้อนกอง: ช่องเดียวกันของทุกหน้าเลขติดกัน (หน้า 1 บนสุด) → ตัดแล้ววางกองต่อกันได้เลขเรียง
+  const b = D.sheetNumbers(20, 9, 'stack');
+  assert.equal(b.pages, 3);
+  assert.deepEqual(b.cells.slice(0, 4).map((c) => [c.page, c.slot]), [[0, 0], [1, 0], [2, 0], [0, 1]]);
+  assert.ok(b.cells.every((c) => c.slot < 9));
+  // ครอปมาร์ก: ชิดกัน (ห่าง 0) ใช้แนวตัดร่วม 3 คอลัมน์ = 4 แนวตั้ง · 2 แถว = 3 แนวนอน → (4 + 3) × 2 ปลาย
+  const tight = D.sheetGrid({ itemW: 90, itemH: 50, sheetW: 300, sheetH: 120, margin: 10, gap: 0, rotate: false });
+  assert.equal(tight.cols, 3);
+  assert.equal(tight.rows, 2);
+  assert.equal(D.sheetMarks(tight, { offset: 2, length: 5 }).length, 14);
+  // มีระยะห่าง: แต่ละชิ้นมีแนวตัดของตัวเอง 6 แนวตั้ง · 4 แนวนอน
+  const apart = D.sheetGrid({ itemW: 90, itemH: 50, sheetW: 300, sheetH: 130, margin: 5, gap: 4, rotate: false });
+  assert.equal(D.sheetMarks(apart, { offset: 2, length: 5 }).length, (apart.cols * 2 + apart.rows * 2) * 2);
+  assert.deepEqual(D.sheetMarks(tight, { offset: 2, length: 0 }), []);
+  // อาร์ตบอร์ดเรียงเป็นตาราง · หน้าเยอะเกินพื้นที่ Illustrator → null
+  assert.deepEqual(D.artboardGrid(5, 595, 842, 28), { cols: 3, rows: 2 });
+  assert.equal(D.artboardGrid(900, 595, 842, 28), null);
+});
+
+test('รันเลข + จัดเรียง: หากล่องเลขในงานต้นแบบ ({%n} / NO.0000 / ใบหลัก + ต้นขั้ว) แทนเฉพาะส่วนเลข', () => {
+  assert.deepEqual(D.numberTargets(['NO.0000'], {}), { why: 'single', targets: [{ idx: 0, ranges: [[3, 4]] }] });
+  assert.deepEqual(D.numberTargets(['NO.0000'], { prefix: 'NO.' }), { why: 'single', targets: [{ idx: 0, all: true }] });
+  const stub = D.numberTargets(['บัตรกำนัล ร้านนัดพอน', 'NO.0000', 'NO.0000'], {});
+  assert.equal(stub.why, 'digits');
+  assert.deepEqual(stub.targets.map((t) => t.idx), [1, 2]);
+  assert.deepEqual(D.numberTargets(['คิว {%n} ({%n})', 'ร้าน 24 ชม.'], { token: true }), { why: 'token', targets: [{ idx: 0, ranges: [[4, 4], [10, 4]] }] });
+  assert.throws(() => D.numberTargets(['NO.0000'], { token: true }), /NO_TOKEN/);
+  assert.throws(() => D.numberTargets(['บัตรกำนัล', 'ร้าน ABC'], {}), /WHICH_TEXT/);
+  assert.throws(() => D.numberTargets([], {}), /NO_TEXT/);
+  // แผง + host: เรียกฟังก์ชันใหม่ครบ สร้างไฟล์ใหม่หลายอาร์ตบอร์ด แทนเลขแล้วตรวจผล (ไม่ตรงก็เขียนใหม่ทั้งกล่อง)
+  const host = readFileSync(new URL('../adobe/nesting-cut/illustrator/host.jsx', import.meta.url), 'utf8');
+  const main = readFileSync(new URL('../adobe/nesting-cut/illustrator/main.js', import.meta.url), 'utf8');
+  const html = readFileSync(new URL('../adobe/nesting-cut/illustrator.html', import.meta.url), 'utf8');
+  const demo = readFileSync(new URL('../adobe/nesting-cut/illustrator/demo.js', import.meta.url), 'utf8');
+  for (const fn of ['np_readNumberArt', 'np_imposeNumbers']) {
+    assert.match(host, new RegExp('function ' + fn + '\\('));
+    assert.ok(main.includes("'" + fn + "'"), fn);
+    assert.ok(demo.includes(fn + ':'), fn + ' (โหมดทดลอง)');
+  }
+  assert.match(host, /DocumentArtboardLayout\.GridByRow/);
+  assert.match(host, /if \(tf\.contents !== want\) tf\.contents = want;/);
+  assert.match(host, /function np_artBounds\(it\)/); // Clipping Mask วัดจากกรอบ Mask
+  assert.match(html, /<option value="sheet">รันเลข \+ จัดเรียงหลายหน้า/);
+  for (const k of ['numQty', 'numSheet', 'numSheetMargin', 'numGap', 'numSheetOrder', 'numRotate', 'numMarks', 'numPageNote']) assert.match(html, new RegExp('data-setting="' + k + '"'), k);
+  assert.match(html, /id="numSheetPrev"/);
+  // ข้อความเตือนโหมดเดิมไม่หลอก: ไม่ได้ติ๊ก {%n} ก็ไม่บอกว่าติ๊ก
+  assert.match(main, /เลขที่จะใส่ตรงกับข้อความเดิมอยู่แล้ว/);
+});

@@ -861,6 +861,16 @@ details.steps > summary::before {
   margin-right: 4px;
   vertical-align: -1px;
 }
+/* รันเลข + จัดเรียงหลายหน้า: ภาพหน้าแรก */
+.numsheet {
+  display: block;
+  width: 100%;
+  max-width: 280px;
+  height: auto;
+  margin: 8px auto 2px;
+  border-radius: 6px;
+  background: #0f1730;
+}
 .numlist {
   margin: 6px 0;
   padding-left: 20px;

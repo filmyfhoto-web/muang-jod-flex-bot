@@ -543,6 +543,14 @@
       });
       return { count: a.items.length };
     },
+    // รันเลข + จัดเรียง: บัตรกำนัล 90 × 55 มม. มีเลขที่ใบหลัก + ต้นขั้ว
+    np_readNumberArt: function () {
+      var k = 72 / 25.4;
+      return { w: 90 * k, h: 55 * k, texts: ['บัตรกำนัล ร้านนัดพอน', 'NO.0000', 'NO.0000'], count: 1 };
+    },
+    np_imposeNumbers: function (a) {
+      return { pages: a.pages, count: a.items.length, marks: a.marks.length * a.pages };
+    },
     np_readArtboards: function () {
       var out = [];
       for (var i = 0; i < 6; i++) out.push({ index: i, rect: [i * 620, 842, i * 620 + 595, 0], name: 'หน้า ' + (i + 1) });

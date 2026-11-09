@@ -36,6 +36,7 @@
     NO_REG_LAYERS: 'ไฟล์ที่เปิดอยู่ไม่มีเลเยอร์มาร์กของ Cutting Master (margin / color / reg_1) — เปิดไฟล์ต้นแบบ Graphtec ของร้านก่อน',
     NO_REG_MARKS: 'เจอเลเยอร์ reg_1 แต่ไม่มีมาร์กบนอาร์ตบอร์ดที่เปิดอยู่ — คลิกอาร์ตบอร์ดที่มีมาร์กแล้วลองใหม่',
     CANVAS_FULL: 'แผ่นงานยาว/เยอะเกินพื้นที่ของ Illustrator — ลดความยาวหรือแบ่งงานเป็นหลายรอบ',
+    TOO_MANY_PAGES: 'สร้างไฟล์หลายหน้าไม่ได้ (หน้าเยอะเกินพื้นที่ของ Illustrator) — ลดจำนวนใบ หรือแบ่งทำหลายรอบ (รอบถัดไปตั้ง Start ต่อจากเลขสุดท้าย)',
     NO_LAYOUT: 'ไฟล์ชีตไดคัทถูกปิดไปแล้ว — กด “สร้างชีต” ใหม่',
     FOLDER: 'สร้างโฟลเดอร์ไม่ได้: ',
     IMAGE_MISSING: 'หาไฟล์รูปในแพ็กไม่เจอ: ',
@@ -57,7 +58,7 @@
   var STORE_KEY = 'nongploy.nestingcut.settings.v2';
   // ค่าที่บันทึกจากรุ่นก่อน UI_VERSION: หัวงานเคยเปิดเป็นค่าเริ่มต้น → ปิดให้ครั้งเดียว
   var UI_VERSION = 6;
-  var PANEL_VERSION = '1.7.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
+  var PANEL_VERSION = '1.8.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
   var PV_W = 300; // กรอบพรีวิวขนาดคงที่ (px) — ต้องตรงกับ #previewBox ใน panel.css
   var PV_H = 400;
   var WIDE_MIN = 734; // แผงกว้างพอวางพรีวิว (334) คู่ช่องคำสั่ง (400) — ตรงกับ --pv-col + --ctl-w ใน panel.css
@@ -178,6 +179,16 @@
     numPad: 3,
     numOrder: 'rows',
     numToken: false,
+    numQty: 100,
+    numSheet: 'a4',
+    numSheetW: 210,
+    numSheetH: 297,
+    numSheetMargin: 10,
+    numGap: 2,
+    numSheetOrder: 'page',
+    numRotate: true,
+    numMarks: true,
+    numPageNote: true,
     numPos: 'bottom-center',
     numMargin: 10,
     numSkip: 0,
@@ -2783,8 +2794,129 @@
     return { font: s.numFont || '', size: num('numSize'), hex: s.numColor, align: s.numAlign, underline: !!s.numUnderline };
   }
 
+  // กระดาษของโหมดรันเลข + จัดเรียง (มม.)
+  function numSheetSize() {
+    var s = S.settings;
+    if (s.numSheet === 'custom') return { w: Math.max(20, num('numSheetW')), h: Math.max(20, num('numSheetH')), label: 'กำหนดเอง' };
+    var m = L.media(s.numSheet) || L.media('a4');
+    return { w: m.width, h: m.length, label: m.label };
+  }
+
+  var NUM_ERR = {
+    NO_TOKEN: 'ติ๊ก “แทนเฉพาะ {%n}” อยู่ แต่ในงานที่เลือกไม่มีข้อความไหนมี {%n} — พิมพ์ {%n} ตรงที่ให้เลขลง (เช่น NO.{%n}) หรือเอาติ๊กออก',
+    NO_TEXT: 'งานที่เลือกไม่มีกล่องข้อความ — ใส่กล่องข้อความเลข (เช่น NO.0000) ไว้ในงานต้นแบบก่อน',
+    WHICH_TEXT: 'มีข้อความหลายกล่อง ไม่รู้ว่าจะใส่เลขกล่องไหน — พิมพ์ {%n} ในกล่องที่ต้องการเลข (เช่น NO.{%n})',
+  };
+
+  // รันเลข + จัดเรียงหลายหน้า: อ่านงานต้นแบบ → หาว่าวางได้หน้าละกี่ใบ → เลขของแต่ละช่อง
+  function sheetPlan() {
+    var s = S.settings;
+    return host.call('np_readNumberArt', {}).then(function (r) {
+      var picked;
+      try {
+        picked = D.numberTargets(r.texts, { token: !!s.numToken, prefix: s.numPrefix || '', suffix: s.numSuffix || '' });
+      } catch (e) {
+        throw new Error(NUM_ERR[e.message] || e.message);
+      }
+      var qty = Math.max(1, Math.min(5000, Math.round(num('numQty'))));
+      var sz = numSheetSize();
+      var margin = Math.max(0, num('numSheetMargin')) * PT;
+      var grid = D.sheetGrid({ itemW: r.w, itemH: r.h, sheetW: sz.w * PT, sheetH: sz.h * PT, margin: margin, gap: Math.max(0, num('numGap')) * PT, rotate: !!s.numRotate });
+      if (!grid) throw new Error('งานใหญ่กว่ากระดาษ (' + Math.round(r.w / PT) + ' × ' + Math.round(r.h / PT) + ' มม.) — เลือกกระดาษใหญ่ขึ้น หรือลดขอบกระดาษ');
+      var nums = D.sheetNumbers(qty, grid.perSheet, s.numSheetOrder);
+      var abg = D.artboardGrid(nums.pages, grid.sheetW, grid.sheetH, 28);
+      if (!abg) throw new Error(nums.pages + ' หน้าเยอะเกินที่ Illustrator วางได้ในไฟล์เดียว — ลดจำนวน หรือแบ่งทำหลายรอบ (รอบถัดไปตั้ง Start ต่อจากเลขสุดท้าย)');
+      var opts = numOpts(qty);
+      var items = nums.cells.map(function (c) {
+        return { page: c.page, slot: c.slot, text: D.numberText(c.i, opts) };
+      });
+      // ครอปมาร์กยาวไม่เกินขอบกระดาษ (ขอบแคบกว่า ~3 มม. ไม่ใส่)
+      var len = Math.min(5 * PT, margin - 2 * PT);
+      var marks = s.numMarks && len >= 1.5 * PT ? D.sheetMarks(grid, { offset: 1.5 * PT, length: len }) : [];
+      // ช่วงเลขของแต่ละหน้า (ป้ายเล็ก ๆ ขอบล่าง + รายการตัวอย่าง)
+      var pages = [];
+      for (var p = 0; p < nums.pages; p++) pages.push([]);
+      items.forEach(function (it) {
+        pages[it.page].push(it);
+      });
+      var labels = pages.map(function (list, p) {
+        var sorted = list.slice().sort(function (a, b) {
+          return a.slot - b.slot;
+        });
+        var first = s.numSheetOrder === 'stack' ? sorted[0] : list[0];
+        var last = s.numSheetOrder === 'stack' ? sorted[sorted.length - 1] : list[list.length - 1];
+        return 'หน้า ' + (p + 1) + '/' + nums.pages + ' · ' + (first ? first.text : '') + (last && last !== first ? ' – ' + last.text : '') + (s.numSheetOrder === 'stack' ? ' (ซ้อนกอง)' : '');
+      });
+      return {
+        mode: 'sheet',
+        art: r,
+        picked: picked,
+        grid: grid,
+        sheet: sz,
+        pages: nums.pages,
+        cols: abg.cols,
+        items: items,
+        byPage: pages,
+        marks: marks,
+        labels: s.numPageNote && margin >= 5 * PT ? labels : [],
+        allLabels: labels,
+        qty: qty,
+      };
+    });
+  }
+
+  // ภาพหน้าแรก: กระดาษ ช่องงาน เลข และครอปมาร์ก
+  function drawNumSheet(plan) {
+    var c = $('numSheetPrev');
+    if (!c || !plan || plan.mode !== 'sheet') return;
+    c.hidden = false;
+    var g = plan.grid;
+    var x = c.getContext('2d');
+    var W = c.width;
+    var H = c.height;
+    x.clearRect(0, 0, W, H);
+    var k = Math.min((W - 24) / g.sheetW, (H - 24) / g.sheetH);
+    var ox = (W - g.sheetW * k) / 2;
+    var oy = (H - g.sheetH * k) / 2;
+    x.fillStyle = '#ffffff';
+    x.fillRect(ox, oy, g.sheetW * k, g.sheetH * k);
+    var first = plan.byPage[0] || [];
+    var bySlot = {};
+    first.forEach(function (it) {
+      bySlot[it.slot] = it.text;
+    });
+    x.textAlign = 'center';
+    x.textBaseline = 'middle';
+    g.slots.forEach(function (sl, i) {
+      var px = ox + sl.x * k;
+      var py = oy + sl.y * k;
+      var w = g.cellW * k;
+      var h = g.cellH * k;
+      var has = bySlot[i] != null;
+      x.fillStyle = has ? '#fde3d3' : '#eef0f4';
+      x.fillRect(px, py, w, h);
+      x.strokeStyle = has ? '#d9622b' : '#c7ccd6';
+      x.lineWidth = 1;
+      x.strokeRect(px + 0.5, py + 0.5, w - 1, h - 1);
+      if (has) {
+        x.fillStyle = '#1f2a4d';
+        x.font = '600 ' + Math.max(8, Math.min(18, h * 0.32, w / Math.max(4, bySlot[i].length) * 1.6)) + 'px sans-serif';
+        x.fillText(bySlot[i], px + w / 2, py + h / 2);
+      }
+    });
+    x.strokeStyle = '#111111';
+    x.lineWidth = 1;
+    plan.marks.forEach(function (l) {
+      x.beginPath();
+      x.moveTo(ox + l[0] * k, oy + l[1] * k);
+      x.lineTo(ox + l[2] * k, oy + l[3] * k);
+      x.stroke();
+    });
+  }
+
   function numPlan() {
     var s = S.settings;
+    if (s.numMode === 'sheet') return sheetPlan();
     if (s.numMode === 'page') {
       return host.call('np_readArtboards', {}).then(function (r) {
         var abs = r.artboards;
@@ -2827,6 +2959,10 @@
       plan.pages.forEach(function (pg) {
         rows.push([pg.label, pg.text]);
       });
+    } else if (plan.mode === 'sheet') {
+      plan.allLabels.forEach(function (lb, p) {
+        rows.push(['หน้า ' + (p + 1) + ' (' + plan.byPage[p].length + ' ใบ)', lb.replace(/^หน้า [0-9]+\/[0-9]+ · /, '')]);
+      });
     } else {
       plan.items.forEach(function (it) {
         rows.push([it.before, it.text]);
@@ -2841,12 +2977,31 @@
     if (rows.length > 60) ol.appendChild(el('li', null, '… อีก ' + (rows.length - 60) + ' รายการ'));
   }
 
+  function sheetSummary(plan) {
+    var g = plan.grid;
+    var mm = function (v) {
+      return Math.round((v / PT) * 10) / 10;
+    };
+    var empty = plan.pages * g.perSheet - plan.qty;
+    return (
+      'งาน ' + mm(plan.art.w) + ' × ' + mm(plan.art.h) + ' มม. · หน้าละ ' + g.perSheet + ' ใบ (' + g.cols + ' × ' + g.rows + (g.landscape ? ' กระดาษแนวนอน' : '') + (g.rot ? ' หมุนงาน 90°' : '') + ') · ' + plan.pages + ' หน้า ' + plan.qty + ' ใบ' + (empty > 0 ? ' (ช่องว่าง ' + empty + ')' : '')
+    );
+  }
+
   function numPreview() {
     status('กำลังอ่าน…');
     return numPlan().then(function (plan) {
       renderNumList(plan);
+      if (plan.mode === 'sheet') {
+        drawNumSheet(plan);
+        if (plan.qty > 1 && num('numStep') === 0) status('Step เป็น 0 — ทุกใบจะได้เลขเดียวกัน (' + plan.items[0].text + ') · ' + sheetSummary(plan), 'warn');
+        else status(sheetSummary(plan) + ' — กด “ใส่เลข” สร้างไฟล์ใหม่', 'ok');
+        return plan;
+      }
+      $('numSheetPrev').hidden = true;
       var n = plan.mode === 'page' ? plan.pages.length : plan.items.length;
-      status('ตัวอย่าง ' + n + ' รายการ — กด “ใส่เลข” เพื่อเขียนลงไฟล์', 'ok');
+      if (plan.mode === 'text' && n > 1 && num('numStep') === 0) status('Step เป็น 0 — ทุกกล่องจะได้เลขเดียวกัน (' + plan.items[0].text + ')', 'warn');
+      else status('ตัวอย่าง ' + n + ' รายการ — กด “ใส่เลข” เพื่อเขียนลงไฟล์', 'ok');
       return plan;
     });
   }
@@ -2854,6 +3009,30 @@
   function numMake() {
     var s = S.settings;
     return numPreview().then(function (plan) {
+      if (plan.mode === 'sheet') {
+        status('กำลังสร้างไฟล์ใหม่ ' + plan.pages + ' หน้า ' + plan.qty + ' ใบ… (งานเยอะอาจใช้เวลาสักครู่)');
+        var g = plan.grid;
+        return host
+          .call('np_imposeNumbers', {
+            sheetW: g.sheetW,
+            sheetH: g.sheetH,
+            pages: plan.pages,
+            cols: plan.cols,
+            spacing: 28,
+            rot: g.rot,
+            slots: g.slots,
+            items: plan.items,
+            targets: plan.picked.targets,
+            marks: plan.marks,
+            labels: plan.labels,
+            labelX: Math.max(6, num('numSheetMargin') * PT * 0.5),
+            labelY: Math.max(4, num('numSheetMargin') * PT * 0.35),
+            font: s.numFont || '',
+          })
+          .then(function (out) {
+            status('สร้างไฟล์ใหม่แล้ว ' + out.pages + ' หน้า ' + out.count + ' ใบ (' + plan.items[0].text + ' … ' + plan.items[plan.items.length - 1].text + ')' + (out.marks ? ' พร้อมครอปมาร์ก' : '') + ' — ตรวจแล้วบันทึกเป็น PDF ส่งพิมพ์ได้เลย', 'ok');
+          });
+      }
       if (plan.mode === 'page') {
         return host
           .call('np_pageNumbers', {
@@ -2869,7 +3048,15 @@
       var items = plan.items.filter(function (it) {
         return it.text !== it.before;
       });
-      if (!items.length) throw new Error('ไม่มีข้อความให้เปลี่ยน — ติ๊ก “แทนเฉพาะ {%n}” อยู่ แต่ไม่มีข้อความไหนมี {%n}');
+      if (!items.length) {
+        throw new Error(
+          s.numToken && !plan.items.some(function (it) {
+            return it.before.indexOf('{%n}') >= 0;
+          })
+            ? 'ไม่มีข้อความให้เปลี่ยน — ติ๊ก “แทนเฉพาะ {%n}” อยู่ แต่ไม่มีข้อความไหนมี {%n}'
+            : 'เลขที่จะใส่ตรงกับข้อความเดิมอยู่แล้ว (' + plan.items[0].text + ') — เช็ก Start / Step' + (plan.items.length < 2 ? ' · อยากได้หลายใบเต็มแผ่น เลือกโหมด “รันเลข + จัดเรียงหลายหน้า”' : '')
+        );
+      }
       return host.call('np_setTexts', { items: items, style: numStyle() }).then(function (out) {
         status('ใส่เลขแล้ว ' + out.count + ' กล่อง (' + items[0].text + ' … ' + items[items.length - 1].text + ')', 'ok');
       });
@@ -2986,8 +3173,12 @@
     }
     show('[data-dim-custom]', s.dimScale === 'custom');
     show('[data-num-pad]', s.numPadMode === 'custom');
-    show('[data-num="text"]', s.numMode !== 'page');
+    show('[data-num="text"]', s.numMode === 'text' || !s.numMode);
+    show('[data-num="sheet"]', s.numMode === 'sheet');
     show('[data-num="page"]', s.numMode === 'page');
+    show('[data-num-token]', s.numMode !== 'page');
+    show('[data-num-sheet-custom]', s.numMode === 'sheet' && s.numSheet === 'custom');
+    if (s.numMode !== 'sheet') $('numSheetPrev').hidden = true;
     show('[data-num-style]', s.numStyle === 'custom');
     show('[data-run-custom]', s.runSize === 'custom');
     show('#headerFields', !!s.headerOn);
@@ -3098,7 +3289,7 @@
     ['corner', '🔧', 'ทำมุมโค้งให้ดอกกัด CNC เข้าได้', 'ตัวอักษรอะคริลิก / ไม้ (ทำมุมโค้ง)'],
     ['led', '💡', 'หาเส้นกลางตัวอักษรไว้วาง LED', 'ป้ายไฟตัวอักษร (หาเส้นกลาง)'],
     ['dim', '📏', 'ใส่เส้นบอกขนาดงาน', 'ส่งลูกค้าดู / ส่งช่าง (บอกขนาด)'],
-    ['number', '🔢', 'รันเลขลงป้าย / คูปอง', 'เลขต่อเนื่องหรือเลขหน้า (รันนัมเบอร์)'],
+    ['number', '🔢', 'รันเลขลงป้าย / คูปอง', 'เลขต่อเนื่อง · รันเลขพร้อมจัดเรียงเต็มแผ่นหลายหน้า · เลขหน้า (รันนัมเบอร์)'],
     ['stamp', '🔴', 'ทำตรายางสำหรับเลเซอร์', 'กลับด้าน + เส้นตัดรอบ (ตรายางเลเซอร์)'],
     ['hotkey', '⌨️', 'ตั้งปุ่มลัดกดทีเดียว', 'สั่งงานที่ใช้บ่อยจากคีย์บอร์ด (ปุ่มลัด)'],
   ];

@@ -284,14 +284,16 @@
     <!-- รันนัมเบอร์ -->
     <section class="card" id="secNumber" data-for="number">
       <h2><span class="num">#</span> รันนัมเบอร์ <span class="sub">VARIABLE DATA</span></h2>
-      <p class="hint">เติมเลขต่อเนื่องลง Text Frame ที่เลือก หรือสร้างเลขหน้าบนอาร์ตบอร์ดทุกหน้า รองรับเลขเริ่ม ช่วงก้าว Prefix / Suffix และเลขศูนย์นำหน้า</p>
+      <p class="hint">เติมเลขต่อเนื่องลง Text Frame ที่เลือก · <b>รันเลขพร้อมจัดเรียงเต็มแผ่นหลายหน้า</b> (เลือกงานต้นแบบ 1 ใบ ได้ไฟล์ใหม่พร้อมพิมพ์ มีครอปมาร์ก) · หรือสร้างเลขหน้าบนอาร์ตบอร์ดทุกหน้า รองรับเลขเริ่ม ช่วงก้าว Prefix / Suffix และเลขศูนย์นำหน้า</p>
       <label
         >โหมด
         <select data-setting="numMode">
           <option value="text">เติมข้อความที่เลือก (ป้าย / คูปอง)</option>
+          <option value="sheet">รันเลข + จัดเรียงหลายหน้า (ไฟล์ใหม่)</option>
           <option value="page">เลขหน้าอาร์ตบอร์ด (เอกสารหลายหน้า)</option>
         </select></label
       >
+      <p class="hint" data-num="sheet">เลือกงานต้นแบบ 1 ใบ (ทั้งกลุ่ม) ที่มีกล่องเลข เช่น <b>NO.0000</b> หรือพิมพ์ <b>{%n}</b> ตรงที่ให้เลขลง — ใบหลัก + ต้นขั้วใส่เลขเดียวกันให้เอง</p>
       <div class="grid2">
         <label>Start <input type="number" step="1" data-setting="numStart" /></label>
         <label>Step (ติดลบได้) <input type="number" step="1" data-setting="numStep" /></label>
@@ -318,7 +320,38 @@
             </select></label
           >
         </div>
-        <label class="check"><input type="checkbox" data-setting="numToken" /> แทนเฉพาะ {%n} (ข้อความที่ไม่มี {%n} ไม่แตะ)</label>
+      </div>
+      <label class="check" data-num-token><input type="checkbox" data-setting="numToken" /> แทนเฉพาะ {%n} (ข้อความที่ไม่มี {%n} ไม่แตะ)</label>
+      <div data-num="sheet">
+        <div class="grid2">
+          <label>จำนวน (ใบ) <input type="number" min="1" max="5000" step="1" data-setting="numQty" /></label>
+          <label
+            >กระดาษ
+            <select data-setting="numSheet">
+              <option value="a4">A4 (210 × 297 มม.)</option>
+              <option value="a3">A3 (297 × 420 มม.)</option>
+              <option value="sra3">SRA3 (320 × 450 มม.)</option>
+              <option value="a3plus">13 × 19 นิ้ว</option>
+              <option value="in12x18">12 × 18 นิ้ว</option>
+              <option value="custom">กำหนดเอง</option>
+            </select></label
+          >
+          <label data-num-sheet-custom>กว้าง (มม.) <input type="number" min="20" step="1" data-setting="numSheetW" /></label>
+          <label data-num-sheet-custom>สูง (มม.) <input type="number" min="20" step="1" data-setting="numSheetH" /></label>
+          <label>ขอบกระดาษ (มม.) <input type="number" min="0" step="1" data-setting="numSheetMargin" /></label>
+          <label>ระยะห่างชิ้น (มม.) <input type="number" min="0" step="0.5" data-setting="numGap" /></label>
+          <label
+            >เรียงเลข
+            <select data-setting="numSheetOrder">
+              <option value="page">ทีละหน้า (หน้า 1 = เลขแรก ๆ)</option>
+              <option value="stack">ตัดทั้งปึก วางซ้อนกอง เลขเรียงต่อกัน</option>
+            </select></label
+          >
+        </div>
+        <label class="check"><input type="checkbox" data-setting="numRotate" /> หมุนงาน 90° ถ้าวางได้มากกว่า</label>
+        <label class="check"><input type="checkbox" data-setting="numMarks" /> ครอปมาร์ก (แนวตัด) ที่ขอบกระดาษ</label>
+        <label class="check"><input type="checkbox" data-setting="numPageNote" /> เขียนหน้าที่ + ช่วงเลขที่ขอบล่าง (เช่น หน้า 1/5 · NO.0001–NO.0009)</label>
+        <canvas id="numSheetPrev" class="numsheet" width="560" height="380" hidden></canvas>
       </div>
       <div data-num="page">
         <div class="grid2">
@@ -367,7 +400,7 @@
         <button id="btnNumPreview" class="ghost">① ดูตัวอย่าง</button>
         <button id="btnNumMake">② ใส่เลข</button>
       </div>
-      <div id="numStatus" class="status">เลือก Text Frame (หรือเปิดไฟล์หลายอาร์ตบอร์ด) แล้วกดดูตัวอย่าง</div>
+      <div id="numStatus" class="status">เลือก Text Frame / งานต้นแบบ (หรือเปิดไฟล์หลายอาร์ตบอร์ด) แล้วกดดูตัวอย่าง</div>
       </div>
     </section>
 

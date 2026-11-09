@@ -150,6 +150,163 @@
     return { x: x, y: y, justify: h };
   }
 
+  // ---------------------------------------------------------------- รันเลข + จัดเรียงหลายหน้า (Step & Repeat)
+
+  /* วางชิ้นงานซ้ำเต็มกระดาษ: o = { itemW, itemH, sheetW, sheetH, margin, gap, rotate } (หน่วยเดียวกัน เช่น pt)
+   * ลองชิ้นงานตรง/หมุน 90° × กระดาษตั้ง/นอน แล้วเลือกแบบที่ได้ต่อหน้ามากสุด (เท่ากัน: ไม่หมุนชิ้นงานก่อน แล้วกระดาษตามที่ตั้ง)
+   * → { cols, rows, perSheet, rot, landscape, sheetW, sheetH, cellW, cellH, gap, x0, y0, gridW, gridH, slots: [{ x, y }] }
+   *   slots = มุมซ้ายบนของแต่ละชิ้น วัดจากมุมซ้ายบนกระดาษ (แกน y ชี้ลง) เรียงซ้าย→ขวา บน→ล่าง · วางไม่ได้คืน null */
+  function sheetGrid(o) {
+    var m = Math.max(0, +o.margin || 0);
+    var g = Math.max(0, +o.gap || 0);
+    var items = [[+o.itemW, +o.itemH, false]];
+    if (o.rotate && Math.abs(o.itemW - o.itemH) > 1e-6) items.push([+o.itemH, +o.itemW, true]);
+    var sheets = [[+o.sheetW, +o.sheetH, false]];
+    if (Math.abs(o.sheetW - o.sheetH) > 1e-6) sheets.push([+o.sheetH, +o.sheetW, true]);
+    var best = null;
+    items.forEach(function (it) {
+      sheets.forEach(function (sh) {
+        if (!(it[0] > 0 && it[1] > 0)) return;
+        var cols = Math.floor((sh[0] - 2 * m + g + 1e-6) / (it[0] + g));
+        var rows = Math.floor((sh[1] - 2 * m + g + 1e-6) / (it[1] + g));
+        var n = cols > 0 && rows > 0 ? cols * rows : 0;
+        if (n > (best ? best.perSheet : 0)) best = { cols: cols, rows: rows, perSheet: n, rot: it[2], landscape: sh[2], sheetW: sh[0], sheetH: sh[1], cellW: it[0], cellH: it[1], gap: g };
+      });
+    });
+    if (!best) return null;
+    best.gridW = best.cols * best.cellW + (best.cols - 1) * g;
+    best.gridH = best.rows * best.cellH + (best.rows - 1) * g;
+    best.x0 = (best.sheetW - best.gridW) / 2;
+    best.y0 = (best.sheetH - best.gridH) / 2;
+    best.slots = [];
+    for (var r = 0; r < best.rows; r++) {
+      for (var c = 0; c < best.cols; c++) best.slots.push({ x: best.x0 + c * (best.cellW + g), y: best.y0 + r * (best.cellH + g) });
+    }
+    return best;
+  }
+
+  /* เลขของแต่ละช่อง: 'page' = เรียงทีละหน้า (หน้า 1 ได้เลขแรก ๆ) · 'stack' = ตัดทั้งปึกแล้ววางกองต่อกัน เลขเรียงพอดี
+   * (ช่องเดียวกันของทุกหน้าเลขติดกัน: หน้า 1 อยู่บนสุด) → { pages, cells: [{ page, slot, i }] } (i = ลำดับเลข 0..count-1) */
+  function sheetNumbers(count, perSheet, order) {
+    var n = Math.max(0, Math.floor(count));
+    var per = Math.max(1, Math.floor(perSheet));
+    var pages = Math.max(1, Math.ceil(n / per));
+    var cells = [];
+    for (var i = 0; i < n; i++) {
+      if (order === 'stack') cells.push({ page: i % pages, slot: Math.floor(i / pages), i: i });
+      else cells.push({ page: Math.floor(i / per), slot: i % per, i: i });
+    }
+    return { pages: pages, cells: cells };
+  }
+
+  /* ครอปมาร์กรอบกริด: เส้นสั้นในระยะขอบกระดาษ ตรงแนวตัดทุกเส้น (ตัดกิโยตินทั้งปึกได้) · ชิ้นชิดกันใช้แนวตัดร่วม
+   * o = { offset, length } → [[x1, y1, x2, y2], …] (มุมซ้ายบนกระดาษ แกน y ชี้ลง) */
+  function sheetMarks(grid, o) {
+    var off = o && o.offset > 0 ? o.offset : 0;
+    var len = o && o.length > 0 ? o.length : 0;
+    if (!grid || !(len > 0)) return [];
+    function edges(start, cell, gap, n) {
+      var out = [];
+      for (var k = 0; k < n; k++) {
+        var a = start + k * (cell + gap);
+        [a, a + cell].forEach(function (v) {
+          if (!out.some(function (u) {
+            return Math.abs(u - v) < 0.01;
+          })) out.push(v);
+        });
+      }
+      return out;
+    }
+    var xs = edges(grid.x0, grid.cellW, grid.gap, grid.cols);
+    var ys = edges(grid.y0, grid.cellH, grid.gap, grid.rows);
+    var top = grid.y0;
+    var bottom = grid.y0 + grid.gridH;
+    var left = grid.x0;
+    var right = grid.x0 + grid.gridW;
+    var lines = [];
+    xs.forEach(function (x) {
+      lines.push([x, top - off - len, x, top - off], [x, bottom + off, x, bottom + off + len]);
+    });
+    ys.forEach(function (y) {
+      lines.push([left - off - len, y, left - off, y], [right + off, y, right + off + len, y]);
+    });
+    return lines;
+  }
+
+  /* อาร์ตบอร์ดหลายหน้าในไฟล์ใหม่: เรียงเป็นตาราง ไม่ให้เกินพื้นที่ทำงานของ Illustrator (~227 นิ้ว)
+   * → { cols, rows } หรือ null ถ้าหน้าเยอะเกิน */
+  function artboardGrid(pages, w, h, spacing, canvas) {
+    var room = canvas || 15800;
+    var sp = spacing == null ? 28 : spacing;
+    var maxCols = Math.max(1, Math.floor((room + sp) / (w + sp)));
+    var cols = Math.max(1, Math.min(pages, maxCols, Math.ceil(Math.sqrt(pages * (h + sp) / (w + sp)))));
+    var rows = Math.ceil(pages / cols);
+    if (rows * (h + sp) - sp > room) {
+      cols = maxCols;
+      rows = Math.ceil(pages / cols);
+      if (rows * (h + sp) - sp > room || pages > 1000) return null;
+    }
+    return { cols: cols, rows: rows };
+  }
+
+  /* กล่องข้อความที่จะใส่เลข (จากข้อความทั้งหมดในชิ้นงานต้นแบบ): texts = ['ข้อความ', …] · o = { token, prefix, suffix }
+   * ① กล่องที่มี {%n} (แทนเฉพาะตรงนั้น) ② ติ๊ก “แทนเฉพาะ {%n}” แต่ไม่มี → error ③ มีกล่องเดียว → กล่องนั้น
+   * ④ ข้อความสั้น ๆ ที่มีตัวเลข เช่น NO.0000 (ใบหลัก + ต้นขั้ว ได้เลขเดียวกันทุกกล่อง) ⑤ ไม่รู้ว่ากล่องไหน → error
+   * → { targets: [{ idx, ranges: [[เริ่ม, ยาว], …] } | { idx, all: true }], why } · ranges = ส่วนที่แทนด้วยเลข (คงสี/ฟอนต์ส่วนอื่น) */
+  function numberTargets(texts, o) {
+    o = o || {};
+    var list = (texts || []).map(function (t) {
+      return String(t == null ? '' : t);
+    });
+    var tok = [];
+    list.forEach(function (t, i) {
+      if (t.indexOf('{%n}') >= 0) tok.push(i);
+    });
+    function tokenRanges(t) {
+      var out = [];
+      var at = t.indexOf('{%n}');
+      while (at >= 0) {
+        out.push([at, 4]);
+        at = t.indexOf('{%n}', at + 4);
+      }
+      return out;
+    }
+    if (tok.length) {
+      return {
+        why: 'token',
+        targets: tok.map(function (i) {
+          return { idx: i, ranges: tokenRanges(list[i]) };
+        }),
+      };
+    }
+    if (o.token) throw new Error('NO_TOKEN');
+    if (!list.length) throw new Error('NO_TEXT');
+    var affix = !!(o.prefix || o.suffix);
+    // ไม่ได้ตั้ง Prefix/Suffix: แทนเฉพาะกลุ่มตัวเลขชุดท้าย (NO.0000 → NO.0001 คงคำว่า NO. ไว้)
+    function target(i) {
+      var t = list[i];
+      if (!affix) {
+        var m = /(\d+)(?!.*\d)/.exec(t);
+        if (m) return { idx: i, ranges: [[m.index, m[1].length]] };
+      }
+      return { idx: i, all: true };
+    }
+    if (list.length === 1) return { why: 'single', targets: [target(0)] };
+    var looks = [];
+    list.forEach(function (t, i) {
+      var s = t.replace(/^\s+|\s+$/g, '');
+      if (s.length <= 24 && /\d/.test(s) && !/\s{2,}|[\r\n]/.test(s)) looks.push(i);
+    });
+    if (o.prefix) {
+      var pre = looks.filter(function (i) {
+        return list[i].replace(/^\s+/, '').indexOf(o.prefix) === 0;
+      });
+      if (pre.length) looks = pre;
+    }
+    if (looks.length) return { why: 'digits', targets: looks.map(target) };
+    throw new Error('WHICH_TEXT');
+  }
+
   return {
     PT_PER_MM: PT_PER_MM,
     UNITS: UNITS,
@@ -161,5 +318,10 @@
     fillTemplate: fillTemplate,
     orderItems: orderItems,
     pagePosition: pagePosition,
+    sheetGrid: sheetGrid,
+    sheetNumbers: sheetNumbers,
+    sheetMarks: sheetMarks,
+    artboardGrid: artboardGrid,
+    numberTargets: numberTargets,
   };
 });

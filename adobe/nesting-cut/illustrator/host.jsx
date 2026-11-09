@@ -1886,6 +1886,174 @@ function np_pageNumbers(args) {
   return { count: args.pages.length, layer: lay.name };
 }
 
+// ---------------------------------------------------------------- numbering: step & repeat on new pages
+
+// bounds of one piece of art: a clipped group uses its clipping path (visibleBounds counts the hidden art)
+function np_artBounds(it) {
+  try {
+    if (it.typename === 'GroupItem' && it.clipped) {
+      for (var k = 0; k < it.pageItems.length; k++) {
+        var c = it.pageItems[k];
+        if (c.typename === 'PathItem' && c.clipping) return c.geometricBounds;
+        if (c.typename === 'CompoundPathItem' && c.pathItems.length && c.pathItems[0].clipping) return c.geometricBounds;
+      }
+    }
+  } catch (e) {}
+  return it.visibleBounds;
+}
+
+function np_unionBounds(items) {
+  var u = null;
+  for (var i = 0; i < items.length; i++) {
+    var b = np_artBounds(items[i]);
+    if (!u) u = [b[0], b[1], b[2], b[3]];
+    else u = [Math.min(u[0], b[0]), Math.max(u[1], b[1]), Math.max(u[2], b[2]), Math.min(u[3], b[3])];
+  }
+  return u;
+}
+
+// selected art, front-most first (so the copy keeps the same stacking order)
+function np_frontFirst(items) {
+  var list = items.slice();
+  try {
+    list.sort(function (a, b) {
+      return b.absoluteZOrderPosition - a.absoluteZOrderPosition;
+    });
+  } catch (e) {
+    return items.slice();
+  }
+  return list;
+}
+
+// the template piece for running numbers: size + every text inside (in walk order)
+function np_readNumberArt(args) {
+  var items = np_frontFirst(np_selItems());
+  var texts = [];
+  for (var i = 0; i < items.length; i++) np_walkTexts(items[i], texts, 0);
+  var b = np_unionBounds(items);
+  NP.numArt = items;
+  NP.numDoc = app.activeDocument;
+  var out = [];
+  for (var j = 0; j < texts.length; j++) out.push(texts[j].contents);
+  return { w: np_r(b[2] - b[0]), h: np_r(b[1] - b[3]), texts: out, count: items.length };
+}
+
+// replace parts of a text frame with value, keeping the look of the rest (ranges = [[start, length], ...])
+function np_putNumber(tf, t, value) {
+  if (t.all) {
+    tf.contents = value;
+    return;
+  }
+  var before = tf.contents;
+  var want = before;
+  for (var q = t.ranges.length - 1; q >= 0; q--) want = want.substr(0, t.ranges[q][0]) + value + want.substr(t.ranges[q][0] + t.ranges[q][1]);
+  try {
+    for (var k = t.ranges.length - 1; k >= 0; k--) {
+      var r = tf.characters[t.ranges[k][0]];
+      r.length = t.ranges[k][1];
+      r.contents = value;
+    }
+  } catch (e) {}
+  // not what we expected (old Illustrator / odd text) -> rebuild the whole string (takes the style of its first character)
+  if (tf.contents !== want) tf.contents = want;
+}
+
+// new document with one artboard per sheet (grid layout); tries columns first, then rows, for older Illustrator builds
+function np_sheetDoc(space, w, h, pages, cols, spacing) {
+  if (pages <= 1) return app.documents.add(space, w, h);
+  var tries = [cols, Math.ceil(pages / cols)];
+  var err = null;
+  for (var i = 0; i < tries.length; i++) {
+    try {
+      return app.documents.add(space, w, h, pages, DocumentArtboardLayout.GridByRow, spacing, Math.max(1, tries[i]));
+    } catch (e) {
+      err = e;
+    }
+  }
+  throw np_E('TOO_MANY_PAGES', err && err.message ? err.message : '');
+}
+
+// args: { sheetW, sheetH (pt), pages, cols, spacing, rot, slots: [{ x, y }], items: [{ page, slot, text }],
+//         targets: [{ idx, ranges } | { idx, all }], marks: [[x1, y1, x2, y2]], labels: ['...'], font }
+// builds a NEW document with one artboard per sheet; slot x/y = top-left of the piece from the sheet's top-left (y down)
+function np_imposeNumbers(args) {
+  var src = NP.numArt || [];
+  if (!src.length) throw np_E('NO_SELECTION');
+  for (var a = 0; a < src.length; a++) if (!np_alive(src[a])) throw np_E('PART_GONE');
+  var srcDoc = np_alive(NP.numDoc) ? NP.numDoc : app.activeDocument;
+  var space = srcDoc.documentColorSpace;
+  var pages = Math.max(1, args.pages);
+  var doc = np_sheetDoc(space, args.sheetW, args.sheetH, pages, Math.max(1, args.cols || 1), args.spacing || 28);
+  var lay = doc.layers[0];
+  lay.name = 'Numbered';
+  // the template: a copy of the selection as one group (turned 90 deg when that fits more per sheet)
+  var master = lay.groupItems.add();
+  master.name = 'Number template';
+  for (var i = src.length - 1; i >= 0; i--) src[i].duplicate(master, ElementPlacement.PLACEATBEGINNING);
+  if (args.rot) master.rotate(90);
+  // bounds from the pieces themselves (a group's visibleBounds counts art hidden by clipping masks)
+  var kids = [];
+  for (var c = 0; c < master.pageItems.length; c++) kids.push(master.pageItems[c]);
+  var mb = np_unionBounds(kids);
+  var rects = [];
+  for (var p = 0; p < doc.artboards.length; p++) rects.push(doc.artboards[p].artboardRect);
+  var count = 0;
+  for (var n = 0; n < args.items.length; n++) {
+    var it = args.items[n];
+    var ab = rects[it.page];
+    var slot = args.slots[it.slot];
+    if (!ab || !slot) continue;
+    var dup = master.duplicate(lay, ElementPlacement.PLACEATEND);
+    dup.name = it.text;
+    dup.translate(ab[0] + slot.x - mb[0], ab[1] - slot.y - mb[1]);
+    var tfs = [];
+    np_walkTexts(dup, tfs, 0);
+    for (var t = 0; t < args.targets.length; t++) {
+      var tf = tfs[args.targets[t].idx];
+      if (tf) np_putNumber(tf, args.targets[t], it.text);
+    }
+    count++;
+  }
+  master.remove();
+  // crop marks + a small page note in the margin
+  var marks = 0;
+  if ((args.marks && args.marks.length) || (args.labels && args.labels.length)) {
+    var ml = doc.layers.add();
+    ml.name = 'Crop marks';
+    var black = np_black(doc);
+    var reg = null;
+    try {
+      reg = doc.swatches.getByName('[Registration]').color;
+    } catch (eR) {}
+    var font = args.labels && args.labels.length ? np_thaiFont(args.font) : null;
+    for (var q = 0; q < rects.length && q < pages; q++) {
+      var r = rects[q];
+      for (var m = 0; m < (args.marks || []).length; m++) {
+        var l = args.marks[m];
+        var path = ml.pathItems.add();
+        path.setEntirePath([[r[0] + l[0], r[1] - l[1]], [r[0] + l[2], r[1] - l[3]]]);
+        path.closed = false;
+        path.filled = false;
+        path.stroked = true;
+        path.strokeColor = reg || black;
+        path.strokeWidth = 0.25;
+        marks++;
+      }
+      var label = args.labels && args.labels[q];
+      if (label) {
+        var tf2 = ml.textFrames.pointText([r[0] + (args.labelX || 14), r[3] + (args.labelY || 8)]);
+        tf2.contents = label;
+        np_textStyle(doc, tf2, { size: 6, hex: '#555555', align: 'left' }, font);
+      }
+    }
+  }
+  doc.selection = null;
+  try {
+    app.executeMenuCommand('fitall');
+  } catch (eF) {}
+  return { pages: pages, count: count, marks: marks };
+}
+
 // ---------------------------------------------------------------- one-key workflow
 
 // the panel says it is open (the quick script checks this before it fires the event)
