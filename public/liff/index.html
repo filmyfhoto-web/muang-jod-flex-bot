@@ -344,11 +344,17 @@
      ที่แตะได้ทั้งแถว — ของละเอียด (แบ่งกอง/แยกตามเงิน/สัดส่วน) ยังอยู่ครบ
      ในหน้า "คิวงานละเอียด" เข้าจากปุ่มเล็กท้ายหน้า */
   .hstat { display: flex; gap: 9px; margin-bottom: 13px; }
-  .hstat .box { flex: 1; background: var(--surface); border: 1px solid var(--line); border-radius: 0; padding: 11px 13px; box-shadow: 0 2px 14px var(--shadow); }
+  .hstat .box { flex: 1; background: var(--surface); border: 1px solid var(--line); border-radius: 0; padding: 12px 14px; box-shadow: 0 2px 14px var(--shadow); }
   .hstat .box span { display: block; font-size: 11.5px; color: var(--sub); }
-  .hstat .box b { font-size: 20px; font-variant-numeric: tabular-nums; line-height: 1.35; }
+  .hstat .box b { font-size: 22px; font-variant-numeric: tabular-nums; line-height: 1.35; }
   .hstat .got b { color: var(--green); }
   .hstat .owe b { color: var(--gold); }
+  /* แถบกรองหน้าแรกเป็นสวิตช์ชิ้นเดียว (สามช่องในกรอบเดียว) — ร้านขอ "ง่ายและ
+     ดูดีอีกนิด": สามกล่องแยก ๆ อ่านเป็นปุ่มสามเรื่อง ทั้งที่มันคือเรื่องเดียวสามมุม */
+  #h-seg { gap: 0; border: 1.5px solid var(--line); background: var(--surface); }
+  #h-seg button { border: 0; background: none; padding: 10px 4px; font-size: 13px; }
+  #h-seg button + button { border-left: 1.5px solid var(--line); }
+  #h-seg button[aria-pressed="true"] { background: var(--accent); color: var(--white); font-weight: 700; }
   #h-q { width: 100%; border: 1.5px solid var(--line); border-radius: 0; background: var(--surface); padding: 10px 12px; font: inherit; font-size: 14px; color: var(--ink); margin: 10px 0 4px; }
   #h-q:focus { outline: none; border-color: var(--accent-dim); }
   .hj { display: flex; align-items: center; gap: 10px; padding: 11px 2px; border-bottom: 1px solid var(--line); }
@@ -382,8 +388,10 @@
 </head>
 <body>
 <header>
-  <img id="avatar" alt="" />
-  <div><h1 id="name">ม่วงจดให้</h1><p>ผู้ช่วยบันทึกงานใน LINE 🐾</p></div>
+  <!-- น้องหมาเป็นหน้าแอปตั้งแต่เปิด — วงกลมเทาว่าง ๆ ระหว่างรอรูปโปรไฟล์ดูเหมือนพัง
+       (รูปโปรไฟล์ LINE มาแทนทีหลังได้ตามเดิม) และบรรทัดรองบอกวันที่วันนี้แทนสโลแกน -->
+  <img id="avatar" alt="" src="/brand/ui/happy.png" />
+  <div><h1 id="name">ม่วงจดให้</h1><p id="subtitle">สมุดงาน &amp; เงินของร้าน 🐾</p></div>
 </header>
 
 <main>
@@ -751,6 +759,10 @@ function jobStatusOf(job) {
 const COLORS = { sign: '#db2777', print: '#7c3aed', design: '#1c4fd8', food: '#d97706', shipping: '#0d9488', other: '#64748b' };
 
 let token = null, groups = [], current = null, tab = 'home', period = 'daily', me = null, categoryId = '';
+
+// หัวหน้าแรกบอกวันนี้ — เปิดมารู้ทันทีว่าตัวเลขเป็นของวันไหน
+$('subtitle').textContent =
+  'วันนี้ · ' + new Date().toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok' });
 
 function toast(msg, isErr) {
   const t = $('toast');
@@ -1773,6 +1785,9 @@ function paintHome() {
     const stEl = row.querySelector('.money .st');
     stEl.className = 'st ' + st;
     stEl.textContent = stLabel;
+    // สีตัวเลขพูดเอง: ส้ม = ยังต้องเก็บ · เขียว = ได้แล้ว · กรม = ลงบัญชีรอวางบิล
+    row.querySelector('.money b').style.color =
+      st === 'paid' ? 'var(--green)' : st === 'owe' ? 'var(--gold)' : 'var(--accent-text)';
     row.onclick = () => openSheet(j);
     list.appendChild(row);
   });
