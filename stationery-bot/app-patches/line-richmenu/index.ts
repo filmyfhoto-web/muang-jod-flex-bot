@@ -122,6 +122,38 @@ Deno.serve(async (req) => {
     const i: any = await (await fetch('https://api.line.me/v2/bot/info', { headers: H })).json().catch(() => null)
     return json({ endpoint: e, test, tested, info: i && { displayName: i.displayName, basicId: i.basicId, chatMode: i.chatMode, markAsReadMode: i.markAsReadMode } })
   }
+  if (b.action === 'health_check') {
+    // เช็กอัตโนมัติ (เรียกจาก pg_cron ทุก 30 นาที, migration 009): webhook ยังชี้ถูกที่ไหม + เงียบนานผิดปกติไหม
+    // ไม่แก้ไข webhook ให้เอง (เป็นเรื่องใหญ่ ต้องให้คนตัดสินใจ) แค่แจ้งเตือนผ่าน push-notify ที่มีอยู่แล้ว · เว้นอย่างน้อย 4 ชม.ต่อการแจ้งหนึ่งครั้งกันถี่เกินไป
+    const EXPECTED = 'https://nattagroup-y.onrender.com/webhook'
+    const e: any = await (await fetch(LINE_WEBHOOK + '/endpoint', { headers: H })).json().catch(() => null)
+    const endpoint: string | null = e?.endpoint ?? null
+    const wrongEndpoint = !!endpoint && endpoint !== EXPECTED
+    const { data: st } = await db.from('sale_line_status').select('last_in_at').eq('channel_key', 'main').maybeSingle()
+    const lastIn = st?.last_in_at ? new Date(st.last_in_at as string).getTime() : 0
+    const staleHours = lastIn ? (Date.now() - lastIn) / 3600000 : 0
+    const silent = lastIn > 0 && staleHours > 20 // เผื่อวันหยุดเต็มวัน (ร้านปิดวันเสาร์) ไม่ให้แจ้งเตือนหลอก
+    const problem = wrongEndpoint || silent
+    let alerted = false
+    if (problem) {
+      const { data: cfg } = await db.from('app_config').select('value').eq('key', 'sale_line_health_alert').maybeSingle()
+      const lastAlert = (cfg?.value as any)?.at ? new Date((cfg!.value as any).at).getTime() : 0
+      if (!lastAlert || (Date.now() - lastAlert) / 3600000 > 4) {
+        const msg = wrongEndpoint
+          ? `⚠️ Webhook ของ LINE OA ไม่ได้ชี้มาที่บอทแล้ว!\nตอนนี้ชี้ไปที่: ${endpoint}\nควรเป็น: ${EXPECTED}\nรบกวนเข้า LINE Official Account Manager → ตั้งค่า → Webhook แล้วแก้กลับด่วนค่ะ`
+          : `⚠️ ไม่มีข้อความลูกค้าเข้าทาง LINE มา ${Math.floor(staleHours)} ชั่วโมงแล้ว รบกวนเช็คระบบ "แชตและออเดอร์" ด้วยค่ะ`
+        const key = await sec('push_hook_key')
+        await fetch(Deno.env.get('SUPABASE_URL') + '/functions/v1/push-notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'notify', key, title: 'เช็กระบบแชต LINE', body: msg, url: '/#saleorders', tag: 'sale-line-health' }),
+        }).catch(() => null)
+        await db.from('app_config').upsert({ key: 'sale_line_health_alert', value: { at: new Date().toISOString(), reason: wrongEndpoint ? 'wrong_endpoint' : 'silent' }, updated_at: new Date().toISOString() })
+        alerted = true
+      }
+    }
+    return json({ ok: true, endpoint, wrongEndpoint, staleHours: Math.round(staleHours * 10) / 10, silent, problem, alerted })
+  }
   if (b.action === 'set_webhook') {
     // ตั้งที่อยู่ webhook ของ OA (LINE ตั้งได้ที่เดียว) — ให้ LINE ลองยิงที่อยู่ใหม่ก่อน ถ้าไม่ผ่านจะไม่เปลี่ยน (force:true = ข้ามการทดสอบ)
     // คืน prev = ที่อยู่เดิม ไว้ย้อนกลับ (เรียก set_webhook อีกครั้งด้วย url เดิม) · เปลี่ยนเฉพาะที่อยู่ ไม่แตะสวิตช์ "ใช้ webhook"
