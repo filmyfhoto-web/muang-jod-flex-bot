@@ -147,7 +147,7 @@
 
     <!-- ทำมุมโค้ง (CNC) -->
     <section class="card" id="secCorner" data-for="corner">
-      <h2><span class="num">◜</span> ทำมุมโค้ง <span class="sub">CNC FIT</span></h2>
+      <h2><span class="num">◜</span> ทำมุมโค้ง <span class="sub">ตามดอกกัด CNC</span></h2>
       <p class="hint">ปรับมุมในและมุมนอกของตัวอักษรหรือชิ้นเวกเตอร์ให้สัมพันธ์กับรัศมีดอกกัด เหมาะกับงานประกบหน้า–หลังและชิ้นเสียบ</p>
       <details class="howto"><summary>วิธีใช้</summary>
       <ol class="steplist">
@@ -193,7 +193,7 @@
 
     <!-- หาเส้นกลาง (LED) -->
     <section class="card" id="secLed" data-for="led">
-      <h2><span class="num">⌇</span> หาเส้นกลาง <span class="sub">LED PATH</span></h2>
+      <h2><span class="num">⌇</span> หาเส้นกลาง <span class="sub">แนววางไฟ LED</span></h2>
       <p class="hint">คำนวณแนวกลางภายในตัวอักษรปิดสำหรับวาง LED Strip พร้อมสรุปความยาว และเตือนบริเวณที่แคบหรือโค้งเกินข้อกำหนด</p>
       <details class="howto"><summary>วิธีใช้</summary>
       <ol class="steplist">
@@ -223,13 +223,13 @@
 
     <!-- เส้นบอกขนาด -->
     <section class="card" id="secDim" data-for="dim">
-      <h2><span class="num">⇹</span> ใส่สเกลและเส้นบอกขนาด <span class="sub">DIMENSION</span></h2>
+      <h2><span class="num">⇹</span> ใส่สเกลและเส้นบอกขนาด <span class="sub">ขนาดจริงตามสเกล</span></h2>
       <p class="hint">วัดกว้าง–สูงแล้ววาดเส้น Dimension แสดงขนาดจริงของงานที่เขียนย่อสเกลได้ โดยไม่เปลี่ยนขนาดวัตถุต้นฉบับ</p>
       <div class="grid2">
         <label
           >วัด
           <select data-setting="dimScope">
-            <option value="all">Selection รวม</option>
+            <option value="all">รวมทุกชิ้นที่เลือก</option>
             <option value="each">แต่ละชิ้น</option>
             <option value="both">ทั้งสองแบบ</option>
           </select></label
@@ -248,7 +248,7 @@
             <option value="mm">mm</option>
             <option value="cm">cm</option>
             <option value="m">m</option>
-            <option value="in">inch</option>
+            <option value="in">นิ้ว</option>
           </select></label
         >
         <label
@@ -294,8 +294,8 @@
 
     <!-- รันนัมเบอร์ -->
     <section class="card" id="secNumber" data-for="number">
-      <h2><span class="num">#</span> รันนัมเบอร์ <span class="sub">VARIABLE DATA</span></h2>
-      <p class="hint">เติมเลขต่อเนื่องลง Text Frame ที่เลือก · <b>รันเลขพร้อมจัดเรียงเต็มแผ่นหลายหน้า</b> (เลือกงานต้นแบบ 1 ใบ ได้ไฟล์ใหม่พร้อมพิมพ์ มีครอปมาร์ก) · หรือสร้างเลขหน้าบนอาร์ตบอร์ดทุกหน้า รองรับเลขเริ่ม ช่วงก้าว Prefix / Suffix และเลขศูนย์นำหน้า</p>
+      <h2><span class="num">#</span> รันนัมเบอร์ <span class="sub">เลขรันต่อเนื่อง</span></h2>
+      <p class="hint">เติมเลขต่อเนื่องลง Text Frame ที่เลือก · <b>รันเลขพร้อมจัดเรียงเต็มแผ่นหลายหน้า</b> (เลือกงานต้นแบบ 1 ใบ ได้ไฟล์ใหม่พร้อมพิมพ์ มีครอปมาร์ก) · หรือสร้างเลขหน้าบนอาร์ตบอร์ดทุกหน้า ตั้งเลขเริ่มต้น เพิ่มทีละ คำหน้า/ท้ายเลข เติมศูนย์หน้าเลข หรือ<b>ใส่เฉพาะเลขที่ต้องการ</b> (เช่น 1520-1563, 1575-1599)</p>
       <label
         >โหมด
         <select data-setting="numMode">
@@ -306,20 +306,25 @@
       >
       <p class="hint" data-num="sheet">เลือกงานต้นแบบ 1 ใบ (ทั้งกลุ่ม) ที่มีกล่องเลข เช่น <b>NO.0000</b> หรือพิมพ์ <b>{%n}</b> ตรงที่ให้เลขลง — ใบหลัก + ต้นขั้วใส่เลขเดียวกันให้เอง</p>
       <div class="grid2">
-        <label>Start <input type="number" step="1" data-setting="numStart" /></label>
-        <label>Step (ติดลบได้) <input type="number" step="1" data-setting="numStep" /></label>
-        <label>Prefix <input data-setting="numPrefix" /></label>
-        <label>Suffix <input data-setting="numSuffix" /></label>
+        <label data-num-seq>เลขเริ่มต้น <input type="number" step="1" data-setting="numStart" /></label>
+        <label data-num-seq>เพิ่มทีละ (−1 = นับถอยหลัง) <input type="number" step="1" data-setting="numStep" /></label>
+        <label>คำหน้าเลข (เช่น NO.) <input data-setting="numPrefix" /></label>
+        <label>คำท้ายเลข <input data-setting="numSuffix" /></label>
         <label
-          >Padding
+          >เติมศูนย์หน้าเลข
           <select data-setting="numPadMode">
             <option value="auto">อัตโนมัติ (ตามเลขที่ยาวสุด)</option>
-            <option value="custom">กำหนดเอง</option>
+            <option value="custom">กำหนดจำนวนหลักเอง</option>
             <option value="none">ไม่เติมศูนย์</option>
           </select></label
         >
         <label data-num-pad>จำนวนหลัก <input type="number" min="1" max="12" step="1" data-setting="numPad" /></label>
       </div>
+      <label class="stack numlist-field"
+        >เลขที่ต้องการเท่านั้น <span class="opt">(เว้นว่าง = รันต่อเนื่องจากเลขเริ่มต้น)</span>
+        <input data-setting="numList" id="numListInput" placeholder="เช่น 1520-1563, 1575-1599, 1610" autocomplete="off"
+      /></label>
+      <p class="hint" id="numListInfo" hidden></p>
       <div data-num="text">
         <div class="grid2">
           <label
@@ -346,7 +351,7 @@
         <p class="hint" data-num-single>ได้อาร์ตบอร์ดเท่าขนาดงานวางชิดกันเป็นตาราง หน้าที่ 1 = NO.0001 หน้าที่ 2 = NO.0002 … ต่อกันไปจนครบ (บันทึก PDF ได้หน้าละ 1 ใบ) · สูงสุด 1,000 หน้าต่อไฟล์</p>
         <label class="check" data-num-single><input type="checkbox" data-setting="numUseAb" /> ใช้ขนาดอาร์ตบอร์ดของงานต้นแบบ (ถ้างานวางบนอาร์ตบอร์ดขนาดเท่างาน — ส่วนเผื่อตัดล้นออกนอกหน้าได้)</label>
         <div class="grid2">
-          <label>จำนวน (ใบ) <input type="number" min="1" max="5000" step="1" data-setting="numQty" /></label>
+          <label data-num-seq>จำนวน (ใบ) <input type="number" min="1" max="5000" step="1" data-setting="numQty" /></label>
           <label data-num-multi
             >กระดาษ
             <select data-setting="numSheet">
@@ -399,7 +404,7 @@
           <label>หน้าเว้น (ไม่ใส่เลข N หน้าแรก) <input type="number" min="0" step="1" data-setting="numSkip" /></label>
           <label>เลเยอร์ <input data-setting="numLayer" /></label>
         </div>
-        <label class="check"><input type="checkbox" data-setting="numMirror" /> Mirror หน้าคู่ (สลับซ้าย↔ขวา)</label>
+        <label class="check"><input type="checkbox" data-setting="numMirror" /> หน้าคู่สลับซ้าย↔ขวา (แบบหนังสือ)</label>
         <label class="check"><input type="checkbox" data-setting="numClear" /> ลบเลขหน้าเดิมในเลเยอร์นี้ก่อน</label>
       </div>
       <label
@@ -414,14 +419,14 @@
         <label>ขนาด (pt) <input type="number" min="1" step="1" data-setting="numSize" /></label>
         <label>สี <input type="color" data-setting="numColor" /></label>
         <label
-          >Alignment
+          >จัดแนว
           <select data-setting="numAlign">
             <option value="left">ชิดซ้าย</option>
             <option value="center">กลาง</option>
             <option value="right">ชิดขวา</option>
           </select></label
         >
-        <label class="check"><input type="checkbox" data-setting="numUnderline" /> Underline</label>
+        <label class="check"><input type="checkbox" data-setting="numUnderline" /> ขีดเส้นใต้</label>
       </div>
       <ol id="numList" class="numlist"></ol>
       <div class="tool-actions">
@@ -435,7 +440,7 @@
 
     <!-- ตรายางยิงเลเซอร์ -->
     <section class="card" id="secStamp" data-for="stamp">
-      <h2><span class="num">◉</span> เส้นไดคัทงานตรายาง <span class="sub">LASER STAMP</span></h2>
+      <h2><span class="num">◉</span> เส้นไดคัทงานตรายาง <span class="sub">ตรายางเลเซอร์</span></h2>
       <p class="hint">
         ทำเส้นตัดรอบดวงตราสำหรับเครื่องเลเซอร์ พร้อมงานแกะที่กลับด้านและกลับสีให้แล้ว — เส้นแดงบาง = ตัดขาด · พื้นดำ = ยิงแกะออก
       </p>
@@ -452,7 +457,7 @@
       <label
         >ดวงตรา
         <select data-setting="stGroup">
-          <option value="one">รวม Selection เป็นตราเดียว</option>
+          <option value="one">รวมทุกชิ้นที่เลือกเป็นตราเดียว</option>
           <option value="each">แยกแต่ละชิ้นเป็นคนละตรา</option>
         </select></label
       >
@@ -476,7 +481,7 @@
 
     <!-- ปุ่มลัด -->
     <section class="card" id="secHotkey" data-for="hotkey">
-      <h2><span class="num">⌨</span> จัดวางและนำไปใช้ในปุ่มเดียว <span class="sub">ONE-KEY WORKFLOW</span></h2>
+      <h2><span class="num">⌨</span> จัดวางและนำไปใช้ในปุ่มเดียว <span class="sub">ตั้งปุ่มลัด</span></h2>
       <p class="hint">เลือกชิ้นงานแล้วกดคีย์ลัด นัดพอนจะจัดวางและสร้างชีตไดคัทด้วยค่าล่าสุดของแถบ “จัดวางดวง” (หรือ “ไดคัทต่อเนื่อง” ถ้าเปิดค้างไว้) ทันที</p>
       <div class="grid2">
         <label>ปุ่ม <select id="hkKey" data-setting="hkKey"></select></label>
@@ -825,7 +830,7 @@
               <option value="y">Y ตามทางม้วนไหล</option>
             </select></label
           >
-          <label>Overcut (มม.) <input id="overcut" type="number" min="0" step="0.1" data-setting="overcut" /></label>
+          <label>ตัดเลยปลายเส้น (มม.) <input id="overcut" type="number" min="0" step="0.1" data-setting="overcut" /></label>
         </div>
         <p class="hint">PLT ลองตัดชิ้นเล็กก่อนครั้งแรก ถ้างานออกมาหมุน/กลับด้าน ให้สลับ “แกน PLT”</p>
       </details>

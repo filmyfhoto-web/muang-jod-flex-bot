@@ -888,6 +888,23 @@ details.steps > summary::before {
   margin-right: 4px;
   vertical-align: -1px;
 }
+/* รันเลข: เลขที่ต้องการเท่านั้น */
+.numlist-field {
+  display: block;
+  margin-top: 6px;
+}
+.numlist-field input {
+  width: 100%;
+  margin-top: 4px;
+}
+.numlist-field .opt {
+  color: var(--muted);
+  font-size: 11px;
+}
+#numListInfo.bad {
+  color: #e5484d;
+}
+
 /* รันเลข: โฟลเดอร์บันทึก PDF */
 .numsave {
   align-items: center;
