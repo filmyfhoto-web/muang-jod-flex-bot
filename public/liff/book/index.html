@@ -54,7 +54,7 @@
   /* แถบแอป 3 แท็บ ล่างจอ — สลับ จด/งาน&เงิน/ลูกค้า ได้จากทุกหน้า */
   .appbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
     display: flex; gap: 6px; background: var(--navy, #35486e);
-    padding: 5px max(14px, env(safe-area-inset-right, 0px)) calc(5px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px)); }
+    padding: 5px max(14px, env(safe-area-inset-right, 0px), calc((100% - 430px) / 2)) calc(5px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px), calc((100% - 430px) / 2)); }
   .appbar a { flex: 1; text-align: center; color: #fff; opacity: .62; text-decoration: none;
     font-size: 11px; font-weight: 700; border-radius: 0; padding: 3px 2px 4px; line-height: 1.2; }
   .appbar a span { display: block; font-size: 18px; }
@@ -200,7 +200,7 @@
      แถบสีกรมยังเต็มความกว้าง แต่ของข้างในจำกัดแล้วจัดกลาง เท่ากับหน้างานวันนี้ */
   @media (min-width: 720px) {
     header { padding-left: max(18px, calc((100% - 640px) / 2)); padding-right: max(18px, calc((100% - 640px) / 2)); }
-    main { max-width: 640px; margin-inline: auto; }
+    main { max-width: 430px; margin-inline: auto; }
   }
 
 /* ผูกลูกค้ากับหน่วยงาน */

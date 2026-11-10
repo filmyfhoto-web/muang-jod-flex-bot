@@ -247,20 +247,23 @@ test('the dashboard opens whichever tab the link asks for', () => {
   }
 });
 
-test('a wide screen gets a column, not a two-thousand-pixel-wide form', () => {
-  // Both pages are laid out for a phone but open on a computer too, where
-  // every card and every input stretched the whole window.
-  assert.match(dashboard, /header, main \{[^}]*max-width:\s*640px/, 'the dashboard still spans the window');
+test('a wide screen gets a phone-width column, not a two-thousand-pixel-wide form', () => {
+  // ร้านสั่ง "ออกแบบหน้าตาใหม่ให้ดูง่าย เอาหน้าตาแบบใช้ในมือถือ" — เปิดบนคอม
+  // ก็เป็นคอลัมน์มือถือกลางจอ (ตามตัวอย่างเว็บที่ร้านแนบมา)
+  assert.match(dashboard, /header, main \{[^}]*max-width:\s*430px/, 'the dashboard still spans the window');
   assert.match(dashboard, /margin-inline:\s*auto/);
 
   // The bars stay edge to edge — the surface reaching the sides reads as
   // deliberate — but what is on them lines up with the column.
-  assert.match(dashboard, /nav \{[\s\S]*?padding:[^;]*max\(4px, calc\(\(100% - 640px\) \/ 2\)\)/, 'the nav buttons sit in the corners of the screen');
-  assert.match(css, /\.bar \{[\s\S]*?padding:[^;]*max\(12px, calc\(\(100% - 560px\) \/ 2\)\)/, 'the form\'s title floats away from its own form');
+  assert.match(dashboard, /nav \{[\s\S]*?padding:[^;]*max\(4px, calc\(\(100% - 430px\) \/ 2\)\)/, 'the nav buttons sit in the corners of the screen');
+  assert.match(css, /\.bar \{[\s\S]*?padding:[^;]*max\(12px, calc\(\(100% - 430px\) \/ 2\)\)/, 'the form\'s title floats away from its own form');
+  // แถบบันทึกกับแถบแอปก็อยู่ในคอลัมน์เดียวกัน ไม่ยืดสุดจอ
+  assert.match(css, /\.quickbar \{[\s\S]*?max\(12px, calc\(\(100% - 430px\) \/ 2\)\)/);
+  assert.match(css, /\.appbar \{[\s\S]*?calc\(\(100% - 430px\) \/ 2\)/);
 
   // The form already had its cap; this keeps the two pages the same shape.
   // ร้านขอให้ "เล็กลงแคบลง" คอลัมน์จึงแคบกว่าแดชบอร์ด แต่ยังจัดกลางเหมือนกัน
-  assert.match(css, /^main \{[^}]*max-width:\s*560px/m);
+  assert.match(css, /^main \{[^}]*max-width:\s*430px/m);
 });
 
 /* ร้านบอกว่า "ทำช่องให้ดูแคบลงและเวลาเติมข้อความให้มันง่ายๆได้ไหม ฉันกรอกแล้ว งง"

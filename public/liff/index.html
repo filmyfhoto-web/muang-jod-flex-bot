@@ -41,7 +41,7 @@
   /* หน้านี้ถูกออกแบบมาสำหรับจอมือถือ แต่เปิดบนคอมได้ด้วย และบนจอกว้าง ๆ
      ทุกการ์ดกับทุกช่องกรอกยืดไปสองพันพิกเซล อ่านไม่รู้เรื่อง
      จำกัดความกว้างแล้วจัดกลาง เท่ากับฟอร์มจดงานที่ทำไว้อยู่แล้ว */
-  header, main { max-width: 640px; margin-inline: auto; }
+  header, main { max-width: 430px; margin-inline: auto; }
   header { padding: 16px 16px 10px; display: flex; align-items: center; gap: 11px; }
   header img { width: 40px; height: 40px; border-radius: 50%; background: var(--tint); object-fit: cover; }
   header h1 { margin: 0; font-size: 16px; font-weight: 700; color: var(--ink); }
@@ -312,7 +312,7 @@
   nav {
     position: fixed; left: 0; right: 0; bottom: 0; background: var(--surface);
     border-top: 1px solid var(--line); display: flex;
-    padding: 7px max(4px, calc((100% - 640px) / 2)) calc(7px + env(safe-area-inset-bottom));
+    padding: 7px max(4px, calc((100% - 430px) / 2)) calc(7px + env(safe-area-inset-bottom));
     box-shadow: 0 -2px 14px var(--shadow); z-index: 5;
   }
   nav button { flex: 1; border: 0; background: none; font: inherit; font-size: 10.5px; color: var(--grey); padding: 3px 0; }
@@ -335,28 +335,9 @@
   }
   [hidden] { display: none !important; }
 
-  /* บนจอคอม แถบปุ่มย้ายไปอยู่ข้างซ้ายเหมือนแอปบนเครื่อง
-     ร้านขอ "เอาเครื่องมือกดอยู่ไว้แบบระบบ mac"
-     บนมือถือยังเป็นแถบล่างเหมือนเดิม เพราะนิ้วโป้งอยู่ตรงนั้น */
-  @media (min-width: 900px) {
-    body { padding-bottom: 24px; padding-left: 236px; }
-    header, main { margin-inline: 0 auto; }
-
-    nav {
-      top: 0; bottom: 0; right: auto; width: 236px;
-      flex-direction: column; align-items: stretch; gap: 2px;
-      border-top: 0; border-right: 1px solid var(--line);
-      padding: 18px 12px; box-shadow: 2px 0 14px var(--shadow);
-    }
-    nav button {
-      flex: 0 0 auto; display: flex; align-items: center; gap: 11px;
-      font-size: 13.5px; padding: 10px 12px; border-radius: 0; text-align: left;
-    }
-    nav button span { font-size: 18px; line-height: 1; }
-    nav button[aria-selected="true"] { background: var(--tint); }
-
-    .toast { left: calc(50% + 118px); }
-  }
+  /* บนคอมหน้าตาเหมือนมือถือเป๊ะ — ร้านสั่งรอบล่าสุด "ออกแบบหน้าตาใหม่ให้ดูง่าย
+     เอาหน้าตาแบบใช้ในมือถือ" (ส่งตัวอย่างเว็บที่เป็นคอลัมน์แคบกลางจอมา)
+     แถบข้างแบบ mac ของเดิมจึงถูกถอด เหลือคอลัมน์มือถือ + แถบล่างทุกขนาดจอ */
 
   /* ---- หน้าแรก "งาน & เงิน" — ตามแบบร่างรื้อระบบที่ร้านอนุมัติ ----
      เปิดมาเห็นสองตัวเลขที่ร้านถามทุกวัน (เงินเข้าวันนี้ / รอเก็บ) แล้วก็ลิสต์งาน
@@ -387,7 +368,7 @@
   /* แผ่นปุ่มใหญ่ของงานหนึ่งใบ — สี่ปุ่มจบ ตามแบบร่าง */
   .hsheet-bg { position: fixed; inset: 0; background: rgba(21, 29, 48, .45); z-index: 60; }
   .hsheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 61; background: var(--surface); border-radius: 0; padding: 10px 16px calc(14px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -8px 30px rgba(31, 43, 69, .18); }
-  .hsheet .in { max-width: 560px; margin: 0 auto; }
+  .hsheet .in { max-width: 430px; margin: 0 auto; }
   .hsheet .grab { width: 40px; height: 5px; border-radius: 0; background: var(--line); margin: 0 auto 10px; }
   .hsheet h3 { margin: 0 0 2px; font-size: 16.5px; }
   .hsheet .sub { font-size: 13px; color: var(--sub); margin-bottom: 12px; }

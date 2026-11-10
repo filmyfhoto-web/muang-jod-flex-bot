@@ -38,25 +38,22 @@ test('วันที่ไม่มีรายการ ไม่มีปุ�
 });
 
 test('เปิดบนคอมแล้วไม่ยืดเต็มจอจนอ่านไม่รู้เรื่อง', () => {
-  // หน้างานวันนี้จำกัดความกว้างไว้อยู่แล้ว สองหน้าใหม่ต้องทำเหมือนกัน
+  // ร้านสั่งรอบล่าสุด "เอาหน้าตาแบบใช้ในมือถือ" — ทุกหน้าเป็นคอลัมน์มือถือกลางจอ
   for (const [name, page] of [['สมุดลูกค้า', book], ['ใบลงบัญชี', ledger]]) {
-    assert.match(page, /@media \(min-width: 720px\)/, name);
-    assert.match(page, /main \{ max-width: 640px; margin-inline: auto; \}/, name);
+    assert.match(page, /main \{ max-width: 430px; margin-inline: auto; \}/, name);
   }
 });
 
-/* ร้านขอ "เอาเครื่องมือกดอยู่ไว้แบบระบบ mac" — บนคอมแถบปุ่มย้ายไปอยู่ข้างซ้าย
- * บนมือถือยังเป็นแถบล่างเหมือนเดิม เพราะนิ้วโป้งอยู่ตรงนั้น
+/* ร้านเคยขอแถบข้างแบบ mac บนคอม แล้วสั่งใหม่ชัดกว่า: "ออกแบบหน้าตาใหม่ให้ดูง่าย
+ * เอาหน้าตาแบบใช้ในมือถือ" (แนบตัวอย่างเว็บคอลัมน์แคบกลางจอมา) — แถบข้างจึง
+ * ถูกถอด บนคอมก็เป็นแถบล่างเหมือนมือถือเป๊ะ
  */
-test('บนจอคอม แถบปุ่มอยู่ข้างซ้าย และเนื้อหาไม่โดนทับ', () => {
-  const wide = dash.slice(dash.indexOf('@media (min-width: 900px)'));
-  assert.ok(wide, 'ไม่มีกฎสำหรับจอกว้าง');
-
-  const rule = wide.slice(0, wide.indexOf('\n  }\n'));
-  assert.match(rule, /padding-left: 236px/, 'เนื้อหาไม่ได้เว้นที่ให้แถบปุ่ม');
-  assert.match(wide, /width: 236px/);
-  assert.match(wide, /flex-direction: column/);
-  assert.match(wide, /border-right: 1px solid var\(--line\)/);
+test('บนจอคอม หน้าตาเหมือนมือถือ — ไม่มีแถบข้าง เหลือแถบล่างทุกขนาดจอ', () => {
+  assert.ok(!dash.includes('@media (min-width: 900px)'), 'แถบข้างจอคอมต้องถูกถอดแล้ว');
+  assert.ok(!dash.includes('padding-left: 236px'), 'เนื้อหาต้องไม่เว้นที่ให้แถบข้างอีก');
+  // แถบล่างยังตรึงล่างจอ และปุ่มถูกบีบให้อยู่กลางเท่าคอลัมน์มือถือ
+  assert.match(dash, /nav \{\s*\n\s*position: fixed; left: 0; right: 0; bottom: 0;/);
+  assert.match(dash, /max\(4px, calc\(\(100% - 430px\) \/ 2\)\)/);
 });
 
 /* ช่องวันที่ของเบราว์เซอร์แสดงตามภาษาเครื่อง ซึ่งขึ้นเป็น 09/30/2026 แบบ
