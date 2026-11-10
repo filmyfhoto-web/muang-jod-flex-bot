@@ -77,6 +77,17 @@ test('หน้าแรกเป็น งาน & เงิน: ตัวเ�
 
   // ออกจากหน้าแก้ไขแล้วกลับหน้าแรกใหม่ ไม่หลงไปหน้าเก่า
   assert.match(dash, /show\(tab === 'edit' \? 'home' : tab\)/);
+
+  // ร้านสั่ง "เอาง่าย ๆ" — ปุ่มเล็กท้ายหน้าแรกเหลือสามทางที่ใช้จริง
+  // (งานค้างรับซ้ำกับกอง "รอเก็บ" บนหน้านี้ · สรุปรายการ/แชตออเดอร์ยังเข้าได้
+  // ทาง ?tab= กับ /app/orders/ — หน้าไม่ได้หาย แค่ไม่กินที่บนหน้าแรก)
+  const links = dash.slice(dash.indexOf('class="hlinks"'), dash.indexOf('</p>', dash.indexOf('class="hlinks"')));
+  for (const keep of ['data-go="today"', 'href="/app/ledger/"', 'data-go="settings"']) {
+    assert.ok(links.includes(keep), `ปุ่ม ${keep} ต้องยังอยู่`);
+  }
+  for (const gone of ['data-go="pending"', 'data-go="report"', '/app/orders/']) {
+    assert.ok(!links.includes(gone), `ปุ่ม ${gone} ไม่ควรอยู่บนหน้าแรกแล้ว`);
+  }
 });
 
 /* ร้านย้ำ: "อยากสร้างเป็นแอพออกมาค่ะ แต่ก็สามารถทำงานใน ม่วงจดในไลน์ได้" —
