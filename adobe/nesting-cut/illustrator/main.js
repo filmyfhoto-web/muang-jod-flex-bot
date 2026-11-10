@@ -60,7 +60,7 @@
   var STORE_KEY = 'nongploy.nestingcut.settings.v2';
   // ค่าที่บันทึกจากรุ่นก่อน UI_VERSION: หัวงานเคยเปิดเป็นค่าเริ่มต้น → ปิดให้ครั้งเดียว
   var UI_VERSION = 6;
-  var PANEL_VERSION = '1.12.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
+  var PANEL_VERSION = '1.13.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
   var PV_W = 300; // กรอบพรีวิวขนาดคงที่ (px) — ต้องตรงกับ #previewBox ใน panel.css
   var PV_H = 400;
   var WIDE_MIN = 734; // แผงกว้างพอวางพรีวิว (334) คู่ช่องคำสั่ง (400) — ตรงกับ --pv-col + --ctl-w ใน panel.css
@@ -181,6 +181,7 @@
     numPad: 3,
     numOrder: 'rows',
     numToken: false,
+    numList: '',
     numQty: 100,
     numSheet: 'a4',
     numSheetW: 210,
@@ -2783,15 +2784,47 @@
 
   // ---------------------------------------------------------------- รันนัมเบอร์
 
+  // เลขที่ต้องการเท่านั้น (ช่อง “1520-1563, 1575-1599”) → [เลข…] หรือ null (ว่าง = รันต่อเนื่อง) · อ่านไม่ออกแจ้งตรงที่ผิด
+  function numListNow() {
+    var r = D.parseNumberList(S.settings.numList || '', 5000);
+    if (r.error === 'BAD') throw new Error('ช่อง “เลขที่ต้องการ” อ่านไม่ออกตรง “' + r.at + '” — ใช้ตัวเลข ขีด (-) และจุลภาค (,) เช่น 1520-1563, 1575-1599');
+    if (r.error === 'TOO_MANY') throw new Error('เลขที่ต้องการมี ' + r.count + ' เลข เกิน 5,000 ต่อรอบ — แบ่งทำหลายรอบ');
+    return r.list.length ? r.list : null;
+  }
+
+  // สรุปใต้ช่องเลขที่ต้องการ (พิมพ์ไปเห็นไป)
+  function numListInfo() {
+    var box = $('numListInfo');
+    var raw = $('numListInput').value;
+    var r = D.parseNumberList(raw, 5000);
+    box.classList.remove('bad');
+    if (!raw.trim()) {
+      box.hidden = true;
+      return;
+    }
+    box.hidden = false;
+    if (r.error) {
+      box.classList.add('bad');
+      box.textContent = r.error === 'BAD' ? 'อ่านไม่ออกตรง “' + r.at + '” — ใช้ตัวเลข ขีด (-) และจุลภาค (,)' : 'เกิน 5,000 เลข (' + r.count + ')';
+      return;
+    }
+    var parts = r.ranges.slice(0, 6).map(function (g) {
+      return g[0] === g[1] ? String(g[0]) : g[0] + '–' + g[1] + ' (' + (Math.abs(g[1] - g[0]) + 1) + ')';
+    });
+    box.textContent = 'ใช้เฉพาะ ' + r.list.length + ' เลข: ' + parts.join(' · ') + (r.ranges.length > 6 ? ' …' : '') + ' — ไม่ใช้เลขเริ่มต้น / เพิ่มทีละ / จำนวน';
+  }
+
   function numOpts(count) {
     var s = S.settings;
+    var list = numListNow();
     return {
       start: num('numStart'),
       step: num('numStep'),
       prefix: s.numPrefix || '',
       suffix: s.numSuffix || '',
       pad: s.numPadMode === 'auto' ? 'auto' : s.numPadMode === 'none' ? 0 : num('numPad'),
-      count: count,
+      count: list ? list.length : count,
+      list: list,
     };
   }
 
@@ -2825,7 +2858,8 @@
       } catch (e) {
         throw new Error(NUM_ERR[e.message] || e.message);
       }
-      var qty = Math.max(1, Math.min(5000, Math.round(num('numQty'))));
+      var fixed = numListNow();
+      var qty = fixed ? fixed.length : Math.max(1, Math.min(5000, Math.round(num('numQty'))));
       if (s.numLayout === 'single') return singlePlan(r, picked, qty);
       if (s.numLayout === 'layout') return layoutPlan(r, picked, qty);
       var sz = numSheetSize();
@@ -2942,7 +2976,10 @@
     for (var p = 0; p < pages; p++) {
       var texts = [];
       for (var j = 0; j < T; j++) texts.push(D.numberText(D.sheetIndex(p, j, T, pages, s.numSheetOrder), opts));
-      items.push({ page: p, slot: 0, texts: texts, text: texts[0] + (T > 1 ? ' – ' + texts[T - 1] : '') });
+      var filled = texts.filter(function (t) {
+        return t !== '';
+      });
+      items.push({ page: p, slot: 0, texts: texts, text: (filled[0] || '') + (filled.length > 1 ? ' – ' + filled[filled.length - 1] : '') });
     }
     var labels = items.map(function (it, p) {
       return 'หน้า ' + (p + 1) + '/' + pages + ' · ' + it.text + (stack ? ' (ซ้อนกอง)' : '');
@@ -2977,8 +3014,9 @@
       allLabels: labels,
       qty: total,
       asked: qty,
+      fixedList: !!opts.list,
       firstText: D.numberText(0, opts),
-      lastText: D.numberText(total - 1, opts),
+      lastText: D.numberText((opts.list ? opts.list.length : total) - 1, opts),
       boxes: order.map(function (o) {
         var vb = r.tickets[o.k].vb;
         return { x: vb[0] - rect[0], y: rect[1] - vb[1], w: vb[2] - vb[0], h: vb[1] - vb[3] };
@@ -3114,7 +3152,7 @@
         var numbered = abs.slice(skip);
         if (!numbered.length) throw new Error('เว้น ' + skip + ' หน้าแล้วไม่เหลือหน้าให้ใส่เลข (มี ' + abs.length + ' อาร์ตบอร์ด)');
         var opts = numOpts(numbered.length);
-        var size = s.numStyle === 'custom' ? num('numSize') : 10;
+        if (opts.list && opts.list.length < numbered.length) throw new Error('มี ' + numbered.length + ' หน้า แต่เลขที่ต้องการมี ' + opts.list.length + ' เลข — เพิ่มเลข หรือเว้นหน้าแรก ๆ ด้วย “หน้าเว้น”');
         return {
           mode: 'page',
           skipped: abs.slice(0, skip),
@@ -3129,6 +3167,7 @@
       if (!r.texts.length) throw new Error('ไม่พบ Text Frame ในชิ้นที่เลือก — เลือกกล่องข้อความ (หรือกลุ่มที่มีข้อความ)');
       var ordered = D.orderItems(r.texts, s.numOrder);
       var opts = numOpts(ordered.length);
+      if (opts.list && opts.list.length < ordered.length) throw new Error('เลือกกล่องข้อความไว้ ' + ordered.length + ' กล่อง แต่เลขที่ต้องการมี ' + opts.list.length + ' เลข — เพิ่มเลข หรือเลือกกล่องให้น้อยลง');
       return {
         mode: 'text',
         items: ordered.map(function (t, i) {
@@ -3173,7 +3212,12 @@
       return Math.round((v / PT) * 10) / 10;
     };
     if (plan.layoutMode) {
-      return 'ใช้แผ่นที่วางไว้: หน้าละ ' + plan.perPage + ' ใบ · ' + plan.pages + ' หน้า = ' + plan.qty + ' ใบ' + (plan.qty > plan.asked ? ' (ปัดจาก ' + plan.asked + ' ให้เต็มแผ่น)' : '') + ' · แผ่น ' + mm(g.sheetW) + ' × ' + mm(g.sheetH) + ' มม.';
+      var extra = plan.qty - plan.asked;
+      return (
+        'ใช้แผ่นที่วางไว้: หน้าละ ' + plan.perPage + ' ใบ · ' + plan.pages + ' หน้า = ' + plan.qty + ' ใบ' +
+        (extra > 0 ? (plan.fixedList ? ' (ใช้เลข ' + plan.asked + ' เลข · อีก ' + extra + ' ใบเลขว่าง)' : ' (ปัดจาก ' + plan.asked + ' ให้เต็มแผ่น)') : '') +
+        ' · แผ่น ' + mm(g.sheetW) + ' × ' + mm(g.sheetH) + ' มม.'
+      );
     }
     if (plan.single) {
       return 'หน้าละ 1 ใบ · อาร์ตบอร์ด ' + mm(g.sheetW) + ' × ' + mm(g.sheetH) + ' มม.' + (plan.fromArtboard ? ' (ตามอาร์ตบอร์ดต้นแบบ)' : ' (ตามขนาดงาน)') + ' · ' + plan.pages + ' หน้า เรียง ' + plan.cols + ' × ' + plan.rows + ' ชิดกัน';
@@ -3190,13 +3234,13 @@
       renderNumList(plan);
       if (plan.mode === 'sheet') {
         drawNumSheet(plan);
-        if (plan.qty > 1 && num('numStep') === 0) status('Step เป็น 0 — ทุกใบจะได้เลขเดียวกัน (' + plan.items[0].text + ') · ' + sheetSummary(plan), 'warn');
+        if (plan.qty > 1 && num('numStep') === 0 && !String(S.settings.numList || '').trim()) status('Step เป็น 0 — ทุกใบจะได้เลขเดียวกัน (' + plan.items[0].text + ') · ' + sheetSummary(plan), 'warn');
         else status(sheetSummary(plan) + ' — กด “ใส่เลข” สร้างไฟล์ใหม่', 'ok');
         return plan;
       }
       $('numSheetPrev').hidden = true;
       var n = plan.mode === 'page' ? plan.pages.length : plan.items.length;
-      if (plan.mode === 'text' && n > 1 && num('numStep') === 0) status('Step เป็น 0 — ทุกกล่องจะได้เลขเดียวกัน (' + plan.items[0].text + ')', 'warn');
+      if (plan.mode === 'text' && n > 1 && num('numStep') === 0 && !String(S.settings.numList || '').trim()) status('Step เป็น 0 — ทุกกล่องจะได้เลขเดียวกัน (' + plan.items[0].text + ')', 'warn');
       else status('ตัวอย่าง ' + n + ' รายการ — กด “ใส่เลข” เพื่อเขียนลงไฟล์', 'ok');
       return plan;
     });
@@ -3545,6 +3589,9 @@
     show('[data-num-pages]', s.numMode === 'sheet' && !single);
     show('[data-num-sheet-custom]', s.numMode === 'sheet' && !single && !fromLayout && s.numSheet === 'custom');
     show('[data-num-save]', s.numMode === 'sheet' && !!s.numSave);
+    var hasList = !!String(s.numList || '').trim();
+    show('[data-num-seq]', !hasList);
+    numListInfo();
     $('numSaveDirLabel').textContent = 'บันทึกที่: ' + (s.numSaveDir || 'โฟลเดอร์เดียวกับไฟล์ต้นฉบับ (ไฟล์ยังไม่ได้บันทึก → Documents/NestingCut)');
     $('btnNumSaveDirReset').hidden = !s.numSaveDir;
     if (s.numMode !== 'sheet') $('numSheetPrev').hidden = true;
@@ -4064,6 +4111,7 @@
     $('btnSelectCut').onclick = function () {
       run(selectCutLines);
     };
+    $('numListInput').addEventListener('input', numListInfo);
     $('btnNumSaveDir').onclick = function () {
       run(function () {
         return host.call('np_chooseFolder', { title: 'เลือกโฟลเดอร์สำหรับไฟล์ PDF รันเลข' }).then(function (r) {

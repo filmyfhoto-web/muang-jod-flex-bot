@@ -87,20 +87,64 @@
 
   // เลขลำดับที่ i (0, 1, 2, …) เป็นข้อความ: prefix + เลข (เติมศูนย์) + suffix
   // opts: { start, step, prefix, suffix, pad: 'auto' | number, count }
+  // opts.list = เลขที่ต้องการเท่านั้น (จาก parseNumberList) — ใช้แทน start/step · เกินรายการ = '' (ช่องเลขว่าง)
   function numberText(i, opts) {
     var o = opts || {};
     var start = isFinite(o.start) ? Number(o.start) : 1;
     var step = isFinite(o.step) ? Number(o.step) : 1;
-    var v = start + i * step;
+    var list = o.list && o.list.length ? o.list : null;
+    if (list && (i < 0 || i >= list.length)) return '';
+    var v = list ? list[i] : start + i * step;
     var width = 0;
     if (o.pad === 'auto' || o.pad == null) {
-      var count = Math.max(1, o.count || 1);
-      var last = start + (count - 1) * step;
-      width = Math.max(String(Math.abs(Math.trunc(start))).length, String(Math.abs(Math.trunc(last))).length);
+      if (list) {
+        if (o._w == null) {
+          var w = 0;
+          for (var k = 0; k < list.length; k++) w = Math.max(w, String(Math.abs(list[k])).length);
+          o._w = w;
+        }
+        width = o._w;
+      } else {
+        var count = Math.max(1, o.count || 1);
+        var last = start + (count - 1) * step;
+        width = Math.max(String(Math.abs(Math.trunc(start))).length, String(Math.abs(Math.trunc(last))).length);
+      }
     } else width = Math.max(0, parseInt(o.pad, 10) || 0);
     var digits = String(Math.abs(v));
     while (digits.length < width) digits = '0' + digits;
     return (o.prefix || '') + (v < 0 ? '-' : '') + digits + (o.suffix || '');
+  }
+
+  /* เลขที่ต้องการเท่านั้น: "1520-1563, 1575-1599, 1610" → { list: [1520 … 1563, 1575 … 1599, 1610], ranges: [[a, b], …] }
+   * คั่นด้วย , ; เว้นวรรค หรือขึ้นบรรทัด · ขีดได้ทั้ง - – — ~ (เว้นวรรครอบขีดได้) · เลขไทย ๐–๙ ได้ · ช่วงกลับด้าน (20-10) นับถอยหลัง
+   * อ่านไม่ออก → { error: 'BAD', at: 'ส่วนที่ผิด' } · เกิน max (5,000) → { error: 'TOO_MANY', count } · ว่าง → list ว่าง */
+  function parseNumberList(str, max) {
+    var lim = max || 5000;
+    var src = String(str == null ? '' : str)
+      .replace(/[\u0E50-\u0E59]/g, function (c) {
+        return String(c.charCodeAt(0) - 0x0e50);
+      })
+      .replace(/[\u2013\u2014~]/g, '-')
+      .replace(/\s*-\s*/g, '-')
+      .replace(/^[\s,;]+|[\s,;]+$/g, '');
+    var list = [];
+    var ranges = [];
+    if (!src) return { list: list, ranges: ranges };
+    var parts = src.split(/[\s,;]+/);
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      if (!p) continue;
+      var m = /^(\d{1,9})(?:-(\d{1,9}))?$/.exec(p);
+      if (!m) return { error: 'BAD', at: p, list: [], ranges: [] };
+      var a = parseInt(m[1], 10);
+      var b = m[2] != null ? parseInt(m[2], 10) : a;
+      var n = Math.abs(b - a) + 1;
+      if (list.length + n > lim) return { error: 'TOO_MANY', count: list.length + n, list: [], ranges: [] };
+      var d = b >= a ? 1 : -1;
+      for (var v = a; d > 0 ? v <= b : v >= b; v += d) list.push(v);
+      ranges.push([a, b]);
+    }
+    return { list: list, ranges: ranges };
   }
 
   // ใส่เลขในข้อความ: มี {%n} แทนเฉพาะตรงนั้น ไม่มีก็แทนทั้งข้อความ
@@ -330,6 +374,7 @@
     dimension: dimension,
     unionBox: unionBox,
     numberText: numberText,
+    parseNumberList: parseNumberList,
     fillTemplate: fillTemplate,
     orderItems: orderItems,
     pagePosition: pagePosition,

@@ -314,3 +314,27 @@ test('รันเลข: ไฟล์เล็ก (งานเป็น Symbol
   assert.match(main, /symbol: s\.numSymbol !== false,/);
   assert.match(main, /save: s\.numSave \? \{ folder: s\.numSaveDir \|\| ''/);
 });
+
+test('รันนัมเบอร์: เลขที่ต้องการเท่านั้น (1520-1563, 1575-1599) ใช้ได้ทุกโหมด · เมนูภาษาไทย', () => {
+  const r = D.parseNumberList('1520-1563, 1575 – 1599 ,1610  ๑๖๒๐');
+  assert.equal(r.list.length, 44 + 25 + 1 + 1);
+  assert.deepEqual(r.ranges, [[1520, 1563], [1575, 1599], [1610, 1610], [1620, 1620]]);
+  assert.deepEqual(D.parseNumberList('20-17').list, [20, 19, 18, 17]);
+  assert.equal(D.parseNumberList('1520-15a3').error, 'BAD');
+  assert.equal(D.parseNumberList('1520-15a3').at, '1520-15a3');
+  assert.equal(D.parseNumberList('1-9999').error, 'TOO_MANY');
+  assert.deepEqual(D.parseNumberList('  , ').list, []);
+  // ใช้แทนเลขเริ่มต้น/เพิ่มทีละ · เติมศูนย์อัตโนมัติตามเลขที่ยาวสุดในรายการ · เกินรายการ = เลขว่าง
+  const o = { list: [7, 120], pad: 'auto', prefix: 'NO.' };
+  assert.equal(D.numberText(0, o), 'NO.007');
+  assert.equal(D.numberText(1, o), 'NO.120');
+  assert.equal(D.numberText(2, o), '');
+  const html = readFileSync(new URL('../adobe/nesting-cut/illustrator.html', import.meta.url), 'utf8');
+  const main = readFileSync(new URL('../adobe/nesting-cut/illustrator/main.js', import.meta.url), 'utf8');
+  assert.match(html, /data-setting="numList"/);
+  for (const en of ['>Start ', '>Step ', '>Prefix ', '>Suffix ', '>Padding', '>Alignment', '> Underline<', 'VARIABLE DATA', 'LASER STAMP', 'ONE-KEY WORKFLOW']) assert.ok(!html.includes(en), 'ยังมีคำอังกฤษ: ' + en);
+  for (const th of ['เลขเริ่มต้น', 'เพิ่มทีละ', 'คำหน้าเลข', 'คำท้ายเลข', 'เติมศูนย์หน้าเลข', 'เลขที่ต้องการเท่านั้น']) assert.ok(html.includes(th), th);
+  assert.match(main, /function numListNow\(\)/);
+  assert.match(main, /var qty = fixed \? fixed\.length :/);
+  assert.match(main, /show\('\[data-num-seq\]', !hasList\);/);
+});
