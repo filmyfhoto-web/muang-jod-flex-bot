@@ -162,11 +162,15 @@ test('the list shows the chats from the database with real counts, the menu entr
   await page.goto(`${shell.url}/#saleorders`);
   await page.waitForSelector('#so_items .so-row');
   assert.deepEqual(await page.evaluate(() => [typeof window.ROUTES, typeof window.VIEWS, typeof window.sb]), ['undefined', 'undefined', 'undefined'], 'as in the live shell, ROUTES / VIEWS / sb are const (not window properties) — and the page still works');
-  assert.equal(await page.locator('#so_items .so-row').count(), 7);
+  assert.equal(await page.locator('#so_tabs .so-tab.on').innerText(), 'รอตอบ (4)', 'the page opens on "รอตอบ" by default (v15), not "ทั้งหมด"');
+  assert.match((await page.locator('#so_tabs .so-tab.on').getAttribute('class')) || '', /\balert\b/, 'and it is highlighted while there is something to answer');
+  assert.equal(await page.locator('#so_items .so-row').count(), 4);
   const tabs = await page.locator('#so_tabs .so-tab').allInnerTexts();
   assert.deepEqual(tabs, ['ทั้งหมด (7)', 'รอตอบ (4)', 'กำลังสั่งงาน (1)', 'เสร็จแล้ว (1)']);
   assert.deepEqual(await page.locator('.so-chan .so-chip').allInnerTexts(), ['LINE OA: ยังไม่ได้เชื่อมต่อ', 'Facebook: ยังไม่ได้เชื่อมต่อ']);
   assert.deepEqual(await page.locator('#nav a').allInnerTexts(), ['หน้าหลัก', 'แชทขายสินค้า', 'แชตและออเดอร์', 'ออเดอร์ทั้งหมด'], 'the page sits next to the old chat page, which stays');
+  await page.locator('#so_tabs .so-tab', { hasText: 'ทั้งหมด' }).click();
+  assert.equal(await page.locator('#so_items .so-row').count(), 7);
   await page.locator('#so_q').fill('วัดใหม่');
   assert.equal(await page.locator('#so_items .so-row').count(), 1);
   await page.locator('#so_q').fill('');
@@ -406,6 +410,8 @@ test('on a phone: three tabs (รายชื่อแชต / แชต / อ�
     assert.deepEqual(await p.locator('#so_mtabs button').allInnerTexts(), ['รายชื่อแชต', 'แชต', 'ออเดอร์']);
     assert.deepEqual(await noSideways(), []);
     await shot(p, 'phone-1-list');
+    // earlier tests already answered this chat, so it has dropped off the default "รอตอบ" tab — switch to "ทั้งหมด" to find it by name
+    await p.locator('#so_tabs .so-tab', { hasText: 'ทั้งหมด' }).click();
     await p.locator('#so_items .so-row', { hasText: 'โรงเรียนบ้านตัวอย่าง' }).click();
     await p.waitForSelector('#so_chat .so-m');
     assert.equal(await p.locator('#so_mtabs button.on').innerText(), 'แชต');
@@ -454,52 +460,87 @@ test('typing a customer name offers the customers that already exist; choosing o
   assert.equal(await page.locator('#so_cnsug').isVisible(), false, 'the list closes after a choice');
 });
 
-test('quick-reply buttons show the five job-flow messages (v11); clicking one inserts its text without sending anything', skipIt, async () => {
+test('quick-reply popup (v11/v15) shows the five job-flow messages behind one icon; clicking one inserts its text without sending anything', skipIt, async () => {
   // the previous test left an unsaved customer pick on this chat's order (never saved, by design — it only checked the autocomplete) —
   // reload the page fresh so every test from here on starts clean, the same as a staff member opening the page new
   // (page.goto to the same URL+hash is a same-document no-op in this SPA; reload() forces an actual fresh load)
   await page.reload();
   await page.waitForSelector('#so_items .so-row');
+  // this chat has already been answered by earlier tests, so it is off the default "รอตอบ" tab after the reload
+  await page.locator('#so_tabs .so-tab', { hasText: 'ทั้งหมด' }).click();
   await openRow('โรงเรียนบ้านตัวอย่าง');
   await until(async () => (await chatTitle()) === 'โรงเรียนบ้านตัวอย่าง', 'the chat');
-  const labels = await page.locator('#so_root .so-qa .so-tplb').allInnerTexts();
+  assert.equal(await page.locator('#so_root .so-qamenu').count(), 0, 'closed until the icon is tapped');
+  await page.locator('#so_chat [data-a="qamenu"]').click();
+  const labels = await page.locator('#so_root .so-qamenu [data-a="tplpick"]').allInnerTexts();
   assert.deepEqual(labels, ['รับรายละเอียดแล้ว', 'ขอไฟล์เพิ่ม', 'กำลังประเมินราคา', 'ส่งแบบให้ตรวจ', 'งานพร้อมรับ']);
   const before = (await one('select count(*)::int n from sale_msgs where thread_id = $1', [T(1)])).n;
   await page.locator('#so_txt').fill('');
-  await page.locator('#so_root .so-qa .so-tplb', { hasText: 'กำลังประเมินราคา' }).click();
+  await page.locator('#so_root .so-qamenu [data-a="tplpick"]', { hasText: 'กำลังประเมินราคา' }).click();
   assert.equal(await page.locator('#so_txt').inputValue(), 'กำลังประเมินราคาให้อยู่นะคะ เดี๋ยวแจ้งกลับเร็ว ๆ นี้ค่ะ');
+  assert.equal(await page.locator('#so_root .so-qamenu').count(), 0, 'picking a template closes the popup');
   assert.equal((await one('select count(*)::int n from sale_msgs where thread_id = $1', [T(1)])).n, before, 'inserting a template saves and sends nothing');
   await page.locator('#so_txt').fill('');
 });
 
-test('the assignee pill (v11): three quick names, a free-text name, and "ไม่ระบุ" to clear — each writes sale_threads.assignee, logs a system note, and relabels the pill', skipIt, async () => {
-  assert.equal(await page.locator('#so_chat [data-a="assignmenu"]').innerText(), 'ผู้รับผิดชอบ ▾');
-  await page.locator('#so_chat [data-a="assignmenu"]').click();
+test('the assignee picker (v11/v15): three quick names, a free-text name, and "ไม่ระบุ" to clear — reached from the one combined chat menu — each writes sale_threads.assignee and logs a system note', skipIt, async () => {
+  assert.match(await page.locator('#so_chat .so-chn small').innerText(), /ยังไม่มอบหมาย/);
+  await page.locator('#so_chat [data-a="chatmenu"]').click();
   const names = await page.locator('#so_root .so-stgmenu [data-a="assign"]').allInnerTexts();
-  assert.deepEqual(names, ['หญิง', 'ฟิล์ม', 'พี่ปิ่น', '✓ ไม่ระบุ'], 'no one is assigned yet, so "ไม่ระบุ" is the checked (current) choice — same convention as the stage menu');
+  assert.deepEqual(names, ['หญิง', 'ฟิล์ม', 'พี่ปิ่น', '✓ ไม่ระบุ'], 'no one is assigned yet, so "ไม่ระบุ" is the checked (current) choice');
   await page.locator('#so_root .so-stgmenu [data-a="assign"]', { hasText: 'ฟิล์ม' }).click();
   await flashSays(/มอบหมายให้ "ฟิล์ม" แล้ว/);
-  assert.equal(await page.locator('#so_chat [data-a="assignmenu"]').innerText(), 'ฟิล์ม ▾');
+  assert.equal(await page.locator('#so_root .so-stgmenu').count(), 0, 'picking an assignee closes the menu');
+  assert.match(await page.locator('#so_chat .so-chn small').innerText(), /ฟิล์ม/, 'the assignee now shows in the chat subtitle');
   assert.equal((await one('select assignee from sale_threads where id = $1', [T(1)])).assignee, 'ฟิล์ม');
   let note = await one(`select body, kind from sale_msgs where thread_id = $1 order by created_at desc limit 1`, [T(1)]);
   assert.equal(note.kind, 'system');
   assert.match(note.body, /มอบหมายให้ "ฟิล์ม" ดูแล/);
 
-  await page.locator('#so_chat [data-a="assignmenu"]').click();
+  await page.locator('#so_chat [data-a="chatmenu"]').click();
   await page.locator('#so_root .so-stgmenu #so_assignc').fill('พี่แนน');
   await page.locator('#so_root .so-stgmenu [data-a="assigncustom"]').click();
   await flashSays(/มอบหมายให้ "พี่แนน" แล้ว/);
-  assert.equal(await page.locator('#so_chat [data-a="assignmenu"]').innerText(), 'พี่แนน ▾');
+  assert.match(await page.locator('#so_chat .so-chn small').innerText(), /พี่แนน/);
   assert.equal((await one('select assignee from sale_threads where id = $1', [T(1)])).assignee, 'พี่แนน', 'a name outside the three shortcuts is accepted too');
 
-  await page.locator('#so_chat [data-a="assignmenu"]').click();
+  await page.locator('#so_chat [data-a="chatmenu"]').click();
   await page.locator('#so_root .so-stgmenu [data-a="assign"]', { hasText: 'ไม่ระบุ' }).click();
   await flashSays(/เอาผู้รับผิดชอบออกแล้ว/);
-  assert.equal(await page.locator('#so_chat [data-a="assignmenu"]').innerText(), 'ผู้รับผิดชอบ ▾');
+  assert.match(await page.locator('#so_chat .so-chn small').innerText(), /ยังไม่มอบหมาย/);
   assert.equal((await one('select assignee from sale_threads where id = $1', [T(1)])).assignee, null);
   note = await one(`select body, kind from sale_msgs where thread_id = $1 order by created_at desc limit 1`, [T(1)]);
   assert.equal(note.kind, 'system');
   assert.match(note.body, /เอาผู้รับผิดชอบออก/);
+});
+
+test('the combined chat menu (v15): one "จัดการแชต" button reaches the stage picker and note/OA-log mode too — the old separate buttons are gone, and each choice still does exactly what it did before', skipIt, async () => {
+  assert.equal(await page.locator('#so_chat [data-a="stagemenu"]').count(), 0, 'the old separate stage button no longer exists');
+  assert.equal(await page.locator('#so_chat [data-a="assignmenu"]').count(), 0, 'the old separate assignee button no longer exists');
+  assert.equal(await page.locator('#so_root .so-mode').count(), 0, 'note / OA-log are no longer always-visible compose-bar buttons');
+
+  await page.locator('#so_chat [data-a="chatmenu"]').click();
+  await page.waitForSelector('#so_root .so-stgmenu');
+  const stageLabels = await page.locator('#so_root .so-stgmenu [data-a="stage"]').allInnerTexts();
+  assert.ok(stageLabels.some((t) => t.includes('รอเสนอราคา')), 'the stage choices are still offered, from the same menu');
+  await page.locator('#so_root .so-stgmenu [data-a="stage"]', { hasText: 'รอเสนอราคา' }).click();
+  await flashSays(/ย้ายไป "รอเสนอราคา" แล้ว/);
+  assert.equal((await one('select stage from sale_threads where id = $1', [T(1)])).stage, 'quote');
+  assert.equal(await page.locator('#so_chat .so-chip', { hasText: 'รอเสนอราคา' }).count(), 1, 'the current stage still shows as a colored chip in the header, without its own dropdown button');
+  assert.equal(await page.locator('#so_root .so-stgmenu').count(), 0, 'picking a stage closes the menu');
+  await page.locator('#so_chat [data-a="chatmenu"]').click();
+  await page.locator('#so_root .so-stgmenu [data-a="stage"]', { hasText: 'พูดคุย' }).click();
+  await flashSays(/ย้ายไป "พูดคุย" แล้ว/);
+
+  assert.equal(await page.locator('#so_root .so-modeflag').count(), 0, 'no mode flag while in normal message mode');
+  await page.locator('#so_chat [data-a="chatmenu"]').click();
+  await page.locator('#so_root .so-stgmenu [data-a="note"]').click();
+  assert.equal(await page.locator('#so_root .so-stgmenu').count(), 0, 'picking note mode closes the menu too');
+  await page.waitForSelector('#so_root .so-modeflag');
+  assert.match(await page.locator('#so_root .so-modeflag').innerText(), /บันทึกโน้ตภายใน/, 'the active mode is still shown somewhere near the compose box, even with its toggle tucked away');
+  await page.locator('#so_chat [data-a="chatmenu"]').click();
+  await page.locator('#so_root .so-stgmenu [data-a="note"]').click();
+  assert.equal(await page.locator('#so_root .so-modeflag').count(), 0, 'toggling note mode off removes the flag again');
 });
 
 test('customer card (v11): an unlinked chat can be linked to an existing customer by search, and then shows that customer’s totals across every chat of theirs', skipIt, async () => {
@@ -617,4 +658,14 @@ test('a LINE chat with no customer yet is linked automatically, in the backgroun
   const cardText = await page.locator('#so_ord').innerText();
   assert.match(cardText, /ริงโกลาเฟ009/, 'the card shows the auto-linked customer, not "ยังไม่ผูกกับลูกค้าในระบบ"');
   assert.doesNotMatch(cardText, /ยังไม่ผูกกับลูกค้าในระบบ/);
+});
+
+test('the "รอตอบ" tab (v15) loses its warm highlight once nothing is left unanswered', skipIt, async () => {
+  // every seeded chat with unread > 0 (T1, T2, T3, T7) has been opened by an earlier test in this file, clearing it
+  await until(async () => (await one('select count(*)::int n from sale_threads where unread > 0')).n === 0, 'every chat answered');
+  await page.reload();
+  await page.waitForSelector('#so_tabs .so-tab.on');
+  const tab = page.locator('#so_tabs .so-tab', { hasText: 'รอตอบ' });
+  assert.equal(await tab.innerText(), 'รอตอบ (0)');
+  assert.doesNotMatch((await tab.getAttribute('class')) || '', /\balert\b/, 'nothing to warn about, so no warm highlight');
 });

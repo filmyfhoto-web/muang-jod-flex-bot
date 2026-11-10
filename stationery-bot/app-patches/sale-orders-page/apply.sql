@@ -1,5 +1,5 @@
 -- ติดตั้งหน้า "แชตและออเดอร์" (โมดูล saleorders) ในแอปหลังร้าน: แถวใหม่ในตาราง app_modules เท่านั้น
--- · ไม่แก้โมดูลเดิมแม้แต่บรรทัดเดียว · ติดตั้งซ้ำได้ (ถ้ามีแถวนี้อยู่แล้วจะไม่ทำอะไร — ถ้าเป็นรุ่นเก่าให้ใช้ upgrade-v13-to-v14.sql (หรือ upgrade-v12-to-v13.sql / upgrade-v11-to-v12.sql / upgrade-v10-to-v11.sql / upgrade-v9-to-v10.sql / upgrade-v8-to-v9.sql / upgrade-v7-to-v8.sql / upgrade-v6-to-v7.sql / upgrade-v5-to-v6.sql / upgrade-v4-to-v5.sql / upgrade-v3-to-v4.sql ตามรุ่นที่ติดตั้งอยู่))
+-- · ไม่แก้โมดูลเดิมแม้แต่บรรทัดเดียว · ติดตั้งซ้ำได้ (ถ้ามีแถวนี้อยู่แล้วจะไม่ทำอะไร — ถ้าเป็นรุ่นเก่าให้ใช้ upgrade-v14-to-v15.sql (หรือ upgrade-v13-to-v14.sql / upgrade-v12-to-v13.sql / upgrade-v11-to-v12.sql / upgrade-v10-to-v11.sql / upgrade-v9-to-v10.sql / upgrade-v8-to-v9.sql / upgrade-v7-to-v8.sql / upgrade-v6-to-v7.sql / upgrade-v5-to-v6.sql / upgrade-v4-to-v5.sql / upgrade-v3-to-v4.sql ตามรุ่นที่ติดตั้งอยู่))
 -- · ติดตั้งแบบปิดไว้ (enabled = false): เปิดหลังตรวจแล้วด้วย update app_modules set enabled = true where name = 'saleorders';
 -- · ต้องติดตั้ง migration db/migrations/002_sale_orders.sql ก่อน (หน้านี้เรียก sale_order_save / sale_order_log_send)
 -- · ส่วน LINE ใช้ได้ต่อเมื่อติดตั้ง db/migrations/003_sale_line_bridge.sql และเปิดสะพานที่บอท — ถ้ายังไม่ติดตั้ง หน้าแสดง "LINE OA: ยังไม่ได้เชื่อมต่อ"
@@ -8,7 +8,7 @@
 -- · ผู้รับผิดชอบต่อแชตต้องติดตั้ง db/migrations/007_sale_thread_assignee.sql ด้วย — ถ้ายังไม่ติดตั้ง ปุ่มผู้รับผิดชอบจะใช้ไม่ได้ (คอลัมน์ assignee ไม่มี) · การ์ดลูกค้า/ยอดซื้อรวมใช้ customer_id และตาราง sale_orders ที่มีอยู่แล้ว ไม่ต้องติดตั้งอะไรเพิ่ม
 -- · การผูกลูกค้าอัตโนมัติจาก LINE ต้องติดตั้ง db/migrations/008_sale_thread_autolink.sql ด้วย — ถ้ายังไม่ติดตั้ง หน้าเงียบ ๆ ไม่ผูกให้ (ไม่ใช่ข้อผิดพลาด)
 -- · ย้อนกลับ: reverse.sql
--- md5 ของโค้ดที่ติดตั้ง: 5f839f81e02795e4fef24c252f1d03a1
+-- md5 ของโค้ดที่ติดตั้ง: 54a16434c6b22cf221b0f2cb230dc412
 do $do$
 begin
   if exists (select 1 from app_modules where name = 'saleorders') then
@@ -100,11 +100,11 @@ begin
   const hasOpen=t=>ordsOf(t).some(o=>isOpenJob(o.job_status))
   const TABS=[['all','ทั้งหมด',()=>true],['unread','รอตอบ',t=>t.unread>0],['working','กำลังสั่งงาน',t=>hasOpen(t)||['quote','confirm','work'].includes(t.stage)],['done','เสร็จแล้ว',t=>['done','closed'].includes(t.stage)||(ordsOf(t).length>0&&!hasOpen(t))]]
 
-  const S={tab:'all',q:'',sel:'',mode:'list',list:[],idx:{},msgs:[],cust:null,ords:[],ord:null,stores:[],schools:[],
+  const S={tab:'unread',q:'',sel:'',mode:'list',list:[],idx:{},msgs:[],cust:null,ords:[],ord:null,stores:[],schools:[],
     listLoading:false,msgsLoading:false,ordLoading:false,errList:'',errMsgs:'',errOrd:'',
     flash:'',flashErr:false,flashTok:0,busySend:false,busySave:false,attachBusy:false,chatAttachBusy:false,
     drafts:{},odrafts:{},urls:{},tok:0,ctok:0,ptok:0,picker:false,pick:[],pickQ:'',creating:false,note:false,oaLog:false,
-    prodOpen:false,prodQ:'',prodRows:[],prodPrice:{},prodBusy:false,modal:null,staff:'ทีมขาย',conflict:false,stageMenu:false,assignMenu:false,
+    prodOpen:false,prodQ:'',prodRows:[],prodPrice:{},prodBusy:false,modal:null,staff:'ทีมขาย',conflict:false,chatMenu:false,qaMenu:false,
     custStats:null,custLink:false,custLinkQ:'',custLinkRows:[],autolinkBusy:false,
     line:null,links:{},sendTok:{},busyRetry:{},poll:null,pollN:0,sig:'',probe:'',openStamp:'',linksOffUntil:0,statusOffUntil:0}
 
@@ -127,6 +127,8 @@ begin
 #so_root .so-tabs::-webkit-scrollbar{display:none}
 #so_root .so-tab{flex:0 0 auto;border:1px solid var(--so-line);background:#fff;border-radius:999px;padding:5px 12px;font:inherit;font-size:12.5px;color:var(--so-fg);cursor:pointer;white-space:nowrap}
 #so_root .so-tab.on{background:var(--so-navy);border-color:var(--so-navy);color:#fff}
+#so_root .so-tab.alert{background:#FDECD2;border-color:#E8832A;color:#8A4B00;font-weight:700}
+#so_root .so-tab.alert.on{background:#E8832A;border-color:#E8832A;color:#fff}
 #so_root .so-btn{border:1px solid var(--so-line);background:#fff;border-radius:10px;padding:8px 12px;font:inherit;font-size:13px;color:var(--so-fg);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:6px}
 #so_root .so-btn.pri{background:var(--so-navy);border-color:var(--so-navy);color:#fff}
 #so_root .so-btn.sky{background:var(--so-sky);border-color:var(--so-sky);color:var(--so-ink);font-weight:600}
@@ -152,10 +154,11 @@ begin
 #so_root .so-chn small{color:var(--so-mut)}
 #so_root .so-ic{width:40px;height:40px;border-radius:12px;border:1px solid var(--so-line);background:#fff;font:inherit;cursor:pointer;flex:0 0 auto;display:grid;place-items:center;color:var(--so-ink);padding:0}
 #so_root .so-ic:disabled{opacity:.5}
-#so_root .so-stgbtn{border:0;border-radius:999px;padding:5px 11px;font:inherit;font-size:12.5px;color:#fff;background:var(--c,#7A8394);cursor:pointer;white-space:nowrap;flex:0 0 auto}
-#so_root .so-stgmenu{position:absolute;right:10px;top:54px;z-index:40;background:#fff;border:1px solid var(--so-line);border-radius:12px;box-shadow:0 10px 30px rgba(16,42,67,.18);padding:6px;display:flex;flex-direction:column;min-width:170px}
+#so_root .so-stgmenu{position:absolute;right:10px;top:54px;z-index:40;background:#fff;border:1px solid var(--so-line);border-radius:12px;box-shadow:0 10px 30px rgba(16,42,67,.18);padding:6px;display:flex;flex-direction:column;min-width:200px;max-width:min(280px,calc(100vw - 24px))}
 #so_root .so-stgmenu button{border:0;background:none;text-align:left;font:inherit;font-size:13.5px;padding:8px 10px;border-radius:8px;cursor:pointer;color:var(--so-fg)}
 #so_root .so-stgmenu button:hover{background:var(--so-bg)}
+#so_root .so-mhead{font-size:11px;font-weight:700;color:var(--so-mut);text-transform:uppercase;letter-spacing:.3px;padding:6px 10px 2px}
+#so_root .so-mdiv{height:1px;background:var(--so-line);margin:4px 2px}
 #so_root .so-msgs{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:8px;min-height:0}
 #so_root .so-day{align-self:center;background:#E6EBF2;color:var(--so-mut);font-size:12px;border-radius:8px;padding:2px 12px}
 #so_root .so-m{max-width:78%;display:flex;flex-direction:column;gap:3px}
@@ -176,17 +179,16 @@ begin
 #so_root .so-err{color:var(--so-bad);font-size:12.5px;padding:6px 12px}
 #so_root .so-flash{margin:8px 12px 0;padding:8px 12px;border-radius:12px;background:#E7F7EE;color:#0F6B3A;font-size:13px}
 #so_root .so-flash.bad{background:#FDECEC;color:var(--so-bad)}
-#so_root .so-qa{display:flex;gap:6px;overflow-x:auto;padding:8px 12px 0;background:#fff;border-top:1px solid var(--so-line);scrollbar-width:none}
-#so_root .so-qa::-webkit-scrollbar{display:none}
-#so_root .so-tplb{flex:0 0 auto;border:1px solid var(--so-line);background:var(--so-bg);border-radius:999px;padding:5px 12px;font:inherit;font-size:12.5px;color:var(--so-fg);cursor:pointer;white-space:nowrap}
 #so_root .so-tagrow{display:flex;gap:6px;overflow-x:auto;padding:8px 12px 0;background:#fff;scrollbar-width:none}
 #so_root .so-tagrow::-webkit-scrollbar{display:none}
 #so_root .so-tagbtn{flex:1 1 0;min-width:0;border:2px solid transparent;background:color-mix(in srgb, var(--tc) 16%, #fff);color:var(--tc);border-radius:10px;padding:7px 6px;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #so_root .so-tagbtn.on{background:var(--tc);color:#fff;border-color:var(--tc)}
 #so_root .so-honest{font-size:11.5px;color:var(--so-mut);padding:6px 14px 0;background:#fff}
-#so_root .so-comp{display:flex;gap:8px;align-items:flex-end;padding:8px 12px 12px;background:#fff}
-#so_root .so-mode{flex:0 0 auto;height:40px;border:1px solid var(--so-line);background:#fff;border-radius:12px;padding:0 10px;font:inherit;font-size:12.5px;cursor:pointer;color:var(--so-fg)}
-#so_root .so-mode.on{background:#FFF4CC;border-color:#E8CF73}
+#so_root .so-modeflag{font-size:11.5px;color:#7A5A00;background:#FFF4CC;border-top:1px solid #E8CF73;padding:5px 14px}
+#so_root .so-comp{display:flex;gap:8px;align-items:flex-end;padding:8px 12px 12px;background:#fff;position:relative}
+#so_root .so-qamenu{position:absolute;bottom:calc(100% + 6px);left:12px;z-index:40;background:#fff;border:1px solid var(--so-line);border-radius:12px;box-shadow:0 10px 30px rgba(16,42,67,.18);padding:6px;display:flex;flex-direction:column;min-width:220px;max-width:min(320px,calc(100vw - 24px))}
+#so_root .so-qamenu button{border:0;background:none;text-align:left;font:inherit;font-size:13.5px;padding:8px 10px;border-radius:8px;cursor:pointer;color:var(--so-fg)}
+#so_root .so-qamenu button:hover{background:var(--so-bg)}
 #so_root .so-comp textarea{flex:1;min-width:0;resize:none;border:1px solid var(--so-line);border-radius:12px;padding:9px 12px;font:inherit;height:40px;max-height:120px;background:#fff;color:var(--so-fg)}
 #so_root .so-send{flex:0 0 auto;width:44px;height:40px;border:0;border-radius:12px;background:var(--so-navy);color:#fff;cursor:pointer;display:grid;place-items:center}
 #so_root .so-send:disabled{opacity:.5}
@@ -458,7 +460,10 @@ begin
   // ---------- รายชื่อแชต ----------
   function paintTabs(){
     const t=$('so_tabs');if(!t)return
-    t.innerHTML=TABS.map(([k,lb,f])=>`<button type="button" role="tab" aria-selected="${S.tab===k}" class="so-tab${S.tab===k?' on':''}" data-a="tab" data-k="${k}">${lb} (${S.list.filter(f).length})</button>`).join('')
+    t.innerHTML=TABS.map(([k,lb,f])=>{
+      const n=S.list.filter(f).length,alert=k==='unread'&&n>0
+      return `<button type="button" role="tab" aria-selected="${S.tab===k}" class="so-tab${S.tab===k?' on':''}${alert?' alert':''}" data-a="tab" data-k="${k}">${lb} (${n})</button>`
+    }).join('')
   }
 
   function rowChip(t){
@@ -685,22 +690,30 @@ begin
     box.innerHTML=`
       <div class="so-ch">
         <span class="so-av sm" style="background:${colorOf(t)}">${E(initial(t.title))}${avImg(t)}</span>
-        <div class="so-chn"><h2>${E(t.title||'ไม่มีชื่อ')}</h2><small>${E(t.phone||'ยังไม่มีเบอร์')} · ${E(src)}</small></div>
+        <div class="so-chn"><h2>${E(t.title||'ไม่มีชื่อ')}</h2><small>${E(t.phone||'ยังไม่มีเบอร์')} · ${E(src)}${t.assignee?' · '+E(t.assignee):' · ยังไม่มอบหมาย'}</small></div>
         <span id="so_lchip">${lineChip(t)}</span>
-        <button type="button" class="so-stgbtn" style="--c:${st.c}" data-a="stagemenu" aria-haspopup="true" aria-expanded="${S.stageMenu}">${st.t} ▾</button>
-        ${S.stageMenu?`<div class="so-stgmenu" role="menu">${Object.entries(STG).map(([k,v])=>`<button type="button" role="menuitem" data-a="stage" data-k="${k}">${t.stage===k?'✓ ':''}${v.t}</button>`).join('')}</div>`:''}
-        <button type="button" class="so-stgbtn" style="--c:${t.assignee?'#5B4BC2':'#9AA3B2'}" data-a="assignmenu" aria-haspopup="true" aria-expanded="${S.assignMenu}" title="ผู้รับผิดชอบแชตนี้">${E(t.assignee||'ผู้รับผิดชอบ')} ▾</button>
-        ${S.assignMenu?`<div class="so-stgmenu" role="menu">${STAFF.map(nm=>`<button type="button" role="menuitem" data-a="assign" data-k="${E(nm)}">${t.assignee===nm?'✓ ':''}${E(nm)}</button>`).join('')}<button type="button" role="menuitem" data-a="assign" data-k="">${!t.assignee?'✓ ':''}ไม่ระบุ</button><div style="display:flex;gap:6px;padding:6px 4px 2px;border-top:1px solid var(--so-line);margin-top:4px"><input id="so_assignc" class="so-in" type="text" placeholder="ชื่ออื่น…" style="flex:1;padding:6px 8px;font-size:13px" value=""><button type="button" class="so-btn sm" data-a="assigncustom">ตั้งชื่อ</button></div></div>`:''}
+        <span class="so-chip" style="--c:${st.c}">${st.t}</span>
+        <button type="button" class="so-ic" data-a="chatmenu" aria-haspopup="true" aria-expanded="${S.chatMenu}" title="จัดการแชต">${ic('gear')}</button>
+        ${S.chatMenu?`<div class="so-stgmenu" role="menu">
+          <div class="so-mhead">ขั้นตอน</div>
+          ${Object.entries(STG).map(([k,v])=>`<button type="button" role="menuitem" data-a="stage" data-k="${k}">${t.stage===k?'✓ ':''}${v.t}</button>`).join('')}
+          <div class="so-mdiv"></div>
+          <div class="so-mhead">ผู้รับผิดชอบ</div>
+          ${STAFF.map(nm=>`<button type="button" role="menuitem" data-a="assign" data-k="${E(nm)}">${t.assignee===nm?'✓ ':''}${E(nm)}</button>`).join('')}<button type="button" role="menuitem" data-a="assign" data-k="">${!t.assignee?'✓ ':''}ไม่ระบุ</button><div style="display:flex;gap:6px;padding:6px 4px 2px;border-top:1px solid var(--so-line);margin-top:4px"><input id="so_assignc" class="so-in" type="text" placeholder="ชื่ออื่น…" style="flex:1;padding:6px 8px;font-size:13px" value=""><button type="button" class="so-btn sm" data-a="assigncustom">ตั้งชื่อ</button></div>
+          <div class="so-mdiv"></div>
+          <button type="button" role="menuitem" data-a="note">${S.note?'✓ ':''}โน้ตภายใน (ไม่ส่งถึงลูกค้า)</button>
+          ${line?`<button type="button" role="menuitem" data-a="oalog">${S.oaLog?'✓ ':''}บันทึกคำตอบจาก OA Manager</button>`:''}
+        </div>`:''}
       </div>
       ${line?'<div class="so-lnote">แชตจาก LINE OA · หน้านี้แสดงข้อความของลูกค้า คำตอบของบอท และข้อความที่ส่งจากหน้านี้ — คำตอบที่พิมพ์ตรงใน LINE OA Manager ไม่ขึ้นเอง — กดปุ่ม "จาก OA Manager" แล้ววางคำตอบนั้นเพื่อบันทึกให้ทุกคนเห็น หรือตอบจากหน้านี้เลย</div>':''}
       <div class="so-flashbox" data-where="chat"></div>
       <div class="so-msgs" id="so_msgs" data-id="${E(t.id)}">${inner}</div>
       <div class="so-tagrow" role="group" aria-label="ป้ายจัดหมวดแชต">${TAG.map(([k,lb,c])=>`<button type="button" class="so-tagbtn${t.tag===k?' on':''}" style="--tc:${c}" data-a="tag" data-k="${k}" aria-pressed="${t.tag===k}">${lb}</button>`).join('')}</div>
-      <div class="so-qa">${TPL.map((x,i)=>`<button type="button" class="so-tplb" data-a="tplpick" data-k="${i}">${E(x[0])}</button>`).join('')}</div>
       <div class="so-honest" id="so_honest">${E(honestText(t))}</div>
+      ${S.note||S.oaLog?`<div class="so-modeflag">โหมด: ${S.note?'บันทึกโน้ตภายใน (ไม่ส่งถึงลูกค้า)':'บันทึกคำตอบจาก OA Manager'}</div>`:''}
       <div class="so-comp">
-        <button type="button" class="so-mode${S.note?' on':''}" data-a="note" aria-pressed="${S.note}" title="สลับเป็นโน้ตภายใน">${S.note?'โน้ต':'ข้อความ'}</button>
-        ${line?`<button type="button" class="so-mode${S.oaLog?' on':''}" data-a="oalog" aria-pressed="${S.oaLog}" title="คำตอบที่คุณตอบไปแล้วใน LINE OA Manager — บันทึกเข้าแชตนี้ให้ทุกคนเห็น (ไม่ส่งถึงลูกค้าอีก ไม่นับโควตา)">${S.oaLog?'บันทึก OA Manager':'จาก OA Manager'}</button>`:''}
+        <button type="button" class="so-ic" data-a="qamenu" aria-haspopup="true" aria-expanded="${S.qaMenu}" title="ข้อความด่วน">${ic('wand')}</button>
+        ${S.qaMenu?`<div class="so-qamenu" role="menu">${TPL.map((x,i)=>`<button type="button" role="menuitem" data-a="tplpick" data-k="${i}">${E(x[0])}</button>`).join('')}</div>`:''}
         <button type="button" class="so-ic" data-a="chatattach" title="${line?'แนบรูปหรือ PDF เป็นโน้ตภายใน (ยังส่งรูปถึงลูกค้าทาง LINE จากหน้านี้ไม่ได้) · ไม่เกิน 10 MB':'แนบรูปหรือ PDF (ไม่เกิน 10 MB)'}" aria-label="แนบไฟล์" ${S.chatAttachBusy?'disabled':''}>${ic('clip')}</button>
         <textarea id="so_txt" data-id="${E(t.id)}" rows="1" placeholder="พิมพ์ข้อความ…" title="Enter ${line&&!S.note?'ส่ง':'บันทึก'} · Shift+Enter ขึ้นบรรทัดใหม่" aria-label="ข้อความ">${E(S.drafts[t.id]||'')}</textarea>
         <button type="button" class="so-send" data-a="send" aria-label="${S.oaLog&&line&&!S.note?'บันทึกคำตอบจาก LINE OA Manager':line&&!S.note?'ส่งข้อความทาง LINE':'บันทึกข้อความ'}" ${S.busySend?'disabled':''}>${ic('send')}</button>
@@ -804,7 +817,7 @@ begin
     }
     const tok=++S.tok
     if(S.sel&&S.ord&&S.ord.thread_id===S.sel&&isDirty())S.odrafts[S.sel]=S.ord
-    if(id!==S.sel){S.msgs=[];S.cust=null;S.custStats=null;S.custLink=false;S.custLinkQ='';S.custLinkRows=[];S.note=false;S.oaLog=false;S.stageMenu=false;S.assignMenu=false;S.prodOpen=false}
+    if(id!==S.sel){S.msgs=[];S.cust=null;S.custStats=null;S.custLink=false;S.custLinkQ='';S.custLinkRows=[];S.note=false;S.oaLog=false;S.chatMenu=false;S.qaMenu=false;S.prodOpen=false}
     S.sel=id;S.ord=null;S.ords=[];S.errMsgs='';S.errOrd='';S.conflict=false;S.openStamp=''
     S.msgsLoading=true;S.ordLoading=true
     if(S.mode==='list')S.mode='chat'
@@ -1392,7 +1405,7 @@ begin
 
   async function setStage(k){
     const id=S.sel,t=S.list.find(x=>x.id===id)
-    S.stageMenu=false
+    S.chatMenu=false
     if(!id||!t||!STG[k]||t.stage===k){paintChat();return}
     const now=new Date().toISOString()
     const r=await q(()=>sb.from('sale_threads').update({stage:k,updated_at:now}).eq('id',id))
@@ -1419,7 +1432,7 @@ begin
 
   async function setAssignee(name){
     const id=S.sel,t=S.list.find(x=>x.id===id)
-    S.assignMenu=false
+    S.chatMenu=false
     const v=String(name||'').trim().slice(0,80)||null
     if(!id||!t||t.assignee===v){paintChat();return}
     const now=new Date().toISOString()
@@ -1732,7 +1745,8 @@ begin
     if(e.key==='Escape'){
       if(S.modal){closeModal();return}
       if(S.prodOpen){S.prodOpen=false;paintOrd();return}
-      if(S.stageMenu){S.stageMenu=false;paintChat();return}
+      if(S.chatMenu){S.chatMenu=false;paintChat();return}
+      if(S.qaMenu){S.qaMenu=false;paintChat();return}
       if(S.picker){S.picker=false;S.pick=[];paintPicker()}
     }
   }
@@ -1757,21 +1771,22 @@ begin
     if(a==='retrylist'){S.errList='';loadList();return}
     if(a==='retrythread'){openThread(S.sel,true);return}
     if(a==='send'){send();return}
-    if(a==='note'){S.note=!S.note;if(S.note)S.oaLog=false;paintChat();return}
-    if(a==='oalog'){S.oaLog=!S.oaLog;if(S.oaLog)S.note=false;paintChat();return}
+    if(a==='note'){S.note=!S.note;if(S.note)S.oaLog=false;S.chatMenu=false;paintChat();return}
+    if(a==='oalog'){S.oaLog=!S.oaLog;if(S.oaLog)S.note=false;S.chatMenu=false;paintChat();return}
+    if(a==='qamenu'){S.qaMenu=!S.qaMenu;S.chatMenu=false;paintChat();return}
     if(a==='tplpick'){
       const txt=(TPL[+el.dataset.k]||[])[1];if(!txt||!S.sel)return
       const id=S.sel
       const ta=$('so_txt')
       const cur=ta&&ta.dataset.id===id?ta.value:(S.drafts[id]||'')
       setDraft(id,cur.trim()?cur.replace(/\s*$/,'')+'\n'+txt:txt)
+      S.qaMenu=false;paintChat()
       const ta2=$('so_txt');if(ta2)ta2.focus()
       return
     }
-    if(a==='stagemenu'){S.stageMenu=!S.stageMenu;S.assignMenu=false;paintChat();return}
+    if(a==='chatmenu'){S.chatMenu=!S.chatMenu;S.qaMenu=false;paintChat();return}
     if(a==='stage'){setStage(el.dataset.k);return}
     if(a==='tag'){const th=S.list.find(x=>x.id===S.sel);setTag(th&&th.tag===el.dataset.k?null:el.dataset.k);return}
-    if(a==='assignmenu'){S.assignMenu=!S.assignMenu;S.stageMenu=false;paintChat();return}
     if(a==='assign'){setAssignee(el.dataset.k);return}
     if(a==='assigncustom'){const i=$('so_assignc');setAssignee(i?i.value:'');return}
     if(a==='custlinktoggle'){S.custLink=!S.custLink;S.custLinkQ='';S.custLinkRows=[];paintOrd();const i=$('so_clq');if(i)i.focus();return}

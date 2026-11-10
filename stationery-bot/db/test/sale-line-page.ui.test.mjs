@@ -136,6 +136,10 @@ test('no heartbeat from the bot: the page says LINE is not connected, shows the 
   await page.goto(`${shell.url}/#saleorders`);
   await page.waitForSelector('#so_items .so-row');
   assert.deepEqual(await chips(), ['LINE OA: ยังไม่ได้เชื่อมต่อ', 'Facebook: ยังไม่ได้เชื่อมต่อ']);
+  assert.deepEqual(await page.locator('#so_tabs .so-tab').allInnerTexts(), ['ทั้งหมด (3)', 'รอตอบ (2)', 'กำลังสั่งงาน (0)', 'เสร็จแล้ว (0)'], 'opens on "รอตอบ": the two LINE chats with something unread');
+  assert.equal(await page.locator('#so_tabs .so-tab.alert', { hasText: 'รอตอบ' }).count(), 1, 'the "รอตอบ" tab is highlighted while something is unread');
+  assert.equal(await page.locator('#so_items .so-row').count(), 2);
+  await page.locator('#so_tabs .so-tab', { hasText: 'ทั้งหมด' }).click();
   assert.equal(await page.locator('#so_items .so-row').count(), 3);
   const rowA = page.locator('#so_items .so-row', { hasText: 'คุณปู' });
   assert.equal(await rowA.locator('.so-src').innerText(), 'LINE');
@@ -365,6 +369,7 @@ test('on a phone: the LINE chat list and room fit the screen and nothing scrolls
   try {
     await p.goto(`${shell.url}/#saleorders`);
     await p.waitForSelector('#so_items .so-row');
+    await p.locator('#so_tabs .so-tab', { hasText: 'ทั้งหมด' }).click();
     assert.ok(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'the list does not scroll sideways');
     assert.ok((await p.locator('#so_items .so-row .so-src').count()) >= 3);
     await p.locator('#so_items .so-row', { hasText: 'คุณปู' }).click();
@@ -382,8 +387,10 @@ test('a reply typed in LINE OA Manager is logged into the chat with one click: i
   await page.goto(`${shell.url}/#saleorders`);
   await page.reload(); // the earlier tests leave an order open on this page; start from the list
   await page.waitForSelector('#so_items .so-row');
+  await page.locator('#so_tabs .so-tab', { hasText: 'ทั้งหมด' }).click();
   await openRow('คุณปู');
   await page.waitForSelector('#so_msgs .so-m');
+  await page.locator('#so_chat [data-a="chatmenu"]').click();
   await page.locator('#so_chat [data-a="oalog"]').click();
   await page.locator('#so_txt').fill(text);
   assert.match(await page.locator('#so_honest').innerText(), /ไม่ถูกส่งถึงลูกค้าจากหน้านี้/, 'the hint under the box says it is not sent');
