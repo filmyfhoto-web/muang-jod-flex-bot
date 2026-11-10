@@ -169,13 +169,15 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
 
 /* ---- บับเบิลแชต -------------------------------------------------------- */
 
-.chat { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+/* บับเบิลทักทายย่อลง — คำทักไม่ควรดันตารางจดให้ไกลนิ้ว (น้องหมายังอยู่ครบ) */
+.chat { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
 .msg { display: flex; align-items: flex-end; gap: 8px; }
 .pic { width: 30px; height: 30px; border-radius: 50%; flex: 0 0 30px; object-fit: cover; }
 .pic.ghost { background: none; }
 .bubble {
   max-width: 82%;
-  padding: 10px 14px;
+  padding: 8px 12px;
+  font-size: 13px;
   border-radius: 0;
   background: var(--bubble);
   color: var(--bubble-ink);
