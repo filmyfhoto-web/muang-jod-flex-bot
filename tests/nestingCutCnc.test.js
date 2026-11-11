@@ -336,5 +336,21 @@ test('รันนัมเบอร์: เลขที่ต้องการ
   for (const th of ['เลขเริ่มต้น', 'เพิ่มทีละ', 'คำหน้าเลข', 'คำท้ายเลข', 'เติมศูนย์หน้าเลข', 'เลขที่ต้องการเท่านั้น']) assert.ok(html.includes(th), th);
   assert.match(main, /function numListNow\(\)/);
   assert.match(main, /var qty = fixed \? fixed\.length :/);
-  assert.match(main, /show\('\[data-num-seq\]', !hasList\);/);
+  assert.match(main, /function seqOff\(off\)/);
+});
+
+test('แผงไม่เด้ง: ใส่เลขที่ต้องการ ช่องอื่นไม่หาย · บรรทัดสรุป/สถานะสูงคงที่', () => {
+  const html = readFileSync(new URL('../adobe/nesting-cut/illustrator.html', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../adobe/nesting-cut/illustrator/panel.css', import.meta.url), 'utf8');
+  const main = readFileSync(new URL('../adobe/nesting-cut/illustrator/main.js', import.meta.url), 'utf8');
+  // บรรทัดสรุปอยู่ตลอด (ไม่ซ่อน/โผล่) และสูง 2 บรรทัดเสมอ
+  assert.match(html, /<p class="hint" id="numListInfo">[^<]+<\/p>/);
+  assert.match(css, /#numListInfo \{[^}]*height: 3em;[^}]*-webkit-line-clamp: 2;/);
+  // ช่องเลขเริ่มต้น/เพิ่มทีละ/จำนวน จางลงแทนการซ่อน
+  assert.ok(!/show\('\[data-num-seq\]'/.test(main), 'ห้ามซ่อนช่อง data-num-seq');
+  assert.ok(!/numListInfo'\)\.hidden|box\.hidden/.test(main.slice(main.indexOf('function numListInfo'), main.indexOf('function seqOff'))));
+  assert.match(css, /\[data-num-seq\]\.off \{/);
+  // แถบปุ่มล่างของทุกเครื่องมือ: สถานะสูงคงที่ ปุ่มไม่เลื่อน
+  assert.match(css, /\.tool-actions \.status \{[^}]*height: 3em;[^}]*overflow-y: auto;/);
+  assert.ok(!/Step เป็น 0/.test(main), 'ข้อความเตือนเป็นภาษาไทย');
 });
