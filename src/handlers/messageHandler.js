@@ -18,6 +18,7 @@ import { matchCustomer } from '../utils/customerMatch.js';
 import { parseChatIntent } from '../utils/chatIntent.js';
 import { parseNaturalJob, looksLikeWorkDetail } from '../utils/nlParser.js';
 import { customerCardForText, parseCardAsk } from '../actions/customerCard.js';
+import { combineBills } from '../actions/bill.js';
 import { deriveJobName, classifyJob } from '../utils/category.js';
 import { makeDraft, draftToBubble, priceDraft, parseBarePrice, parseBareSqmRate, priceDraftBySqm, parseCustomerName } from '../utils/jobDraft.js';
 import { extractDate, extractDueDate } from '../utils/thaiDate.js';
@@ -427,6 +428,18 @@ export async function handleTextMessage(event, profile) {
    */
   if (looksLikeDump(text)) {
     return handleDump(replyToken, profile, text);
+  }
+
+  /* Idle: "รวมบิลออกใบเสร็จให้หน่อยค่ะทั้งสามงาน" / "รวมทั้งหมดให้หน่อย" —
+   * ประโยค รวม + บิล/ใบเสร็จ/ทุกงาน/ทั้งหมด คือขอรวมงานลูกค้าเจ้าเดียวเป็นใบเดียว
+   * (จากภาพแชตของร้าน: เดิมหลุดไปวนถาม "หมายถึง ออกบิล ไหมคะ" ไม่จบ)
+   * ไม่แตะประโยคที่เป็นการจดงานจริง เช่น "กรอบ 3 อัน รวมทั้งหมด 450" */
+  if (
+    !looksLikeJob(text) &&
+    /รวม/.test(text) &&
+    /(บิล|ใบเสร็จ|ใบเดียว|ทุกงาน|ทั้งหมด|ทั้ง\s*(?:สอง|สาม|สี่|ห้า|หก|\d+)\s*งาน)/.test(text)
+  ) {
+    return combineBills({ replyToken, profile }, text);
   }
 
   /* Idle: "ขอดูงานของโรงเรียนบ้านห้วยฟอง" → การ์ดลูกค้าเจ้านั้นทันที (ร้านสอนมา)

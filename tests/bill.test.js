@@ -47,9 +47,16 @@ function db(extra = []) {
       job('2', { total: 200, balance_due: 200 }),
       job('3', { customer_name: 'ร้านกาแฟ', total: 50, balance_due: 50 }),
       job('4', { status: 'cancelled', total: 999 }),
-      job('5', { bill_id: 'other-bill', total: 888 }),
+      // งานบนใบที่ "รับเงินแล้ว" — ห้ามดึงมารวม (กติกาเดียวกับแยกบิล)
+      job('5', { bill_id: 'paid-bill', total: 888, paid_amount: 888, balance_due: 0, payment_status: 'paid' }),
       { ...job('6', { total: 777 }), user_id: OTHER },
+      // งานที่มีใบเดี่ยวอัตโนมัติ (จดแล้วบิลพร้อมเลย) ยังไม่รับเงิน — ต้อง "รวมได้"
+      job('8', { bill_id: 'solo-8', total: 300, balance_due: 300 }),
       ...extra,
+    ],
+    bills: [
+      { id: 'paid-bill', user_id: USER, status: 'active', paid_amount: 888 },
+      { id: 'solo-8', user_id: USER, status: 'active', paid_amount: 0 },
     ],
   });
 }
@@ -70,20 +77,22 @@ test('bill numbers and the money summary', () => {
   assert.equal(summarizeBill([]).payment_status, 'pending');
 });
 
-test('billable jobs exclude cancelled, already-billed, and other users', async () => {
+/* "รอออกบิล" ยุคจดแล้วบิลพร้อมเลย: งานทุกใบมีใบเดี่ยวติดตัว — รวมได้ตราบที่
+ * ใบปัจจุบันยังไม่รับเงิน ใบที่รับเงินแล้ว (กับงานบนใบนั้น) ห้ามแตะ */
+test('billable jobs exclude cancelled, paid-billed, and other users — unpaid solo bills stay combinable', async () => {
   const jobs = await getBillableJobs(USER, {}, db());
-  assert.deepEqual(jobs.map((j) => j.id).sort(), ['1', '2', '3']);
+  assert.deepEqual(jobs.map((j) => j.id).sort(), ['1', '2', '3', '8']);
 
   const nok = await getBillableJobs(USER, { customerName: 'พี่นก' }, db());
-  assert.deepEqual(nok.map((j) => j.id).sort(), ['1', '2']);
+  assert.deepEqual(nok.map((j) => j.id).sort(), ['1', '2', '8']);
 });
 
 test('billable customers are grouped and ordered by what is owed', async () => {
   const customers = await getBillableCustomers(USER, db());
   assert.equal(customers.length, 2);
   assert.equal(customers[0].customerName, 'พี่นก');
-  assert.equal(customers[0].jobCount, 2);
-  assert.equal(customers[0].total, 300);
+  assert.equal(customers[0].jobCount, 3);
+  assert.equal(customers[0].total, 600);
   assert.equal(customers[1].customerName, 'ร้านกาแฟ');
 });
 
@@ -96,8 +105,10 @@ test('createBill links only this user\'s unbilled jobs and sums them', async () 
   assert.equal(bill.total, 300);
   assert.equal(bill.balance_due, 300);
   assert.equal(bill.jobs.length, 2);
-  // The jobs now point at the bill, so they can't be billed twice.
-  assert.deepEqual((await getBillableJobs(USER, {}, client)).map((j) => j.id), ['3']);
+  // The jobs now point at the bill — yet stay "combinable" while that bill is
+  // unpaid (รวมใหม่/เพิ่มงานได้เสมอ). Plain createBill without rebill still
+  // can't double-link them: it only takes bill_id-null jobs (test below).
+  assert.deepEqual((await getBillableJobs(USER, {}, client)).map((j) => j.id).sort(), ['1', '2', '3', '8']);
 });
 
 test('createBill refuses jobs that are not the caller\'s to bill', async () => {
@@ -106,7 +117,8 @@ test('createBill refuses jobs that are not the caller\'s to bill', async () => {
   assert.equal(await createBill(USER, ['4'], {}, client), null); // cancelled
   assert.equal(await createBill(USER, ['5'], {}, client), null); // already billed
   assert.equal(await createBill(USER, [], {}, client), null);
-  assert.equal(client._store.tables.bills.length, 0); // no orphan bill left behind
+  // no orphan bill left behind (ใบที่ seed ไว้ไม่มี bill_number)
+  assert.equal(client._store.tables.bills.filter((b) => b.bill_number).length, 0);
 });
 
 test('a bill is readable by its owner and by its share token, not by others', async () => {
