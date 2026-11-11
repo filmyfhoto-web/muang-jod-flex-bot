@@ -62,7 +62,6 @@ export async function getBillableJobs(userId, opts = {}, client = supabase) {
     .select('*')
     .eq('user_id', userId)
     .in('status', ACTIVE_JOB_STATUSES)
-    .is('bill_id', null)
     .order('created_at', { ascending: false });
 
   /* "ไม่ได้ใส่ชื่อลูกค้า" กับ "ไม่ได้ขอให้กรองชื่อ" เป็นคนละเรื่อง
@@ -81,7 +80,25 @@ export async function getBillableJobs(userId, opts = {}, client = supabase) {
     logger.error('bill.billable_failed', { message: error.message });
     throw error;
   }
-  return data || [];
+
+  /* ตั้งแต่ "จดแล้วบิลพร้อมเลย" ทุกงานเกิดมาพร้อมใบของตัวเอง — "รอออกบิล"
+   * จึงไม่ใช่ "ยังไม่มีใบ" อีกต่อไป แต่คือ "ใบปัจจุบันยังปลดได้": ใบที่ยังไม่
+   * รับเงินสักบาท (กติกาเดียวกับแยกบิล — ใบที่รับเงินแล้วห้ามแตะ) เพื่อให้
+   * "รวมบิล" ดึงงานที่มีใบเดี่ยวอัตโนมัติมารวมเป็นใบเดียวของลูกค้าได้ */
+  const rows = data || [];
+  const billIds = [...new Set(rows.map((j) => j.bill_id).filter(Boolean))];
+  if (!billIds.length) return rows;
+  const { data: bills, error: billErr } = await client
+    .from('bills')
+    .select('*')
+    .eq('user_id', userId)
+    .in('id', billIds);
+  if (billErr) {
+    logger.error('bill.billable_bills_failed', { message: billErr.message });
+    throw billErr;
+  }
+  const locked = new Set((bills || []).filter((b) => b.status === 'active' && Number(b.paid_amount) > 0).map((b) => b.id));
+  return rows.filter((j) => !j.bill_id || !locked.has(j.bill_id));
 }
 
 // Billable jobs grouped by customer, biggest outstanding first — the list the
@@ -100,11 +117,51 @@ export async function getBillableCustomers(userId, client = supabase) {
   return [...byCustomer.values()].sort((a, b) => b.due - a.due || b.total - a.total);
 }
 
+/* ปลดงานออกจากใบเดิมก่อนออกใบใหม่ ("รวมบิล") — เฉพาะใบที่ยังไม่รับเงิน
+ * (ใบที่รับเงินแล้วห้ามแตะ งานบนใบนั้นจะไม่ติดไปใบใหม่ — กติกาเดียวกับแยกบิล)
+ * ใบเดิมที่ว่างลงถูกยกเลิก (ลิงก์เก่าตายโดยตั้งใจ ใบที่ถูกรวมไปแล้วคือใบผิด)
+ * ใบที่ยังมีงานอื่นเหลืออยู่ ยอดถูกคิดใหม่ตามงานที่เหลือ */
+async function releaseForRebill(userId, ids, client) {
+  const { data: rows, error } = await client.from('jobs').select('*').eq('user_id', userId).in('id', ids);
+  if (error) {
+    logger.error('bill.rebill_read_failed', { message: error.message });
+    throw error;
+  }
+  const byBill = new Map();
+  for (const j of rows || []) {
+    if (j.bill_id) byBill.set(j.bill_id, [...(byBill.get(j.bill_id) || []), j.id]);
+  }
+  for (const [billId, jobIds] of byBill) {
+    const { data: bill } = await client.from('bills').select('*').eq('id', billId).eq('user_id', userId).maybeSingle();
+    if (!bill) continue;
+    if (bill.status === 'active' && Number(bill.paid_amount) > 0) continue;
+    const { error: unlinkErr } = await client
+      .from('jobs')
+      .update({ bill_id: null })
+      .eq('user_id', userId)
+      .eq('bill_id', billId)
+      .in('id', jobIds);
+    if (unlinkErr) {
+      logger.error('bill.rebill_unlink_failed', { billId, message: unlinkErr.message });
+      throw unlinkErr;
+    }
+    const { data: left } = await client.from('jobs').select('*').eq('user_id', userId).eq('bill_id', billId);
+    if (!left || !left.length) {
+      await client.from('bills').update({ status: 'cancelled' }).eq('id', billId).eq('user_id', userId);
+    } else {
+      await client.from('bills').update(summarizeBill(left)).eq('id', billId).eq('user_id', userId);
+    }
+  }
+}
+
 // Create a bill from the given jobs. Every job is re-read under this user, so
 // a job id from another user (or one already billed) can never be pulled in.
+// opts.rebill = ปลดงานออกจากใบเดิมที่ยังไม่รับเงินก่อน (เส้น "รวมบิล")
 export async function createBill(userId, jobIds = [], opts = {}, client = supabase) {
   const ids = [...new Set(jobIds.filter(Boolean))];
   if (!ids.length) return null;
+
+  if (opts.rebill) await releaseForRebill(userId, ids, client);
 
   const { data: jobs, error: jobsErr } = await client
     .from('jobs')

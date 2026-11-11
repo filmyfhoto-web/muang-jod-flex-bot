@@ -80,12 +80,50 @@ export async function billAllForCustomer({ replyToken, profile, params }) {
   return billJobs(replyToken, profile.id, jobs, customerName);
 }
 
+/* เลือกเจ้าที่ร้านหมายถึงจากประโยค "รวมบิล…" — เจอชื่อ (เทียบแบบหลวม ตัด
+ * ช่องว่าง/จุด แบบ accountKey) ก็เจ้านั้น ไม่เจอ: เหลือเจ้าเดียวที่รวมได้ = เจ้านั้น
+ * หลายเจ้า = คืน null ให้คนเรียกกางรายชื่อถาม */
+export function pickCombineCustomer(text, customers = []) {
+  const key = (s) => String(s || '').replace(/[\s.·,\-–—]/g, '').toLowerCase();
+  const t = key(text);
+  const named = customers.filter((c) => c.customerName);
+  const hit = named.find((c) => t.includes(key(c.customerName)));
+  if (hit) return hit;
+  return named.length === 1 ? named[0] : null;
+}
+
+/* "รวมบิลออกใบเสร็จให้หน่อยค่ะทั้งสามงาน" จากแชต — รวมงานของลูกค้าเจ้าเดียว
+ * เป็นใบเดียว (งานยังแยกใบใครใบมันในระบบเหมือนเดิม บนใบเห็นทั้งยอดรวม
+ * และยอดแยกรายงาน) — เดิมประโยคแบบนี้หลุดไปวนถาม "หมายถึง ออกบิล ไหมคะ" */
+export async function combineBills({ replyToken, profile }, text = '') {
+  const customers = (await getBillableCustomers(profile.id)).filter((c) => c.customerName);
+  if (!customers.length) {
+    return reply(replyToken, {
+      type: 'text',
+      text: 'ยังไม่มีงานที่รวมเป็นใบเดียวได้ค่ะ — ใบที่รับเงินไปแล้วม่วงไม่แตะนะคะ 💜',
+    });
+  }
+  const chosen = pickCombineCustomer(text, customers);
+  if (!chosen) {
+    return reply(replyToken, [
+      { type: 'text', text: 'รวมบิลของลูกค้าเจ้าไหนคะ? แตะเลือกได้เลยค่ะ 💜' },
+      billCustomersFlex(customers),
+    ]);
+  }
+  const jobs = await getBillableJobs(profile.id, { customerName: chosen.customerName });
+  if (!jobs.length) {
+    return reply(replyToken, { type: 'text', text: `ไม่มีงานของ ${chosen.customerName} ที่รวมได้แล้วค่ะ 💜` });
+  }
+  return billJobs(replyToken, profile.id, jobs, chosen.customerName);
+}
+
 // Make one bill out of these jobs and show it.
 async function billJobs(replyToken, userId, jobs, customerName) {
   const bill = await createBill(
     userId,
     jobs.map((j) => j.id),
-    { customerName }
+    // rebill: งานสมัยนี้มีใบเดี่ยวติดตัวมาแต่เกิด — ปลดใบที่ยังไม่รับเงินออกก่อนรวม
+    { customerName, rebill: true }
   );
   if (!bill) {
     return reply(replyToken, { type: 'text', text: 'ออกบิลไม่สำเร็จค่ะ ลองใหม่อีกครั้งนะคะ' });
