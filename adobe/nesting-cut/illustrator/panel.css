@@ -897,12 +897,22 @@ details.steps > summary::before {
   width: 100%;
   margin-top: 4px;
 }
-.numlist-field .opt {
-  color: var(--muted);
-  font-size: 11px;
+/* บรรทัดสรุปสูงคงที่ 2 บรรทัดเสมอ (ว่าง/มีเลข/พิมพ์ผิด) — พิมพ์ไปแผงไม่ขยับ */
+#numListInfo {
+  margin: 4px 0 6px;
+  height: 3em;
+  line-height: 1.5em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 #numListInfo.bad {
   color: #e5484d;
+}
+/* ใส่เลขที่ต้องการแล้ว: ช่องเลขเริ่มต้น/เพิ่มทีละ/จำนวน ยังอยู่ที่เดิม แค่จางลง (ไม่ซ่อน ไม่ให้ช่องอื่นกระโดด) */
+[data-num-seq].off {
+  opacity: 0.45;
 }
 
 /* รันเลข: โฟลเดอร์บันทึก PDF */
@@ -1041,6 +1051,13 @@ label.field > input[type='color'] {
 }
 .tool-actions .row button {
   flex: 1;
+}
+/* ข้อความสถานะสูงคงที่ ปุ่มด้านบนไม่ขยับขึ้นลงตามความยาวข้อความ (ยาวเกินเลื่อนดูในกล่องได้) */
+.tool-actions .status {
+  height: 3em;
+  line-height: 1.5em;
+  min-height: 0;
+  overflow-y: auto;
 }
 .sticky-actions .row.nav {
   margin: 0;

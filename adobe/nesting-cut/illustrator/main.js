@@ -60,7 +60,7 @@
   var STORE_KEY = 'nongploy.nestingcut.settings.v2';
   // ค่าที่บันทึกจากรุ่นก่อน UI_VERSION: หัวงานเคยเปิดเป็นค่าเริ่มต้น → ปิดให้ครั้งเดียว
   var UI_VERSION = 6;
-  var PANEL_VERSION = '1.13.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
+  var PANEL_VERSION = '1.13.1'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
   var PV_W = 300; // กรอบพรีวิวขนาดคงที่ (px) — ต้องตรงกับ #previewBox ใน panel.css
   var PV_H = 400;
   var WIDE_MIN = 734; // แผงกว้างพอวางพรีวิว (334) คู่ช่องคำสั่ง (400) — ตรงกับ --pv-col + --ctl-w ใน panel.css
@@ -296,6 +296,8 @@
   function status(text, kind) {
     var el = $(STATUS_ID[S.settings.tool] || 'status');
     el.textContent = text;
+    el.title = text; // กล่องสถานะสูงคงที่ — ชี้ค้างดูข้อความเต็มได้
+    el.scrollTop = 0;
     el.className = 'status' + (kind ? ' ' + kind : '');
   }
 
@@ -2793,25 +2795,36 @@
   }
 
   // สรุปใต้ช่องเลขที่ต้องการ (พิมพ์ไปเห็นไป)
+  // บรรทัดนี้อยู่ตลอด สูงคงที่ — เปลี่ยนแค่ข้อความ แผงจึงไม่เด้งขณะพิมพ์
   function numListInfo() {
     var box = $('numListInfo');
     var raw = $('numListInput').value;
     var r = D.parseNumberList(raw, 5000);
-    box.classList.remove('bad');
-    if (!raw.trim()) {
-      box.hidden = true;
-      return;
+    var on = !!raw.trim();
+    seqOff(on);
+    box.classList.toggle('bad', !!r.error);
+    var text;
+    if (!on) text = 'เว้นว่าง = รันต่อเนื่องจากเลขเริ่มต้น';
+    else if (r.error) text = r.error === 'BAD' ? 'อ่านไม่ออกตรง “' + r.at + '” — ใช้ตัวเลข ขีด (-) และจุลภาค (,)' : 'เกิน 5,000 เลข (' + r.count + ')';
+    else {
+      var parts = r.ranges.slice(0, 6).map(function (g) {
+        return g[0] === g[1] ? String(g[0]) : g[0] + '–' + g[1] + ' (' + (Math.abs(g[1] - g[0]) + 1) + ')';
+      });
+      text = 'ใช้เฉพาะ ' + r.list.length + ' เลข: ' + parts.join(' · ') + (r.ranges.length > 6 ? ' …' : '');
     }
-    box.hidden = false;
-    if (r.error) {
-      box.classList.add('bad');
-      box.textContent = r.error === 'BAD' ? 'อ่านไม่ออกตรง “' + r.at + '” — ใช้ตัวเลข ขีด (-) และจุลภาค (,)' : 'เกิน 5,000 เลข (' + r.count + ')';
-      return;
-    }
-    var parts = r.ranges.slice(0, 6).map(function (g) {
-      return g[0] === g[1] ? String(g[0]) : g[0] + '–' + g[1] + ' (' + (Math.abs(g[1] - g[0]) + 1) + ')';
+    box.textContent = text;
+    box.title = text;
+  }
+
+  // มีเลขที่ต้องการ: ช่องเลขเริ่มต้น / เพิ่มทีละ / จำนวน จางลงและพิมพ์ไม่ได้ แต่ยังอยู่ที่เดิม (ไม่ซ่อน)
+  function seqOff(off) {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-num-seq]'), function (e) {
+      e.classList.toggle('off', off);
+      e.title = off ? 'ใช้เลขตามช่อง “เลขที่ต้องการเท่านั้น” อยู่' : '';
+      Array.prototype.forEach.call(e.querySelectorAll('input,select'), function (f) {
+        f.disabled = off;
+      });
     });
-    box.textContent = 'ใช้เฉพาะ ' + r.list.length + ' เลข: ' + parts.join(' · ') + (r.ranges.length > 6 ? ' …' : '') + ' — ไม่ใช้เลขเริ่มต้น / เพิ่มทีละ / จำนวน';
   }
 
   function numOpts(count) {
@@ -3234,13 +3247,13 @@
       renderNumList(plan);
       if (plan.mode === 'sheet') {
         drawNumSheet(plan);
-        if (plan.qty > 1 && num('numStep') === 0 && !String(S.settings.numList || '').trim()) status('Step เป็น 0 — ทุกใบจะได้เลขเดียวกัน (' + plan.items[0].text + ') · ' + sheetSummary(plan), 'warn');
+        if (plan.qty > 1 && num('numStep') === 0 && !String(S.settings.numList || '').trim()) status('เพิ่มทีละ = 0 — ทุกใบจะได้เลขเดียวกัน (' + plan.items[0].text + ') · ' + sheetSummary(plan), 'warn');
         else status(sheetSummary(plan) + ' — กด “ใส่เลข” สร้างไฟล์ใหม่', 'ok');
         return plan;
       }
       $('numSheetPrev').hidden = true;
       var n = plan.mode === 'page' ? plan.pages.length : plan.items.length;
-      if (plan.mode === 'text' && n > 1 && num('numStep') === 0 && !String(S.settings.numList || '').trim()) status('Step เป็น 0 — ทุกกล่องจะได้เลขเดียวกัน (' + plan.items[0].text + ')', 'warn');
+      if (plan.mode === 'text' && n > 1 && num('numStep') === 0 && !String(S.settings.numList || '').trim()) status('เพิ่มทีละ = 0 — ทุกกล่องจะได้เลขเดียวกัน (' + plan.items[0].text + ')', 'warn');
       else status('ตัวอย่าง ' + n + ' รายการ — กด “ใส่เลข” เพื่อเขียนลงไฟล์', 'ok');
       return plan;
     });
@@ -3589,8 +3602,6 @@
     show('[data-num-pages]', s.numMode === 'sheet' && !single);
     show('[data-num-sheet-custom]', s.numMode === 'sheet' && !single && !fromLayout && s.numSheet === 'custom');
     show('[data-num-save]', s.numMode === 'sheet' && !!s.numSave);
-    var hasList = !!String(s.numList || '').trim();
-    show('[data-num-seq]', !hasList);
     numListInfo();
     $('numSaveDirLabel').textContent = 'บันทึกที่: ' + (s.numSaveDir || 'โฟลเดอร์เดียวกับไฟล์ต้นฉบับ (ไฟล์ยังไม่ได้บันทึก → Documents/NestingCut)');
     $('btnNumSaveDirReset').hidden = !s.numSaveDir;
