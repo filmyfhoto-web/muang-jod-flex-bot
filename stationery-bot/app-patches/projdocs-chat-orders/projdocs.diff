@@ -1,0 +1,59 @@
+--- projdocs (live, md5 2bcd6432)
++++ projdocs (patched, md5 c201be4f)
+@@ -18,2 +18,5 @@
+    (EG 2026-10-25) หน้า “งานลูกค้า” ใช้ของหน้านี้ผ่าน window.__pd (ใบสั่งจัด · ส่ง LINE · ลิงก์ · ปริ้น/PDF รวม) · บันทึกใบสั่งจัดจากหน้างานลูกค้า → กลับหน้างานลูกค้า */
++/* (EH 2026-10-26) ออเดอร์ที่ลูกค้าพิมพ์ในแชท LINE → บอท (Render) สร้างเป็นเอกสารโครงการเอง (origin='chat' · สถานะ ใหม่ · ไม่ใส่ราคา ไม่ตัดสต็อก)
++   รายการที่ไม่ตรงสินค้าในร้านมี review:true → ป้าย “รอตรวจสอบสินค้า” · ลิงก์จากการ์ด LINE ?doc=PJ-xxxx เปิดเอกสารนั้นเลย
++   ใบที่บอทสร้าง: ถ้าลูกค้าส่งรายการเพิ่มระหว่างที่เปิดค้างอยู่ จะไม่ให้บันทึกทับ (ต้องเปิดใหม่) */
+ (function(){
+@@ -157,2 +160,4 @@
+ .pd-ir .nm small.cu{color:#B25E00;font-weight:600}
++.pd-ir .nm small.rv{color:#B42318}
++.pd-ir .nm small .rvh{color:#B25E00;font-weight:600}
+ .pd-ir .nm small.out{color:#B42318}
+@@ -212,2 +217,3 @@
+ .pd-shop{font-size:11px;border-radius:999px;padding:1px 8px;background:rgba(18,51,95,.08);color:var(--navy,#12335F);font-weight:600;white-space:nowrap;margin-left:4px}
++.pd-chat{background:#E7F3EB;color:#1E6F3C}
+ /* (EC) ใบสั่งจัดแยกห้องในงาน */
+@@ -439,4 +445,4 @@
+   const itemsOf=r=>Array.isArray(r&&r.items)?r.items:[]
+-  const itBadge=r=>{const L=itemsOf(r);if(!L.length)return '';const wait=L.filter(x=>x.price==null).length
+-    return `<span class="pd-ic${wait?' wait':''}">${ic('cart',13)}สินค้า ${num(L.length)} รายการ${wait?' · รอใส่ราคา':r.items_total!=null?' · '+money(r.items_total)+' บาท':''}</span>`}
++  const itBadge=r=>{const L=itemsOf(r);if(!L.length)return '';const wait=L.filter(x=>x.price==null).length,rv=L.filter(x=>x.review).length
++    return `<span class="pd-ic${wait?' wait':''}">${ic('cart',13)}สินค้า ${num(L.length)} รายการ${wait?' · รอใส่ราคา':r.items_total!=null?' · '+money(r.items_total)+' บาท':''}${rv?' · รอตรวจสอบสินค้า '+num(rv):''}</span>`}
+   const pNum=v=>{const t=String(v==null?'':v).replace(/[,\s฿]/g,'');if(t==='')return null;const n=Number(t);return n>=0&&n<1e9?Math.round(n*100)/100:NaN}
+@@ -447,3 +453,3 @@
+         const sub=x.product_id?(p?`สินค้าในร้าน · ${Number(p.stock_qty)>0?'สต็อก '+num(p.stock_qty)+' '+esc(p.unit||u):'<span>สต็อกหมด</span>'}${Number(p.price)>0?' · ราคาร้าน '+money(p.price):''}`:'สินค้าในร้าน'):''
+-        return `<div class="pd-ir" data-i="${i}"><span class="n">${i+1}</span><div class="nm"><b>${esc(x.name||'-')}</b>${x.product_id?`<small class="${p&&!(Number(p.stock_qty)>0)?'out':''}">${sub}</small>`:'<small class="cu">ครูพิมพ์เอง · ไม่มีในร้าน</small>'}</div><span class="q">× ${num(x.qty||0)} ${esc(u)}</span><input inputmode="decimal" data-ip="${i}" value="${x.price!=null?esc(String(x.price)):''}" placeholder="${p&&Number(p.price)>0?esc(String(p.price)):'ราคา/หน่วย'}" aria-label="ราคาต่อหน่วย ${esc(x.name||'')}"><b class="lt" data-lt="${i}"></b></div>`}).join('')}
++        return `<div class="pd-ir" data-i="${i}"><span class="n">${i+1}</span><div class="nm"><b>${esc(x.name||'-')}</b>${x.product_id?`<small class="${p&&!(Number(p.stock_qty)>0)?'out':''}">${sub}${x.said?' · ลูกค้าพิมพ์ “'+esc(x.said)+'”':''}${x.review&&x.hint?' · <span class="rvh">⚠️ '+esc(x.hint)+'</span>':''}</small>`:(x.review?'<small class="cu rv">⚠️ รอตรวจสอบสินค้า'+(x.hint?' · '+esc(x.hint):'')+'</small>':'<small class="cu">ครูพิมพ์เอง · ไม่มีในร้าน</small>')}</div><span class="q">× ${num(x.qty||0)} ${esc(u)}</span><input inputmode="decimal" data-ip="${i}" value="${x.price!=null?esc(String(x.price)):''}" placeholder="${p&&Number(p.price)>0?esc(String(p.price)):'ราคา/หน่วย'}" aria-label="ราคาต่อหน่วย ${esc(x.name||'')}"><b class="lt" data-lt="${i}"></b></div>`}).join('')}
+       <div class="pd-it-f"><small id="pd_itW"></small><span>รวม</span><b id="pd_itT"></b></div></div>`
+@@ -489,4 +495,4 @@
+       <b class="pd-c2">${esc(r.project_name||'-')}</b>
+-      <div class="pd-c3"><span>ครู${esc(r.teacher_name||'-')}${r.origin==='shop'?'<span class="pd-shop">ร้านสร้าง</span>':''}</span>${r.line_user_id?`<a class="pd-lc" data-lc-uid="${esc(r.line_user_id)}" href="#" target="_blank" rel="noopener" title="ทักแชท LINE ครู${esc(r.teacher_name||'')}" aria-label="ทักแชท LINE">${ic('message-circle',13)}LINE</a>`:''}</div>
+-      <div class="pd-c4"><span>${r.origin==='shop'?'สร้าง':'ส่ง'} ${esc(dShort(docT(r)))}</span>${a?'':dueHtml(r)}${r.origin==='shop'&&!r.file_count?'':`<span class="pd-fc">${ic('file',12)}${num(r.file_count||0)} ไฟล์</span>`}${r.slip_at?`<span class="pd-slb">${ic('receipt',12)}ใบสั่งจัด ${Number(r.slip_rooms)>1?num(r.slip_rooms)+' ห้อง · ':''}${money(r.slip_total)} บาท</span>`:itBadge(r)}${r.shared_at?`<span class="pd-sent">${ic('check',12)}ส่งให้ครูแล้ว</span>`:''}${a?`<span class="pd-arcb">${ic('folder',12)}เก็บเข้า Drive ${esc(dShort(r.archived_at))}</span>`:''}</div>
++      <div class="pd-c3"><span>ครู${esc(r.teacher_name||'-')}${r.origin==='shop'?'<span class="pd-shop">ร้านสร้าง</span>':r.origin==='chat'?'<span class="pd-shop pd-chat">สั่งทางแชท</span>':''}</span>${r.line_user_id?`<a class="pd-lc" data-lc-uid="${esc(r.line_user_id)}" href="#" target="_blank" rel="noopener" title="ทักแชท LINE ครู${esc(r.teacher_name||'')}" aria-label="ทักแชท LINE">${ic('message-circle',13)}LINE</a>`:''}</div>
++      <div class="pd-c4"><span>${r.origin==='shop'?'สร้าง':r.origin==='chat'?'สั่ง':'ส่ง'} ${esc(dShort(docT(r)))}</span>${a?'':dueHtml(r)}${(r.origin==='shop'||r.origin==='chat')&&!r.file_count?'':`<span class="pd-fc">${ic('file',12)}${num(r.file_count||0)} ไฟล์</span>`}${r.slip_at?`<span class="pd-slb">${ic('receipt',12)}ใบสั่งจัด ${Number(r.slip_rooms)>1?num(r.slip_rooms)+' ห้อง · ':''}${money(r.slip_total)} บาท</span>`:itBadge(r)}${r.shared_at?`<span class="pd-sent">${ic('check',12)}ส่งให้ครูแล้ว</span>`:''}${a?`<span class="pd-arcb">${ic('folder',12)}เก็บเข้า Drive ${esc(dShort(r.archived_at))}</span>`:''}</div>
+     </div>`}
+@@ -521,3 +527,3 @@
+     }catch(e){if(tok!==P.tok)return;P.err=(e&&e.message)||'ลองใหม่อีกครั้ง'}
+-    P.loaded=true;paint()
++    P.loaded=true;paint();pdDeep()
+     try{window.SKIN&&SKIN.refreshBadges&&SKIN.refreshBadges()}catch(e){}
+@@ -525,2 +531,13 @@
+ 
++  // (EH) ลิงก์จากการ์ด LINE ของบอท https://admin.nattagroup.com/?doc=PJ-0123#projdocs → เปิดเอกสารนั้นเลย (ครั้งเดียว แล้วเอา ?doc ออกจากที่อยู่)
++  function pdDeep(){
++    try{
++      const no=new URLSearchParams(location.search).get('doc')
++      if(!no||P.deep===no||!P.loaded||P.err)return
++      P.deep=no
++      history.replaceState(null,'',location.pathname+location.hash)
++      const r=P.rows.find(x=>x.doc_no===no)
++      if(r)openDoc(r.id);else toast('ไม่พบเอกสาร '+no,'err',5000)
++    }catch(e){}
++  }
+   async function signed(paths){
+@@ -604,2 +621,3 @@
+         }
++        if(r.origin==='chat'&&r.updated_at){try{const{data:cur}=await sb.from('project_docs').select('updated_at').eq('id',r.id).maybeSingle();if(cur&&cur.updated_at&&Date.parse(cur.updated_at)!==Date.parse(r.updated_at)){toast('ใบนี้เพิ่งมีการเปลี่ยนแปลง (เช่น ลูกค้าส่งรายการเพิ่มทางแชท) — ปิดแล้วเปิดใหม่เพื่อดูรายการล่าสุดก่อนบันทึก','err',8000);return}}catch(e){}}
+         const btn=document.querySelector('.modal-f .green');if(btn){btn.disabled=true;btn.textContent='กำลังบันทึก…'}
