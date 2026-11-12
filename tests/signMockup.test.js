@@ -1307,3 +1307,50 @@ test('วิดีโอโปรโมท: ตัวหนังสือเป
   assert.match(app, /function promoPreview\(\)/);
   assert.match(app, /exp\.job\+\+;/); // เปลี่ยนแบบ = หยุดคลิปแบบเก่า
 });
+
+test('วิดีโอคมชัด 16 Mbps (ไม่รับถอยเป็น 8) · เลือกไม่ใส่ข้อความได้ (ใส่เองในแอปตัดต่อ) · ส่ง LINE เป็นไฟล์', async () => {
+  const vm = await import('node:vm');
+  const src = readFileSync(new URL('../sign-mockup/reels.js', import.meta.url), 'utf8');
+  // โหลด reels.js ในเครื่องจำลองที่มีตัวเข้ารหัสวิดีโอ (รับได้ไม่เกิน limit)
+  const load = (limit) => {
+    const seen = [];
+    const box = {
+      Promise,
+      VideoFrame: function () {},
+      VideoEncoder: { isConfigSupported: (cfg) => { seen.push(cfg.codec + '@' + cfg.bitrate); return Promise.resolve({ supported: cfg.bitrate <= limit && cfg.codec === 'avc1.4d0028' }); } },
+    };
+    box.VideoEncoder = Object.assign(function () {}, box.VideoEncoder);
+    vm.runInNewContext(src, { self: box, Promise, setTimeout, clearTimeout, setInterval, clearInterval });
+    return { RL: box.SignMockup.reels, seen };
+  };
+  let { RL, seen } = load(16000000);
+  assert.equal(RL.BITRATE, 16000000);
+  assert.equal(RL.BITRATE_LOW, 8000000);
+  let pick = await RL.pickCodec(1080, 1920, 30, RL.BITRATE);
+  assert.equal(pick.cfg.bitrate, 16000000);
+  assert.equal(pick.cfg.codec, 'avc1.4d0028');
+  assert.equal(pick.cfg.latencyMode, 'quality');
+  ({ RL, seen } = load(8000000));
+  pick = await RL.pickCodec(1080, 1920, 30, RL.BITRATE);
+  assert.equal(pick.cfg.bitrate, 8000000); // ทุกตัวไม่รับ 16 → ลองทุกตัวที่ 8 ก่อนถอยไปอัดหน้าจอ
+  assert.deepEqual(seen.slice(0, 4), ['avc1.640028@16000000', 'avc1.4d0028@16000000', 'avc1.42e028@16000000', 'vp09.00.40.08@16000000']);
+  ({ RL, seen } = load(1000));
+  assert.equal(await RL.pickCodec(1080, 1920, 30, RL.BITRATE), null);
+  assert.equal(seen.length, 8);
+  assert.ok(!/[^0-9]6000000/.test(src)); // ค่าเดิม 6 Mbps ไม่เหลือ
+  assert.match(src, /videoBitsPerSecond: o\.bitrate \|\| BITRATE/);
+  // ไม่ใส่ข้อความ: ทั้งแบบโปรโมทและหมุนโชว์ + ภาพตัวอย่าง · ช่องตัวหนังสือจางลง (ไม่ซ่อน)
+  const html = readFileSync(new URL('../sign-mockup/index.html', import.meta.url), 'utf8');
+  assert.match(html, /<div class="seg small" id="wordsSeg">/);
+  assert.match(html, /data-words="off">ไม่ใส่ \(ใส่เองในแอปตัดต่อ\)/);
+  assert.match(html, /<textarea id="promoText"[^>]*data-words-only/);
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  assert.match(app, /function reelWords\(\)/);
+  assert.equal((app.match(/if \(plan\.words\) RL\.promoOverlay\(/g) || []).length, 2); // คลิป + ภาพตัวอย่าง
+  assert.match(app, /if \(words\) RL\.overlay\(x, i \/ RL\.FPS, info\);/);
+  assert.match(app, /'promo-notext'/);
+  assert.match(app, /\$\('promoBox'\)\.classList\.toggle\('nowords', !reelWords\(\)\);/);
+  assert.match(app, /line: 'ส่งทาง LINE:[^']*ไฟล์/);
+  const css = readFileSync(new URL('../sign-mockup/app.css', import.meta.url), 'utf8');
+  assert.match(css, /\.promobox\.nowords \[data-words-only\] \{/);
+});
