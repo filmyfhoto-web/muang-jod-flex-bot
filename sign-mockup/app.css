@@ -250,6 +250,65 @@ svg {
   border-color: var(--active);
   color: var(--active-ink);
 }
+/* ปุ่ม “แสง”: แผงปรับลอยทับภาพ (ไม่ดันภาพลง) */
+.lightwrap {
+  position: relative;
+  flex: none;
+}
+.lightwrap .tool {
+  position: relative;
+}
+.tuned-dot {
+  display: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-left: -2px;
+}
+.lightwrap.tuned .tuned-dot {
+  display: inline-block;
+}
+.lightpop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  width: 290px;
+  max-width: calc(100vw - 32px);
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+}
+.lightpop .field {
+  margin: 0;
+}
+.lightpop .label em {
+  font-style: normal;
+  color: var(--ink-3);
+  margin-left: 4px;
+}
+.lightpop-ends {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--ink-3);
+}
+.lightpop-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.lightpop-foot .hint {
+  margin: 0;
+  font-size: 11.5px;
+}
 .viewhint {
   margin-left: auto;
   font-size: 12.5px;

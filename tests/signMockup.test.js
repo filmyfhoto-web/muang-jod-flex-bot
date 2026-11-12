@@ -1371,3 +1371,31 @@ test('วิดีโอโปรโมท: พิมพ์ข้อความ
   assert.match(changed, /\['dlShare', 'dlCopy', 'dlSave'\]\.forEach/);
   assert.match(app, /var job = \+\+exp\.job;\n\s*exp\.stale = false;/);
 });
+
+test('ปรับแสงภาพ 3 มิติ: ความสว่างป้าย · แสงในฉาก · ทิศทางแสง (จำกับงาน ใช้กับรูป/วิดีโอ · ไฟล์ glb สีตามไฟล์งาน)', () => {
+  assert.deepEqual(C.LIGHT_DEF, { sign: 1, scene: 1, dir: -33 });
+  assert.deepEqual(C.normalizeLight(), { sign: 1, scene: 1, dir: -33 });
+  assert.deepEqual(C.normalizeLight({ sign: 9, scene: '0.1', dir: 200 }), { sign: 1.6, scene: 0.5, dir: 80 });
+  assert.deepEqual(C.normalizeLight({ sign: 1.234, scene: 'x', dir: -12.6 }), { sign: 1.23, scene: 1, dir: -13 });
+  assert.ok(C.lightIsDefault({}));
+  assert.ok(!C.lightIsDefault({ dir: 0 }));
+  const s3 = readFileSync(new URL('../sign-mockup/scene3d.js', import.meta.url), 'utf8');
+  // ไฟหลักหมุนตามทิศ (ค่าเดิม −33° = ตำแหน่งเดิม ซ้ายบนด้านหน้า) · ไฟเสริมฝั่งตรงข้าม
+  assert.match(s3, /key\.position\.set\(c\.x \+ Math\.sin\(az\) \* R \* 1\.664, c\.y \+ R \* 1\.6, c\.z \+ Math\.cos\(az\) \* R \* 1\.664\);/);
+  const az = (-33 * Math.PI) / 180;
+  assert.ok(Math.abs(Math.sin(az) * 1.664 - -0.9) < 0.02 && Math.abs(Math.cos(az) * 1.664 - 1.4) < 0.02, 'ค่าเดิมต้องตรงตำแหน่งไฟเดิม');
+  assert.match(s3, /renderer\.toneMappingExposure = LIGHT\.exposure \* \(outdoor \? 0\.95 : 1\) \* LT\.scene;/);
+  assert.match(s3, /renderer\.toneMappingExposure = LIGHT\.exposure \* 1\.15 \* LT\.scene;/);
+  assert.match(s3, /m\.color\.copy\(m\.userData\.baseColor\)\.multiplyScalar\(k\);/); // เฉพาะวัสดุหน้าป้าย
+  // วิดีโอโปรโมทใช้แสงเดียวกัน · ไฟล์ glb ทุกแบบเก็บสีหน้าป้ายตามไฟล์งาน
+  assert.match(s3, /renderer\.toneMappingExposure = LIGHT\.exposure \* LT\.scene;\n\s*applySignLight\(\);/);
+  assert.equal((s3.match(/plainFace\(\(\) => new GLTFExporter\(\)\.parseAsync/g) || []).length, 3);
+  const html = readFileSync(new URL('../sign-mockup/index.html', import.meta.url), 'utf8');
+  for (const id of ['lightBtn', 'lightPop', 'lsign', 'lscene', 'ldir', 'lightReset']) assert.match(html, new RegExp('id="' + id + '"'), id);
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  assert.match(app, /light: \{ sign: 1, scene: 1, dir: -33 \},/);
+  assert.match(app, /s\.light = C\.normalizeLight\(s\.light\);/);
+  assert.match(app, /light: C\.normalizeLight\(st\.light\),/); // ส่งให้เวที 3 มิติ
+  const css = readFileSync(new URL('../sign-mockup/app.css', import.meta.url), 'utf8');
+  assert.match(css, /\.lightpop \{\n\s*position: absolute;/); // ลอยทับภาพ ไม่ดันภาพ
+});

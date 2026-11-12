@@ -89,6 +89,31 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" /></svg>
               <span>กลางคืน</span>
             </button>
+            <span class="lightwrap">
+              <button type="button" class="tool" id="lightBtn" aria-pressed="false" aria-expanded="false" aria-controls="lightPop" title="ปรับแสง: ความสว่างป้าย · แสงในฉาก · ทิศทางแสง">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6" /></svg>
+                <span>แสง</span><i class="tuned-dot" aria-hidden="true"></i>
+              </button>
+              <div class="lightpop" id="lightPop" role="dialog" aria-label="ปรับแสง" hidden>
+                <label class="field range">
+                  <span class="label">ความสว่างป้าย <em id="lsignVal"></em></span>
+                  <input type="range" id="lsign" min="0.5" max="1.6" step="0.01" />
+                </label>
+                <label class="field range">
+                  <span class="label">แสงในฉาก <em id="lsceneVal"></em></span>
+                  <input type="range" id="lscene" min="0.5" max="1.8" step="0.01" />
+                </label>
+                <label class="field range">
+                  <span class="label">ทิศทางแสง <em id="ldirVal"></em></span>
+                  <input type="range" id="ldir" min="-80" max="80" step="1" />
+                  <span class="lightpop-ends" aria-hidden="true"><span>← ซ้าย</span><span>ขวา →</span></span>
+                </label>
+                <div class="lightpop-foot">
+                  <span class="hint">ใช้กับรูป/วิดีโอที่ส่งลูกค้าด้วย</span>
+                  <button type="button" class="btn-ghost small" id="lightReset">ค่าเดิม</button>
+                </div>
+              </div>
+            </span>
             <button type="button" class="tool" id="resetViewBtn" title="กลับมุมกล้องเริ่มต้น">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.34-5.66M4 4v4.5h4.5" /><circle cx="12" cy="12" r="1.6" /></svg>
               <span>รีเซ็ตมุม</span>
