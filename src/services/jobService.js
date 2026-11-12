@@ -780,6 +780,37 @@ export async function getReport(userId, period = 'daily', client = supabase) {
 }
 
 // Helper: load items for a list of jobs in one query, then group.
+/* เมนูสินค้าหน้าขาย (POS) — ของที่ร้านขายบ่อยจริง อ่านจากบรรทัดงานที่เคยจด
+ * ไม่มีตารางสินค้าแยก: ชื่อเดียวกัน+ราคาต่อหน่วยเดียวกันนับเป็นปุ่มเดียว
+ * เรียงจากที่ขายบ่อย — ร้านขายไปเรื่อย ๆ เมนูก็ตรงร้านขึ้นเอง */
+export async function getFrequentItems(userId, limit = 12, client = supabase) {
+  const { data: jobs, error } = await client
+    .from('jobs')
+    .select('*')
+    .eq('user_id', userId)
+    .in('status', ACTIVE_STATUSES)
+    .order('created_at', { ascending: false })
+    .limit(200);
+  if (error) {
+    logger.error('job.frequentItems_failed', { message: error.message });
+    throw error;
+  }
+  const withItems = await attachItems(jobs || [], client);
+  const freq = new Map();
+  for (const j of withItems) {
+    for (const it of j.items || []) {
+      const name = String(it.item_name || '').trim();
+      const price = round2(Number(it.unit_price) || 0);
+      if (!name || !(price > 0)) continue;
+      const key = `${name}|${price}`;
+      const cur = freq.get(key) || { name, price, unit: it.unit || null, count: 0 };
+      cur.count += 1;
+      freq.set(key, cur);
+    }
+  }
+  return [...freq.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'th')).slice(0, limit);
+}
+
 // Exported because a bill needs them too: a job holding three lines shows on
 // the receipt as one amount unless the receipt can see what it is made of.
 export async function attachItems(jobs, client = supabase) {

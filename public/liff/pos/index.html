@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#f5f6f8" />
+<title>ม่วงจดให้ — ขายหน้าร้าน</title>
+<link rel="manifest" href="/app/manifest.webmanifest" />
+<link rel="apple-touch-icon" href="/brand/ui/app-192.png" />
+<style>
+  /* หน้าขายหน้าร้าน (POS) — ร้านถาม "ทำให้เป็นระบบ pos ได้ไหม"
+     แตะเมนู → ตะกร้า → รับเงิน/ทอน หรือโชว์ QR → บันทึก+ใบเสร็จ จบในหน้าเดียว
+     โทนเดียวกับทั้งแอป: ขาว กรม ส้ม เหลี่ยมทั้งแผง คอลัมน์มือถือทุกขนาดจอ */
+  :root {
+    color-scheme: light;
+    --accent: #35486E; --accent-text: #2F5A8A; --gold: #EE7B2F; --gold-2: #C85F12;
+    --bg: #EFF1F5; --card: #fff; --tint: #E8ECF5; --line: #E2E6EE;
+    --ink: #1F2B45; --sub: #5E6E8C; --grey: #7E8CA3;
+    --green: #2E7D5B; --green-bg: #E4F0EA; --red: #B3402F;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-size: 15px; line-height: 1.5;
+    font-family: -apple-system, 'SF Pro Text', 'Thonburi', BlinkMacSystemFont, 'Noto Sans Thai', 'Sarabun', 'Segoe UI', sans-serif;
+    padding-bottom: calc(132px + var(--safe-bottom)); }
+  main { max-width: 430px; margin: 0 auto; padding: 0 12px; }
+  .bar { display: flex; align-items: center; gap: 10px; padding: 14px 12px 10px; max-width: 430px; margin: 0 auto; }
+  .bar img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; background: var(--tint); }
+  .bar h1 { margin: 0; font-size: 16.5px; }
+  .bar p { margin: 0; font-size: 11.5px; color: var(--grey); }
+
+  .card { background: var(--card); border: 1px solid var(--line); padding: 13px 14px; margin-bottom: 11px; }
+  .card h2 { margin: 0 0 9px; font-size: 13.5px; color: var(--sub); font-weight: 700; }
+
+  /* เมนูขายบ่อย — ปุ่มใหญ่พอแตะด้วยนิ้วโป้งข้างเดียว */
+  .menu { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .mi { border: 1.5px solid var(--line); background: var(--card); font: inherit; text-align: left;
+    padding: 10px 11px; cursor: pointer; min-height: 56px; }
+  .mi:active { background: var(--tint); }
+  .mi b { display: block; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mi span { color: var(--gold-2); font-weight: 700; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+  .menu-empty { color: var(--grey); font-size: 13px; grid-column: 1 / -1; }
+
+  .addrow { display: flex; gap: 7px; margin-top: 9px; }
+  .addrow input { font: inherit; border: 1.5px solid var(--line); padding: 9px 10px; min-width: 0; }
+  #add-name { flex: 2.2; }
+  #add-price { flex: 1; text-align: right; }
+  .addrow button { border: 0; background: var(--tint); color: var(--accent-text); font: inherit; font-weight: 700; padding: 0 14px; cursor: pointer; }
+
+  /* ตะกร้า */
+  .ln { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+  .ln:last-child { border-bottom: 0; }
+  .ln .nm { flex: 1; min-width: 0; }
+  .ln .nm b { display: block; font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ln .nm span { font-size: 12px; color: var(--grey); font-variant-numeric: tabular-nums; }
+  .qtyc { display: flex; align-items: center; border: 1.5px solid var(--line); }
+  .qtyc button { border: 0; background: none; font: inherit; font-size: 17px; width: 34px; height: 34px; color: var(--accent-text); cursor: pointer; }
+  .qtyc b { min-width: 26px; text-align: center; font-variant-numeric: tabular-nums; }
+  .ln .amt { width: 76px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .ln .del { border: 0; background: none; color: var(--grey); font-size: 15px; cursor: pointer; padding: 4px; }
+  .cart-empty { color: var(--grey); font-size: 13px; text-align: center; padding: 14px 0; }
+
+  /* จ่ายเงิน */
+  .paychips { display: flex; gap: 7px; }
+  .paychips button { flex: 1; border: 1.5px solid var(--line); background: var(--card); font: inherit; font-weight: 700; font-size: 14px; padding: 11px 4px; cursor: pointer; color: var(--sub); }
+  .paychips button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .cashbox { margin-top: 10px; }
+  .cashbox label { font-size: 12.5px; color: var(--sub); display: block; margin-bottom: 4px; }
+  #received { width: 100%; font: inherit; font-size: 24px; font-weight: 700; text-align: right; border: 1.5px solid var(--line); padding: 10px 12px; font-variant-numeric: tabular-nums; }
+  #received:focus { outline: none; border-color: var(--gold); }
+  .quickcash { display: flex; gap: 6px; margin-top: 7px; flex-wrap: wrap; }
+  .quickcash button { border: 1.5px solid var(--line); background: var(--card); font: inherit; font-size: 13px; font-weight: 700; padding: 7px 11px; cursor: pointer; font-variant-numeric: tabular-nums; }
+  .change { display: flex; justify-content: space-between; align-items: baseline; margin-top: 10px; padding: 10px 12px; background: var(--green-bg); }
+  .change span { font-size: 13px; color: var(--sub); }
+  .change b { font-size: 26px; color: var(--green); font-variant-numeric: tabular-nums; }
+  .change.minus { background: #F8E4E1; }
+  .change.minus b { color: var(--red); }
+  .qrbox { margin-top: 10px; text-align: center; }
+  .qrbox img { width: 200px; max-width: 100%; background: #fff; border: 1.5px solid var(--line); padding: 6px; }
+  .qrbox p { margin: 6px 0 0; font-size: 12.5px; color: var(--sub); }
+
+  /* แถบยอด + ปุ่มบันทึก ตรึงล่าง */
+  .paybar { position: fixed; left: 0; right: 0; bottom: calc(52px + var(--safe-bottom)); z-index: 30;
+    display: flex; align-items: center; gap: 10px; padding: 9px max(12px, calc((100% - 430px) / 2));
+    background: color-mix(in srgb, #fff 94%, transparent); backdrop-filter: blur(12px); border-top: 1px solid var(--line); }
+  .paybar .sum { flex: 1; line-height: 1.2; }
+  .paybar .sum span { display: block; font-size: 11.5px; color: var(--grey); }
+  .paybar .sum b { font-size: 22px; color: var(--gold-2); font-variant-numeric: tabular-nums; }
+  #save { border: 0; background: var(--gold); color: #fff; font: inherit; font-weight: 700; font-size: 15px; padding: 13px 20px; cursor: pointer; }
+  #save:disabled { opacity: .5; }
+
+  /* จบการขาย */
+  .done { border-left: 4px solid var(--green); }
+  .done h2 { color: var(--green); font-size: 15px; }
+  .done .big { font-size: 15px; margin: 2px 0 10px; }
+  .done .big b { font-variant-numeric: tabular-nums; }
+  .dbtn { display: block; width: 100%; border: 1.5px solid var(--line); background: var(--card); font: inherit; font-weight: 700; font-size: 14.5px; padding: 13px 8px; cursor: pointer; margin-top: 8px; }
+  .dbtn.hot { background: var(--gold); border-color: var(--gold); color: #fff; }
+
+  .appbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; gap: 6px; background: var(--accent);
+    padding: 5px max(14px, env(safe-area-inset-left, 0px), calc((100% - 430px) / 2)) calc(5px + var(--safe-bottom)) max(14px, env(safe-area-inset-right, 0px), calc((100% - 430px) / 2)); }
+  .appbar a { flex: 1; text-align: center; color: #fff; opacity: .62; text-decoration: none; font-size: 11px; font-weight: 700; padding: 3px 2px 4px; line-height: 1.2; }
+  .appbar a span { display: block; font-size: 18px; }
+  .appbar a.on { opacity: 1; background: rgba(255, 255, 255, .15); }
+
+  .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(120px + var(--safe-bottom)); z-index: 50;
+    background: var(--ink); color: #fff; font-size: 13.5px; padding: 10px 16px; opacity: 0; pointer-events: none; transition: opacity .2s; max-width: 86vw; }
+  .toast.on { opacity: 1; }
+  .toast.err { background: var(--red); }
+  .fatal { text-align: center; color: var(--sub); padding: 30px 10px; }
+</style>
+</head>
+<body>
+<div class="bar">
+  <img src="/brand/ui/happy.png" alt="" />
+  <div><h1>🛒 ขายหน้าร้าน</h1><p id="today">POS — แตะเมนู รับเงิน ทอน ใบเสร็จ จบในหน้าเดียว</p></div>
+</div>
+
+<main>
+  <div id="fatal" class="fatal" hidden></div>
+
+  <section id="app" hidden>
+    <div class="card">
+      <h2>เมนูขายบ่อยของร้าน</h2>
+      <div class="menu" id="menu"><div class="menu-empty">กำลังโหลด…</div></div>
+      <div class="addrow">
+        <input id="add-name" placeholder="พิมพ์รายการเอง เช่น ถ่ายเอกสาร" />
+        <input id="add-price" type="number" inputmode="decimal" placeholder="ราคา" />
+        <button type="button" id="add-go">เพิ่ม</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>รายการที่จะคิดเงิน</h2>
+      <div id="cart"><div class="cart-empty">ยังไม่มีรายการ — แตะเมนูข้างบนได้เลยค่ะ</div></div>
+    </div>
+
+    <div class="card" id="paycard">
+      <h2>รับเงิน</h2>
+      <div class="paychips" id="paychips">
+        <button type="button" data-pay="cash" aria-pressed="true">💵 เงินสด</button>
+        <button type="button" data-pay="transfer" aria-pressed="false">🏦 โอน / สแกน</button>
+      </div>
+      <div class="cashbox" id="cashbox">
+        <label for="received">รับเงินมา (บาท) — เว้นว่าง = จ่ายพอดี</label>
+        <input id="received" type="number" inputmode="decimal" placeholder="0" />
+        <div class="quickcash" id="quickcash"></div>
+        <div class="change" id="changebox" hidden><span>เงินทอน</span><b id="change">฿0</b></div>
+      </div>
+      <div class="qrbox" id="qrbox" hidden>
+        <img id="qrimg" alt="QR รับเงินของร้าน" hidden />
+        <p id="qrnote">กำลังหา QR ของร้าน…</p>
+      </div>
+    </div>
+
+    <div class="card done" id="done" hidden>
+      <h2>✓ รับเงินแล้ว — บันทึกเข้าระบบเรียบร้อย</h2>
+      <p class="big" id="d-line"></p>
+      <button type="button" class="dbtn hot" id="d-receipt">🖨 เปิดใบเสร็จ</button>
+      <button type="button" class="dbtn" id="d-next">🔄 ขายรายต่อไป</button>
+    </div>
+  </section>
+</main>
+
+<div class="paybar" id="paybar" hidden>
+  <div class="sum"><span>ยอดรวม</span><b id="total">฿0</b></div>
+  <button type="button" id="save">💵 รับเงิน & ใบเสร็จ</button>
+</div>
+
+<nav class="appbar" aria-label="เมนูหลัก">
+  <a href="/app/jot/"><span>✏️</span>จด</a>
+  <a href="/app/"><span>📋</span>งาน &amp; เงิน</a>
+  <a href="/app/book/"><span>👤</span>ลูกค้า</a>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script>
+const $ = (s, el) => (el || document).querySelector(s);
+const baht = (n) => '฿' + (Number(n) || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
+let token = null;
+let cart = []; // {name, price, qty}
+let payMethod = 'cash';
+let doneReceipt = null;
+
+function toast(msg, isErr) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.className = 'toast on' + (isErr ? ' err' : '');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => (t.className = 'toast'), 2600);
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch('/api' + path, {
+    ...opts,
+    headers: { Authorization: 'Bearer ' + token, ...(opts.body ? { 'Content-Type': 'application/json' } : {}) },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message || body.error || 'เกิดข้อผิดพลาด');
+  }
+  return res.json();
+}
+
+const totalOf = () => cart.reduce((s, l) => s + l.price * l.qty, 0);
+
+function addLine(name, price) {
+  const hit = cart.find((l) => l.name === name && l.price === price);
+  if (hit) hit.qty += 1;
+  else cart.push({ name, price, qty: 1 });
+  paint();
+}
+
+function paint() {
+  const box = $('#cart');
+  box.textContent = '';
+  if (!cart.length) {
+    box.innerHTML = '<div class="cart-empty">ยังไม่มีรายการ — แตะเมนูข้างบนได้เลยค่ะ</div>';
+  }
+  cart.forEach((l, i) => {
+    const row = document.createElement('div');
+    row.className = 'ln';
+    row.innerHTML = '<div class="nm"><b></b><span></span></div>' +
+      '<div class="qtyc"><button type="button" class="less">−</button><b></b><button type="button" class="more">+</button></div>' +
+      '<div class="amt"></div><button type="button" class="del">✕</button>';
+    $('.nm b', row).textContent = l.name;
+    $('.nm span', row).textContent = baht(l.price) + ' / หน่วย';
+    $('.qtyc b', row).textContent = l.qty;
+    $('.amt', row).textContent = baht(l.price * l.qty);
+    $('.less', row).onclick = () => { l.qty -= 1; if (l.qty <= 0) cart.splice(i, 1); paint(); };
+    $('.more', row).onclick = () => { l.qty += 1; paint(); };
+    $('.del', row).onclick = () => { cart.splice(i, 1); paint(); };
+    box.appendChild(row);
+  });
+  $('#total').textContent = baht(totalOf());
+  $('#save').disabled = !cart.length;
+  paintChange();
+  paintQuickCash();
+}
+
+/* เงินทอน — หัวใจของ POS: รับมาเท่าไหร่ ทอนเท่าไหร่ เห็นตัวใหญ่ก่อนกดบันทึก */
+function paintChange() {
+  const total = totalOf();
+  const received = Number($('#received').value);
+  const box = $('#changebox');
+  if (payMethod !== 'cash' || !$('#received').value || !cart.length) { box.hidden = true; return; }
+  const change = received - total;
+  $('#change').textContent = baht(change);
+  box.className = 'change' + (change < 0 ? ' minus' : '');
+  box.hidden = false;
+}
+
+// ปุ่มแบงก์ที่ลูกค้าชอบยื่น — พอดี / 100 / 500 / 1000 (เฉพาะใบที่พอจ่าย)
+function paintQuickCash() {
+  const total = totalOf();
+  const qc = $('#quickcash');
+  qc.textContent = '';
+  if (!cart.length) return;
+  const notes = [total, 100, 500, 1000].filter((v, i, a) => v >= total && a.indexOf(v) === i);
+  notes.forEach((v) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = v === total ? 'พอดี' : baht(v);
+    b.onclick = () => { $('#received').value = v === total ? '' : v; paintChange(); };
+    qc.appendChild(b);
+  });
+}
+
+$('#received').oninput = paintChange;
+
+$('#paychips').onclick = async (e) => {
+  const b = e.target.closest('button[data-pay]');
+  if (!b) return;
+  payMethod = b.dataset.pay;
+  document.querySelectorAll('#paychips button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  $('#cashbox').hidden = payMethod !== 'cash';
+  $('#qrbox').hidden = payMethod !== 'transfer';
+  paintChange();
+  if (payMethod === 'transfer' && !$('#qrimg').src) loadQr();
+};
+
+/* QR ของร้านไว้ให้ลูกค้าสแกนตรงเคาน์เตอร์ — ใบเดียวกับที่ขึ้นท้ายใบเสร็จ */
+async function loadQr() {
+  try {
+    const { url } = await api('/shop/qr');
+    if (url) {
+      $('#qrimg').src = url;
+      $('#qrimg').hidden = false;
+      $('#qrnote').textContent = 'ให้ลูกค้าสแกนจ่ายได้เลยค่ะ';
+    } else {
+      $('#qrnote').textContent = 'ยังไม่ได้ฝากรูป QR กับม่วง — พิมพ์ "เพิ่ม QR" ในไลน์แล้วส่งรูปได้เลยค่ะ';
+    }
+  } catch {
+    $('#qrnote').textContent = 'โหลด QR ไม่สำเร็จค่ะ';
+  }
+}
+
+async function loadMenu() {
+  const box = $('#menu');
+  try {
+    const { items } = await api('/pos/items');
+    box.textContent = '';
+    if (!items.length) {
+      box.innerHTML = '<div class="menu-empty">ยังไม่มีเมนูด่วน — ขายไปสักพัก ม่วงจะจำของที่ขายบ่อยมาเป็นปุ่มให้เองค่ะ 💜</div>';
+      return;
+    }
+    items.forEach((it) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'mi';
+      b.innerHTML = '<b></b><span></span>';
+      $('b', b).textContent = it.name;
+      $('span', b).textContent = baht(it.price) + (it.unit ? ' / ' + it.unit : '');
+      b.onclick = () => addLine(it.name, it.price);
+      box.appendChild(b);
+    });
+  } catch {
+    box.innerHTML = '<div class="menu-empty">โหลดเมนูไม่สำเร็จค่ะ — พิมพ์รายการเองด้านล่างได้เลย</div>';
+  }
+}
+
+$('#add-go').onclick = () => {
+  const name = $('#add-name').value.trim();
+  const price = Number($('#add-price').value);
+  if (!name) return toast('พิมพ์ชื่อรายการก่อนนะคะ', true);
+  if (!(price > 0)) return toast('ใส่ราคาด้วยค่ะ', true);
+  addLine(name, price);
+  $('#add-name').value = '';
+  $('#add-price').value = '';
+};
+
+/* บันทึกการขาย — เส้นเดียวกับจดงาน (POST /jobs): จ่ายครบ+ช่องทาง = รายรับ
+ * วันนี้ของใบลงบัญชีทันที และบิลถูกเปิดให้พร้อมลิงก์ใบเสร็จ ("จดแล้วบิลพร้อมเลย") */
+$('#save').onclick = async () => {
+  if (!cart.length) return;
+  const total = Math.round(totalOf() * 100) / 100;
+  const received = Number($('#received').value);
+  if (payMethod === 'cash' && $('#received').value && received < total) {
+    return toast('รับเงินมาน้อยกว่ายอดค่ะ', true);
+  }
+  const btn = $('#save');
+  btn.disabled = true;
+  try {
+    const body = await api('/jobs', {
+      method: 'POST',
+      body: JSON.stringify({
+        jobName: 'ขายหน้าร้าน',
+        customerName: null,
+        items: cart.map((l) => ({ item_name: l.name, quantity: l.qty, unit_price: l.price, total: Math.round(l.price * l.qty * 100) / 100 })),
+        subtotal: total,
+        total,
+        paidAmount: total,
+        payMethod,
+      }),
+    });
+    doneReceipt = body.receipt || null;
+    const change = payMethod === 'cash' && $('#received').value ? received - total : 0;
+    $('#d-line').innerHTML = 'ยอด <b>' + baht(total) + '</b>' +
+      (change > 0 ? ' · ทอน <b style="color:var(--green)">' + baht(change) + '</b>' : '') +
+      (body.job?.job_number ? ' · ' + body.job.job_number : '') +
+      (doneReceipt?.billNumber ? ' · บิล ' + doneReceipt.billNumber : '');
+    $('#d-receipt').hidden = !doneReceipt;
+    $('#done').hidden = false;
+    $('#done').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    cart = [];
+    $('#received').value = '';
+    paint();
+    toast('บันทึกการขายแล้วค่ะ 💜');
+  } catch (err) {
+    toast(err.message || 'บันทึกไม่สำเร็จค่ะ', true);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+$('#d-receipt').onclick = () => {
+  const url = doneReceipt && (doneReceipt.shopUrl || doneReceipt.url);
+  if (!url) return;
+  if (window.liff && liff.isInClient && liff.isInClient()) liff.openWindow({ url, external: false });
+  else window.open(url, '_blank');
+};
+
+$('#d-next').onclick = () => {
+  $('#done').hidden = true;
+  doneReceipt = null;
+  scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+(async function start() {
+  $('#today').textContent = new Date().toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok' });
+  try {
+    const cfg = await (await fetch('/api/config')).json();
+    if (!cfg.liffId) throw new Error('ยังไม่ได้ตั้งค่า LIFF_ID ค่ะ');
+    await liff.init({ liffId: cfg.liffId });
+    if (!liff.isLoggedIn()) return liff.login({ redirectUri: location.href });
+    token = liff.getAccessToken();
+    $('#app').hidden = false;
+    $('#paybar').hidden = false;
+    paint();
+    await loadMenu();
+  } catch (err) {
+    const f = $('#fatal');
+    f.textContent = (err && err.message) || 'เปิดหน้านี้ไม่สำเร็จค่ะ';
+    f.hidden = false;
+  }
+})();
+</script>
+</body>
+</html>

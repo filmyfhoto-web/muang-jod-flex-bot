@@ -15,7 +15,7 @@ import {
   replaceJobItems,
   buildReport,
 } from '../services/jobService.js';
-import { createJob, getCustomerDirectory } from '../services/jobService.js';
+import { createJob, getCustomerDirectory, getFrequentItems } from '../services/jobService.js';
 import { missingColumn } from '../utils/dbErrors.js';
 import { listCustomerOrgs, setCustomerOrg } from '../services/customerOrgService.js';
 import { ensureTaxonomy, loadCategoryConfig, updateCategories } from '../services/categoryService.js';
@@ -43,7 +43,7 @@ import { safe, jobPatchSchema, jobCreateSchema, paymentAmountSchema, chatMessage
 import { liffId, liffChannelId } from '../utils/liff.js';
 import { CATEGORY_GROUPS, OTHER_GROUP, BASE_TAXONOMY, findGroup } from '../utils/category.js';
 import { logger, maskUserId } from '../services/logger.js';
-import { getShopProfile, saveShopProfile, SHOP_FIELDS } from '../services/shopService.js';
+import { getShopProfile, saveShopProfile, SHOP_FIELDS, defaultQrUrl } from '../services/shopService.js';
 import { getCheckinSettings, saveCheckinSettings } from '../services/checkinService.js';
 import { normalizeSettings, toMinutes, toHHMM, DEFAULT_TZ } from '../utils/checkinSchedule.js';
 import { isAllowed } from '../utils/access.js';
@@ -635,6 +635,24 @@ export function createApiRouter(deps = {}) {
    *
    * คนละใบกับใบเสร็จ: ใบเสร็จเป็นของลูกค้าทีละเจ้า ใบนี้เป็นของคนทำบัญชี
    */
+  /* หน้าขายหน้าร้าน (POS) — เมนูของที่ขายบ่อย อ่านจากบรรทัดงานที่เคยจดจริง
+   * กับ QR รับเงินของร้านไว้โชว์ให้ลูกค้าสแกนตรงเคาน์เตอร์ */
+  router.get('/pos/items', async (req, res, next) => {
+    try {
+      res.json({ items: await getFrequentItems(req.profile.id) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.get('/shop/qr', async (req, res, next) => {
+    try {
+      res.json({ url: await defaultQrUrl(req.profile.id) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   router.get('/ledger', async (req, res, next) => {
     try {
       const wanted = String(req.query.date || '').trim();
