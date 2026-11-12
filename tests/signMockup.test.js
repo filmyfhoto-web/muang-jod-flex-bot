@@ -1354,3 +1354,20 @@ test('วิดีโอคมชัด 16 Mbps (ไม่รับถอยเ�
   const css = readFileSync(new URL('../sign-mockup/app.css', import.meta.url), 'utf8');
   assert.match(css, /\.promobox\.nowords \[data-words-only\] \{/);
 });
+
+test('วิดีโอโปรโมท: พิมพ์ข้อความเองแล้วกด “ทำวิดีโอแบบนี้” ระหว่างคลิปเดิมยังทำอยู่ → รอคลิปเดิมหยุดแล้วทำใหม่ด้วยข้อความที่พิมพ์ (ไม่ยกเลิกทิ้ง)', () => {
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  // เวทียังไม่ว่าง (คลิปเดิมวาดเฟรมสุดท้าย) → รอ ไม่โยน cancel ทิ้ง
+  assert.ok(!/if \(stage\.promoBusy && stage\.promoBusy\(\)\) throw new Error\('cancel'\);/.test(app));
+  assert.match(app, /function promoStageFree\(job\)/);
+  assert.match(app, /return promoStageFree\(job\);/);
+  // ใช้ข้อความล่าสุดในช่อง ณ ตอนเริ่มทำจริง
+  assert.match(app, /plan = promoPlan\(\); \/\/ ข้อความล่าสุดในช่อง/);
+  // พิมพ์แก้ข้อความ: คลิปเก่าหยุด + ปุ่มโหลด/แชร์ปิด (ไม่ให้ได้วิดีโอข้อความเก่า) + บอกให้กดทำใหม่
+  const input = app.slice(app.indexOf("$('promoText').addEventListener('input'"), app.indexOf("$('promoGo').addEventListener"));
+  assert.match(input, /promoChanged\('แก้ข้อความแล้ว[^']*ทำวิดีโอแบบนี้[^']*', 700\);/);
+  const changed = app.slice(app.indexOf('function promoChanged(msg, wait)'), app.indexOf('function promoStageFree'));
+  assert.match(changed, /exp\.job\+\+;/);
+  assert.match(changed, /\['dlShare', 'dlCopy', 'dlSave'\]\.forEach/);
+  assert.match(app, /var job = \+\+exp\.job;\n\s*exp\.stale = false;/);
+});
