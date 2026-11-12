@@ -24,13 +24,13 @@ test('ติดตั้งเป็นแอปได้: manifest ถูกต
 });
 
 test('ทุกหน้าเชื่อม manifest เดียวกัน — ติดตั้งจากหน้าไหนก็ได้แอปเดียวกัน', () => {
-  for (const page of ['jot/index.html', 'index.html', 'book/index.html', 'ledger/index.html', 'categories/index.html']) {
+  for (const page of ['jot/index.html', 'index.html', 'book/index.html', 'ledger/index.html', 'categories/index.html', 'pos/index.html']) {
     assert.ok(read(page).includes('href="/app/manifest.webmanifest"'), `${page} ไม่ได้เชื่อม manifest`);
   }
 });
 
 test('แถบแอป 3 แท็บ จด·งาน&เงิน·ลูกค้า อยู่บนหน้า จด/สมุด/บัญชี', () => {
-  for (const page of ['jot/index.html', 'book/index.html', 'ledger/index.html']) {
+  for (const page of ['jot/index.html', 'book/index.html', 'ledger/index.html', 'pos/index.html']) {
     const html = read(page);
     const bar = html.slice(html.indexOf('class="appbar"'));
     assert.ok(bar.length > 20, `${page} ไม่มีแถบแอป`);
@@ -82,7 +82,7 @@ test('หน้าแรกเป็น งาน & เงิน: ตัวเ�
   // (งานค้างรับซ้ำกับกอง "รอเก็บ" บนหน้านี้ · สรุปรายการ/แชตออเดอร์ยังเข้าได้
   // ทาง ?tab= กับ /app/orders/ — หน้าไม่ได้หาย แค่ไม่กินที่บนหน้าแรก)
   const links = dash.slice(dash.indexOf('class="hlinks"'), dash.indexOf('</p>', dash.indexOf('class="hlinks"')));
-  for (const keep of ['data-go="today"', 'href="/app/ledger/"', 'data-go="settings"']) {
+  for (const keep of ['href="/app/pos/"', 'data-go="today"', 'href="/app/ledger/"', 'data-go="settings"']) {
     assert.ok(links.includes(keep), `ปุ่ม ${keep} ต้องยังอยู่`);
   }
   for (const gone of ['data-go="pending"', 'data-go="report"', '/app/orders/']) {
@@ -110,7 +110,7 @@ test('ปุ่มติดตั้งแอป กดเดียวขึ้�
  * โทเคนมุม (--r / --radius) ต้องเป็นศูนย์ด้วย ไม่งั้น var() คือขอบมนแฝง
  */
 test('ไม่เอาขอบมน: ทุกหน้าเป็นเหลี่ยม เหลือได้เฉพาะวงกลมแท้ ๆ', () => {
-  for (const page of ['index.html', 'jot/index.html', 'jot/style.css', 'book/index.html', 'ledger/index.html', 'categories/index.html']) {
+  for (const page of ['index.html', 'jot/index.html', 'jot/style.css', 'book/index.html', 'ledger/index.html', 'categories/index.html', 'pos/index.html']) {
     const src = read(page);
     const bad = [...src.matchAll(/border-radius:\s*([^;"}]+)/g)]
       .map((m) => m[1].trim())
