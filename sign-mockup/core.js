@@ -195,6 +195,26 @@
       radius: isFinite(r) && r > 0 ? Math.round(Math.max(1, Math.min(50, r))) : 10,
     };
   }
+  /* แสงในภาพ 3 มิติ (ปุ่ม “แสง” เหนือภาพ)
+   * sign = ความสว่างของหน้าป้ายอย่างเดียว · scene = ความสว่างทั้งภาพ · dir = ทิศไฟหลัก (องศา −80 ซ้าย … 80 ขวา, เดิม −33 = ซ้ายบนด้านหน้า) */
+  var LIGHT_DEF = { sign: 1, scene: 1, dir: -33 };
+  function normalizeLight(o) {
+    o = o && typeof o === 'object' ? o : {};
+    function pick(v, lo, hi, d, step) {
+      v = num(v);
+      if (!isFinite(v)) return d;
+      return Math.round(Math.max(lo, Math.min(hi, v)) / step) * step;
+    }
+    return {
+      sign: +pick(o.sign, 0.5, 1.6, 1, 0.01).toFixed(2),
+      scene: +pick(o.scene, 0.5, 1.8, 1, 0.01).toFixed(2),
+      dir: pick(o.dir, -80, 80, LIGHT_DEF.dir, 1),
+    };
+  }
+  function lightIsDefault(o) {
+    var l = normalizeLight(o);
+    return l.sign === LIGHT_DEF.sign && l.scene === LIGHT_DEF.scene && l.dir === LIGHT_DEF.dir;
+  }
   // รูปทรงที่ใช้จริงกับชนิดงานนี้ (ชนิดที่ไม่รองรับ = สี่เหลี่ยม · สแตนดี้ ถ้าเลือกสี่เหลี่ยมก็ไดคัท)
   function shapeKind(type, shape) {
     var b = baseType(type);
@@ -2326,6 +2346,9 @@
     SHAPES: SHAPES,
     SHAPE_TYPES: SHAPE_TYPES,
     normalizeShape: normalizeShape,
+    LIGHT_DEF: LIGHT_DEF,
+    normalizeLight: normalizeLight,
+    lightIsDefault: lightIsDefault,
     shapeKind: shapeKind,
     shapeNote: shapeNote,
     LIGHTS: LIGHTS,

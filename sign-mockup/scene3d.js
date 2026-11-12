@@ -3082,6 +3082,38 @@ export function createStage(opts) {
     return b;
   }
 
+  /* แสงที่ร้านปรับเอง (ปุ่ม “แสง”): { sign: ความสว่างหน้าป้าย, scene: ความสว่างทั้งภาพ, dir: ทิศไฟหลัก องศา } */
+  function lightNow() {
+    return C.normalizeLight(cur.light);
+  }
+  // ไฟเสริมอยู่ฝั่งตรงข้ามไฟหลัก (เดิม ไฟหลัก −33° → ไฟเสริม +51°)
+  function fillAz(dir) {
+    return (Math.max(-80, Math.min(80, -dir * 1.55)) * Math.PI) / 180;
+  }
+  // หน้าป้ายสว่าง/มืดลงเฉพาะตัวป้าย (คูณสีวัสดุหน้าป้าย) — ฉากหลังไม่เปลี่ยน
+  function faceMats() {
+    if (!model) return [];
+    return (Array.isArray(model.face) ? model.face : [model.face]).filter((m) => m && m.isMaterial && m.color);
+  }
+  function applySignLight() {
+    const k = lightNow().sign;
+    faceMats().forEach((m) => {
+      if (!m.userData.baseColor) m.userData.baseColor = m.color.clone();
+      m.color.copy(m.userData.baseColor).multiplyScalar(k);
+    });
+  }
+  // ไฟล์ 3 มิติเก็บสีหน้าป้ายตามไฟล์งานจริง (ไม่เอาความสว่างที่ปรับดูในแอปไปด้วย · glTF รับสีไม่เกิน 1)
+  async function plainFace(fn) {
+    const ms = faceMats();
+    const keep = ms.map((m) => m.color.clone());
+    ms.forEach((m) => m.userData.baseColor && m.color.copy(m.userData.baseColor));
+    try {
+      return await fn();
+    } finally {
+      ms.forEach((m, i) => m.color.copy(keep[i]));
+    }
+  }
+
   function applyLights() {
     const env = envs[envKey];
     const night = !!cur.night;
@@ -3092,8 +3124,10 @@ export function createStage(opts) {
     const R = smallNow() ? Math.max(size.x, size.y, 0.12) * 0.75 + 0.2 : Math.max(size.x, size.y, 1.5) * 0.75 + 1;
     key.shadow.normalBias = smallNow() ? 0.0008 : 0.03; // ค่าเดิม 3 ซม. ทำให้เงาบัตร (ห่างกระดาษ 2.5 มม.) หายหมด
     key.shadow.bias = smallNow() ? -0.00005 : -0.0005;
-    // ไฟหลักจากซ้ายบนด้านหน้า
-    key.position.set(c.x - R * 0.9, c.y + R * 1.6, c.z + R * 1.4);
+    // ไฟหลักจากด้านหน้า เฉียงตามที่ร้านตั้ง (เดิม ซ้ายบน −33°) · ไฟเสริมอยู่ฝั่งตรงข้าม
+    const LT = lightNow();
+    const az = (LT.dir * Math.PI) / 180;
+    key.position.set(c.x + Math.sin(az) * R * 1.664, c.y + R * 1.6, c.z + Math.cos(az) * R * 1.664);
     key.target.position.copy(c);
     const sc = key.shadow.camera;
     sc.left = -R;
@@ -3103,7 +3137,8 @@ export function createStage(opts) {
     sc.near = 0.1;
     sc.far = R * 6;
     sc.updateProjectionMatrix();
-    fill.position.set(c.x + R * 1.5, c.y + R * 0.4, c.z + R * 1.2);
+    const faz = fillAz(LT.dir);
+    fill.position.set(c.x + Math.sin(faz) * R * 1.92, c.y + R * 0.4, c.z + Math.cos(faz) * R * 1.92);
     fill.target.position.copy(c);
     const outdoor = env.kind === 'outdoor';
     if (night) {
@@ -3115,7 +3150,7 @@ export function createStage(opts) {
       fill.intensity = 0.05;
       scene.background = env.sky ? skyTex(true) : new THREE.Color(0x0d1018);
       scene.fog = env.fog ? new THREE.Fog(0x0b0e15, env.fog[1], env.fog[2]) : null;
-      renderer.toneMappingExposure = LIGHT.exposure * 1.15;
+      renderer.toneMappingExposure = LIGHT.exposure * 1.15 * LT.scene;
     } else {
       scene.environment = roomEnv;
       hemi.color.set(outdoor ? 0xdbe8ff : 0xfbf7ef);
@@ -3125,8 +3160,9 @@ export function createStage(opts) {
       fill.intensity = LIGHT.fill;
       scene.background = env.sky ? skyTex(false) : env.bg;
       scene.fog = env.fog ? new THREE.Fog(env.fog[0], env.fog[1], env.fog[2]) : null;
-      renderer.toneMappingExposure = LIGHT.exposure * (outdoor ? 0.95 : 1);
+      renderer.toneMappingExposure = LIGHT.exposure * (outdoor ? 0.95 : 1) * LT.scene;
     }
+    applySignLight();
     // กลางคืน: กล่องไฟสว่างเอง ป้ายอื่นมีสปอตไลท์ส่อง
     const lb = model.type === 'lightbox';
     if (model.face) model.face.emissiveIntensity = lb ? (night ? 0.82 : 0.16) : 0;
@@ -3548,10 +3584,13 @@ export function createStage(opts) {
     scene.backgroundIntensity = p.light ? 1.9 : 1.45;
     scene.fog = null;
     scene.environment = roomEnv;
-    renderer.toneMappingExposure = LIGHT.exposure;
-    // ไฟ: หลักซ้ายบนหน้า (มีเงา) + ไฟขอบหลัง + ไฟข้าง
+    const LT = lightNow();
+    renderer.toneMappingExposure = LIGHT.exposure * LT.scene;
+    applySignLight();
+    // ไฟ: หลักด้านหน้าเฉียงตามที่ร้านตั้ง (เดิม ซ้ายบน) มีเงา + ไฟขอบหลัง + ไฟข้าง
     const L = Math.max(R, 0.15) * (p.cal ? 1.6 : 1);
-    key.position.set(c.x - L * 1.5, c.y + L * 2.6, c.z + L * 2.1);
+    const az = (LT.dir * Math.PI) / 180;
+    key.position.set(c.x + Math.sin(az) * L * 2.58, c.y + L * 2.6, c.z + Math.cos(az) * L * 2.58);
     key.target.position.copy(c);
     key.intensity = LIGHT.key;
     const sc = key.shadow.camera;
@@ -3562,7 +3601,8 @@ export function createStage(opts) {
     sc.near = 0.05;
     sc.far = L * 9;
     sc.updateProjectionMatrix();
-    fill.position.set(c.x + L * 2.2, c.y + L * 0.8, c.z + L * 1.6);
+    const faz = fillAz(LT.dir);
+    fill.position.set(c.x + Math.sin(faz) * L * 2.72, c.y + L * 0.8, c.z + Math.cos(faz) * L * 2.72);
     fill.target.position.copy(c);
     fill.intensity = LIGHT.fill * 0.85;
     hemi.intensity = LIGHT.hemi * (p.light ? 1 : 0.7);
@@ -3769,7 +3809,7 @@ export function createStage(opts) {
     });
     drop.forEach((o) => o.parent && o.parent.remove(o));
     root.updateMatrixWorld(true);
-    return new GLTFExporter().parseAsync(root, { binary: true, onlyVisible: true, maxTextureSize: 2048 });
+    return plainFace(() => new GLTFExporter().parseAsync(root, { binary: true, onlyVisible: true, maxTextureSize: 2048 }));
   }
 
   /* ป้าย + ฉาก: ตำแหน่งจริงในฉาก (ไม่ย้ายป้ายลงพื้น) · มุมกล้องตอนนี้เป็นมุมเริ่มต้นของตัวดู (extras npScene)
@@ -3827,7 +3867,7 @@ export function createStage(opts) {
       bg: envs[envKey].sky ? '#a9c9e3' : '#' + (envs[envKey].bg || new THREE.Color(0xe7e5e0)).getHexString(),
       fog: envs[envKey].fog ? [+envs[envKey].fog[1], +envs[envKey].fog[2]] : null,
     };
-    return new GLTFExporter().parseAsync(root, { binary: true, onlyVisible: true, maxTextureSize: 2048 });
+    return plainFace(() => new GLTFExporter().parseAsync(root, { binary: true, onlyVisible: true, maxTextureSize: 2048 }));
   }
 
   /* 3 มิติบนรูปหน้างาน: ตัวป้าย + รูปถ่ายเป็นฉากหลัง + คนยืนเทียบ (ถ้าเปิด)
@@ -3838,7 +3878,7 @@ export function createStage(opts) {
     if (!model) throw new Error('ยังไม่มีป้าย');
     const { GLTFExporter } = await import('three/addons/exporters/GLTFExporter.js');
     const P = buildPhotoRoot(o);
-    const glb = await new GLTFExporter().parseAsync(P.root, { binary: true, onlyVisible: true, maxTextureSize: 2048 });
+    const glb = await plainFace(() => new GLTFExporter().parseAsync(P.root, { binary: true, onlyVisible: true, maxTextureSize: 2048 }));
     P.dispose();
     return glb;
   }

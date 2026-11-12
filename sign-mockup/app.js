@@ -6,7 +6,7 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '4.15.1';
+  var APP_VERSION = '4.16.0';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp', hands: C.HAND_BUILTIN.src });
 
@@ -31,6 +31,7 @@
     brightness: 1,
     info: true,
     night: false,
+    light: { sign: 1, scene: 1, dir: -33 }, // ปุ่ม “แสง” ในภาพ 3 มิติ: ความสว่างป้าย · ทั้งภาพ · ทิศไฟหลัก (องศา)
     view: 'angle',
     spot: 'auto',
     doorOpen: true, // ประตูห้องเรียนเปิดพับชิดผนัง (แบบที่ร้านส่งรูปมา)
@@ -93,6 +94,7 @@
     if (s.cmpOut !== 'pdf') s.cmpOut = 'jpg';
     s.look = C.normalizeLook(Object.assign({}, DEF.look, s.look));
     s.shape = C.normalizeShape(s.shape);
+    s.light = C.normalizeLight(s.light);
     if (!C.HAND_VIEWS[s.handView]) s.handView = 'both';
     s.bill = C.normalizeBill(s.bill);
     if (!C.TYPES[s.type]) s.type = DEF.type;
@@ -434,6 +436,7 @@
       shaped: shapeNow() === 'rect' ? '' : shapeNow(),
       person: personNow(),
       night: st.night,
+      light: C.normalizeLight(st.light),
       face: fc.canvas,
       faceKey: fc.key,
       edge: fc.bg,
@@ -5837,7 +5840,61 @@
     $('fullBtn').setAttribute('aria-pressed', String(isFull()));
     $('showBtn').setAttribute('aria-pressed', String(stage.showing));
     $('nightBtn').setAttribute('aria-pressed', String(!!st.night));
+    syncLightUI();
   }
+  /* ---------- ปุ่ม “แสง”: ความสว่างป้าย · ความสว่างทั้งภาพ · ทิศทางแสง ---------- */
+  function lightDirText(d) {
+    return d < -10 ? 'จากซ้าย ' + Math.abs(d) + '°' : d > 10 ? 'จากขวา ' + d + '°' : 'ตรงหน้า';
+  }
+  function syncLightUI() {
+    var L = C.normalizeLight(st.light);
+    var open = !$('lightPop').hidden;
+    $('lightBtn').setAttribute('aria-pressed', String(open));
+    $('lightBtn').setAttribute('aria-expanded', String(open));
+    $('lightBtn').parentNode.classList.toggle('tuned', !C.lightIsDefault(L));
+    setVal('lsign', L.sign);
+    setVal('lscene', L.scene);
+    setVal('ldir', L.dir);
+    $('lsignVal').textContent = Math.round(L.sign * 100) + '%';
+    $('lsceneVal').textContent = Math.round(L.scene * 100) + '%';
+    $('ldirVal').textContent = lightDirText(L.dir);
+  }
+  var lightRaf = 0;
+  function lightChanged() {
+    st.light = C.normalizeLight({ sign: $('lsign').value, scene: $('lscene').value, dir: $('ldir').value });
+    syncLightUI();
+    save();
+    // ลากแถบเลื่อน: วาดใหม่เฟรมละครั้งพอ
+    if (!lightRaf)
+      lightRaf = requestAnimationFrame(function () {
+        lightRaf = 0;
+        draw();
+      });
+  }
+  ['lsign', 'lscene', 'ldir'].forEach(function (id) {
+    $(id).addEventListener('input', lightChanged);
+  });
+  function showLightPop(on) {
+    $('lightPop').hidden = !on;
+    syncLightUI();
+  }
+  $('lightBtn').addEventListener('click', function (e) {
+    e.stopPropagation();
+    showLightPop($('lightPop').hidden);
+  });
+  $('lightReset').addEventListener('click', function () {
+    st.light = C.normalizeLight(C.LIGHT_DEF);
+    syncLightUI();
+    save();
+    draw();
+  });
+  // คลิกที่อื่น / กด Esc = ปิดแผงแสง (ค่าที่ปรับอยู่ครบ)
+  document.addEventListener('pointerdown', function (e) {
+    if (!$('lightPop').hidden && !$('lightBtn').parentNode.contains(e.target)) showLightPop(false);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !$('lightPop').hidden) showLightPop(false);
+  });
   document.querySelectorAll('#viewSeg button').forEach(function (b) {
     b.addEventListener('click', function () {
       if (!stage) return;
