@@ -481,13 +481,25 @@
     ['avc', 'avc1.42e028'],
     ['vp9', 'vp09.00.40.08'],
   ];
+  /* ความคมชัดของไฟล์: 16 Mbps (เดิม 6) — ตัวหนังสือเล็กบนป้ายยังคมตอนกล้องเคลื่อน และเผื่อเอาไปตัดต่อ/ใส่ข้อความซ้ำ
+   * เครื่องที่ไม่รับ 16 ลองที่ 8 Mbps ก่อนถอยไปอัดหน้าจอ */
+  var BITRATE = 16000000;
+  var BITRATE_LOW = 8000000;
   function pickCodec(w, h, fps, bitrate) {
     if (typeof root.VideoEncoder !== 'function' || typeof root.VideoFrame !== 'function') return Promise.resolve(null);
+    var tries = [];
+    [bitrate, Math.min(bitrate, BITRATE_LOW)].forEach(function (br, k, all) {
+      if (k && br === all[0]) return;
+      CODECS.forEach(function (c) {
+        tries.push([c, br]);
+      });
+    });
     var i = 0;
     function next() {
-      if (i >= CODECS.length) return Promise.resolve(null);
-      var c = CODECS[i++];
-      var cfg = { codec: c[1], width: w, height: h, bitrate: bitrate, framerate: fps };
+      if (i >= tries.length) return Promise.resolve(null);
+      var c = tries[i][0];
+      var br = tries[i++][1];
+      var cfg = { codec: c[1], width: w, height: h, bitrate: br, framerate: fps, latencyMode: 'quality' };
       if (c[0] === 'avc') cfg.avc = { format: 'avc' };
       return root.VideoEncoder.isConfigSupported(cfg)
         .then(function (r) {
@@ -507,7 +519,7 @@
   function encode(o) {
     var fps = o.fps || FPS;
     var N = o.frames || fps * SEC;
-    var bitrate = o.bitrate || 6000000;
+    var bitrate = o.bitrate || BITRATE;
     return pickCodec(W, H, fps, bitrate).then(function (pick) {
       if (!pick) return record(o, fps, N);
       return loadMuxer(o.muxerSrc).then(function (M) {
@@ -573,7 +585,7 @@
     var out = makeCanvas(W, H);
     var ox = out.getContext('2d');
     var stream = out.captureStream(fps);
-    var rec = new root.MediaRecorder(stream, type ? { mimeType: type, videoBitsPerSecond: 6000000 } : undefined);
+    var rec = new root.MediaRecorder(stream, type ? { mimeType: type, videoBitsPerSecond: o.bitrate || BITRATE } : undefined);
     var parts = [];
     rec.ondataavailable = function (e) {
       if (e.data && e.data.size) parts.push(e.data);
@@ -604,6 +616,6 @@
     });
   }
 
-  NS.reels = { W: W, H: H, FPS: FPS, SEC: SEC, END: END, frames: FPS * SEC, ease: ease, overlay: overlay, placeFlat: placeFlat, encode: encode, loadMuxer: loadMuxer, CODECS: CODECS, PROMO_SEC: PROMO_SEC, PROMO_CUTS: PROMO_CUTS, promoFrames: FPS * PROMO_SEC, promoOverlay: promoOverlay, promoShotAt: promoShotAt, PROMO_THEMES: PROMO_THEMES, PROMO_THEME_ORDER: PROMO_THEME_ORDER, PROMO_ANIMS: PROMO_ANIMS, promoTheme: promoTheme, textSprite: textSprite, resetSprites: resetSprites };
+  NS.reels = { W: W, H: H, FPS: FPS, BITRATE: BITRATE, BITRATE_LOW: BITRATE_LOW, pickCodec: pickCodec, SEC: SEC, END: END, frames: FPS * SEC, ease: ease, overlay: overlay, placeFlat: placeFlat, encode: encode, loadMuxer: loadMuxer, CODECS: CODECS, PROMO_SEC: PROMO_SEC, PROMO_CUTS: PROMO_CUTS, promoFrames: FPS * PROMO_SEC, promoOverlay: promoOverlay, promoShotAt: promoShotAt, PROMO_THEMES: PROMO_THEMES, PROMO_THEME_ORDER: PROMO_THEME_ORDER, PROMO_ANIMS: PROMO_ANIMS, promoTheme: promoTheme, textSprite: textSprite, resetSprites: resetSprites };
   if (typeof module === 'object' && module.exports) module.exports = NS.reels;
 })(typeof self !== 'undefined' ? self : this);

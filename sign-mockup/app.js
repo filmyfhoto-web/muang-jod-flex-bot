@@ -6,7 +6,7 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '4.14.0';
+  var APP_VERSION = '4.15.0';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp', hands: C.HAND_BUILTIN.src });
 
@@ -2952,6 +2952,15 @@
     } catch (e) {}
     return v != null ? v : promoDefaults().join('\n');
   }
+  /* ข้อความบนวิดีโอ: ใส่ให้ (หัวเรื่อง ชื่อร้าน ขนาด ราคา การ์ดปิดท้าย) หรือไม่ใส่ = วิดีโอเปล่า ร้านใส่ข้อความเองในแอปตัดต่อ (จำไว้ในเครื่อง) */
+  var WORDS_KEY = 'np-sign-reel-words';
+  function reelWords() {
+    var v = '';
+    try {
+      v = localStorage.getItem(WORDS_KEY) || '';
+    } catch (e) {}
+    return v !== 'off';
+  }
   /* แบบวิดีโอโปรโมท: ธีมสีฉาก ฟอนต์หัวเรื่อง ลูกเล่นตัวอักษร (จำไว้ในเครื่อง) */
   function promoStyle() {
     var v = {};
@@ -3003,6 +3012,7 @@
       font: S.font,
       weight: promoWeight(S.font),
       anim: S.anim,
+      words: reelWords(),
     };
   }
   function promoLook(plan) {
@@ -3036,7 +3046,7 @@
       bx.drawImage(stage.promoFrame(sec), 0, 0, RL.W, RL.H);
       stage.endPromo();
       RL.resetSprites();
-      RL.promoOverlay(bx, sec, plan);
+      if (plan.words) RL.promoOverlay(bx, sec, plan);
       var pc = $('promoPrev');
       pc.getContext('2d').drawImage(promoBig, 0, 0, pc.width, pc.height);
       draw();
@@ -3108,7 +3118,7 @@
             var sec = i / RL.FPS;
             x.globalAlpha = 1;
             x.drawImage(stage.promoFrame(sec), 0, 0, RL.W, RL.H);
-            RL.promoOverlay(x, sec, plan);
+            if (plan.words) RL.promoOverlay(x, sec, plan);
             return out;
           },
           progress: function (p) {
@@ -3122,7 +3132,7 @@
       .then(
         function (r) {
           done();
-          return { blob: r.blob, name: fileName('promo', r.ext), ext: r.ext, preview: null, canvas: null };
+          return { blob: r.blob, name: fileName(plan.words ? 'promo' : 'promo-notext', r.ext), ext: r.ext, preview: null, canvas: null };
         },
         function (e) {
           done();
@@ -3135,6 +3145,7 @@
     if (!RL) return Promise.reject(new Error('reel'));
     if (reelStyle() === 'promo' && stage && stage.beginPromo) return buildPromo();
     var info = reelInfo();
+    var words = reelWords();
     var N = RL.frames;
     var out = document.createElement('canvas');
     out.width = RL.W;
@@ -3151,7 +3162,7 @@
           draw: function (i) {
             x.globalAlpha = 1;
             src.frame(x, i, N);
-            RL.overlay(x, i / RL.FPS, info);
+            if (words) RL.overlay(x, i / RL.FPS, info);
             return out;
           },
           progress: function (p) {
@@ -3165,7 +3176,7 @@
       .then(
         function (r) {
           if (src) src.done();
-          return { blob: r.blob, name: fileName('reel', r.ext), ext: r.ext, preview: null, canvas: null };
+          return { blob: r.blob, name: fileName(words ? 'reel' : 'reel-notext', r.ext), ext: r.ext, preview: null, canvas: null };
         },
         function (e) {
           if (src) src.done();
@@ -3188,8 +3199,15 @@
     fb3d: 'ได้ 2 ไฟล์: รูป + รูปความลึก (_depth ขาว = ใกล้ ดำ = ไกล) → เปิด Facebook บนคอม › สร้างโพสต์ › รูปภาพ/วิดีโอ › เลือกทั้ง 2 ไฟล์พร้อมกัน → ขึ้น “กำลังสร้างรูปภาพ 3 มิติ” คนเลื่อนฟีด/เอียงมือถือ รูปจะขยับเป็นมิติ (Facebook เลิกรับไฟล์ .glb แล้ว)',
     promo: 'วิดีโอโปรโมทแนวตั้ง 9:16 (1080×1920) ยาว 16 วินาที 5 ฉาก: พื้นดำเงาสะท้อน กล้องตัดมุมแบบโฆษณา หัวเรื่องไล่สี (แก้ข้อความด้านบนได้) ปิดท้ายชื่อร้าน + เบอร์โทร — โพสต์ Story / Reels / TikTok ได้เลย · ใส่เพลงในแอปตอนโพสต์',
     reel: 'วิดีโอแนวตั้ง 9:16 (1080×1920) ยาว 9 วินาที มีชื่อร้าน ขนาด ราคา และหน้าปิดท้ายเบอร์โทร — โพสต์ลง Facebook / Instagram Reels, TikTok, YouTube Shorts ได้เลย · ใส่เพลงในแอปตอนโพสต์',
+    line: 'ส่งทาง LINE: ส่งแบบรูป/วิดีโอ LINE จะบีบจนภาพไม่ชัด → ส่งเป็น “ไฟล์” (กด + › ไฟล์) จะได้ไฟล์ชัดเท่าต้นฉบับ หรือโพสต์ลง Facebook / TikTok / IG โดยตรง',
     html: 'ไฟล์เดียวจบ: ส่งทาง LINE / อีเมล / แฟลชไดรฟ์ ลูกค้าแตะหรือดับเบิลคลิกเปิดในเบราว์เซอร์ (Chrome / Safari / Edge) หมุนดูป้าย 3 มิติได้เลย ไม่ต้องลงแอป ไม่ต้องต่อเน็ต · มีปุ่มบันทึกรูปมุมที่ดู',
   };
+  // คำแนะนำใต้วิดีโอ: แบบที่เลือก + ไม่ใส่ข้อความ + ส่งทาง LINE ให้ชัด
+  function reelHint() {
+    var h = FMT_HINT[reelStyle() === 'promo' ? 'promo' : 'reel'];
+    if (!reelWords()) h = (reelStyle() === 'promo' ? 'วิดีโอโปรโมท 5 ฉาก 16 วินาที' : 'วิดีโอหมุนโชว์ 9 วินาที') + ' แบบไม่มีตัวหนังสือ (1080×1920) — เปิดใน CapCut / แอปตัดต่อ แล้วใส่ข้อความ เพลง ได้เอง (ฉากเว้นที่ด้านบนไว้ให้วางหัวเรื่อง)';
+    return h + ' · ' + FMT_HINT.line;
+  }
   function planText(p) {
     var t = p.perSheet + ' ใบ/แผ่น ' + p.sheet.name + (p.layout.rot ? ' (หมุนบัตร)' : '') + ' · ใช้ ' + p.sheets + ' แผ่น';
     if (p.spare) t += ' (แผ่นสุดท้ายว่าง ' + p.spare + ' ช่อง)';
@@ -3227,7 +3245,10 @@
     $('cmpBar').hidden = fmt !== 'compare';
     $('reelBar').hidden = fmt !== 'reel' || !stage;
     $('promoBox').hidden = fmt !== 'reel' || reelStyle() !== 'promo';
+    $('wordsBar').hidden = fmt !== 'reel';
+    $('promoBox').classList.toggle('nowords', !reelWords());
     pressed('#reelSeg button', 'rs', reelStyle());
+    pressed('#wordsSeg button', 'words', reelWords() ? 'on' : 'off');
     if (fmt === 'reel' && document.activeElement !== $('promoText')) $('promoText').value = promoTextNow();
     if (fmt === 'reel' && reelStyle() === 'promo' && stage) {
       syncPromoUI();
@@ -3236,7 +3257,7 @@
     pressed('#cmpOutSeg button', 'cout', st.cmpOut);
     pressed('#sheetSeg button', 'sheet', st.sheet);
     $('exportTitle').textContent = fmt === 'reel' ? (reelStyle() === 'promo' ? 'วิดีโอโปรโมท 5 ฉาก (9:16)' : 'วิดีโอ Reels (แนวตั้ง 9:16)') : fmt === 'pdf' ? 'ใบเสนอราคา' : fmt === 'glb' ? 'ไฟล์ 3 มิติ' : fmt === 'html' ? 'ไฟล์ HTML พรีวิว 3 มิติ' : fmt === 'fb3d' ? 'รูป 3 มิติ Facebook' : fmt === 'fbpack' ? 'ชุดโพสต์ Facebook' : fmt === 'print' ? 'ไฟล์พิมพ์บัตร' : fmt === 'compare' ? 'แบบให้ลูกค้าเลือก' : fmt === 'job' ? 'ใบสั่งผลิต' : 'รูปพร้อมส่งลูกค้า';
-    $('dlHint').textContent = inFrame && fmt !== 'glb' && fmt !== 'html' ? 'มือถือ: กดค้างที่รูปแล้วเลือก “บันทึกรูปภาพ” · คอมพิวเตอร์: คลิกขวาที่รูป แล้วเลือกบันทึกรูป' : FMT_HINT[fmt === 'reel' && reelStyle() === 'promo' ? 'promo' : fmt];
+    $('dlHint').textContent = inFrame && fmt !== 'glb' && fmt !== 'html' ? 'มือถือ: กดค้างที่รูปแล้วเลือก “บันทึกรูปภาพ” · คอมพิวเตอร์: คลิกขวาที่รูป แล้วเลือกบันทึกรูป' : fmt === 'reel' ? reelHint() : FMT_HINT[fmt];
     $('dlStatus').textContent = fmt === 'reel' ? 'กำลังเตรียมวิดีโอ…' : 'กำลังเตรียมไฟล์…';
     if (fmt === 'reel') {
       // ระหว่างทำวิดีโอ ยังไม่มีภาพตัวอย่าง
@@ -3664,6 +3685,15 @@
       if (b.dataset.rs === reelStyle() && exp.blob) return;
       try {
         localStorage.setItem(REEL_KEY, b.dataset.rs);
+      } catch (e) {}
+      openExport('reel');
+    });
+  });
+  document.querySelectorAll('#wordsSeg button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if ((b.dataset.words !== 'off') === reelWords() && exp.blob) return;
+      try {
+        localStorage.setItem(WORDS_KEY, b.dataset.words);
       } catch (e) {}
       openExport('reel');
     });

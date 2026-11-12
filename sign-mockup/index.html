@@ -680,27 +680,34 @@
           <button type="button" data-rs="spin">หมุนโชว์ (9 วิ)</button>
         </div>
       </div>
+      <div class="sheetbar" id="wordsBar" hidden>
+        <span class="label">ข้อความในวิดีโอ</span>
+        <div class="seg small" id="wordsSeg">
+          <button type="button" data-words="on">ใส่ให้</button>
+          <button type="button" data-words="off">ไม่ใส่ (ใส่เองในแอปตัดต่อ)</button>
+        </div>
+      </div>
       <div class="postbox promobox" id="promoBox" hidden>
         <div class="promo-top">
           <canvas id="promoPrev" width="216" height="384" aria-label="ตัวอย่างแบบวิดีโอ"></canvas>
           <div class="promo-opts">
             <span class="label">ธีมสีฉาก</span>
             <div class="promo-themes" id="promoThemes" role="group" aria-label="ธีมสีฉาก"></div>
-            <label class="label" for="promoFont">ฟอนต์หัวเรื่อง</label>
-            <select id="promoFont"></select>
-            <span class="label">ลูกเล่นตัวอักษร</span>
-            <div class="seg small" id="promoAnim">
+            <label class="label" for="promoFont" data-words-only>ฟอนต์หัวเรื่อง</label>
+            <select id="promoFont" data-words-only></select>
+            <span class="label" data-words-only>ลูกเล่นตัวอักษร</span>
+            <div class="seg small" id="promoAnim" data-words-only>
               <button type="button" data-anim="rise">เลื่อนขึ้น</button>
               <button type="button" data-anim="pop">เด้งขยาย</button>
               <button type="button" data-anim="wipe">กวาดเปิด</button>
             </div>
           </div>
         </div>
-        <label for="promoText">ข้อความ 5 ฉาก — บรรทัดละฉาก · ใส่ / เพื่อขึ้นบรรทัดใหม่ · บรรทัดท้ายของฉากเป็นตัวไล่สี</label>
-        <textarea id="promoText" rows="5" spellcheck="false"></textarea>
+        <label for="promoText" data-words-only>ข้อความ 5 ฉาก — บรรทัดละฉาก · ใส่ / เพื่อขึ้นบรรทัดใหม่ · บรรทัดท้ายของฉากเป็นตัวไล่สี</label>
+        <textarea id="promoText" rows="5" spellcheck="false" data-words-only></textarea>
         <div class="row">
           <button type="button" class="btn-primary small" id="promoGo">ทำวิดีโอแบบนี้</button>
-          <button type="button" class="btn-ghost small" id="promoReset">ใช้ข้อความตั้งต้น</button>
+          <button type="button" class="btn-ghost small" id="promoReset" data-words-only>ใช้ข้อความตั้งต้น</button>
         </div>
       </div>
       <div class="dlg-img" id="dlgImg"><img id="exportImg" alt="ภาพจำลองป้ายสำหรับส่งลูกค้า" /><video id="exportVid" playsinline muted loop controls hidden></video></div>

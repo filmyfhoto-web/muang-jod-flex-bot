@@ -2198,6 +2198,11 @@ dialog.type-dlg {
   white-space: pre;
   overflow-x: auto;
 }
+/* วิดีโอไม่ใส่ข้อความ: ช่องเกี่ยวกับตัวหนังสือจางลง (ยังอยู่ที่เดิม ไม่ซ่อน) */
+.promobox.nowords [data-words-only] {
+  opacity: 0.4;
+  pointer-events: none;
+}
 
 /* ปฏิทินตั้งโต๊ะ: รูปประจำเดือนย่อ */
 .calthumbs {
