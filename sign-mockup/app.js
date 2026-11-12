@@ -6,7 +6,7 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '4.15.0';
+  var APP_VERSION = '4.15.1';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp', hands: C.HAND_BUILTIN.src });
 
@@ -3073,11 +3073,26 @@
     var known = !S.font || shopFonts.some(function (f) { return f.family === S.font; }) || C.FONTS.some(function (f) { return f[0] === S.font; });
     $('promoFont').value = known ? S.font : '';
   }
-  // เปลี่ยนแบบ: หยุดคลิปเดิมที่กำลังทำ (แบบเก่า) ดูตัวอย่าง แล้วกด “ทำวิดีโอแบบนี้”
-  function promoChanged() {
+  // เปลี่ยนแบบ/แก้ข้อความ: หยุดคลิปเดิมที่กำลังทำ (แบบเก่า ข้อความเก่า) ดูตัวอย่าง แล้วกด “ทำวิดีโอแบบนี้”
+  // คลิปที่ทำค้างไว้ด้วยข้อความเก่าโหลด/แชร์ไม่ได้ — ไม่ให้ได้วิดีโอที่ข้อความไม่ตรงกับที่พิมพ์
+  function promoChanged(msg, wait) {
     syncPromoUI();
-    promoPreviewSoon();
+    promoPreviewSoon(wait);
     if (exp.fmt !== 'reel' || !$('exportDlg').open) return;
+    if (msg) {
+      if (!exp.stale) {
+        exp.stale = true;
+        exp.job++;
+        ['dlShare', 'dlCopy', 'dlSave'].forEach(function (id) {
+          $(id).disabled = true;
+        });
+        var v = $('exportVid');
+        if (v.getAttribute('src')) v.pause();
+        $('dlgImg').hidden = true;
+      }
+      $('dlStatus').textContent = msg;
+      return;
+    }
     exp.job++;
     ['dlShare', 'dlCopy', 'dlSave'].forEach(function (id) {
       $(id).disabled = true;
@@ -3086,6 +3101,18 @@
     if (vid.getAttribute('src')) vid.pause();
     $('dlgImg').hidden = true;
     $('dlStatus').textContent = 'เปลี่ยนแบบแล้ว — ดูภาพตัวอย่างด้านบน แล้วกด “ทำวิดีโอแบบนี้”';
+  }
+  // รอให้เวทีว่าง (คลิปเดิมที่เพิ่งสั่งหยุดยังวาดเฟรมสุดท้ายอยู่) — แทนการยกเลิกคลิปใหม่ทิ้ง
+  function promoStageFree(job) {
+    return new Promise(function (resolve, reject) {
+      var t0 = Date.now();
+      (function check() {
+        if (job !== exp.job || !$('exportDlg').open) return reject(new Error('cancel'));
+        if (!(stage.promoBusy && stage.promoBusy())) return resolve();
+        if (Date.now() - t0 > 20000) return reject(new Error('busy'));
+        setTimeout(check, 60);
+      })();
+    });
   }
   function buildPromo() {
     var RL = NS.reels;
@@ -3107,7 +3134,11 @@
     return Promise.all([fontsReady(), promoFontReady(plan.font)])
       .then(function () {
         if (job !== exp.job) throw new Error('cancel');
-        if (stage.promoBusy && stage.promoBusy()) throw new Error('cancel');
+        return promoStageFree(job);
+      })
+      .then(function () {
+        if (job !== exp.job) throw new Error('cancel');
+        plan = promoPlan(); // ข้อความล่าสุดในช่อง ณ ตอนเริ่มทำจริง
         RL.resetSprites(); // ฟอนต์เพิ่งโหลดเสร็จ: ไม่ใช้ภาพตัวหนังสือเก่าที่วาดด้วยฟอนต์สำรอง
         if (!stage.beginPromo(RL.W, RL.H, promoLook(plan))) throw new Error('reel');
         begun = true;
@@ -3268,6 +3299,7 @@
       $(id).disabled = true;
     });
     var job = ++exp.job;
+    exp.stale = false;
     if (!$('exportDlg').open) openDialog($('exportDlg'));
     buildExport(fmt)
       .then(function (r) {
@@ -3712,7 +3744,7 @@
     try {
       localStorage.setItem(PROMO_KEY + bt(), $('promoText').value);
     } catch (e) {}
-    promoPreviewSoon(700);
+    promoChanged('แก้ข้อความแล้ว — ดูภาพตัวอย่างด้านบน แล้วกด “ทำวิดีโอแบบนี้” วิดีโอจะใช้ข้อความที่พิมพ์', 700);
   });
   $('promoGo').addEventListener('click', function () {
     openExport('reel');
