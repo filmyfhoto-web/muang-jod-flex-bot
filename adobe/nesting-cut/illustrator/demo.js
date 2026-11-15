@@ -504,6 +504,9 @@
         ],
       };
     },
+    np_letterCut: function (a) {
+      return { document: 'ไดคัทตัวหนังสือ (ตัวอย่าง)', copies: (a.positions || []).length || 1, united: !!a.unite, unite: !!a.unite, pieces: 5, open: 0, images: 0, w: 0, h: 0 };
+    },
     np_drawStamps: function (a) {
       var cuts = 0;
       a.stamps.forEach(function (st) {

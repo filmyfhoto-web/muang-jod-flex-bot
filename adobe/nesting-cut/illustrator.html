@@ -18,6 +18,7 @@
         <option value="nest" data-tool="nest">จัดวางดวง</option>
         <option value="run" data-tool="run">ไดคัทต่อเนื่อง</option>
         <option value="shape" data-tool="shape">ไดคัทตามรูป</option>
+        <option value="letter" data-tool="letter">ไดคัทตัวหนังสือ</option>
         <option value="corner" data-tool="corner">ทำมุมโค้ง CNC</option>
         <option value="led" data-tool="led">หาเส้นกลาง LED</option>
         <option value="dim" data-tool="dim">บอกขนาด</option>
@@ -479,6 +480,59 @@
       </div>
     </section>
 
+    <!-- ไดคัทตัวหนังสือ: สติ๊กเกอร์ตัวอักษรติดอะคริลิค -->
+    <section class="card" id="secLetter" data-for="letter">
+      <h2><span class="num">Aa</span> ไดคัทตัวหนังสือ <span class="sub">สติ๊กเกอร์ติดอะคริลิค</span></h2>
+      <p class="hint">
+        ตัวหนังสือ/โลโก้ที่เลือก (Live Text ก็ได้ ไม่ต้อง Outline เอง) → เส้นตัดสติ๊กเกอร์ PVC / ไวนิลสี พร้อมกรอบลอกเศษ ได้ไฟล์ใหม่ส่งเครื่องตัดได้เลย · ติดหลังอะคริลิคใส กลับด้านให้
+      </p>
+      <details class="howto"><summary>วิธีใช้</summary>
+      <ol class="steplist">
+        <li><b>เลือกตัวหนังสือ</b><span>คลิกเลือกข้อความ / โลโก้ใน Illustrator (เลือกหลายชิ้นได้)</span></li>
+        <li><b>ตั้งขนาดและด้านที่ติด</b><span>ความกว้างหรือความสูงรวมตามป้าย · ติดหลังอะคริลิคใส = กลับด้าน (มองจากหน้าป้ายอ่านถูก)</span></li>
+        <li><b>ดูตัวอย่าง แล้วสร้างไฟล์ไดคัท</b><span>ไฟล์ใหม่: เส้นตัด CutContour + กรอบลอกเศษ + เส้นคั่นบรรทัด เรียงหลายชุดตามหน้าม้วน</span></li>
+      </ol>
+      </details>
+      <label
+        >ขนาด
+        <select data-setting="ltSizeMode">
+          <option value="keep">ตามขนาดในไฟล์</option>
+          <option value="width">กำหนดความกว้างรวม</option>
+          <option value="height">กำหนดความสูงรวม</option>
+        </select></label
+      >
+      <label data-lt-size>ขนาดรวม (ซม.) <input type="number" min="0.5" step="0.1" data-setting="ltSize" id="ltSize" /></label>
+      <label
+        >ติดด้าน
+        <select data-setting="ltSide">
+          <option value="back">หลังอะคริลิคใส (กลับด้านให้)</option>
+          <option value="front">หน้าอะคริลิค / ผนัง / กระจกด้านนอก (ไม่กลับด้าน)</option>
+        </select></label
+      >
+      <label class="check"><input type="checkbox" data-setting="ltUnite" /> รวมตัวที่ซ้อน/ชนกันเป็นชิ้นเดียว (มีดไม่ตัดผ่านกลางตัวอักษร)</label>
+      <label class="check"><input type="checkbox" data-setting="ltWeed" /> กรอบลอกเศษรอบงาน</label>
+      <label>ระยะกรอบลอกเศษ (มม.) <input type="number" min="0" step="1" data-setting="ltMargin" id="ltMargin" /></label>
+      <label class="check"><input type="checkbox" data-setting="ltRows" /> เส้นคั่นระหว่างบรรทัด (ลอกเศษทีละบรรทัด ไม่ดึงตัวหนังสือหลุด)</label>
+      <div class="grid2">
+        <label>จำนวนชุด <input type="number" min="1" max="500" step="1" data-setting="ltCopies" /></label>
+        <label>หน้าม้วน (ซม.) <input type="number" min="0" step="1" data-setting="ltRoll" /></label>
+        <label>ห่างกันชุดละ (มม.) <input type="number" min="0" step="1" data-setting="ltGap" /></label>
+        <label>เตือนชิ้นเล็กกว่า (มม.) <input type="number" min="0" step="0.5" data-setting="ltMinPiece" /></label>
+      </div>
+      <label class="check"><input type="checkbox" data-setting="ltRotate" /> หมุน 90° ให้วิ่งตามความยาวม้วน ถ้ากว้างเกินหน้าม้วน</label>
+      <p class="note">
+        เครื่องตัด (Cutting Master / Graphtec): เส้นชมพูบาง Spot “CutContour” = ตัด · สติ๊กเกอร์สีพื้นไม่ต้องพิมพ์ ไม่ต้องมีมาร์ก ·
+        ลอกเศษ (Weed) แล้วแปะเทปยก (Transfer tape) ยกไปติด · หน้าม้วน 0 = ไม่จำกัด (เรียงแถวเดียว)
+      </p>
+      <div class="tool-actions">
+        <div class="row">
+          <button id="btnLtRead" class="ghost">① อ่านตัวหนังสือ / ดูตัวอย่าง</button>
+          <button id="btnLtMake">② สร้างไฟล์ไดคัท</button>
+        </div>
+        <div id="ltStatus" class="status">เลือกตัวหนังสือใน Illustrator แล้วกด “อ่านตัวหนังสือ”</div>
+      </div>
+    </section>
+
     <!-- ปุ่มลัด -->
     <section class="card" id="secHotkey" data-for="hotkey">
       <h2><span class="num">⌨</span> จัดวางและนำไปใช้ในปุ่มเดียว <span class="sub">ตั้งปุ่มลัด</span></h2>
@@ -540,7 +594,7 @@
           <span id="previewInfo" class="preview-info"></span>
         </div>
       </section>
-      <section class="card preview-card" id="vecPreviewCard" data-for="corner led stamp">
+      <section class="card preview-card" id="vecPreviewCard" data-for="corner led stamp letter">
         <h2><span id="vecTitle">ตัวอย่าง</span> <span id="vecSub" class="sub"></span></h2>
         <div class="preview" id="vecBox">
           <div id="vecEmpty" class="empty-preview">เลือกชิ้นงานใน Illustrator แล้วกด “① วิเคราะห์ / ดูตัวอย่าง”</div>
@@ -864,6 +918,7 @@
     <script src="core/cutfile.js"></script>
     <script src="core/diecut.js"></script>
     <script src="core/stamp.js"></script>
+    <script src="core/letter.js"></script>
     <script src="core/cnc.js"></script>
     <script src="core/dimension.js"></script>
     <script src="core/pack.js"></script>

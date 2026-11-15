@@ -1650,6 +1650,174 @@ function np_drawStamps(args) {
   return { stamps: args.stamps.length, cuts: nCut, cutLayer: cutLay.name, engraveLayer: engLay.name };
 }
 
+// ---------------------------------------------------------------- lettering die-cut (vinyl letters for acrylic)
+
+// fill-only copies: no stroke, so the union and the bounds follow the letter shapes only
+function np_letterPrep(it, black, out, depth) {
+  if (depth > 40) return;
+  var t = it.typename;
+  var k;
+  if (t === 'GroupItem') {
+    for (k = it.pageItems.length - 1; k >= 0; k--) np_letterPrep(it.pageItems[k], black, out, depth + 1);
+  } else if (t === 'CompoundPathItem') {
+    for (k = 0; k < it.pathItems.length; k++) {
+      it.pathItems[k].filled = true;
+      it.pathItems[k].fillColor = black;
+      it.pathItems[k].stroked = false;
+    }
+  } else if (t === 'PathItem') {
+    // open lines and guides cannot be weeded - leave them out
+    if (it.guides || !it.closed) {
+      it.remove();
+      out.open++;
+      return;
+    }
+    if (it.clipping) return;
+    it.filled = true;
+    it.fillColor = black;
+    it.stroked = false;
+  } else if (t === 'RasterItem' || t === 'PlacedItem' || t === 'SymbolItem' || t === 'MeshItem' || t === 'PluginItem' || t === 'LegacyTextItem') {
+    it.remove();
+    out.images++;
+  }
+}
+
+// every path of the finished copy: no fill, thin stroke in the cut color
+function np_letterStroke(it, color, width, out, depth) {
+  if (depth > 40) return;
+  var t = it.typename;
+  var k;
+  if (t === 'GroupItem') {
+    for (k = 0; k < it.pageItems.length; k++) np_letterStroke(it.pageItems[k], color, width, out, depth + 1);
+  } else if (t === 'CompoundPathItem') {
+    for (k = 0; k < it.pathItems.length; k++) np_letterStroke(it.pathItems[k], color, width, out, depth + 1);
+  } else if (t === 'PathItem') {
+    if (it.clipping) return;
+    it.filled = false;
+    it.stroked = true;
+    it.strokeColor = color;
+    it.strokeWidth = width;
+    if (it.closed) out.closed++;
+  }
+}
+
+function np_letterCut(args) {
+  var keepCS = null;
+  try {
+    keepCS = app.coordinateSystem;
+    app.coordinateSystem = CoordinateSystem.DOCUMENTCOORDINATESYSTEM;
+  } catch (eC) {}
+  try {
+    return np_letterMake(args);
+  } finally {
+    try {
+      if (keepCS !== null) app.coordinateSystem = keepCS;
+    } catch (eR) {}
+  }
+}
+
+// args: { k, mirror, unite, rotate, weed, margin (pt), rowsAt: [0..1 from the top of the letters],
+//         positions: [[x, y] pt, top-left of each copy from the sheet corner], sheetW, sheetH, edge (pt),
+//         spotName, strokeWidth (pt), layer, name }
+function np_letterMake(args) {
+  var src = NP.cncItems || [];
+  if (!src.length) throw np_E('NO_SELECTION');
+  for (var a = 0; a < src.length; a++) if (!np_alive(src[a])) throw np_E('PART_GONE');
+  var srcDoc = app.activeDocument;
+  var doc = app.documents.add(srcDoc.documentColorSpace, Math.max(36, args.sheetW), Math.max(36, args.sheetH));
+  var lay = doc.layers[0];
+  lay.name = args.layer || 'Lettering cut';
+  // copy to the layer first, then into a group (copying straight into a group of another document can come out empty)
+  var copies = [];
+  for (var i = 0; i < src.length; i++) copies.push(src[i].duplicate(lay, ElementPlacement.PLACEATEND));
+  var g = lay.groupItems.add();
+  g.name = args.name || 'Letters';
+  for (var j = 0; j < copies.length; j++) {
+    if (np_alive(copies[j])) copies[j].move(g, ElementPlacement.PLACEATEND);
+  }
+  if (!g.pageItems.length) throw np_E('COPY_FAILED');
+  g = np_outlineTexts(g, 0);
+  var info = { open: 0, images: 0, closed: 0 };
+  np_letterPrep(g, np_black(doc), info, 0);
+  if (!g.pageItems.length) throw np_E('EMPTY_ITEM');
+  // letters that touch or overlap become one shape (otherwise the blade cuts through them)
+  var united = false;
+  if (args.unite) {
+    try {
+      doc.selection = null;
+      g.selected = true;
+      app.executeMenuCommand('Live Pathfinder Add');
+      app.executeMenuCommand('expandStyle');
+      if (doc.selection && doc.selection.length === 1) {
+        g = doc.selection[0];
+        united = true;
+      } else if (doc.selection && doc.selection.length > 1) {
+        var ng = lay.groupItems.add();
+        for (var s2 = doc.selection.length - 1; s2 >= 0; s2--) doc.selection[s2].move(ng, ElementPlacement.PLACEATBEGINNING);
+        g = ng;
+        united = true;
+      }
+    } catch (eU) {
+      united = false;
+    }
+    doc.selection = null;
+  }
+  // read from the front through clear acrylic: flip left-right
+  if (args.mirror) g.resize(-100, 100, true, true, true, true, 100, Transformation.CENTER);
+  if (args.k > 0 && Math.abs(args.k - 1) > 1e-6) g.resize(args.k * 100, args.k * 100, true, true, true, true, 100, Transformation.CENTER);
+  var gb = g.geometricBounds; // [left, top, right, bottom]
+  var m = args.weed ? Math.max(0, args.margin || 0) : 0;
+  var left = gb[0] - m;
+  var top = gb[1] + m;
+  var right = gb[2] + m;
+  var bottom = gb[3] - m;
+  var cg = lay.groupItems.add();
+  cg.name = (args.name || 'Letters') + ' 1';
+  g.move(cg, ElementPlacement.PLACEATEND);
+  // weeding box + lines between text rows
+  if (args.weed) {
+    var box = cg.pathItems.rectangle(top, left, right - left, top - bottom);
+    box.name = 'Weed box';
+  }
+  var rows = args.rowsAt || [];
+  for (var r = 0; r < rows.length; r++) {
+    var y = gb[1] - rows[r] * (gb[1] - gb[3]);
+    var ln = cg.pathItems.add();
+    ln.setEntirePath([[args.weed ? left : gb[0] - 2, y], [args.weed ? right : gb[2] + 2, y]]);
+    ln.closed = false;
+    ln.name = 'Weed line';
+  }
+  if (args.rotate) cg.rotate(90);
+  var color = np_spotColor(np_spot(doc, args.spotName || 'CutContour'));
+  np_letterStroke(cg, color, args.strokeWidth > 0 ? args.strokeWidth : 0.25, info, 0);
+  // first copy into its place, the rest are duplicates
+  var ab = doc.artboards[0].artboardRect;
+  var edge = args.edge || 0;
+  var pos = args.positions && args.positions.length ? args.positions : [[0, 0]];
+  var cb = cg.geometricBounds;
+  cg.translate(ab[0] + edge + pos[0][0] - cb[0], ab[1] - edge - pos[0][1] - cb[1]);
+  for (var c = 1; c < pos.length; c++) {
+    var d = cg.duplicate(lay, ElementPlacement.PLACEATEND);
+    d.name = (args.name || 'Letters') + ' ' + (c + 1);
+    d.translate(pos[c][0] - pos[0][0], -(pos[c][1] - pos[0][1]));
+  }
+  doc.selection = null;
+  try {
+    app.executeMenuCommand('fitall');
+  } catch (eF) {}
+  return {
+    document: doc.name,
+    copies: pos.length,
+    united: united,
+    unite: !!args.unite,
+    pieces: Math.max(0, info.closed - (args.weed ? 1 : 0)),
+    open: info.open,
+    images: info.images,
+    w: cb[2] - cb[0],
+    h: cb[1] - cb[3]
+  };
+}
+
 // ---------------------------------------------------------------- clear old work
 
 // remove the die-cut sheets this plug-in made in the active document:
