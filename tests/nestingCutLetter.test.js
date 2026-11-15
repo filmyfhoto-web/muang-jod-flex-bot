@@ -1,0 +1,109 @@
+// ไดคัทตัวหนังสือ: สติ๊กเกอร์ตัวอักษรติดอะคริลิค (แผน + แผง + host.jsx)
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const L = require('../adobe/nesting-cut/core/letter.js');
+const read = (p) => readFileSync(new URL('../adobe/nesting-cut/' + p, import.meta.url), 'utf8');
+const rect = (x, y, w, h) => [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+const near = (a, b, e = 1e-6) => Math.abs(a - b) < e;
+
+// ข้อความ 2 บรรทัด: พยัญชนะสูง 10 มม. · สระบนลอยห่าง 1 มม. (ต้องอยู่บรรทัดเดียวกัน) · บรรทัดสองห่าง 10 มม.
+const TWO_LINES = [rect(0, 10, 8, 10), rect(10, 10, 8, 10), rect(10, 7, 4, 2), rect(0, 30, 8, 10), rect(10, 30, 8, 10)];
+
+test('ไดคัทตัวหนังสือ: ขนาดตามป้าย · สระ/วรรณยุกต์อยู่บรรทัดเดียวกับพยัญชนะ · เส้นคั่นกลางช่องบรรทัด', () => {
+  const keep = L.plan(TWO_LINES, { sizeMode: 'keep', margin: 5 });
+  assert.equal(keep.k, 1);
+  assert.ok(near(keep.w, 18) && near(keep.h, 33)); // y 7..40
+  assert.ok(near(keep.boxW, 28) && near(keep.boxH, 43));
+  assert.equal(keep.rows, 2);
+  assert.equal(keep.rowsAt.length, 1);
+  assert.ok(near(keep.rowsAt[0], (25 - 7) / 33)); // กลางช่อง 20..30
+  const w = L.plan(TWO_LINES, { sizeMode: 'width', size: 360 });
+  assert.ok(near(w.k, 20) && near(w.w, 360));
+  const h = L.plan(TWO_LINES, { sizeMode: 'height', size: 66 });
+  assert.ok(near(h.k, 2) && near(h.h, 66));
+  // ช่องบรรทัดหลังย่อเหลือไม่ถึง 3 มม. → ไม่มีที่ให้มีดลง ถือเป็นบรรทัดเดียว (ไม่ตัดเส้นคั่น)
+  const tiny = L.plan(TWO_LINES, { sizeMode: 'height', size: 8.25 });
+  assert.equal(tiny.rowsAt.length, 0);
+  // ปิดเส้นคั่น / ปิดกรอบ
+  assert.equal(L.plan(TWO_LINES, { rows: false }).rowsAt.length, 0);
+  const noBox = L.plan(TWO_LINES, { weed: false, margin: 5 });
+  assert.equal(noBox.margin, 0);
+  assert.ok(near(noBox.boxW, 18));
+  assert.equal(L.plan([], {}), null);
+});
+
+test('ไดคัทตัวหนังสือ: กลับด้านติดหลังอะคริลิค · กรอบลอกเศษ · หมุน 90° ตรงกับ Illustrator', () => {
+  const p = L.plan(TWO_LINES, { sizeMode: 'keep', margin: 5, mirror: true });
+  const pc = L.piece(TWO_LINES, p);
+  assert.deepEqual(pc.box, [28, 43]);
+  // ชิ้นซ้ายสุด (x 0..8) กลับด้านแล้วไปอยู่ขวาสุด
+  const xs = pc.rings[0].map((q) => q[0]);
+  assert.ok(near(Math.min(...xs), 5 + 10) && near(Math.max(...xs), 5 + 18));
+  assert.deepEqual(pc.frame, [[0, 0], [28, 0], [28, 43], [0, 43]]);
+  assert.ok(near(pc.lines[0][0][1], 5 + p.rowsAt[0] * 33) && near(pc.lines[0][1][0], 28));
+  // หมุน 90° ทวนเข็ม (Illustrator rotate(90)): จุดขวาบนของกรอบ → ซ้ายบน · กรอบ กว้าง ↔ สูง
+  const r = L.piece(TWO_LINES, Object.assign({}, p, { rotated: true }));
+  assert.deepEqual(r.box, [43, 28]);
+  assert.deepEqual(r.frame[1], [0, 0]);
+  assert.deepEqual(r.frame[0], [0, 28]);
+});
+
+test('ไดคัทตัวหนังสือ: หลายชุดเต็มหน้าม้วน · หมุนเองเมื่อกว้างเกิน · เตือนชิ้นเล็ก/ตัวเล็ก/กว้างเกินม้วน', () => {
+  const g = L.grid(5, 280, 100, 600, 5);
+  assert.equal(g.cols, 2);
+  assert.equal(g.rows, 3);
+  assert.deepEqual(g.positions[1], [285, 0]);
+  assert.deepEqual(g.positions[2], [0, 105]);
+  assert.ok(near(g.w, 565) && near(g.h, 310) && g.fits);
+  assert.equal(L.grid(3, 100, 50, 0, 5).cols, 1); // ไม่จำกัดหน้าม้วน → แถวเดียวลงมา
+  // งานยาว 900 มม. บนม้วน 600 → หมุนวิ่งตามความยาวม้วน
+  const long = [rect(0, 0, 90, 10)];
+  const p = L.plan(long, { sizeMode: 'width', size: 900, margin: 5, roll: 600, copies: 2, gap: 5 });
+  assert.equal(p.rotated, true);
+  assert.equal(p.layout.cols, 2); // กรอบ 110 × 910 หลังหมุน → 2 ชุดวางข้างกันบนหน้าม้วน 600
+  assert.ok(near(p.layout.h, 910));
+  assert.equal(p.warnings.length, 0);
+  const never = L.plan(long, { sizeMode: 'width', size: 900, roll: 600, rotate: 'never' });
+  assert.equal(never.rotated, false);
+  assert.deepEqual(never.warnings.map((w) => w.code), ['TOO_WIDE']);
+  // ชิ้นเล็กกว่า 2 มม. (จุด/รูในตัว) + ตัวอักษรเตี้ยกว่า 8 มม.
+  const small = L.plan([rect(0, 0, 5, 6), rect(6, 0, 5, 6), rect(12, 5, 1, 1)], { minPiece: 2 });
+  assert.equal(small.tiny, 1);
+  assert.deepEqual(small.warnings.map((w) => w.code), ['TINY', 'SMALL']);
+  assert.equal(L.median([5, 1, 3]), 3);
+});
+
+test('ไดคัทตัวหนังสือ: แผง (เครื่องมือใหม่ · ไม่ซ่อนช่อง) + host.jsx (ไฟล์ใหม่ · รวมตัวซ้อน · กลับด้าน · CutContour)', () => {
+  const html = read('illustrator.html');
+  assert.match(html, /<option value="letter" data-tool="letter">ไดคัทตัวหนังสือ<\/option>/);
+  assert.match(html, /<section class="card" id="secLetter" data-for="letter">/);
+  assert.match(html, /<script src="core\/letter\.js"><\/script>/);
+  assert.match(html, /id="vecPreviewCard" data-for="corner led stamp letter"/);
+  for (const k of ['ltSizeMode', 'ltSize', 'ltSide', 'ltUnite', 'ltWeed', 'ltMargin', 'ltRows', 'ltCopies', 'ltRoll', 'ltGap', 'ltMinPiece', 'ltRotate']) assert.match(html, new RegExp('data-setting="' + k + '"'), k);
+  const main = read('illustrator/main.js');
+  assert.match(main, /letter: 'ltStatus'/);
+  assert.match(main, /\['letter', '🔤', /);
+  assert.match(main, /letter: 'เลือกตัวหนังสือ/);
+  assert.match(main, /if \(\/\^lt\[A-Z\]\/\.test\(key\)\) return letterReplan\(\);/); // ปรับค่า → ตัวอย่างเปลี่ยนทันที
+  assert.match(main, /\$\('ltSize'\)\.disabled = s\.ltSizeMode === 'keep';/); // ปิดช่อง ไม่ซ่อน (แผงไม่เด้ง)
+  assert.match(main, /ltSide: 'back',/); // ค่าเริ่มต้น: ติดหลังอะคริลิคใส (กลับด้าน)
+  assert.match(main, /mirror: s\.ltSide !== 'front',/);
+  assert.match(main, /\.call\('np_letterCut', \{/);
+  const host = read('illustrator/host.jsx');
+  const fn = host.slice(host.indexOf('function np_letterMake('), host.indexOf('// ---------------------------------------------------------------- clear old work'));
+  assert.match(fn, /app\.documents\.add\(srcDoc\.documentColorSpace/); // ไฟล์ใหม่ ของเดิมไม่ถูกแตะ
+  assert.match(fn, /np_outlineTexts\(g, 0\)/);
+  assert.match(fn, /executeMenuCommand\('Live Pathfinder Add'\);\n\s*app\.executeMenuCommand\('expandStyle'\);/);
+  assert.match(fn, /if \(args\.mirror\) g\.resize\(-100, 100,/);
+  assert.match(fn, /if \(args\.rotate\) cg\.rotate\(90\);/); // ตรงกับ L.piece (หมุนทวนเข็ม)
+  assert.match(fn, /np_spotColor\(np_spot\(doc, args\.spotName \|\| 'CutContour'\)\)/);
+  assert.match(host, /it\.filled = false;\n\s*it\.stroked = true;\n\s*it\.strokeColor = color;/);
+  assert.match(host, /t === 'RasterItem' \|\| t === 'PlacedItem'/); // รูปภาพตัดสติ๊กเกอร์ไม่ได้
+  assert.match(host, /function np_letterCut\(args\) \{\n\s*var keepCS = null;/); // พิกัดเอกสารเหมือนรันนัมเบอร์
+  assert.match(read('illustrator/demo.js'), /np_letterCut: function/);
+  assert.match(read('CHANGELOG.md'), /## 1\.14\.0\n\n- เครื่องมือใหม่ “ไดคัทตัวหนังสือ”/);
+});

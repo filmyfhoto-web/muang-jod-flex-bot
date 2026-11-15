@@ -60,7 +60,7 @@
   var STORE_KEY = 'nongploy.nestingcut.settings.v2';
   // ค่าที่บันทึกจากรุ่นก่อน UI_VERSION: หัวงานเคยเปิดเป็นค่าเริ่มต้น → ปิดให้ครั้งเดียว
   var UI_VERSION = 6;
-  var PANEL_VERSION = '1.13.1'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
+  var PANEL_VERSION = '1.14.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
   var PV_W = 300; // กรอบพรีวิวขนาดคงที่ (px) — ต้องตรงกับ #previewBox ใน panel.css
   var PV_H = 400;
   var WIDE_MIN = 734; // แผงกว้างพอวางพรีวิว (334) คู่ช่องคำสั่ง (400) — ตรงกับ --pv-col + --ctl-w ใน panel.css
@@ -219,6 +219,19 @@
     stCutWidth: 0.01,
     stCutLayer: 'เส้นตัดเลเซอร์',
     stEngraveLayer: 'งานแกะเลเซอร์',
+    // ไดคัทตัวหนังสือ (สติ๊กเกอร์ติดอะคริลิค)
+    ltSizeMode: 'keep',
+    ltSize: 60,
+    ltSide: 'back',
+    ltUnite: true,
+    ltWeed: true,
+    ltMargin: 5,
+    ltRows: true,
+    ltCopies: 1,
+    ltRoll: 60,
+    ltGap: 5,
+    ltMinPiece: 2,
+    ltRotate: true,
     // ปุ่มลัด
     hkKey: 'F5',
     hkCmd: false,
@@ -291,7 +304,7 @@
 
   // ---------------------------------------------------------------- สถานะบนจอ
 
-  var STATUS_ID = { shape: 'dcStatus', corner: 'cnStatus', led: 'ledStatus', stamp: 'stStatus', dim: 'dimStatus', number: 'numStatus', hotkey: 'hkStatus' };
+  var STATUS_ID = { letter: 'ltStatus', shape: 'dcStatus', corner: 'cnStatus', led: 'ledStatus', stamp: 'stStatus', dim: 'dimStatus', number: 'numStatus', hotkey: 'hkStatus' };
 
   function status(text, kind) {
     var el = $(STATUS_ID[S.settings.tool] || 'status');
@@ -2505,6 +2518,215 @@
     });
   }
 
+  // ---------------------------------------------------------------- ไดคัทตัวหนังสือ (สติ๊กเกอร์ติดอะคริลิค)
+
+  var LT = NC.letter;
+
+  function letterOpts() {
+    var s = S.settings;
+    return {
+      sizeMode: s.ltSizeMode,
+      size: num('ltSize') * 10, // ซม. → มม.
+      mirror: s.ltSide !== 'front',
+      weed: !!s.ltWeed,
+      margin: num('ltMargin'),
+      rows: !!s.ltRows,
+      copies: Math.max(1, Math.min(500, Math.round(num('ltCopies')) || 1)),
+      roll: Math.max(0, num('ltRoll')) * 10,
+      gap: Math.max(0, num('ltGap')),
+      minPiece: Math.max(0, num('ltMinPiece')),
+      rotate: s.ltRotate ? 'auto' : 'never',
+    };
+  }
+
+  function cm(mm) {
+    return (Math.round(mm / 1) / 10).toFixed(1).replace(/\.0$/, '');
+  }
+
+  // สรุปแผน + คำเตือน (ไว้ทั้งในบรรทัดสถานะและใต้ภาพตัวอย่าง)
+  function letterReport(p) {
+    var lay = p.layout;
+    var parts = [
+      'ตัวหนังสือ ' + cm(p.w) + ' × ' + cm(p.h) + ' ซม.',
+      p.weed ? 'กรอบลอกเศษ ' + cm(p.boxW) + ' × ' + cm(p.boxH) + ' ซม.' : 'ไม่มีกรอบลอกเศษ',
+      p.mirror ? 'กลับด้านแล้ว (ติดหลังอะคริลิคใส)' : 'ไม่กลับด้าน (ติดด้านหน้า)',
+      p.rows + ' บรรทัด' + (p.rowsAt.length ? ' · เส้นคั่น ' + p.rowsAt.length + ' เส้น' : ''),
+    ];
+    var n = lay.positions.length;
+    var roll = letterOpts().roll;
+    parts.push(
+      n + ' ชุด' + (n > 1 ? ' (แถวละ ' + lay.cols + ' ชุด · ' + lay.rows + ' แถว)' : '') + (p.rotated ? ' หมุน 90°' : '') +
+        (roll > 0 ? ' บนหน้าม้วน ' + cm(roll) + ' ซม.' : '') + ' ใช้สติ๊กเกอร์ยาว ' + cm(lay.h) + ' ซม.'
+    );
+    var warn = p.warnings.map(function (w) {
+      if (w.code === 'TINY') return '⚠ ชิ้น/รูเล็กกว่า ' + w.min + ' มม. ' + w.count + ' ชิ้น (จุด หัวตัวอักษร รูในตัว) ลอกยาก หลุดง่าย — ขยายงานหรือใช้ฟอนต์หนาขึ้น';
+      if (w.code === 'SMALL') return '⚠ ตัวอักษรสูงราว ' + w.height.toFixed(1) + ' มม. เล็กไป ลอก/ยกติดยาก — แนะนำสูง 1 ซม. ขึ้นไป';
+      if (w.code === 'TOO_WIDE') return '⚠ งานกว้าง ' + cm(w.width) + ' ซม. เกินหน้าม้วน ' + cm(w.roll) + ' ซม. (หมุนแล้วก็ไม่พอ) — ย่อขนาด แบ่งงาน หรือใช้ม้วนกว้างขึ้น';
+      return '';
+    });
+    return { text: parts.join(' · '), warn: warn.filter(Boolean) };
+  }
+
+  function letterPlan(v) {
+    v.plan = LT.plan(v.rings, letterOpts());
+    v.piece = v.plan ? LT.piece(v.rings, v.plan) : null;
+    return v;
+  }
+
+  function letterStatus(v) {
+    var rp = letterReport(v.plan);
+    status(rp.text + (rp.warn.length ? ' · ' + rp.warn.join(' · ') : ''), rp.warn.length ? 'warn' : 'ok');
+  }
+
+  function letterRead() {
+    return readShapes(true).then(function (r) {
+      var k = r.read.kinds || {};
+      if (!r.rings.length) {
+        throw new Error(
+          k.images ? 'ชิ้นที่เลือกเป็นรูปภาพ (Raster) ตัดสติ๊กเกอร์ไม่ได้ — ใช้ตัวหนังสือหรือเวกเตอร์ (Image Trace ก่อนก็ได้)' : 'ไม่พบตัวหนังสือหรือ Path ปิดในชิ้นที่เลือก'
+        );
+      }
+      var v = letterPlan({ kind: 'letter', rings: r.rings, read: r.read, flags: [] });
+      S.vec = v;
+      drawVec();
+      letterStatus(v);
+      return v;
+    });
+  }
+
+  // ปรับค่าแล้วคำนวณใหม่จากรูปทรงเดิม (ไม่ต้องอ่านจาก Illustrator ซ้ำ)
+  function letterReplan() {
+    var v = S.vec;
+    if (!v || v.kind !== 'letter') return;
+    letterPlan(v);
+    if (!v.plan) return;
+    drawVec();
+    letterStatus(v);
+  }
+
+  function letterMake() {
+    return letterRead().then(function (v) {
+      var p = v.plan;
+      var lay = p.layout;
+      if (p.warnings.some(function (w) { return w.code === 'TOO_WIDE'; })) {
+        throw new Error('งานกว้างเกินหน้าม้วน — ย่อขนาด แบ่งงาน หรือแก้ “หน้าม้วน” ให้ตรงกับม้วนที่ใช้ แล้วลองใหม่');
+      }
+      var edge = 5; // ขอบไฟล์รอบงาน (มม.)
+      var s = S.settings;
+      status('นัดพอนกำลังทำไฟล์ไดคัทตัวหนังสือ…');
+      return host
+        .call('np_letterCut', {
+          k: p.k,
+          mirror: p.mirror,
+          unite: !!s.ltUnite,
+          rotate: p.rotated,
+          weed: p.weed,
+          margin: p.margin / K,
+          rowsAt: p.rowsAt,
+          positions: lay.positions.map(function (q) {
+            return [q[0] / K, q[1] / K];
+          }),
+          sheetW: (lay.w + 2 * edge) / K,
+          sheetH: (lay.h + 2 * edge) / K,
+          edge: edge / K,
+          spotName: s.spotName || 'CutContour',
+          strokeWidth: 0.25,
+          layer: 'ไดคัทตัวหนังสือ',
+          name: 'ตัวหนังสือ',
+        })
+        .then(function (out) {
+          var extra = [];
+          if (out.unite && !out.united) extra.push('⚠ รวมตัวที่ซ้อนกันไม่สำเร็จ — ถ้ามีตัวอักษรทับกัน ใช้ Pathfinder › Unite เอง');
+          if (out.images) extra.push('ตัดรูปภาพทิ้ง ' + out.images + ' ชิ้น (ตัดสติ๊กเกอร์ไม่ได้)');
+          if (out.open) extra.push('ตัดเส้นเปิดทิ้ง ' + out.open + ' เส้น');
+          status(
+            'สร้างไฟล์ไดคัทแล้ว “' + out.document + '” — ' + out.copies + ' ชุด · เส้นตัดตัวหนังสือชุดละ ' + out.pieces + ' วง' +
+              (p.mirror ? ' · กลับด้านแล้ว' : '') + ' · ส่ง Cutting Master ได้เลย' + (extra.length ? ' · ' + extra.join(' · ') : ''),
+            extra.length && out.unite && !out.united ? 'warn' : 'ok'
+          );
+        });
+    });
+  }
+
+  // ภาพตัวอย่าง: วางทุกชุดตามหน้าม้วน · ตัวหนังสือ (เทาเข้ม) · เส้นตัด (ชมพู) · กรอบ/เส้นคั่นลอกเศษ
+  function drawLetter(v) {
+    var canvas = $('vecCanvas');
+    var p = v.plan;
+    var pc = v.piece;
+    if (!p || !pc) return;
+    canvas.hidden = false;
+    $('vecEmpty').hidden = true;
+    var lay = p.layout;
+    var roll = letterOpts().roll;
+    var pad = 4;
+    var wMm = Math.max(lay.w, roll || 0) + 2 * pad;
+    var hMm = lay.h + 2 * pad;
+    var box = $('vecBox');
+    var cssW = Math.max(160, (box.clientWidth || 300) - 16);
+    var cssH = document.body.classList.contains('wide') ? Math.max(200, box.clientHeight - 16) : 420;
+    var sc = Math.min(cssW / wMm, cssH / hMm);
+    var W = Math.max(1, Math.round(wMm * sc));
+    var H = Math.max(1, Math.round(hMm * sc));
+    var dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    var ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = '#e9ebf0';
+    ctx.fillRect(0, 0, W, H);
+    // หน้าม้วน (สีขาว)
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(pad * sc, 0, (roll > 0 ? roll : lay.w) * sc, H);
+    var CUT = '#ff2d9a';
+    var show = lay.positions.slice(0, 80);
+    show.forEach(function (q) {
+      var ox = (pad + q[0]) * sc;
+      var oy = (pad + q[1]) * sc;
+      function path(pts, closed) {
+        pts.forEach(function (pt, k) {
+          var x = ox + pt[0] * sc;
+          var y = oy + pt[1] * sc;
+          if (k) ctx.lineTo(x, y);
+          else ctx.moveTo(x, y);
+        });
+        if (closed) ctx.closePath();
+      }
+      ctx.beginPath();
+      pc.rings.forEach(function (r) {
+        path(r, true);
+      });
+      ctx.fillStyle = '#1f2a44';
+      ctx.fill(S.settings.ltUnite ? 'nonzero' : 'evenodd');
+      ctx.strokeStyle = CUT;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.beginPath();
+      if (pc.frame) path(pc.frame, true);
+      pc.lines.forEach(function (ln) {
+        path(ln, false);
+      });
+      ctx.setLineDash([5, 3]);
+      ctx.strokeStyle = CUT;
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
+    $('vecSub').textContent = cm(lay.w) + ' × ' + cm(lay.h) + ' ซม.' + (p.mirror ? ' · กลับด้าน' : '');
+    var lg = $('vecLegend');
+    lg.innerHTML = '';
+    [['#1f2a44', 'ตัวหนังสือ (เหลือติดงาน)'], [CUT, 'เส้นตัด CutContour'], ['#ffffff', 'ลอกเศษออก']].forEach(function (it) {
+      var span = el('span', null, it[1]);
+      var dot = el('i');
+      dot.style.background = it[0];
+      span.insertBefore(dot, span.firstChild);
+      lg.appendChild(span);
+    });
+    var rp = letterReport(p);
+    $('vecReport').textContent = rp.text + (lay.positions.length > show.length ? ' · ภาพตัวอย่างแสดง ' + show.length + ' ชุดแรก' : '') + (rp.warn.length ? ' · ' + rp.warn.join(' · ') : '');
+  }
+
   // ---------------------------------------------------------------- ล้างงานเก่า
 
   function resultLayerNames() {
@@ -2578,7 +2800,8 @@
     var v = S.vec;
     var canvas = $('vecCanvas');
     var tool = S.settings.tool;
-    $('vecTitle').textContent = tool === 'led' ? 'ตัวอย่างเส้นกลาง' : tool === 'stamp' ? 'ตัวอย่างงานตรายาง' : 'ตัวอย่างมุมโค้ง';
+    $('vecTitle').textContent = tool === 'led' ? 'ตัวอย่างเส้นกลาง' : tool === 'stamp' ? 'ตัวอย่างงานตรายาง' : tool === 'letter' ? 'ตัวอย่างไดคัทตัวหนังสือ' : 'ตัวอย่างมุมโค้ง';
+    if (v && v.kind === 'letter' && tool === 'letter') return drawLetter(v);
     if (!v || v.kind !== tool) {
       canvas.hidden = true;
       $('vecEmpty').hidden = false;
@@ -3603,6 +3826,9 @@
     show('[data-num-sheet-custom]', s.numMode === 'sheet' && !single && !fromLayout && s.numSheet === 'custom');
     show('[data-num-save]', s.numMode === 'sheet' && !!s.numSave);
     numListInfo();
+    // ไดคัทตัวหนังสือ: ช่องที่ไม่ใช้ปิดไว้ (ไม่ซ่อน แผงไม่เด้ง)
+    $('ltSize').disabled = s.ltSizeMode === 'keep';
+    $('ltMargin').disabled = !s.ltWeed;
     $('numSaveDirLabel').textContent = 'บันทึกที่: ' + (s.numSaveDir || 'โฟลเดอร์เดียวกับไฟล์ต้นฉบับ (ไฟล์ยังไม่ได้บันทึก → Documents/NestingCut)');
     $('btnNumSaveDirReset').hidden = !s.numSaveDir;
     if (s.numMode !== 'sheet') $('numSheetPrev').hidden = true;
@@ -3713,6 +3939,7 @@
     ['nest', '🧩', 'วางสติ๊กเกอร์หลายแบบลงแผ่นให้ประหยัด', 'แล้วส่งไฟล์เข้าเครื่องตัด (จัดวางดวง)'],
     ['run', '🏷️', 'สติ๊กเกอร์แบบเดียว ซ้ำเต็มแผ่น', 'ฉลากจำนวนมาก ตัดต่อเนื่อง (ไดคัทต่อเนื่อง)'],
     ['shape', '✂️', 'สร้างเส้นไดคัทตามขอบรูป', 'จากโลโก้ / PNG พื้นใส (ไดคัทตามรูป)'],
+    ['letter', '🔤', 'ตัดสติ๊กเกอร์ตัวหนังสือติดอะคริลิค', 'กลับด้าน + กรอบลอกเศษ ส่งเครื่องตัด (ไดคัทตัวหนังสือ)'],
     ['corner', '🔧', 'ทำมุมโค้งให้ดอกกัด CNC เข้าได้', 'ตัวอักษรอะคริลิก / ไม้ (ทำมุมโค้ง)'],
     ['led', '💡', 'หาเส้นกลางตัวอักษรไว้วาง LED', 'ป้ายไฟตัวอักษร (หาเส้นกลาง)'],
     ['dim', '📏', 'ใส่เส้นบอกขนาดงาน', 'ส่งลูกค้าดู / ส่งช่าง (บอกขนาด)'],
@@ -3779,6 +4006,7 @@
     nest: 'พร้อมลุย — เลือกชิ้นงานแล้วกด “ดึงชิ้นงานที่เลือก”',
     run: 'เลือกต้นแบบหนึ่งดวง → ดึงชิ้นงาน → กด “คำนวณ” ดูจำนวนดวงและจำนวนครั้งยกใบมีด',
     shape: 'เลือกชิ้นงานใน Illustrator แล้วกด “อ่านรูป / ดูตัวอย่าง”',
+    letter: 'เลือกตัวหนังสือใน Illustrator แล้วกด “อ่านตัวหนังสือ / ดูตัวอย่าง”',
     corner: 'เลือกตัวอักษรหรือ Path แล้วกดวิเคราะห์',
     stamp: 'เลือกแบบตรายางแล้วกดวิเคราะห์',
     led: 'เลือกตัวอักษรปิดแล้วกดวิเคราะห์',
@@ -3821,7 +4049,7 @@
     saveSettings();
     applyVisibility();
     document.body.classList.toggle('nopreview', NO_PREVIEW.indexOf(tool) >= 0);
-    if (tool === 'corner' || tool === 'led' || tool === 'stamp') drawVec();
+    if (tool === 'corner' || tool === 'led' || tool === 'stamp' || tool === 'letter') drawVec();
     if (S.result) {
       drawPreview();
       renderStats();
@@ -3990,6 +4218,7 @@
           drawVec();
         }
         syncFields();
+        if (/^lt[A-Z]/.test(key)) return letterReplan();
         if (PRICE_KEYS.indexOf(key) >= 0) return priceChanged();
         if (NEST_KEYS.indexOf(key) >= 0) markStale();
         else S.built = false;
@@ -4164,6 +4393,12 @@
     bindUpdate();
     $('btnStRead').onclick = function () {
       run(stampRead);
+    };
+    $('btnLtRead').onclick = function () {
+      run(letterRead);
+    };
+    $('btnLtMake').onclick = function () {
+      run(letterMake);
     };
     $('btnStMake').onclick = function () {
       run(stampMake);
