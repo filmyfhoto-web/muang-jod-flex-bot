@@ -60,7 +60,7 @@
   var STORE_KEY = 'nongploy.nestingcut.settings.v2';
   // ค่าที่บันทึกจากรุ่นก่อน UI_VERSION: หัวงานเคยเปิดเป็นค่าเริ่มต้น → ปิดให้ครั้งเดียว
   var UI_VERSION = 6;
-  var PANEL_VERSION = '1.15.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
+  var PANEL_VERSION = '1.16.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
   var PV_W = 300; // กรอบพรีวิวขนาดคงที่ (px) — ต้องตรงกับ #previewBox ใน panel.css
   var PV_H = 400;
   var WIDE_MIN = 734; // แผงกว้างพอวางพรีวิว (334) คู่ช่องคำสั่ง (400) — ตรงกับ --pv-col + --ctl-w ใน panel.css
@@ -222,6 +222,9 @@
     // ไดคัทตัวหนังสือ (สติ๊กเกอร์ติดอะคริลิค)
     ltSource: 'auto',
     ltTol: 60,
+    ltDrop: 1,
+    ltSplit: true,
+    ltNoFrame: true,
     ltSizeMode: 'keep',
     ltSize: 60,
     ltSide: 'back',
@@ -2569,27 +2572,120 @@
     return { text: parts.join(' · '), warn: warn.filter(Boolean) };
   }
 
+  // สีที่เลือกตัด (อ่านจากรูป) · ทิ้งชิ้นเล็ก (จุดไข่ปลา ฝุ่น) ตามขนาดหลังย่อ/ขยาย → วงที่ใช้จริง
   function letterPlan(v) {
-    v.plan = LT.plan(v.rings, letterOpts());
-    v.piece = v.plan ? LT.piece(v.rings, v.plan) : null;
+    var o = letterOpts();
+    if (v.colors) {
+      var all = [];
+      v.colors.forEach(function (c) {
+        if (c.on) all = all.concat(c.rings);
+      });
+      v.rings = all;
+      var drop = Math.max(0, num('ltDrop'));
+      var p0 = all.length ? LT.plan(all, o) : null;
+      var typical = LT.typicalHeight(LT.ringHeights(all));
+      var noFrame = !!S.settings.ltNoFrame;
+      var used = [];
+      v.dropped = 0;
+      v.colors.forEach(function (c) {
+        // ทิ้ง: กรอบ/เส้นตรงยาว (ถ้าเลือก) + จุดเล็ก (จุดไข่ปลา ฝุ่น)
+        var frames = noFrame ? LT.frameIndex(c.rings, typical) : [];
+        var small = p0 && drop > 0 ? LT.keepIndex(c.rings, p0.k, drop) : null;
+        var out = {};
+        frames.forEach(function (i) {
+          out[i] = 1;
+        });
+        var keepSmall = null;
+        if (small) {
+          keepSmall = {};
+          small.forEach(function (i) {
+            keepSmall[i] = 1;
+          });
+        }
+        c.keep =
+          frames.length || small
+            ? c.rings
+                .map(function (r, i) {
+                  return i;
+                })
+                .filter(function (i) {
+                  return !out[i] && (!keepSmall || keepSmall[i]);
+                })
+            : null;
+        c.used = c.keep
+          ? c.keep.map(function (i) {
+              return c.rings[i];
+            })
+          : c.rings;
+        if (c.on) {
+          used = used.concat(c.used);
+          v.dropped += c.rings.length - c.used.length;
+        }
+      });
+      v.used = used;
+    } else v.used = v.rings;
+    v.plan = v.used.length ? LT.plan(v.used, o) : null;
+    v.piece = v.plan ? LT.piece(v.used, v.plan) : null;
+    if (v.colors && v.plan) {
+      v.colors.forEach(function (c) {
+        c.piece = c.on && c.used.length ? LT.piece(c.used, v.plan) : null;
+      });
+    }
     return v;
   }
 
   function letterStatus(v) {
+    if (!v.plan) {
+      status(v.colors ? 'ยังไม่ได้เลือกสีที่จะตัด — ติ๊กสีในช่อง “สีที่เจอในรูป”' : 'ไม่มีตัวหนังสือให้ตัด', 'warn');
+      return;
+    }
     var rp = letterReport(v.plan);
-    if (v.traced) {
-      rp.text = 'อ่านจากรูป ' + v.traced.length + ' วง · ' + rp.text;
+    if (v.colors) {
+      var on = v.colors.filter(function (c) {
+        return c.on;
+      });
+      rp.text =
+        'อ่านจากรูป ' + v.used.length + ' วง · ตัด ' + on.length + ' สี (' + on.map(function (c) { return c.name; }).join(' · ') + ')' +
+        (v.dropped ? ' · ทิ้งจุดเล็ก ' + v.dropped + ' ชิ้น' : '') + ' · ' + rp.text;
+      if (on.length > 1) rp.text += S.settings.ltSplit ? ' · แยกไฟล์ทีละสี + เครื่องหมายเล็ง +' : ' · ⚠ รวมทุกสีในไฟล์เดียว (สติ๊กเกอร์ตัดได้ทีละสี)';
       if (v.pxH && v.pxH < 40) rp.warn.push('⚠ ตัวอักษรในรูปสูงแค่ราว ' + Math.round(v.pxH) + ' พิกเซล ขอบอาจไม่เนียน — ใช้รูปความละเอียดสูงขึ้น หรือรูปต้นฉบับ');
     } else if (v.mixed) rp.text += ' · (มีรูปภาพ ' + v.mixed + ' ชิ้นในที่เลือก ไม่ได้ใช้ — อยากอ่านจากรูปให้ตั้ง “อ่านจาก: รูปภาพ”)';
     status(rp.text + (rp.warn.length ? ' · ' + rp.warn.join(' · ') : ''), rp.warn.length ? 'warn' : 'ok');
   }
 
-  /* รูปภาพตัวหนังสือ (JPG / PNG / สแกน / ถ่ายพื้นเรียบ) → ลบพื้นหลัง → หาขอบตัวอักษร (รวมรูในตัว) → เส้นโค้งเรียบ
-   * → { rings (มม. y ลง แบบเดียวกับ readShapes), paths (pt ของ Illustrator ให้ host วาด), pxH (ความสูงตัวอักษรในรูป พิกเซล) } */
+  // ช่อง “สีที่เจอในรูป”: ติ๊กเลือกสีที่จะตัด (เช่น ไม่เอาโลโก้สีดำ) — กล่องสูงคงที่ แผงไม่เด้ง
+  function renderLetterColors(v) {
+    var box = $('ltColors');
+    box.innerHTML = '';
+    if (!v || !v.colors) {
+      box.appendChild(el('span', 'hint', 'อ่านจากรูปแล้ว สีที่เจอจะขึ้นตรงนี้ ติ๊กเลือกสีที่จะตัดได้'));
+      return;
+    }
+    v.colors.forEach(function (c) {
+      var lab = el('label', 'lt-color');
+      var cb = el('input');
+      cb.type = 'checkbox';
+      cb.checked = !!c.on;
+      cb.onchange = function () {
+        c.on = cb.checked;
+        letterReplan();
+      };
+      var sw = el('i');
+      sw.style.background = c.hex;
+      lab.appendChild(cb);
+      lab.appendChild(sw);
+      lab.appendChild(el('span', null, c.name + ' ' + Math.round(c.share * 100) + '% · ' + c.rings.length + ' วง'));
+      box.appendChild(lab);
+    });
+  }
+
+  /* รูปภาพตัวหนังสือ (JPG / PNG / สแกน / ถ่ายพื้นเรียบ) → ลบพื้นหลัง → แยกสีหมึก → หาขอบตัวอักษรทีละสี (รวมรูในตัว)
+   * → { colors: [{ rgb, hex, name, share, rings (มม. y ลง), polys (pt ของ Illustrator), on }], pxH }
+   * ส่งให้ Illustrator เป็นเส้นหลายเหลี่ยมละเอียด (วาดทีละเส้นในคำสั่งเดียว — เร็วกว่าตั้งมือจับทีละจุดหลายสิบเท่า) */
   function letterFromImage() {
     status('นัดพอนกำลังอ่านตัวหนังสือจากรูป…');
     return host
-      .call('np_exportSelection', { ppi: 600, maxPx: 4000, kind: 'letter' })
+      .call('np_exportSelection', { ppi: 600, maxPx: 3000, kind: 'letter' })
       .then(function (sil) {
         var src = sil.dataUrl || 'data:image/png;base64,' + host.readBase64(sil.file);
         return loadImage(src).then(function (img) {
@@ -2611,33 +2707,45 @@
           }
         }
         if (!mask.bg && opaque) throw new Error('หาสีพื้นของรูปไม่เจอ — ใช้รูปตัวหนังสือบนพื้นสีเรียบ หรือ PNG พื้นใส (ขอบรูปควรเป็นสีพื้นทั้งหมด)');
-        var stats = {};
-        var loops = NC.contour.traceAlpha(mask, {
-          threshold: 128,
-          offsetPx: 0,
-          minAreaPx: Math.max(9, Math.pow(0.4 * pxPerMm, 2)), // ฝุ่น/จุดรบกวนเล็กกว่า ~0.4 มม. ทิ้ง
-          fillHoles: false, // รูในตัวอักษร (อ ด บ o e) ต้องตัดด้วย
-          minHolePx: Math.pow(0.3 * pxPerMm, 2),
-          simplifyPx: Math.max(0.35, 0.02 * pxPerMm),
-          stats: stats,
-        });
-        var rings = [];
-        var paths = [];
+        var inks = LT.inkColors(data, mask, { max: 6 });
+        if (!inks.length) return { colors: [], pxH: 0 };
         var hs = [];
-        loops.forEach(function (lp) {
-          var ring = lp.points.map(function (q) {
-            return [b[0] + q[0] * sx, b[1] - q[1] * sy];
+        var colors = inks.map(function (ink, idx) {
+          var loops = NC.contour.traceAlpha(LT.colorAlpha(data, mask, inks, idx), {
+            threshold: 128,
+            offsetPx: 0,
+            minAreaPx: Math.max(9, Math.pow(0.4 * pxPerMm, 2)), // ฝุ่น/จุดรบกวนเล็กกว่า ~0.4 มม. ทิ้ง
+            fillHoles: false, // รูในตัวอักษร (อ ด บ o e) ต้องตัดด้วย
+            minHolePx: Math.pow(0.3 * pxPerMm, 2),
+            simplifyPx: Math.max(0.5, 0.03 * pxPerMm),
           });
-          paths.push({ closed: true, points: G.smoothRing(ring, 40) });
-          rings.push(ring.map(B.aiToEngine));
-          if (!lp.hole) {
-            var ys = lp.points.map(function (q) {
-              return q[1];
+          var rings = [];
+          var polys = [];
+          loops.forEach(function (lp) {
+            var ring = lp.points.map(function (q) {
+              return [b[0] + q[0] * sx, b[1] - q[1] * sy];
             });
-            hs.push(Math.max.apply(null, ys) - Math.min.apply(null, ys));
-          }
+            polys.push(LT.roundPoly(ring));
+            rings.push(ring.map(B.aiToEngine));
+            if (!lp.hole) {
+              var ys = lp.points.map(function (q) {
+                return q[1];
+              });
+              hs.push(Math.max.apply(null, ys) - Math.min.apply(null, ys));
+            }
+          });
+          return { rgb: ink.rgb, hex: LT.hex(ink.rgb), name: LT.colorName(ink.rgb), share: ink.share, rings: rings, polys: polys, on: true };
         });
-        return { rings: rings, paths: paths, pxH: LT.median(hs), stats: stats };
+        colors = colors.filter(function (c) {
+          return c.rings.length;
+        });
+        // ชื่อสีซ้ำ (เช่น ทอง 2 เฉด) → ต่อท้ายเลข
+        var seen = {};
+        colors.forEach(function (c) {
+          seen[c.name] = (seen[c.name] || 0) + 1;
+          if (seen[c.name] > 1) c.name += ' ' + seen[c.name];
+        });
+        return { colors: colors, pxH: LT.median(hs) };
       });
   }
 
@@ -2651,14 +2759,22 @@
       }
       if (r && !k.images) throw new Error('ไม่พบตัวหนังสือ Path ปิด หรือรูปภาพในชิ้นที่เลือก');
       return letterFromImage().then(function (t) {
-        if (!t.rings.length) throw new Error('หาตัวหนังสือในรูปไม่เจอ — ลองเพิ่ม “รูปภาพ: ความต่างสีพื้น” หรือใช้รูปที่ตัวหนังสือกับพื้นสีต่างกันชัด ๆ');
-        return showLetter(letterPlan({ kind: 'letter', rings: t.rings, traced: t.paths, pxH: t.pxH, flags: [] }));
+        if (!t.colors.length) throw new Error('หาตัวหนังสือในรูปไม่เจอ — ลองเพิ่ม “รูปภาพ: ความต่างสีพื้น” หรือใช้รูปที่ตัวหนังสือกับพื้นสีต่างกันชัด ๆ');
+        // อ่านใหม่จากรูปเดิม: จำสีที่ไม่ติ๊กไว้
+        var prev = S.vec && S.vec.kind === 'letter' && S.vec.colors ? S.vec.colors : [];
+        t.colors.forEach(function (c) {
+          prev.forEach(function (q) {
+            if (!q.on && Math.abs(q.rgb[0] - c.rgb[0]) + Math.abs(q.rgb[1] - c.rgb[1]) + Math.abs(q.rgb[2] - c.rgb[2]) < 45) c.on = false;
+          });
+        });
+        return showLetter(letterPlan({ kind: 'letter', colors: t.colors, traced: true, pxH: t.pxH, flags: [] }));
       });
     });
   }
 
   function showLetter(v) {
     S.vec = v;
+    renderLetterColors(v);
     drawVec();
     letterStatus(v);
     return v;
@@ -2669,7 +2785,6 @@
     var v = S.vec;
     if (!v || v.kind !== 'letter') return;
     letterPlan(v);
-    if (!v.plan) return;
     drawVec();
     letterStatus(v);
   }
@@ -2677,45 +2792,88 @@
   function letterMake() {
     return letterRead().then(function (v) {
       var p = v.plan;
+      if (!p) throw new Error(v.colors ? 'ยังไม่ได้เลือกสีที่จะตัด — ติ๊กสีในช่อง “สีที่เจอในรูป”' : 'ไม่มีตัวหนังสือให้ตัด');
       var lay = p.layout;
       if (p.warnings.some(function (w) { return w.code === 'TOO_WIDE'; })) {
         throw new Error('งานกว้างเกินหน้าม้วน — ย่อขนาด แบ่งงาน หรือแก้ “หน้าม้วน” ให้ตรงกับม้วนที่ใช้ แล้วลองใหม่');
       }
       var edge = 5; // ขอบไฟล์รอบงาน (มม.)
       var s = S.settings;
-      status('นัดพอนกำลังทำไฟล์ไดคัทตัวหนังสือ…');
-      return host
-        .call('np_letterCut', {
-          k: p.k,
-          mirror: p.mirror,
-          paths: v.traced || null, // อ่านจากรูป: วาดเส้นที่หาขอบได้ (ขอบจากพิกเซลรวมกันอยู่แล้ว ไม่ต้อง Pathfinder)
-          unite: !!s.ltUnite && !v.traced,
-          rotate: p.rotated,
-          weed: p.weed,
-          margin: p.margin / K,
-          rowsAt: p.rowsAt,
-          positions: lay.positions.map(function (q) {
-            return [q[0] / K, q[1] / K];
-          }),
-          sheetW: (lay.w + 2 * edge) / K,
-          sheetH: (lay.h + 2 * edge) / K,
-          edge: edge / K,
-          spotName: s.spotName || 'CutContour',
-          strokeWidth: 0.25,
-          layer: 'ไดคัทตัวหนังสือ',
-          name: 'ตัวหนังสือ',
-        })
-        .then(function (out) {
-          var extra = [];
-          if (out.unite && !out.united) extra.push('⚠ รวมตัวที่ซ้อนกันไม่สำเร็จ — ถ้ามีตัวอักษรทับกัน ใช้ Pathfinder › Unite เอง');
-          if (out.images) extra.push('ตัดรูปภาพทิ้ง ' + out.images + ' ชิ้น (ตัดสติ๊กเกอร์ไม่ได้)');
-          if (out.open) extra.push('ตัดเส้นเปิดทิ้ง ' + out.open + ' เส้น');
-          status(
-            'สร้างไฟล์ไดคัทแล้ว “' + out.document + '” — ' + out.copies + ' ชุด · เส้นตัดตัวหนังสือชุดละ ' + out.pieces + ' วง' +
-              (p.mirror ? ' · กลับด้านแล้ว' : '') + ' · ส่ง Cutting Master ได้เลย' + (extra.length ? ' · ' + extra.join(' · ') : ''),
-            extra.length && out.unite && !out.united ? 'warn' : 'ok'
-          );
+      var base = {
+        k: p.k,
+        mirror: p.mirror,
+        unite: !!s.ltUnite && !v.colors,
+        rotate: p.rotated,
+        weed: p.weed,
+        margin: p.margin / K,
+        rowsAt: p.rowsAt,
+        positions: lay.positions.map(function (q) {
+          return [q[0] / K, q[1] / K];
+        }),
+        sheetW: (lay.w + 2 * edge) / K,
+        sheetH: (lay.h + 2 * edge) / K,
+        edge: edge / K,
+        spotName: s.spotName || 'CutContour',
+        strokeWidth: 0.25,
+        layer: 'ไดคัทตัวหนังสือ',
+        name: 'ตัวหนังสือ',
+      };
+      // อ่านจากรูป: วาดเส้นที่หาขอบได้ · ทุกสีใช้กรอบเดียวกัน (ref) ไฟล์แต่ละสีจึงวางตรงกันพอดี
+      var jobs = [base];
+      if (v.colors) {
+        var on = v.colors.filter(function (c) {
+          return c.on && c.used.length;
         });
+        var polysOf = function (c) {
+          return c.keep
+            ? c.keep.map(function (i) {
+                return c.polys[i];
+              })
+            : c.polys;
+        };
+        var ref = [p.src.minX / K, -p.src.minY / K, p.src.maxX / K, -p.src.maxY / K];
+        var split = !!s.ltSplit && on.length > 1;
+        jobs = (split ? on.map(function (c) { return [c]; }) : [on]).map(function (group) {
+          var polys = [];
+          group.forEach(function (c) {
+            polys = polys.concat(polysOf(c));
+          });
+          var label = group.map(function (c) {
+            return c.name;
+          }).join(' + ');
+          return Object.assign({}, base, {
+            polys: polys,
+            ref: ref,
+            marks: split,
+            layer: 'ไดคัทตัวหนังสือ – ' + label,
+            name: 'ตัวหนังสือ ' + label,
+            label: label,
+          });
+        });
+      }
+      var outs = [];
+      var chain = Promise.resolve();
+      jobs.forEach(function (job, i) {
+        chain = chain.then(function () {
+          status('นัดพอนกำลังทำไฟล์ไดคัทตัวหนังสือ' + (jobs.length > 1 ? ' สี' + job.label + ' (' + (i + 1) + '/' + jobs.length + ')' : '') + '…');
+          return host.call('np_letterCut', job).then(function (out) {
+            out.label = job.label;
+            outs.push(out);
+          });
+        });
+      });
+      return chain.then(function () {
+        var out = outs[0];
+        var extra = [];
+        if (out.unite && !out.united) extra.push('⚠ รวมตัวที่ซ้อนกันไม่สำเร็จ — ถ้ามีตัวอักษรทับกัน ใช้ Pathfinder › Unite เอง');
+        if (out.images) extra.push('ตัดรูปภาพทิ้ง ' + out.images + ' ชิ้น (ตัดสติ๊กเกอร์ไม่ได้)');
+        if (out.open) extra.push('ตัดเส้นเปิดทิ้ง ' + out.open + ' เส้น');
+        var head =
+          outs.length > 1
+            ? 'สร้างไฟล์ไดคัทแล้ว ' + outs.length + ' ไฟล์ (ไฟล์ละสี: ' + outs.map(function (o) { return o.label + ' ' + o.pieces + ' วง'; }).join(' · ') + ') — เครื่องหมาย + ตรงกันทุกไฟล์ ใช้เล็งตอนติดซ้อนสี'
+            : 'สร้างไฟล์ไดคัทแล้ว “' + out.document + '” — ' + out.copies + ' ชุด · เส้นตัดตัวหนังสือชุดละ ' + out.pieces + ' วง';
+        status(head + (p.mirror ? ' · กลับด้านแล้ว' : '') + ' · ส่ง Cutting Master ได้เลย' + (extra.length ? ' · ' + extra.join(' · ') : ''), out.unite && !out.united ? 'warn' : 'ok');
+      });
     });
   }
 
@@ -2751,7 +2909,8 @@
     ctx.fillStyle = '#fff';
     ctx.fillRect(pad * sc, 0, (roll > 0 ? roll : lay.w) * sc, H);
     var CUT = '#ff2d9a';
-    var show = lay.positions.slice(0, 80);
+    // งานใหญ่ (หลายพันวง) แสดงไม่กี่ชุดพอ ภาพไม่หน่วง
+    var show = lay.positions.slice(0, v.used.length > 1500 ? 4 : 80);
     show.forEach(function (q) {
       var ox = (pad + q[0]) * sc;
       var oy = (pad + q[1]) * sc;
@@ -2764,15 +2923,18 @@
         });
         if (closed) ctx.closePath();
       }
-      ctx.beginPath();
-      pc.rings.forEach(function (r) {
-        path(r, true);
+      // อ่านจากรูป: ระบายตามสีจริงของแต่ละสี · ตัวหนังสือปกติ: สีเข้ม
+      (v.colors ? v.colors.filter(function (c) { return c.piece; }).map(function (c) { return [c.piece.rings, c.hex]; }) : [[pc.rings, '#1f2a44']]).forEach(function (g) {
+        ctx.beginPath();
+        g[0].forEach(function (r) {
+          path(r, true);
+        });
+        ctx.fillStyle = g[1];
+        ctx.fill(S.settings.ltUnite && !v.colors ? 'nonzero' : 'evenodd');
+        ctx.strokeStyle = CUT;
+        ctx.lineWidth = v.used.length > 600 ? 0.5 : 1;
+        ctx.stroke();
       });
-      ctx.fillStyle = '#1f2a44';
-      ctx.fill(S.settings.ltUnite && !v.traced ? 'nonzero' : 'evenodd');
-      ctx.strokeStyle = CUT;
-      ctx.lineWidth = 1;
-      ctx.stroke();
       ctx.beginPath();
       if (pc.frame) path(pc.frame, true);
       pc.lines.forEach(function (ln) {
@@ -2787,7 +2949,7 @@
     $('vecSub').textContent = cm(lay.w) + ' × ' + cm(lay.h) + ' ซม.' + (p.mirror ? ' · กลับด้าน' : '');
     var lg = $('vecLegend');
     lg.innerHTML = '';
-    [['#1f2a44', 'ตัวหนังสือ (เหลือติดงาน)'], [CUT, 'เส้นตัด CutContour'], ['#ffffff', 'ลอกเศษออก']].forEach(function (it) {
+    [[v.colors ? 'linear-gradient(90deg,' + v.colors.map(function (c) { return c.hex; }).join(',') + ')' : '#1f2a44', 'ตัวหนังสือ (เหลือติดงาน)'], [CUT, 'เส้นตัด CutContour'], ['#ffffff', 'ลอกเศษออก']].forEach(function (it) {
       var span = el('span', null, it[1]);
       var dot = el('i');
       dot.style.background = it[0];

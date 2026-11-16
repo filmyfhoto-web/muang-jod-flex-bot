@@ -1278,3 +1278,37 @@ details.card > summary + h3.sec {
     height: 1.45em;
   }
 }
+
+/* ไดคัทตัวหนังสือ: สีที่เจอในรูป (กล่องสูงคงที่ ไม่ดันแผง) */
+.lt-colors-wrap {
+  margin: 6px 0;
+}
+.lt-colors {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 6px 10px;
+  min-height: 3.2em;
+  max-height: 6.4em;
+  overflow-y: auto;
+  padding: 6px 8px;
+  margin-top: 4px;
+  border: 1px solid var(--line, #2c3550);
+  border-radius: 6px;
+}
+.lt-colors .hint {
+  margin: 0;
+}
+.lt-color {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.lt-color i {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}

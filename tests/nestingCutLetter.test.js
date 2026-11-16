@@ -92,7 +92,7 @@ test('ไดคัทตัวหนังสือ: แผง (เครื่�
   assert.match(main, /\$\('ltSize'\)\.disabled = s\.ltSizeMode === 'keep';/); // ปิดช่อง ไม่ซ่อน (แผงไม่เด้ง)
   assert.match(main, /ltSide: 'back',/); // ค่าเริ่มต้น: ติดหลังอะคริลิคใส (กลับด้าน)
   assert.match(main, /mirror: s\.ltSide !== 'front',/);
-  assert.match(main, /\.call\('np_letterCut', \{/);
+  assert.match(main, /host\.call\('np_letterCut', job\)/);
   const host = read('illustrator/host.jsx');
   const fn = host.slice(host.indexOf('function np_letterMake('), host.indexOf('// ---------------------------------------------------------------- clear old work'));
   assert.match(fn, /app\.documents\.add\(srcDoc\.documentColorSpace/); // ไฟล์ใหม่ ของเดิมไม่ถูกแตะ
@@ -132,17 +132,99 @@ test('ไดคัทตัวหนังสือ: อ่านจากรู
   assert.equal(loops.length, 2);
   assert.deepEqual(loops.map((l) => !!l.hole), [false, true]); // วงนอก + รูในตัว O
   const main = read('illustrator/main.js');
-  assert.match(main, /\.call\('np_exportSelection', \{ ppi: 600, maxPx: 4000, kind: 'letter' \}\)/);
+  assert.match(main, /\.call\('np_exportSelection', \{ ppi: 600, maxPx: 3000, kind: 'letter' \}\)/);
   assert.match(main, /fillHoles: false, \/\/ รูในตัวอักษร/);
   assert.match(main, /shadow: 0, global: true \}\);/);
-  assert.match(main, /points: G\.smoothRing\(ring, 40\)/);
-  assert.match(main, /paths: v\.traced \|\| null,/);
-  assert.match(main, /unite: !!s\.ltUnite && !v\.traced,/); // ขอบจากพิกเซลรวมกันอยู่แล้ว ไม่ต้อง Pathfinder
+  assert.match(main, /polys\.push\(LT\.roundPoly\(ring\)\);/); // ส่งเป็นเส้นหลายเหลี่ยม (เบา + วาดเร็ว)
+  assert.match(main, /unite: !!s\.ltUnite && !v\.colors,/); // ขอบจากพิกเซลรวมกันอยู่แล้ว ไม่ต้อง Pathfinder
   assert.match(main, /if \(!mask\.bg && opaque\) throw new Error\('หาสีพื้นของรูปไม่เจอ/);
   const html = read('illustrator.html');
   assert.match(html, /<select data-setting="ltSource">/);
   assert.match(html, /data-setting="ltTol"/);
   const host = read('illustrator/host.jsx');
-  assert.match(host, /if \(traced\) \{\n\s*\/\/ letters traced from a picture[^\n]*\n\s*var cp = g\.compoundPathItems\.add\(\);/);
-  assert.match(host, /np_applyPoints\(tp, args\.paths\[t1\]\);/);
+  assert.match(host, /if \(traced\) \{\n\s*\/\/ letters traced from a picture[^\n]*\n(\s*\/\/[^\n]*\n)*\s*var cp = g\.compoundPathItems\.add\(\);/);
+  assert.match(host, /if \(args\.polys && args\.polys\.length\) tp\.setEntirePath\(list\[t1\]\);/); // 1 คำสั่งต่อเส้น ไม่ตั้งมือจับทีละจุด
+});
+
+// รูปตัวหนังสือ 2 สี (เทาเข้ม + ทอง) บนพื้นครีม · ขอบตัวอักษรเบลอ (สีผสมกับพื้น) + เส้นบางที่สีจาง
+function twoInkPicture() {
+  const W = 160;
+  const H = 80;
+  const data = new Uint8ClampedArray(W * H * 4);
+  const bg = [252, 247, 235];
+  const gray = [56, 60, 58];
+  const gold = [122, 96, 43];
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      let ink = null;
+      let cov = 0;
+      // แท่งเทา (ตัวหนา) ขอบเบลอ 2 พิกเซล
+      const dg = Math.max(Math.abs(x - 40) - 20, Math.abs(y - 25) - 12);
+      if (dg < 1) { ink = gray; cov = Math.min(1, (1 - dg) / 2); }
+      // เส้นบางสีเทา (ไม่เคยทึบเต็ม: 60%) — ต้องอยู่ไฟล์สีเทา ไม่ใช่สีใหม่
+      if (y >= 50 && y <= 51 && x >= 15 && x <= 70) { ink = gray; cov = 0.6; }
+      // แท่งทอง
+      const dd = Math.max(Math.abs(x - 115) - 20, Math.abs(y - 40) - 15);
+      if (dd < 1) { ink = gold; cov = Math.min(1, (1 - dd) / 2); }
+      const k = (y * W + x) * 4;
+      for (let c = 0; c < 3; c++) data[k + c] = Math.round(ink ? bg[c] + (ink[c] - bg[c]) * cov : bg[c]);
+      data[k + 3] = 255;
+    }
+  }
+  return { width: W, height: H, data };
+}
+
+test('ไดคัทตัวหนังสือ: อ่านรูปหลายสี → แยกสีหมึก (สีจาง/ขอบเบลอรวมกับหมึกเดิม) · ขอบสีเทาไม่หลุดไปไฟล์สีทอง', () => {
+  const C = require('../adobe/nesting-cut/core/contour.js');
+  const img = twoInkPicture();
+  const mask = C.backgroundMask(img, { tolerance: 60, shadow: 0, global: true });
+  const inks = L.inkColors(img, mask, { max: 6 });
+  assert.equal(inks.length, 2, JSON.stringify(inks));
+  const names = inks.map((c) => L.colorName(c.rgb)).sort();
+  assert.deepEqual(names, ['ดำ', 'ทอง'].sort()); // เทาเข้มมาก (56,60,58) เรียกว่า ดำ
+  const iGold = inks.findIndex((c) => L.colorName(c.rgb) === 'ทอง');
+  const iGray = 1 - iGold;
+  const aGray = L.colorAlpha(img, mask, inks, iGray).alpha;
+  const aGold = L.colorAlpha(img, mask, inks, iGold).alpha;
+  const at = (x, y) => y * img.width + x;
+  // ขอบซ้ายของแท่งเทา (สีผสมเทา–ครีม) เป็นของสีเทา
+  assert.ok(aGray[at(20, 25)] > 0 && aGold[at(20, 25)] === 0);
+  // เส้นบางสีจางก็เป็นของสีเทา
+  assert.ok(aGray[at(40, 50)] > 100 && aGold[at(40, 50)] === 0);
+  // แท่งทองเป็นของสีทองเท่านั้น
+  assert.ok(aGold[at(115, 40)] > 200 && aGray[at(115, 40)] === 0);
+  // หาขอบทีละสี: สีเทา 2 ชิ้น (แท่ง + เส้นบาง) · สีทอง 1 ชิ้น
+  const tr = (a) => C.traceAlpha(a, { threshold: 128, offsetPx: 0, minAreaPx: 9, fillHoles: false, minHolePx: 4, simplifyPx: 0.5 });
+  assert.equal(tr(L.colorAlpha(img, mask, inks, iGray)).length, 2);
+  assert.equal(tr(L.colorAlpha(img, mask, inks, iGold)).length, 1);
+});
+
+test('ไดคัทตัวหนังสือ: ทิ้งกรอบ/เส้นตรงยาวที่ติดมากับรูป · ทิ้งจุดเล็ก · ชื่อสีไทย · ตัวเลขทศนิยม 2 ตำแหน่ง', () => {
+  const letters = [rect(10, 10, 8, 12), rect(20, 10, 8, 12), rect(30, 10, 8, 12), rect(10, 30, 8, 12)];
+  const frame = rect(0, 0, 100, 60); // กรอบรอบงาน (วงนอก)
+  const inner = rect(1, 1, 98, 58); // ขอบในของกรอบ
+  const divider = rect(5, 26, 80, 0.6); // เส้นคั่นยาว
+  const dash = rect(40, 15, 6, 1); // ขีด “–” ในข้อความ ไม่ใช่กรอบ
+  const ring = [...letters, frame, inner, divider, dash];
+  const typical = L.typicalHeight(L.ringHeights(ring));
+  assert.equal(typical, 12);
+  assert.deepEqual(L.frameIndex(ring, typical), [4, 5, 6]);
+  // จุดไข่ปลา 0.5 มม. ทิ้ง · ตัวอักษรเก็บ (หลังย่อ/ขยาย k)
+  assert.deepEqual(L.keepIndex([rect(0, 0, 0.5, 0.5), rect(0, 0, 8, 12)], 1, 1), [1]);
+  assert.deepEqual(L.keepIndex([rect(0, 0, 0.5, 0.5)], 4, 1), [0]); // ขยาย 4 เท่าแล้วใหญ่พอ
+  assert.equal(L.colorName([47, 90, 58]), 'เขียวเข้ม');
+  assert.equal(L.colorName([156, 122, 60]), 'ทอง');
+  assert.equal(L.colorName([14, 14, 14]), 'ดำ');
+  assert.equal(L.hex([47, 90, 58]), '#2f5a3a');
+  assert.deepEqual(L.roundPoly([[1.23456, -7.891]]), [[1.23, -7.89]]);
+  const main = read('illustrator/main.js');
+  assert.match(main, /var frames = noFrame \? LT\.frameIndex\(c\.rings, typical\) : \[\];/);
+  assert.match(main, /var split = !!s\.ltSplit && on\.length > 1;/); // หลายสี → ไฟล์ละสี
+  assert.match(main, /var ref = \[p\.src\.minX \/ K, -p\.src\.minY \/ K, p\.src\.maxX \/ K, -p\.src\.maxY \/ K\];/); // กรอบเดียวกันทุกสี
+  const host = read('illustrator/host.jsx');
+  assert.match(host, /var gb = refRect \? refRect\.geometricBounds : g\.geometricBounds;/);
+  assert.match(host, /if \(args\.marks && args\.weed && m >= 8\) \{/); // เครื่องหมาย + ตรงกันทุกไฟล์สี
+  const html = read('illustrator.html');
+  for (const k of ['ltSplit', 'ltDrop', 'ltNoFrame']) assert.match(html, new RegExp('data-setting="' + k + '"'), k);
+  assert.match(html, /<div id="ltColors" class="lt-colors">/);
 });

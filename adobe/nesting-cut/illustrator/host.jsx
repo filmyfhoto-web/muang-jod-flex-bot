@@ -1720,7 +1720,7 @@ function np_letterCut(args) {
 //         positions: [[x, y] pt, top-left of each copy from the sheet corner], sheetW, sheetH, edge (pt),
 //         spotName, strokeWidth (pt), layer, name }
 function np_letterMake(args) {
-  var traced = args.paths && args.paths.length;
+  var traced = (args.paths && args.paths.length) || (args.polys && args.polys.length);
   var src = NP.cncItems || [];
   if (!traced) {
     if (!src.length) throw np_E('NO_SELECTION');
@@ -1732,13 +1732,22 @@ function np_letterMake(args) {
   lay.name = args.layer || 'Lettering cut';
   var g = lay.groupItems.add();
   g.name = args.name || 'Letters';
+  var refRect = null;
   if (traced) {
     // letters traced from a picture by the panel: one compound path (holes stay holes)
+    // polys = plain anchor lists: one setEntirePath per path (setting handles point by point is far too slow for big jobs)
     var cp = g.compoundPathItems.add();
-    for (var t1 = 0; t1 < args.paths.length; t1++) {
+    var list = args.polys && args.polys.length ? args.polys : args.paths;
+    for (var t1 = 0; t1 < list.length; t1++) {
       var tp = cp.pathItems.add();
-      np_applyPoints(tp, args.paths[t1]);
+      if (args.polys && args.polys.length) tp.setEntirePath(list[t1]);
+      else np_applyPoints(tp, list[t1]);
       tp.closed = true;
+    }
+    // the same frame for every colour file: flip/scale around it, weed box from it -> files line up
+    if (args.ref && args.ref.length === 4) {
+      refRect = g.pathItems.rectangle(args.ref[1], args.ref[0], args.ref[2] - args.ref[0], args.ref[1] - args.ref[3]);
+      refRect.name = 'Frame';
     }
   } else {
     // copy to the layer first, then into the group (copying straight into a group of another document can come out empty)
@@ -1778,7 +1787,8 @@ function np_letterMake(args) {
   // read from the front through clear acrylic: flip left-right
   if (args.mirror) g.resize(-100, 100, true, true, true, true, 100, Transformation.CENTER);
   if (args.k > 0 && Math.abs(args.k - 1) > 1e-6) g.resize(args.k * 100, args.k * 100, true, true, true, true, 100, Transformation.CENTER);
-  var gb = g.geometricBounds; // [left, top, right, bottom]
+  var gb = refRect ? refRect.geometricBounds : g.geometricBounds; // [left, top, right, bottom]
+  if (refRect) refRect.remove();
   var m = args.weed ? Math.max(0, args.margin || 0) : 0;
   var left = gb[0] - m;
   var top = gb[1] + m;
@@ -1791,6 +1801,23 @@ function np_letterMake(args) {
   if (args.weed) {
     var box = cg.pathItems.rectangle(top, left, right - left, top - bottom);
     box.name = 'Weed box';
+  }
+  // register marks (+) in the left and right margin: same place in every colour file, kept on the transfer tape to line colours up
+  if (args.marks && args.weed && m >= 8) {
+    var ma = Math.min(m * 0.4, 8.5);
+    var mw = Math.max(1.1, ma * 0.18);
+    var my = (top + bottom) / 2;
+    var xs = [left + m / 2, right - m / 2];
+    for (var mk = 0; mk < xs.length; mk++) {
+      var cx = xs[mk];
+      var plus = cg.pathItems.add();
+      plus.setEntirePath([
+        [cx - mw, my + ma], [cx + mw, my + ma], [cx + mw, my + mw], [cx + ma, my + mw], [cx + ma, my - mw], [cx + mw, my - mw],
+        [cx + mw, my - ma], [cx - mw, my - ma], [cx - mw, my - mw], [cx - ma, my - mw], [cx - ma, my + mw], [cx - mw, my + mw]
+      ]);
+      plus.closed = true;
+      plus.name = 'Register mark';
+    }
   }
   var rows = args.rowsAt || [];
   for (var r = 0; r < rows.length; r++) {
@@ -1823,7 +1850,7 @@ function np_letterMake(args) {
     copies: pos.length,
     united: united,
     unite: !!args.unite,
-    pieces: Math.max(0, info.closed - (args.weed ? 1 : 0)),
+    pieces: Math.max(0, info.closed - (args.weed ? 1 : 0) - (args.marks && args.weed && m >= 8 ? 2 : 0)),
     open: info.open,
     images: info.images,
     w: cb[2] - cb[0],
