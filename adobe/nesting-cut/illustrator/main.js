@@ -60,7 +60,7 @@
   var STORE_KEY = 'nongploy.nestingcut.settings.v2';
   // ค่าที่บันทึกจากรุ่นก่อน UI_VERSION: หัวงานเคยเปิดเป็นค่าเริ่มต้น → ปิดให้ครั้งเดียว
   var UI_VERSION = 6;
-  var PANEL_VERSION = '1.14.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
+  var PANEL_VERSION = '1.15.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
   var PV_W = 300; // กรอบพรีวิวขนาดคงที่ (px) — ต้องตรงกับ #previewBox ใน panel.css
   var PV_H = 400;
   var WIDE_MIN = 734; // แผงกว้างพอวางพรีวิว (334) คู่ช่องคำสั่ง (400) — ตรงกับ --pv-col + --ctl-w ใน panel.css
@@ -220,6 +220,8 @@
     stCutLayer: 'เส้นตัดเลเซอร์',
     stEngraveLayer: 'งานแกะเลเซอร์',
     // ไดคัทตัวหนังสือ (สติ๊กเกอร์ติดอะคริลิค)
+    ltSource: 'auto',
+    ltTol: 60,
     ltSizeMode: 'keep',
     ltSize: 60,
     ltSide: 'back',
@@ -2575,23 +2577,91 @@
 
   function letterStatus(v) {
     var rp = letterReport(v.plan);
+    if (v.traced) {
+      rp.text = 'อ่านจากรูป ' + v.traced.length + ' วง · ' + rp.text;
+      if (v.pxH && v.pxH < 40) rp.warn.push('⚠ ตัวอักษรในรูปสูงแค่ราว ' + Math.round(v.pxH) + ' พิกเซล ขอบอาจไม่เนียน — ใช้รูปความละเอียดสูงขึ้น หรือรูปต้นฉบับ');
+    } else if (v.mixed) rp.text += ' · (มีรูปภาพ ' + v.mixed + ' ชิ้นในที่เลือก ไม่ได้ใช้ — อยากอ่านจากรูปให้ตั้ง “อ่านจาก: รูปภาพ”)';
     status(rp.text + (rp.warn.length ? ' · ' + rp.warn.join(' · ') : ''), rp.warn.length ? 'warn' : 'ok');
   }
 
+  /* รูปภาพตัวหนังสือ (JPG / PNG / สแกน / ถ่ายพื้นเรียบ) → ลบพื้นหลัง → หาขอบตัวอักษร (รวมรูในตัว) → เส้นโค้งเรียบ
+   * → { rings (มม. y ลง แบบเดียวกับ readShapes), paths (pt ของ Illustrator ให้ host วาด), pxH (ความสูงตัวอักษรในรูป พิกเซล) } */
+  function letterFromImage() {
+    status('นัดพอนกำลังอ่านตัวหนังสือจากรูป…');
+    return host
+      .call('np_exportSelection', { ppi: 600, maxPx: 4000, kind: 'letter' })
+      .then(function (sil) {
+        var src = sil.dataUrl || 'data:image/png;base64,' + host.readBase64(sil.file);
+        return loadImage(src).then(function (img) {
+          return { img: img, sil: sil };
+        });
+      })
+      .then(function (r) {
+        var b = r.sil.bounds;
+        var sx = (b[2] - b[0]) / r.img.width; // pt ต่อพิกเซล
+        var sy = (b[1] - b[3]) / r.img.height;
+        var pxPerMm = PT / sx;
+        var data = pixels(r.img);
+        var mask = NC.contour.backgroundMask(data, { tolerance: clamp(num('ltTol'), 5, 200), shadow: 0, global: true });
+        var opaque = true;
+        for (var i = 3; i < data.data.length; i += 4 * 97) {
+          if (data.data[i] < 250) {
+            opaque = false;
+            break;
+          }
+        }
+        if (!mask.bg && opaque) throw new Error('หาสีพื้นของรูปไม่เจอ — ใช้รูปตัวหนังสือบนพื้นสีเรียบ หรือ PNG พื้นใส (ขอบรูปควรเป็นสีพื้นทั้งหมด)');
+        var stats = {};
+        var loops = NC.contour.traceAlpha(mask, {
+          threshold: 128,
+          offsetPx: 0,
+          minAreaPx: Math.max(9, Math.pow(0.4 * pxPerMm, 2)), // ฝุ่น/จุดรบกวนเล็กกว่า ~0.4 มม. ทิ้ง
+          fillHoles: false, // รูในตัวอักษร (อ ด บ o e) ต้องตัดด้วย
+          minHolePx: Math.pow(0.3 * pxPerMm, 2),
+          simplifyPx: Math.max(0.35, 0.02 * pxPerMm),
+          stats: stats,
+        });
+        var rings = [];
+        var paths = [];
+        var hs = [];
+        loops.forEach(function (lp) {
+          var ring = lp.points.map(function (q) {
+            return [b[0] + q[0] * sx, b[1] - q[1] * sy];
+          });
+          paths.push({ closed: true, points: G.smoothRing(ring, 40) });
+          rings.push(ring.map(B.aiToEngine));
+          if (!lp.hole) {
+            var ys = lp.points.map(function (q) {
+              return q[1];
+            });
+            hs.push(Math.max.apply(null, ys) - Math.min.apply(null, ys));
+          }
+        });
+        return { rings: rings, paths: paths, pxH: LT.median(hs), stats: stats };
+      });
+  }
+
   function letterRead() {
-    return readShapes(true).then(function (r) {
-      var k = r.read.kinds || {};
-      if (!r.rings.length) {
-        throw new Error(
-          k.images ? 'ชิ้นที่เลือกเป็นรูปภาพ (Raster) ตัดสติ๊กเกอร์ไม่ได้ — ใช้ตัวหนังสือหรือเวกเตอร์ (Image Trace ก่อนก็ได้)' : 'ไม่พบตัวหนังสือหรือ Path ปิดในชิ้นที่เลือก'
-        );
+    var fromImage = S.settings.ltSource === 'image';
+    return (fromImage ? Promise.resolve(null) : readShapes(true)).then(function (r) {
+      var k = (r && r.read.kinds) || {};
+      if (r && r.rings.length) {
+        var v = letterPlan({ kind: 'letter', rings: r.rings, read: r.read, flags: [], mixed: k.images || 0 });
+        return showLetter(v);
       }
-      var v = letterPlan({ kind: 'letter', rings: r.rings, read: r.read, flags: [] });
-      S.vec = v;
-      drawVec();
-      letterStatus(v);
-      return v;
+      if (r && !k.images) throw new Error('ไม่พบตัวหนังสือ Path ปิด หรือรูปภาพในชิ้นที่เลือก');
+      return letterFromImage().then(function (t) {
+        if (!t.rings.length) throw new Error('หาตัวหนังสือในรูปไม่เจอ — ลองเพิ่ม “รูปภาพ: ความต่างสีพื้น” หรือใช้รูปที่ตัวหนังสือกับพื้นสีต่างกันชัด ๆ');
+        return showLetter(letterPlan({ kind: 'letter', rings: t.rings, traced: t.paths, pxH: t.pxH, flags: [] }));
+      });
     });
+  }
+
+  function showLetter(v) {
+    S.vec = v;
+    drawVec();
+    letterStatus(v);
+    return v;
   }
 
   // ปรับค่าแล้วคำนวณใหม่จากรูปทรงเดิม (ไม่ต้องอ่านจาก Illustrator ซ้ำ)
@@ -2618,7 +2688,8 @@
         .call('np_letterCut', {
           k: p.k,
           mirror: p.mirror,
-          unite: !!s.ltUnite,
+          paths: v.traced || null, // อ่านจากรูป: วาดเส้นที่หาขอบได้ (ขอบจากพิกเซลรวมกันอยู่แล้ว ไม่ต้อง Pathfinder)
+          unite: !!s.ltUnite && !v.traced,
           rotate: p.rotated,
           weed: p.weed,
           margin: p.margin / K,
@@ -2698,7 +2769,7 @@
         path(r, true);
       });
       ctx.fillStyle = '#1f2a44';
-      ctx.fill(S.settings.ltUnite ? 'nonzero' : 'evenodd');
+      ctx.fill(S.settings.ltUnite && !v.traced ? 'nonzero' : 'evenodd');
       ctx.strokeStyle = CUT;
       ctx.lineWidth = 1;
       ctx.stroke();
@@ -3829,6 +3900,7 @@
     // ไดคัทตัวหนังสือ: ช่องที่ไม่ใช้ปิดไว้ (ไม่ซ่อน แผงไม่เด้ง)
     $('ltSize').disabled = s.ltSizeMode === 'keep';
     $('ltMargin').disabled = !s.ltWeed;
+    $('ltUnite').disabled = s.ltSource === 'image';
     $('numSaveDirLabel').textContent = 'บันทึกที่: ' + (s.numSaveDir || 'โฟลเดอร์เดียวกับไฟล์ต้นฉบับ (ไฟล์ยังไม่ได้บันทึก → Documents/NestingCut)');
     $('btnNumSaveDirReset').hidden = !s.numSaveDir;
     if (s.numMode !== 'sheet') $('numSheetPrev').hidden = true;

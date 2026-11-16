@@ -1720,20 +1720,33 @@ function np_letterCut(args) {
 //         positions: [[x, y] pt, top-left of each copy from the sheet corner], sheetW, sheetH, edge (pt),
 //         spotName, strokeWidth (pt), layer, name }
 function np_letterMake(args) {
+  var traced = args.paths && args.paths.length;
   var src = NP.cncItems || [];
-  if (!src.length) throw np_E('NO_SELECTION');
-  for (var a = 0; a < src.length; a++) if (!np_alive(src[a])) throw np_E('PART_GONE');
+  if (!traced) {
+    if (!src.length) throw np_E('NO_SELECTION');
+    for (var a = 0; a < src.length; a++) if (!np_alive(src[a])) throw np_E('PART_GONE');
+  }
   var srcDoc = app.activeDocument;
   var doc = app.documents.add(srcDoc.documentColorSpace, Math.max(36, args.sheetW), Math.max(36, args.sheetH));
   var lay = doc.layers[0];
   lay.name = args.layer || 'Lettering cut';
-  // copy to the layer first, then into a group (copying straight into a group of another document can come out empty)
-  var copies = [];
-  for (var i = 0; i < src.length; i++) copies.push(src[i].duplicate(lay, ElementPlacement.PLACEATEND));
   var g = lay.groupItems.add();
   g.name = args.name || 'Letters';
-  for (var j = 0; j < copies.length; j++) {
-    if (np_alive(copies[j])) copies[j].move(g, ElementPlacement.PLACEATEND);
+  if (traced) {
+    // letters traced from a picture by the panel: one compound path (holes stay holes)
+    var cp = g.compoundPathItems.add();
+    for (var t1 = 0; t1 < args.paths.length; t1++) {
+      var tp = cp.pathItems.add();
+      np_applyPoints(tp, args.paths[t1]);
+      tp.closed = true;
+    }
+  } else {
+    // copy to the layer first, then into the group (copying straight into a group of another document can come out empty)
+    var copies = [];
+    for (var i = 0; i < src.length; i++) copies.push(src[i].duplicate(lay, ElementPlacement.PLACEATEND));
+    for (var j = 0; j < copies.length; j++) {
+      if (np_alive(copies[j])) copies[j].move(g, ElementPlacement.PLACEATEND);
+    }
   }
   if (!g.pageItems.length) throw np_E('COPY_FAILED');
   g = np_outlineTexts(g, 0);

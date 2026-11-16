@@ -484,15 +484,23 @@
     <section class="card" id="secLetter" data-for="letter">
       <h2><span class="num">Aa</span> ไดคัทตัวหนังสือ <span class="sub">สติ๊กเกอร์ติดอะคริลิค</span></h2>
       <p class="hint">
-        ตัวหนังสือ/โลโก้ที่เลือก (Live Text ก็ได้ ไม่ต้อง Outline เอง) → เส้นตัดสติ๊กเกอร์ PVC / ไวนิลสี พร้อมกรอบลอกเศษ ได้ไฟล์ใหม่ส่งเครื่องตัดได้เลย · ติดหลังอะคริลิคใส กลับด้านให้
+        ตัวหนังสือ/โลโก้ที่เลือก (Live Text ก็ได้ ไม่ต้อง Outline เอง) <b>หรือรูปตัวหนังสือ JPG / PNG</b> (หาขอบให้เอง) → เส้นตัดสติ๊กเกอร์ PVC / ไวนิลสี พร้อมกรอบลอกเศษ ได้ไฟล์ใหม่ส่งเครื่องตัดได้เลย · ติดหลังอะคริลิคใส กลับด้านให้
       </p>
       <details class="howto"><summary>วิธีใช้</summary>
       <ol class="steplist">
-        <li><b>เลือกตัวหนังสือ</b><span>คลิกเลือกข้อความ / โลโก้ใน Illustrator (เลือกหลายชิ้นได้)</span></li>
+        <li><b>เลือกตัวหนังสือ</b><span>คลิกเลือกข้อความ / โลโก้ใน Illustrator (เลือกหลายชิ้นได้) — หรือวางรูปตัวหนังสือ (JPG / PNG / รูปถ่ายพื้นเรียบ) แล้วเลือกรูป</span></li>
         <li><b>ตั้งขนาดและด้านที่ติด</b><span>ความกว้างหรือความสูงรวมตามป้าย · ติดหลังอะคริลิคใส = กลับด้าน (มองจากหน้าป้ายอ่านถูก)</span></li>
         <li><b>ดูตัวอย่าง แล้วสร้างไฟล์ไดคัท</b><span>ไฟล์ใหม่: เส้นตัด CutContour + กรอบลอกเศษ + เส้นคั่นบรรทัด เรียงหลายชุดตามหน้าม้วน</span></li>
       </ol>
       </details>
+      <label
+        >อ่านจาก
+        <select data-setting="ltSource">
+          <option value="auto">อัตโนมัติ (ตัวหนังสือ/เวกเตอร์ก่อน · มีแต่รูปอ่านจากรูป)</option>
+          <option value="image">รูปภาพ (อ่านทุกอย่างที่เลือกเป็นภาพ แล้วหาขอบ)</option>
+        </select></label
+      >
+      <label>รูปภาพ: ความต่างสีพื้น <input type="number" min="5" max="200" step="5" data-setting="ltTol" id="ltTol" /></label>
       <label
         >ขนาด
         <select data-setting="ltSizeMode">
@@ -509,7 +517,7 @@
           <option value="front">หน้าอะคริลิค / ผนัง / กระจกด้านนอก (ไม่กลับด้าน)</option>
         </select></label
       >
-      <label class="check"><input type="checkbox" data-setting="ltUnite" /> รวมตัวที่ซ้อน/ชนกันเป็นชิ้นเดียว (มีดไม่ตัดผ่านกลางตัวอักษร)</label>
+      <label class="check"><input type="checkbox" data-setting="ltUnite" id="ltUnite" /> รวมตัวที่ซ้อน/ชนกันเป็นชิ้นเดียว (มีดไม่ตัดผ่านกลางตัวอักษร)</label>
       <label class="check"><input type="checkbox" data-setting="ltWeed" /> กรอบลอกเศษรอบงาน</label>
       <label>ระยะกรอบลอกเศษ (มม.) <input type="number" min="0" step="1" data-setting="ltMargin" id="ltMargin" /></label>
       <label class="check"><input type="checkbox" data-setting="ltRows" /> เส้นคั่นระหว่างบรรทัด (ลอกเศษทีละบรรทัด ไม่ดึงตัวหนังสือหลุด)</label>
@@ -522,7 +530,8 @@
       <label class="check"><input type="checkbox" data-setting="ltRotate" /> หมุน 90° ให้วิ่งตามความยาวม้วน ถ้ากว้างเกินหน้าม้วน</label>
       <p class="note">
         เครื่องตัด (Cutting Master / Graphtec): เส้นชมพูบาง Spot “CutContour” = ตัด · สติ๊กเกอร์สีพื้นไม่ต้องพิมพ์ ไม่ต้องมีมาร์ก ·
-        ลอกเศษ (Weed) แล้วแปะเทปยก (Transfer tape) ยกไปติด · หน้าม้วน 0 = ไม่จำกัด (เรียงแถวเดียว)
+        ลอกเศษ (Weed) แล้วแปะเทปยก (Transfer tape) ยกไปติด · หน้าม้วน 0 = ไม่จำกัด (เรียงแถวเดียว) ·
+        อ่านจากรูป: รูปยิ่งละเอียดขอบยิ่งเนียน (ตัวอักษรในรูปควรสูง 100 พิกเซลขึ้นไป) · พื้นหลังต้องเป็นสีเรียบ หรือ PNG พื้นใส
       </p>
       <div class="tool-actions">
         <div class="row">
