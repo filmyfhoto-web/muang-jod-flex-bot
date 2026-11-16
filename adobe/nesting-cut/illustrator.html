@@ -501,6 +501,13 @@
         </select></label
       >
       <label>รูปภาพ: ความต่างสีพื้น <input type="number" min="5" max="200" step="5" data-setting="ltTol" id="ltTol" /></label>
+      <div class="lt-colors-wrap">
+        <span class="label">สีที่เจอในรูป (ติ๊กสีที่จะตัด)</span>
+        <div id="ltColors" class="lt-colors"><span class="hint">อ่านจากรูปแล้ว สีที่เจอจะขึ้นตรงนี้ ติ๊กเลือกสีที่จะตัดได้</span></div>
+      </div>
+      <label class="check"><input type="checkbox" data-setting="ltSplit" /> หลายสี: แยกไฟล์ทีละสี (สติ๊กเกอร์ตัดได้ทีละสี) + เครื่องหมาย + เล็งตำแหน่ง</label>
+      <label>ทิ้งจุด/ชิ้นเล็กกว่า (มม.) <input type="number" min="0" step="0.5" data-setting="ltDrop" id="ltDrop" /></label>
+      <label class="check"><input type="checkbox" data-setting="ltNoFrame" /> ไม่เอากรอบ / เส้นตรงยาว ที่ติดมากับรูป (กรอบป้าย เส้นคั่น)</label>
       <label
         >ขนาด
         <select data-setting="ltSizeMode">
@@ -531,7 +538,8 @@
       <p class="note">
         เครื่องตัด (Cutting Master / Graphtec): เส้นชมพูบาง Spot “CutContour” = ตัด · สติ๊กเกอร์สีพื้นไม่ต้องพิมพ์ ไม่ต้องมีมาร์ก ·
         ลอกเศษ (Weed) แล้วแปะเทปยก (Transfer tape) ยกไปติด · หน้าม้วน 0 = ไม่จำกัด (เรียงแถวเดียว) ·
-        อ่านจากรูป: รูปยิ่งละเอียดขอบยิ่งเนียน (ตัวอักษรในรูปควรสูง 100 พิกเซลขึ้นไป) · พื้นหลังต้องเป็นสีเรียบ หรือ PNG พื้นใส
+        อ่านจากรูป: รูปยิ่งละเอียดขอบยิ่งเนียน (ตัวอักษรในรูปควรสูง 100 พิกเซลขึ้นไป) · พื้นหลังต้องเป็นสีเรียบ หรือ PNG พื้นใส ·
+        รูปหลายสี (เช่น ชื่อสีเขียว ตัวเลขสีทอง) แยกไฟล์ทีละสีให้ ไม่ต้องการสีไหน (โลโก้ กรอบ) เอาติ๊กออก · จุดไข่ปลา/ฝุ่น ทิ้งด้วยช่อง “ทิ้งจุด/ชิ้นเล็กกว่า” (เฉพาะอ่านจากรูป)
       </p>
       <div class="tool-actions">
         <div class="row">
