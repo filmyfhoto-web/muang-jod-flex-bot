@@ -107,3 +107,42 @@ test('ไดคัทตัวหนังสือ: แผง (เครื่�
   assert.match(read('illustrator/demo.js'), /np_letterCut: function/);
   assert.match(read('CHANGELOG.md'), /## 1\.14\.0\n\n- เครื่องมือใหม่ “ไดคัทตัวหนังสือ”/);
 });
+
+test('ไดคัทตัวหนังสือ: อ่านจากรูป (JPG/PNG) → ลบพื้น หาขอบ รูในตัวอักษรยังเป็นรู · ส่งเส้นให้ host วาด', () => {
+  const C = require('../adobe/nesting-cut/core/contour.js');
+  // รูปตัว O สีดำบนพื้นขาว (เหมือนไฟล์ JPG ที่ลูกค้าส่งมา)
+  const W = 120;
+  const H = 120;
+  const data = new Uint8ClampedArray(W * H * 4);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const d = Math.hypot(x - 60, y - 60);
+      const ink = d <= 40 && d >= 22;
+      const k = (y * W + x) * 4;
+      data[k] = data[k + 1] = data[k + 2] = ink ? 15 : 250;
+      data[k + 3] = 255;
+    }
+  }
+  // แบบเดิม (ไล่จากขอบ) รูในตัว O ไม่หาย → ตัวหนังสือต้องลบสีพื้นทั้งรูป (global)
+  const flood = C.backgroundMask({ width: W, height: H, data }, { tolerance: 60, shadow: 0 });
+  assert.equal(C.traceAlpha(flood, { threshold: 128, minAreaPx: 9, fillHoles: false, minHolePx: 4 }).length, 1);
+  const mask = C.backgroundMask({ width: W, height: H, data }, { tolerance: 60, shadow: 0, global: true });
+  assert.ok(mask.bg, 'หาสีพื้นจากขอบรูปได้');
+  const loops = C.traceAlpha(mask, { threshold: 128, offsetPx: 0, minAreaPx: 9, fillHoles: false, minHolePx: 4, simplifyPx: 0.35 });
+  assert.equal(loops.length, 2);
+  assert.deepEqual(loops.map((l) => !!l.hole), [false, true]); // วงนอก + รูในตัว O
+  const main = read('illustrator/main.js');
+  assert.match(main, /\.call\('np_exportSelection', \{ ppi: 600, maxPx: 4000, kind: 'letter' \}\)/);
+  assert.match(main, /fillHoles: false, \/\/ รูในตัวอักษร/);
+  assert.match(main, /shadow: 0, global: true \}\);/);
+  assert.match(main, /points: G\.smoothRing\(ring, 40\)/);
+  assert.match(main, /paths: v\.traced \|\| null,/);
+  assert.match(main, /unite: !!s\.ltUnite && !v\.traced,/); // ขอบจากพิกเซลรวมกันอยู่แล้ว ไม่ต้อง Pathfinder
+  assert.match(main, /if \(!mask\.bg && opaque\) throw new Error\('หาสีพื้นของรูปไม่เจอ/);
+  const html = read('illustrator.html');
+  assert.match(html, /<select data-setting="ltSource">/);
+  assert.match(html, /data-setting="ltTol"/);
+  const host = read('illustrator/host.jsx');
+  assert.match(host, /if \(traced\) \{\n\s*\/\/ letters traced from a picture[^\n]*\n\s*var cp = g\.compoundPathItems\.add\(\);/);
+  assert.match(host, /np_applyPoints\(tp, args\.paths\[t1\]\);/);
+});

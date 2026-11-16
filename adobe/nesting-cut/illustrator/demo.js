@@ -316,6 +316,26 @@
     return c;
   }
 
+  // รูปตัวหนังสือสำหรับ “ไดคัทตัวหนังสือ” แบบอ่านจากรูป
+  var TEXTPIC = { x: 1100, y: 1100, w: 120, h: 50 };
+  function renderTextPic(ppi) {
+    var s = ppi / 25.4;
+    var c = document.createElement('canvas');
+    c.width = Math.round(TEXTPIC.w * s);
+    c.height = Math.round(TEXTPIC.h * s);
+    var ctx = c.getContext('2d');
+    ctx.scale(s, s);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, TEXTPIC.w, TEXTPIC.h);
+    ctx.fillStyle = '#111111';
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = 'bold 17px Tahoma, Loma, sans-serif';
+    ctx.fillText('ร้านนัดพอน', 6, 21);
+    ctx.font = 'bold 14px Arial, sans-serif';
+    ctx.fillText('SIGN & PRINT', 6, 43);
+    return c;
+  }
+
   var dieCuts = [];
 
   // ตัวอักษรตัวอย่าง (มม., y ลง) สำหรับ “ทำมุมโค้ง” และ “หาเส้นกลาง” — U มีร่องแคบ 2 มม. ที่ดอก 1/8 นิ้วลงไม่ได้
@@ -470,6 +490,16 @@
       throw demoError('DEMO');
     },
     np_exportSelection: function (a) {
+      if (a.kind === 'letter') {
+        // รูปตัวหนังสือตัวอย่าง (เหมือนไฟล์ JPG ที่ลูกค้าส่งมา): ตัวดำบนพื้นขาว 2 บรรทัด
+        var tc = renderTextPic(Math.min(a.ppi || 300, 300));
+        return {
+          dataUrl: tc.toDataURL('image/png'),
+          bounds: [TEXTPIC.x, TEXTPIC.y, TEXTPIC.x + TEXTPIC.w * PT, TEXTPIC.y - TEXTPIC.h * PT],
+          count: 1,
+          kinds: { images: 1, texts: 0, vectors: 0, clips: 0 },
+        };
+      }
       var c = renderPhoto(a.ppi || 300);
       return {
         dataUrl: c.toDataURL('image/png'),
@@ -505,7 +535,7 @@
       };
     },
     np_letterCut: function (a) {
-      return { document: 'ไดคัทตัวหนังสือ (ตัวอย่าง)', copies: (a.positions || []).length || 1, united: !!a.unite, unite: !!a.unite, pieces: 5, open: 0, images: 0, w: 0, h: 0 };
+      return { document: 'ไดคัทตัวหนังสือ (ตัวอย่าง)', copies: (a.positions || []).length || 1, united: !!a.unite, unite: !!a.unite, pieces: a.paths ? a.paths.length : 5, open: 0, images: 0, w: 0, h: 0 };
     },
     np_drawStamps: function (a) {
       var cuts = 0;
