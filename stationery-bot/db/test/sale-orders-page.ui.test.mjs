@@ -732,6 +732,7 @@ test('the chat shows the summary card when the list can be read; its button open
   await openRow('คุณกิตติ');
   await until(async () => (await chatTitle()) === 'คุณกิตติ', 'the chat');
   await page.waitForSelector('#so_msgs .so-ai');
+  await shot(page, 'desktop-ai-card');
   assert.match(await page.locator('#so_msgs .so-ai-n').innerText(), /^2 รายการที่ตรวจพบ/);
   await page.locator('#so_msgs [data-a="parsechat"]').click();
   await page.waitForSelector('#so_modal');
