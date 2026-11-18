@@ -938,3 +938,32 @@ details.extra[open] > summary { margin-bottom: 8px; }
 .titles h2 { font-size: 13px; }
 .card-top { margin-bottom: 6px; }
 .card { padding: 11px 12px; margin-bottom: 10px; }
+
+/* ---- ใบจดใบเดียว ---------------------------------------------------------
+   ร้านสั่งต่อ: "ขอกระชับกว่านี้ค่ะ ทำเหมือนใบจดก็ได้ค่ะ" — ทั้งฟอร์มเป็น
+   ใบเดียวแบบใบจดกระดาษ: ลูกค้า/วันนัด → รายการ → เงิน คั่นด้วยเส้นประ
+   ป้ายอยู่หน้าช่องแบบฟอร์มกระดาษ (ประหยัดแนวตั้งกว่าป้ายบนช่อง) */
+.slip { padding: 12px; }
+.slip .divider { border-top: 1.5px dashed var(--line); margin: 11px -12px; }
+.slip > #job .field,
+.slip > #paycard .field { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
+.slip > #paycard .field { margin-bottom: 0; }
+.slip > #job .field > span:first-child,
+.slip > #paycard .field > span:first-child { margin: 0; flex: 0 0 auto; min-width: 58px; font-size: 12.5px; }
+.slip > #job .field .input-wrap,
+.slip > #paycard .field .input-wrap { flex: 1; }
+.slip .kind-pill { align-self: center; }
+.slip .more { margin: 2px 0 0; }
+.slip .more > summary { display: block; list-style: none; cursor: pointer; padding: 1px 0 0;
+  font-size: 12px; font-weight: 600; color: var(--accent-text); }
+.slip .more > summary::-webkit-details-marker { display: none; }
+.slip .more[open] > summary { margin-bottom: 7px; }
+.slip .list-actions { padding: 0; margin: 9px 0 0; }
+.slip .track { gap: 0; }
+.slip .track > .item { border: 0; border-bottom: 1.5px dashed var(--line); background: none; }
+.slip .track > .item:last-child { border-bottom: 0; }
+.slip .track > .item > .row { padding: 8px 0 10px; }
+/* ชิปเงินแถวเดียวสี่ปุ่มแบบช่องติ๊กในใบจด (จอจิ๋วจริง ๆ ค่อยพับเป็นสองคู่) */
+.slip .paychips { grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 9px; }
+.slip .paychip { font-size: 12.5px; padding: 11px 2px; }
+@media (max-width: 374px) { .slip .paychips { grid-template-columns: 1fr 1fr; } }

@@ -74,96 +74,77 @@
     </div>
   </details>
 
-  <!-- ลูกค้าอยู่บนสุดของใบ เหมือนหัวใบเสร็จจริง — ชนิดลูกค้า (หน้าร้าน/หน่วยงาน)
-       ม่วงเดาจากชื่อด้วยกติกาเดียวกับคิวงานและสมุด เป็นป้ายบอก ไม่ใช่ปุ่มหลอก -->
-  <section class="card" id="job">
-    <div class="card-top">
-      <span class="chip-ic">👤</span>
-      <div class="titles">
-        <h2>ลูกค้า &amp; วันนัด</h2>
-        <p>พิมพ์ชื่อ เดี๋ยวชื่อเดิมเด้งให้เลือก</p>
-      </div>
-      <span class="kind-pill" id="kind-pill" hidden></span>
+  <!-- ใบจดใบเดียว — ร้านสั่ง "ขอกระชับกว่านี้ค่ะ ทำเหมือนใบจดก็ได้ค่ะ":
+       ลูกค้า/วันนัด → รายการ → เงิน อยู่ในใบเดียวแบบใบจดกระดาษ คั่นด้วย
+       เส้นประ ป้ายอยู่หน้าช่องแบบฟอร์มกระดาษ ไม่มีการ์ดลอยสามใบ/หัวข้อซ้ำอีก
+       ชนิดลูกค้า (หน้าร้าน/หน่วยงาน) ยังเดาจากชื่อ เป็นป้ายท้ายช่องลูกค้า -->
+  <section class="card slip" id="slip">
+    <div id="job">
+      <label class="field">
+        <span>ลูกค้า</span>
+        <span class="input-wrap"><i class="ic">👤</i>
+          <input id="f-customer" type="text" placeholder="เช่น รพสต.บ้านชี" autocomplete="off" list="customer-list" />
+        </span>
+        <span class="kind-pill" id="kind-pill" hidden></span>
+      </label>
+      <!-- ชื่อลูกค้าที่เคยจดไว้ — พิมพ์บางส่วนแล้วชื่อเต็มเด้งให้กด สะกดเหมือนทุกใบ -->
+      <div class="cust-suggest" id="cust-suggest" hidden></div>
+      <datalist id="customer-list"></datalist>
+
+      <label class="field">
+        <span>วันรับงาน</span>
+        <span class="input-wrap"><i class="ic">📅</i>
+          <input id="f-due" type="date" />
+        </span>
+      </label>
+
+      <details class="more" id="more">
+        <summary>ใส่เพิ่มได้ · วันที่จด · หมายเหตุ</summary>
+        <label class="field">
+          <span>วันที่จด</span>
+          <span class="input-wrap"><i class="ic">🗓</i>
+            <input id="f-date" type="date" />
+          </span>
+        </label>
+        <label class="field">
+          <span>หมายเหตุ</span>
+          <span class="input-wrap"><i class="ic">📝</i>
+            <input id="f-note" type="text" maxlength="200" placeholder="เช่น ส่งวันศุกร์" />
+          </span>
+        </label>
+      </details>
     </div>
 
-    <label class="field">
-      <span>ลูกค้า</span>
-      <span class="input-wrap"><i class="ic">👤</i>
-        <input id="f-customer" type="text" placeholder="เช่น รพสต.บ้านชี" autocomplete="off" list="customer-list" />
-      </span>
-    </label>
-    <!-- ชื่อลูกค้าที่เคยจดไว้ — พิมพ์บางส่วนแล้วชื่อเต็มเด้งให้กด ไม่ต้องพิมพ์ทั้งชื่อ
-         และได้สะกดเดียวกับที่เคยจด สมุดลูกค้าจึงรวมเจ้าถูก -->
-    <div class="cust-suggest" id="cust-suggest" hidden></div>
-    <datalist id="customer-list"></datalist>
+    <div class="divider" aria-hidden="true"></div>
 
-    <!-- วันนัดรับอยู่นอกกล่อง "ใส่เพิ่มได้" เพราะเป็นเส้นตายของงาน ไม่ใช่ของเสริม -->
-    <label class="field">
-      <span>วันรับงาน <em class="tag-bill">นัดรับ / ส่งก่อน</em></span>
-      <span class="input-wrap"><i class="ic">📅</i>
-        <input id="f-due" type="date" />
-      </span>
-    </label>
-
-    <details class="more" id="more">
-      <summary>ใส่เพิ่มได้ · วันที่จด · หมายเหตุ</summary>
-      <label class="field">
-        <span>วันที่จด</span>
-        <span class="input-wrap"><i class="ic">🗓</i>
-          <input id="f-date" type="date" />
-        </span>
-      </label>
-      <label class="field">
-        <span>หมายเหตุ</span>
-        <span class="input-wrap"><i class="ic">📝</i>
-          <input id="f-note" type="text" maxlength="200" placeholder="เช่น ส่งวันศุกร์" />
-        </span>
-      </label>
-    </details>
-  </section>
-
-  <!-- รายการงาน: ร้านใช้ตารางบรรทัดเดียวแล้วสรุป "ช่องเล็กไป ขยายหน้าต่างช่อง
-       และทำให้มันจบที่หน้าเดียวเวลากรอก" — หนึ่งรายการจึงเป็นกล่องช่องใหญ่
-       สองแถว ป้ายอยู่บนช่องของตัวเอง นิ้วกดสบาย และไม่มีเลื่อนข้างอีก -->
-  <section class="card sheet">
     <div class="tblwrap">
       <div class="tmin">
         <div class="track" id="items" tabindex="-1"></div>
       </div>
     </div>
-    <p class="hintline">แตะแถบ "รวมบรรทัดนี้" = ตั้งราคาเอง · รายละเอียด · แนบรูป · พิมพ์ชื่องานแล้วช่องราคาเปลี่ยนหน่วยให้เอง</p>
-  </section>
+    <div class="list-actions">
+      <button class="btn btn-soft" type="button" id="btn-add">➕ เพิ่มบรรทัด</button>
+      <button class="btn btn-ghost" type="button" id="btn-ship">🚚 ค่าส่ง</button>
+    </div>
 
-  <!-- ร้านบอกว่า "เพิ่มเป็นบรรทัดเหมือนใบเสร็จธรรมดาได้มั้ย ไม่ต้องข้ามหน้า" —
-       รายการเรียงลงมาเป็นแถว ปุ่มเพิ่มจึงมีที่เดียวที่ท้ายรายการ -->
-  <div class="list-actions">
-    <button class="btn btn-soft" type="button" id="btn-add">➕ เพิ่มบรรทัด</button>
-    <button class="btn btn-ghost" type="button" id="btn-ship">🚚 ค่าส่ง</button>
-  </div>
+    <div class="divider" aria-hidden="true"></div>
 
-  <!-- เงินของใบนี้ — แตะชิปอันเดียวจบ ("กดเป็นปุ่มมันยาก" → เหลือแถวเดียว)
-       ลงบัญชี = payMethod 'account' ตัวสร้างงานประทับวันลงบัญชีให้เอง
-       จ่ายสด/โอนครบ = payMethod + ยอดรับเท่ายอดเก็บ (กติกาเดียวกับพิมพ์ในแชต) -->
-  <section class="card paycard" id="paycard">
-    <div class="card-top">
-      <span class="chip-ic">💰</span>
-      <div class="titles">
-        <h2>เงินของใบนี้</h2>
-        <p>แตะเลือกอันเดียว · มัดจำใส่ช่องข้างล่าง</p>
+    <!-- เงินของใบ — แตะชิปอันเดียวจบ ลงบัญชี = payMethod 'account'
+         จ่ายสด/โอนครบ = payMethod + ยอดรับเท่ายอดเก็บ (กติกาเดียวกับในแชต) -->
+    <div id="paycard">
+      <div class="paychips" id="paychips">
+        <button type="button" class="paychip" data-pay="">⏳ ยังไม่จ่าย</button>
+        <button type="button" class="paychip" data-pay="account">📒 ลงบัญชี</button>
+        <button type="button" class="paychip" data-pay="cash">💵 จ่ายสดครบ</button>
+        <button type="button" class="paychip" data-pay="transfer">🏦 โอนครบแล้ว</button>
       </div>
+      <label class="field dep" id="dep-field">
+        <span>มัดจำ / รับแล้ว</span>
+        <span class="input-wrap"><i class="ic">💰</i>
+          <input id="f-paid" type="number" inputmode="decimal" min="0" step="1" placeholder="เช่น 300" />
+        </span>
+      </label>
     </div>
-    <div class="paychips" id="paychips">
-      <button type="button" class="paychip" data-pay="">⏳ ยังไม่จ่าย</button>
-      <button type="button" class="paychip" data-pay="account">📒 ลงบัญชี</button>
-      <button type="button" class="paychip" data-pay="cash">💵 จ่ายสดครบ</button>
-      <button type="button" class="paychip" data-pay="transfer">🏦 โอนครบแล้ว</button>
-    </div>
-    <label class="field dep" id="dep-field">
-      <span>มัดจำ / รับเงินมาแล้ว (บาท)</span>
-      <span class="input-wrap"><i class="ic">💰</i>
-        <input id="f-paid" type="number" inputmode="decimal" min="0" step="1" placeholder="เช่น 300" />
-      </span>
-    </label>
   </section>
 
   <!-- การ์ดสรุป อัปเดตตามที่พิมพ์ทันที -->

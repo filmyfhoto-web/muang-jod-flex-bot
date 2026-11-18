@@ -396,3 +396,20 @@ test('ยืนยันทางเดียว: การ์ดสรุปพ
   // แถบบันทึกล่างผูกบันทึกจริง — ซ่อนการ์ดสรุปแล้วก็ยังบันทึกได้ทางเดียวนี้
   assert.match(js, /\$\('#qb-save'\)\.onclick = save;/);
 });
+
+/* ร้านสั่งต่อ: "ขอกระชับกว่านี้ค่ะ ทำเหมือนใบจดก็ได้ค่ะ" — ทั้งฟอร์มเป็น
+ * ใบเดียวแบบใบจดกระดาษ: ลูกค้า/วันนัด → รายการ → เงิน อยู่ในการ์ดเดียว
+ * คั่นด้วยเส้นประ ป้ายอยู่หน้าช่องแบบฟอร์มกระดาษ ไม่มีการ์ดลอยสามใบอีก
+ */
+test('ทั้งฟอร์มเป็นใบจดใบเดียว — ลูกค้า/รายการ/เงินในการ์ดเดียว คั่นเส้นประ', () => {
+  const start = html.indexOf('class="card slip"');
+  const slip = html.slice(start, html.indexOf('</section>', start));
+  assert.ok(start > 0, 'ไม่มีใบจด');
+  for (const need of ['id="f-customer"', 'id="f-due"', 'id="items"', 'id="btn-add"', 'id="paychips"', 'id="f-paid"']) {
+    assert.ok(slip.includes(need), `${need} ไม่อยู่ในใบจด`);
+  }
+  assert.ok((slip.match(/class="divider"/g) || []).length >= 2, 'เส้นประคั่นสามส่วนหาย');
+  // ป้ายอยู่หน้าช่อง และชิปเงินเป็นแถวเดียวสี่ช่องแบบช่องติ๊กในใบจด
+  assert.match(css, /\.slip > #job \.field,\n\.slip > #paycard \.field \{ display: flex; align-items: center/);
+  assert.match(css, /\.slip \.paychips \{ grid-template-columns: repeat\(4, 1fr\)/);
+});
