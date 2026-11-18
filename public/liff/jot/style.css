@@ -255,11 +255,15 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
  * จนตัวเลขอ่านไม่ออก เพราะตัวหนังสือในช่องต่ำกว่า 16px ไม่ได้ (iOS ซูมเอง) */
 .sheet { padding: 10px 12px 8px; }
 .tblwrap { overflow-x: auto; }
-.tmin { min-width: 420px; border: 1.5px solid var(--line); border-radius: 0; overflow: hidden; }
+/* ร้านขอ "ปรับจอให้พอดีกับหน้าต่างการกรอก" — ตารางเลิกกว้างตายตัว 420px
+   (ซึ่งล้นจอมือถือ/คอลัมน์ 430 จนต้องเลื่อนซ้ายขวา) ให้ค่าต่ำสุดของคอลัมน์
+   ในกริดเป็นตัวกันแคบแทน จอปกติจึงพอดีเป๊ะ เหลือ overflow ไว้กันจอจิ๋วจริง ๆ */
+.tmin { min-width: 0; border: 1.5px solid var(--line); border-radius: 0; overflow: hidden; }
 .thead,
 .track > .item > .row {
   display: grid;
-  grid-template-columns: minmax(96px, 1.3fr) 96px 46px 66px minmax(58px, auto) 26px;
+  /* ค่าต่ำสุดรวม ~350px — พอดีช่องกรอกของจอ 390 (เนื้อใน ~366px) ไม่มีเลื่อนข้าง */
+  grid-template-columns: minmax(88px, 1.3fr) 88px 40px 60px minmax(50px, auto) 24px;
   gap: 0;
   align-items: stretch;
 }

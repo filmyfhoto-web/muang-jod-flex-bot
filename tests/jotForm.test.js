@@ -142,6 +142,10 @@ test('รายการเป็นตารางบรรทัดเดี�
   assert.match(css, /\.thead > span \+ span,\s*\n\.row > \* \+ \* \{ border-left: 1px solid var\(--line\); \}/);
   assert.match(css, /\.thead \{ background: var\(--accent-soft\); \}/);
   assert.match(css, /\.tmin \{[^}]*border: 1\.5px solid var\(--line\)/);
+  // ร้านขอ "ปรับจอให้พอดีกับหน้าต่างการกรอก" — ตารางเลิกกว้างตายตัว ให้ค่าต่ำสุด
+  // ของคอลัมน์เป็นตัวกันแคบแทน จอ 390 ขึ้นไปไม่มีเลื่อนซ้ายขวา
+  assert.match(css, /\.tmin \{[^}]*min-width: 0/);
+  assert.ok(!/\.tmin \{[^}]*min-width: \d{3}px/.test(css), 'ห้ามกลับไปกว้างตายตัวจนล้นจอ');
   assert.match(css, /\.row input \{[^}]*border: 0;[^}]*border-radius: 0;/);
 
   // แถวไม่ใช่ details — ช่องหลักทุกช่อง (ชื่อ/กว้าง/ยาว/จำนวน/ราคา) อยู่บน
