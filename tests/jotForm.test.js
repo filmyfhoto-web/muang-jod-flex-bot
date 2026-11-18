@@ -413,3 +413,18 @@ test('ทั้งฟอร์มเป็นใบจดใบเดียว �
   assert.match(css, /\.slip > #job \.field,\n\.slip > #paycard \.field \{ display: flex; align-items: center/);
   assert.match(css, /\.slip \.paychips \{ grid-template-columns: repeat\(4, 1fr\)/);
 });
+
+/* ร้านเห็นเล่มสมุดปริ้นแล้วสั่ง: "อยากให้ม่วงทำหน้าแบบนี้เวลาจด" — ใบจดบนจอ
+ * ใช้ภาษาเดียวกับหน้ากระดาษ: หัวแถบกรม "ใบจดงาน" ช่องกรอกเป็นเส้นประให้เติม
+ * ช่องเงินเป็นช่องติ๊ก ☐ ที่วาดด้วย CSS — ขนาดช่อง/จุดแตะเท่าเดิม เปลี่ยนแต่ผิว
+ */
+test('ใบจดบนจอหน้าตาเหมือนหน้าเล่มสมุดปริ้น — หัวกรม เส้นประ ช่องติ๊กเงิน', () => {
+  const skin = css.slice(css.indexOf('หน้าตาแบบเล่มสมุดปริ้น'));
+  assert.ok(skin.length > 100, 'บล็อกผิวเล่มหาย');
+  assert.ok(skin.includes("content: 'ใบจดงาน';"), 'หัวแถบกรมหาย');
+  assert.ok(skin.includes('border-bottom: 2px dotted var(--grey);'), 'ช่องกรอกไม่เป็นเส้นประ');
+  assert.ok(skin.includes(".slip .paychip::before"), 'ช่องติ๊กเงินหาย');
+  assert.ok(skin.includes("content: '✓';"), 'ติ๊กแล้วไม่มีเครื่องหมายถูก');
+  // จุดแตะไม่หด: กฎขนาดช่อง (สูง 50px/46px) ยังคุมอยู่เหมือนเดิม
+  assert.match(css, /\.track \.row input \{[^}]*min-height: 50px/s);
+});

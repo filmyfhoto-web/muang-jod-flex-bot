@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { todayISO } from '../src/utils/dates.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createMockSupabase } from './helpers/mockSupabase.js';
@@ -138,7 +139,8 @@ test('การ์ดรายร้าน: งานวันนี้ คิ�
 });
 
 test('สรุปงานวันนี้พกยอดแยกร้านไปด้วย และการ์ดวาดช่วง "แยกตามร้าน"', async () => {
-  const today = new Date().toISOString().slice(0, 10);
+  // "วันนี้" ตามเวลาไทย ตัวเดียวกับที่สรุปงานใช้ — UTC จะเพี้ยนช่วงหลังเที่ยงคืนไทย
+  const today = todayISO();
   const db = createMockSupabase();
   const branches = await listBranches('user-1', db);
   await db.from('jobs').insert({
