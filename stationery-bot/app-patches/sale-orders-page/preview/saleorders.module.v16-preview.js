@@ -1534,6 +1534,7 @@
     if(!isLine(t))return '<div class="c off"><b>ส่งทาง LINE OA</b><span class="mut">แชตนี้ไม่ได้มาจาก LINE OA</span></div>'
     if(!st.ok)return `<div class="c off"><b>ส่งทาง LINE OA</b><span class="mut">${E(st.t.replace('LINE OA: ',''))}</span></div>`
     if(m.lineOut)return '<div class="c"><b>ส่งทาง LINE OA</b><span class="mut">เข้าคิวแล้ว · ดูสถานะด้านล่าง</span></div>'
+    if(m.lineConfirm)return `<div class="c"><b>ยืนยันการส่งเข้า LINE</b><span class="mut">ข้อความนี้จะถูกส่งถึงลูกค้าทาง LINE จริง — ตรวจข้อความด้านบนให้ครบก่อนยืนยันทุกครั้ง</span><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button type="button" class="so-btn pri" data-a="sumlineok" ${m.busy?'disabled':''}>${m.busy?'กำลังเข้าคิว…':'ยืนยันส่ง'}</button><button type="button" class="so-btn" data-a="sumlinecancel" ${m.busy?'disabled':''}>ยกเลิก</button></div></div>`
     return `<div class="c"><b>ส่งทาง LINE OA</b><button type="button" class="so-btn pri" data-a="sumline" ${m.busy?'disabled':''}>${m.busy?'กำลังเข้าคิว…':'ส่ง'}</button></div>`
   }
   function lineStatBox(m){
@@ -1849,7 +1850,9 @@
     if(a==='summary'){if(!S.ord||!S.ord.id||isDirty())return;openModal({kind:'summary',text:summaryText()});return}
     if(a==='sumcopy'){copySummary();return}
     if(a==='sumchat'){chatSummary();return}
-    if(a==='sumline'){lineSummary();return}
+    if(a==='sumline'){if(S.modal){S.modal.lineConfirm=true;paintModal()}return}
+    if(a==='sumlineok'){if(S.modal)S.modal.lineConfirm=false;lineSummary();return}
+    if(a==='sumlinecancel'){if(S.modal){S.modal.lineConfirm=false;paintModal()}return}
     if(a==='resend'){resend(el.dataset.o);return}
     if(a==='setawait'){closeModal();if(S.ord&&S.ord.job_status==='pending'){S.ord.job_status='awaiting';paintOrd();save()}return}
   }

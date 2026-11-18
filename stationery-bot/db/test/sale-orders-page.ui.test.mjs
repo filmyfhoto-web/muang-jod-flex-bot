@@ -684,3 +684,38 @@ test('the "รอตอบ" tab (v15) loses its warm highlight once nothing is l
   assert.equal(await tab.innerText(), 'รอตอบ (0)');
   assert.doesNotMatch((await tab.getAttribute('class')) || '', /\balert\b/, 'nothing to warn about, so no warm highlight');
 });
+
+// v16 preview: a summary sent into a LINE customer's chat waits for a second confirmation every time; cancel sends nothing
+const LINE_CONFIRM = readFileSync(MODULE, 'utf8').includes('sumlineok');
+test('a summary sent to a LINE customer waits for a second confirmation each time; cancel sends nothing (v16)', LINE_CONFIRM ? (CHROMIUM ? {} : skipIt) : { skip: 'needs the v16 preview (a second confirmation before a LINE send)' }, async () => {
+  await db.query('delete from sale_line_status');
+  await db.query(`insert into sale_line_status (channel_key, mode, build, last_seen_at, last_in_at, last_out_at, detail) values ('main', 'on', 'test', now(), now(), now(), '{}')`);
+  await page.evaluate(() => window.NattaSaleOrders.line()); // the page reads the bridge status on start-up and every ~30 s; ask now
+  const allTab = page.locator('#so_tabs button', { hasText: 'ทั้งหมด' });
+  if (await allTab.count()) await allTab.first().click();
+  await openRow('ริงโกลาเฟ009');
+  await until(async () => (await chatTitle()) === 'ริงโกลาเฟ009', 'the LINE chat');
+  await page.locator('#so_ord [data-a="prodtoggle"]').click();
+  await page.locator('#so_pq').fill('ปากกา');
+  await page.waitForFunction(() => document.querySelectorAll('#so_pres .pr').length === 2, null, { timeout: 10000 });
+  await page.locator('#so_pres .pr', { hasText: 'สีแดง' }).click();
+  await until(async () => (await editRows()) === 1, 'one line');
+  await page.locator('#so_ord [data-a="save"]').click();
+  await flashSays(/บันทึกแล้ว · ORD-/);
+  await page.locator('#so_ord [data-a="summary"]').click();
+  if (!(await page.locator('#so_modal [data-a="sumline"]').count())) assert.fail('the summary offers no LINE send: ' + (await page.locator('#so_modal').innerText()).slice(0, 300));
+  const outs = () => one('select count(*)::int n from sale_msgs where thread_id = $1 and dir = $2', [T(7), 'out']).then((r) => r.n);
+  const before = await outs();
+  await page.locator('#so_modal [data-a="sumline"]').click();
+  await page.waitForSelector('#so_modal [data-a="sumlineok"]');
+  await new Promise((r) => setTimeout(r, 400));
+  assert.equal(await outs(), before, 'nothing is sent before the second confirmation');
+  await page.locator('#so_modal [data-a="sumlinecancel"]').click();
+  await page.waitForSelector('#so_modal [data-a="sumline"]');
+  assert.equal(await outs(), before, 'cancel sends nothing');
+  await page.locator('#so_modal [data-a="sumline"]').click();
+  await page.locator('#so_modal [data-a="sumlineok"]').click();
+  await until(async () => (await outs()) === before + 1, 'one message queued');
+  const sent = await one('select body from sale_msgs where thread_id = $1 and dir = $2 order by created_at desc limit 1', [T(7), 'out']);
+  assert.match(sent.body, /สรุปใบสั่งงาน/);
+});
