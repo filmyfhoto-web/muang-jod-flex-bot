@@ -910,3 +910,14 @@ details.extra > summary { list-style: none; cursor: pointer; user-select: none;
   background: var(--tint); border-radius: 0; padding: 9px 12px; margin: 2px 0 4px; }
 details.extra > summary::-webkit-details-marker { display: none; }
 details.extra[open] > summary { margin-bottom: 8px; }
+
+/* ---- จอกว้าง (ไอแพด 13 นิ้ว / จอคอม) -----------------------------------
+   ร้านสั่ง: "ปรับขยายจอ เช่นหน้าจอกว้าง รุ่น 13 นิ้ว 2732×2048 พิกเซล
+   พรีวิวช่องพอดีไม่ล้น" — มือถือคงคอลัมน์ 430 เหมือนเดิมเป๊ะ จอตั้งแต่ 820px
+   ขยายคอลัมน์เป็น 740px ช่องกรอกทุกช่องจึงโตตามจอจริง ไม่ล้น ไม่ผอมกลางจอว่าง */
+@media (min-width: 820px) {
+  main { max-width: 740px; }
+  .bar { padding-left: max(12px, calc((100% - 740px) / 2)); padding-right: max(12px, calc((100% - 740px) / 2)); }
+  .quickbar { padding-left: max(12px, calc((100% - 740px) / 2)); padding-right: max(12px, calc((100% - 740px) / 2)); }
+  .appbar { padding-left: max(14px, env(safe-area-inset-left, 0px), calc((100% - 740px) / 2)); padding-right: max(14px, env(safe-area-inset-right, 0px), calc((100% - 740px) / 2)); }
+}
