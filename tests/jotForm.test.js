@@ -123,49 +123,56 @@ test('the form page opens in the same colours as the card it came from', () => {
  * การกดคืออุปสรรค ตอนนี้ทุกแถวกางตลอด: ชื่อ/ขนาด/จำนวน/ราคา แก้ได้ตรงนั้นเลย
  * ของนาน ๆ ใช้ (ตั้งราคาเอง รายละเอียด รูป) อยู่ใน .fold เปิดด้วยปุ่มเลขที่
  */
-test('รายการเป็นตารางบรรทัดเดียว หัวคอลัมน์บนสุด ไม่ใช่การ์ดที่ต้องแตะเปิดทีละใบ', () => {
+/* ตารางบรรทัดเดียวอยู่มาหลายรอบ จนร้านใช้จริงแล้วสั่งใหม่ชัดกว่า (ทับคำสั่งเก่า
+ * "ตารางแบบสี่เหลี่ยม"): "ใช้งานยากเหมือนเดิม ช่องเล็กไป ขยายหน้าต่างช่องและ
+ * ทำให้มันจบที่หน้าเดียวเวลากรอก" — ช่องตาราง 40–88px นิ้วกดไม่ถูกจริง
+ * หนึ่งรายการจึงเป็นกล่องช่องใหญ่สองแถว ป้ายอยู่บนช่องของตัวเอง
+ * ของเดิมที่ยังถือไว้: ทุกช่องหลักกางตลอด ไม่ใช่การ์ดที่ต้องแตะเปิดทีละใบ
+ */
+test('รายการเป็นกล่องช่องใหญ่ ป้ายบนช่อง กางตลอด ไม่มีเลื่อนข้าง — จบในหน้าเดียว', () => {
   assert.ok(html.includes('class="track"'), 'ไม่มีกล่องรายการ');
   assert.ok(!/\.track\s*\{[^}]*scroll-snap-type/.test(css), 'ยังปัดทีละใบอยู่');
   assert.ok(!html.includes('id="dots"'), 'ยังมีจุดบอกหน้าอยู่ ทั้งที่ไม่มีหน้าให้ข้าม');
-
-  // หัวคอลัมน์หนึ่งแถวบนสุด ร่วมกริดเดียวกับแถวงาน — คอลัมน์จึงตรงกันทุกแถว
-  assert.ok(html.includes('class="thead"'), 'ไม่มีหัวคอลัมน์ของตาราง');
-  for (const col of ['รายการ', 'ขนาด', 'จำนวน', 'ราคา', 'รวม']) {
-    assert.ok(html.includes(`>${col}</span>`), `หัวคอลัมน์ไม่มี ${col}`);
-  }
-  assert.match(css, /\.thead,\s*\n\.track > \.item > \.row \{/, 'หัวคอลัมน์กับแถวใช้คนละกริด เสาจะเบี้ยว');
-  // จอแคบกว่าตาราง เลื่อนข้างในกรอบของมันเอง ไม่ใช่บีบช่องจนอ่านไม่ออก
-  assert.match(css, /\.tblwrap \{ overflow-x: auto; \}/);
-
-  // ตารางเส้นสี่เหลี่ยม ("ฉันเอาตารางแบบสี่เหลี่ยมได้มั้ย"): เส้นตั้งคั่นทุกช่อง
-  // หัวคอลัมน์พื้นเข้ม มีกรอบรอบตาราง และช่องกรอกกลืนเป็นช่องตาราง
-  assert.match(css, /\.thead > span \+ span,\s*\n\.row > \* \+ \* \{ border-left: 1px solid var\(--line\); \}/);
-  assert.match(css, /\.thead \{ background: var\(--accent-soft\); \}/);
-  assert.match(css, /\.tmin \{[^}]*border: 1\.5px solid var\(--line\)/);
-  // ร้านขอ "ปรับจอให้พอดีกับหน้าต่างการกรอก" — ตารางเลิกกว้างตายตัว ให้ค่าต่ำสุด
-  // ของคอลัมน์เป็นตัวกันแคบแทน จอ 390 ขึ้นไปไม่มีเลื่อนซ้ายขวา
-  assert.match(css, /\.tmin \{[^}]*min-width: 0/);
-  assert.ok(!/\.tmin \{[^}]*min-width: \d{3}px/.test(css), 'ห้ามกลับไปกว้างตายตัวจนล้นจอ');
-  assert.match(css, /\.row input \{[^}]*border: 0;[^}]*border-radius: 0;/);
-
-  // แถวไม่ใช่ details — ช่องหลักทุกช่อง (ชื่อ/กว้าง/ยาว/จำนวน/ราคา) อยู่บน
-  // บรรทัดเดียว แตะแก้ได้โดยไม่ต้องเปิดอะไรก่อน และยอด ฿ อยู่ท้ายแถว
   assert.ok(!html.includes('<details class="card item">'), 'แถวยังเป็นการ์ดยุบได้');
+
+  // "ช่องเล็กไป" → ช่องกรอกในแถวสูง 50px ตัวเลข 17px และหน้าไม่มีเลื่อนข้างอีก
+  assert.match(css, /\.track \.row input \{[^}]*min-height: 50px/s);
+  assert.match(css, /\.track \.row input \{[^}]*font-size: 17px/s);
+  assert.match(css, /\.tblwrap \{ overflow: visible; \}/);
+  assert.ok(!/\.tblwrap \{ overflow-x: auto/.test(css), 'ห้ามกลับไปเลื่อนข้าง');
+
+  // ผังสองแถวต่อรายการ: ชื่อเต็มแถวบน · ขนาด/จำนวน/ราคาแถวล่าง · แถบรวมเต็มกว้าง
+  assert.match(css, /grid-template-areas:\s*\n\s*'name name name del'\s*\n\s*'size size qty {2}qty'\s*\n\s*'rate rate rate rate'\s*\n\s*'amt {2}amt {2}amt {2}amt';/);
+  // หัวตารางแยกแถวเกษียณแล้ว — ป้ายกลับมาอยู่บนช่องของตัวเอง มองเห็นจริง
+  assert.ok(!html.includes('class="thead"'), 'หัวตารางเดิมต้องไม่กลับมา');
+  assert.match(css, /\.track \.row \.qty-label \{[\s\S]*?position: static/);
+
+  // แถบรวมของบรรทัด ตัวใหญ่เต็มความกว้าง — ยังเป็นปุ่มเปิดของเพิ่มเติมเหมือนเดิม
+  assert.match(css, /\.row-amt \{[^}]*grid-area: amt/s);
+  assert.match(css, /\.row-amt \{[^}]*font-size: 18px/s);
+  assert.match(css, /content: 'รวมบรรทัดนี้/);
+
+  // ช่องหลักทุกช่องยังอยู่บนแถว แตะแก้ได้โดยไม่ต้องเปิดอะไรก่อน
   const tpl = html.slice(html.indexOf('<template id="tpl-item">'), html.indexOf('</template>'));
   const row = tpl.slice(tpl.indexOf('class="row"'), tpl.indexOf('class="fold"'));
   for (const cls of ['i-name', 'i-w', 'i-h', 'i-qty', 'i-rate', 'row-amt']) {
     assert.match(row, new RegExp(`class="[^"]*${cls}`), `${cls} ไม่อยู่บนแถว`);
   }
 
-  // ยอดท้ายแถวอัปเดตตามที่พิมพ์ เหมือนคอลัมน์ "รวม" ของใบเสร็จ
+  // ยอดของแถวอัปเดตตามที่พิมพ์ เหมือนคอลัมน์ "รวม" ของใบเสร็จ
   assert.match(js, /rowAmt\.textContent = baht\(t\)/, 'ยอดของแถวไม่ถูกอัปเดต');
 
-  // ของนาน ๆ ใช้อยู่ใน fold แตะยอด ฿ เพื่อเปิด — แถวที่มีข้อมูลอยู่แล้วกางเอง
+  // ของนาน ๆ ใช้อยู่ใน fold แตะแถบรวมเพื่อเปิด — แถวที่มีข้อมูลอยู่แล้วกางเอง
   // ไม่มีข้อมูลซ่อนหาย (กติกาเดิมของ extra.open ขยายมาคลุมตั้งราคาเองด้วย)
   assert.match(js, /fold\.hidden = !\(openId === item\.id \|\| autoOpen\)/);
-  assert.match(js, /rowAmt\.onclick/, 'ยอด ฿ ไม่ใช่ปุ่มเปิดของเพิ่มเติม');
+  assert.match(js, /rowAmt\.onclick/, 'แถบรวมไม่ใช่ปุ่มเปิดของเพิ่มเติม');
   assert.match(js, /openId = fold\.hidden \? item\.id : null/);
   assert.match(js, /item\.detail \|\| item\.image \|\| item\.priceManual \|\| item\.totalManual/);
+
+  // "ขยายหน้าต่างช่อง" คลุมทั้งหน้า: ช่องลูกค้า/วันนัด/มัดจำสูง 46px
+  // และชิปเงินเป็นปุ่มใหญ่สองคอลัมน์เต็มความกว้าง
+  assert.match(css, /min-height: 46px;\n  padding: 9px 10px 9px 34px;/);
+  assert.match(css, /\.paychips \{ display: grid; grid-template-columns: 1fr 1fr;/);
 });
 
 test('เพิ่มบรรทัดถัดไปได้โดยไม่ต้องเลื่อนผ่านช่องกรอกสิบช่อง', () => {
@@ -323,19 +330,20 @@ test('แถบผลลัพธ์กับช่องกรอกราค�
   assert.match(auto, /item\.totalManual = false;/);
 });
 
-test('ช่องกรอกเตี้ยลงได้ แต่ตัวหนังสือห้ามต่ำกว่า 16px', () => {
+/* ยุค "ทำช่องให้ดูแคบลง" เคยคุมความสูงไว้ 32–38px — ร้านใช้จริงแล้วสั่งกลับทาง:
+ * "ช่องเล็กไป ขยายหน้าต่างช่อง" ช่องทั้งหน้าจึงสูงเท่านิ้วกด (44–52px)
+ * กติกา iOS ยังเดิม: ตัวหนังสือในช่องห้ามต่ำกว่า 16px ไม่งั้นแตะแล้วหน้าซูมเอง */
+test('ช่องกรอกใหญ่เท่านิ้วกด และตัวหนังสือห้ามต่ำกว่า 16px', () => {
   const box = css.slice(css.indexOf("input[type='text'],"), css.indexOf('::-webkit-outer-spin-button'));
 
-  // ต่ำกว่า 16px เมื่อไหร่ iOS ซูมหน้าเองตอนแตะช่อง — ช่องเตี้ยลงด้วยการลด
-  // ช่องไฟ ไม่ใช่ลดขนาดตัวอักษร
   assert.match(box, /font-size: 16px;/, 'ตัวหนังสือในช่องกรอกต่ำกว่า 16px แล้ว');
 
   const minH = Number(/min-height: (\d+)px;/.exec(box)?.[1]);
-  assert.ok(minH >= 32 && minH <= 38, 'ความสูงช่องกรอกหลุดช่วงที่ตั้งใจ: ' + minH);
+  assert.ok(minH >= 44 && minH <= 52, 'ความสูงช่องกรอกหลุดช่วงนิ้วกดสบาย: ' + minH);
 
   // ป้ายกำกับช่องเป็นตัวเล็กได้ ไม่ใช่ช่องกรอก
   const label = /\.field > span:first-child \{[^}]*\}/.exec(css)?.[0] || '';
-  assert.match(label, /font-size: 11px;/);
+  assert.match(label, /font-size: 12px;/);
 });
 
 /* ร้านพิมพ์ "กรอบ 12 18" แล้วเจอ "ตร.ม. ละ (บาท)" — "งานกรอบก็ต้องเป็นบานละ ...

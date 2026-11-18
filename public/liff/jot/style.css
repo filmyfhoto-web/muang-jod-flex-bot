@@ -253,103 +253,125 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
  *   [รายการ______|กว้าง×ยาว|จำนวน|ราคา(หน่วยตามชนิดงาน)|รวม฿|✕]
  * จอแคบกว่าตารางเลื่อนข้างได้นิดหน่อย (แบบเดียวกับแบบร่าง) — ดีกว่าบีบช่อง
  * จนตัวเลขอ่านไม่ออก เพราะตัวหนังสือในช่องต่ำกว่า 16px ไม่ได้ (iOS ซูมเอง) */
-.sheet { padding: 10px 12px 8px; }
-.tblwrap { overflow-x: auto; }
-/* ร้านขอ "ปรับจอให้พอดีกับหน้าต่างการกรอก" — ตารางเลิกกว้างตายตัว 420px
-   (ซึ่งล้นจอมือถือ/คอลัมน์ 430 จนต้องเลื่อนซ้ายขวา) ให้ค่าต่ำสุดของคอลัมน์
-   ในกริดเป็นตัวกันแคบแทน จอปกติจึงพอดีเป๊ะ เหลือ overflow ไว้กันจอจิ๋วจริง ๆ */
-.tmin { min-width: 0; border: 1.5px solid var(--line); border-radius: 0; overflow: hidden; }
-.thead,
+.sheet { padding: 10px 12px 10px; }
+/* ร้านใช้ตารางบรรทัดเดียวจริงแล้วสรุป (ทับคำสั่งเก่า "ตารางแบบสี่เหลี่ยม"):
+   "ใช้งานยากเหมือนเดิม ช่องเล็กไป ขยายหน้าต่างช่องและทำให้มันจบที่หน้าเดียว
+   เวลากรอก" — ช่องตาราง 40–88px นิ้วกดไม่ถูกจริง หนึ่งรายการจึงเป็นกล่อง
+   ช่องใหญ่สองแถว ป้ายกลับมาอยู่บนช่องของตัวเอง:
+     [ ชื่องาน/รายการ ____________________ ✕ ]
+     [ กว้าง × ยาว ]  [ จำนวน ]  [ ราคา/หน่วย ]
+     [ รวมบรรทัดนี้ ···················· ฿2,250 ]
+   ทุกช่องสูง 50px ตัวเลข 17px ไม่มีเลื่อนข้าง จบในหน้าเดียว
+   ของเดิมที่คงไว้: ทุกช่องหลักกางตลอด ไม่ใช่การ์ดที่ต้องแตะเปิดทีละใบ */
+.tblwrap { overflow: visible; }
+.tmin { min-width: 0; }
+.track { display: flex; flex-direction: column; gap: 10px; padding: 0; }
+.track > .item { border: 1.5px solid var(--line); background: var(--surface); padding: 0; margin: 0; }
 .track > .item > .row {
   display: grid;
-  /* ค่าต่ำสุดรวม ~350px — พอดีช่องกรอกของจอ 390 (เนื้อใน ~366px) ไม่มีเลื่อนข้าง */
-  grid-template-columns: minmax(88px, 1.3fr) 88px 40px 60px minmax(50px, auto) 24px;
-  gap: 0;
-  align-items: stretch;
+  gap: 9px 8px;
+  padding: 10px 11px 11px;
+  align-items: end;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr) minmax(0, 1fr) 30px;
+  grid-template-areas:
+    'name name name del'
+    'size size qty  qty'
+    'rate rate rate rate'
+    'amt  amt  amt  amt';
 }
-.thead { background: var(--accent-soft); }
-.thead span { font-size: 11.5px; font-weight: 700; color: var(--accent-text); padding: 8px 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.thead .num { text-align: right; }
-/* เส้นตั้งของตาราง: ทุกช่อง (หัวและแถว) มีเส้นซ้าย ยกเว้นช่องแรก */
-.thead > span + span,
-.row > * + * { border-left: 1px solid var(--line); }
-.track > .item { border-top: 1px solid var(--line); padding: 0; margin: 0; }
 .row > * { min-width: 0; }
 .row .field { margin-bottom: 0; }
-/* ช่องกรอกในตาราง = ช่องตารางเอง ไม่มีกรอบ/พื้นของตัวเองอีกชั้น
-   (นำหน้าด้วย .track ให้ชนะกฎช่องกรอกกลางที่อยู่ท้ายไฟล์) */
-.track .row input {
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  min-height: 44px;
-  padding: 6px 7px;
-}
-.track .row input:focus { background: var(--gold-soft); box-shadow: inset 0 0 0 1.5px var(--gold); }
-/* ป้ายของช่องในแถวมีไว้ให้เครื่องอ่านหน้าจอ — ตาเห็นหัวคอลัมน์ข้างบนพอแล้ว */
+.row-name { grid-area: name; position: relative; min-width: 0; }
+.size-cell { grid-area: size; }
+.qty-cell { grid-area: qty; position: relative; }
+.rate-field { grid-area: rate; }
+.row .del { grid-area: del; align-self: start; justify-self: end; padding: 4px 2px; font-size: 15px; }
+/* ป้ายของช่องกลับมามองเห็นจริง อยู่บนช่องของตัวเอง — ช่องใหญ่แล้วไม่ต้องพึ่ง
+   หัวตารางแยกแถวอีก */
 .track .row .row-name > span:first-child,
 .track .row .size-cell label > span,
 .track .row .qty-label {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-  margin: 0;
-}
-.row-name { position: relative; min-width: 0; }
-.track .row input[type='number'] { text-align: center; }
-.size-cell { display: flex; align-items: center; gap: 0; min-width: 0; }
-.size-cell label { flex: 1; min-width: 0; position: relative; }
-.track .size-cell input { padding-left: 2px; padding-right: 2px; }
-.size-cell .x { flex: 0 0 auto; color: var(--grey); font-size: 12px; }
-.qty-cell { position: relative; }
-/* ช่องเงินช่องเดียวที่ต้องกรอก — หน่วยตามชนิดงาน (ตร.ม.ละ/บานละ) ห้อยติดขอบ
-   ล่างในช่องตัวเอง (ตำแหน่งตายตัว ไม่ดันความสูงจนป้ายล้นทับเส้นแถว) */
-.rate-field { position: relative; }
-.track .row .rate-field input { min-height: 48px; padding-bottom: 16px; }
-.track .row .rate-field .rate-label {
-  position: absolute;
-  left: 3px;
-  right: 3px;
-  bottom: 2px;
-  margin: 0;
-  font-size: 9.5px;
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip-path: none;
+  display: block;
+  font-size: 11.5px;
   font-weight: 600;
   color: var(--sub);
-  line-height: 1.2;
+  margin: 0 0 3px;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+/* ช่องกรอกเป็นกล่องใหญ่ นิ้วกดสบาย (เดิมเป็นช่องตารางเปล่าเตี้ย ๆ) */
+.track .row input {
+  min-height: 50px;
+  font-size: 17px;
+  padding: 8px 10px;
+  background: var(--tint);
+  border: 1.5px solid var(--line);
+  border-radius: 0;
+}
+.track .row input:focus { background: var(--surface); border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
+.track .row input[type='number'] { text-align: center; }
+.size-cell { display: flex; align-items: flex-end; gap: 6px; min-width: 0; }
+.size-cell label { flex: 1; min-width: 0; }
+.track .size-cell input { padding-left: 4px; padding-right: 4px; }
+.size-cell .x { flex: 0 0 auto; color: var(--grey); font-size: 13px; padding-bottom: 16px; }
+/* ช่องเงินช่องเดียวที่ต้องกรอก — เต็มแถวของตัวเอง ตัวใหญ่สุดในกล่อง
+   ป้ายหน่วย (ตร.ม.ละ/บานละ) อยู่บนช่องเหมือนป้ายช่องอื่น */
+/* นำหน้าด้วย .track .row ให้ชนะ .field { display:block } ที่อยู่ท้ายไฟล์ */
+.track .row .rate-field { display: flex; flex-direction: column; }
+.track .row .rate-field input { min-height: 54px; font-size: 19px; padding-bottom: 8px; }
+.track .row .rate-field .rate-label {
+  order: -1;
+  position: static;
+  margin: 0 0 3px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--sub);
+  line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-align: center;
+  text-align: left;
   pointer-events: none;
 }
 .rate-field input { color: var(--accent-text); font-weight: 700; }
-/* ยอดท้ายแถวเป็นปุ่มเต็มช่องตาราง: แตะ = เปิดตั้งราคาเอง/รายละเอียด/รูป
-   ขีดประใต้ยอดบอกว่ากดได้ (แบบเดียวกับลิงก์) */
+/* แถบรวมของบรรทัด เต็มความกว้าง ตัวใหญ่ — แตะ = ตั้งราคาเอง/รายละเอียด/รูป */
 .row-amt {
-  border: 0;
-  background: none;
+  grid-area: amt;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1.5px dashed color-mix(in srgb, var(--gold) 55%, transparent);
+  background: var(--gold-soft);
   font-family: inherit;
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 700;
-  color: var(--gold);
+  color: var(--gold-2);
   text-align: right;
-  padding: 8px 6px;
+  padding: 9px 12px;
   min-width: 0;
+  min-height: 46px;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
   border-radius: 0;
-  text-decoration: underline dashed color-mix(in srgb, var(--gold) 55%, transparent);
-  text-underline-offset: 3px;
 }
-.row-amt:hover { background: var(--gold-soft); }
-.row-amt.on { color: var(--white); background: var(--gold); text-decoration: none; }
-.row .del { padding: 8px 2px; font-size: 13px; }
-.hintline { margin: 7px 2px 0; font-size: 11px; color: var(--grey); line-height: 1.5; }
+.row-amt::before {
+  content: 'รวมบรรทัดนี้ · แตะแก้ราคา/แนบรูป';
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--sub);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.row-amt.on { color: var(--white); background: var(--gold); border-style: solid; }
+.row-amt.on::before { content: 'ปิดกล่องเพิ่มเติม'; color: rgba(255, 255, 255, .85); }
+.hintline { margin: 8px 2px 0; font-size: 11px; color: var(--grey); line-height: 1.5; }
 
 /* ของเพิ่มเติมของแถว — แตะยอด ฿ เปิด แถวที่มีข้อมูลอยู่แล้วกางเอง
    (อยู่ใต้แถวในตาราง จึงมีระยะขอบของตัวเอง เพราะแถวตารางชิดเส้น) */
@@ -452,8 +474,8 @@ main > *:not(.track):not(.dots) { margin-left: 18px; margin-right: 18px; }
 /* ร้านบอกว่า "ทำช่องให้ดูแคบลง" — การ์ดหนึ่งใบเคยสูงกว่าหนึ่งหน้าจอ ต้องเลื่อน
  * ขึ้นลงเพื่อดูว่ากรอกอะไรไปแล้วบ้าง ตัวหนังสือในช่องลดต่ำกว่า 16px ไม่ได้
  * (iOS จะซูมหน้าเองตอนแตะ) ที่ลดได้คือช่องไฟรอบ ๆ: ป้าย ระยะห่าง และความสูง */
-.field { display: block; margin-bottom: 6px; }
-.field > span:first-child { display: block; font-size: 11px; font-weight: 600; color: var(--sub); margin-bottom: 2px; line-height: 1.35; }
+.field { display: block; margin-bottom: 8px; }
+.field > span:first-child { display: block; font-size: 12px; font-weight: 600; color: var(--sub); margin-bottom: 3px; line-height: 1.35; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 /* กว้าง / ยาว / จำนวน อยู่แถวเดียวกัน จะได้เห็นว่ามันเป็นเรื่องเดียวกัน */
 .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
@@ -487,8 +509,9 @@ input[type='number'],
 input[type='date'],
 select {
   width: 100%;
-  min-height: 36px;
-  padding: 6px 10px 6px 32px;
+  /* ร้านสั่ง "ช่องเล็กไป ขยายหน้าต่างช่อง" — ทุกช่องของหน้านี้สูงเท่านิ้วกด */
+  min-height: 46px;
+  padding: 9px 10px 9px 34px;
   font-family: inherit;
   /* ตัวหนังสือในช่องกรอกลดต่ำกว่า 16px ไม่ได้ ต่ำกว่านั้น iOS ซูมหน้าเองตอนแตะ
    * ช่องจึงเตี้ยลงด้วยการลด padding แทน ไม่ใช่ลดขนาดตัวอักษร */
@@ -836,17 +859,19 @@ body.quick .appbar { display: none; }
 }
 .kind-pill.org { background: var(--accent-soft); color: var(--accent-text); }
 
-/* ชิปเงินของใบนี้ — แตะอันเดียวจบ อันที่เลือกเป็นส้ม */
-.paychips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+/* ชิปเงินของใบนี้ — แตะอันเดียวจบ อันที่เลือกเป็นส้ม
+   ("ช่องเล็กไป") → สองคอลัมน์เต็มความกว้าง ปุ่มใหญ่เท่านิ้ว */
+.paychips { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 10px; }
 .paychip {
   border: 1.5px solid var(--line);
   background: var(--surface);
   color: var(--ink);
   font-family: inherit;
-  font-size: 13.5px;
+  font-size: 14.5px;
   font-weight: 700;
-  line-height: 1;
-  padding: 10px 13px;
+  line-height: 1.2;
+  padding: 13px 8px;
+  text-align: center;
   border-radius: 0;
   cursor: pointer;
 }
