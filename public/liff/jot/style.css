@@ -921,3 +921,20 @@ details.extra[open] > summary { margin-bottom: 8px; }
   .quickbar { padding-left: max(12px, calc((100% - 740px) / 2)); padding-right: max(12px, calc((100% - 740px) / 2)); }
   .appbar { padding-left: max(14px, env(safe-area-inset-left, 0px), calc((100% - 740px) / 2)); padding-right: max(14px, env(safe-area-inset-right, 0px), calc((100% - 740px) / 2)); }
 }
+
+/* ---- กระชับที่สุด --------------------------------------------------------
+   ร้านสั่ง: "ปรับให้ไม่ต้องมียืนยันหลายหน้า ไม่ต้องกรอกเยอะ ตัวเลือกน้อยและ
+   กระชับที่สุด" — เหลือทางเดียว: กรอก → แถบบันทึกล่าง → จบ
+   การ์ด "ตรวจสอบก่อนบันทึก" คือด่านยืนยันซ้ำ เลยพับไปทั้งใบ (ยอดเห็นตลอด
+   ที่แถบล่างอยู่แล้ว ตัวคำนวณชื่องาน/สถานะในการ์ดยังทำงานเบื้องหลังเหมือนเดิม)
+   คำทัก คำใบ้ หัวการ์ดตัวใหญ่ และคำอธิบายท้ายหน้า เป็นของอ่าน ไม่ใช่ของกรอก */
+.chat { display: none; }
+.summary { display: none; }
+.hintline { display: none; }
+.foot { display: none; }
+.done-why { display: none; }
+.chip-ic { display: none; }
+.titles p { display: none; }
+.titles h2 { font-size: 13px; }
+.card-top { margin-bottom: 6px; }
+.card { padding: 11px 12px; margin-bottom: 10px; }
