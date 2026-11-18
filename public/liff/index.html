@@ -357,7 +357,17 @@
   #h-seg button[aria-pressed="true"] { background: var(--accent); color: var(--white); font-weight: 700; }
   #h-q { width: 100%; border: 1.5px solid var(--line); border-radius: 0; background: var(--surface); padding: 10px 12px; font: inherit; font-size: 14px; color: var(--ink); margin: 10px 0 4px; }
   #h-q:focus { outline: none; border-color: var(--accent-dim); }
-  .hj { display: flex; align-items: center; gap: 10px; padding: 11px 2px; border-bottom: 1px solid var(--line); }
+  .hj { display: flex; align-items: center; gap: 10px; padding: 11px 2px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  /* ร้านสั่ง "ไม่ต้องกดให้ยุ่งยากเยอะแยะ" — ปุ่มเงิน/ใบเสร็จอยู่บนแถวเลย
+     กดทีเดียวจบ ไม่ต้องเปิดแผ่นปุ่มอีกชั้น (แตะตัวแถว = เข้าหน้าแก้ไขตรง ๆ) */
+  .hj-acts { flex: 1 0 100%; display: flex; gap: 6px; margin-top: 8px; }
+  .ha { border: 1.5px solid var(--line); background: #fff; font: inherit; font-size: 12.5px;
+    font-weight: 700; padding: 10px 4px; flex: 1; cursor: pointer; color: var(--ink); }
+  .ha:disabled { opacity: .5; }
+  .ha.cash { border-color: var(--gold); color: var(--gold); }
+  .ha.tf { border-color: var(--accent-text); color: var(--accent-text); }
+  .ha.rc { color: var(--sub, #5E6E8C); }
+  .ha.sq { flex: 0 0 46px; }
   .hj:last-child { border-bottom: 0; }
   .hj .who { flex: 1; min-width: 0; }
   .hj .who b { display: block; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1814,7 +1824,31 @@ function paintHome() {
     // สีตัวเลขพูดเอง: ส้ม = ยังต้องเก็บ · เขียว = ได้แล้ว · กรม = ลงบัญชีรอวางบิล
     row.querySelector('.money b').style.color =
       st === 'paid' ? 'var(--green)' : st === 'owe' ? 'var(--gold)' : 'var(--accent-text)';
-    row.onclick = () => openSheet(j);
+
+    /* ร้านสั่ง "ไม่ต้องกดให้ยุ่งยากเยอะแยะ" — ปุ่มที่ใช้จริงอยู่บนแถวเลย
+     * กดทีเดียวจบ: ค้างอยู่ → เก็บสด/รับโอน/ใบเสร็จ · จ่ายครบ → ใบเสร็จ
+     * (เส้นเดิมของแผ่นปุ่มทุกเส้น แค่ไม่ต้องเปิดแผ่นก่อน) */
+    const acts = document.createElement('div');
+    acts.className = 'hj-acts';
+    const mk = (label, cls, fn) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'ha ' + cls;
+      b.textContent = label;
+      b.onclick = (ev) => { ev.stopPropagation(); homeJob = j; fn(b); };
+      acts.appendChild(b);
+    };
+    if (st === 'paid') {
+      mk('🖨 ใบเสร็จ', 'rc', (b) => openReceiptFor(b));
+    } else {
+      mk('💵 เก็บสดแล้ว', 'cash', (b) => sheetMoney('cash', 'บันทึกเก็บเงินสดแล้วค่ะ 💵', b));
+      mk('🏦 รับโอนแล้ว', 'tf', (b) => sheetMoney('transfer', 'บันทึกรับโอนแล้วค่ะ 🏦', b));
+      mk('🖨', 'rc sq', (b) => openReceiptFor(b));
+    }
+    row.appendChild(acts);
+
+    // แตะตัวแถว = เข้าหน้าแก้ไขของงานนั้นตรง ๆ ไม่ผ่านแผ่นปุ่มอีกชั้น
+    row.onclick = () => openEdit(j.id);
     list.appendChild(row);
   });
 }
@@ -1846,9 +1880,9 @@ function closeSheet() {
 $('hsheet-bg').onclick = closeSheet;
 $('hs-close').onclick = closeSheet;
 
-async function sheetMoney(money, said) {
+async function sheetMoney(money, said, btnEl) {
   if (!homeJob) return;
-  const btn = money === 'cash' ? $('hs-cash') : $('hs-tf');
+  const btn = btnEl || (money === 'cash' ? $('hs-cash') : $('hs-tf'));
   btn.disabled = true;
   try {
     await api('/jobs/' + homeJob.id + '/status', { method: 'POST', body: JSON.stringify({ money }) });
@@ -1864,10 +1898,10 @@ async function sheetMoney(money, said) {
 $('hs-cash').onclick = () => sheetMoney('cash', 'บันทึกเก็บเงินสดแล้วค่ะ 💵');
 $('hs-tf').onclick = () => sheetMoney('transfer', 'บันทึกรับโอนแล้วค่ะ 🏦');
 
-// ใบเสร็จจากแผ่นปุ่ม — งานที่ออกบิลแล้วใช้ใบเดิม เหมือนปุ่มในหน้าแก้ไข
-$('hs-receipt').onclick = async () => {
+// ใบเสร็จ — งานที่ออกบิลแล้วใช้ใบเดิม เหมือนปุ่มในหน้าแก้ไข
+// (ใช้ร่วมกันทั้งปุ่มบนแถวและแผ่นปุ่มเดิม)
+async function openReceiptFor(btn) {
   if (!homeJob) return;
-  const btn = $('hs-receipt');
   btn.disabled = true;
   try {
     const { url, shopUrl, reused } = await api('/jobs/' + homeJob.id + '/receipt', { method: 'POST' });
@@ -1880,7 +1914,8 @@ $('hs-receipt').onclick = async () => {
   } finally {
     btn.disabled = false;
   }
-};
+}
+$('hs-receipt').onclick = () => openReceiptFor($('hs-receipt'));
 
 $('hs-edit').onclick = () => {
   if (!homeJob) return;

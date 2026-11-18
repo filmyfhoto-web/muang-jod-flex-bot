@@ -75,6 +75,14 @@ test('หน้าแรกเป็น งาน & เงิน: ตัวเ�
   // จ่ายครบแล้วปุ่มเก็บเงินต้องหาย ไม่ชวนเก็บซ้ำ
   assert.match(dash, /\$\('hs-cash'\)\.hidden = paidUp/);
 
+  // ร้านสั่ง "ไม่ต้องกดให้ยุ่งยากเยอะแยะ" — ปุ่มที่ใช้จริงอยู่บนแถวงานเลย
+  // กดทีเดียวจบ (เส้นเดิมของแผ่นปุ่มทุกเส้น) และแตะตัวแถว = เข้าหน้าแก้ไขตรง
+  assert.match(dash, /acts\.className = 'hj-acts'/);
+  assert.match(dash, /sheetMoney\('cash', '[^']+', b\)/);
+  assert.match(dash, /sheetMoney\('transfer', '[^']+', b\)/);
+  assert.match(dash, /openReceiptFor\(b\)/);
+  assert.match(dash, /row\.onclick = \(\) => openEdit\(j\.id\)/);
+
   // ออกจากหน้าแก้ไขแล้วกลับหน้าแรกใหม่ ไม่หลงไปหน้าเก่า
   assert.match(dash, /show\(tab === 'edit' \? 'home' : tab\)/);
 
