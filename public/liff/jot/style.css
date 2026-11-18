@@ -967,3 +967,67 @@ details.extra[open] > summary { margin-bottom: 8px; }
 .slip .paychips { grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 9px; }
 .slip .paychip { font-size: 12.5px; padding: 11px 2px; }
 @media (max-width: 374px) { .slip .paychips { grid-template-columns: 1fr 1fr; } }
+
+/* ---- หน้าตาแบบเล่มสมุดปริ้น ---------------------------------------------
+   ร้านเห็นเล่มสมุดปริ้นแล้วสั่ง: "อยากให้ม่วงทำหน้าแบบนี้เวลาจด" — ใบจดบนจอ
+   ใช้ภาษาเดียวกับหน้ากระดาษ: หัวแถบกรม "ใบจดงาน" กรอบกรมหนา ช่องกรอกเป็น
+   เส้นประให้เติมเหมือนเขียนลงเล่ม ช่องเงินเป็นช่องติ๊ก ☐สด ☐โอน ☐ลงบัญชี
+   (ขนาดช่อง/จุดแตะเท่าเดิมทุกช่อง — เปลี่ยนแต่ผิว) */
+.slip { border: 2px solid var(--accent); }
+.slip::before {
+  content: 'ใบจดงาน';
+  display: block;
+  margin: -12px -12px 11px;
+  padding: 8px 12px;
+  background: var(--accent);
+  color: var(--white);
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: .4px;
+}
+/* ช่องกรอกทุกช่องในใบ = เส้นประให้เติม เหมือนช่องในเล่ม */
+.slip input[type='text'],
+.slip input[type='number'],
+.slip input[type='date'],
+.slip select {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px dotted var(--grey);
+  border-radius: 0;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+.slip .input-wrap .ic { display: none; }
+.slip input:focus,
+.slip select:focus { background: var(--gold-soft); border-bottom: 2px solid var(--gold); }
+.slip .track .row input { background: transparent; border: 0; border-bottom: 2px dotted var(--grey); }
+.slip .track .row input:focus { background: var(--gold-soft); box-shadow: none; border-bottom: 2px solid var(--gold); }
+/* ชิปเงิน = ช่องติ๊กแบบในเล่ม ตัวติ๊กวาดเอง อันที่เลือกเป็นส้ม */
+.slip .paychip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  background: none;
+  padding: 10px 2px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: left;
+}
+.slip .paychip::before {
+  content: '';
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--accent-text);
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--white);
+}
+.slip .paychip[aria-pressed='true'] { background: none; box-shadow: none; color: var(--gold-2); }
+.slip .paychip[aria-pressed='true']::before { content: '✓'; background: var(--gold); border-color: var(--gold-2); }

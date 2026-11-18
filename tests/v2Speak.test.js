@@ -6,6 +6,7 @@ import { makeDraft } from '../src/utils/jobDraft.js';
 import { createJob } from '../src/services/jobService.js';
 import { createMockSupabase } from './helpers/mockSupabase.js';
 import { parseExpense } from '../src/utils/expense.js';
+import { todayISO } from '../src/utils/dates.js';
 import { parseStatusSpeak } from '../src/utils/statusSpeak.js';
 import { parseQuickEdit } from '../src/utils/quickEdit.js';
 import { buildLedger } from '../src/utils/ledger.js';
@@ -80,7 +81,8 @@ test('createJob: เงินสดครบ → pay_method + booked_at (เข�
   assert.ok(job.booked_at, 'ต้องลงบัญชีทันที ไม่ต้องไปกดซ้ำ');
   assert.equal(job.payment_status, 'paid');
 
-  const led = buildLedger([job], new Date().toISOString().slice(0, 10));
+  // "วันนี้" ของใบลงบัญชีคือวันนี้เวลาไทย — คิดแบบ UTC จะแดงเองช่วงเที่ยงคืน–7 โมงไทย
+  const led = buildLedger([job], todayISO());
   assert.equal(led.total, 150, 'โผล่เป็นรายรับของวันนี้');
   assert.equal(led.methods[0].id, 'cash');
 });

@@ -132,11 +132,12 @@
     <!-- เงินของใบ — แตะชิปอันเดียวจบ ลงบัญชี = payMethod 'account'
          จ่ายสด/โอนครบ = payMethod + ยอดรับเท่ายอดเก็บ (กติกาเดียวกับในแชต) -->
     <div id="paycard">
+      <!-- ช่องติ๊กแบบในเล่มสมุดปริ้น — ☐ สด ☐ โอน ☐ ลงบัญชี (ตัวติ๊กวาดด้วย CSS) -->
       <div class="paychips" id="paychips">
-        <button type="button" class="paychip" data-pay="">⏳ ยังไม่จ่าย</button>
-        <button type="button" class="paychip" data-pay="account">📒 ลงบัญชี</button>
-        <button type="button" class="paychip" data-pay="cash">💵 จ่ายสดครบ</button>
-        <button type="button" class="paychip" data-pay="transfer">🏦 โอนครบแล้ว</button>
+        <button type="button" class="paychip" data-pay="">ยังไม่จ่าย</button>
+        <button type="button" class="paychip" data-pay="account">ลงบัญชี</button>
+        <button type="button" class="paychip" data-pay="cash">จ่ายสดครบ</button>
+        <button type="button" class="paychip" data-pay="transfer">โอนครบ</button>
       </div>
       <label class="field dep" id="dep-field">
         <span>มัดจำ / รับแล้ว</span>
