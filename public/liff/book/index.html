@@ -530,7 +530,8 @@ function renderAccount() {
 
   $('h-owed').hidden = false;
   $('o-name').textContent = account.name;
-  $('o-meta').textContent = `${account.jobCount} งาน`;
+  // "เข้าไปดูเห็นว่าเขาสั่งอะไรไปบ้าง สั่งกี่อย่าง" — จำนวนหมวดบอกตั้งแต่หัวบัญชี
+  $('o-meta').textContent = `${account.jobCount} งาน · สั่ง ${account.groups.length} หมวด`;
   $('o-amt').textContent = baht(account.owed);
 
   $('headline').firstElementChild.textContent = 'ติ๊กเลือกงานที่จะออกใบ';

@@ -35,7 +35,7 @@ import { derivePaymentFields, paidAtPatch } from '../utils/payment.js';
 import { pickupPatch, jobState, stagePatch, jobStage, JOB_STAGES, statusPatch, jobStatus } from '../utils/jobState.js';
 import { round2 } from '../utils/currency.js';
 import { buildBook, buildAccount } from '../utils/customerBook.js';
-import { buildLedger } from '../utils/ledger.js';
+import { buildLedger, buildWeekByGroup, mondayISO } from '../utils/ledger.js';
 import { deriveJobName } from '../utils/category.js';
 import { getState as readState, clearState as dropState, STATES } from '../services/stateService.js';
 import { todayISO } from '../utils/dates.js';
@@ -700,6 +700,19 @@ export function createApiRouter(deps = {}) {
       // รายจ่ายของวันเดียวกัน — อ่านพังได้ลิสต์ว่าง ใบลงบัญชียังออกได้
       const expenses = await expensesOf(req.profile.id, { date });
       res.json(buildLedger(await bookJobs(req.profile.id), date, '+07:00', { expenses }));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /* ยอดต่อสัปดาห์ แยกตามหมวดงาน — ร้านถาม "เราได้กี่บาทต่อสัปดาห์"
+   * กติกาเงินชุดเดียวกับใบลงบัญชี (รับครบ นับตามวันเงินเข้ามือ) กวาด 7 วัน
+   * start ไม่ส่งมา = วันจันทร์ของสัปดาห์นี้ตามเวลาไทย */
+  router.get('/report/week', async (req, res, next) => {
+    try {
+      const wanted = String(req.query.start || '').trim();
+      const start = /^\d{4}-\d{2}-\d{2}$/.test(wanted) ? mondayISO(wanted) : mondayISO(todayISO());
+      res.json(buildWeekByGroup(await bookJobs(req.profile.id), start, '+07:00'));
     } catch (err) {
       next(err);
     }
