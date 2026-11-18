@@ -16,7 +16,7 @@ import { startPgRest, staffJwt } from '../helpers/pg-rest.js';
 import { playwright, staffSession, routeOffline, PROJECT_REF } from '../helpers/back-office.js';
 import { serveMiniShell } from '../helpers/mini-shell.js';
 
-const MODULE = fileURLToPath(new URL('../../app-patches/sale-orders-page/saleorders.module.js', import.meta.url));
+const MODULE = process.env.SALE_ORDERS_MODULE || fileURLToPath(new URL('../../app-patches/sale-orders-page/saleorders.module.js', import.meta.url));
 const SHOTS = process.env.SALE_ORDERS_SHOTS || join(tmpdir(), 'sale-orders-shots');
 const SERVICE = 'svc-service-key';
 const EMAIL = 'ying@natta.test';
@@ -63,7 +63,8 @@ const shot = (p, name) => p.screenshot({ path: `${SHOTS}/${name}.png` });
 const chatTitle = () => page.locator('#so_chat .so-chn h2').innerText();
 const openRow = (name) => page.locator('#so_items .so-row', { hasText: name }).click();
 const ordRows = () => page.locator('#so_ord tbody tr:has([data-f="iname"])');
-const openMore = async () => { const d = page.locator('#so_ord details.so-more').first(); if ((await d.count()) && !(await d.evaluate((el) => el.open))) await d.locator('summary').click(); };
+const editRows = async () => { if ((await ordRows().count()) === 0) { const b = page.locator('#so_ord [data-a="itemsedit"]'); if (await b.count()) await b.click(); } return ordRows().count(); };
+const openMore = async () => { await page.locator('#so_ord details.so-more').first().waitFor({ state: 'attached', timeout: 8000 }).catch(() => {}); for (let i = 0; i < 6; i++) { const d = page.locator('#so_ord details.so-more').first(); if (!(await d.count()) || (await d.evaluate((el) => el.open))) return; await d.locator('summary').click(); await page.waitForTimeout(120); } };
 
 // two product photos for the chat, drawn in the browser (the PostgREST stand-in keeps the files in memory)
 async function drawPhotos(b) {
@@ -186,6 +187,7 @@ test('opening a chat shows its messages and photos, clears its unread count, and
   assert.match(await page.locator('#so_msgs').innerText(), /รายการที่ต้องการมีดังนี้ค่ะ/);
   await page.waitForFunction(() => [...document.querySelectorAll('#so_msgs img.so-img')].filter((i) => i.complete && i.naturalWidth > 0).length === 2, null, { timeout: 10000 });
   await until(async () => (await one('select unread from sale_threads where id = $1', [T(1)])).unread === 0, 'unread cleared');
+  await openMore();
   await page.waitForSelector('#so_cn');
   assert.equal(await page.locator('#so_cn').inputValue(), 'โรงเรียนบ้านตัวอย่าง');
   assert.equal(await page.locator('#so_ord input[data-f="phone"]').inputValue(), '053-000000');
@@ -206,9 +208,10 @@ test('"สร้างรายการจากแชต" reads the customer�
   assert.deepEqual(qty, ['10', '5', '3', '2']);
   assert.equal((await one('select count(*)::int n from sale_orders')).n, 0, 'nothing is created by reading the chat');
   await page.locator('#so_modal [data-a="parseadd"]').click();
-  await until(async () => (await ordRows().count()) === 4, 'four lines in the order');
+  await until(async () => (await editRows()) === 4, 'four lines in the order');
   assert.equal(await page.locator('[data-sum="sub"]').innerText(), '2,750.00');
   assert.equal(await page.locator('[data-sum="total"]').innerText(), '2,750.00 บาท');
+  await openMore();
   const vatOptions = await page.locator('#so_ord select[data-f="vat"] option').allInnerTexts();
   assert.deepEqual(vatOptions, ['ไม่คิด VAT', 'VAT 7% · นัฐภรณ์ คัลเลอร์แล็ป'], 'only the shop’s real VAT setting is offered');
   await page.locator('#so_ord select[data-f="vat"]').selectOption(CL);
@@ -227,11 +230,12 @@ test('switching to another chat with unsaved changes asks first; the draft comes
   await openRow('คุณกิตติ');
   await page.locator('#so_modal button', { hasText: 'เก็บร่างแล้วย้าย' }).click();
   await until(async () => (await chatTitle()) === 'คุณกิตติ', 'the other chat');
+  await openMore();
   await page.waitForSelector('#so_cn');
   assert.equal(await page.locator('#so_cn').inputValue(), 'คุณกิตติ', 'its own customer, not the previous one');
   assert.equal(await ordRows().count(), 0);
   await openRow('โรงเรียนบ้านตัวอย่าง');
-  await until(async () => (await chatTitle()) === 'โรงเรียนบ้านตัวอย่าง' && (await ordRows().count()) === 4, 'the draft back');
+  await until(async () => (await chatTitle()) === 'โรงเรียนบ้านตัวอย่าง' && (await editRows()) === 4, 'the draft back');
   assert.equal(await page.locator('[data-sum="total"]').innerText(), '2,942.50 บาท');
   assert.equal(await page.locator('#so_ord .so-dirty[role="status"]').count(), 1);
 });
@@ -255,6 +259,10 @@ test('saving, even with a double click, makes one order whose totals the server 
   assert.match(await page.locator('#so_tabs').innerText(), /กำลังสั่งงาน \(2\)/, 'the open order counts in the tab');
   await page.locator('#so_items .so-row', { hasText: 'โรงเรียนบ้านตัวอย่าง' }).locator('.so-chip', { hasText: 'รอดำเนินการ' }).waitFor();
   await shot(page, 'desktop-1-order-saved');
+  if (await page.locator('#so_ord [data-a="itemsedit"]').count()) {
+    await page.locator('#so_ord [data-a="itemsedit"]').click();
+    await shot(page, 'desktop-1b-order-compact');
+  }
 });
 
 test('a message that cannot be saved stays in the box and says so; a saved one says it has not reached the customer', skipIt, async () => {
@@ -311,6 +319,7 @@ test('the summary shows the receiver and only channels that really exist; copyin
 
 test('closing an order that still has a balance due asks first, and the confirmation is kept in its history', skipIt, async () => {
   const [order] = await rows('select id from sale_orders where thread_id = $1', [T(1)]);
+  await openMore();
   await page.locator('#so_ord select[data-f="job_status"]').selectOption('closed');
   await page.locator('#so_ord [data-a="save"]').click();
   await page.waitForSelector('#so_modal');
@@ -330,12 +339,13 @@ test('closing an order that still has a balance due asks first, and the confirma
 test('a slip attached to an order does not change its payment state, and a file that is not an image or PDF is refused', skipIt, async () => {
   await openRow('โรงเรียนวัดใหม่');
   await until(async () => (await chatTitle()) === 'โรงเรียนวัดใหม่', 'the chat');
+  await openMore();
   await page.waitForSelector('#so_cn');
   await page.locator('#so_ord [data-a="prodtoggle"]').click();
   await page.locator('#so_pq').fill('ปากกา');
   await page.waitForFunction(() => document.querySelectorAll('#so_pres .pr').length === 2, null, { timeout: 10000 });
   await page.locator('#so_pres .pr', { hasText: 'สีน้ำเงิน' }).click();
-  await until(async () => (await ordRows().count()) === 1, 'one line');
+  await until(async () => (await editRows()) === 1, 'one line');
   assert.equal(await page.locator('#so_ord input[data-f="iprice"]').inputValue(), '120.00');
   await openMore();
   let [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('#so_ord [data-a="ordattach"]').click()]);
@@ -369,7 +379,7 @@ test('school prices: choosing the school re-prices linked lines with the shop’
   await page.locator('#so_pq').fill('กระดาษถ่าย');
   await page.waitForFunction(() => /ราคาโรงเรียน 142\.00 \(ปกติ 135\.00\)/.test(document.querySelector('#so_pres')?.innerText || ''), null, { timeout: 10000 });
   await page.locator('#so_pres .pr').first().click();
-  await until(async () => (await ordRows().count()) === 2, 'two lines');
+  await until(async () => (await editRows()) === 2, 'two lines');
   await page.locator('#so_ord [data-a="save"]').click();
   await flashSays(/บันทึกแล้ว · ORD-\d{4}-00002/);
   const o = await one('select id, price_school_id, subtotal from sale_orders where thread_id = $1', [T(2)]);
@@ -421,11 +431,12 @@ test('on a phone: three tabs (รายชื่อแชต / แชต / อ�
     assert.deepEqual(await noSideways(), []);
     await shot(p, 'phone-2-chat');
     await p.locator('#so_mtabs button', { hasText: 'ออเดอร์' }).click();
-    await p.waitForSelector('#so_ord .so-tb');
+    await p.waitForSelector('#so_ord .so-tb, #so_ord .so-irow');
     assert.equal(await p.locator('#so_ord').isVisible(), true);
     assert.equal(await p.locator('#so_chat').isVisible(), false);
     assert.deepEqual(await noSideways(), []);
     await shot(p, 'phone-3-order');
+    if ((await p.locator('#so_ord [data-a="itemsedit"]').count()) && (await p.locator('#so_ord input[data-f="iqty"]').count()) === 0) await p.locator('#so_ord [data-a="itemsedit"]').click();
     await p.locator('#so_ord input[data-f="iqty"]').first().fill('12');
     await p.waitForSelector('#so_mtabs .dot');
     await p.locator('#so_mtabs button', { hasText: 'รายชื่อแชต' }).click();
@@ -438,6 +449,7 @@ test('on a phone: three tabs (รายชื่อแชต / แชต / อ�
 
 test('the payment status list offers ลงบัญชี next to the others, and choosing it is allowed like any other status', skipIt, async () => {
   await openRow('โรงเรียนบ้านตัวอย่าง');
+  await openMore();
   await page.waitForSelector('#so_ord select[data-f="pay_status"]');
   const opts = await page.locator('#so_ord select[data-f="pay_status"] option').allInnerTexts();
   assert.deepEqual(opts, ['ยังไม่ชำระ', 'มัดจำแล้ว', 'ชำระบางส่วน', 'ชำระครบ', 'ลงบัญชี']);
@@ -449,6 +461,7 @@ test('the payment status list offers ลงบัญชี next to the others, a
 
 test('typing a customer name offers the customers that already exist; choosing one fills the name and the phone', skipIt, async () => {
   await openRow('โรงเรียนบ้านตัวอย่าง');
+  await openMore();
   await page.waitForSelector('#so_cn');
   await page.locator('#so_cn').fill('โรงเรียนวัด');
   await page.waitForSelector('#so_cnsug button');
@@ -546,6 +559,7 @@ test('the combined chat menu (v15): one "จัดการแชต" button rea
 test('customer card (v11): an unlinked chat can be linked to an existing customer by search, and then shows that customer’s totals across every chat of theirs', skipIt, async () => {
   await openRow('คุณสุภาวดี');
   await until(async () => (await chatTitle()) === 'คุณสุภาวดี (ร้านหนังสือ)', 'the chat');
+  await openMore();
   await page.waitForSelector('#so_cn');
   assert.match(await page.locator('#so_ord').innerText(), /ยังไม่ผูกกับลูกค้าในระบบ/);
   assert.equal(await page.locator('#so_ord [data-a="custlinktoggle"]').count(), 1);
@@ -654,6 +668,7 @@ test('a LINE chat with no customer yet is linked automatically, in the backgroun
 
   await openRow('ริงโกลาเฟ009');
   await until(async () => (await chatTitle()) === 'ริงโกลาเฟ009', 'the chat');
+  await openMore();
   await page.waitForSelector('#so_cn');
   const cardText = await page.locator('#so_ord').innerText();
   assert.match(cardText, /ริงโกลาเฟ009/, 'the card shows the auto-linked customer, not "ยังไม่ผูกกับลูกค้าในระบบ"');
