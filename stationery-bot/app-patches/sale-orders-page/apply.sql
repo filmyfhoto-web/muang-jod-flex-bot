@@ -8,7 +8,7 @@
 -- · ผู้รับผิดชอบต่อแชตต้องติดตั้ง db/migrations/007_sale_thread_assignee.sql ด้วย — ถ้ายังไม่ติดตั้ง ปุ่มผู้รับผิดชอบจะใช้ไม่ได้ (คอลัมน์ assignee ไม่มี) · การ์ดลูกค้า/ยอดซื้อรวมใช้ customer_id และตาราง sale_orders ที่มีอยู่แล้ว ไม่ต้องติดตั้งอะไรเพิ่ม
 -- · การผูกลูกค้าอัตโนมัติจาก LINE ต้องติดตั้ง db/migrations/008_sale_thread_autolink.sql ด้วย — ถ้ายังไม่ติดตั้ง หน้าเงียบ ๆ ไม่ผูกให้ (ไม่ใช่ข้อผิดพลาด)
 -- · ย้อนกลับ: reverse.sql
--- md5 ของโค้ดที่ติดตั้ง: 54a16434c6b22cf221b0f2cb230dc412
+-- md5 ของโค้ดที่ติดตั้ง: 74414aaf0715321d5f2dfff8685ff03a
 do $do$
 begin
   if exists (select 1 from app_modules where name = 'saleorders') then
@@ -58,7 +58,7 @@ begin
   const qtyTxt=v=>{const n=num(v);return Number.isInteger(n)?String(n):String(r2(n))}
   const uuid=()=>(window.crypto&&crypto.randomUUID)?crypto.randomUUID():'t'+Date.now().toString(36)+Math.random().toString(36).slice(2,12)
   const initial=s=>Array.from(String(s||'?').trim())[0]||'?'
-  const COL=['#2F6FE4','#8A5CC2','#C2572F','#2E8B57','#B5862A','#4B6478']
+  const COL=['linear-gradient(135deg,#867CC8,#5941A9)','linear-gradient(135deg,#F7B788,#D97087)','linear-gradient(135deg,#69BDA9,#267D89)','linear-gradient(135deg,#74B5D6,#517CB8)','linear-gradient(135deg,#A6B4CB,#67798F)','linear-gradient(135deg,#E7B35A,#B5862A)']
   const colorOf=t=>{let h=0;String(t&&t.id||'').split('').forEach(c=>{h=(h+c.charCodeAt(0))%997});return COL[h%COL.length]}
   const clean=s=>String(s||'').replace(/[,()*%_\\]/g,' ').trim()
 
@@ -110,107 +110,126 @@ begin
 
   // ---------- หน้าตา ----------
   const CSS=`
-#so_root{--so-navy:#12335F;--so-ink:#0F2A4F;--so-blue:#2F6FE4;--so-sky:#DCEBFB;--so-sky2:#EEF5FE;--so-cream:#F3E0B8;--so-cream2:#FCF2DD;--so-bg:#EEF2F7;--so-line:#E3E9F1;--so-fg:#1B2433;--so-mut:#6B7587;--so-bad:#B42318;height:calc(100vh - 90px);min-height:560px;display:flex;flex-direction:column;background:var(--so-bg);color:var(--so-fg);font-size:14.5px;line-height:1.45}
+#so_root{--so-navy:#102A43;--so-ink:#162942;--so-blue:#3F82C4;--so-sky:#D9EDFF;--so-sky2:#EDF5FE;--so-cream:#F3D9A4;--so-cream2:#FFF4DD;--so-bg:#F4F7FB;--so-line:#E8EEF4;--so-fg:#253C53;--so-mut:#7B8AA1;--so-bad:#B42318;height:calc(100vh - 90px);min-height:560px;display:flex;flex-direction:column;background:#fff;color:var(--so-fg);font-size:14px;line-height:1.5}
 #so_root *{box-sizing:border-box}
 #so_root :focus-visible{outline:2px solid var(--so-blue);outline-offset:2px}
-#so_root .so-cols{flex:1;min-height:0;display:grid;grid-template-columns:minmax(250px,.72fr) minmax(320px,1fr) minmax(380px,1.06fr);gap:12px;padding:12px}
+#so_root .so-cols{flex:1;min-height:0;display:grid;grid-template-columns:minmax(240px,265px) minmax(320px,1fr) minmax(340px,425px);gap:0;padding:0}
 #so_root .so-mtabs{display:none}
-#so_root .so-col{min-width:0;min-height:0;display:flex;flex-direction:column;background:#fff;border:1px solid var(--so-line);border-radius:16px;box-shadow:0 1px 2px rgba(16,42,67,.06);overflow:hidden}
-#so_root .so-chat{background:#F6F8FB}
-#so_root .ttl{display:flex;align-items:center;gap:8px;font-weight:700;font-size:17px;color:var(--so-ink)}
-#so_root .so-lhd{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 14px 6px}
-#so_root .so-chan{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 6px}
-#so_root .so-srch{margin:4px 12px 8px;display:flex;align-items:center;gap:8px;border:1px solid var(--so-line);border-radius:12px;padding:0 12px;background:#fff;color:var(--so-mut)}
-#so_root .so-srch input{flex:1;min-width:0;border:0;outline:0;padding:10px 0;font:inherit;background:transparent;color:var(--so-fg)}
-#so_root .so-tabs{display:flex;flex-wrap:wrap;gap:6px;padding:2px 12px 10px;border-bottom:1px solid var(--so-line)}
+#so_root .so-col{min-width:0;min-height:0;display:flex;flex-direction:column;background:#fff;border:0;border-radius:0;box-shadow:none;overflow:hidden}
+#so_root .so-list{background:#FBFCFE;border-right:1px solid var(--so-line)}
+#so_root .so-chat{background:#F7F9FC}
+#so_root .so-ord{background:#fff;border-left:1px solid var(--so-line)}
+#so_root .ttl{display:flex;align-items:center;gap:8px;font-weight:850;font-size:17px;color:var(--so-navy);line-height:1.25}
+#so_root .so-kick{font-size:10px;letter-spacing:.6px;color:#7390AF;font-weight:900;text-transform:uppercase;margin-bottom:3px}
+#so_root .so-lhd{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px;padding:16px 16px 8px}
+#so_root .so-lhdb{display:flex;flex-wrap:wrap;gap:6px}
+#so_root .so-chan{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 8px}
+#so_root .so-srch{margin:4px 14px 10px;display:flex;align-items:center;gap:8px;border:1px solid #E2E9F1;border-radius:12px;padding:0 12px;background:#fff;color:#96A4B8}
+#so_root .so-srch input{flex:1;min-width:0;border:0;outline:0;padding:10px 0;font:inherit;font-size:13px;background:transparent;color:var(--so-fg)}
+#so_root .so-tabs{display:flex;flex-wrap:wrap;gap:5px;padding:0 14px 12px;border-bottom:1px solid var(--so-line)}
 #so_root .so-list>*:not(.so-items),#so_root .so-chat>*:not(.so-msgs),#so_root .so-ord>*:not(.so-ob),#so_root .so-ob>*{flex-shrink:0}
 #so_root .so-tabs::-webkit-scrollbar{display:none}
-#so_root .so-tab{flex:0 0 auto;border:1px solid var(--so-line);background:#fff;border-radius:999px;padding:5px 12px;font:inherit;font-size:12.5px;color:var(--so-fg);cursor:pointer;white-space:nowrap}
-#so_root .so-tab.on{background:var(--so-navy);border-color:var(--so-navy);color:#fff}
-#so_root .so-tab.alert{background:#FDECD2;border-color:#E8832A;color:#8A4B00;font-weight:700}
-#so_root .so-tab.alert.on{background:#E8832A;border-color:#E8832A;color:#fff}
-#so_root .so-btn{border:1px solid var(--so-line);background:#fff;border-radius:10px;padding:8px 12px;font:inherit;font-size:13px;color:var(--so-fg);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+#so_root .so-tab{flex:0 0 auto;border:1px solid transparent;background:transparent;border-radius:9px;padding:7px 9px;font:inherit;font-size:11px;font-weight:800;color:#8292A8;cursor:pointer;white-space:nowrap}
+#so_root .so-tab.on{background:var(--so-navy);color:#fff}
+#so_root .so-tab.alert{background:var(--so-cream2);color:#B77422}
+#so_root .so-tab.alert.on{background:#B77422;color:#fff}
+#so_root .so-btn{border:1px solid #D8E4F1;background:#fff;border-radius:10px;padding:8px 12px;font:inherit;font-size:13px;color:#425A77;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:6px}
 #so_root .so-btn.pri{background:var(--so-navy);border-color:var(--so-navy);color:#fff}
-#so_root .so-btn.sky{background:var(--so-sky);border-color:var(--so-sky);color:var(--so-ink);font-weight:600}
-#so_root .so-btn.sm{padding:5px 10px;font-size:12.5px;border-radius:9px}
+#so_root .so-btn.sky{background:var(--so-sky2);border-color:#CFE3F9;color:#316DA5;font-weight:800}
+#so_root .so-btn.sm{padding:5px 10px;font-size:12px;border-radius:9px}
 #so_root .so-btn:disabled{opacity:.5;cursor:default}
-#so_root .so-items{flex:1;overflow:auto;min-height:0}
-#so_root .so-row{display:flex;gap:12px;padding:12px 14px;border:0;border-left:4px solid transparent;border-bottom:1px solid var(--so-line);width:100%;background:#fff;text-align:left;font:inherit;color:inherit;cursor:pointer;align-items:center}
-#so_root .so-row.on{background:var(--so-sky2)}
-#so_root .so-row.tagged{border-left-color:var(--tc,transparent)}
-#so_root .so-av{flex:0 0 44px;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:600;font-size:17px;background:#7A8394}
-#so_root .so-av.sm{flex-basis:40px;width:40px;height:40px;font-size:15px}
+#so_root .so-items{flex:1;overflow:auto;min-height:0;padding:2px 8px 12px}
+#so_root .so-row{display:flex;gap:11px;align-items:center;padding:11px 10px;min-height:75px;margin:0 0 4px;border:1px solid transparent;border-radius:13px;width:100%;background:transparent;text-align:left;font:inherit;color:inherit;cursor:pointer;transition:background .1s}
+#so_root .so-row:hover{background:#EFF4FB}
+#so_root .so-row.on{background:#E9F2FF;border-color:#D8E8FF}
+#so_root .so-row.tagged{box-shadow:inset 3px 0 0 var(--tc,transparent)}
+#so_root .so-av{flex:0 0 39px;width:39px;height:39px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:900;font-size:13px;background:linear-gradient(135deg,#A6B4CB,#67798F);box-shadow:inset 0 -3px 8px #00000012;position:relative;overflow:hidden}
+#so_root .so-av.sm{flex-basis:36px;width:36px;height:36px;font-size:12px}
+#so_root .so-av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 #so_root .so-rw{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
-#so_root .so-r1{display:flex;justify-content:space-between;gap:8px;align-items:center;min-width:0}
-#so_root .so-nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;color:var(--so-ink)}
-#so_root .so-tm{font-size:12px;color:var(--so-mut);flex:0 0 auto}
-#so_root .so-pv{font-size:13px;color:var(--so-mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-#so_root .so-chip{display:inline-flex;align-items:center;border-radius:999px;padding:1px 9px;font-size:11.5px;color:#fff;background:var(--c,#7A8394);white-space:nowrap;flex:0 0 auto}
+#so_root .so-r1{display:flex;justify-content:space-between;gap:6px;align-items:center;min-width:0}
+#so_root .so-nm{font-weight:850;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;color:var(--so-ink)}
+#so_root .so-tm{font-size:10px;color:#9DABBB;flex:0 0 auto}
+#so_root .so-pv{font-size:11px;color:#8795A6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+#so_root .so-src{display:inline-block;margin-right:5px;padding:0 5px;border-radius:5px;background:#DFF7E7;color:#149458;font-size:9.5px;font-weight:900;letter-spacing:.25px;vertical-align:1px}
+#so_root .so-chip{display:inline-flex;align-items:center;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:800;color:var(--c,#6B7587);background:color-mix(in srgb, var(--c,#7A8394) 14%, #fff);white-space:nowrap;flex:0 0 auto}
 #so_root .so-chip.lite{background:#EDF1F7;color:var(--so-mut)}
-#so_root .so-unread{display:inline-grid;place-items:center;min-width:20px;height:20px;border-radius:10px;background:var(--so-blue);color:#fff;font-size:11.5px;font-weight:700;padding:0 6px;flex:0 0 auto}
-#so_root .so-ch{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#fff;border-bottom:1px solid var(--so-line);position:relative}
+#so_root .so-chip.ok{background:#E4F7EB;color:#16875E}
+#so_root .so-chip.warn{background:#FFF4DD;color:#B77422}
+#so_root .so-unread{display:inline-grid;place-items:center;min-width:20px;height:20px;border-radius:10px;background:var(--so-blue);color:#fff;font-size:11px;font-weight:800;padding:0 6px;flex:0 0 auto}
+#so_root .so-ch{display:flex;align-items:center;gap:12px;padding:14px 20px;min-height:78px;background:#fff;border-bottom:1px solid var(--so-line);position:relative}
 #so_root .so-chn{flex:1;min-width:0}
-#so_root .so-chn h2{margin:0;font-size:17px;color:var(--so-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#so_root .so-chn small{color:var(--so-mut)}
-#so_root .so-ic{width:40px;height:40px;border-radius:12px;border:1px solid var(--so-line);background:#fff;font:inherit;cursor:pointer;flex:0 0 auto;display:grid;place-items:center;color:var(--so-ink);padding:0}
+#so_root .so-chn h2{margin:0;font-size:15px;font-weight:900;color:var(--so-navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25}
+#so_root .so-chn small{display:block;color:#8B9AAB;font-size:11px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#so_root .so-ic{width:40px;height:40px;border-radius:12px;border:1px solid var(--so-line);background:#fff;font:inherit;cursor:pointer;flex:0 0 auto;display:grid;place-items:center;color:var(--so-navy);padding:0}
 #so_root .so-ic:disabled{opacity:.5}
-#so_root .so-stgmenu{position:absolute;right:10px;top:54px;z-index:40;background:#fff;border:1px solid var(--so-line);border-radius:12px;box-shadow:0 10px 30px rgba(16,42,67,.18);padding:6px;display:flex;flex-direction:column;min-width:200px;max-width:min(280px,calc(100vw - 24px))}
+#so_root .so-stgmenu{position:absolute;right:12px;top:60px;z-index:40;background:#fff;border:1px solid var(--so-line);border-radius:12px;box-shadow:0 10px 30px rgba(16,42,67,.18);padding:6px;display:flex;flex-direction:column;min-width:200px;max-width:min(280px,calc(100vw - 24px))}
 #so_root .so-stgmenu button{border:0;background:none;text-align:left;font:inherit;font-size:13.5px;padding:8px 10px;border-radius:8px;cursor:pointer;color:var(--so-fg)}
 #so_root .so-stgmenu button:hover{background:var(--so-bg)}
 #so_root .so-mhead{font-size:11px;font-weight:700;color:var(--so-mut);text-transform:uppercase;letter-spacing:.3px;padding:6px 10px 2px}
 #so_root .so-mdiv{height:1px;background:var(--so-line);margin:4px 2px}
-#so_root .so-msgs{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:8px;min-height:0}
-#so_root .so-day{align-self:center;background:#E6EBF2;color:var(--so-mut);font-size:12px;border-radius:8px;padding:2px 12px}
-#so_root .so-m{max-width:78%;display:flex;flex-direction:column;gap:3px}
+#so_root .so-msgs{flex:1;overflow:auto;padding:18px 22px 22px;display:flex;flex-direction:column;gap:12px;min-height:0}
+#so_root .so-day{align-self:center;background:#EBEFF5;color:#99A7B9;font-size:11px;font-weight:700;border-radius:25px;padding:3px 13px}
+#so_root .so-m{max-width:78%;display:flex;flex-direction:column;gap:4px}
 #so_root .so-m.in{align-self:flex-start}
 #so_root .so-m.out{align-self:flex-end;align-items:flex-end}
 #so_root .so-bub a{color:inherit;text-decoration:underline}
-#so_root .so-bub{padding:10px 13px;border-radius:16px;white-space:pre-wrap;word-break:break-word;background:#fff;color:var(--so-fg);box-shadow:0 1px 1px rgba(16,42,67,.05)}
-#so_root .so-m.in .so-bub{border-top-left-radius:5px}
-#so_root .so-m.out .so-bub{background:var(--so-sky);color:var(--so-ink);border-top-right-radius:5px}
+#so_root .so-bub{padding:11px 14px;border-radius:17px;white-space:pre-wrap;word-break:break-word;background:#fff;color:#253C53;font-size:13.5px;line-height:1.6;box-shadow:0 2px 7px #1A355408}
+#so_root .so-m.in .so-bub{border-bottom-left-radius:4px}
+#so_root .so-m.out .so-bub{background:#D9EDFF;color:#163A5C;border-bottom-right-radius:4px}
 #so_root .so-m.note{align-self:stretch;max-width:100%}
-#so_root .so-m.note .so-bub{background:#FFF4CC;border:1px dashed #E8CF73;font-size:13px}
+#so_root .so-m.note .so-bub{background:#FFF4CC;border:1px dashed #E8CF73;font-size:13px;border-radius:14px}
 #so_root .so-m.sys{align-self:center;max-width:90%}
-#so_root .so-m.sys .so-bub{background:rgba(255,255,255,.8);color:var(--so-mut);font-size:12.5px;border-radius:999px;padding:4px 12px;text-align:center}
-#so_root .so-meta{font-size:11.5px;color:var(--so-mut);padding:0 4px}
+#so_root .so-m.sys .so-bub{background:rgba(255,255,255,.8);color:var(--so-mut);font-size:12px;border-radius:999px;padding:4px 12px;text-align:center;box-shadow:none}
+#so_root .so-meta{font-size:10.5px;color:#98A7B8;padding:0 4px}
 #so_root .so-img{max-width:220px;max-height:220px;border-radius:12px;display:block;cursor:pointer;background:#fff;border:1px solid var(--so-line)}
 #so_root .so-file{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--so-line);border-radius:12px;padding:8px 12px;cursor:pointer;font:inherit;color:var(--so-ink)}
 #so_root .so-empty{margin:auto;text-align:center;color:var(--so-mut);padding:28px;max-width:420px}
 #so_root .so-err{color:var(--so-bad);font-size:12.5px;padding:6px 12px}
-#so_root .so-flash{margin:8px 12px 0;padding:8px 12px;border-radius:12px;background:#E7F7EE;color:#0F6B3A;font-size:13px}
+#so_root .so-flash{margin:8px 12px 0;padding:9px 12px;border-radius:12px;background:#E4F7EB;color:#0F6B3A;font-size:13px}
 #so_root .so-flash.bad{background:#FDECEC;color:var(--so-bad)}
-#so_root .so-tagrow{display:flex;gap:6px;overflow-x:auto;padding:8px 12px 0;background:#fff;scrollbar-width:none}
+#so_root .so-lnote{font-size:11.5px;color:var(--so-mut);padding:6px 14px;background:#F2F6FB;border-bottom:1px solid var(--so-line)}
+#so_root .so-m.in .so-bub.ph{background:#F2F6FB;color:var(--so-mut);font-style:italic}
+#so_root .so-tagrow{display:flex;gap:6px;overflow-x:auto;padding:8px 14px 0;background:#fff;scrollbar-width:none}
 #so_root .so-tagrow::-webkit-scrollbar{display:none}
-#so_root .so-tagbtn{flex:1 1 0;min-width:0;border:2px solid transparent;background:color-mix(in srgb, var(--tc) 16%, #fff);color:var(--tc);border-radius:10px;padding:7px 6px;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#so_root .so-tagbtn{flex:1 1 0;min-width:0;border:2px solid transparent;background:color-mix(in srgb, var(--tc) 16%, #fff);color:var(--tc);border-radius:10px;padding:7px 6px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #so_root .so-tagbtn.on{background:var(--tc);color:#fff;border-color:var(--tc)}
 #so_root .so-honest{font-size:11.5px;color:var(--so-mut);padding:6px 14px 0;background:#fff}
 #so_root .so-modeflag{font-size:11.5px;color:#7A5A00;background:#FFF4CC;border-top:1px solid #E8CF73;padding:5px 14px}
-#so_root .so-comp{display:flex;gap:8px;align-items:flex-end;padding:8px 12px 12px;background:#fff;position:relative}
-#so_root .so-qamenu{position:absolute;bottom:calc(100% + 6px);left:12px;z-index:40;background:#fff;border:1px solid var(--so-line);border-radius:12px;box-shadow:0 10px 30px rgba(16,42,67,.18);padding:6px;display:flex;flex-direction:column;min-width:220px;max-width:min(320px,calc(100vw - 24px))}
+#so_root .so-comp{display:flex;gap:8px;align-items:flex-end;padding:10px 14px 14px;background:#fff;position:relative}
+#so_root .so-qamenu{position:absolute;bottom:calc(100% + 6px);left:14px;z-index:40;background:#fff;border:1px solid var(--so-line);border-radius:12px;box-shadow:0 10px 30px rgba(16,42,67,.18);padding:6px;display:flex;flex-direction:column;min-width:220px;max-width:min(320px,calc(100vw - 24px))}
 #so_root .so-qamenu button{border:0;background:none;text-align:left;font:inherit;font-size:13.5px;padding:8px 10px;border-radius:8px;cursor:pointer;color:var(--so-fg)}
 #so_root .so-qamenu button:hover{background:var(--so-bg)}
-#so_root .so-comp textarea{flex:1;min-width:0;resize:none;border:1px solid var(--so-line);border-radius:12px;padding:9px 12px;font:inherit;height:40px;max-height:120px;background:#fff;color:var(--so-fg)}
-#so_root .so-send{flex:0 0 auto;width:44px;height:40px;border:0;border-radius:12px;background:var(--so-navy);color:#fff;cursor:pointer;display:grid;place-items:center}
+#so_root .so-comp textarea{flex:1;min-width:0;resize:none;border:1px solid #E1E8F0;border-radius:13px;padding:9px 12px;font:inherit;font-size:13px;height:40px;max-height:120px;background:#fff;color:var(--so-fg)}
+#so_root .so-send{flex:0 0 auto;width:40px;height:40px;border:0;border-radius:12px;background:var(--so-navy);color:#fff;cursor:pointer;display:grid;place-items:center}
 #so_root .so-send:disabled{opacity:.5}
-#so_root .so-ohd{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 16px 10px}
-#so_root .so-ob{flex:1;overflow:auto;min-height:0;padding:2px 16px 0;display:flex;flex-direction:column;gap:12px}
+#so_root .so-ohd{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:14px 22px 12px;border-bottom:1px solid var(--so-line)}
+#so_root .so-ohd .ttl{margin-top:2px;font-size:19px;font-weight:900}
+#so_root .so-cust{margin:12px 22px 0;background:#F6F9FC;border:1px solid #EDF2F7;border-radius:13px;padding:11px 12px;display:flex;flex-direction:column;gap:9px}
+#so_root .so-cust.dash{background:#fff;border:1px dashed var(--so-line)}
+#so_root .so-cust .h{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+#so_root .so-cust .h b{font-size:13px;color:var(--so-ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#so_root .so-cust .g{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center}
+#so_root .so-cust .g b{display:block;font-size:15px;color:var(--so-navy)}
+#so_root .so-ord .so-flash{margin:10px 22px 0}
+#so_root .so-ob{flex:1;overflow:auto;min-height:0;padding:12px 22px 0;display:flex;flex-direction:column;gap:10px}
 #so_root .so-frow{display:grid;grid-template-columns:96px 1fr;gap:8px;align-items:center}
 #so_root .so-frow>label{font-size:13px;color:var(--so-mut)}
 #so_root .so-frow2{display:grid;grid-template-columns:96px minmax(0,1fr) auto minmax(0,.9fr);gap:8px;align-items:center}
 #so_root .so-frow2>label{font-size:13px;color:var(--so-mut)}
-#so_root .so-in,#so_root .so-sel{border:1px solid var(--so-line);border-radius:10px;padding:8px 10px;font:inherit;background:#fff;color:var(--so-fg);min-width:0;width:100%}
+#so_root .so-in,#so_root .so-sel{border:1px solid #E1E8F0;border-radius:10px;padding:8px 10px;font:inherit;background:#fff;color:var(--so-fg);min-width:0;width:100%}
 #so_root .so-in:disabled{background:#F6F8FB;color:var(--so-ink)}
 #so_root .so-sel{cursor:pointer}
-#so_root .so-seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--so-bg);border-radius:12px;padding:4px}
-#so_root .so-seg button{border:0;background:transparent;border-radius:9px;padding:7px 6px;font:inherit;font-size:13px;color:var(--so-mut);cursor:pointer}
-#so_root .so-seg button.on{background:#fff;color:var(--so-ink);font-weight:700;box-shadow:0 1px 2px rgba(16,42,67,.1)}
+#so_root .so-seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:#F0F5FB;border-radius:12px;padding:4px}
+#so_root .so-seg button{border:0;background:transparent;border-radius:9px;padding:7px 6px;font:inherit;font-size:13px;color:#6B7587;cursor:pointer}
+#so_root .so-seg button.on{background:#fff;color:var(--so-navy);font-weight:800;box-shadow:0 1px 2px rgba(16,42,67,.1)}
 #so_root .so-osel{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
 #so_root .so-osel::-webkit-scrollbar{display:none}
 #so_root .so-sech{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
-#so_root .so-sech b{color:var(--so-ink);font-size:15px}
-#so_root .so-tbw{border:1px solid var(--so-line);border-radius:12px;overflow:hidden}
-#so_root table.so-tb{width:100%;border-collapse:collapse;font-size:13px}
-#so_root .so-tb th{font-size:12px;color:var(--so-ink);font-weight:600;text-align:left;padding:8px 6px;border-bottom:1px solid var(--so-line);background:#F2F6FB;white-space:nowrap}
+#so_root .so-sech b{color:var(--so-navy);font-size:13.5px;font-weight:900}
+#so_root .so-tbw{border:1px solid var(--so-line);border-radius:13px;overflow:hidden;background:#fff}
+#so_root table.so-tb{width:100%;border-collapse:collapse;font-size:12.5px}
+#so_root .so-tb th{font-size:11.5px;color:#7B8AA1;font-weight:700;text-align:left;padding:8px 6px;border-bottom:1px solid var(--so-line);background:#F7F9FC;white-space:nowrap}
 #so_root .so-tb td{padding:4px 4px;border-bottom:1px solid var(--so-line);vertical-align:middle}
 #so_root .so-tb tr:last-child td{border-bottom:0}
 #so_root .so-tb .r{text-align:right}
@@ -230,9 +249,6 @@ begin
 #so_root .so-del{border:0;background:none;color:var(--so-mut);cursor:pointer;padding:4px;display:grid;place-items:center}
 #so_root .so-del:hover{color:var(--so-bad)}
 #so_root .so-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:start}
-#so_root .so-sum{display:flex;flex-direction:column;gap:8px;font-size:13.5px}
-#so_root .so-sum .ln{display:flex;justify-content:space-between;gap:10px;align-items:center}
-#so_root .so-total{background:var(--so-cream2);border:1px solid var(--so-cream);border-radius:12px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;font-weight:700;color:var(--so-ink);font-size:15.5px}
 #so_root .so-hint{font-size:11.5px;color:var(--so-mut)}
 #so_root .so-stat{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 #so_root .so-stat h4{display:flex;align-items:center;gap:6px;margin:0 0 6px;font-size:14px;color:var(--so-ink)}
@@ -244,53 +260,67 @@ begin
 #so_root .so-att{display:flex;flex-direction:column;gap:6px}
 #so_root .so-att .f{display:flex;align-items:center;gap:8px;border:1px solid var(--so-line);border-radius:10px;padding:6px 10px;font-size:12.5px}
 #so_root .so-att .f b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
-#so_root .so-act2{display:grid;grid-template-columns:1fr 1fr;gap:10px;position:sticky;bottom:0;background:#fff;padding:10px 0 14px;border-top:1px solid var(--so-line);margin-top:2px}
-#so_root .so-act2 .so-btn{width:100%;padding:13px 8px;font-size:14.5px;border-radius:12px}
+#so_root .so-typerow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#so_root .so-typerow .so-kick{margin:0;font-size:12px;letter-spacing:0;text-transform:none;color:var(--so-mut);font-weight:700}
+#so_root .so-typerow .so-seg{flex:1;min-width:200px}
+#so_root .so-acts{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+#so_root .so-itemlist{display:flex;flex-direction:column}
+#so_root .so-irow{display:grid;grid-template-columns:27px minmax(0,1fr) auto;gap:9px;align-items:center;padding:8px 0;min-height:50px;border-bottom:1px solid #EDF1F5}
+#so_root .so-irow:last-child{border-bottom:0}
+#so_root .so-irow .no{width:27px;height:27px;border-radius:9px;background:#F0F5FC;color:#6392BD;display:grid;place-items:center;font-size:11px;font-weight:900}
+#so_root .so-irow .nm{min-width:0}
+#so_root .so-irow .nm b{display:block;font-size:12.5px;color:#233A51;font-weight:800;line-height:1.38;overflow-wrap:anywhere}
+#so_root .so-irow .nm small{display:block;font-size:10.5px;color:#91A0B0;margin-top:3px}
+#so_root .so-irow .sm{font-weight:900;color:var(--so-navy);font-size:12.5px;white-space:nowrap}
 #so_root .so-dirty{font-size:12px;color:#8A5B00;background:#FFF4CC;border-radius:10px;padding:6px 10px}
 #so_root .so-prod{position:relative}
 #so_root .so-prodbox{position:absolute;z-index:35;top:calc(100% + 4px);right:0;width:min(360px,80vw);background:#fff;border:1px solid var(--so-line);border-radius:12px;box-shadow:0 10px 30px rgba(16,42,67,.18);padding:8px;display:flex;flex-direction:column;gap:6px;max-height:320px;overflow:auto}
 #so_root .so-prodbox .pr{border:1px solid var(--so-line);background:#fff;border-radius:10px;padding:7px 10px;text-align:left;font:inherit;font-size:13px;cursor:pointer;color:var(--so-fg)}
-#so_root .so-picker{padding:8px 12px;border-bottom:1px solid var(--so-line);background:#FAFBFD;display:flex;flex-direction:column;gap:6px}
+#so_root .so-picker{padding:8px 14px;border-bottom:1px solid var(--so-line);background:#FAFBFD;display:flex;flex-direction:column;gap:6px}
 #so_root .so-picker .pk{border:1px solid var(--so-line);background:#fff;border-radius:10px;padding:7px 10px;text-align:left;font:inherit;font-size:13px;cursor:pointer;color:var(--so-fg)}
-#so_root .so-more{border:1px solid var(--so-line);border-radius:12px;background:#fff;margin-top:2px}
-#so_root .so-more>summary{cursor:pointer;padding:10px 12px;font-weight:600;color:var(--so-ink);font-size:13.5px;list-style:none}
+#so_root .so-sumcard{background:#F5F8FC;border:1px solid #EAF0F6;border-radius:13px;padding:14px 15px;display:flex;flex-direction:column;gap:8px;font-size:12.5px}
+#so_root .so-sumcard .ln{display:flex;justify-content:space-between;gap:10px;align-items:center;color:#718197}
+#so_root .so-sumcard .ln b{color:var(--so-navy);font-size:12.5px}
+#so_root .so-total{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;margin-top:4px;padding-top:12px;border-top:1px solid #E0E9F3;color:var(--so-navy);font-size:12.5px;font-weight:900}
+#so_root .so-total span:last-child{font-size:21px;font-weight:900;letter-spacing:-.6px;line-height:1}
+#so_root .so-sumcard .so-hint{font-size:10.5px;color:#9BAAB9;line-height:1.6}
+#so_root .so-more{border:1px solid var(--so-line);border-radius:13px;background:#fff}
+#so_root .so-more>summary{cursor:pointer;padding:10px 12px;font-weight:800;color:var(--so-navy);font-size:12.5px;list-style:none}
 #so_root .so-more>summary::-webkit-details-marker{display:none}
 #so_root .so-more[open]>summary{border-bottom:1px solid var(--so-line)}
 #so_root .so-morebody{padding:10px 12px;display:flex;flex-direction:column;gap:10px}
+#so_root .so-bottom{flex:0 0 auto;background:#fff;border-top:1px solid var(--so-line)}
+#so_root .so-bottom .so-sumcard{margin:12px 22px 0}
+#so_root .so-act2{display:grid;grid-template-columns:1fr;gap:8px;padding:10px 22px 14px;background:#fff}
+#so_root .so-act2 .so-btn{width:100%;padding:11px 14px;font-size:14px;font-weight:800;border-radius:12px}
+#so_root .so-act2 .so-btn.pri{box-shadow:0 5px 13px #142F5215}
 #so_root .so-sug{display:flex;flex-direction:column;gap:4px;background:#fff;border:1px solid var(--so-line);border-radius:12px;padding:6px;box-shadow:0 8px 24px rgba(15,42,79,.12)}
 #so_root .so-sug[hidden]{display:none}
 #so_root .so-sug .pk{border:1px solid var(--so-line);background:#fff;border-radius:10px;padding:8px 10px;text-align:left;font:inherit;font-size:13.5px;cursor:pointer;color:var(--so-fg)}
 #so_modalwrap{position:fixed;inset:0;z-index:95;display:grid;place-items:center;background:rgba(10,24,44,.45);padding:14px}
-#so_modal{background:#fff;border-radius:16px;max-width:600px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 18px 60px rgba(0,0,0,.3);color:#1B2433;font-size:14px}
-#so_modal .mh{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 16px;border-bottom:1px solid #E3E9F1}
-#so_modal .mh b{color:#0F2A4F;font-size:15.5px}
+#so_modal{background:#fff;border-radius:16px;max-width:600px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 18px 60px rgba(0,0,0,.3);color:#253C53;font-size:14px}
+#so_modal .mh{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 16px;border-bottom:1px solid #E8EEF4}
+#so_modal .mh b{color:#102A43;font-size:15.5px}
 #so_modal .mb{padding:14px 16px;overflow:auto;min-height:0;font-size:13.5px}
-#so_modal .mf{display:flex;gap:8px;justify-content:flex-end;padding:12px 16px;border-top:1px solid #E3E9F1;flex-wrap:wrap}
-#so_modal .so-btn{border:1px solid #E3E9F1;background:#fff;border-radius:10px;padding:8px 14px;font:inherit;font-size:13.5px;color:#1B2433;cursor:pointer}
-#so_modal .so-btn.pri{background:#12335F;border-color:#12335F;color:#fff}
+#so_modal .mf{display:flex;gap:8px;justify-content:flex-end;padding:12px 16px;border-top:1px solid #E8EEF4;flex-wrap:wrap}
+#so_modal .so-btn{border:1px solid #E8EEF4;background:#fff;border-radius:10px;padding:8px 14px;font:inherit;font-size:13.5px;color:#253C53;cursor:pointer}
+#so_modal .so-btn.pri{background:#102A43;border-color:#102A43;color:#fff}
 #so_modal .so-btn.danger{background:#B42318;border-color:#B42318;color:#fff}
 #so_modal .so-btn:disabled{opacity:.5;cursor:default}
-#so_modal textarea{width:100%;font:inherit;font-size:13px;border:1px solid #E3E9F1;border-radius:10px;padding:10px;white-space:pre-wrap;color:#1B2433}
+#so_modal textarea{width:100%;font:inherit;font-size:13px;border:1px solid #E8EEF4;border-radius:10px;padding:10px;white-space:pre-wrap;color:#253C53}
 #so_modal table{width:100%;border-collapse:collapse;font-size:13px}
-#so_modal th{font-size:11.5px;color:#6B7587;text-align:left;padding:5px 6px;border-bottom:1px solid #E3E9F1;white-space:nowrap}
+#so_modal th{font-size:11.5px;color:#7B8AA1;text-align:left;padding:5px 6px;border-bottom:1px solid #E8EEF4;white-space:nowrap}
 #so_modal td{padding:4px 4px;border-bottom:1px solid #EEF2F7;vertical-align:top}
-#so_modal td input[type=text]{width:100%;border:1px solid #E3E9F1;border-radius:8px;padding:5px 6px;font:inherit;font-size:13px;min-width:0}
+#so_modal td input[type=text]{width:100%;border:1px solid #E8EEF4;border-radius:8px;padding:5px 6px;font:inherit;font-size:13px;min-width:0}
 #so_modal .warn{background:#FDECEC;color:#B42318;border-radius:10px;padding:8px 12px;margin-bottom:10px}
 #so_modal .okx{background:#E7F7EE;color:#0F6B3A;border-radius:10px;padding:8px 12px;margin-bottom:10px}
-#so_modal .mut{color:#6B7587}
+#so_modal .mut{color:#7B8AA1}
 #so_modal .rcpt{background:#F2F6FB;border-radius:10px;padding:8px 12px;margin-bottom:10px}
 #so_modal .chan{display:flex;flex-direction:column;gap:8px;margin-top:10px}
-#so_modal .chan .c{display:flex;align-items:center;gap:10px;border:1px solid #E3E9F1;border-radius:12px;padding:10px 12px}
+#so_modal .chan .c{display:flex;align-items:center;gap:10px;border:1px solid #E8EEF4;border-radius:12px;padding:10px 12px}
 #so_modal .chan .c.off{background:#F7FAFD}
 #so_modal .chan .c b{flex:1;font-weight:600}
 #so_modal .bound{color:#0F6B3A;font-size:11px}
-#so_root .so-av{position:relative;overflow:hidden}
-#so_root .so-av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-#so_root .so-src{display:inline-block;margin-right:6px;padding:0 6px;border-radius:6px;background:#E3F6EA;color:#0F6B3A;font-size:10.5px;font-weight:700;letter-spacing:.2px;vertical-align:1px}
-#so_root .so-chip.ok{background:#1F9D55;color:#fff}
-#so_root .so-chip.warn{background:#E8832A;color:#fff}
-#so_root .so-lnote{font-size:11.5px;color:var(--so-mut);padding:6px 14px;background:#F2F6FB;border-bottom:1px solid var(--so-line)}
-#so_root .so-m.in .so-bub.ph{background:#F2F6FB;color:var(--so-mut);font-style:italic}
 #so_root .so-dl{font-size:11.5px;padding:0 4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 #so_root .so-dl.wait{color:#B5862A}
 #so_root .so-dl.ok{color:#0F6B3A}
@@ -302,14 +332,23 @@ begin
 #so_modal .lstat.wait{background:#FFF4CC;color:#7A5A00}
 #so_modal .lstat.ok{background:#E7F7EE;color:#0F6B3A}
 #so_modal .lstat.bad{background:#FDECEC;color:#B42318}
+#so_root .so-ai{align-self:stretch;border:1px solid #D7E7FC;background:linear-gradient(135deg,#FFFFFF,#F1F7FF);border-radius:17px;padding:14px 16px;box-shadow:0 4px 20px #3869A30B}
+#so_root .so-ai-h{display:flex;align-items:center;gap:10px}
+#so_root .so-ai-ic{flex:0 0 34px;width:34px;height:34px;border-radius:10px;background:#E3EFFF;color:var(--so-blue);display:grid;place-items:center;font-size:16px}
+#so_root .so-ai-t{font-size:13px;font-weight:900;color:var(--so-navy)}
+#so_root .so-ai-d{font-size:11px;color:#7287A0}
+#so_root .so-ai-f{margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+#so_root .so-ai-n{font-size:11.5px;font-weight:800;color:#4B789B}
 @media (max-width:900px){
   #so_root{height:auto;min-height:0;display:block}
   #so_root .so-cols{display:flex;flex-direction:column;padding:0;gap:0}
-  #so_root .so-mtabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:6px;background:#fff;border-bottom:1px solid var(--so-line);flex:0 0 auto}
-  #so_root .so-mtabs button{border:0;background:var(--so-bg);border-radius:10px;padding:9px 4px;font:inherit;font-size:13px;color:var(--so-mut);cursor:pointer;position:relative}
-  #so_root .so-mtabs button.on{background:var(--so-navy);color:#fff;font-weight:700}
+  #so_root .so-mtabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:8px 10px;background:#fff;border-bottom:1px solid var(--so-line);flex:0 0 auto}
+  #so_root .so-mtabs button{border:0;background:#F4F7FB;border-radius:10px;padding:9px 4px;font:inherit;font-size:13px;color:#6B7587;cursor:pointer;position:relative}
+  #so_root .so-mtabs button.on{background:var(--so-navy);color:#fff;font-weight:800}
   #so_root .so-mtabs .dot{position:absolute;top:6px;right:10px;width:8px;height:8px;border-radius:50%;background:#E8832A}
   #so_root .so-col{display:none;border-radius:0;border:0;box-shadow:none}
+  #so_root .so-list{border-right:0}
+  #so_root .so-ord{border-left:0}
   #so_root.m-list .so-list{display:flex}
   #so_root.m-list .so-items{overflow:visible}
   #so_root.m-chat .so-cols,#so_root.m-order .so-cols{position:fixed;inset:0;z-index:60;background:#fff}
@@ -319,8 +358,16 @@ begin
   #so_root .so-grid3{grid-template-columns:1fr 1fr}
   #so_root .so-frow2{grid-template-columns:96px minmax(0,1fr)}
   #so_root .so-frow2>label:nth-of-type(2){grid-column:1}
-  #so_root .so-ohd,#so_root .so-ob{padding-left:12px;padding-right:12px}
+  #so_root .so-ohd{padding:14px 14px 12px}
+  #so_root .so-ob{padding:12px 14px 0}
+  #so_root .so-bottom .so-sumcard{margin:12px 14px 0}
+  #so_root .so-act2{padding:10px 14px 14px}
+  #so_root .so-cust{margin:12px 14px 0;padding:9px 11px;gap:7px}
+  #so_root .so-ohd .ttl{font-size:17px}
+  #so_root .so-ord .so-flash{margin:8px 14px 0}
   #so_root .so-ch .so-chip.lite{display:none}
+  #so_root .so-ch{padding:12px 14px}
+  #so_root .so-msgs{padding:14px}
   #so_root .so-tb thead{display:none}
   #so_root .so-tb,#so_root .so-tb tbody{display:block}
   #so_root .so-tb tr{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,.8fr) minmax(0,1fr) minmax(0,1fr) 30px;gap:2px 6px;padding:8px 6px;border-bottom:1px solid var(--so-line);align-items:end}
@@ -346,7 +393,7 @@ begin
       <div class="so-cols">
         <nav class="so-mtabs" id="so_mtabs" aria-label="สลับส่วนของหน้า"></nav>
         <aside class="so-col so-list" aria-label="แชตลูกค้า">
-          <div class="so-lhd"><span class="ttl">${ic('chat',22)} แชตลูกค้า</span><button type="button" class="so-btn sm pri" data-a="picker">${ic('plus',14)} แชตใหม่</button><button type="button" class="so-btn sm" data-a="closedsum" title="ยอดงานที่ปิดแล้ว แยกตามผู้รับผิดชอบ">ยอดปิดงาน</button></div>
+          <div class="so-lhd"><div><div class="so-kick">INBOX</div><span class="ttl">${ic('chat',22)} แชตลูกค้า</span></div><div class="so-lhdb"><button type="button" class="so-btn sm pri" data-a="picker">${ic('plus',14)} แชตใหม่</button><button type="button" class="so-btn sm" data-a="closedsum" title="ยอดงานที่ปิดแล้ว แยกตามผู้รับผิดชอบ">ยอดปิดงาน</button></div></div>
           <div class="so-chan" id="so_chan"></div>
           <label class="so-srch">${ic('search',16)}<input id="so_q" type="search" placeholder="ค้นหาชื่อลูกค้า ข้อความ หรือเลขออเดอร์…" aria-label="ค้นหาแชต" autocomplete="off" value="${E(S.q)}"></label>
           <div class="so-tabs" id="so_tabs" role="tablist"></div>
@@ -546,16 +593,16 @@ begin
   function custCard(t){
     if(t.customer_id&&S.cust){
       const cu=S.cust,st=S.custStats
-      return `<div style="border:1px solid var(--so-line);border-radius:12px;padding:10px 12px;margin-bottom:10px;display:flex;flex-direction:column;gap:8px">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><b>${E(cu.name||'ลูกค้า')}</b><span class="so-hint">${E(cu.phone||'ไม่มีเบอร์')}</span></div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center">
-          <div><b style="display:block;font-size:16px">${st?st.n:'-'}</b><span class="so-hint">งานทั้งหมด</span></div>
-          <div><b style="display:block;font-size:16px">${st?money(st.sum):'-'}</b><span class="so-hint">ยอดซื้อรวม (฿)</span></div>
-          <div><b style="display:block;font-size:16px">${st?st.open:'-'}</b><span class="so-hint">งานกำลังทำ</span></div>
+      return `<div class="so-cust">
+        <div class="h"><b>${E(cu.name||'ลูกค้า')}</b><span class="so-hint">${E(cu.phone||'ไม่มีเบอร์')}</span></div>
+        <div class="g">
+          <div><b>${st?st.n:'-'}</b><span class="so-hint">งานทั้งหมด</span></div>
+          <div><b>${st?money(st.sum):'-'}</b><span class="so-hint">ยอดซื้อรวม (฿)</span></div>
+          <div><b>${st?st.open:'-'}</b><span class="so-hint">งานกำลังทำ</span></div>
         </div>
       </div>`
     }
-    return `<div style="border:1px dashed var(--so-line);border-radius:12px;padding:10px 12px;margin-bottom:10px;display:flex;flex-direction:column;gap:8px">
+    return `<div class="so-cust dash">
       <span class="so-hint">ยังไม่ผูกกับลูกค้าในระบบ (ผูกอัตโนมัติตอนบันทึกใบสั่งงานใบแรก หรือผูกเองตอนนี้ก็ได้)</span>
       ${S.custLink?`<input id="so_clq" class="so-in" type="search" placeholder="ค้นหาชื่อหรือเบอร์ลูกค้า…" value="${E(S.custLinkQ)}" autocomplete="off" aria-label="ค้นหาลูกค้า"><div id="so_clsug" class="so-sug" hidden></div>`
         :`<button type="button" class="so-btn sm" data-a="custlinktoggle">ผูกกับลูกค้า</button>`}
@@ -658,12 +705,20 @@ begin
     const h=$('so_honest');if(h){const x=honestText(t);if(h.textContent!==x)h.textContent=x}
   }
 
+  // การ์ดสรุปรายการจากแชต: แสดงเมื่อใบยังไม่มีรายการ และอ่านรายการจากข้อความลูกค้าได้ — กดแล้วเปิดหน้าตรวจเดียวกับ "สร้างรายการจากแชต" ไม่บันทึกอะไรเอง
+  function aiCardHtml(){
+    if(!S.ord||(S.ord.items&&S.ord.items.length))return ''
+    const txt=S.msgs.filter(m=>m.dir==='in'&&(m.kind||'text')==='text').slice(-20).map(m=>m.body).join('\n')
+    const n=txt?parseLines(txt).length:0
+    if(!n)return ''
+    return `<div class="so-ai"><div class="so-ai-h"><span class="so-ai-ic">✦</span><div><div class="so-ai-t">ระบบสรุปรายการจากแชทให้แล้ว</div><div class="so-ai-d">ไม่ต้องพิมพ์สินค้าใหม่ทีละช่อง</div></div></div><div class="so-ai-f"><span class="so-ai-n">${n} รายการที่ตรวจพบ</span><button type="button" class="so-btn sm sky" data-a="parsechat">ดูรายการและยืนยัน ↗</button></div></div>`
+  }
   function msgsInner(t){
     if(S.msgsLoading)return '<div class="so-empty">กำลังโหลดข้อความ…</div>'
     if(S.errMsgs)return `<div class="so-empty"><b>โหลดข้อความไม่สำเร็จ</b><p>${E(S.errMsgs)}</p><button type="button" class="so-btn" data-a="retrythread">ลองใหม่</button></div>`
     if(!S.msgs.length)return `<div class="so-empty"><b>ยังไม่มีข้อความในแชตนี้</b><p>${isLine(t)?'ข้อความจากลูกค้าทาง LINE จะเข้ามาที่นี่เอง · ':''}บันทึกการคุยด้านล่าง หรือกด "สร้างรายการจากแชต" ในใบสั่งงาน แล้ววางข้อความรายการจากลูกค้า</p></div>`
     let last=''
-    return S.msgs.map(m=>{const d=dSep(m.created_at);const sep=d&&d!==last?`<div class="so-day">${E(d)}</div>`:'';if(d)last=d;return sep+msgHtml(m,t)}).join('')
+    return S.msgs.map(m=>{const d=dSep(m.created_at);const sep=d&&d!==last?`<div class="so-day">${E(d)}</div>`:'';if(d)last=d;return sep+msgHtml(m,t)}).join('')+aiCardHtml()
   }
   // วาดเฉพาะรายการข้อความ (ตอนรีเฟรชอัตโนมัติ): ไม่แตะช่องพิมพ์ และไม่ดึงหน้าลงล่างถ้าพนักงานกำลังเลื่อนอ่านข้อความเก่า
   function paintMsgs(){
@@ -953,65 +1008,83 @@ begin
         <div id="so_pres" style="display:flex;flex-direction:column;gap:6px">${S.prodBusy?'<small style="color:var(--so-mut)">กำลังค้นหา…</small>':S.prodRows.map(p=>{const sp=S.prodPrice[p.id];return `<button type="button" class="pr" data-a="prodpick" data-id="${E(p.id)}"><b>${E(p.name)}</b><br><small style="color:var(--so-mut)">${E(p.unit||'-')} · ${o.price_school_id&&sp!=null?`ราคาโรงเรียน ${money(sp)} (ปกติ ${money(p.price)})`:money(p.price)+' บาท'}</small></button>`}).join('')}</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="so-btn sm" data-a="addblank" data-k="goods">+ สินค้าที่พิมพ์เอง</button><button type="button" class="so-btn sm" data-a="addblank" data-k="service">+ งานบริการ</button></div>
       </div>`:''
+    const st=o.saved?o.saved.job_status:o.job_status
+    const stText=!o.id?'ใบใหม่ ยังไม่บันทึก':(st==='pending'?'ยังไม่ส่ง':((JN[st]||{}).t||''))
+    const stColor=!o.id?'#7A8394':((JN[st]||{}).c||'#7A8394')
+    // รายการที่มีชื่อครบแล้วแสดงแบบอ่านอย่างเดียว · ยังไม่มีรายการ หรือมีรายการที่ยังไม่ตั้งชื่อ ใช้ตารางแก้ไขเสมอ
+    const blank=o.items.some(i=>!String(i.name||'').trim())
+    const showEdit=!o.items.length||S.ordEdit||blank
+    const compact=o.items.map((i,x)=>{const line=r2(r2(num(i.qty))*r2(num(i.unit_price)));return `<div class="so-irow"><span class="no">${x+1}</span><div class="nm"><b>${E(i.name)}</b><small>${E(qtyTxt(i.qty))}${i.unit?' '+E(i.unit):''} × ${money(i.unit_price)} บาท</small></div><span class="sm">${money(line)} บาท</span></div>`}).join('')
     box.innerHTML=`
       <div class="so-ohd">
-        <span class="ttl">${ic('cart',22)} ใบสั่งงาน / คำสั่งซื้อ</span>
-        ${o.id?`<span class="so-chip" style="--c:${(JN[o.saved?o.saved.job_status:o.job_status]||{}).c||'#7A8394'}">${E((JN[o.saved?o.saved.job_status:o.job_status]||{}).t||'')}</span>`:'<span class="so-chip lite">ใบใหม่ ยังไม่บันทึก</span>'}
+        <div><div class="so-kick">AUTO ORDER SUMMARY</div><span class="ttl">${ic('cart',22)} สรุปออเดอร์ลูกค้า</span></div>
+        <span class="so-chip" style="--c:${stColor}">${E(stText)}</span>
       </div>
       ${custCard(t)}
       <div class="so-flashbox" data-where="ord" style="margin-top:-6px"></div>
       <div class="so-ob">
         ${osel}
         ${S.conflict?`<div class="so-dirty">ใบนี้ถูกแก้โดยคนอื่นระหว่างที่เปิดอยู่ — <button type="button" class="so-btn sm" data-a="reloadord">โหลดใบล่าสุด</button> (สิ่งที่แก้ค้างไว้จะหาย)</div>`:''}
-        ${dirty?'<div class="so-dirty" role="status">มีการแก้ไขที่ยังไม่ได้บันทึก — กด "บันทึกออเดอร์" ก่อนย้ายไปแชตอื่น</div>':''}
-        ${o.id?`<div><span class="so-chip" style="--c:${o.order_type==='docs'?'#8A5CC2':'#2F6FE4'}">${E(OTYPE[o.order_type]||o.order_type)}</span> <span class="so-hint">ประเภทใบเปลี่ยนไม่ได้หลังบันทึก</span></div>`
-          :`<div class="so-seg" role="radiogroup" aria-label="ประเภทคำสั่งซื้อ">${Object.entries(OTYPE).map(([k,lb])=>`<button type="button" role="radio" aria-checked="${o.order_type===k}" class="${o.order_type===k?'on':''}" data-a="otype" data-k="${k}">${lb}</button>`).join('')}</div>`}
-        <div class="so-frow"><label for="so_cn">ลูกค้า</label><div style="display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:8px"><input id="so_cn" class="so-in" type="text" data-f="customer_name" value="${E(o.customer_name)}" placeholder="ชื่อลูกค้า/หน่วยงาน"><input class="so-in" type="tel" data-f="phone" value="${E(o.phone)}" placeholder="เบอร์โทร" aria-label="เบอร์โทร"></div></div>
-        <div class="so-frow"><span></span><div id="so_cnsug" class="so-sug" hidden></div></div>
-        <div class="so-frow2"><label>อ้างอิง / เลขที่</label><input class="so-in" type="text" value="${E(o.order_no||'ออกเลขเมื่อบันทึก')}" disabled aria-label="เลขที่ใบ"><label for="so_od" style="font-size:13px;color:var(--so-mut)">วันที่สั่ง</label><input id="so_od" class="so-in" type="date" data-f="order_date" value="${E(o.order_date)}"></div>
-        <div class="so-frow"><label>ราคา</label>${basisSel}</div>
+        ${dirty?'<div class="so-dirty" role="status">มีการแก้ไขที่ยังไม่ได้บันทึก — กด "บันทึกออเดอร์" ก่อนส่งสรุป</div>':''}
+        <div class="so-typerow">
+          <span class="so-kick">ประเภท</span>
+          ${o.id?`<span class="so-chip" style="--c:${o.order_type==='docs'?'#8A5CC2':'#2F6FE4'}">${E(OTYPE[o.order_type]||o.order_type)}</span>`
+            :`<div class="so-seg" role="radiogroup" aria-label="ประเภทคำสั่งซื้อ">${Object.entries(OTYPE).map(([k,lb])=>`<button type="button" role="radio" aria-checked="${o.order_type===k}" class="${o.order_type===k?'on':''}" data-a="otype" data-k="${k}">${lb}</button>`).join('')}</div>`}
+        </div>
         <div class="so-sech">
-          <b>รายการสินค้า / งาน</b>
-          <span style="display:flex;gap:6px">
+          <b>รายการ${o.items.length?` (${o.items.length})`:''}</b>
+          <span class="so-acts">
             <button type="button" class="so-btn sm" data-a="parsechat" title="อ่านข้อความรายการจากลูกค้ามาเป็นรายการ ให้ตรวจก่อนเพิ่ม">${ic('wand',14)} สร้างรายการจากแชต</button>
             <span class="so-prod"><button type="button" class="so-btn sm sky" data-a="prodtoggle" aria-expanded="${S.prodOpen}">${ic('plus',14)} เพิ่มรายการ</button>${prodBox}</span>
+            ${o.items.length&&!blank?`<button type="button" class="so-btn sm" data-a="itemsedit" aria-pressed="${!!S.ordEdit}">${S.ordEdit?'เสร็จ':'แก้ไขรายการ'}</button>`:''}
           </span>
         </div>
-        <div class="so-tbw"><table class="so-tb">
+        ${showEdit
+          ?`<div class="so-tbw"><table class="so-tb">
           <thead><tr><th class="c">ลำดับ</th><th>รายการ</th><th class="r">จำนวน</th><th>หน่วย</th><th class="r">ราคาต่อหน่วย</th><th class="r" style="padding-right:8px">รวม (บาท)</th><th></th></tr></thead>
           <tbody>${rows||'<tr><td colspan="7" style="text-align:center;color:var(--so-mut);padding:18px">ยังไม่มีรายการ — กด "เพิ่มรายการ" หรือ "สร้างรายการจากแชต"</td></tr>'}</tbody>
-        </table></div>
+        </table></div>`
+          :`<div class="so-itemlist">${compact}</div>`}
         <datalist id="so_units">${UNIT_LIST.map(u=>`<option value="${u}">`).join('')}</datalist>
-        <div class="so-two">
-          <div class="so-fld"><span style="font-weight:600;color:var(--so-ink);font-size:13px">หมายเหตุ / รายละเอียดงาน</span><textarea class="so-in" rows="3" data-f="note" placeholder="เช่น ส่งของที่โรงเรียน ภายในวันที่ …">${E(o.note)}</textarea></div>
-          <div class="so-sum">
-            <div class="ln"><span>รวมเป็นเงิน (ไม่รวมภาษี)</span><b data-sum="sub">${money(c.sub)}</b></div>
-            <div class="ln"><span>ภาษีมูลค่าเพิ่ม${c.rate>0?' '+num(c.rate)+'%':''}</span><b data-sum="vat">${money(c.vat)}</b></div>
-            <div style="display:flex;justify-content:flex-end">${vatSel}</div>
-            <div class="so-total"><span>ยอดรวมทั้งสิ้น</span><span data-sum="total">${money(c.total)} บาท</span></div>
-            <span class="so-hint" data-sum="hint">${o.saved&&!dirty?`ยอดตรวจและบันทึกฝั่งเซิร์ฟเวอร์แล้ว · ${E(tFull(o.saved.updated_at))} โดย ${E(o.saved.updated_by||'-')}`:'ยอดบนจอคิดให้ดูก่อน — ตัวจริงระบบคิดซ้ำตอนกด "บันทึกออเดอร์"'}</span>
+        <details class="so-more"${S.moreOpen?' open':''}>
+          <summary>รายละเอียดเพิ่มเติม · ลูกค้า วันที่ ราคา VAT การส่งมอบ สถานะ ไฟล์แนบ</summary>
+          <div class="so-morebody">
+            <div class="so-frow"><label for="so_cn">ลูกค้า</label><div style="display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:8px"><input id="so_cn" class="so-in" type="text" data-f="customer_name" value="${E(o.customer_name)}" placeholder="ชื่อลูกค้า/หน่วยงาน"><input class="so-in" type="tel" data-f="phone" value="${E(o.phone)}" placeholder="เบอร์โทร" aria-label="เบอร์โทร"></div></div>
+            <div class="so-frow"><span></span><div id="so_cnsug" class="so-sug" hidden></div></div>
+            <div class="so-frow2"><label>อ้างอิง / เลขที่</label><input class="so-in" type="text" value="${E(o.order_no||'ออกเลขเมื่อบันทึก')}" disabled aria-label="เลขที่ใบ"><label for="so_od" style="font-size:13px;color:var(--so-mut)">วันที่สั่ง</label><input id="so_od" class="so-in" type="date" data-f="order_date" value="${E(o.order_date)}"></div>
+            <div class="so-frow"><label>ราคา</label>${basisSel}</div>
+            <div class="so-frow"><label>VAT</label>${vatSel}</div>
+            <div class="so-fld"><span style="font-weight:600;color:var(--so-ink);font-size:13px">หมายเหตุ / รายละเอียดงาน</span><textarea class="so-in" rows="3" data-f="note" placeholder="เช่น ส่งของที่โรงเรียน ภายในวันที่ …">${E(o.note)}</textarea></div>
+            <div class="so-grid3">
+              <div class="so-fld"><span>การส่งมอบ</span><select class="so-sel" data-f="fulfil"><option value="pickup"${o.fulfil==='pickup'?' selected':''}>รับที่ร้าน</option><option value="delivery"${o.fulfil==='delivery'?' selected':''}>จัดส่ง</option></select></div>
+              <div class="so-fld"><span>กำหนดส่ง/นัดรับ</span><input class="so-in" type="date" data-f="need_date" value="${E(o.need_date)}"></div>
+              <div class="so-fld"><span>ผู้รับผิดชอบ</span><input class="so-in" type="text" data-f="assignee" value="${E(o.assignee)}" list="so_staff" placeholder="ชื่อพนักงาน"><datalist id="so_staff"><option value="หญิง"><option value="ฟิล์ม"><option value="พี่ปิ่น"></datalist></div>
+            </div>
+            <div class="so-stat">
+              <div><h4>${ic('gear',18)} สถานะงาน</h4><select class="so-sel job" data-f="job_status" aria-label="สถานะงาน">${JOB.map(([k,lb])=>`<option value="${k}"${o.job_status===k?' selected':''}>${lb}</option>`).join('')}</select></div>
+              <div><h4>${ic('card',18)} สถานะการชำระเงิน</h4><select class="so-sel pay" data-f="pay_status" aria-label="สถานะการชำระเงิน">${PAY.map(([k,lb])=>`<option value="${k}"${o.pay_status===k?' selected':''}>${lb}</option>`).join('')}</select>${partial?`<input class="so-in" style="margin-top:6px" type="text" inputmode="decimal" data-f="paid_amount" value="${E(o.paid_amount||'')}" placeholder="ยอดที่รับแล้ว (บาท)" aria-label="ยอดที่รับแล้ว">`:''}</div>
+            </div>
+            <div class="so-att">
+              <div class="so-sech"><b style="font-size:13.5px">ไฟล์แนบของใบนี้ (สลิป/ไฟล์งาน)</b><button type="button" class="so-btn sm" data-a="ordattach" ${S.attachBusy?'disabled':''}>${S.attachBusy?'กำลังอัปโหลด…':ic('clip',14)+' แนบไฟล์'}</button></div>
+              ${o.attach.map((f,x)=>`<div class="f">${ic('file',16)}<b>${E(f.name||f.path)}</b><button type="button" class="so-btn sm" data-a="openfile" data-p="${E(f.path)}">เปิด</button><button type="button" class="so-del" data-a="delattach" data-i="${x}" aria-label="เอาไฟล์ ${E(f.name||'')} ออกจากใบ">${ic('trash',16)}</button></div>`).join('')||'<span class="so-hint">ยังไม่มีไฟล์แนบ</span>'}
+              <span class="so-hint">แนบสลิปแล้วสถานะการชำระเงินไม่เปลี่ยนเอง — พนักงานต้องตรวจยอดแล้วเลือกสถานะเอง</span>
+            </div>
           </div>
-        </div>
-        <div class="so-grid3">
-          <div class="so-fld"><span>การส่งมอบ</span><select class="so-sel" data-f="fulfil"><option value="pickup"${o.fulfil==='pickup'?' selected':''}>รับที่ร้าน</option><option value="delivery"${o.fulfil==='delivery'?' selected':''}>จัดส่ง</option></select></div>
-          <div class="so-fld"><span>กำหนดส่ง/นัดรับ</span><input class="so-in" type="date" data-f="need_date" value="${E(o.need_date)}"></div>
-          <div class="so-fld"><span>ผู้รับผิดชอบ</span><input class="so-in" type="text" data-f="assignee" value="${E(o.assignee)}" list="so_staff" placeholder="ชื่อพนักงาน"><datalist id="so_staff"><option value="หญิง"><option value="ฟิล์ม"><option value="พี่ปิ่น"></datalist></div>
-        </div>
-        <div class="so-stat">
-          <div><h4>${ic('gear',18)} สถานะงาน</h4><select class="so-sel job" data-f="job_status" aria-label="สถานะงาน">${JOB.map(([k,lb])=>`<option value="${k}"${o.job_status===k?' selected':''}>${lb}</option>`).join('')}</select></div>
-          <div><h4>${ic('card',18)} สถานะการชำระเงิน</h4><select class="so-sel pay" data-f="pay_status" aria-label="สถานะการชำระเงิน">${PAY.map(([k,lb])=>`<option value="${k}"${o.pay_status===k?' selected':''}>${lb}</option>`).join('')}</select>
-            ${partial?`<input class="so-in" style="margin-top:6px" type="text" inputmode="decimal" data-f="paid_amount" value="${E(o.paid_amount||'')}" placeholder="ยอดที่รับแล้ว (บาท)" aria-label="ยอดที่รับแล้ว">`:''}</div>
-        </div>
-        <div class="so-att">
-          <div class="so-sech"><b style="font-size:13.5px">ไฟล์แนบของใบนี้ (สลิป/ไฟล์งาน)</b><button type="button" class="so-btn sm" data-a="ordattach" ${S.attachBusy?'disabled':''}>${S.attachBusy?'กำลังอัปโหลด…':ic('clip',14)+' แนบไฟล์'}</button></div>
-          ${o.attach.map((f,x)=>`<div class="f">${ic('file',16)}<b>${E(f.name||f.path)}</b><button type="button" class="so-btn sm" data-a="openfile" data-p="${E(f.path)}">เปิด</button><button type="button" class="so-del" data-a="delattach" data-i="${x}" aria-label="เอาไฟล์ ${E(f.name||'')} ออกจากใบ">${ic('trash',16)}</button></div>`).join('')||'<span class="so-hint">ยังไม่มีไฟล์แนบ</span>'}
-          <span class="so-hint">แนบสลิปแล้วสถานะการชำระเงินไม่เปลี่ยนเอง — พนักงานต้องตรวจยอดแล้วเลือกสถานะเอง</span>
+        </details>
+      </div>
+      <div class="so-bottom">
+        <div class="so-sumcard">
+          <div class="ln"><span>รวมเป็นเงิน (ไม่รวมภาษี)</span><b data-sum="sub">${money(c.sub)}</b></div>
+          <div class="ln"><span>ภาษีมูลค่าเพิ่ม${c.rate>0?' '+num(c.rate)+'%':''}</span><b data-sum="vat">${money(c.vat)}</b></div>
+          <div class="so-total"><span>ยอดรวมทั้งสิ้น</span><span data-sum="total">${money(c.total)} บาท</span></div>
+          <span class="so-hint" data-sum="hint">${o.saved&&!dirty?`ยอดตรวจและบันทึกฝั่งเซิร์ฟเวอร์แล้ว · ${E(tFull(o.saved.updated_at))} โดย ${E(o.saved.updated_by||'-')}`:'ยอดบนจอคิดให้ดูก่อน — ตัวจริงระบบคิดซ้ำตอนกด "บันทึกออเดอร์"'}</span>
         </div>
         <div class="so-act2">
-          <button type="button" class="so-btn pri" data-a="save" ${S.busySave?'disabled':''}>${ic('save')} ${S.busySave?'กำลังบันทึก…':'บันทึกออเดอร์'}</button>
-          <button type="button" class="so-btn sky" data-a="summary" ${!o.id||dirty||S.busySave?'disabled':''} title="${!o.id||dirty?'บันทึกออเดอร์ก่อน แล้วค่อยส่งสรุป':'ตรวจสรุปและผู้รับก่อนส่ง'}">${ic('send')} ส่งสรุปให้ลูกค้า</button>
+          <button type="button" class="so-btn${dirty||!o.id?'':' pri'}" data-a="summary" ${!o.id||dirty||S.busySave?'disabled':''} title="${!o.id||dirty?'บันทึกออเดอร์ก่อน แล้วค่อยส่งสรุป':'ตรวจสรุปและผู้รับก่อนส่ง'}">${ic('send')} ส่งสรุปให้ลูกค้ายืนยัน</button>
+          <button type="button" class="so-btn${dirty||!o.id?' pri':''}" data-a="save" ${S.busySave?'disabled':''}>${ic('save')} ${S.busySave?'กำลังบันทึก…':'บันทึกออเดอร์'}</button>
         </div>
       </div>`
+    const dm=box.querySelector('.so-more');if(dm)dm.addEventListener('toggle',()=>{S.moreOpen=dm.open})
     wrapMore(box)
     paintFlash()
   }
@@ -1515,6 +1588,7 @@ begin
     if(!isLine(t))return '<div class="c off"><b>ส่งทาง LINE OA</b><span class="mut">แชตนี้ไม่ได้มาจาก LINE OA</span></div>'
     if(!st.ok)return `<div class="c off"><b>ส่งทาง LINE OA</b><span class="mut">${E(st.t.replace('LINE OA: ',''))}</span></div>`
     if(m.lineOut)return '<div class="c"><b>ส่งทาง LINE OA</b><span class="mut">เข้าคิวแล้ว · ดูสถานะด้านล่าง</span></div>'
+    if(m.lineConfirm)return `<div class="c"><b>ยืนยันการส่งเข้า LINE</b><span class="mut">ข้อความนี้จะถูกส่งถึงลูกค้าทาง LINE จริง — ตรวจข้อความด้านบนให้ครบก่อนยืนยันทุกครั้ง</span><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button type="button" class="so-btn pri" data-a="sumlineok" ${m.busy?'disabled':''}>${m.busy?'กำลังเข้าคิว…':'ยืนยันส่ง'}</button><button type="button" class="so-btn" data-a="sumlinecancel" ${m.busy?'disabled':''}>ยกเลิก</button></div></div>`
     return `<div class="c"><b>ส่งทาง LINE OA</b><button type="button" class="so-btn pri" data-a="sumline" ${m.busy?'disabled':''}>${m.busy?'กำลังเข้าคิว…':'ส่ง'}</button></div>`
   }
   function lineStatBox(m){
@@ -1826,10 +1900,13 @@ begin
     if(a==='delattach'){if(S.ord){S.ord.attach.splice(+el.dataset.i,1);paintOrd()}return}
     if(a==='pickordcust'){pickOrdCust(el.dataset.id,el.dataset.n,el.dataset.p);return}
     if(a==='save'){save();return}
+    if(a==='itemsedit'){S.ordEdit=!S.ordEdit;paintOrd();return}
     if(a==='summary'){if(!S.ord||!S.ord.id||isDirty())return;openModal({kind:'summary',text:summaryText()});return}
     if(a==='sumcopy'){copySummary();return}
     if(a==='sumchat'){chatSummary();return}
-    if(a==='sumline'){lineSummary();return}
+    if(a==='sumline'){if(S.modal){S.modal.lineConfirm=true;paintModal()}return}
+    if(a==='sumlineok'){if(S.modal)S.modal.lineConfirm=false;lineSummary();return}
+    if(a==='sumlinecancel'){if(S.modal){S.modal.lineConfirm=false;paintModal()}return}
     if(a==='resend'){resend(el.dataset.o);return}
     if(a==='setawait'){closeModal();if(S.ord&&S.ord.job_status==='pending'){S.ord.job_status='awaiting';paintOrd();save()}return}
   }
