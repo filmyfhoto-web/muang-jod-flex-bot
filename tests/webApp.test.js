@@ -134,3 +134,21 @@ test('หน้าจด: แถบบันทึกลอยเหนือแ
   assert.match(css, /body\.quick \.quickbar \{ bottom: 0;/, 'โหมดด่วนแถบบันทึกต้องกลับมาชิดล่าง');
   assert.match(css, /body\.quick \.appbar \{ display: none; \}/, 'โหมดด่วนไม่ควรมีแถบแอปให้หลุดออกจากแชต');
 });
+
+/* ร้านใช้ไอแพด 13 นิ้วด้วย: "ปรับขยายจอ เช่นหน้าจอกว้าง รุ่น 13 นิ้ว 2732×2048
+ * พิกเซล พรีวิวช่องพอดีไม่ล้น" — มือถือคงคอลัมน์ 430 เหมือนเดิมเป๊ะ จอกว้าง
+ * ตั้งแต่ 820px ขยายคอลัมน์เป็น 740px ทุกหน้า ช่องกรอกจึงโตตามจอ ไม่ล้น
+ * (คนละเรื่องกับแถบข้างยุค min-width:900 ที่ถูกถอดไปแล้ว — อันนี้แค่คอลัมน์กว้างขึ้น)
+ */
+test('จอกว้างขยายคอลัมน์เป็น 740px ทุกหน้า — มือถือยังเป็น 430 เหมือนเดิม', () => {
+  for (const page of ['index.html', 'jot/style.css', 'book/index.html', 'ledger/index.html', 'categories/index.html', 'pos/index.html', 'note/index.html']) {
+    const src = read(page);
+    assert.ok(src.includes('@media (min-width: 820px)'), `${page} ไม่มีกติกาจอกว้าง`);
+    assert.ok(src.includes('max-width: 740px'), `${page} ไม่ได้ขยายคอลัมน์`);
+    assert.ok(src.includes('430px'), `${page} ค่าตั้งต้นมือถือหาย`);
+  }
+  // แถบล่าง/แถบบันทึกตามคอลัมน์ไปด้วย ไม่งั้นปุ่มค้างอยู่ริมจอคนละที่กับฟอร์ม
+  for (const page of ['jot/style.css', 'pos/index.html', 'note/index.html', 'book/index.html', 'ledger/index.html']) {
+    assert.ok(read(page).includes('calc((100% - 740px) / 2)'), `${page} แถบล่างไม่ตามคอลัมน์กว้าง`);
+  }
+});

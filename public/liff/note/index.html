@@ -95,6 +95,16 @@
   .toast.on { opacity: 1; }
   .toast.err { background: var(--red); }
   .fatal { text-align: center; color: var(--sub); padding: 30px 10px; }
+  /* ร้านสั่ง: "ปรับขยายจอ เช่นหน้าจอกว้าง รุ่น 13 นิ้ว 2732×2048 พิกเซล
+     พรีวิวช่องพอดีไม่ล้น" — มือถือคงคอลัมน์ 430 เหมือนเดิมเป๊ะ
+     จอตั้งแต่ 820px (ไอแพดใหญ่/จอคอม) ขยายคอลัมน์เป็น 740px ช่องโตตามจอ */
+  @media (min-width: 820px) {
+    main, .bar { max-width: 740px; }
+    .tools { padding-left: max(12px, calc((100% - 740px) / 2)); padding-right: max(12px, calc((100% - 740px) / 2)); }
+    .trow { max-width: 740px; }
+    .shelf { grid-template-columns: repeat(5, 1fr); }
+    .appbar { padding-left: max(14px, env(safe-area-inset-left, 0px), calc((100% - 740px) / 2)); padding-right: max(14px, env(safe-area-inset-right, 0px), calc((100% - 740px) / 2)); }
+  }
 </style>
 </head>
 <body>

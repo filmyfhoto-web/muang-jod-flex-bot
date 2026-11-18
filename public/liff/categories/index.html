@@ -131,6 +131,12 @@
     main { max-width: 430px; margin-inline: auto; }
     .savebar { padding-left: max(18px, calc((100% - 640px) / 2)); padding-right: max(18px, calc((100% - 640px) / 2)); }
   }
+  /* ร้านสั่ง: "ปรับขยายจอ เช่นหน้าจอกว้าง รุ่น 13 นิ้ว 2732×2048 พิกเซล
+     พรีวิวช่องพอดีไม่ล้น" — มือถือคงคอลัมน์ 430 เหมือนเดิมเป๊ะ
+     จอตั้งแต่ 820px (ไอแพดใหญ่/จอคอม) ขยายคอลัมน์เป็น 740px ช่องโตตามจอ */
+  @media (min-width: 820px) {
+    main { max-width: 740px; }
+  }
 </style>
 </head>
 <body>
