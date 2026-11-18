@@ -357,6 +357,26 @@
   #h-seg button[aria-pressed="true"] { background: var(--accent); color: var(--white); font-weight: 700; }
   #h-q { width: 100%; border: 1.5px solid var(--line); border-radius: 0; background: var(--surface); padding: 10px 12px; font: inherit; font-size: 14px; color: var(--ink); margin: 10px 0 4px; }
   #h-q:focus { outline: none; border-color: var(--accent-dim); }
+  /* แถบยอดรายสัปดาห์แยกตามหมวด — "เราได้กี่บาทต่อสัปดาห์" */
+  .wkbar { display: flex; align-items: center; gap: 9px; width: 100%; background: var(--card, #fff);
+    border: 1px solid var(--line); font: inherit; font-size: 13.5px; font-weight: 700;
+    padding: 12px 13px; margin-bottom: 10px; cursor: pointer; color: var(--ink); text-align: left; }
+  .wkbar span { flex: 1; }
+  .wkbar b { color: var(--gold); font-size: 16px; font-variant-numeric: tabular-nums; }
+  .wkbar i { font-style: normal; color: var(--grey); }
+  .wkpanel { padding-top: 10px; }
+  .wk-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+  .wk-nav button { border: 1px solid var(--line); background: #fff; font: inherit; font-size: 12px;
+    font-weight: 700; color: var(--accent-text); padding: 7px 10px; cursor: pointer; }
+  .wk-nav button:disabled { opacity: .4; }
+  .wk-nav span { flex: 1; text-align: center; font-size: 12px; color: var(--grey); }
+  .wkrow { display: flex; align-items: center; gap: 9px; padding: 9px 2px; border-bottom: 1px solid var(--line); }
+  .wkrow:last-child { border-bottom: 0; }
+  .wkrow .nm { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wkrow .nm small { color: var(--grey); font-weight: 500; margin-left: 5px; }
+  .wkrow b { font-variant-numeric: tabular-nums; font-size: 14.5px; color: var(--accent-text); }
+  .wk-empty { color: var(--grey); font-size: 13px; text-align: center; padding: 12px 0; }
+
   .hj { display: flex; align-items: center; gap: 10px; padding: 11px 2px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
   /* ร้านสั่ง "ไม่ต้องกดให้ยุ่งยากเยอะแยะ" — ปุ่มเงิน/ใบเสร็จอยู่บนแถวเลย
      กดทีเดียวจบ ไม่ต้องเปิดแผ่นปุ่มอีกชั้น (แตะตัวแถว = เข้าหน้าแก้ไขตรง ๆ) */
@@ -421,6 +441,21 @@
     <div class="hstat">
       <div class="box got"><span>เงินเข้าวันนี้</span><b id="h-got">—</b></div>
       <div class="box owe"><span>รอเก็บทั้งหมด</span><b id="h-owe">—</b></div>
+    </div>
+
+    <!-- ร้านถาม "ถ้าเราแยกงานแค่ชื่องาน เพื่อดูว่าเราได้กี่บาทต่อสัปดาห์" —
+         แถบเดียวใต้ตัวเลขหลัก แตะแล้วกางสัปดาห์นี้แยกตามหมวดงาน เลื่อนดู
+         สัปดาห์ก่อน ๆ ได้ เงินใช้กติกาใบลงบัญชีชุดเดิม ไม่คิดใหม่ -->
+    <button type="button" class="wkbar" id="wk-open">
+      <span>📊 สัปดาห์นี้แยกตามงาน</span><b id="wk-sum">—</b><i aria-hidden="true">›</i>
+    </button>
+    <div class="card wkpanel" id="wk-panel" hidden>
+      <div class="wk-nav">
+        <button type="button" id="wk-prev">‹ สัปดาห์ก่อน</button>
+        <span id="wk-range"></span>
+        <button type="button" id="wk-next" disabled>ถัดไป ›</button>
+      </div>
+      <div id="wk-list"></div>
     </div>
     <div class="card mascot-foot">
       <div class="seg" id="h-seg">
@@ -1758,8 +1793,58 @@ async function loadHome() {
   $('h-got').textContent = led ? thb(led.total) : '—';
   $('h-owe').textContent = led ? thb(led.carry?.owed || 0) : '—';
   paintHome();
+  if (!weekLoaded) { weekLoaded = true; loadWeek().catch(() => {}); }
   startHomeLive();
 }
+
+/* ยอดต่อสัปดาห์แยกตามหมวดงาน — ร้านถาม "เราได้กี่บาทต่อสัปดาห์"
+ * เลขจาก /report/week (กติกาใบลงบัญชีชุดเดิม) โหลดพังขีดไว้ ไม่เดาเงิน */
+let weekLoaded = false;
+let wkStart = null;      // วันจันทร์ของสัปดาห์ที่ดูอยู่ (null = ให้หลังบ้านคิดสัปดาห์นี้)
+let wkThisWeek = null;   // วันจันทร์ของสัปดาห์ปัจจุบัน ไว้กันเลื่อนไปอนาคต
+const wkShift = (iso, n) => {
+  const d = new Date(iso + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+async function loadWeek() {
+  try {
+    const wk = await api('/report/week' + (wkStart ? '?start=' + wkStart : ''));
+    wkStart = wk.start;
+    if (!wkThisWeek) wkThisWeek = wk.start;
+    const current = wkStart === wkThisWeek;
+    $('wk-sum').textContent = thb(wk.total);
+    $('wk-range').textContent = (current ? 'สัปดาห์นี้ · ' : '') + shortThaiDate(wk.start) + ' – ' + shortThaiDate(wk.end);
+    $('wk-next').disabled = current;
+
+    const list = $('wk-list');
+    list.textContent = '';
+    if (!wk.groups.length) {
+      list.innerHTML = '<div class="wk-empty">สัปดาห์นี้ยังไม่มีเงินเข้าค่ะ</div>';
+      return;
+    }
+    for (const g of wk.groups) {
+      const row = document.createElement('div');
+      row.className = 'wkrow';
+      row.innerHTML = '<span class="nm"></span><b></b>';
+      row.querySelector('.nm').innerHTML = '<small></small>';
+      row.querySelector('.nm').prepend(document.createTextNode(`${g.icon ? g.icon + ' ' : ''}${g.label}`));
+      row.querySelector('small').textContent = `${g.jobCount} งาน`;
+      row.querySelector('b').textContent = thb(g.total);
+      list.appendChild(row);
+    }
+  } catch (err) {
+    $('wk-sum').textContent = '—';
+    $('wk-list').innerHTML = '<div class="wk-empty">โหลดสรุปสัปดาห์ไม่สำเร็จค่ะ</div>';
+  }
+}
+$('wk-open').onclick = () => {
+  const p = $('wk-panel');
+  p.hidden = !p.hidden;
+  if (!p.hidden) loadWeek().catch(() => {});
+};
+$('wk-prev').onclick = () => { if (wkStart) { wkStart = wkShift(wkStart, -7); loadWeek().catch(() => {}); } };
+$('wk-next').onclick = () => { if (wkStart) { wkStart = wkShift(wkStart, 7); loadWeek().catch(() => {}); } };
 
 /* เรียลไทม์แบบไม่ต้องกดรีเฟรช (ร้านขอ "ระบบอัพเดตเรียลไทม์") — จดจากไลน์
  * หรืออีกเครื่องแล้วจอที่เปิดค้างไว้ตามเอง: ดึงข้อมูลใหม่ทุก 15 วินาที

@@ -1,6 +1,6 @@
 import { round2 } from './currency.js';
 import { customerKind } from './customerKind.js';
-import { jobOwed } from './customerBook.js';
+import { jobOwed, groupOf } from './customerBook.js';
 
 /* ใบลงบัญชีประจำวัน — เงินที่ "รับมาจริง" วันนี้ แยกเงินสดกับเงินโอน
  *
@@ -203,5 +203,68 @@ export function moneyToday(jobs = [], dateISO, tz = '+07:00') {
     collected: led.collected,
     bookedToday,
     accountCarry: { jobCount: led.carry.account.jobCount, owed: led.carry.account.owed },
+  };
+}
+
+/* วันจันทร์ของสัปดาห์ที่วันนั้นอยู่ — สัปดาห์ของร้านเริ่มวันจันทร์แบบปฏิทินไทย
+ * คิดบนตัวหนังสือวันที่ล้วน ๆ (ไม่แตะเขตเวลา เพราะ dateISO เป็นวันไทยอยู่แล้ว) */
+export function mondayISO(dateISO) {
+  const d = new Date(`${dateISO}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return dateISO;
+  const dow = d.getUTCDay() || 7; // อาทิตย์ = 7
+  d.setUTCDate(d.getUTCDate() - (dow - 1));
+  return d.toISOString().slice(0, 10);
+}
+
+/* ยอดต่อสัปดาห์ แยกตามหมวดงาน — ร้านถาม "ถ้าเราแยกงานแค่ชื่องาน เพื่อดูว่า
+ * เราได้กี่บาทต่อสัปดาห์"
+ *
+ * เงินเข้าใช้กติกาเดียวกับใบลงบัญชีเป๊ะ: งานที่รับเงินครบแล้ว นับตามวันที่เงิน
+ * เข้ามือจริง (receivedDate) — แค่กวาดทั้ง 7 วันของสัปดาห์ แล้วจัดกองตามหมวด
+ * ของงาน (ชุดเดียวกับสมุดลูกค้า/ใบจด) ไม่มีการคิดเงินสูตรใหม่ (V2 §4)
+ */
+export function buildWeekByGroup(jobs = [], startISO, tz = '+07:00') {
+  const days = [];
+  const base = new Date(`${startISO}T00:00:00Z`);
+  for (let i = 0; i < 7; i += 1) {
+    days.push(new Date(base.getTime() + i * 86_400_000).toISOString().slice(0, 10));
+  }
+  const want = new Set(days);
+
+  const groups = new Map();
+  let total = 0;
+  let jobCount = 0;
+
+  for (const job of jobs) {
+    if (!job || job.status === 'cancelled') continue;
+    if (jobOwed(job) > 0) continue; // ยังค้าง = ยังไม่ใช่รายรับ (กติกาใบลงบัญชี)
+    const got = receivedDate(job, tz);
+    if (!got || !want.has(got)) continue;
+
+    const g = groupOf(job);
+    const bucket = groups.get(g.id) || {
+      id: g.id,
+      label: g.label,
+      icon: g.icon || '',
+      color: g.color || null,
+      jobCount: 0,
+      total: 0,
+    };
+    const amount = round2(Number(job.total) || 0);
+    bucket.jobCount += 1;
+    bucket.total = round2(bucket.total + amount);
+    groups.set(g.id, bucket);
+    total = round2(total + amount);
+    jobCount += 1;
+  }
+
+  return {
+    start: days[0],
+    end: days[6],
+    days,
+    total,
+    jobCount,
+    // หมวดที่ทำเงินมากสุดอยู่บน — คำถามของร้านคือ "ได้กี่บาท" ไม่ใช่เรียงชื่อ
+    groups: [...groups.values()].sort((a, b) => b.total - a.total),
   };
 }

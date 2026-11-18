@@ -61,8 +61,9 @@ function jobMoment(job) {
   return job?.created_at || (job?.job_date ? `${job.job_date}T00:00:00+07:00` : '');
 }
 
-function groupOf(job) {
-  // หมวดของร้านนั้น ๆ (ร้านเปลี่ยนชื่อ/เพิ่มหมวดเองได้) — งานพก user_id มาให้หาชุดของเจ้าของเอง
+// หมวดของร้านนั้น ๆ (ร้านเปลี่ยนชื่อ/เพิ่มหมวดเองได้) — งานพก user_id มาให้หาชุดของเจ้าของเอง
+// export ให้สรุปรายสัปดาห์ใช้หมวดชุดเดียวกับสมุดลูกค้าเป๊ะ
+export function groupOf(job) {
   return findGroup(job?.category, job?.user_id) || taxonomyOf(job?.user_id).other;
 }
 
