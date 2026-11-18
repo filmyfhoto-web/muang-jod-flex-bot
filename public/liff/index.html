@@ -1739,7 +1739,23 @@ async function loadHome() {
   $('h-got').textContent = led ? thb(led.total) : '—';
   $('h-owe').textContent = led ? thb(led.carry?.owed || 0) : '—';
   paintHome();
+  startHomeLive();
 }
+
+/* เรียลไทม์แบบไม่ต้องกดรีเฟรช (ร้านขอ "ระบบอัพเดตเรียลไทม์") — จดจากไลน์
+ * หรืออีกเครื่องแล้วจอที่เปิดค้างไว้ตามเอง: ดึงข้อมูลใหม่ทุก 15 วินาที
+ * เฉพาะตอนแท็บนี้มองเห็นและยังอยู่หน้า งาน & เงิน และดึงทันทีเมื่อสลับ
+ * หน้าต่างกลับมา — ไม่แตะตอนอยู่หน้าอื่น/พับจอ จะได้ไม่เปลืองเครื่องเปลืองเน็ต */
+let homeLive = null;
+function startHomeLive() {
+  if (homeLive) return;
+  homeLive = setInterval(() => {
+    if (!document.hidden && tab === 'home') loadHome().catch(() => { /* เน็ตสะดุดรอบหน้าเอาใหม่ */ });
+  }, 15000);
+}
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && tab === 'home') loadHome().catch(() => { /* เหมือนกัน */ });
+});
 
 function paintHome() {
   const all = queueJobs || [];
