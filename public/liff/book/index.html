@@ -136,9 +136,35 @@
   .catband span { font-size: 10.5px; color: var(--muted); }
   .catband .sum { font-size: 12px; font-weight: 600; color: var(--ink); }
 
-  .jobrow { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--hair); cursor: pointer; }
-  .jobrow:last-child { border-bottom: 0; }
-  .jobrow .go { flex: 0 0 auto; color: var(--muted); font-size: 17px; line-height: 1; padding-left: 2px; }
+  /* ตารางแบบสมุดกระดาษ — ร้านเห็นเล่มปริ้นแล้วสั่ง "จดในม่วงจดฉันก็อยากได้
+     รายการแบบนี้ แยกเป็นโรงเรียนและวันที่ แยกเป็นงาน": หัวตารางกรม คอลัมน์
+     วันที่ | งาน | ยอด มีเส้นแบ่งช่องเหมือนในเล่ม งานละแถว เรียงตามวันที่ */
+  .lhead { display: grid; grid-template-columns: 26px 46px 1fr 76px; gap: 10px;
+    background: var(--navy); color: #fff; font-size: 10.5px; font-weight: 600;
+    padding: 7px 13px; margin: 4px -13px 0; }
+  .lhead span:last-child { text-align: right; }
+  .jobrow { display: grid; grid-template-columns: 26px 46px 1fr 76px; align-items: start;
+    gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .jobrow:last-of-type { border-bottom: 0; }
+  .jobrow .date { border-right: 1px solid var(--hair); padding-right: 6px; align-self: stretch; }
+  .jobrow .date b { display: block; font-size: 12px; font-weight: 600; line-height: 1.3; }
+  .jobrow .date small { font-size: 10px; color: var(--faint); }
+  .payline { display: flex; flex-wrap: wrap; gap: 3px 6px; margin-top: 4px; font-size: 10.5px; line-height: 1.6; }
+  .payline .pm { color: var(--green); background: var(--green-tint); padding: 0 6px; }
+  .payline .bk { color: var(--red); background: var(--red-tint); padding: 0 6px; }
+  .payline .bl { color: var(--blue); background: var(--blue-tint); padding: 0 6px; }
+  .payline .du { color: var(--muted); }
+  .payline .dn2 { color: var(--green); font-weight: 600; }
+  .jobrow .sumcol { text-align: right; border-left: 1px solid var(--hair); padding-left: 8px; align-self: stretch; }
+  .jobrow .sumcol b { display: block; font-size: 13.5px; white-space: nowrap; }
+  .jobrow .sumcol span { font-size: 10px; font-weight: 600; white-space: nowrap; }
+  .jobrow .sumcol .owe2 { color: var(--red); }
+  .jobrow .sumcol .ok2 { color: var(--green); font-weight: 500; }
+  .acc-totals { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 14px;
+    border: 2px solid var(--gold); margin: 10px -2px 2px; padding: 8px 11px; }
+  .acc-totals > b { font-size: 12.5px; color: #C85F12; }
+  .acc-totals span { font-size: 11px; color: var(--muted); }
+  .acc-totals span b { font-size: 12.5px; color: var(--ink); }
   .tick {
     width: 26px; height: 26px; flex-shrink: 0; border-radius: 0; padding: 0;
     display: flex; align-items: center; justify-content: center;
@@ -320,6 +346,19 @@ let mode = 'merge';
 const picked = new Set();
 
 const baht = (n) => '฿' + Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
+// วันที่แบบในเล่ม: "12 พ.ย." (+ ปีตัวเล็กเมื่อเป็นคนละปีกับตอนนี้)
+function thDate(iso) {
+  if (!iso) return '';
+  const d = new Date(String(iso).slice(0, 10) + 'T00:00:00');
+  if (Number.isNaN(d.getTime())) return String(iso);
+  return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+}
+function thYear(iso) {
+  if (!iso) return '';
+  const d = new Date(String(iso).slice(0, 10) + 'T00:00:00');
+  if (Number.isNaN(d.getTime()) || d.getFullYear() === new Date().getFullYear()) return '';
+  return String(d.getFullYear() + 543).slice(-2);
+}
 
 let toastTimer = 0;
 function toast(msg, bad = false) {
@@ -488,6 +527,12 @@ function renderAccount() {
   card.className = 'card';
   let shown = 0;
 
+  // หัวตารางแบบสมุดกระดาษ — คอลัมน์เดียวกับเล่มปริ้น
+  const lhead = document.createElement('div');
+  lhead.className = 'lhead';
+  lhead.innerHTML = '<span></span><span>วันที่</span><span>งาน / รายละเอียด</span><span>ยอด / ค้าง</span>';
+  card.append(lhead);
+
   /* ลูกค้าหนึ่งเจ้า = ลิสต์เดียว เรียงงานใหม่สุดก่อน ไม่ซอยเป็นกองตามหมวด
    * ("แยกหมวดตามงาน แต่ชื่อลูกค้าคือรวมหมวด") — หมวดยังเห็นอยู่ที่ชิปท้ายแถว
    * และแถบสีซ้ายของแถว ซึ่งเป็นสีประจำหมวดเหมือนเดิม
@@ -520,29 +565,56 @@ function renderAccount() {
         renderAccount();
       };
 
+      // คอลัมน์วันที่ — "แยกเป็นวันที่" เหมือนช่องแรกของเล่ม
+      const date = document.createElement('div');
+      date.className = 'date';
+      date.innerHTML = '<b></b><small></small>';
+      date.querySelector('b').textContent = thDate(j.jobDate) || '—';
+      date.querySelector('small').textContent = thYear(j.jobDate);
+
       const what = document.createElement('div');
       what.className = 'what';
-      what.innerHTML = '<b></b><span></span><span class="cat"></span>';
+      what.innerHTML = '<b></b><span></span><span class="cat"></span><span class="payline"></span>';
       what.querySelector('b').textContent = j.jobName || 'งาน';
-      what.querySelector('span').textContent = [j.jobDate, j.jobNumber].filter(Boolean).join(' · ');
+      what.querySelector('span').textContent = j.jobNumber || '';
       what.querySelector('.cat').textContent = `${g.icon || ''} ${g.label}`.trim();
 
-      const tag = document.createElement('span');
-      tag.className = 'tag ' + (j.billed ? 'billed' : j.paid ? 'paid' : 'owe');
-      tag.textContent = j.billed ? 'ออกใบแล้ว' : j.paid ? 'จ่ายแล้ว' : 'ค้าง';
+      /* แถวเงินแบบในเล่ม: จ่ายแล้วเท่าไหร่·ทางไหน (สด/โอน) ค้างเป็นลงบัญชี
+       * นัดรับ และติ๊กเสร็จ — เลขเดียวกับใบลงบัญชี ไม่คำนวณใหม่ */
+      const pay = what.querySelector('.payline');
+      const chip = (cls, text) => {
+        const s = document.createElement('span');
+        s.className = cls;
+        s.textContent = text;
+        pay.append(s);
+      };
+      if (Number(j.paidAmount) > 0) {
+        chip('pm', `จ่ายแล้ว ${baht(j.paidAmount)}` +
+          (j.payMethod === 'cash' ? ' · สด' : j.payMethod === 'transfer' ? ' · โอน' : ''));
+      }
+      if (j.owed > 0) chip('bk', account.kind === 'org' ? 'ลงบัญชีไว้' : 'ยังค้าง');
+      if (j.billed) chip('bl', 'ออกใบแล้ว');
+      if (j.dueDate) chip('du', `นัดรับ ${thDate(j.dueDate)}`);
+      if (j.done) chip('dn2', '✓ เสร็จแล้ว');
 
-      const amt = document.createElement('span');
-      amt.className = 'amt';
-      amt.textContent = baht(j.total);
+      // คอลัมน์ยอดขวา — รวมของงาน + ค้างตัวแดงเหมือนช่อง "ค้าง" ในเล่ม
+      const amt = document.createElement('div');
+      amt.className = 'sumcol';
+      amt.innerHTML = '<b></b><span></span>';
+      amt.querySelector('b').textContent = baht(j.total);
+      const owe = amt.querySelector('span');
+      if (j.owed > 0) {
+        owe.className = 'owe2';
+        owe.textContent = `ค้าง ${baht(j.owed)}`;
+      } else {
+        owe.className = 'ok2';
+        owe.textContent = 'ครบแล้ว';
+      }
 
       /* กดตัวแถว (นอกปุ่มติ๊ก) = เปิดงานใบนั้นในหน้าจัดการงาน — ร้านขอ
        * "กดเข้างานเพื่อไปดูหน้านั้นได้" จะไปแก้/เก็บเงิน/ดูค้างรับของใบนั้นต่อ
        * ปุ่มติ๊กยังเป็นของการเลือกออกใบเหมือนเดิม ไม่ทับกัน
        */
-      const go = document.createElement('span');
-      go.className = 'go';
-      go.setAttribute('aria-hidden', 'true');
-      go.textContent = '›';
       row.setAttribute('role', 'link');
       row.tabIndex = 0;
       row.setAttribute('aria-label', `เปิดงาน ${j.jobName || 'งาน'} ในหน้าจัดการงาน`);
@@ -550,12 +622,23 @@ function renderAccount() {
       row.onclick = (ev) => { if (!tick.contains(ev.target)) open(); };
       row.onkeydown = (ev) => { if (ev.key === 'Enter' && ev.target === row) open(); };
 
-      row.append(tick, what, tag, amt, go);
+      row.append(tick, date, what, amt);
       card.append(row);
     }
   }
 
   if (!shown) card.innerHTML = '<p class="empty">ไม่พบงานที่ค้นค่ะ</p>';
+  else {
+    // แถบ "รวมของเจ้านี้" ท้ายตาราง — ช่องเดียวกับเล่มปริ้น เลขจากหลังบ้านชุดเดียว
+    const tot = document.createElement('div');
+    tot.className = 'acc-totals';
+    const received = account.received ?? Math.max(Number(account.total || 0) - Number(account.owed || 0), 0);
+    tot.innerHTML = '<b>รวมของเจ้านี้</b>' +
+      `<span>ค่างานรวม <b>${baht(account.total)}</b></span>` +
+      `<span>รับแล้ว <b style="color:var(--green)">${baht(received)}</b></span>` +
+      `<span>${account.kind === 'org' ? 'ลงบัญชี / ค้าง' : 'ยังค้าง'} <b style="color:var(--red)">${baht(account.owed)}</b></span>`;
+    card.append(tot);
+  }
   list.append(card);
 
   renderPicker();

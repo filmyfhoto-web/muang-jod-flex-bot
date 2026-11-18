@@ -200,6 +200,13 @@ export function buildAccount(jobs = [], key = '', orgsInput = null) {
       jobDate: job.job_date || null,
       total: jobTotal,
       owed: jobDue,
+      /* ช่องแบบสมุดกระดาษ — ร้านดูเล่มปริ้นแล้วขอ "จดในม่วงจดฉันก็อยากได้
+       * รายการแบบนี้": จ่ายแล้วเท่าไหร่ (ยอดเดียวกับที่ใบลงบัญชีใช้ ไม่เดาใหม่)
+       * ทางไหน นัดรับเมื่อไหร่ เสร็จหรือยัง */
+      paidAmount: round2(Math.max(jobTotal - jobDue, 0)),
+      payMethod: job.pay_method || null,
+      dueDate: job.due_date || null,
+      done: job.status === 'done',
       // ออกบิลไปแล้วก็เลือกซ้ำไม่ได้ — ใบเดียวกันไปโผล่สองบิลไม่ได้
       billed: Boolean(job.bill_id),
       paid: jobDue === 0,
@@ -222,6 +229,8 @@ export function buildAccount(jobs = [], key = '', orgsInput = null) {
     jobCount: mine.length,
     total,
     owed,
+    // แถบ "รวมของเจ้านี้" ท้ายตาราง — รับแล้ว = รวม − ค้าง เลขชุดเดียวกัน
+    received: round2(Math.max(total - owed, 0)),
     lastAt,
     groups: [...groups.values()].sort((a, b) => b.total - a.total),
   };

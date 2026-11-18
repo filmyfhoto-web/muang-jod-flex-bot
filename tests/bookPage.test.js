@@ -136,3 +136,21 @@ test('งานที่ออกบิลไปแล้ว ติ๊กเล�
   // และตั้งต้นไม่ติ๊กให้ด้วย
   assert.match(book, /if \(!j\.billed && !j\.paid\) picked\.add\(j\.id\)/);
 });
+
+/* ร้านเห็นเล่มสมุดปริ้นแล้วสั่ง: "จดในม่วงจดฉันก็อยากได้รายการแบบนี้ ทำในระบบ
+ * แยกเป็นโรงเรียนและวันที่ แยกเป็นงาน ฉันว่ามันเข้าใจง่ายกว่า" — บัญชีรายเจ้า
+ * จึงเป็นตารางแบบหน้าสมุด: หัวตาราง วันที่|งาน|ยอด คอลัมน์วันที่ของตัวเอง
+ * แถวเงิน สด/โอน/ลงบัญชี นัดรับ ✓เสร็จ และแถบรวมของเจ้านี้ท้ายตาราง
+ */
+test('บัญชีรายเจ้าเป็นตารางแบบหน้าสมุดปริ้น', () => {
+  assert.match(book, /<span>วันที่<\/span><span>งาน \/ รายละเอียด<\/span><span>ยอด \/ ค้าง<\/span>/);
+  assert.match(book, /thDate\(j\.jobDate\)/);
+  assert.match(book, /จ่ายแล้ว \$\{baht\(j\.paidAmount\)\}/);
+  assert.match(book, /j\.payMethod === 'cash' \? ' · สด' : j\.payMethod === 'transfer' \? ' · โอน'/);
+  assert.match(book, /account\.kind === 'org' \? 'ลงบัญชีไว้' : 'ยังค้าง'/);
+  assert.match(book, /นัดรับ \$\{thDate\(j\.dueDate\)\}/);
+  assert.match(book, /✓ เสร็จแล้ว/);
+  assert.match(book, /รวมของเจ้านี้/);
+  // รับแล้ว = รวม − ค้าง แม้หลังบ้านรุ่นเก่ายังไม่ส่ง received มาก็ยังขึ้นถูก
+  assert.match(book, /account\.received \?\? Math\.max\(Number\(account\.total \|\| 0\) - Number\(account\.owed \|\| 0\), 0\)/);
+});

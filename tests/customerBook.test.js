@@ -128,3 +128,36 @@ test('งานหน่วยงานที่ไม่ได้ใส่ช�
   assert.equal(book.walkins.length, 1);
   assert.ok(!JSON.stringify(book).includes(UNNAMED_ACCOUNT));
 });
+
+/* ร้านเห็นเล่มสมุดปริ้นแล้วสั่ง: "จดในม่วงจดฉันก็อยากได้รายการแบบนี้ ทำในระบบ
+ * แยกเป็นโรงเรียนและวันที่ แยกเป็นงาน" — บัญชีรายเจ้าจึงส่งช่องแบบสมุดกระดาษ:
+ * จ่ายแล้วเท่าไหร่ ทางไหน นัดรับเมื่อไหร่ เสร็จหรือยัง + ยอดรับแล้วของทั้งเจ้า
+ */
+test('บัญชีรายเจ้ามีช่องแบบสมุดกระดาษ: จ่ายแล้ว/ทาง/นัดรับ/เสร็จ และรวมของเจ้านี้', () => {
+  const jobs = [
+    { id: 'p1', customer_name: 'รร.สบกอน', category: 'sign', job_name: 'ป้ายไวนิล', job_date: '2026-11-02',
+      total: 1500, paid_amount: 500, balance_due: 1000, pay_method: 'cash', due_date: '2026-11-15',
+      status: 'done', created_at: '2026-11-02T09:00:00Z' },
+    { id: 'p2', customer_name: 'รร.สบกอน', category: 'stamp', job_name: 'ตรายาง', job_date: '2026-11-03',
+      total: 400, paid_amount: 0, balance_due: 400, created_at: '2026-11-03T09:00:00Z' },
+  ];
+  const account = buildAccount(jobs, accountKey('รร.สบกอน'));
+  const all = account.groups.flatMap((g) => g.jobs);
+
+  const p1 = all.find((j) => j.id === 'p1');
+  // ยอดจ่ายแล้ว = รวม − ค้าง (เลขชุดเดียวกับใบลงบัญชี ไม่คำนวณเงินขึ้นใหม่)
+  assert.equal(p1.paidAmount, 500);
+  assert.equal(p1.payMethod, 'cash');
+  assert.equal(p1.dueDate, '2026-11-15');
+  assert.equal(p1.done, true);
+
+  const p2 = all.find((j) => j.id === 'p2');
+  assert.equal(p2.paidAmount, 0);
+  assert.equal(p2.payMethod, null);
+  assert.equal(p2.done, false);
+
+  // แถบ "รวมของเจ้านี้": ค่างานรวม 1900 รับแล้ว 500 ลงบัญชี/ค้าง 1400
+  assert.equal(account.total, 1900);
+  assert.equal(account.received, 500);
+  assert.equal(account.owed, 1400);
+});
