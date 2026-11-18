@@ -23,6 +23,8 @@ export const migration007 = () => file('migrations/007_sale_thread_assignee.sql'
 export const reverse007 = () => file('migrations/007_sale_thread_assignee.reverse.sql');
 export const migration008 = () => file('migrations/008_sale_thread_autolink.sql');
 export const reverse008 = () => file('migrations/008_sale_thread_autolink.reverse.sql');
+export const migration010 = () => file('migrations/010_line_webhook_log.sql');
+export const reverse010 = () => file('migrations/010_line_webhook_log.reverse.sql');
 
 export const PRODUCTION_EXTRAS = `
 alter table public.schools add column if not exists price_special boolean not null default false;
@@ -105,7 +107,7 @@ alter default privileges in schema public grant execute on functions to anon, au
 // tags: true also applies 006 (sale_threads.tag — 005 touches sale_orders only, so this does not depend on it).
 // assignee: true also applies 007 (sale_threads.assignee — independent of 005/006 too).
 // autolink: true also applies 008 (sale_thread_autolink_customer — its body reads sale_line_links, so pass line: true alongside it).
-export async function openSaleDb({ migrate = true, line = false, cards = false, account = false, tags = false, assignee = false, autolink = false } = {}) {
+export async function openSaleDb({ migrate = true, line = false, cards = false, account = false, tags = false, assignee = false, autolink = false, webhook = false } = {}) {
   const db = new PGlite();
   await db.exec(file('fixtures/shop-schema.sql'));
   await db.exec(PRODUCTION_EXTRAS);
@@ -116,6 +118,7 @@ export async function openSaleDb({ migrate = true, line = false, cards = false, 
   if (migrate && tags) await db.exec(migration006());
   if (migrate && assignee) await db.exec(migration007());
   if (migrate && autolink) await db.exec(migration008());
+  if (migrate && webhook) await db.exec(migration010());
   return db;
 }
 

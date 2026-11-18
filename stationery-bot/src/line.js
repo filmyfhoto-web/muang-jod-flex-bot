@@ -8,6 +8,10 @@ export function verifySignature(rawBody, signature, secret) {
   return given.length === expected.length && crypto.timingSafeEqual(given, expected);
 }
 
+export function signatureFor(rawBody, secret) {
+  return crypto.createHmac('sha256', secret).update(rawBody).digest('base64');
+}
+
 export async function replyMessage(replyToken, messages, token) {
   const res = await fetch('https://api.line.me/v2/bot/message/reply', {
     method: 'POST',

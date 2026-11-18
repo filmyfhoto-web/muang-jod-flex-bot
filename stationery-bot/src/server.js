@@ -2,7 +2,7 @@ import 'node:process';
 import express from 'express';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { verifySignature, replyMessage, pushMessage, pushWithRetryKey, getProfile, getProfileCached, getBotUserId, getMessageContent, getQuota, quotaText, chatLink, describeEvent } from './line.js';
+import { verifySignature, replyMessage, pushMessage, pushWithRetryKey, getProfile, getProfileCached, getBotUserId, getMessageContent, getQuota, quotaText, chatLink, describeEvent, signatureFor } from './line.js';
 import { buildReply, welcomeMessage, withSender, iconUrlFor, thanksReply, quick } from './replies.js';
 import { contactCard, pickListCard } from './flex.js';
 import { isThanksSticker, isThanks, isMenuTap, normalize, matchIntent } from './matcher.js';
@@ -32,6 +32,7 @@ import { createAssistStage } from './assist-stage.js';
 import { createSaleChat } from './salechat/index.js';
 import { saleChatFromEnv, saleChatDb } from './salechat/config.js';
 import { forCustomer, setBotSentHook } from './botcontext.js';
+import { webhookLogFor } from './webhooklog.js';
 
 const token =(process.env.LINE_CHANNEL_ACCESS_TOKEN ?? '').trim();
 const secret = (process.env.LINE_CHANNEL_SECRET ?? '').trim();
@@ -56,6 +57,7 @@ let channelRegistry = null;
 // the LINE bridge of the back office's "แชตและออเดอร์" page (salechat/): customer messages → its chats, staff replies → LINE.
 // null = no database key · it records and sends nothing unless shop.json saleChat.mode / SALECHAT_MODE is pilot or on
 let saleChat = null;
+let webhookLog = null; // WEBHOOK_LOG_MODE=on (migration 010): each LINE event is written down first · null = off
 const appMenuOn = () => Boolean(appFlow?.status().menu); // the app's menu card greets every first message of a visit
 
 const shopFile = process.env.SHOP_FILE || fileURLToPath(new URL('../data/shop.json', import.meta.url)); // SHOP_FILE: tests point it at their own copy
@@ -120,35 +122,82 @@ app.get('/health', async (_req, res) => {
   } catch {
     /* reported by the message handler */
   }
-  res.json({ ok: true, app: state, assist: assist ? 'ready' : 'off', orders, drafts, ...(salechat !== 'off' ? { salechat } : {}), ...(build ? { build } : {}) });
+  res.json({ ok: true, app: state, assist: assist ? 'ready' : 'off', orders, drafts, ...(salechat !== 'off' ? { salechat } : {}), ...(webhookLog ? { webhook: 'logged' } : {}), ...(build ? { build } : {}) });
 });
 
 app.post('/webhook', express.raw({ type: '*/*' }), (req, res) => {
   if (!verifySignature(req.body, req.get('x-line-signature'), secret)) return res.sendStatus(401);
-  res.sendStatus(200); // answer LINE first; replies happen after
-  let events = [];
+  let payload = null;
   try {
-    events = JSON.parse(req.body.toString('utf8')).events ?? [];
+    payload = JSON.parse(req.body.toString('utf8'));
   } catch {
+    /* not JSON: LINE still gets its 200 */
+  }
+  if (!webhookLog) {
+    res.sendStatus(200); // answer LINE first; replies happen after
+    if (payload) dispatchEvents(payload.events ?? [], req.body, req.get('x-line-signature'));
     return;
   }
+  intakeLogged(req, res, payload).catch((e) => {
+    console.error('[webhook]', e.message);
+    if (!res.headersSent) res.sendStatus(500);
+  });
+});
+
+// WEBHOOK_LOG_MODE=on: every event is written down before LINE gets its 200, and an event that was written down before is not handled again.
+async function intakeLogged(req, res, payload) {
+  const events = payload ? payload.events ?? [] : [];
+  let fresh = [];
+  try {
+    fresh = payload ? await webhookLog.receive('main', events) : [];
+  } catch (e) {
+    console.error('[webhook] not written down, LINE will send it again:', e.message);
+    return res.sendStatus(500);
+  }
+  res.sendStatus(200);
+  if (!fresh.length) return;
+  if (fresh.length === events.length) return dispatchEvents(events, req.body, req.get('x-line-signature'), settleLogged);
+  // LINE sent some of these again: only the new ones go on, under a body whose LINE signature still matches
+  const body = Buffer.from(JSON.stringify({ ...payload, events: fresh }));
+  dispatchEvents(fresh, body, signatureFor(body, secret), settleLogged);
+}
+
+function settleLogged(list, error) {
+  const ids = list.map((ev) => ev.webhookEventId).filter(Boolean);
+  webhookLog.settle('main', ids, error).catch((e) => console.error('[webhook] not marked done:', e.message));
+}
+
+// Hands the events to the app (when it is on) or to the bot, one customer at a time; settle(events, error) learns how each job ended.
+function dispatchEvents(events, body, sig, settle = () => {}) {
   for (const ev of events) recordChatEvent('main', ev); // the order drafts take the shop's own OA's messages (silently)
   for (const ev of events) recordSaleChat('main', ev); // …and so does the back office's chat page (silently, in its own queue)
   if (appFlow) {
     // The app's features answer first; what they do not answer comes back to runOthers (below) one event at a time.
     for (const ev of events) console.log(describeEvent(ev));
     const who = events.find((e) => e.source?.userId)?.source.userId;
-    const job = () => forCustomer(events.length === 1 ? who : undefined, () => appFlow.handle(req.body.toString('utf8'), req.get('x-line-signature'), events));
-    (who ? serial.run(who, job) : job()).catch((e) => console.error('[app]', e.message));
+    const job = () => forCustomer(events.length === 1 ? who : undefined, () => appFlow.handle(body.toString('utf8'), sig, events));
+    (who ? serial.run(who, job) : job()).then(
+      () => settle(events, null),
+      (e) => {
+        console.error('[app]', e.message);
+        settle(events, e);
+      },
+    );
     return;
   }
   for (const ev of events) {
     console.log(describeEvent(ev)); // even while paused
     const who = ev.source?.userId;
     const job = () => forCustomer(who, () => handleEvent(ev)); // the bot's answers to this customer are reported to their chat
-    (who ? serial.run(who, job) : job()).catch((e) => console.error('[event]', e.message));
+    (who ? serial.run(who, job) : job()).then(
+      () => settle([ev], null),
+      (e) => {
+        console.error('[event]', e.message);
+        settle([ev], e);
+      },
+    );
   }
-});
+}
 
 // Another LINE official account (line_channels): its own webhook, verified with its own secret. Its messages go to the drafts
 // and are never answered — the customer gets nothing from the bot there.
@@ -798,6 +847,13 @@ if (saleDb) {
     console.error('[salechat] failed to start, the page gets nothing from LINE:', e.message); // never stops the bot itself from starting
     saleChat = null;
   }
+}
+
+// WEBHOOK_LOG_MODE=on: each LINE event is written down (migration 010) before LINE is answered, and an event LINE sends again is not handled twice.
+// It uses the bridge's database key; with no key, or with the switch off, nothing changes.
+if (String(process.env.WEBHOOK_LOG_MODE ?? '').trim() === 'on') {
+  if (saleDb) webhookLog = webhookLogFor({ url: saleDb.url, key: saleDb.key });
+  else console.error('[webhook] WEBHOOK_LOG_MODE=on but there is no database key (SALECHAT_ / CHATDRAFTS_ / SUPABASE_): events are not written down');
 }
 
 // the bot's own answers to a customer are shown in that customer's chat (the sale chat records them; it does nothing while the bridge is off)
