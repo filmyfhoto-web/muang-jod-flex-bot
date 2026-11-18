@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#f5f6f8" />
+<title>ม่วงจดให้ — สมุดเขียนมือ</title>
+<link rel="manifest" href="/app/manifest.webmanifest" />
+<link rel="apple-touch-icon" href="/brand/ui/app-192.png" />
+<style>
+  /* สมุดเขียนมือ — ร้านขอ "ฉันอยากสร้างสมุดจดแบบเขียนมือด้วยค่ะ"
+     หน้ากระดาษเปล่าให้เขียนด้วยนิ้ว/ปากกาบนจอ (สเก็ตช์แบบป้าย ขีดขนาด จดเบอร์)
+     เขียนเสร็จกด เก็บเข้าเล่ม → เป็นรูปหนึ่งหน้า เปิดดูย้อนหลัง/ฉีกทิ้งได้
+     โทนเดียวกับทั้งแอป: ขาว กรม ส้ม เหลี่ยมทั้งแผง คอลัมน์มือถือทุกขนาดจอ */
+  :root {
+    color-scheme: light;
+    --accent: #35486E; --accent-text: #2F5A8A; --gold: #EE7B2F; --gold-2: #C85F12;
+    --bg: #EFF1F5; --card: #fff; --tint: #E8ECF5; --line: #E2E6EE;
+    --ink: #1F2B45; --sub: #5E6E8C; --grey: #7E8CA3;
+    --green: #2E7D5B; --red: #B3402F;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-size: 15px; line-height: 1.5;
+    font-family: -apple-system, 'SF Pro Text', 'Thonburi', BlinkMacSystemFont, 'Noto Sans Thai', 'Sarabun', 'Segoe UI', sans-serif;
+    padding-bottom: calc(174px + var(--safe-bottom)); }
+  main { max-width: 430px; margin: 0 auto; padding: 0 12px; }
+  .bar { display: flex; align-items: center; gap: 10px; padding: 14px 12px 10px; max-width: 430px; margin: 0 auto; }
+  .bar img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; background: var(--tint); }
+  .bar h1 { margin: 0; font-size: 16.5px; }
+  .bar p { margin: 0; font-size: 11.5px; color: var(--grey); }
+
+  .card { background: var(--card); border: 1px solid var(--line); padding: 13px 14px; margin-bottom: 11px; }
+  .card h2 { margin: 0 0 9px; font-size: 13.5px; color: var(--sub); font-weight: 700; }
+
+  /* กระดาษ — สูงพอดีหน้าต่าง (เหลือที่ให้แถบเครื่องมือกับแถบแอป) เขียนแล้วจอไม่เลื่อน */
+  .paperwrap { background: var(--card); border: 1px solid var(--line); padding: 6px; margin-bottom: 11px; }
+  #paper { display: block; width: 100%; background: #fff; border: 1.5px solid var(--line);
+    touch-action: none; cursor: crosshair; }
+
+  /* แถบเครื่องมือ ตรึงเหนือแถบแอป — ปากกาอยู่ใต้หัวแม่มือตลอดเวลาที่เขียน */
+  .tools { position: fixed; left: 0; right: 0; bottom: calc(52px + var(--safe-bottom)); z-index: 30;
+    background: color-mix(in srgb, #fff 94%, transparent); backdrop-filter: blur(12px);
+    border-top: 1px solid var(--line);
+    padding: 8px max(12px, calc((100% - 430px) / 2)) 9px; }
+  .trow { display: flex; align-items: center; gap: 8px; max-width: 430px; margin: 0 auto; }
+  .trow + .trow { margin-top: 8px; }
+
+  .pen { width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; background: var(--c);
+    cursor: pointer; padding: 0; flex: none; }
+  .pen[aria-pressed="true"] { border-color: var(--gold); box-shadow: 0 0 0 2px #fff inset; }
+  #eraser { width: 36px; height: 32px; border: 1.5px solid var(--line); background: var(--card);
+    font-size: 16px; cursor: pointer; padding: 0; flex: none; }
+  #eraser[aria-pressed="true"] { border-color: var(--gold); background: #FDEBDD; }
+  .gap { flex: 1; }
+  .size { width: 32px; height: 32px; border: 1.5px solid var(--line); background: var(--card);
+    cursor: pointer; padding: 0; flex: none; display: grid; place-items: center; }
+  .size i { display: block; border-radius: 50%; background: var(--ink); }
+  .size[data-w="3"] i { width: 4px; height: 4px; }
+  .size[data-w="6"] i { width: 8px; height: 8px; }
+  .size[data-w="12"] i { width: 14px; height: 14px; }
+  .size[aria-pressed="true"] { border-color: var(--gold); background: #FDEBDD; }
+
+  .tbtn { border: 1.5px solid var(--line); background: var(--card); color: var(--ink); font: inherit;
+    font-weight: 700; font-size: 13.5px; padding: 10px 6px; cursor: pointer; flex: 1; }
+  .tbtn:disabled { opacity: .45; }
+  #save { border: 0; background: var(--gold); color: #fff; flex: 1.6; }
+
+  /* เล่มที่เก็บไว้ — หน้าใหม่อยู่หน้าสุด แตะดูเต็มหน้า */
+  .shelf { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .page-th { border: 1.5px solid var(--line); background: #fff; padding: 0; cursor: pointer; }
+  .page-th img { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; }
+  .page-th span { display: block; font-size: 10.5px; color: var(--grey); padding: 3px 4px; text-align: center; }
+  .shelf-note { color: var(--grey); font-size: 13px; grid-column: 1 / -1; }
+
+  /* เปิดดูเต็มหน้า */
+  .viewer { position: fixed; inset: 0; z-index: 60; background: rgba(31, 43, 69, .93);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; }
+  .viewer img { max-width: min(94vw, 430px); max-height: 62vh; background: #fff; border: 4px solid #fff; }
+  .viewer p { margin: 0; color: #fff; font-size: 13px; opacity: .85; }
+  .vbtns { display: flex; gap: 8px; width: min(94vw, 430px); }
+  .vbtns button { flex: 1; border: 0; font: inherit; font-weight: 700; font-size: 14px; padding: 12px 8px; cursor: pointer; }
+  #v-del { background: var(--red); color: #fff; }
+  #v-close { background: #fff; color: var(--ink); }
+
+  .appbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; gap: 6px; background: var(--accent);
+    padding: 5px max(14px, env(safe-area-inset-left, 0px), calc((100% - 430px) / 2)) calc(5px + var(--safe-bottom)) max(14px, env(safe-area-inset-right, 0px), calc((100% - 430px) / 2)); }
+  .appbar a { flex: 1; text-align: center; color: #fff; opacity: .62; text-decoration: none; font-size: 11px; font-weight: 700; padding: 3px 2px 4px; line-height: 1.2; }
+  .appbar a span { display: block; font-size: 18px; }
+  .appbar a.on { opacity: 1; background: rgba(255, 255, 255, .15); }
+
+  .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(166px + var(--safe-bottom)); z-index: 70;
+    background: var(--ink); color: #fff; font-size: 13.5px; padding: 10px 16px; opacity: 0; pointer-events: none; transition: opacity .2s; max-width: 86vw; }
+  .toast.on { opacity: 1; }
+  .toast.err { background: var(--red); }
+  .fatal { text-align: center; color: var(--sub); padding: 30px 10px; }
+</style>
+</head>
+<body>
+<div class="bar">
+  <img src="/brand/ui/happy.png" alt="" />
+  <div><h1>📒 สมุดเขียนมือ</h1><p id="today">เขียนด้วยนิ้วหรือปากกาได้เลยค่ะ</p></div>
+</div>
+
+<main>
+  <div id="fatal" class="fatal" hidden></div>
+
+  <section id="app" hidden>
+    <div class="paperwrap"><canvas id="paper"></canvas></div>
+
+    <div class="card">
+      <h2>📚 เล่มที่เก็บไว้</h2>
+      <div class="shelf" id="shelf"><div class="shelf-note">กำลังเปิดเล่ม…</div></div>
+    </div>
+  </section>
+</main>
+
+<div class="tools" id="tools" hidden>
+  <div class="trow">
+    <button type="button" class="pen" data-color="#1F2B45" style="--c:#1F2B45" aria-pressed="true" aria-label="ปากกาดำ"></button>
+    <button type="button" class="pen" data-color="#2F5A8A" style="--c:#2F5A8A" aria-pressed="false" aria-label="ปากกาน้ำเงิน"></button>
+    <button type="button" class="pen" data-color="#B3402F" style="--c:#B3402F" aria-pressed="false" aria-label="ปากกาแดง"></button>
+    <button type="button" class="pen" data-color="#EE7B2F" style="--c:#EE7B2F" aria-pressed="false" aria-label="ปากกาส้ม"></button>
+    <button type="button" id="eraser" aria-pressed="false" aria-label="ยางลบ">🧽</button>
+    <span class="gap"></span>
+    <button type="button" class="size" data-w="3" aria-pressed="false" aria-label="เส้นบาง"><i></i></button>
+    <button type="button" class="size" data-w="6" aria-pressed="true" aria-label="เส้นกลาง"><i></i></button>
+    <button type="button" class="size" data-w="12" aria-pressed="false" aria-label="เส้นหนา"><i></i></button>
+  </div>
+  <div class="trow">
+    <button type="button" class="tbtn" id="undo">↩️ ย้อน</button>
+    <button type="button" class="tbtn" id="clear">🗑 ล้าง</button>
+    <button type="button" class="tbtn" id="save">📒 เก็บเข้าเล่ม</button>
+  </div>
+</div>
+
+<div class="viewer" id="viewer" hidden>
+  <img id="v-img" alt="หน้าสมุด" />
+  <p id="v-date"></p>
+  <div class="vbtns">
+    <button type="button" id="v-del">🗑 ฉีกหน้านี้ทิ้ง</button>
+    <button type="button" id="v-close">ปิด</button>
+  </div>
+</div>
+
+<nav class="appbar" aria-label="เมนูหลัก">
+  <a href="/app/jot/"><span>✏️</span>จด</a>
+  <a href="/app/"><span>📋</span>งาน &amp; เงิน</a>
+  <a href="/app/book/"><span>👤</span>ลูกค้า</a>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script>
+const $ = (s, el) => (el || document).querySelector(s);
+let token = null;
+
+function toast(msg, isErr) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.className = 'toast on' + (isErr ? ' err' : '');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => (t.className = 'toast'), 2600);
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch('/api' + path, {
+    ...opts,
+    headers: { Authorization: 'Bearer ' + token, ...(opts.body ? { 'Content-Type': 'application/json' } : {}) },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message || body.error || 'เกิดข้อผิดพลาด');
+  }
+  return res.json();
+}
+
+/* ── กระดาษ ───────────────────────────────────────────────────────────
+ * เก็บเส้นที่ลากไว้เป็นลิสต์ (strokes) แล้ววาดใหม่ได้เสมอ — ปุ่มย้อนแค่ดึง
+ * เส้นสุดท้ายออก ย่อ/ขยายหน้าต่างก็วาดตามได้ ไม่มีอะไรหายจนกว่าจะกดล้างเอง */
+const paper = $('#paper');
+const ctx = paper.getContext('2d');
+let strokes = []; // {color, width, pts: [{x, y}]}
+let drawing = null;
+let penColor = '#1F2B45';
+let penWidth = 6;
+let erasing = false;
+
+// สูงพอดีหน้าต่าง: จากขอบบนกระดาษ ลงไปชนแถบเครื่องมือ (ต่ำสุด 300 กันจอนอนเตี้ย ๆ)
+function fitPaper() {
+  const wrap = paper.parentElement;
+  const w = wrap.clientWidth - 12;
+  const toolsH = $('#tools').offsetHeight || 106;
+  const top = Math.max(0, wrap.getBoundingClientRect().top);
+  const h = Math.max(300, window.innerHeight - top - toolsH - 52 - 18);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  paper.width = Math.round(w * dpr);
+  paper.height = Math.round(h * dpr);
+  paper.style.width = w + 'px';
+  paper.style.height = h + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  repaint();
+}
+
+function repaint() {
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, paper.width, paper.height);
+  ctx.restore();
+  for (const s of strokes) {
+    ctx.strokeStyle = s.color;
+    ctx.fillStyle = s.color;
+    ctx.lineWidth = s.width;
+    if (s.pts.length === 1) {
+      // แตะจุดเดียวก็ต้องติด — จุด ไม่ใช่เส้นยาวศูนย์ที่มองไม่เห็น
+      ctx.beginPath();
+      ctx.arc(s.pts[0].x, s.pts[0].y, s.width / 2, 0, Math.PI * 2);
+      ctx.fill();
+      continue;
+    }
+    ctx.beginPath();
+    ctx.moveTo(s.pts[0].x, s.pts[0].y);
+    for (let i = 1; i < s.pts.length; i++) ctx.lineTo(s.pts[i].x, s.pts[i].y);
+    ctx.stroke();
+  }
+}
+
+function pos(e) {
+  const r = paper.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+
+paper.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  paper.setPointerCapture(e.pointerId);
+  drawing = {
+    color: erasing ? '#FFFFFF' : penColor,
+    width: erasing ? 24 : penWidth,
+    pts: [pos(e)],
+  };
+  strokes.push(drawing);
+  repaint();
+});
+
+paper.addEventListener('pointermove', (e) => {
+  if (!drawing) return;
+  const p = pos(e);
+  const last = drawing.pts[drawing.pts.length - 1];
+  drawing.pts.push(p);
+  // วาดเฉพาะท่อนใหม่ ไม่วาดทั้งหน้าใหม่ทุกขยับ — เขียนแล้วลื่น ไม่หน่วง
+  ctx.strokeStyle = drawing.color;
+  ctx.lineWidth = drawing.width;
+  ctx.beginPath();
+  ctx.moveTo(last.x, last.y);
+  ctx.lineTo(p.x, p.y);
+  ctx.stroke();
+});
+
+const endStroke = () => { drawing = null; };
+paper.addEventListener('pointerup', endStroke);
+paper.addEventListener('pointercancel', endStroke);
+
+/* ── เครื่องมือ ── */
+document.querySelectorAll('.pen').forEach((b) => {
+  b.onclick = () => {
+    penColor = b.dataset.color;
+    erasing = false;
+    $('#eraser').setAttribute('aria-pressed', 'false');
+    document.querySelectorAll('.pen').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  };
+});
+
+$('#eraser').onclick = () => {
+  erasing = !erasing;
+  $('#eraser').setAttribute('aria-pressed', String(erasing));
+  if (erasing) document.querySelectorAll('.pen').forEach((x) => x.setAttribute('aria-pressed', 'false'));
+  else document.querySelector(`.pen[data-color="${penColor}"]`)?.setAttribute('aria-pressed', 'true');
+};
+
+document.querySelectorAll('.size').forEach((b) => {
+  b.onclick = () => {
+    penWidth = Number(b.dataset.w);
+    document.querySelectorAll('.size').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  };
+});
+
+$('#undo').onclick = () => { strokes.pop(); repaint(); };
+
+$('#clear').onclick = () => {
+  if (!strokes.length) return;
+  if (!confirm('ล้างหน้ากระดาษนี้ทิ้งเลยนะคะ?')) return;
+  strokes = [];
+  repaint();
+};
+
+/* ── เก็บเข้าเล่ม ── */
+$('#save').onclick = async () => {
+  if (!strokes.length) return toast('ยังไม่ได้เขียนอะไรเลยค่ะ', true);
+  const btn = $('#save');
+  btn.disabled = true;
+  try {
+    const image = paper.toDataURL('image/png');
+    const { note } = await api('/notes', { method: 'POST', body: JSON.stringify({ image }) });
+    notes.unshift(note);
+    paintShelf();
+    strokes = [];
+    repaint();
+    toast('เก็บหน้าเข้าเล่มแล้วค่ะ 💜');
+  } catch (err) {
+    toast(err.message || 'เก็บหน้าไม่สำเร็จค่ะ', true);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+/* ── เล่ม ── */
+let notes = [];
+let viewing = null;
+
+const thDate = (iso) => new Date(iso).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok' });
+
+function paintShelf() {
+  const shelf = $('#shelf');
+  shelf.textContent = '';
+  if (!notes.length) {
+    shelf.innerHTML = '<div class="shelf-note">ยังไม่มีหน้าในเล่ม — เขียนข้างบนแล้วกด "เก็บเข้าเล่ม" ได้เลยค่ะ</div>';
+    return;
+  }
+  notes.forEach((n) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'page-th';
+    const img = document.createElement('img');
+    img.src = n.url || '';
+    img.alt = 'หน้าสมุด';
+    img.loading = 'lazy';
+    const cap = document.createElement('span');
+    cap.textContent = thDate(n.created_at);
+    b.append(img, cap);
+    b.onclick = () => openViewer(n);
+    shelf.appendChild(b);
+  });
+}
+
+function openViewer(n) {
+  viewing = n;
+  $('#v-img').src = n.url || '';
+  $('#v-date').textContent = 'เขียนเมื่อ ' + new Date(n.created_at).toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Bangkok' });
+  $('#viewer').hidden = false;
+}
+
+$('#v-close').onclick = () => { $('#viewer').hidden = true; viewing = null; };
+
+$('#v-del').onclick = async () => {
+  if (!viewing) return;
+  if (!confirm('ฉีกหน้านี้ออกจากเล่มเลยนะคะ? เอาคืนไม่ได้แล้วนะ')) return;
+  try {
+    await api('/notes/' + viewing.id, { method: 'DELETE' });
+    notes = notes.filter((n) => n.id !== viewing.id);
+    paintShelf();
+    $('#viewer').hidden = true;
+    viewing = null;
+    toast('ฉีกหน้าออกจากเล่มแล้วค่ะ');
+  } catch (err) {
+    toast(err.message || 'ลบไม่สำเร็จค่ะ', true);
+  }
+};
+
+async function loadShelf() {
+  try {
+    const got = await api('/notes');
+    notes = got.notes || [];
+    paintShelf();
+  } catch (err) {
+    $('#shelf').innerHTML = '<div class="shelf-note"></div>';
+    $('.shelf-note').textContent = err.message || 'เปิดเล่มไม่สำเร็จค่ะ';
+  }
+}
+
+window.addEventListener('resize', fitPaper);
+
+(async function start() {
+  $('#today').textContent = 'วันนี้ · ' + new Date().toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok' });
+  try {
+    const cfg = await (await fetch('/api/config')).json();
+    if (!cfg.liffId) throw new Error('ยังไม่ได้ตั้งค่า LIFF_ID ค่ะ');
+    await liff.init({ liffId: cfg.liffId });
+    if (!liff.isLoggedIn()) return liff.login({ redirectUri: location.href });
+    token = liff.getAccessToken();
+    $('#app').hidden = false;
+    $('#tools').hidden = false;
+    fitPaper();
+    await loadShelf();
+  } catch (err) {
+    const f = $('#fatal');
+    f.textContent = (err && err.message) || 'เปิดหน้านี้ไม่สำเร็จค่ะ';
+    f.hidden = false;
+  }
+})();
+</script>
+</body>
+</html>

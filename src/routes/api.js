@@ -44,6 +44,7 @@ import { liffId, liffChannelId } from '../utils/liff.js';
 import { CATEGORY_GROUPS, OTHER_GROUP, BASE_TAXONOMY, findGroup } from '../utils/category.js';
 import { logger, maskUserId } from '../services/logger.js';
 import { getShopProfile, saveShopProfile, SHOP_FIELDS, defaultQrUrl } from '../services/shopService.js';
+import { saveHandNote, listHandNotes, deleteHandNote } from '../services/noteService.js';
 import { getCheckinSettings, saveCheckinSettings } from '../services/checkinService.js';
 import { normalizeSettings, toMinutes, toHHMM, DEFAULT_TZ } from '../utils/checkinSchedule.js';
 import { isAllowed } from '../utils/access.js';
@@ -648,6 +649,45 @@ export function createApiRouter(deps = {}) {
   router.get('/shop/qr', async (req, res, next) => {
     try {
       res.json({ url: await defaultQrUrl(req.profile.id) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /* สมุดเขียนมือ — หน้ากระดาษที่เขียนด้วยนิ้ว/ปากกา เก็บเป็นรูปทีละหน้า
+   * รูปเข้าทางเดียวกับรูปแนบงาน (data URL → decodeDataUrl → ที่เก็บไฟล์เดิม)
+   * ตารางยังไม่ได้รัน migration 024 = บอกตรง ๆ (503) ไม่ใช่เงียบหรือล่ม */
+  router.get('/notes', async (req, res, next) => {
+    try {
+      const got = await listHandNotes(req.profile.id);
+      if (!got.ok) return res.status(got.status).json({ error: 'not_ready', message: got.message });
+      res.json({ notes: got.notes });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post('/notes', async (req, res, next) => {
+    try {
+      const decoded = decodeDataUrl(req.body?.image);
+      if (decoded.error) return res.status(400).json({ error: 'invalid', message: decoded.error });
+      const got = await saveHandNote(req.profile.id, decoded);
+      if (!got.ok) return res.status(got.status).json({ error: 'not_ready', message: got.message });
+      res.status(201).json({ note: got.note });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.delete('/notes/:id', async (req, res, next) => {
+    try {
+      const got = await deleteHandNote(req.profile.id, req.params.id);
+      if (!got.ok) {
+        return res
+          .status(got.status)
+          .json({ error: got.status === 404 ? 'not_found' : 'not_ready', message: got.message });
+      }
+      res.json({ ok: true });
     } catch (err) {
       next(err);
     }
