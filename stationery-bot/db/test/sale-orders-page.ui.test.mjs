@@ -719,3 +719,22 @@ test('a summary sent to a LINE customer waits for a second confirmation each tim
   const sent = await one('select body from sale_msgs where thread_id = $1 and dir = $2 order by created_at desc limit 1', [T(7), 'out']);
   assert.match(sent.body, /สรุปใบสั่งงาน/);
 });
+
+// v16: the chat shows a summary card when the customer's list can be read; its button opens the same review as "สร้างรายการจากแชต" and adds nothing by itself
+const AI_CARD = readFileSync(MODULE, 'utf8').includes('so-ai-n');
+test('the chat shows the summary card when the list can be read; its button opens the review (v16)', AI_CARD ? (CHROMIUM ? {} : skipIt) : { skip: 'needs the v16 preview (the summary card in the chat)' }, async () => {
+  await page.goto(`${shell.url}/?card=${Date.now()}#saleorders`);
+  await page.waitForSelector('#so_tabs .so-tab');
+  await db.query(`insert into sale_msgs (thread_id, dir, kind, body) values ($1, 'in', 'text', $2)`, [T(6), 'รายการที่ต้องการ\n• กระดาษ A4 คละสี 2 รีม\n• ปากกาเจล สีน้ำเงิน 3 โหล']);
+  await page.locator('#so_q').fill('');
+  await page.locator('#so_tabs .so-tab', { hasText: 'ทั้งหมด' }).click();
+  await page.waitForSelector('#so_items .so-row');
+  await openRow('คุณกิตติ');
+  await until(async () => (await chatTitle()) === 'คุณกิตติ', 'the chat');
+  await page.waitForSelector('#so_msgs .so-ai');
+  assert.match(await page.locator('#so_msgs .so-ai-n').innerText(), /^2 รายการที่ตรวจพบ/);
+  await page.locator('#so_msgs [data-a="parsechat"]').click();
+  await page.waitForSelector('#so_modal');
+  await page.waitForSelector('#so_modal input[data-pf="name"]');
+  assert.deepEqual(await page.locator('#so_modal input[data-pf="name"]').evaluateAll((els) => els.map((e) => e.value)), ['กระดาษ A4 คละสี', 'ปากกาเจล สีน้ำเงิน'], 'the review lists what the chat said');
+});

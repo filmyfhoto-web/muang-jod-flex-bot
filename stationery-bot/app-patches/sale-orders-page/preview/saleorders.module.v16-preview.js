@@ -314,6 +314,13 @@
 #so_modal .lstat.wait{background:#FFF4CC;color:#7A5A00}
 #so_modal .lstat.ok{background:#E7F7EE;color:#0F6B3A}
 #so_modal .lstat.bad{background:#FDECEC;color:#B42318}
+#so_root .so-ai{align-self:stretch;border:1px solid #D7E7FC;background:linear-gradient(135deg,#FFFFFF,#F1F7FF);border-radius:17px;padding:14px 16px;box-shadow:0 4px 20px #3869A30B}
+#so_root .so-ai-h{display:flex;align-items:center;gap:10px}
+#so_root .so-ai-ic{flex:0 0 34px;width:34px;height:34px;border-radius:10px;background:#E3EFFF;color:var(--so-blue);display:grid;place-items:center;font-size:16px}
+#so_root .so-ai-t{font-size:13px;font-weight:900;color:var(--so-navy)}
+#so_root .so-ai-d{font-size:11px;color:#7287A0}
+#so_root .so-ai-f{margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+#so_root .so-ai-n{font-size:11.5px;font-weight:800;color:#4B789B}
 @media (max-width:900px){
   #so_root{height:auto;min-height:0;display:block}
   #so_root .so-cols{display:flex;flex-direction:column;padding:0;gap:0}
@@ -680,12 +687,20 @@
     const h=$('so_honest');if(h){const x=honestText(t);if(h.textContent!==x)h.textContent=x}
   }
 
+  // การ์ดสรุปรายการจากแชต: แสดงเมื่อใบยังไม่มีรายการ และอ่านรายการจากข้อความลูกค้าได้ — กดแล้วเปิดหน้าตรวจเดียวกับ "สร้างรายการจากแชต" ไม่บันทึกอะไรเอง
+  function aiCardHtml(){
+    if(!S.ord||(S.ord.items&&S.ord.items.length))return ''
+    const txt=S.msgs.filter(m=>m.dir==='in'&&(m.kind||'text')==='text').slice(-20).map(m=>m.body).join('\n')
+    const n=txt?parseLines(txt).length:0
+    if(!n)return ''
+    return `<div class="so-ai"><div class="so-ai-h"><span class="so-ai-ic">✦</span><div><div class="so-ai-t">ระบบสรุปรายการจากแชทให้แล้ว</div><div class="so-ai-d">ไม่ต้องพิมพ์สินค้าใหม่ทีละช่อง</div></div></div><div class="so-ai-f"><span class="so-ai-n">${n} รายการที่ตรวจพบ</span><button type="button" class="so-btn sm sky" data-a="parsechat">ดูรายการและยืนยัน ↗</button></div></div>`
+  }
   function msgsInner(t){
     if(S.msgsLoading)return '<div class="so-empty">กำลังโหลดข้อความ…</div>'
     if(S.errMsgs)return `<div class="so-empty"><b>โหลดข้อความไม่สำเร็จ</b><p>${E(S.errMsgs)}</p><button type="button" class="so-btn" data-a="retrythread">ลองใหม่</button></div>`
     if(!S.msgs.length)return `<div class="so-empty"><b>ยังไม่มีข้อความในแชตนี้</b><p>${isLine(t)?'ข้อความจากลูกค้าทาง LINE จะเข้ามาที่นี่เอง · ':''}บันทึกการคุยด้านล่าง หรือกด "สร้างรายการจากแชต" ในใบสั่งงาน แล้ววางข้อความรายการจากลูกค้า</p></div>`
     let last=''
-    return S.msgs.map(m=>{const d=dSep(m.created_at);const sep=d&&d!==last?`<div class="so-day">${E(d)}</div>`:'';if(d)last=d;return sep+msgHtml(m,t)}).join('')
+    return S.msgs.map(m=>{const d=dSep(m.created_at);const sep=d&&d!==last?`<div class="so-day">${E(d)}</div>`:'';if(d)last=d;return sep+msgHtml(m,t)}).join('')+aiCardHtml()
   }
   // วาดเฉพาะรายการข้อความ (ตอนรีเฟรชอัตโนมัติ): ไม่แตะช่องพิมพ์ และไม่ดึงหน้าลงล่างถ้าพนักงานกำลังเลื่อนอ่านข้อความเก่า
   function paintMsgs(){
