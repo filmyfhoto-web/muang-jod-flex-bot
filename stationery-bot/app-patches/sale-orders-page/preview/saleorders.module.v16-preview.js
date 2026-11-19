@@ -321,10 +321,12 @@
 #so_root .so-ai-d{font-size:11px;color:#7287A0}
 #so_root .so-ai-f{margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 #so_root .so-ai-n{font-size:11.5px;font-weight:800;color:#4B789B}
+#so_root .so-goord{display:none}
+#so_root .so-sub{font-size:11.5px;color:#91A0B0;margin-top:2px}
 @media (max-width:900px){
   #so_root{height:auto;min-height:0;display:block}
   #so_root .so-cols{display:flex;flex-direction:column;padding:0;gap:0}
-  #so_root .so-mtabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:8px 10px;background:#fff;border-bottom:1px solid var(--so-line);flex:0 0 auto}
+  #so_root .so-mtabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--so-line);flex:0 0 auto;order:9;position:sticky;bottom:0;z-index:5}
   #so_root .so-mtabs button{border:0;background:#F4F7FB;border-radius:10px;padding:9px 4px;font:inherit;font-size:13px;color:#6B7587;cursor:pointer;position:relative}
   #so_root .so-mtabs button.on{background:var(--so-navy);color:#fff;font-weight:800}
   #so_root .so-mtabs .dot{position:absolute;top:6px;right:10px;width:8px;height:8px;border-radius:50%;background:#E8832A}
@@ -348,6 +350,7 @@
   #so_root .so-ohd .ttl{font-size:17px}
   #so_root .so-ord .so-flash{margin:8px 14px 0}
   #so_root .so-ch .so-chip.lite{display:none}
+  #so_root .so-goord{display:inline-flex}
   #so_root .so-ch{padding:12px 14px}
   #so_root .so-msgs{padding:14px}
   #so_root .so-tb thead{display:none}
@@ -730,6 +733,7 @@
         <div class="so-chn"><h2>${E(t.title||'ไม่มีชื่อ')}</h2><small>${E(t.phone||'ยังไม่มีเบอร์')} · ${E(src)}${t.assignee?' · '+E(t.assignee):' · ยังไม่มอบหมาย'}</small></div>
         <span id="so_lchip">${lineChip(t)}</span>
         <span class="so-chip" style="--c:${st.c}">${st.t}</span>
+        <button type="button" class="so-btn sm so-goord" data-a="goord">ดูสรุปออเดอร์ ↗</button>
         <button type="button" class="so-ic" data-a="chatmenu" aria-haspopup="true" aria-expanded="${S.chatMenu}" title="จัดการแชต">${ic('gear')}</button>
         ${S.chatMenu?`<div class="so-stgmenu" role="menu">
           <div class="so-mhead">ขั้นตอน</div>
@@ -999,7 +1003,7 @@
     const compact=o.items.map((i,x)=>{const line=r2(r2(num(i.qty))*r2(num(i.unit_price)));return `<div class="so-irow"><span class="no">${x+1}</span><div class="nm"><b>${E(i.name)}</b><small>${E(qtyTxt(i.qty))}${i.unit?' '+E(i.unit):''} × ${money(i.unit_price)} บาท</small></div><span class="sm">${money(line)} บาท</span></div>`}).join('')
     box.innerHTML=`
       <div class="so-ohd">
-        <div><div class="so-kick">AUTO ORDER SUMMARY</div><span class="ttl">${ic('cart',22)} สรุปออเดอร์ลูกค้า</span></div>
+        <div><div class="so-kick">AUTO ORDER SUMMARY</div><span class="ttl">${ic('cart',22)} สรุปออเดอร์ลูกค้า</span><div class="so-sub">ตรวจรายการ แล้วกดส่งยืนยันได้เลย</div></div>
         <span class="so-chip" style="--c:${stColor}">${E(stText)}</span>
       </div>
       ${custCard(t)}
@@ -1850,6 +1854,7 @@
     if(a==='picker'){S.picker=!S.picker;if(!S.picker){S.pick=[];S.pickQ=''}paintPicker();const i=$('so_cq');if(i)i.focus();return}
     if(a==='pickc'){const c=S.pick.find(x=>x.id===el.dataset.id);if(c)newThread(c);return}
     if(a==='picknew'){newThread(null,S.pickQ);return}
+    if(a==='goord'){setMode('order');return}
     if(a==='mmode'){if(el.dataset.k!=='list'&&!S.sel)return;setMode(el.dataset.k);if(el.dataset.k==='chat'){const ms=$('so_msgs');if(ms)ms.scrollTop=ms.scrollHeight}return}
     if(a==='chatattach'){pickFile('so_chatfile',chatAttach);return}
     if(a==='openfile'){openFile(el.dataset.p);return}

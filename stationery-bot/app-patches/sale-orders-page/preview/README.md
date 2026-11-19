@@ -17,7 +17,7 @@
 2. รัน `../upgrade-v14-to-v15.sql` (ข้อความที่ขึ้น: `saleorders: now v15 …`)
 3. รัน `../upgrade-v15-to-v16.sql` (ข้อความที่ขึ้น: `saleorders: now v16 …`)
 4. ตรวจผล: `select md5(code) as md5, enabled, seq from app_modules where name = 'saleorders';`
-   ต้องได้ `74414aaf0715321d5f2dfff8685ff03a`, enabled เป็น `true` และ seq เป็น `66`
+   ต้องได้ `f1c2063ce020ce5c0b5dfadb216663b1`, enabled เป็น `true` และ seq เป็น `66`
 
 ถ้าต้องย้อนกลับ รัน `../downgrade-v16-to-v15.sql` แล้วค่อย `../downgrade-v15-to-v14.sql` แต่ละไฟล์ทำงานเฉพาะเมื่อโค้ดตรงกับรุ่นที่คาดไว้ และไม่ทับโค้ดที่ถูกแก้ไขไว้
 
