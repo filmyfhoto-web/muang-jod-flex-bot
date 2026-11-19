@@ -1,0 +1,9 @@
+{
+  "name": "line-assist",
+  "version": "1.0.0",
+  "description": "Replacement for the Render stationery bot: runs inside the shop's Supabase project, behind line-bot's relay",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test" }
+}

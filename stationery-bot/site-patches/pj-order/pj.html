@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#12335F">
+<title>สั่งสินค้าเพื่อออกเอกสาร · ร้านนัฐภรณ์ เชียงกลาง</title>
+<link rel="icon" type="image/png" sizes="192x192" href="icons/shop-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- NATTA GROUP · หน้า "กดสั่งสินค้าเพื่อออกเอกสาร" (ปุ่มที่ 3 ของริชเมนู) — ต่อยอดจากหน้าส่งเอกสารโครงการเดิม (BQ 2026-10-13 · BT 2026-10-14)
+     ① ผู้สั่ง: ชื่อไลน์ (จาก LINE) + โรงเรียน/ชื่อ/เบอร์ ② โครงการ: ชื่อ · วันที่ต้องการ · งบประมาณ ③ เลือกสินค้าจากร้านเป็นหมวด + ตารางรายการแบบใบส่งของ (ไม่มีราคา · ร้านใส่ให้) ④ แนบไฟล์ (ถ้ามี) → ส่ง
+     ล็อกอินด้วย LINE (LIFF ของร้าน) · ไฟล์อัปโหลดตรงเข้าที่เก็บส่วนตัวของร้านด้วยลิงก์ชั่วคราว · ข้อมูลผ่าน edge doc-submit (สัญญาเดิมทุกอย่าง ไม่เปลี่ยนฝั่งหลังบ้าน) -->
+<style>
+:root{--navy:#12335F;--navy2:#1D4A82;--org:#E2572B;--cream:#FBF6EE;--paper:#fff;--ink:#1B2433;--mut:#667085;--line:#E8DDCB;--soft:#F6F1E7;--ok:#1F7A4A;--okbg:#E8F5EE;--bad:#B42318;--badbg:#FEF3F2;color-scheme:light}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--cream);color:var(--ink);font:16px/1.55 "Anuphan",-apple-system,BlinkMacSystemFont,"Sukhumvit Set","Noto Sans Thai",system-ui,sans-serif;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+button,input{font:inherit;color:inherit}
+.wrap{max-width:560px;margin:0 auto;padding:14px 16px calc(120px + env(safe-area-inset-bottom,0px))}
+.top{display:flex;align-items:center;gap:10px;margin:2px 0 12px}
+.top img{width:34px;height:34px;border-radius:9px;flex:none}
+.top b{display:block;color:var(--navy);font-size:14px;line-height:1.25}
+.top small{display:block;color:var(--org);font-size:12px;font-weight:600;letter-spacing:.02em}
+.top .tr{margin-left:auto;font-size:11.5px;font-weight:700;color:#9A5B00;background:#FFF1D6;border:1px solid #F4D58D;border-radius:999px;padding:2px 9px;white-space:nowrap}
+.intro{position:relative;background:var(--navy);color:#fff;border-radius:20px;padding:16px 16px 14px;overflow:hidden;margin-bottom:12px}
+.intro .hd{min-height:84px;padding-right:96px}
+.intro h1{margin:0;font-size:24px;line-height:1.25;font-weight:700;text-wrap:balance}
+.intro p{margin:4px 0 0;font-size:14px;opacity:.85}
+.intro img{position:absolute;right:10px;top:10px;width:82px;height:auto}
+.steps{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;position:relative;z-index:1}
+.steps span{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:4px 10px 4px 4px;font-size:12.5px;font-weight:600;white-space:nowrap}
+.steps i{font-style:normal;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:#fff;color:var(--navy);font-size:11.5px;font-weight:700}
+.steps span.done{background:#2E9E62;border-color:#2E9E62}
+.steps span.done i{color:#2E9E62}
+.line{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:12px 14px;margin-bottom:12px}
+.line .av{flex:none;width:46px;height:46px;border-radius:50%;object-fit:cover;background:var(--soft);display:grid;place-items:center;font-weight:700;font-size:18px;color:var(--navy)}
+.line small{display:block;font-size:12px;color:var(--mut);line-height:1.2}
+.line b{display:block;font-size:17px;line-height:1.3;color:var(--navy);overflow-wrap:anywhere}
+.fr{display:inline-block;margin-top:3px;font-size:12.5px;font-weight:600;border-radius:999px;padding:1px 9px}
+.fr.ok{background:var(--okbg);color:var(--ok)}
+.fr.no{background:#FFF1D6;color:#9A5B00}
+.fr a{color:var(--navy2)}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px;box-shadow:0 1px 0 rgba(18,51,95,.04)}
+.card h2{display:flex;align-items:center;gap:10px;margin:0 0 12px;font-size:17px;color:var(--navy);line-height:1.3}
+.card h2 .n{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--navy);color:#fff;font-size:14px;font-weight:700}
+.card.ok h2 .n{background:#2E9E62;font-size:0}
+.card.ok h2 .n::before{content:"";width:12px;height:7px;border:2.5px solid #fff;border-top:0;border-right:0;transform:translateY(-1px) rotate(-45deg)}
+.card h2 small{margin-left:auto;font-size:12px;font-weight:500;color:var(--mut)}
+.f{display:block;margin:0 0 12px}
+.f:last-child{margin-bottom:0}
+.f>span{display:block;font-size:14px;font-weight:600;margin:0 0 5px}
+.f>span em{font-style:normal;font-weight:400;color:var(--mut);font-size:12.5px}
+.in{width:100%;min-height:48px;border:1.5px solid #D9CFBE;border-radius:12px;background:#fff;padding:10px 13px;font-size:16px;outline:0;-webkit-appearance:none;appearance:none}
+.in:focus{border-color:var(--navy2);box-shadow:0 0 0 3px rgba(29,74,130,.14)}
+.in.err{border-color:var(--bad);box-shadow:0 0 0 3px rgba(180,35,24,.10)}
+.in::placeholder{color:#A49A8A}
+.hint{font-size:12.5px;color:var(--mut);margin-top:5px}
+.errt{font-size:12.5px;color:var(--bad);margin-top:5px;display:none}
+.f.bad .errt{display:block}
+.who{display:flex;align-items:flex-start;gap:12px;background:var(--soft);border-radius:14px;padding:12px 13px}
+.who b{display:block;font-size:15.5px;line-height:1.35}
+.who small{display:block;color:var(--mut);font-size:13.5px}
+.who .ed{margin-left:auto;flex:none;border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:6px 13px;font-size:13.5px;font-weight:600;color:var(--navy);cursor:pointer;min-height:36px}
+.sug{position:relative}
+.sug ul{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:20;list-style:none;margin:0;padding:6px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 28px rgba(18,51,95,.16);max-height:260px;overflow:auto}
+.sug li button{display:block;width:100%;text-align:left;border:0;background:none;padding:10px 10px;border-radius:10px;font-size:15px;cursor:pointer;min-height:44px}
+.sug li button:hover,.sug li button.on{background:var(--soft)}
+.sug li.new button{color:var(--navy);font-weight:600}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.dt{display:flex;gap:8px;align-items:stretch}
+.dt .in{flex:1;min-width:0}
+.chip{flex:none;border:1.5px solid var(--line);background:#fff;border-radius:12px;padding:0 12px;font-size:14px;font-weight:600;cursor:pointer;min-height:48px;white-space:nowrap}
+.chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.money{position:relative}
+.money .in{padding-right:52px}
+.money b{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-weight:500;color:var(--mut);font-size:15px}
+.pick{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pick label{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:86px;border:2px dashed #CDBFA6;border-radius:16px;background:#FFFCF6;color:var(--navy);font-weight:700;font-size:15px;cursor:pointer;text-align:center;padding:10px}
+.pick label:active{background:var(--soft)}
+.pick label svg{width:28px;height:28px}
+.pick input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.chatf{display:flex;gap:10px;align-items:center;background:var(--okbg);color:var(--ok);border-radius:12px;padding:10px 12px;font-size:14px;font-weight:600;margin-bottom:10px}
+.files{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.files li{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:12px;padding:8px;background:#fff;position:relative;overflow:hidden}
+.files .th{flex:none;width:46px;height:46px;border-radius:9px;background:var(--soft) center/cover no-repeat;display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--navy);letter-spacing:.02em}
+.files .tx{flex:1;min-width:0}
+.files .tx b{display:block;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.files .tx small{display:block;font-size:12.5px;color:var(--mut)}
+.files .tx small.ok{color:var(--ok);font-weight:600}
+.files .tx small.bad{color:var(--bad);font-weight:600}
+.files .x{flex:none;width:40px;height:40px;border:0;background:none;border-radius:50%;font-size:20px;color:var(--mut);cursor:pointer}
+.files .bar{position:absolute;left:0;bottom:0;height:3px;background:var(--navy2);transition:width .2s}
+.lim{font-size:12.5px;color:var(--mut);margin-top:10px}
+.add{display:flex;gap:10px;align-items:flex-start;background:#EEF3FB;border:1px solid #D5E0F0;color:#22406B;border-radius:14px;padding:12px 13px;margin-bottom:12px;font-size:14px}
+.add b{display:block;font-size:15px;color:var(--navy)}
+.add button{margin-left:auto;flex:none;border:0;background:none;color:var(--navy2);font-weight:600;cursor:pointer;min-height:36px}
+.bar-b{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(251,246,238,.94);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px))}
+.bar-b .in2{max-width:560px;margin:0 auto}
+.go{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:54px;border:0;border-radius:16px;background:var(--navy);color:#fff;font-size:17px;font-weight:700;cursor:pointer;box-shadow:0 6px 16px rgba(18,51,95,.22)}
+.go:disabled{background:#B7BFCC;box-shadow:none;cursor:default}
+.need{margin:6px 0 0;text-align:center;font-size:12.5px;color:var(--mut);min-height:18px}
+.mine h2{font-size:15px}
+.mine ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.mine li{border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.mine .h{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.mine .h b{font-size:14.5px;color:var(--navy)}
+.mine .h .no{font-size:12.5px;font-weight:700;color:var(--org);font-variant-numeric:tabular-nums}
+.mine .s{display:inline-block;font-size:11.5px;font-weight:700;border-radius:999px;padding:1px 8px;background:var(--soft);color:#5B4D1A}
+.mine .s.done{background:var(--okbg);color:var(--ok)}
+.mine .s.working{background:#EEF3FB;color:var(--navy2)}
+.mine small{display:block;color:var(--mut);font-size:12.5px;margin-top:2px}
+.mine .a{display:flex;gap:8px;margin-top:8px}
+.mine .a a,.mine .a button{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:5px 12px;font-size:13px;font-weight:600;color:var(--navy);text-decoration:none;cursor:pointer;min-height:34px;display:inline-flex;align-items:center}
+.load{min-height:70vh;display:grid;place-items:center;text-align:center;color:var(--mut)}
+.spin{width:34px;height:34px;border-radius:50%;border:3px solid #E3D8C6;border-top-color:var(--navy);animation:sp .8s linear infinite;margin:0 auto 12px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.msg{text-align:center;padding:26px 18px}
+.msg img{width:150px;height:auto;margin:0 auto 6px;display:block}
+.msg h1{margin:6px 0 6px;font-size:22px;color:var(--navy);line-height:1.3}
+.msg p{margin:0 auto;color:var(--mut);max-width:34em;font-size:15px}
+.done .big{display:inline-block;margin:10px 0 2px;font-size:30px;font-weight:700;color:var(--org);letter-spacing:.03em;font-variant-numeric:tabular-nums}
+.done .rows{text-align:left;margin:14px 0 0;border-top:1px dashed var(--line);padding-top:12px;display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14.5px}
+.done .rows span{color:var(--mut)}
+.done .rows b{font-weight:600;min-width:0;overflow-wrap:anywhere}
+.btn2{display:flex;align-items:center;justify-content:center;width:100%;min-height:50px;border:1.5px solid var(--line);border-radius:14px;background:#fff;color:var(--navy);font-size:16px;font-weight:700;cursor:pointer;margin-top:10px;text-decoration:none}
+.ov{position:fixed;inset:0;z-index:50;background:rgba(18,35,60,.45);display:grid;place-items:center;padding:20px}
+.ov .box{background:#fff;border-radius:20px;padding:22px 20px;width:100%;max-width:340px;text-align:center}
+.ov .box b{display:block;font-size:17px;color:var(--navy);margin-bottom:4px}
+.ov .box small{color:var(--mut);font-size:13.5px}
+.ov .pb{height:8px;border-radius:8px;background:#EEE6D8;overflow:hidden;margin:14px 0 6px}
+.ov .pb i{display:block;height:100%;width:0;background:var(--navy2);transition:width .25s}
+.toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;background:#1B2433;color:#fff;border-radius:12px;padding:10px 14px;font-size:14px;max-width:calc(100% - 32px);box-shadow:0 8px 20px rgba(0,0,0,.2)}
+[hidden]{display:none!important}
+.sub{margin:-4px 0 12px;font-size:13.5px;color:var(--mut)}
+.srch{padding-left:44px;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") 14px 50%/20px no-repeat}
+/* เลือกสินค้าเป็นหมวด (แตะ + เพื่อเลือก) */
+.cats{display:flex;gap:8px;overflow-x:auto;padding:12px 2px 10px;margin:0 -2px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.cats::-webkit-scrollbar{display:none}
+.cats button{flex:none;border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:5px 13px;font-size:13.5px;font-weight:600;color:var(--navy);cursor:pointer;min-height:36px;white-space:nowrap}
+.cats button span{font-weight:500;color:var(--mut);margin-left:3px}
+.cats button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.cats button.on span{color:rgba(255,255,255,.75)}
+.prods{list-style:none;margin:0;padding:0;max-height:min(420px,56vh);overflow:auto;border:1px solid var(--line);border-radius:14px;background:#fff;-webkit-overflow-scrolling:touch}
+.prods li+li{border-top:1px solid var(--soft)}
+.pr{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:none;padding:8px 10px;cursor:pointer;min-height:58px}
+.pr:active{background:var(--soft)}
+.pr .t{flex:none;width:42px;height:42px;border-radius:9px;background:var(--soft) center/cover no-repeat;display:grid;place-items:center;color:var(--navy)}
+.pr .t svg{width:20px;height:20px}
+.pr .x1{flex:1;min-width:0}
+.pr .x1 b{display:block;font-weight:500;font-size:14.5px;line-height:1.35;overflow-wrap:anywhere}
+.pr .x1 small{display:block;font-size:12px;color:var(--mut)}
+.pr .ad{flex:none;width:36px;height:36px;border-radius:50%;border:1.5px solid var(--navy);color:var(--navy);display:grid;place-items:center;font-size:21px;font-weight:600;line-height:1}
+.pr .ad i{font-style:normal;font-size:14px;font-weight:700}
+.pr.on{background:#F3F8F4}
+.pr.on .ad{background:var(--ok);border-color:var(--ok);color:#fff}
+.pr.new .x1 b{color:var(--navy);font-weight:700}
+.pst{padding:16px 14px;text-align:center;color:var(--mut);font-size:13.5px}
+.more{display:block;width:100%;margin-top:8px;border:1.5px dashed #D9CFBE;background:#fff;border-radius:12px;min-height:44px;color:var(--navy);font-weight:600;cursor:pointer}
+/* ตารางรายการ หน้าตาแบบใบส่งของ/ใบเสร็จ */
+.rc{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;margin-bottom:12px;text-align:left;box-shadow:0 1px 0 rgba(18,51,95,.04)}
+.rc .rh{display:flex;align-items:center;gap:8px;padding:11px 14px;background:var(--navy);color:#fff}
+.rc .rh b{font-size:15.5px}
+.rc .rh span{margin-left:auto;font-size:12.5px;opacity:.85}
+.tb{width:100%;border-collapse:collapse;table-layout:fixed;font-variant-numeric:tabular-nums}
+.tb col.c-no{width:32px}
+.tb col.c-q{width:128px}
+.tb th{font-size:12px;font-weight:700;color:var(--mut);text-align:left;padding:7px 8px;background:var(--soft);border-bottom:1px solid var(--line)}
+.tb td{padding:9px 8px;border-bottom:1px dashed var(--line);vertical-align:top}
+.tb .no{text-align:center;color:var(--mut);font-size:13.5px}
+.tb th.q,.tb td.q{text-align:center}
+.tb .nm b{display:block;font-size:14.5px;font-weight:600;line-height:1.35;overflow-wrap:anywhere}
+.tb .nm small{display:block;font-size:12px;color:var(--mut)}
+.tb .nm small.cu{color:#9A5B00;font-weight:600}
+.tb .rm{margin-top:2px;border:0;background:none;padding:2px 0;font-size:12.5px;color:var(--bad);cursor:pointer;min-height:30px}
+.tb .qty{display:flex;align-items:center;justify-content:center;gap:3px}
+.tb .qty button{flex:none;width:32px;height:38px;border-radius:10px;border:1.5px solid var(--line);background:#fff;font-size:20px;font-weight:700;color:var(--navy);cursor:pointer;line-height:1;display:grid;place-items:center;padding:0}
+.tb .qty input{width:48px;height:38px;text-align:center;border:1.5px solid #D9CFBE;border-radius:10px;font-size:16px;outline:0;-webkit-appearance:none;appearance:none;background:#fff;padding:0;font-variant-numeric:tabular-nums}
+.tb .qty input:focus{border-color:var(--navy2)}
+.tb .u{display:block;margin-top:3px;font-size:12px;color:var(--mut)}
+.tb .qn{font-size:16px}
+.tb tfoot td{padding:10px 12px;font-size:13px;color:var(--mut);background:#FFFCF6;border-bottom:0}
+.ie{font-size:13.5px;color:var(--mut);text-align:center;margin:14px;border:1.5px dashed #E1D6C3;border-radius:12px;padding:14px}
+.done .rc{margin:14px 0 0}
+@media (min-width:600px){.intro .hd{padding-right:150px;min-height:120px}.intro img{width:124px}.wrap{padding-top:22px}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><div class="load"><div><div class="spin"></div>กำลังเปิดหน้าสั่งสินค้า…</div></div></div>
+<script>
+'use strict';
+const SUPABASE_URL='https://mamlmgixovlwnjstetkj.supabase.co'
+const SUPABASE_KEY='sb_publishable_NJctO-4_IJErEuPQKxdicA_OCRZww1A'
+const FN=SUPABASE_URL+'/functions/v1/doc-submit'
+const LIFF_SDK='https://static.line-scdn.net/liff/edge/2/sdk.js'
+const TM=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
+const $=(s,r)=>(r||document).querySelector(s)
+const E=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
+const app=$('#app')
+const S={at:'',me:null,line:{name:'',pic:'',friend:null},oa:'',t:{school_id:null,school_name:'',name:'',phone:''},editT:false,p:{name:'',need:'',budget:''},files:[],sess:'',add:null,busy:false,touched:false,items:[],cat:null,cats:[],catImg:'',catBusy:false,q:'',cg:'',lim:40}
+const ICON={
+  cam:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+  clip:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5l-8.6 8.6a5 5 0 0 1-7.1-7.1l8.6-8.6a3.3 3.3 0 0 1 4.7 4.7l-8.6 8.6a1.7 1.7 0 0 1-2.4-2.4l7.9-7.9"/></svg>',
+  pen:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  box:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg>',
+  send:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>'
+}
+const thDate=iso=>{const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso||''));return m?(+m[3])+' '+TM[+m[2]-1]+' '+String((+m[1]+543)%100).padStart(2,'0'):''}
+const todayIso=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+const kb=n=>n>=1048576?(n/1048576).toFixed(n>=10485760?0:1)+' MB':Math.max(1,Math.round(n/1024))+' KB'
+const extOf=n=>{const m=/\.([a-z0-9]{1,5})$/i.exec(String(n||''));return m?m[1].toLowerCase():''}
+const phoneOk=t=>{let d=String(t||'').replace(/[^\d+]/g,'');if(d.startsWith('+66'))d='0'+d.slice(3);return /^0\d{8,9}$/.test(d)}
+const schShort=s=>String(s||'').replace(/^\s*(?:โรงเรียน|รร\.?)\s*/,'').trim()
+const norm=s=>schShort(s).toLowerCase().replace(/[\s.\-–()]/g,'')
+let toastT=0
+function toast(t){let d=$('.toast');if(!d){d=document.createElement('div');d.className='toast';d.setAttribute('role','status');document.body.appendChild(d)}d.textContent=t;d.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>{d.hidden=true},2600)}
+
+async function call(action,body,tries){
+  for(let k=0;k<(tries||2);k++){
+    try{
+      const r=await fetch(FN,{method:'POST',headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},body:JSON.stringify(Object.assign({action,at:S.at},body||{}))})
+      const j=await r.json().catch(()=>null)
+      if(j)return j
+    }catch(e){}
+    await new Promise(r=>setTimeout(r,700))
+  }
+  return {error:'network'}
+}
+function loadSdk(){return new Promise((ok,no)=>{if(window.liff)return ok();const s=document.createElement('script');s.src=LIFF_SDK;s.onload=ok;s.onerror=()=>no(new Error('sdk'));document.head.appendChild(s)})}
+function screen(html){app.innerHTML=html;window.scrollTo(0,0);const t=$('.toast');if(t)t.hidden=true}
+function topbar(trial){return `<div class="top"><img src="icons/shop-192.png" alt=""><div><b>ร้านนัฐภรณ์ เชียงกลาง</b><small>สั่งสินค้าเพื่อออกเอกสาร</small></div>${trial?'<span class="tr">โหมดทดลอง · เฉพาะแอดมิน</span>':''}</div>`}
+function fail(title,text,retry){screen(topbar()+`<div class="card msg"><img src="c/ch-pack.png" alt=""><h1>${E(title)}</h1><p>${E(text)}</p>${retry?'<button class="btn2" id="retry" type="button">ลองใหม่</button>':''}</div>`);const b=$('#retry');if(b)b.onclick=()=>location.reload()}
+
+// ---------- เริ่ม: ล็อกอิน LINE → ดึงข้อมูลผู้สั่ง ----------
+async function boot(){
+  const cfg=await call('cfg',{},3)
+  if(!cfg||!cfg.liff_id){fail('เปิดหน้านี้ไม่ได้ตอนนี้','ลองใหม่อีกครั้ง หรือส่งไฟล์ในแชท LINE ร้านได้เลยค่ะ',true);return}
+  S.oa=String(cfg.oa||'').trim()
+  try{await loadSdk();await liff.init({liffId:cfg.liff_id})}catch(e){fail('เปิดหน้านี้ไม่ได้ตอนนี้','เช็กอินเทอร์เน็ตแล้วลองใหม่อีกครั้งนะคะ',true);return}
+  if(!liff.isLoggedIn()){try{liff.login({redirectUri:location.origin+location.pathname})}catch(e){fail('เข้าสู่ระบบ LINE ไม่สำเร็จ','ลองเปิดจากปุ่มในเมนูแชท LINE ร้านอีกครั้งนะคะ',true)}return}
+  try{if(/[?&](code|liffClientId|liffRedirectUri)=/.test(location.search))history.replaceState(null,'',location.pathname)}catch(e){}
+  S.at=liff.getAccessToken()||''
+  const me=await call('me',{},3)
+  if(me&&me.error==='login'){try{liff.logout()}catch(e){}try{liff.login({redirectUri:location.origin+location.pathname})}catch(e){}return}
+  if(!me||!me.ok){fail('โหลดข้อมูลไม่สำเร็จ','เช็กอินเทอร์เน็ตแล้วลองใหม่อีกครั้งนะคะ',true);return}
+  S.me=me
+  S.line.name=me.line_name||''
+  try{const pr=await liff.getProfile();S.line.name=pr.displayName||S.line.name;S.line.pic=pr.pictureUrl||''}catch(e){}
+  try{const fr=await liff.getFriendship();S.line.friend=!!(fr&&fr.friendFlag)}catch(e){S.line.friend=null}
+  if(me.mode==='off'){screen(topbar()+`<div class="card msg"><img src="c/ch-pack.png" alt=""><h1>ยังไม่เปิดรับทางหน้านี้</h1><p>ตอนนี้ส่งเอกสารโครงการในแชท LINE ร้านได้เลยค่ะ ส่งรูปหรือไฟล์มาในแชท แล้วแอดมินจะติดต่อกลับนะคะ 🙏</p><button class="btn2" type="button" id="back">กลับไปที่แชท LINE</button></div>`);$('#back').onclick=backToChat;return}
+  const t=me.teacher||{}
+  S.t={school_id:t.school_id||null,school_name:t.school_name||'',name:t.name||(S.line.name||''),phone:t.phone||''}
+  S.editT=!t.saved
+  form()
+}
+
+// ---------- ฟอร์มหน้าเดียว ----------
+// ขั้น 3 (รายการสินค้า) กับ 4 (ไฟล์) ต้องมีอย่างน้อยหนึ่งอย่าง · โหมดเพิ่มไฟล์ต้องมีไฟล์
+function stepsDone(){
+  const t1=!!(schShort(S.t.school_name).length>=2&&S.t.name.trim().length>=2&&phoneOk(S.t.phone))
+  const t2=!!(S.add||S.p.name.trim().length>=2)
+  const t3=!S.add&&S.items.length>0
+  const t4=S.files.length>0||!!(S.me.chat&&S.me.chat.count)
+  return [S.add?true:t1,t2,t3,t4]
+}
+function missing(){
+  const [a,b,c,d]=stepsDone(),m=[]
+  if(!a)m.push(!(schShort(S.t.school_name).length>=2)?'โรงเรียน':!(S.t.name.trim().length>=2)?'ชื่อผู้สั่ง':'เบอร์โทร')
+  if(!b)m.push('ชื่อโครงการ')
+  if(!c&&!d)m.push(S.add?'ไฟล์เอกสาร':'รายการสินค้า หรือ ไฟล์เอกสาร')
+  return m
+}
+function lineBar(){
+  const L=S.line,nm=L.name||'—'
+  const av=L.pic?`<img class="av" src="${E(L.pic)}" alt="" referrerpolicy="no-referrer">`:`<span class="av">${E([...nm][0]||'L')}</span>`
+  let st=''
+  if(L.friend===true)st='<span class="fr ok">✓ เป็นเพื่อนกับร้านแล้ว</span>'
+  else if(L.friend===false){const o=S.oa?(S.oa.startsWith('@')?S.oa:'@'+S.oa):'';st=`<span class="fr no">ยังไม่ได้เพิ่มเพื่อนร้าน${o?` · <a href="https://line.me/R/ti/p/${encodeURIComponent(o)}">เพิ่มเพื่อน</a>`:''}</span>`}
+  return `<section class="line" id="lineBar">${av}<div><small>ชื่อไลน์ของคุณ</small><b>${E(nm)}</b>${st}</div></section>`
+}
+function form(){
+  const me=S.me,trial=me.mode==='trial',T=S.t
+  const chat=me.chat&&me.chat.count?me.chat:null
+  screen(topbar(trial)+`
+  <section class="intro"><div class="hd"><h1>สั่งสินค้าเพื่อออกเอกสาร</h1><p>กรอกทีละขั้น จบในหน้าเดียว · ร้านทำเอกสารให้</p></div>
+    <div class="steps" id="steps"><span data-s="0"><i>1</i>ผู้สั่ง</span><span data-s="1"><i>2</i>โครงการ</span>${S.add?'':'<span data-s="2"><i>3</i>สินค้า</span>'}<span data-s="3"><i>${S.add?3:4}</i>แนบไฟล์</span></div>
+    <img src="c/ch-pack.png" alt=""></section>
+  ${lineBar()}
+  ${S.add?`<div class="add"><div><b>เพิ่มไฟล์ใน ${E(S.add.doc_no)}</b>${E(S.add.project_name)}</div><button type="button" id="addX">ยกเลิก</button></div>`:''}
+  <section class="card" id="c1"${S.add?' hidden':''}><h2><span class="n">1</span>ข้อมูลผู้สั่ง<small>${T&&me.teacher&&me.teacher.saved&&!S.editT?'จำไว้ให้แล้ว':'กรอกครั้งแรกครั้งเดียว'}</small></h2><div id="c1b"></div></section>
+  <section class="card" id="c2"${S.add?' hidden':''}><h2><span class="n">2</span>โครงการ</h2>
+    <label class="f" id="fp"><span>ชื่อโครงการ</span><input class="in" id="pName" maxlength="200" autocomplete="off" enterkeyhint="next" placeholder="เช่น โครงการวันวิทยาศาสตร์ 2569" value="${E(S.p.name)}"><div class="errt">พิมพ์ชื่อโครงการค่ะ</div></label>
+    <label class="f"><span>งบประมาณโครงการ <em>(ไม่บังคับ)</em></span><div class="money"><input class="in" id="pBudget" inputmode="decimal" autocomplete="off" placeholder="เช่น 15,000" value="${E(S.p.budget)}"><b>บาท</b></div></label>
+    <div class="f" id="fd"><span>ต้องการเอกสาร/ของวันไหน <em>(ไม่บังคับ)</em></span>
+      <div class="dt"><input class="in" type="date" id="pNeed" min="${todayIso()}" value="${E(S.p.need)}" aria-label="วันที่ต้องการ"><button type="button" class="chip${S.p.need?'':' on'}" id="noDate">ยังไม่กำหนด</button></div>
+      <div class="hint" id="needTh">${S.p.need?'ต้องการ: '+E(thDate(S.p.need)):'กดช่องวันที่เพื่อเลือก'}</div></div>
+  </section>
+  <section class="card" id="c3"${S.add?' hidden':''}><h2><span class="n">3</span>เลือกสินค้า<small>ร้านใส่ราคาให้</small></h2>
+    <p class="sub">แตะ + เพื่อเลือกสินค้าจากร้าน · ไม่มีในรายการพิมพ์ชื่อเองได้ · ไม่ต้องใส่ราคา</p>
+    <input class="in srch" id="qProd" maxlength="160" autocomplete="off" enterkeyhint="search" placeholder="ค้นหา เช่น สมุด ดินสอ กระดาษ A4" aria-label="ค้นหาสินค้า" value="${E(S.q)}">
+    <div class="cats" id="cats" aria-label="หมวดสินค้า"></div>
+    <ul class="prods" id="prods"></ul>
+    <button type="button" class="more" id="more" hidden>ดูเพิ่ม</button>
+  </section>
+  <section class="rc" id="c3t"${S.add?' hidden':''}><div class="rh"><b>รายการสินค้าที่เลือก</b><span id="rcN"></span></div><div id="tbl"></div></section>
+  <section class="card" id="c4"><h2><span class="n">${S.add?3:4}</span>แนบไฟล์ <small>${S.add?'':'ถ้ามี'}</small></h2>
+    ${chat?`<div class="chatf">✓ ไฟล์ที่ส่งในแชทไว้ ${chat.count} ไฟล์ แนบให้แล้ว</div>`:''}
+    <div class="pick">
+      <label>${ICON.cam}ถ่ายรูปเอกสาร<input type="file" id="fCam" accept="image/*" capture="environment"></label>
+      <label>${ICON.clip}เลือกรูป / ไฟล์<input type="file" id="fPick" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf,.odt,.ods,.odp,.zip"></label>
+    </div>
+    <ul class="files" id="files"></ul>
+    <div class="lim">ส่งได้หลายไฟล์ (สูงสุด ${me.max_files||20}) · รูป, PDF, Word, Excel · ไฟล์ละไม่เกิน 25 MB</div>
+  </section>
+  ${mineHtml()}
+  <div class="bar-b"><div class="in2"><button class="go" id="go" type="button">${ICON.send}<span>ส่งเอกสารให้ร้าน</span></button><p class="need" id="need"></p></div></div>`)
+  paintT();paintFiles();paintItems();paintCats();paintProds();wire();wirePicker();refresh()
+  if(!S.add&&!S.cat)setTimeout(loadCat,300)
+}
+function paintT(){
+  const box=$('#c1b'),me=S.me,T=S.t
+  if(!box)return
+  if(me.teacher&&me.teacher.saved&&!S.editT){
+    box.innerHTML=`<div class="who"><div><b>${E(T.name)}</b><small>${E(T.school_name)}</small><small>โทร ${E(T.phone)}</small></div><button type="button" class="ed" id="edT">แก้ไข</button></div>`
+    $('#edT').onclick=()=>{S.editT=true;paintT();refresh();const i=$('#tSchool');if(i)i.focus()}
+    return
+  }
+  box.innerHTML=`
+    <div class="f sug" id="fs"><span>โรงเรียน</span><input class="in" id="tSchool" autocomplete="off" placeholder="พิมพ์ชื่อโรงเรียน" value="${E(T.school_name)}" role="combobox" aria-expanded="false" aria-autocomplete="list"><ul id="schL" hidden role="listbox"></ul><div class="errt">เลือกหรือพิมพ์ชื่อโรงเรียนค่ะ</div></div>
+    <div class="row2">
+      <label class="f" id="fn"><span>ชื่อผู้สั่ง</span><input class="in" id="tName" maxlength="80" autocomplete="name" placeholder="ชื่อ-นามสกุล" value="${E(T.name)}"><div class="errt">พิมพ์ชื่อค่ะ</div></label>
+      <label class="f" id="fph"><span>เบอร์โทร</span><input class="in" id="tPhone" type="tel" inputmode="tel" maxlength="16" autocomplete="tel" placeholder="08x-xxx-xxxx" value="${E(T.phone)}"><div class="errt">เบอร์ 10 หลักค่ะ</div></label>
+    </div>`
+  const si=$('#tSchool'),ul=$('#schL')
+  const list=()=>{
+    const q=norm(si.value),all=(S.me.schools||[])
+    const hits=q?all.filter(s=>norm(s.name).includes(q)).slice(0,8):all.slice(0,8)
+    const exact=hits.some(s=>norm(s.name)===q)
+    ul.innerHTML=hits.map(s=>`<li><button type="button" data-id="${E(s.id)}">${E(s.name)}</button></li>`).join('')+(q&&!exact?`<li class="new"><button type="button" data-new="1">ใช้ชื่อ “${E(/^(โรงเรียน|รร)/.test(si.value.trim())?si.value.trim():'โรงเรียน'+si.value.trim())}”</button></li>`:'')
+    ul.hidden=!ul.innerHTML;si.setAttribute('aria-expanded',String(!ul.hidden))
+  }
+  si.addEventListener('focus',list)
+  si.addEventListener('input',()=>{S.t.school_name=si.value;S.t.school_id=null;list();refresh()})
+  si.addEventListener('blur',()=>setTimeout(()=>{ul.hidden=true;si.setAttribute('aria-expanded','false')},180))
+  ul.addEventListener('mousedown',e=>e.preventDefault())
+  ul.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return
+    if(b.dataset.id){const s=(S.me.schools||[]).find(x=>x.id===b.dataset.id);if(s){S.t.school_id=s.id;S.t.school_name=s.name;si.value=s.name}}
+    else{const v=si.value.trim();S.t.school_id=null;S.t.school_name=/^(โรงเรียน|รร)/.test(v)?v:'โรงเรียน'+v;si.value=S.t.school_name}
+    ul.hidden=true;refresh();const n=$('#tName');if(n&&!n.value)n.focus()})
+  $('#tName').addEventListener('input',e=>{S.t.name=e.target.value;refresh()})
+  $('#tPhone').addEventListener('input',e=>{S.t.phone=e.target.value;refresh()})
+}
+function wire(){
+  const pn=$('#pName');if(pn)pn.addEventListener('input',e=>{S.p.name=e.target.value;refresh()})
+  const nd=$('#pNeed'),nb=$('#noDate')
+  if(nd)nd.addEventListener('change',()=>{S.p.need=nd.value||'';nb.classList.toggle('on',!S.p.need);$('#needTh').textContent=S.p.need?'ต้องการ: '+thDate(S.p.need):'กดช่องวันที่เพื่อเลือก'})
+  if(nb)nb.onclick=()=>{S.p.need='';nd.value='';nb.classList.add('on');$('#needTh').textContent='กดช่องวันที่เพื่อเลือก'}
+  const bu=$('#pBudget');if(bu){bu.addEventListener('input',()=>{S.p.budget=bu.value.replace(/[^\d.]/g,'')});bu.addEventListener('blur',()=>{const n=Number(S.p.budget);if(S.p.budget&&isFinite(n))bu.value=n.toLocaleString('en-US',{maximumFractionDigits:2})});bu.addEventListener('focus',()=>{if(S.p.budget)bu.value=S.p.budget})}
+  ;['fCam','fPick'].forEach(id=>{const i=$('#'+id);if(i)i.addEventListener('change',()=>{addFiles([...(i.files||[])]);i.value=''})})
+  $('#go').onclick=send
+  const ax=$('#addX');if(ax)ax.onclick=()=>{S.add=null;form()}
+  app.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{const d=(S.me.recent||[]).find(x=>x.id===b.dataset.add);if(d){S.add=d;form();setTimeout(()=>{const c=$('#c4');if(c)c.scrollIntoView({behavior:'smooth',block:'start'})},60)}})
+}
+function refresh(){
+  const d=stepsDone()
+  app.querySelectorAll('#steps [data-s]').forEach(s=>s.classList.toggle('done',d[+s.dataset.s]))
+  ;['c1','c2','c3','c4'].forEach((id,i)=>{const c=$('#'+id);if(c)c.classList.toggle('ok',d[i])})
+  const m=missing(),go=$('#go'),nd=$('#need')
+  if(go){go.disabled=S.busy;const l=go.querySelector('span');if(l)l.textContent='ส่งเอกสารให้ร้าน'+(!S.add&&S.items.length?' ('+S.items.length+' รายการ)':'')}
+  if(nd)nd.textContent=m.length?'ยังขาด: '+m.join(' · '):(S.add?'พร้อมส่งไฟล์เพิ่มแล้ว':'พร้อมส่งแล้ว ✓')
+  if(S.touched){
+    const T=S.t
+    const mark=(id,bad)=>{const f=$('#'+id);if(f){f.classList.toggle('bad',bad);const i=f.querySelector('.in');if(i)i.classList.toggle('err',bad)}}
+    if($('#tSchool')){mark('fs',schShort(T.school_name).length<2);mark('fn',T.name.trim().length<2);mark('fph',!phoneOk(T.phone))}
+    if(!S.add)mark('fp',S.p.name.trim().length<2)
+  }
+}
+
+// ---------- เลือกสินค้า (แตะ + เพื่อเลือก · เลือกเป็นหมวด · ค้นหาได้ · พิมพ์ชื่อเองได้) ----------
+const kq=s=>String(s||'').toLowerCase().replace(/\s+/g,'')
+const imgOf=p=>p&&p.i&&S.catImg?S.catImg+p.i:''
+const qtyOf=id=>{const x=S.items.find(i=>i.id&&i.id===id);return x?x.qty:0}
+async function loadCat(){
+  if(S.cat||S.catBusy)return
+  S.catBusy=true;paintProds()
+  const r=await call('products',{},2)
+  S.catBusy=false
+  if(r&&r.ok){
+    S.catImg=r.img||''
+    S.cat=(r.items||[]).map(p=>Object.assign(p,{k:kq(p.n),cn:p.c||'อื่นๆ'}))
+    const m=new Map();S.cat.forEach(p=>m.set(p.cn,(m.get(p.cn)||0)+1))
+    S.cats=[...m.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'th'))
+  }
+  paintCats();paintProds()
+}
+function paintCats(){
+  const box=$('#cats');if(!box)return
+  if(!S.cat){box.innerHTML='';return}
+  box.innerHTML=`<button type="button" data-g=""${S.cg?'':' class="on"'}>ทั้งหมด<span>${S.cat.length}</span></button>`+S.cats.map(([n,c])=>`<button type="button" data-g="${E(n)}"${S.cg===n?' class="on"':''}>${E(n)}<span>${c}</span></button>`).join('')
+}
+function paintProds(){
+  const ul=$('#prods'),more=$('#more');if(!ul)return
+  const q=S.q.trim()
+  let h='',hits=[],total=0
+  if(S.cat){
+    const toks=q.toLowerCase().split(/\s+/).map(kq).filter(Boolean)
+    hits=S.cat.filter(p=>(!S.cg||p.cn===S.cg)&&toks.every(t=>p.k.includes(t)))
+    total=hits.length
+    const k=toks.join('')
+    if(toks.length)hits.sort((a,b)=>(b.k.startsWith(k)-a.k.startsWith(k))||(a.n.length-b.n.length))
+    hits=hits.slice(0,S.lim)
+  }
+  const custom=q.length>=2&&!(S.cat||[]).some(p=>kq(p.n)===kq(q))
+  if(custom)h+=`<li><button type="button" class="pr new" data-c="1"><span class="t">${ICON.pen}</span><span class="x1"><b>+ เพิ่ม “${E(q)}” เอง</b><small>ไม่มีในร้าน? พิมพ์เองได้ ร้านจะหาให้</small></span><span class="ad">+</span></button></li>`
+  if(!S.cat)h+=`<li class="pst">${S.catBusy?'กำลังโหลดสินค้าในร้าน…':'โหลดรายการสินค้าไม่ได้ · พิมพ์ชื่อสินค้าเองได้'}</li>`
+  else if(!hits.length)h+=`<li class="pst">ไม่พบสินค้าที่ค้นหา${q.length>=2?' · แตะ “เพิ่ม” ด้านบนเพื่อพิมพ์ชื่อเอง':''}</li>`
+  h+=hits.map(p=>{const u=imgOf(p),n=qtyOf(p.id);return `<li><button type="button" class="pr${n?' on':''}" data-p="${E(p.id)}"><span class="t"${u?` style="background-image:url('${E(u)}')"`:''}>${u?'':ICON.box}</span><span class="x1"><b>${E(p.n)}</b><small>${E([p.u?'หน่วย: '+p.u:'',p.cn].filter(Boolean).join(' · '))}</small></span><span class="ad">${n?`<i>${n}</i>`:'+'}</span></button></li>`}).join('')
+  ul.innerHTML=h
+  if(more){more.hidden=!(S.cat&&total>S.lim);more.textContent='ดูเพิ่ม ('+(total-S.lim)+' รายการ)'}
+}
+function markRows(){
+  const ul=$('#prods');if(!ul)return
+  ul.querySelectorAll('button.pr[data-p]').forEach(b=>{const n=qtyOf(b.dataset.p);b.classList.toggle('on',n>0);const a=b.querySelector('.ad');if(a)a.innerHTML=n?`<i>${n}</i>`:'+'})
+}
+function addItem(it){
+  const max=(S.me&&S.me.max_items)||100
+  const same=S.items.find(x=>it.id?x.id===it.id:(!x.id&&kq(x.name)===kq(it.name)))
+  if(same){same.qty=Math.min(100000,same.qty+1);toast('เพิ่มจำนวน “'+same.name+'” เป็น '+same.qty)}
+  else{if(S.items.length>=max){toast('ใส่ได้ไม่เกิน '+max+' รายการค่ะ');return};S.items.push(Object.assign({qty:1},it));toast('เพิ่ม “'+it.name+'” แล้ว')}
+  paintItems();markRows();refresh()
+}
+function wirePicker(){
+  const qi=$('#qProd');if(!qi)return
+  let tm=0
+  qi.addEventListener('input',()=>{S.q=qi.value;S.lim=40;clearTimeout(tm);tm=setTimeout(paintProds,120)})
+  qi.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();qi.blur()}})
+  $('#cats').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;S.cg=b.dataset.g||'';S.lim=40;paintCats();paintProds();$('#prods').scrollTop=0})
+  $('#prods').addEventListener('click',e=>{const b=e.target.closest('button.pr');if(!b)return
+    if(b.dataset.p){const p=(S.cat||[]).find(x=>x.id===b.dataset.p);if(p)addItem({id:p.id,name:p.n,unit:p.u,img:imgOf(p)})}
+    else if(b.dataset.c){const v=S.q.replace(/\s+/g,' ').trim().slice(0,160);if(v.length>=2){addItem({id:'',name:v,unit:'',img:''});S.q='';qi.value='';paintProds()}}})
+  $('#more').onclick=()=>{S.lim+=40;paintProds()}
+}
+// ตารางรายการ — หน้าตาแบบใบส่งของ/ใบเสร็จ (ลำดับ · รายการ · จำนวน/หน่วย) · ro = อ่านอย่างเดียว (หน้าหลังส่งแล้ว)
+function itemsTable(list,ro){
+  return `<table class="tb"><colgroup><col class="c-no"><col><col class="c-q"></colgroup><thead><tr><th class="no">#</th><th>รายการ</th><th class="q">จำนวน</th></tr></thead><tbody>`
+    +list.map((x,i)=>`<tr data-i="${i}"><td class="no">${i+1}</td><td class="nm"><b>${E(x.name)}</b>${x.id?(x.unit?`<small>หน่วย: ${E(x.unit)}</small>`:''):'<small class="cu">พิมพ์เอง · ร้านจะหาให้</small>'}${ro?'':`<button type="button" class="rm" data-rm="${i}" aria-label="ลบ ${E(x.name)}">ลบรายการ</button>`}</td><td class="q">${ro?`<b class="qn">${x.qty}</b>`:`<div class="qty"><button type="button" data-d="-1" aria-label="ลดจำนวน">−</button><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" value="${x.qty}" aria-label="จำนวน ${E(x.name)}"><button type="button" data-d="1" aria-label="เพิ่มจำนวน">+</button></div>`}<span class="u">${E(x.unit||'ชิ้น')}</span></td></tr>`).join('')
+    +`</tbody><tfoot><tr><td colspan="3">รวม ${list.length} รายการ · ราคา ร้านใส่ให้ภายหลัง</td></tr></tfoot></table>`
+}
+function paintItems(){
+  const box=$('#tbl');if(!box)return
+  const n=S.items.length,c=$('#rcN');if(c)c.textContent=n?n+' รายการ':''
+  if(!n){box.innerHTML='<div class="ie">ยังไม่มีรายการ · แตะ + ที่สินค้าด้านบนเพื่อเลือก</div>';return}
+  box.innerHTML=itemsTable(S.items,false)
+  box.querySelectorAll('tr[data-i]').forEach(tr=>{
+    const x=S.items[+tr.dataset.i],inp=tr.querySelector('input')
+    tr.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{x.qty=Math.max(1,Math.min(100000,(x.qty||1)+Number(b.dataset.d)));inp.value=x.qty;markRows()})
+    inp.addEventListener('input',()=>{const v=parseInt(inp.value.replace(/\D/g,''),10);if(v>=1){x.qty=Math.min(100000,v);markRows()}})
+    inp.addEventListener('blur',()=>{inp.value=x.qty})
+    tr.querySelector('[data-rm]').onclick=()=>{S.items.splice(+tr.dataset.i,1);paintItems();markRows();refresh()}
+  })
+}
+
+// ---------- ไฟล์ ----------
+const IMG=/^image\/(jpeg|png|webp|heic|heif)$/i
+async function shrink(f){
+  if(!IMG.test(f.type||'')||f.size<1.8*1048576||!window.createImageBitmap)return f
+  try{
+    const bm=await createImageBitmap(f,{imageOrientation:'from-image'})
+    const k=Math.min(1,2400/Math.max(bm.width,bm.height)),w=Math.round(bm.width*k),h=Math.round(bm.height*k)
+    const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(bm,0,0,w,h)
+    const b=await new Promise(r=>c.toBlob(r,'image/jpeg',.86))
+    if(!b||b.size>=f.size)return f
+    const nm=String(f.name||'รูป').replace(/\.[a-z0-9]{1,5}$/i,'')+'.jpg'
+    return new File([b],nm,{type:'image/jpeg'})
+  }catch(e){return f}
+}
+let fid=0
+async function addFiles(list){
+  const max=S.me.max_files||20,exts=S.me.exts||[]
+  for(const f0 of list){
+    if(S.files.length>=max){toast('ส่งได้ครั้งละไม่เกิน '+max+' ไฟล์ค่ะ');break}
+    let name=f0.name||('รูป-'+Date.now()+'.jpg')
+    if(!extOf(name)&&/^image\//.test(f0.type||''))name+='.'+(f0.type.split('/')[1]||'jpg').replace('jpeg','jpg')
+    if(!exts.includes(extOf(name))){toast('ไฟล์ “'+name+'” ส่งไม่ได้ · รับรูป, PDF, Word, Excel ค่ะ');continue}
+    const it={id:++fid,raw:f0,file:null,name,size:f0.size,type:f0.type||'',st:'prep',pct:0,path:'',url:''}
+    S.files.push(it);paintFiles();refresh()
+    it.file=await shrink(f0);it.name=it.file===f0?name:it.file.name;it.size=it.file.size
+    if(it.size>(S.me.max_size||26214400)){S.files=S.files.filter(x=>x!==it);toast('ไฟล์ “'+name+'” ใหญ่เกิน 25 MB ค่ะ');paintFiles();refresh();continue}
+    if(/^image\//.test(it.file.type||'')){try{it.url=URL.createObjectURL(it.file)}catch(e){}}
+    it.st='ready';paintFiles();refresh()
+  }
+}
+function paintFiles(){
+  const ul=$('#files');if(!ul)return
+  ul.innerHTML=S.files.map(it=>{
+    const ext=extOf(it.name).toUpperCase()
+    const s=it.st==='done'?'<small class="ok">✓ ส่งแล้ว</small>':it.st==='up'?`<small>กำลังส่ง ${it.pct}%</small>`:it.st==='err'?'<small class="bad">ส่งไม่สำเร็จ — กดส่งอีกครั้ง</small>':it.st==='prep'?'<small>กำลังเตรียม…</small>':`<small>${kb(it.size)}</small>`
+    return `<li data-f="${it.id}"><span class="th"${it.url?` style="background-image:url('${E(it.url)}')"`:''}>${it.url?'':E(ext||'ไฟล์')}</span><span class="tx"><b>${E(it.name)}</b>${s}</span>${S.busy||it.st==='done'?'':`<button type="button" class="x" data-x="${it.id}" aria-label="ลบไฟล์ ${E(it.name)}">✕</button>`}${it.st==='up'?`<span class="bar" style="width:${it.pct}%"></span>`:''}</li>`
+  }).join('')
+  ul.querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>{const it=S.files.find(x=>x.id===+b.dataset.x);if(it&&it.url)try{URL.revokeObjectURL(it.url)}catch(e){};S.files=S.files.filter(x=>x.id!==+b.dataset.x);paintFiles();refresh()})
+}
+function putFile(it,url,onp){
+  return new Promise(ok=>{
+    const x=new XMLHttpRequest()
+    x.open('PUT',url)
+    x.setRequestHeader('x-upsert','false');x.setRequestHeader('apikey',SUPABASE_KEY)
+    x.upload.onprogress=e=>{if(e.lengthComputable)onp(Math.round(e.loaded*100/e.total))}
+    x.onload=()=>ok(x.status>=200&&x.status<300||x.status===409)
+    x.onerror=()=>ok(false);x.ontimeout=()=>ok(false);x.timeout=180000
+    const fd=new FormData();fd.append('cacheControl','3600');fd.append('',it.file,it.name)
+    x.send(fd)
+  })
+}
+
+// ---------- ส่ง ----------
+function overlay(t,s,p){let o=$('.ov');if(!o){o=document.createElement('div');o.className='ov';o.innerHTML='<div class="box" role="status"><div class="spin"></div><b></b><small></small><div class="pb"><i></i></div></div>';document.body.appendChild(o)}o.querySelector('b').textContent=t;o.querySelector('small').textContent=s||'';o.querySelector('.pb i').style.width=(p||0)+'%'}
+const unOverlay=()=>{const o=$('.ov');if(o)o.remove()}
+async function send(){
+  if(S.busy)return
+  S.touched=true;refresh()
+  const m=missing()
+  if(m.length){toast('ยังขาด: '+m.join(' · '));const sd=stepsDone(),first=!sd[0]?'c1':!sd[1]?'c2':S.add?'c4':'c3';const c=$('#'+first);if(c)c.scrollIntoView({behavior:'smooth',block:'start'});return}
+  if(S.files.some(f=>f.st==='prep')){toast('รอเตรียมไฟล์สักครู่นะคะ');return}
+  S.busy=true;refresh();paintFiles()
+  const snap=S.add?[]:S.items.map(x=>({id:x.id,name:x.name,qty:x.qty,unit:x.unit}))
+  try{
+    const todo=S.files.filter(f=>f.st!=='done')
+    if(todo.length){
+      overlay('กำลังส่งเอกสาร…','เตรียมส่ง '+todo.length+' ไฟล์',3)
+      const sg=await call('sign',{sess:S.sess,files:todo.map(f=>({name:f.name,size:f.size,mime:f.file.type||''}))})
+      if(!sg||!sg.ok){throw new Error(sg&&sg.error==='closed'?'closed':sg&&sg.error==='login'?'login':sg&&(sg.error==='type'||sg.error==='size')?'file:'+(sg.name||''):'net')}
+      S.sess=sg.sess
+      const total=todo.reduce((a,f)=>a+f.size,0)||1
+      let doneB=0
+      for(let k=0;k<todo.length;k++){
+        const it=todo[k],u=sg.uploads[k]
+        it.st='up';it.pct=0;it.path=u.path;paintFiles()
+        overlay('กำลังส่งเอกสาร…','ไฟล์ '+(k+1)+' จาก '+todo.length,Math.round(doneB*96/total)+3)
+        const good=await putFile(it,u.url,p=>{it.pct=p;const li=app.querySelector(`[data-f="${it.id}"] small`);if(li)li.textContent='กำลังส่ง '+p+'%';const b=app.querySelector(`[data-f="${it.id}"] .bar`);if(b)b.style.width=p+'%';overlay('กำลังส่งเอกสาร…','ไฟล์ '+(k+1)+' จาก '+todo.length,Math.round((doneB+it.size*p/100)*96/total)+3)})
+        it.st=good?'done':'err';doneB+=it.size;paintFiles()
+        if(!good)throw new Error('upload')
+      }
+    }
+    overlay('กำลังบันทึก…','อีกนิดเดียวค่ะ',98)
+    const r=await call('submit',{sess:S.sess,add_to:S.add?S.add.id:undefined,teacher:{school_id:S.t.school_id,school_name:S.t.school_name,name:S.t.name,phone:S.t.phone},project:{name:S.p.name,need_date:S.p.need||null,budget:S.p.budget||null},files:S.files.filter(f=>f.st==='done').map(f=>({path:f.path,name:f.name})),items:S.add?undefined:S.items.map(x=>({id:x.id||undefined,name:x.name,qty:x.qty}))})
+    if(!r||!r.ok){
+      if(r&&r.error==='invalid'){unOverlay();S.busy=false;S.editT=true;form();S.touched=true;refresh();toast('ข้อมูลยังไม่ครบ ตรวจช่องสีแดงอีกครั้งนะคะ');return}
+      throw new Error(r&&r.error==='closed'?'closed':r&&r.error==='busy'?'busy':r&&r.error==='login'?'login':r&&r.error==='no_files'?'empty':'net')
+    }
+    unOverlay();done(r.doc,r.added,snap)
+  }catch(e){
+    unOverlay();S.busy=false;paintFiles();refresh()
+    const w=String(e&&e.message||'')
+    if(w==='login'){toast('หมดเวลาเข้าสู่ระบบ กำลังเข้าใหม่…');setTimeout(()=>{try{liff.login({redirectUri:location.origin+location.pathname})}catch(x){}},900)}
+    else if(w==='closed')toast('ตอนนี้ร้านปิดรับทางหน้านี้ ส่งไฟล์ในแชท LINE ร้านได้เลยค่ะ')
+    else if(w==='busy')toast('ส่งถี่เกินไป รอสักครู่แล้วลองใหม่นะคะ')
+    else if(w==='empty')toast('เลือกรายการสินค้า หรือแนบไฟล์อย่างน้อย 1 อย่างนะคะ')
+    else if(w.startsWith('file:'))toast('ไฟล์ “'+w.slice(5)+'” ส่งไม่ได้ ลบออกแล้วลองใหม่นะคะ')
+    else toast('ส่งไม่สำเร็จ เช็กอินเทอร์เน็ตแล้วกด “ส่งเอกสารให้ร้าน” อีกครั้งค่ะ')
+  }
+}
+function done(d,added,snap){
+  S.busy=false
+  const rows=[['ชื่อไลน์',S.line.name||'-'],['โครงการ',d.project_name],['โรงเรียน',d.school_name],['ผู้สั่ง',d.teacher_name],['ต้องการ',d.need||'ยังไม่กำหนด'],['งบประมาณ',d.budget!=null?Number(d.budget).toLocaleString('en-US',{maximumFractionDigits:2})+' บาท':'ไม่ระบุ']].concat((d.file_count||!(snap&&snap.length))?[['ไฟล์',(d.file_count||0)+' ไฟล์']]:[])
+  screen(topbar(S.me.mode==='trial')+`<section class="card msg done"><img src="c/ch-wave.png" alt=""><h1>${added?'เพิ่มไฟล์ให้แล้ว ✓':'ร้านได้รับเอกสารแล้ว ✓'}</h1><p>เลขที่เอกสาร</p><span class="big">${E(d.doc_no)}</span>
+    <div class="rows">${rows.map(r=>`<span>${r[0]}</span><b>${E(r[1]||'-')}</b>`).join('')}</div>
+    ${snap&&snap.length?`<div class="rc"><div class="rh"><b>รายการสินค้า</b><span>${snap.length} รายการ</span></div>${itemsTable(snap,true)}</div>`:''}
+    <p style="margin-top:14px">แอดมินจะตรวจเอกสาร${d.items?' ใส่ราคาสินค้า':''} แล้วติดต่อกลับทาง LINE นะคะ 🙏<br>ลืมไฟล์? กลับมาหน้านี้แล้วกด “เพิ่มไฟล์” ได้เลย</p>
+    <button class="go" type="button" id="back" style="margin-top:16px">กลับไปที่แชท LINE</button>
+    <button class="btn2" type="button" id="again">สั่งรายการใหม่</button></section>`)
+  $('#back').onclick=backToChat
+  $('#again').onclick=async()=>{S.files=[];S.items=[];S.sess='';S.add=null;S.p={name:'',need:'',budget:''};S.touched=false;S.q='';S.cg='';S.lim=40;const me=await call('me',{},2);if(me&&me.ok){S.me=me;const t=me.teacher||{};S.t={school_id:t.school_id||null,school_name:t.school_name||'',name:t.name||(S.line.name||''),phone:t.phone||''};S.editT=!t.saved}form()}
+}
+function backToChat(){try{if(window.liff&&liff.isInClient&&liff.isInClient()){liff.closeWindow();return}}catch(e){}try{window.close()}catch(e){}toast('กดปุ่ม ✕ หรือย้อนกลับ เพื่อกลับไปที่แชทได้เลยค่ะ')}
+function mineHtml(){
+  const L=(S.me.recent||[]).slice(0,5)
+  if(!L.length||S.add)return ''
+  return `<section class="card mine"><h2>เอกสารที่ส่งแล้ว</h2><ul>${L.map(d=>`<li><div class="h"><span class="no">${E(d.doc_no)}</span><b>${E(d.project_name)}</b><span class="s ${E(d.status)}">${E(d.status_th||'ร้านได้รับแล้ว')}</span></div><small>${d.sent_at?E(new Date(d.sent_at).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'})):''} · ${d.file_count||0} ไฟล์${d.items?' · '+d.items+' รายการสินค้า':''}</small><div class="a"><button type="button" data-add="${E(d.id)}">+ เพิ่มไฟล์</button>${d.view?`<a href="${E(d.view)}">ดูเอกสารที่ร้านส่งให้</a>`:''}</div></li>`).join('')}</ul></section>`
+}
+boot().catch(()=>fail('เปิดหน้านี้ไม่ได้ตอนนี้','ลองใหม่อีกครั้ง หรือส่งไฟล์ในแชท LINE ร้านได้เลยค่ะ',true))
+</script>
+</body>
+</html>
