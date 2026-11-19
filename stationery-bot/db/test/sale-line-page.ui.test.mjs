@@ -343,6 +343,8 @@ test('the summary of an order can go by LINE: it waits for LINE, the order’s h
   await page.locator('#so_ord [data-a="summary"]').click();
   await page.waitForSelector('#so_modal [data-a="sumline"]');
   await page.locator('#so_modal [data-a="sumline"]').click();
+  await page.waitForSelector('#so_modal [data-a="sumlineok"]');   // v16: a second confirmation before anything is queued
+  await page.locator('#so_modal [data-a="sumlineok"]').click();
   await page.waitForSelector('#so_modal .lstat.wait');
   assert.match(await page.locator('#so_modal .lstat').innerText(), /เข้าคิวส่งทาง LINE แล้ว — รอ LINE รับข้อความ \(ยังไม่ถือว่าส่งถึงลูกค้า\)/);
   const out = await one(`select * from sale_line_out where order_id = $1`, [orderId]);

@@ -160,7 +160,8 @@ test('a general note from the same customer is kept in the draft; a greeting fro
 test('a photo sent while the order is open is kept in the private bucket, linked to the draft', async () => {
   const repliesBefore = customerReplies().length;
   await sendEvents(bot.port, { secret: MAIN_SECRET, events: [imageEvent(CUSTOMER, 'm5')] });
-  await wait(() => [...pg.storage.keys()].some((k) => k.startsWith('chat-media/main/CH-0001/m5')));
+  // wait for both: the picture in the bucket and its row (the row can land a moment after the file)
+  await wait(async () => [...pg.storage.keys()].some((k) => k.startsWith('chat-media/main/CH-0001/m5')) && (await rows("select 1 from chat_messages where line_message_id = 'm5'")).length > 0);
   const [m] = await rows("select kind, media_path from chat_messages where line_message_id = 'm5'");
   assert.equal(m.kind, 'image');
   assert.equal(m.media_path, 'main/CH-0001/m5.jpg');
