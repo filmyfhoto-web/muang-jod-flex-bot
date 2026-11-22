@@ -60,7 +60,7 @@
   var STORE_KEY = 'nongploy.nestingcut.settings.v2';
   // ค่าที่บันทึกจากรุ่นก่อน UI_VERSION: หัวงานเคยเปิดเป็นค่าเริ่มต้น → ปิดให้ครั้งเดียว
   var UI_VERSION = 6;
-  var PANEL_VERSION = '1.18.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
+  var PANEL_VERSION = '1.19.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
   var PV_W = 300; // กรอบพรีวิวขนาดคงที่ (px) — ต้องตรงกับ #previewBox ใน panel.css
   var PV_H = 400;
   var WIDE_MIN = 734; // แผงกว้างพอวางพรีวิว (334) คู่ช่องคำสั่ง (400) — ตรงกับ --pv-col + --ctl-w ใน panel.css
@@ -4589,46 +4589,22 @@
     loadLogoImg();
   }
 
-  /* หน้าตาแบบแผงของ Adobe: สีทุกส่วนคิดจากสีพื้นแผงของ Illustrator (ธีมเทาเข้ม / เทากลาง / สว่าง)
-   * แผงเข้ากับโปรแกรม ไม่โดดออกมา · สีส้มเหลือเฉพาะปุ่มหลัก */
-  function skinPalette(c) {
-    var base = [c.r, c.g, c.b].map(function (v) {
-      return Math.max(0, Math.min(255, Math.round(v)));
-    });
-    var light = (base[0] * 299 + base[1] * 587 + base[2] * 114) / 1000 > 140;
-    var to = light ? [0, 0, 0] : [255, 255, 255];
-    function mix(target, k) {
-      return 'rgb(' + base.map(function (v, i) { return Math.round(v + (target[i] - v) * k); }).join(',') + ')';
-    }
-    return {
-      light: light,
-      vars: {
-        '--bg': mix(to, 0),
-        '--card': mix(to, light ? 0.035 : 0.045),
-        '--card-2': mix(to, light ? 0.08 : 0.1),
-        '--line': mix(to, light ? 0.17 : 0.16),
-        '--input': light ? mix([255, 255, 255], 0.75) : mix([0, 0, 0], 0.3),
-        '--fg': light ? '#1e1e1e' : '#e6e6e6',
-        '--muted': light ? '#5a5a5a' : '#a8a8a8',
-        '--accent-soft': light ? 'rgba(192, 88, 43, 0.12)' : 'rgba(200, 100, 59, 0.18)',
-        // ข้อความสถานะเขียว/ส้มบนพื้นสว่างต้องเข้มขึ้นให้อ่านออก
-        '--ok': light ? '#1d7f52' : '#3ecf8e',
-        '--warn': light ? '#a35f00' : '#ffb547',
-        '--err': light ? '#c0392b' : '#ff6b6b',
-      },
-    };
+  /* สีแผง: สีกรม–ส้มอิฐของร้านทุกธีม (ไม่ใช้สีเทาของ Illustrator)
+   * Illustrator ธีมสว่าง → ชุดสีสว่างของร้าน (พื้นครีม ตัวหนังสือกรม) · ธีมเข้ม → พื้นกรม
+   * ระยะแน่นแบบแผงของ Adobe (.native) ใช้ทุกธีม — แผงแคบใช้งานได้ครบ */
+  function skinIsLight(c) {
+    return (c.r * 299 + c.g * 587 + c.b * 114) / 1000 > 140;
   }
   function applySkin() {
+    var root = document.documentElement;
+    root.classList.add('native');
     var c = host.skin && host.skin();
     if (!c) return;
-    var pal = skinPalette(c);
-    var root = document.documentElement;
-    root.classList.toggle('light', pal.light);
-    root.classList.add('native');
-    for (var k in pal.vars) root.style.setProperty(k, pal.vars[k]);
-    // โลโก้ตัวอักษรขาวสำหรับพื้นเข้ม / สีกรมสำหรับพื้นสว่าง
+    var light = skinIsLight(c);
+    root.classList.toggle('light', light);
+    // โลโก้ตัวอักษรขาวสำหรับพื้นกรม / สีกรมสำหรับพื้นสว่าง
     var brand = document.querySelector('.topbar .logo');
-    if (brand) brand.src = pal.light ? 'assets/logo.png' : 'assets/logo-panel.png';
+    if (brand) brand.src = light ? 'assets/logo.png' : 'assets/logo-panel.png';
   }
 
   // ---------------------------------------------------------------- เริ่ม

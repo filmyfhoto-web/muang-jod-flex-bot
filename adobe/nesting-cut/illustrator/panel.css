@@ -59,6 +59,10 @@
   --muted: #4b5470;
   --accent-soft: rgba(192, 88, 43, 0.1);
   --input: #ffffff;
+  /* ข้อความสถานะบนพื้นสว่างต้องเข้มขึ้นให้อ่านออก */
+  --ok: #1d7f52;
+  --warn: #a35f00;
+  --err: #c0392b;
 }
 
 * {
@@ -1357,9 +1361,9 @@ details.adv[open] > summary {
   contain: layout;
 }
 
-/* ================================================================ หน้าตาแบบแผงของ Adobe
-   สีแผงตามธีมของ Illustrator (main.js คำนวณจากสีพื้นแผงของโปรแกรม — เทาเข้ม / เทากลาง / สว่าง)
-   ตัวหนังสือ 12px ระยะแน่นเท่าแผงอื่นของ Adobe · สีส้มใช้เฉพาะปุ่มหลัก · แผงแคบ (~300 px) ใช้งานได้ครบ ไม่ล้น */
+/* ================================================================ แผงกระชับ ใช้งานง่าย (สีกรม–ส้มอิฐของร้าน)
+   ตัวหนังสือ 12px ระยะแน่นเท่าแผงอื่นของ Adobe · แผงแคบ (~300 px) ใช้งานได้ครบ ไม่ล้น
+   สีตามชุดสีของร้าน: พื้นกรม (ธีมสว่างของ Illustrator → พื้นครีม) · กรอบ/ปุ่มหลักสีส้มอิฐ */
 :root.native {
   --radius: 2px;
 }
@@ -1382,7 +1386,6 @@ details.adv[open] > summary {
 :root.native details.card {
   padding: 8px;
   margin-bottom: 6px;
-  border-color: var(--line);
 }
 :root.native .card h2,
 :root.native details.card > summary {
@@ -1394,7 +1397,7 @@ details.adv[open] > summary {
   padding: 2px 5px;
   font-size: 11px;
 }
-/* หัวแผง: เตี้ย เรียบ — โลโก้เล็กลง ปุ่มเป็นสีเทาแบบปุ่มของ Adobe */
+/* หัวแผง: เตี้ย — โลโก้เล็กลง · ช่องเลือกเครื่องมือกับปุ่ม ❓ สอน กรอบส้มอิฐเหมือนเดิม */
 :root.native .topbar {
   padding: 4px 6px;
   gap: 4px;
@@ -1405,19 +1408,11 @@ details.adv[open] > summary {
 :root.native .topbar .toolpick {
   font-size: 12.5px;
   padding: 3px 6px;
-  border-color: var(--line);
 }
 :root.native .topbar button.icon {
   padding: 3px 7px;
 }
-:root.native .topbar #btnGuide {
-  border-color: var(--line);
-  color: var(--fg);
-}
-:root.native .topbar #btnGuide.on {
-  background: var(--card-2);
-}
-/* ปุ่มรอง: เทา ไม่มีกรอบส้ม · ปุ่มหลักยังเป็นสีส้ม (เห็นชัดว่ากดอันไหนต่อ) */
+/* ปุ่มรองมีพื้นให้เห็นว่ากดได้ · ชี้แล้วขึ้นกรอบส้ม · ปุ่มหลักสีส้มอิฐ (เห็นชัดว่ากดอันไหนต่อ) */
 :root.native button {
   padding: 4px 9px;
   border-radius: var(--radius);
@@ -1428,7 +1423,7 @@ details.adv[open] > summary {
   color: var(--fg);
 }
 :root.native button.ghost:hover {
-  border-color: var(--muted);
+  border-color: var(--accent);
 }
 :root.native button.go {
   font-size: 14px;
@@ -1445,22 +1440,8 @@ details.adv[open] > summary {
   white-space: normal;
   line-height: 1.25;
 }
-/* กรอบส้มที่เหลือ → เรียบแบบ Adobe (ส้มเหลือที่ปุ่มหลักกับตัวเลขราคาที่คิดได้แล้ว) */
-:root.native .cost {
-  border-color: var(--line);
-  background: var(--card-2);
-}
-:root.native button.linkish {
-  border-color: var(--line);
-}
-:root.native details.howto > summary {
-  color: var(--muted);
-}
 :root.native .banner {
   border-style: solid;
-  border-color: var(--line);
-  background: var(--card);
-  color: var(--muted);
   font-size: 11.5px;
   padding: 6px 8px;
 }
