@@ -655,8 +655,12 @@
     openFile: function () {
       return '';
     },
+    // โหมดทดลองในเบราว์เซอร์: จำลองธีมของ Illustrator (?skin=dark | medium | lightmed | light) — ค่าเริ่มต้นเทาเข้ม
     skin: function () {
-      return null;
+      var m = /[?&]skin=(\w+)/.exec((root.location && root.location.search) || '');
+      var v = { dark: 50, medium: 83, lightmed: 184, light: 240 }[m ? m[1] : 'dark'];
+      if (v == null) v = 50;
+      return { r: v, g: v, b: v };
     },
     onSkinChange: function () {},
     onEvent: function () {},

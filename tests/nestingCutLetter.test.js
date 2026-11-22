@@ -249,3 +249,18 @@ test('แผงนิ่งตอนลาก/ย่อขยาย + กระ�
   const css = read('illustrator/panel.css');
   assert.match(css, /details\.adv > summary \{/);
 });
+
+test('หน้าตาแบบแผงของ Adobe: สีตามธีม Illustrator · แผงแคบเป็นค่าเริ่มต้น · ปุ่มคู่ไม่ล้นขอบ', () => {
+  const main = read('illustrator/main.js');
+  assert.match(main, /function skinPalette\(c\)/);
+  assert.match(main, /root\.classList\.add\('native'\);/);
+  for (const v of ['--bg', '--card', '--card-2', '--line', '--input', '--fg', '--muted']) assert.ok(main.includes("'" + v + "':"), v);
+  const css = read('illustrator/panel.css');
+  assert.match(css, /:root\.native body \{\n\s*font-size: 12px;/);
+  assert.match(css, /:root\.native button\.ghost \{\n\s*background: var\(--card-2\);/); // ปุ่มรองสีเทา
+  assert.match(css, /\.tool-actions \.row button \{\n\s*min-width: 0;\n\s*white-space: normal;/);
+  const mf = read('CSXS/manifest.xml');
+  assert.match(mf, /<Size>\s*<Height>720<\/Height>\s*<Width>340<\/Width>\s*<\/Size>/);
+  assert.match(mf, /<MinSize>\s*<Height>360<\/Height>\s*<Width>260<\/Width>\s*<\/MinSize>/);
+  assert.match(read('illustrator/demo.js'), /skin=\(\\w\+\)/);
+});
