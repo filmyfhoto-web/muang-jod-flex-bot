@@ -60,7 +60,7 @@
   var STORE_KEY = 'nongploy.nestingcut.settings.v2';
   // ค่าที่บันทึกจากรุ่นก่อน UI_VERSION: หัวงานเคยเปิดเป็นค่าเริ่มต้น → ปิดให้ครั้งเดียว
   var UI_VERSION = 6;
-  var PANEL_VERSION = '1.19.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
+  var PANEL_VERSION = '1.20.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
   var PV_W = 300; // กรอบพรีวิวขนาดคงที่ (px) — ต้องตรงกับ #previewBox ใน panel.css
   var PV_H = 400;
   var WIDE_MIN = 734; // แผงกว้างพอวางพรีวิว (334) คู่ช่องคำสั่ง (400) — ตรงกับ --pv-col + --ctl-w ใน panel.css
@@ -113,6 +113,8 @@
     headerHeight: 18,
     jobName: '',
     customer: '',
+    autoCustomer: true, // ดึงชิ้นงานแล้วเติมช่อง “ลูกค้า” จากชื่อสินค้า/ชื่อร้านในงานให้เอง (core/customer.js)
+    customerAuto: '', // ชื่อที่ปลั๊กอินเติมให้ล่าสุด — ช่องลูกค้ายังเป็นชื่อนี้ = ยังไม่ได้แก้เอง เปลี่ยนตามงานใหม่ได้
     jobNote: '',
     logoFile: '',
     logoAspect: 0,
@@ -537,9 +539,60 @@
       renderParts();
       clearPreview();
       updateFlow();
-      status('ได้ ' + S.parts.length + ' แบบ จาก “' + res.document + '” — กำลังเตรียมพรีวิว…', 'ok');
+      var who = customerFromScan(res);
+      status('ได้ ' + S.parts.length + ' แบบ จาก “' + res.document + '”' + (who ? ' · ลูกค้า “' + who + '”' : '') + ' — กำลังเตรียมพรีวิว…', 'ok');
       autoCalc();
     });
+  }
+
+  /* ช่อง “ลูกค้า”: ดึงชิ้นงานแล้วเดาชื่อจากชื่อสินค้า/ชื่อร้านในงาน (ตัวหนังสือใหญ่สุด · ชื่อไฟล์รูป · ชื่อไฟล์งาน)
+   * เติมให้เฉพาะตอนช่องว่าง หรือยังเป็นชื่อที่ปลั๊กอินเติมไว้รอบก่อน — ร้านพิมพ์เองแล้วไม่ทับ (โชว์ปุ่ม “ใช้ชื่อนี้” แทน)
+   * คืนชื่อที่เพิ่งเติม (ไว้บอกในแถบสถานะ) */
+  function customerFromScan(res) {
+    var s = S.settings;
+    var g = NC.customer ? NC.customer.guess(res) : null;
+    S.customerGuess = g;
+    var filled = '';
+    var mine = !s.customer || s.customer === s.customerAuto;
+    if (s.autoCustomer && mine) {
+      // งานใหม่เดาไม่ได้ → ล้างชื่อลูกค้างานก่อนออก ไม่ให้ติดไปพิมพ์บนหัวงานผิดคน
+      var name = g ? g.name : '';
+      if (name !== s.customer) {
+        setSetting('customer', name);
+        s.customerAuto = name;
+        saveSettings();
+        S.built = false;
+      }
+      filled = name;
+    }
+    renderCustomerHint();
+    return filled;
+  }
+
+  function renderCustomerHint() {
+    var el = $('custHint');
+    if (!el) return;
+    var s = S.settings;
+    var g = S.customerGuess;
+    el.textContent = '';
+    if (s.autoCustomer && g && s.customer === g.name) {
+      el.textContent = '✓ อ่านจาก' + g.fromText + ' — แก้ได้ (พิมพ์เองแล้วไม่ทับ)';
+    } else if (s.autoCustomer && g && s.customer !== g.name) {
+      el.appendChild(document.createTextNode('ชื่อในงาน: '));
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'linkish inline';
+      b.textContent = 'ใช้ “' + g.name + '”';
+      b.onclick = function () {
+        setSetting('customer', g.name);
+        S.settings.customerAuto = g.name;
+        saveSettings();
+        S.built = false;
+        renderCustomerHint();
+      };
+      el.appendChild(b);
+    }
+    el.hidden = !el.textContent;
   }
 
   function importPack() {
@@ -4490,6 +4543,7 @@
         if (key === 'media') loadPrice();
         if (key === 'sheetPrice') savePrice();
         if (key === 'markType') renderGtInfo();
+        if (key === 'customer' || key === 'autoCustomer') renderCustomerHint();
         if (key === 'sizeUnit' && S.settings.media === 'custom') {
           // กำหนดเอง: แปลงตัวเลขเดิมเป็นหน่วยใหม่
           var r = f.value === 'in' ? 1 / 25.4 : 25.4;

@@ -758,10 +758,14 @@
       <summary>ข้อมูลงาน &amp; ราคา <span class="sub">ลูกค้าตกดวงละกี่บาท</span></summary>
       <div class="grid2">
         <label>ชื่องาน <input id="jobName" data-setting="jobName" placeholder="งานสติ๊กเกอร์" /></label>
-        <label>ลูกค้า <input id="customer" data-setting="customer" /></label>
+        <label>ลูกค้า <input id="customer" data-setting="customer" placeholder="อ่านจากชิ้นงานให้เอง" /></label>
         <label data-for="run">วัสดุ <input data-setting="runMaterial" placeholder="เช่น PP ขาวเงา" /></label>
         <label data-for="run">แกรม <input type="number" min="0" step="1" data-setting="runGram" /></label>
       </div>
+      <p class="hint cust-hint" id="custHint" hidden></p>
+      <label class="check"
+        ><input type="checkbox" data-setting="autoCustomer" /> เติมชื่อลูกค้าจากชื่อสินค้าในชิ้นงานให้เอง</label
+      >
       <label class="stack">หมายเหตุ <input id="jobNote" data-setting="jobNote" /></label>
       <h3 class="sec">ราคาลูกค้า</h3>
       <div class="grid2 price-in">
@@ -947,6 +951,7 @@
     <script src="core/dimension.js"></script>
     <script src="core/pack.js"></script>
     <script src="core/price.js"></script>
+    <script src="core/customer.js"></script>
     <script src="core/update.js"></script>
     <script src="core/bridge.js"></script>
     <script src="illustrator/host-bridge.js"></script>
