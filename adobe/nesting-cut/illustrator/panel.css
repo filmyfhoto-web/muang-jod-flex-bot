@@ -1445,3 +1445,13 @@ details.adv[open] > summary {
   font-size: 11.5px;
   padding: 6px 8px;
 }
+/* ช่อง “ลูกค้า”: บอกว่าอ่านชื่อจากชิ้นงาน · ปุ่ม “ใช้ชื่อนี้” อยู่ในบรรทัดเดียวกัน */
+.cust-hint {
+  margin: 4px 0 2px;
+}
+.cust-hint button.linkish.inline {
+  display: inline-block;
+  width: auto;
+  margin: 0 0 0 4px;
+  padding: 1px 6px;
+}

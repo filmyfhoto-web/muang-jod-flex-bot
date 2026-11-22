@@ -85,6 +85,7 @@
   var SAMPLES = [
     {
       name: 'โลโก้ร้าน x12',
+      texts: [{ s: 'ม่วง ปริ้นท์', h: 40 }], // ตัวหนังสือในงาน (Live Text) — ให้ช่อง “ลูกค้า” เดาชื่อได้
       w: 54,
       h: 54,
       cut: [circle(27, 27, 27)],
@@ -120,6 +121,7 @@
     },
     {
       name: 'ป้ายชื่อ x8',
+      texts: [{ s: 'นัดพอน', h: 31 }],
       w: 84,
       h: 34,
       cut: [G.roundedRect(0, 0, 84, 34, 8)],
@@ -185,6 +187,7 @@
       h: def.h,
       draw: def.draw,
       image: def.image || null,
+      texts: def.texts || [],
       x: 40 + col * 260,
       y: 800 - row * 220,
       cutMm: def.cut,
@@ -223,6 +226,8 @@
       note: '',
       cut: it.cutAi || [],
       vectorOnly: !it.image,
+      texts: it.texts,
+      files: [],
     };
   }
 
