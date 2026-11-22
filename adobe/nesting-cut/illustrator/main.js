@@ -60,7 +60,7 @@
   var STORE_KEY = 'nongploy.nestingcut.settings.v2';
   // ค่าที่บันทึกจากรุ่นก่อน UI_VERSION: หัวงานเคยเปิดเป็นค่าเริ่มต้น → ปิดให้ครั้งเดียว
   var UI_VERSION = 6;
-  var PANEL_VERSION = '1.16.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
+  var PANEL_VERSION = '1.17.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
   var PV_W = 300; // กรอบพรีวิวขนาดคงที่ (px) — ต้องตรงกับ #previewBox ใน panel.css
   var PV_H = 400;
   var WIDE_MIN = 734; // แผงกว้างพอวางพรีวิว (334) คู่ช่องคำสั่ง (400) — ตรงกับ --pv-col + --ctl-w ใน panel.css
@@ -1523,10 +1523,26 @@
   };
 
   // พรีวิวข้างเมนู: อัตโนมัติ (แผงกว้าง ≥ 734 px) · บังคับข้าง ๆ · บังคับอยู่ในหน้าขั้นที่ 3
-  function placePreview() {
+  // ลากขอบแผงอยู่แถวรอยต่อ: เผื่อช่วง ±24 px (เข้าโหมดกว้างที่ 758 ออกที่ 710) หน้าไม่สลับไปมา
+  var HYST = 24;
+  var wideNow = null;
+  function wantWide() {
     var mode = S.settings.layoutMode;
-    var wide = mode === 'side' ? true : mode === 'stack' ? false : window.innerWidth >= WIDE_MIN;
+    if (mode === 'side') return true;
+    if (mode === 'stack') return false;
+    var w = window.innerWidth;
+    if (wideNow === null) return w >= WIDE_MIN;
+    return wideNow ? w >= WIDE_MIN - HYST : w >= WIDE_MIN + HYST;
+  }
+  // จัดหน้า (ถูก) — ย้ายการ์ดพรีวิวเฉพาะตอนสลับกว้าง/แคบจริง และคงตำแหน่งเลื่อนเดิมไว้
+  function placeLayout(force) {
+    var mode = S.settings.layoutMode;
     $('btnLayout').title = LAYOUT_LABEL[mode] || LAYOUT_LABEL.auto;
+    var wide = wantWide();
+    if (wide === wideNow && !force) return false;
+    var sc = $('scroller');
+    var keep = sc.scrollTop;
+    wideNow = wide;
     document.body.classList.toggle('wide', wide);
     var target = wide ? $('previewSide') : $('previewSlot');
     ['previewCard', 'dcPreviewCard', 'vecPreviewCard'].forEach(function (id) {
@@ -1534,9 +1550,42 @@
       if (card.parentNode !== target) target.appendChild(card);
     });
     applyVisibility();
+    sc.scrollTop = keep;
+    return true;
+  }
+  // วาดภาพตัวอย่างใหม่ (แพง) — เฉพาะเมื่อกล่องพรีวิวเปลี่ยนขนาดจริง
+  var previewKey = '';
+  function redrawPreviews(force) {
+    var key = ['preview', 'dcBox', 'vecBox']
+      .map(function (id) {
+        var e = $(id);
+        return e ? e.clientWidth + 'x' + e.clientHeight : '';
+      })
+      .join('|') + (document.body.classList.contains('wide') ? 'w' : 'n');
+    if (key === previewKey && !force) return;
+    previewKey = key;
     if (S.result) drawPreview();
     if (S.dc) drawDc();
     if (S.vec) drawVec();
+  }
+  function placePreview() {
+    placeLayout(true);
+    redrawPreviews(true);
+  }
+  // ระหว่างลากขอบแผง: จัดหน้าแค่เฟรมละครั้ง · วาดภาพตัวอย่างใหม่ครั้งเดียวตอนหยุดลาก (ไม่กระตุก ไม่กระพริบ)
+  var resizeRaf = 0;
+  var resizeTimer = 0;
+  function onPanelResize() {
+    if (!resizeRaf) {
+      resizeRaf = requestAnimationFrame(function () {
+        resizeRaf = 0;
+        if (placeLayout(false)) previewKey = ''; // สลับกว้าง/แคบแล้ว ต้องวาดใหม่แน่
+      });
+    }
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () {
+      redrawPreviews(false);
+    }, 180);
   }
 
   // วาดแผ่นลงแคนวาสกว้าง cssW: ทุกแผ่นเรียงลงมา (รูปส่งลูกค้า) หรือแผ่นเดียว (only = ลำดับแผ่น, พรีวิวบนแผง)
@@ -4264,6 +4313,24 @@
     if ($('toolSelect').value !== tool) $('toolSelect').value = tool;
   }
 
+  // กล่องพับได้ (ตั้งค่าเพิ่มเติม · ข้อมูลงาน & ราคา) จำว่าร้านเปิดหรือปิดไว้
+  function rememberFolds() {
+    Array.prototype.forEach.call(document.querySelectorAll('details[data-remember]'), function (d) {
+      var key = 'nc-open:' + d.id;
+      try {
+        var v = localStorage.getItem(key);
+        if (v === '1') d.open = true;
+        else if (v === '0') d.open = false;
+      } catch (e) {}
+      d.addEventListener('toggle', function () {
+        try {
+          localStorage.setItem(key, d.open ? '1' : '0');
+        } catch (e) {}
+        redrawPreviews(false); // ความสูงแผงเปลี่ยน กล่องพรีวิวอาจเปลี่ยนขนาดตาม (วาดใหม่เฉพาะเมื่อเปลี่ยนจริง)
+      });
+    });
+  }
+
   // ช่องกรอกแบบ “ชื่ออยู่ซ้าย ช่องอยู่ขวา” อ่านง่ายเหมือนแผงของ Illustrator
   function markFields() {
     Array.prototype.forEach.call(document.querySelectorAll('label'), function (l) {
@@ -4716,7 +4783,8 @@
     placePreview();
     updateFlow();
     bindGuide();
-    window.addEventListener('resize', placePreview);
+    window.addEventListener('resize', onPanelResize);
+    rememberFolds();
 
     if (host.demo) {
       run(scan).then(function () {

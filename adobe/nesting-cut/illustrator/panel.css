@@ -1312,3 +1312,47 @@ details.card > summary + h3.sec {
   border-radius: 3px;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
 }
+
+/* ตั้งค่าเพิ่มเติม (พับไว้): ค่าที่ไม่ค่อยแก้ — แผงสั้น กระชับ · กดเปิดแล้วจำไว้ */
+details.adv {
+  margin: 6px 0 8px;
+  border-top: 1px dashed var(--line);
+  padding-top: 6px;
+}
+details.adv > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 0;
+}
+details.adv > summary::-webkit-details-marker {
+  display: none;
+}
+details.adv > summary::before {
+  content: '▸';
+  transition: transform 0.15s;
+}
+details.adv[open] > summary::before {
+  transform: rotate(90deg);
+}
+details.adv > summary .sub {
+  font-weight: 400;
+  opacity: 0.8;
+}
+details.adv[open] > summary {
+  margin-bottom: 6px;
+  color: var(--fg);
+}
+
+/* ลาก/ย่อขยายแผง: ภาพตัวอย่างไม่ดันแผง ระหว่างรอวาดใหม่ (วาดใหม่ครั้งเดียวตอนหยุดลาก) */
+#scroller {
+  overflow-anchor: none;
+}
+.preview {
+  contain: layout;
+}

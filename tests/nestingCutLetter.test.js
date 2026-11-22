@@ -228,3 +228,24 @@ test('ไดคัทตัวหนังสือ: ทิ้งกรอบ/�
   for (const k of ['ltSplit', 'ltDrop', 'ltNoFrame']) assert.match(html, new RegExp('data-setting="' + k + '"'), k);
   assert.match(html, /<div id="ltColors" class="lt-colors">/);
 });
+
+test('แผงนิ่งตอนลาก/ย่อขยาย + กระชับ: จัดหน้าเฟรมละครั้ง · วาดพรีวิวครั้งเดียวตอนหยุดลาก · เผื่อช่วงรอยต่อ · ค่าที่ไม่ค่อยแก้พับไว้', () => {
+  const main = read('illustrator/main.js');
+  assert.match(main, /window\.addEventListener\('resize', onPanelResize\);/);
+  assert.ok(!/addEventListener\('resize', placePreview\)/.test(main), 'ห้ามวาดพรีวิวใหม่ทุกครั้งที่ลาก');
+  assert.match(main, /resizeRaf = requestAnimationFrame\(/);
+  assert.match(main, /resizeTimer = setTimeout\(function \(\) \{\n\s*redrawPreviews\(false\);\n\s*\}, 180\);/);
+  assert.match(main, /return wideNow \? w >= WIDE_MIN - HYST : w >= WIDE_MIN \+ HYST;/); // เข้า 758 ออก 710
+  assert.match(main, /if \(key === previewKey && !force\) return;/); // กล่องไม่เปลี่ยนขนาด ไม่วาดใหม่
+  assert.match(main, /sc\.scrollTop = keep;/);
+  assert.match(main, /localStorage\.setItem\(key, d\.open \? '1' : '0'\);/); // จำว่าเปิด/ปิด
+  const html = read('illustrator.html');
+  for (const id of ['advLetter', 'advShape', 'advDim', 'advStamp']) assert.match(html, new RegExp('<details class="adv" id="' + id + '" data-remember>'), id);
+  assert.match(html, /<details class="card" id="secJob" data-for="nest run" data-page="2" data-remember>/);
+  // ค่าหลักของไดคัทตัวหนังสืออยู่นอกกล่องพับ · ค่าละเอียดอยู่ข้างใน
+  const adv = html.slice(html.indexOf('id="advLetter"'), html.indexOf('</details>', html.indexOf('id="advLetter"')));
+  for (const k of ['ltWeed', 'ltMargin', 'ltRows', 'ltUnite', 'ltRotate', 'ltGap', 'ltMinPiece', 'ltSplit', 'ltNoFrame', 'ltDrop', 'ltTol']) assert.match(adv, new RegExp('data-setting="' + k + '"'), k);
+  for (const k of ['ltSource', 'ltSizeMode', 'ltSize', 'ltSide', 'ltCopies', 'ltRoll']) assert.ok(!adv.includes('data-setting="' + k + '"'), k + ' ต้องอยู่นอกกล่องพับ');
+  const css = read('illustrator/panel.css');
+  assert.match(css, /details\.adv > summary \{/);
+});
