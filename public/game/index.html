@@ -126,10 +126,15 @@ textarea.field { min-height: 72px; resize: vertical; }
 .kchips button.on { border-color: var(--purple-deep); background: var(--panel-2); box-shadow: inset 0 0 0 1.5px var(--purple-deep); }
 label.lb { display: block; font-size: 13px; font-weight: 800; color: var(--ink-soft); margin: 10px 0 4px; }
 .frow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.urgentline { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
-.urgentline .tog { flex: 1; min-height: 48px; border-radius: 12px; border: 2.5px solid var(--line); background: var(--card); font-weight: 900; }
-.urgentline .tog.on { background: #ffe1dd; border-color: var(--red); color: #a2372c; }
+.tog { min-height: 48px; border-radius: 12px; border: 2.5px solid var(--line); background: var(--card); font-weight: 900; }
+.tog.on { background: #ffe1dd; border-color: var(--red); color: #a2372c; }
+/* ช่องเสริมพับเก็บ — ฟอร์มหลักเหลือสั้น (ร้านขอกระชับ) */
+.fmore { margin-top: 12px; }
+.fmore > summary { list-style: none; cursor: pointer; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 2px dashed var(--line-deep); border-radius: 12px; padding: 8px 12px; font-weight: 800; font-size: 13px; color: var(--ink-soft); background: var(--panel-2); }
+.fmore > summary::-webkit-details-marker { display: none; }
+.fmore[open] > summary { border-style: solid; color: var(--ink); }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px; padding: 10px 14px; border-radius: 12px; font-weight: 900; border: 2.5px solid; }
+.btn[hidden] { display: none; } /* display:inline-flex จะทับกฎ [hidden] ของเบราว์เซอร์ (เคยกัดปุ่มลบในโหมดรับงานใหม่) */
 .btn.primary { background: var(--purple); border-color: var(--purple-deep); color: #fff; box-shadow: var(--shadow); width: 100%; }
 .btn.lite { background: var(--card); border-color: var(--line-deep); color: var(--purple-deep); }
 .btn.good { background: #d9f6e6; border-color: #4caf7d; color: #1d6e4e; }
@@ -329,37 +334,36 @@ dialog::backdrop { background: rgba(67, 32, 118, .5); }
     <label class="lb" for="f-customer">ลูกค้า / หน่วยงาน</label>
     <input id="f-customer" class="field" maxlength="100" placeholder="เช่น โรงเรียนอนุบาลเมืองจอด">
 
-    <label class="lb">ประเภทงาน</label>
-    <div class="kchips" id="f-kinds"></div>
-
-    <label class="lb">รายการ (ลูกค้าคนเดียวจดได้หลายรายการในใบเดียว)</label>
-    <div class="slipbox">
+    <div class="slipbox" style="margin-top:10px">
       <div class="sliphead">🧾 ใบจดรายการ</div>
       <div class="ithead"><span>รายการ</span><span>จำนวน</span><span>หน่วย</span><span></span></div>
       <div id="f-items-list"></div>
       <button class="btn lite" id="f-add-item" style="width:100%;min-height:44px;margin:6px 0 2px">＋ เพิ่มรายการ</button>
     </div>
 
-    <div class="frow">
+    <div class="frow" style="margin-top:10px">
       <div>
-        <label class="lb" for="f-received">วันที่รับออเดอร์</label>
-        <input id="f-received" class="field" type="date">
-      </div>
-      <div>
-        <label class="lb" for="f-due">วันนัดรับงาน</label>
+        <label class="lb" for="f-due" style="margin-top:0">วันนัดรับงาน</label>
         <input id="f-due" class="field" type="date">
       </div>
+      <div>
+        <label class="lb" style="margin-top:0">&nbsp;</label>
+        <button class="tog" id="f-urgent" style="width:100%;min-height:46px">⚡ งานด่วน: ปิด</button>
+      </div>
     </div>
 
-    <div class="urgentline">
-      <button class="tog" id="f-urgent">⚡ งานด่วน: ปิด</button>
-    </div>
-
-    <label class="lb" for="f-assignee">พนักงานผู้ดูแล</label>
-    <select id="f-assignee" class="field"></select>
-
-    <label class="lb" for="f-note">หมายเหตุ</label>
-    <textarea id="f-note" class="field" rows="2" maxlength="500" placeholder="ไฟล์อยู่ไหน / สีที่ต้องการ / เบอร์ติดต่อ (ไม่บังคับ)"></textarea>
+    <!-- ช่องที่ไม่ต้องกรอกทุกครั้ง พับเก็บ (ร้านขอฟอร์มกระชับ) — ตัวช่วยอ่านเติมให้เองอยู่แล้ว -->
+    <details class="fmore" id="f-more">
+      <summary>แก้เพิ่มเติม · ประเภท: <span id="f-kind-now">🖨️ ปริ้น / ถ่ายเอกสาร</span> ▾</summary>
+      <label class="lb">ประเภทงาน</label>
+      <div class="kchips" id="f-kinds"></div>
+      <label class="lb" for="f-received">วันที่รับออเดอร์ (ปกติ = วันนี้)</label>
+      <input id="f-received" class="field" type="date">
+      <label class="lb" for="f-assignee">พนักงานผู้ดูแล</label>
+      <select id="f-assignee" class="field"></select>
+      <label class="lb" for="f-note">หมายเหตุ</label>
+      <textarea id="f-note" class="field" rows="2" maxlength="500" placeholder="ไฟล์อยู่ไหน / สีที่ต้องการ / เบอร์ติดต่อ (ไม่บังคับ)"></textarea>
+    </details>
 
     <div style="margin-top:14px" class="btn-row">
       <button class="btn warn" id="f-delete" hidden>🗑 ลบใบงานนี้</button>
@@ -588,8 +592,16 @@ function fitCanvas() {
 }
 let fitTimer = 0;
 window.addEventListener('resize', () => { clearTimeout(fitTimer); fitTimer = setTimeout(fitCanvas, 150); });
+/* ฟิล์มเดินสุ่มได้ทั่วร้าน (ร้านขอ) — เลือกจุดงานถัดไปแบบสุ่มทุกครั้งที่ถึง */
+const ART_SPOT_KEYS = ['counter', 'prep', 'printer', 'copier', 'office', 'frame', 'sticker', 'stamp', 'photo', 'bench'];
+const randomArtSpot = () => SC.ART.spots[ART_SPOT_KEYS[Math.floor(Math.random() * ART_SPOT_KEYS.length)]];
+function wanderNext(w) {
+  w.path = [w.path[1] || w.path[0], randomArtSpot()];
+  w.t = 0;
+  w.dwell = 1100 + Math.random() * 1900;
+}
 artImg.onload = () => {
-  scene.walkers = [SC.buildArtWalker()];
+  scene.walkers = [{ path: [SC.ART.spots.counter, SC.ART.spots.printer], t: 0, dwell: 900, speed: 42, color: '#8451bf', hair: '#4a3650', wander: true }];
   setView(scene.view); // ซ่อนปุ่มรถลอย (ภาพมีปุ่มในตัว) + ปรับขนาดแคนวาส
 };
 let walkerOverride = null; // {walker, restorePath, target}
@@ -632,12 +644,19 @@ function frame(t) {
       const w = walkerOverride.walker;
       w.t += (w.speed * dt) / 1000 / Math.max(1, E.pathLength(w.path));
       if (w.t >= 1) {
-        w.path = walkerOverride.restorePath; w.t = 0; w.dwell = 1600;
+        if (walkerOverride.restorePath === 'wander') { wanderNext(w); w.dwell = 1800; }
+        else { w.path = walkerOverride.restorePath; w.t = 0; w.dwell = 1600; }
         walkerOverride = null;
       }
       SC.tickWalkers(crew.filter((x) => x !== w), dt);
     } else {
-      SC.tickWalkers(crew, dt);
+      for (const w of crew) {
+        if (!w.wander) continue; // ฟิล์มโหมดเดินทั่วร้าน: สุ่มจุดใหม่เมื่อถึง
+        if (w.dwell > 0) { w.dwell -= dt; continue; }
+        w.t += (w.speed * dt) / 1000 / Math.max(1, E.pathLength(w.path));
+        if (w.t >= 1) wanderNext(w);
+      }
+      SC.tickWalkers(crew.filter((w) => !w.wander), dt);
     }
     const dg = scene.dog;
     if (t > dg.nextMove) {
@@ -932,7 +951,7 @@ function walkTo(zone, say) {
   const zones = art ? SC.ART.zones : SC.ZONES;
   const w = scene.walkers[0];
   const cur = E.pointAt(w.path, w.t);
-  walkerOverride = { walker: w, restorePath: art ? SC.ART_LOOP : SC.WALK_LOOP };
+  walkerOverride = { walker: w, restorePath: art ? 'wander' : SC.WALK_LOOP };
   w.path = [cur, spots[zone] || spots.counter];
   w.t = 0; w.dwell = 0;
   toast(say || `${scene.walkerName}กำลังเดินไป “${zones[zone].label}” (ภาพจำลอง)`);
@@ -1015,6 +1034,8 @@ let formUrgent = false;
 function buildKindChips() {
   $('f-kinds').innerHTML = E.KINDS.map((k) =>
     `<button data-k="${k.id}" class="${k.id === formKind ? 'on' : ''}">${k.icon} ${k.label}</button>`).join('');
+  const k = E.KIND[formKind];
+  $('f-kind-now').textContent = `${k.icon} ${k.label}`; // โชว์ประเภทปัจจุบันบนแถบพับ
 }
 $('f-kinds').addEventListener('click', (ev) => {
   const b = ev.target.closest('button[data-k]');
@@ -1070,6 +1091,7 @@ function resetForm() {
   $('new-title').textContent = '➕ รับงานใหม่';
   $('parse-box').hidden = false;
   $('f-delete').hidden = true;
+  $('f-more').open = false; // ฟอร์มกระชับ: ช่องเสริมพับไว้ก่อน
   $('p-text').value = '';
   $('f-customer').value = '';
   setItemRows([]);
@@ -1087,6 +1109,7 @@ function openEdit(j) {
   $('new-title').textContent = '✏️ แก้ไขใบงาน #' + j.id;
   $('parse-box').hidden = true;
   $('f-delete').hidden = false;
+  $('f-more').open = true; // แก้ไขเห็นครบทุกช่อง
   $('f-customer').value = j.customer;
   setItemRows(j.items && j.items.length ? j.items : [{ title: j.title, qty: j.qty, unit: j.unit }]);
   $('f-received').value = j.received; $('f-due').value = j.due;
