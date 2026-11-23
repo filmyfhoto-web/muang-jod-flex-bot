@@ -6,7 +6,7 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '4.18.0';
+  var APP_VERSION = '4.19.0';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp', hands: C.HAND_BUILTIN.src });
 
@@ -1210,11 +1210,12 @@
     }
     photoFromBlob(file)
       .then(function (p) {
-        var size = C.canvasSize('auto', null, { w: p.w, h: p.h });
-        p.quad = C.defaultQuad(C.geometry(st.type, st.w, st.h), size.W, size.H);
+        // หาตำแหน่งติดป้ายในรูปให้เอง (ป้ายเก่า / แผงคานเหนือประตู / กรอบบนผนัง) — ไม่ต้องลากมุมเอง
+        p.spot = photoSpot(p);
+        p.quad = photoQuadFor(p);
         photo = p;
         st.scene = 'photo';
-        toast('ลากจุดส้ม 4 มุมให้ตรงตำแหน่งป้ายในรูป');
+        toast(p.spot ? 'วางป้ายตรงตำแหน่งที่หาเจอในรูปให้แล้ว — ไม่ตรงลากจุดส้มปรับได้' : 'หาตำแหน่งป้ายในรูปไม่เจอ วางไว้ช่วงบนให้ก่อน — ลากจุดส้ม 4 มุมให้ตรงตำแหน่งป้าย');
         sync();
       })
       .catch(function () {
@@ -1226,12 +1227,43 @@
     e.target.value = '';
   });
   dropZone($('photoDrop'), setPhotoFile);
+  /* ตำแหน่งติดป้ายในรูปหน้าร้าน (C.findSignSpot บนภาพย่อด้านยาว 480 จุด) → กรอบ 4 มุม (0..1) หรือ null
+   * หาครั้งเดียวต่อรูป เก็บไว้ที่ photo.spot · เปลี่ยนขนาด/ชนิดป้ายแล้ววางใหม่ในกรอบเดิมตามสัดส่วนใหม่ */
+  function photoSpot(p) {
+    try {
+      var f = Math.min(1, 480 / Math.max(p.w, p.h));
+      var c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(p.w * f));
+      c.height = Math.max(1, Math.round(p.h * f));
+      var x = c.getContext('2d', { willReadFrequently: true });
+      x.drawImage(p.img, 0, 0, c.width, c.height);
+      var g = C.geometry(st.type, st.w, st.h);
+      var r = C.findSignSpot(x.getImageData(0, 0, c.width, c.height).data, c.width, c.height, { aspect: g.bw / g.bh });
+      return r ? r.region : null;
+    } catch (e) {
+      return null;
+    }
+  }
+  // ป้ายตามสัดส่วนจริงลงในกรอบที่หาเจอ · ไม่เจอ = กรอบตั้งต้นยกขึ้นช่วงบนของภาพ (ป้ายมักอยู่เหนือระดับสายตา ไม่ใช่กลางประตู)
+  function photoQuadFor(p) {
+    var size = C.canvasSize('auto', null, { w: p.w, h: p.h });
+    var g = C.geometry(st.type, st.w, st.h);
+    if (p.spot) return C.fitSpot(p.spot, g.bw / g.bh, size.W, size.H);
+    var q = C.defaultQuad(g, size.W, size.H);
+    var dy = Math.max(0.36 - (q[0].y + q[3].y) / 2, 0.04 - q[0].y);
+    return dy < 0
+      ? q.map(function (pt) {
+          return { x: pt.x, y: pt.y + dy };
+        })
+      : q;
+  }
   function refreshPhotoQuad(force) {
     if (!photo || (photo.touched && !force)) return;
-    var size = C.canvasSize('auto', null, { w: photo.w, h: photo.h });
-    photo.quad = C.defaultQuad(C.geometry(st.type, st.w, st.h), size.W, size.H);
+    if (photo.spot === undefined) photo.spot = photoSpot(photo); // รูปที่เปิดจากงานเก่า: หาตอนต้องวางใหม่
+    photo.quad = photoQuadFor(photo);
   }
   $('resetQuad').addEventListener('click', function () {
+    if (photo) photo.spot = undefined; // หาใหม่ตามสัดส่วนป้ายตอนนี้
     refreshPhotoQuad(true);
     if (photo) {
       photo.touched = false;
