@@ -1,0 +1,16 @@
+{
+  "name": "NATTAPRON 8-BIT AUTO SHOP",
+  "short_name": "NP 8-BIT",
+  "description": "บอร์ดงาน + เกมจำลองร้านนัฐภรณ์คัลเลอร์แล็บ (โหมดสาธิตในเครื่อง)",
+  "lang": "th",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#cfc6ee",
+  "theme_color": "#7c6cd8",
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
