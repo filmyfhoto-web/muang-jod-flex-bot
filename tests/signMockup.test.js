@@ -1421,3 +1421,62 @@ test('3 มิตินิ่ง: แก้ขนาด/ย่อหน้าต
   assert.match(v, /canvas\.addEventListener\('webglcontextrestored'/);
   assert.match(v, /scene\.environment = gen\.fromScene\(new RoomEnvironment\(\), 0\.04\)\.texture;/);
 });
+
+// ภาพทดสอบสังเคราะห์: ผนัง + ป้ายเก่า (มีลายข้างใน) + ประตูม้วน (ซี่ถี่) ด้านล่าง — RGBA
+function storefront(W, H, sign, opts = {}) {
+  const px = new Uint8ClampedArray(W * H * 4);
+  let seed = 3;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) * 6 - 3;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4;
+      let c = [226, 218, 200];
+      // ประตูม้วน: ช่วงล่างกลางภาพ ซี่แนวนอนทุก 4 จุด
+      if (opts.shutter && x >= W * 0.2 && x < W * 0.8 && y >= H * 0.45 && y < H * 0.95) c = y % 4 < 2 ? [150, 152, 156] : [196, 198, 202];
+      if (sign && x >= sign[0] && x < sign[2] && y >= sign[1] && y < sign[3]) {
+        c = [30, 60, 130]; // พื้นป้ายกรมท่า มีแถบตัวหนังสือสีส้ม
+        if ((y - sign[1]) % 14 < 5 && x > sign[0] + 12 && x < sign[2] - 40) c = [230, 110, 40];
+      }
+      const n = rnd();
+      px[i] = c[0] + n;
+      px[i + 1] = c[1] + n;
+      px[i + 2] = c[2] + n;
+      px[i + 3] = 255;
+    }
+  return px;
+}
+
+test('วางป้ายอัตโนมัติบนรูปหน้าร้าน: หาป้ายเก่าเจอ (ไม่ใช่ประตูม้วน) · ผนังเปล่าไม่เดามั่ว · ป้ายใหม่ตามสัดส่วนจริงในกรอบ', () => {
+  const W = 480;
+  const H = 300;
+  const sign = [120, 40, 360, 120]; // กว้าง 240 สูง 80 (3:1) อยู่ช่วงบน
+  const r = C.findSignSpot(storefront(W, H, sign, { shutter: true }), W, H, { aspect: 3 });
+  assert.ok(r, 'ต้องหาเจอ');
+  const [tl, tr, br, bl] = r.region.map((p) => [p.x * W, p.y * H]);
+  for (const [got, want] of [[tl, [120, 40]], [tr, [360, 40]], [br, [360, 120]], [bl, [120, 120]]]) {
+    assert.ok(Math.abs(got[0] - want[0]) <= 6 && Math.abs(got[1] - want[1]) <= 6, JSON.stringify({ got, want }));
+  }
+  // ผนังเปล่าเรียบ ๆ ไม่มีกรอบ → ไม่เดา (แอปวางกรอบตั้งต้นช่วงบนให้ลากเอง)
+  assert.equal(C.findSignSpot(storefront(W, H, null), W, H, { aspect: 3 }), null);
+  // ป้ายใหม่ 2:1 ในกรอบ 3:1 → กว้างเหลือ 2/3 กึ่งกลาง สูงเต็มกรอบ (เว้นขอบ 3%)
+  const region = [{ x: 0.25, y: 0.1 }, { x: 0.75, y: 0.1 }, { x: 0.75, y: 0.3 }, { x: 0.25, y: 0.3 }]; // บนภาพ 480×300 = 240×60 (4:1)
+  const q = C.fitSpot(region, 2, W, H);
+  const w = (q[1].x - q[0].x) * W;
+  const h = (q[3].y - q[0].y) * H;
+  assert.ok(Math.abs(w / h - 2) < 0.01, 'สัดส่วนป้ายใหม่ ' + w / h);
+  assert.ok(Math.abs((q[0].x + q[1].x) / 2 - 0.5) < 1e-9, 'กึ่งกลางแนวนอน');
+  assert.ok(Math.abs(h - 60 * 0.94) < 0.01, 'สูงเต็มกรอบเว้นขอบ');
+});
+
+test('แอป: ใส่รูปหน้าร้านแล้ววางป้ายเอง · เปลี่ยนขนาด/ใส่ไฟล์งานทีหลังวางใหม่ในกรอบเดิม · หาไม่เจอวางช่วงบน · คนยืนบนพื้น', () => {
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  assert.match(app, /p\.spot = photoSpot\(p\);\n\s*p\.quad = photoQuadFor\(p\);/);
+  assert.match(app, /if \(p\.spot\) return C\.fitSpot\(p\.spot, g\.bw \/ g\.bh, size\.W, size\.H\);/);
+  assert.match(app, /var dy = Math\.max\(0\.36 - \(q\[0\]\.y \+ q\[3\]\.y\) \/ 2, 0\.04 - q\[0\]\.y\);/);
+  assert.match(app, /if \(photo\.spot === undefined\) photo\.spot = photoSpot\(photo\);/);
+  assert.match(app, /if \(photo\) photo\.spot = undefined; \/\/ หาใหม่ตามสัดส่วนป้ายตอนนี้/);
+  const html = readFileSync(new URL('../sign-mockup/index.html', import.meta.url), 'utf8');
+  assert.match(html, /id="resetQuad">วางป้ายอัตโนมัติอีกครั้ง</);
+  const render = readFileSync(new URL('../sign-mockup/render.js', import.meta.url), 'utf8');
+  assert.match(render, /Math\.max\(bottom \+ lift \* s, g\.mount === 'floor' \? 0 : H \* 0\.9\)/);
+});

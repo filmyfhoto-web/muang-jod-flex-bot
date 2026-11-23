@@ -2571,7 +2571,8 @@
       var fx = Math.max.apply(null, xs) + (P.gap + P.w / 2) * s;
       if (fx + (P.w / 2) * s > W) fx = Math.min.apply(null, xs) - (P.gap + P.w / 2) * s;
       var lift = g.mount === 'floor' ? 0 : Math.max(40, Math.min(300, 150 - g.bh / 2));
-      feet = { x: fx, y: Math.min(H * 0.98, bottom + lift * s) };
+      // รูปหน้าร้านส่วนใหญ่พื้นอยู่ช่วงล่างของภาพ — ป้ายติดสูง (แผงเหนือประตู) คนไม่ลอยกลางอากาศ
+      feet = { x: fx, y: Math.min(H * 0.97, Math.max(bottom + lift * s, g.mount === 'floor' ? 0 : H * 0.9)) };
     }
     person(x, { s: s, personX: feet.x, floorY: feet.y }, U);
     out.personBox = { x0: feet.x - 32 * s, x1: feet.x + 32 * s, y0: feet.y - 178 * s, y1: feet.y + 6 * s };
