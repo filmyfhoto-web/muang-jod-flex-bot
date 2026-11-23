@@ -161,6 +161,9 @@ test('เกม: ฟิล์มมีชื่อลอยหัว + วิถ
   // ตัวละครหลักชื่อ "ฟิล์ม" (ร้านตั้ง) — ถ้าตั้ง "เครื่องนี้คือใคร" ใช้ชื่อนั้นแทน
   assert.ok(html.includes("scene.walkerName = settings.me || 'ฟิล์ม'"));
   assert.ok(scene.includes('export function nameTag(g, text, x, y)'));
+  // ทีมงานในภาพตามที่ร้านตั้ง: หญิง (เคาน์เตอร์), เจ้ปิ่น (ยืนถืองาน), ประมวล (คอมหลังร้าน)
+  assert.ok(scene.includes("people: [['หญิง', 222, 458], ['เจ้ปิ่น', 517, 430], ['ประมวล', 332, 94]]"));
+  assert.ok(scene.includes('for (const [who, px_, py_] of ART.people) nameTag(g, who, px_, py_);'));
   // ยืนยันสถานะจริงแล้วตัวละครถึงออกไปทำ (ภาพตามหลังการยืนยัน ไม่ใช่ตัวเปลี่ยนสถานะ)
   assert.ok(html.includes('function playWorkFor(to, kind)'));
   assert.ok(html.includes('const went = playWorkFor(to, next.kind);'));
