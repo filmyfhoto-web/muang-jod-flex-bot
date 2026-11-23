@@ -47,6 +47,21 @@ export function mountViewer(opts) {
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
+  // การ์ดจอหลุด (มือถือสลับแอป / หน่วยความจำเต็ม): บอกลูกค้าว่ากำลังเปิดใหม่ → กลับมาแล้วสร้างแสงสะท้อนใหม่ หมุนดูต่อได้ ไม่ต้องรีเฟรช
+  canvas.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    if (load) {
+      load.hidden = false;
+      load.textContent = 'กำลังเปิดภาพ 3 มิติใหม่…';
+    }
+  });
+  canvas.addEventListener('webglcontextrestored', () => {
+    const gen = new THREE.PMREMGenerator(renderer);
+    scene.environment = gen.fromScene(new RoomEnvironment(), 0.04).texture;
+    gen.dispose();
+    if (load) load.hidden = true;
+  });
+
   const camera = new THREE.PerspectiveCamera(35, 1, 0.05, 200);
   const controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
