@@ -17,6 +17,11 @@ const COMMANDS = new Map([
   ['บันทึก/แนบสลิป', 'attach_evidence'],
   ['งานค้าง', 'pending_payment'],
   ['ตั้งค่า', 'open_dashboard'],
+  // ปุ่มเกมร้าน (มุมขวาล่างของริชเมนู) — เปิดเกม NATTAPRON 8-BIT ที่ /game/
+  ['เกมร้าน 8-bit', 'open_game'], // normalise() lower-cases latin ก่อนเทียบ
+  ['เกมร้าน', 'open_game'],
+  ['เกม', 'open_game'],
+  ['เล่นเกม', 'open_game'],
   // The small captions printed under a button. A menu whose buttons send text
   // can be built to send either line, and a shop reading the artwork may type
   // the caption rather than the heading.
