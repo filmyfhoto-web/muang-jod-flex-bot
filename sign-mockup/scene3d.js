@@ -2785,7 +2785,7 @@ export function createStage(opts) {
 
   const scene = new THREE.Scene();
   const pmrem = new THREE.PMREMGenerator(renderer);
-  const roomEnv = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  let roomEnv = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
   scene.environment = roomEnv;
 
   const camera = new THREE.PerspectiveCamera(32, 1.6, 0.03, 300);
@@ -3240,11 +3240,28 @@ export function createStage(opts) {
     pos.y = Math.max(0.2, pos.y);
     return { pos, target };
   }
-  function frame(name) {
+  // keep = ป้ายเปลี่ยนขนาด/ชนิด หรือกรอบภาพเปลี่ยนสัดส่วน: ถ้าร้านหมุน/ซูมไว้ คงมุมกับอัตราซูมเดิม
+  // แค่เลื่อนจุดเล็งตามป้ายใหม่ — ไม่เด้งกลับมุมเริ่มต้นทุกครั้งที่พิมพ์ขนาด (เปลี่ยนฉาก/กดเลือกมุม = กลับมุมเริ่มต้น)
+  let aimDist = 0;
+  let userMoved = false;
+  controls.addEventListener('start', () => {
+    userMoved = true;
+  });
+  function frame(name, keep) {
     view = name || view;
     const a = aimFor(view, camera.aspect);
-    camera.position.copy(a.pos);
-    controls.target.copy(a.target);
+    const dist0 = a.pos.distanceTo(a.target);
+    if (keep && userMoved && aimDist > 0 && !show) {
+      const sph = new THREE.Spherical().setFromVector3(new THREE.Vector3().subVectors(camera.position, controls.target));
+      sph.radius = THREE.MathUtils.clamp(sph.radius * (dist0 / aimDist), controls.minDistance, controls.maxDistance);
+      controls.target.copy(a.target);
+      camera.position.setFromSpherical(sph).add(a.target);
+    } else {
+      camera.position.copy(a.pos);
+      controls.target.copy(a.target);
+      userMoved = false;
+    }
+    aimDist = dist0;
     const wallish = !(envKey === 'studio' && model && model.floor);
     // มือถือบัตรเป็นภาพวาดแบน ไม่ให้หมุนไปด้านข้างมาก
     const lim = envKey === 'hand' ? 0.6 : wallish ? 1.35 : Infinity;
@@ -3264,6 +3281,7 @@ export function createStage(opts) {
   function stopShow() {
     if (!show) return;
     show = null;
+    userMoved = true; // หยุดหมุนโชว์ตรงไหน คงมุมนั้นไว้
     controls.enabled = true;
     controls.update();
   }
@@ -3275,11 +3293,33 @@ export function createStage(opts) {
     camera.lookAt(show.target);
   }
 
+  /* ---------- การ์ดจอหลุด (WebGL context lost) ----------
+   * มือถือ/คอมการ์ดจอเล็กโดนระบบเรียกการ์ดจอคืนได้ (เปิดแอปอื่น หน่วยความจำเต็ม ไดรเวอร์รีเซ็ต) — เดิมภาพค้าง/ดำจนต้องรีเฟรช
+   * ตอนนี้: หยุดวาด บอกแอป (แอปโชว์ภาพ 2 มิติแทนชั่วคราว) → การ์ดจอกลับมา สร้างแสงสะท้อนรอบห้องใหม่ แล้ววาดต่อมุมเดิม */
+  let lost = false;
+  renderer.domElement.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault(); // ขอการ์ดจอคืน
+    lost = true;
+    if (opts.onLost) opts.onLost();
+  });
+  renderer.domElement.addEventListener('webglcontextrestored', () => {
+    // แสงสะท้อนรอบห้องเป็นภาพบนการ์ดจอ หายไปพร้อมกัน — ไม่สร้างใหม่ภาพจะมืดลง
+    const old = roomEnv;
+    const gen = new THREE.PMREMGenerator(renderer);
+    roomEnv = gen.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+    gen.dispose();
+    if (scene.environment === old) scene.environment = roomEnv;
+    lost = false;
+    needs = true;
+    if (opts.onRestored) opts.onRestored();
+  });
+
   /* ---------- วาด ---------- */
   let raf = 0;
   function tick(now) {
     raf = requestAnimationFrame(tick);
     if (video || promo) return; // กำลังทำวิดีโอ: วาดทีละเฟรมเอง
+    if (lost) return; // การ์ดจอหลุด: รอกลับมาก่อน
     let moved = false;
     if (show) {
       stepShow(now);
@@ -3320,7 +3360,7 @@ export function createStage(opts) {
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
-    if (Math.abs(oldAspect - camera.aspect) > 0.05 && model) frame(view);
+    if (Math.abs(oldAspect - camera.aspect) > 0.05 && model) frame(view, true);
     needs = true;
   }
 
@@ -3356,7 +3396,7 @@ export function createStage(opts) {
     }
     if (sceneChanged || personChanged) reframe = true;
     layout(st.scene);
-    if (reframe) frame(view);
+    if (reframe) frame(view, !sceneChanged);
     needs = true;
   }
 
@@ -4164,6 +4204,15 @@ export function createStage(opts) {
     setEnabled(on) {
       controls.enabled = on && !show;
       if (!on) stopShow();
+    },
+    // การ์ดจอหลุดอยู่ (แอปโชว์ภาพ 2 มิติแทนจนกว่าจะกลับมา)
+    get lost() {
+      return lost;
+    },
+    // มุมกล้องตอนนี้ (เรเดียน/เมตร) — ใช้ทดสอบว่ากล้องไม่เด้ง
+    orbit() {
+      const sph = new THREE.Spherical().setFromVector3(new THREE.Vector3().subVectors(camera.position, controls.target));
+      return { theta: sph.theta, phi: sph.phi, radius: sph.radius };
     },
     projected,
     renderAt,

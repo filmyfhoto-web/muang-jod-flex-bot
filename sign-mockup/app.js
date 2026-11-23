@@ -6,7 +6,7 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '4.16.0';
+  var APP_VERSION = '4.17.0';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp', hands: C.HAND_BUILTIN.src });
 
@@ -359,7 +359,7 @@
 
   /* ---------- วาด ---------- */
   function is3d() {
-    return !!stage && !(st.scene === 'photo' && photo) && !(st.scene === 'handPhoto' && handReady());
+    return !!stage && !stage.lost && !(st.scene === 'photo' && photo) && !(st.scene === 'handPhoto' && handReady());
   }
   // ฉากที่วาดจริง: ฉากมือจับ (รูปของร้าน) ที่ยังไม่มีรูป ใช้ฉากมือจับแบบวาดไปก่อน
   function sceneNow() {
@@ -5930,7 +5930,19 @@
   function init3d() {
     if (stage || !window.SignMockup.createStage3d) return;
     try {
-      stage = window.SignMockup.createStage3d({ eventsEl: view, onFrame: composite3d });
+      stage = window.SignMockup.createStage3d({
+        eventsEl: view,
+        onFrame: composite3d,
+        // การ์ดจอหลุด: โชว์ภาพ 2 มิติไปก่อน (ไม่ค้าง/ไม่ดำ) · กลับมาแล้ววาด 3 มิติต่อมุมเดิมเอง ไม่ต้องรีเฟรช
+        onLost: function () {
+          toast('การ์ดจอรีเซ็ต — โชว์ภาพ 2 มิติชั่วคราว รอสักครู่ 3 มิติจะกลับมาเอง');
+          draw();
+        },
+        onRestored: function () {
+          toast('ภาพ 3 มิติกลับมาแล้ว');
+          draw();
+        },
+      });
       if (st.view && st.view !== 'angle') stage.setView(st.view);
       window.SignMockup.stage = stage; // ใช้ทดสอบ/ปรับแสง
       window.SignMockup.faceTexture = function () {

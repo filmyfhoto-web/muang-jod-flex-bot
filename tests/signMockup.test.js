@@ -1399,3 +1399,25 @@ test('ปรับแสงภาพ 3 มิติ: ความสว่าง
   const css = readFileSync(new URL('../sign-mockup/app.css', import.meta.url), 'utf8');
   assert.match(css, /\.lightpop \{\n\s*position: absolute;/); // ลอยทับภาพ ไม่ดันภาพ
 });
+
+test('3 มิตินิ่ง: แก้ขนาด/ย่อหน้าต่างไม่เด้งกลับมุมเริ่มต้น · การ์ดจอรีเซ็ตแล้วกลับมาเอง (แอป + ตัวดู HTML/ลิงก์)', () => {
+  const s3 = readFileSync(new URL('../sign-mockup/scene3d.js', import.meta.url), 'utf8');
+  // ร้านหมุน/ซูมไว้ → คงมุมกับอัตราซูม เลื่อนจุดเล็งตามป้ายใหม่ · เปลี่ยนฉาก/เลือกมุม = มุมเริ่มต้น
+  assert.match(s3, /if \(keep && userMoved && aimDist > 0 && !show\) \{/);
+  assert.match(s3, /sph\.radius = THREE\.MathUtils\.clamp\(sph\.radius \* \(dist0 \/ aimDist\), controls\.minDistance, controls\.maxDistance\);/);
+  assert.match(s3, /if \(Math\.abs\(oldAspect - camera\.aspect\) > 0\.05 && model\) frame\(view, true\);/);
+  assert.match(s3, /if \(reframe\) frame\(view, !sceneChanged\);/);
+  assert.match(s3, /function setView\(name\) \{\n\s*stopShow\(\);\n\s*frame\(name\);/);
+  // การ์ดจอหลุด: หยุดวาด · กลับมาแล้วสร้างแสงสะท้อนรอบห้องใหม่ (ไม่งั้นภาพมืดลง)
+  assert.match(s3, /addEventListener\('webglcontextlost', \(e\) => \{\n\s*e\.preventDefault\(\);/);
+  assert.match(s3, /addEventListener\('webglcontextrestored'/);
+  assert.match(s3, /roomEnv = gen\.fromScene\(new RoomEnvironment\(renderer\), 0\.04\)\.texture;/);
+  assert.match(s3, /if \(lost\) return; \/\/ การ์ดจอหลุด/);
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  assert.match(app, /return !!stage && !stage\.lost && /); // ระหว่างหลุดโชว์ภาพ 2 มิติ ไม่เอาภาพค้างมาซ้อนเส้นบอกขนาด
+  assert.match(app, /onLost: function \(\) \{/);
+  assert.match(app, /onRestored: function \(\) \{/);
+  const v = readFileSync(new URL('../sign-mockup/viewer3d-core.js', import.meta.url), 'utf8');
+  assert.match(v, /canvas\.addEventListener\('webglcontextrestored'/);
+  assert.match(v, /scene\.environment = gen\.fromScene\(new RoomEnvironment\(\), 0\.04\)\.texture;/);
+});
