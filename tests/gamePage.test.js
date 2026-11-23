@@ -157,6 +157,24 @@ test('เกม: ตัวหนังสือคมบนมือถือ �
   assert.ok(scene.includes("g.imageSmoothingQuality = 'high';"));
 });
 
+test('เกม: ฟิล์มมีชื่อลอยหัว + วิถีการทำงานหลังยืนยัน + มอไซค์แทนรถบรรทุก', () => {
+  // ตัวละครหลักชื่อ "ฟิล์ม" (ร้านตั้ง) — ถ้าตั้ง "เครื่องนี้คือใคร" ใช้ชื่อนั้นแทน
+  assert.ok(html.includes("scene.walkerName = settings.me || 'ฟิล์ม'"));
+  assert.ok(scene.includes('export function nameTag(g, text, x, y)'));
+  // ยืนยันสถานะจริงแล้วตัวละครถึงออกไปทำ (ภาพตามหลังการยืนยัน ไม่ใช่ตัวเปลี่ยนสถานะ)
+  assert.ok(html.includes('function playWorkFor(to, kind)'));
+  assert.ok(html.includes('const went = playWorkFor(to, next.kind);'));
+  assert.match(html, /case 'preparing':\s*\n\s*walkTo\('prep'/);
+  assert.match(html, /case 'out_to_vinyl':[\s\S]{0,200}rideAnim\.mode = 'out'/);
+  assert.match(html, /case 'back_at_shop':[\s\S]{0,200}rideAnim\.mode = 'back'/);
+  assert.match(html, /case 'picked_up':\s*\n\s*scene\.dog\.heartUntil/);
+  // มอไซค์ (ร้านจริงขับส่งงาน) แทนรถบรรทุกทุกจุด
+  assert.ok(scene.includes('export function motoSprite'));
+  assert.ok(!scene.includes('truckSprite'));
+  assert.ok(html.includes('ให้มอไซค์วิ่งหนึ่งรอบ'));
+  assert.ok(!html.includes('🚚'));
+});
+
 test('เกม: localStorage มีกันพัง และย้ายคิวจากต้นแบบเก่าอัตโนมัติ', () => {
   assert.ok(html.includes("const KEY = 'np8_orders_v1'"));
   assert.ok(html.includes("const OLD_KEY = 'nattapron_vinyl_mobile_queue_v3'"));
