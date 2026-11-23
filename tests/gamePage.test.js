@@ -90,11 +90,26 @@ test('เกม: เสิร์ฟที่ /game บนเซิร์ฟเ�
 });
 
 test('เกม: ฟอร์มรับงานใหม่มีช่องครบตามสเปก + ตัวช่วยอ่านข้อความ', () => {
-  for (const id of ['f-customer', 'f-kinds', 'f-title', 'f-qty', 'f-unit', 'f-received', 'f-due', 'f-urgent', 'f-assignee', 'f-note', 'p-text', 'p-parse']) {
+  for (const id of ['f-customer', 'f-kinds', 'f-items-list', 'f-add-item', 'f-received', 'f-due', 'f-urgent', 'f-assignee', 'f-note', 'p-text', 'p-parse']) {
     assert.ok(html.includes(`id="${id}"`), id);
   }
   assert.ok(html.includes('ตรวจก่อนบันทึกทุกครั้ง')); // ตัวช่วยแค่เติมช่อง คนเป็นผู้ยืนยัน
   assert.ok(html.includes('ตรวจความถูกต้องก่อนบันทึกนะคะ'));
+});
+
+test('เกม: ใบจดหลายรายการต่อใบ (ลูกค้าทำหลายอย่าง) — ฟอร์ม/โมดัล/แถวคิว', () => {
+  // กล่องใบจดรายการ + เพิ่ม/ลบแถว + หัวใบม่วงแบบใบจด
+  assert.ok(html.includes('class="sliphead">🧾 ใบจดรายการ'));
+  for (const c of ['it-title', 'it-qty', 'it-unit', 'it-del']) assert.ok(html.includes(`class="${c}"`), c);
+  assert.ok(html.includes('＋ เพิ่มรายการ'));
+  assert.ok(html.includes('บรรทัดละรายการ')); // ตัวช่วยอ่านรับหลายบรรทัด
+  assert.ok(html.includes('E.parseThaiOrderLines('));
+  // โมดัลโชว์ทุกรายการ และแถวคิวสรุปจำนวนรายการ
+  assert.ok(html.includes('id="j-items"'));
+  assert.ok(html.includes('รายการ (${items.length})'));
+  assert.ok(html.includes("`${n} รายการ · ${esc(j.items.map((it) => it.title).join(', '))}`"));
+  // บันทึกใช้ sanitizeItems และช่องเดี่ยวเดิม = รายการแรก (ของเก่าอ่านได้)
+  assert.ok(html.includes('E.sanitizeItems(collectItems())'));
 });
 
 test('เกม: แถวงานเป็น div role=button (ห้ามปุ่มซ้อนปุ่น) + กดคีย์บอร์ดเปิดได้', () => {

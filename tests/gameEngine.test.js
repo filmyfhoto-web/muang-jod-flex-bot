@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  parseThaiOrder, bkkTodayISO, addDaysISO, thaiDate, thaiDateTime,
+  parseThaiOrder, parseThaiOrderLines, bkkTodayISO, addDaysISO, thaiDate, thaiDateTime,
   newOrder, makeNextId, applyTransition, nextActions, canGo,
   sortQueue, filterQueue, moveInQueue, statBuckets, isOverdue,
   demoOrders, serializeBackup, validateImport, reportData,
@@ -21,7 +21,30 @@ test('เกม: parser อ่านประโยคงานไทยคร�
   assert.equal(p.unit, 'ผืน');
   assert.equal(p.due, '2026-11-27'); // ศุกร์ถัดไปจากจันทร์ 23
   assert.equal(p.priority, 'urgent');
-  assert.equal(p.title, 'ป้ายไวนิล 2 ผืน'); // ชื่อลูกค้า/วันนัด/คำว่าด่วน ถูกดึงออกจากรายการ
+  // เดิมจำนวนค้างอยู่ในชื่อรายการ — เปลี่ยนเมื่อทำใบจดหลายรายการ (ร้านขอ):
+  // จำนวนแยกไปช่อง qty/unit ชื่อรายการสะอาด ไม่โชว์ "2 ผืน × 2ผืน" ซ้ำ
+  assert.equal(p.title, 'ป้ายไวนิล');
+});
+
+test('เกม: พิมพ์หลายบรรทัด = ใบเดียวหลายรายการ (ลูกค้าทำหลายอย่าง)', () => {
+  const m = parseThaiOrderLines('โรงเรียนบ้านหนองแดง ด่วน รับศุกร์\nป้ายไวนิล 3×1 ม. 2 ผืน\nสติ๊กเกอร์โลโก้ 100 ดวง', { todayISO: T });
+  assert.equal(m.customer, 'โรงเรียนบ้านหนองแดง');
+  assert.equal(m.due, '2026-11-27');
+  assert.equal(m.priority, 'urgent');
+  assert.equal(m.kind, 'vinyl');
+  assert.deepEqual(m.items, [
+    { title: 'ป้ายไวนิล 3×1 ม.', qty: 2, unit: 'ผืน' },
+    { title: 'สติ๊กเกอร์โลโก้', qty: 100, unit: 'ดวง' },
+  ]); // บรรทัดหัวใบ (ลูกค้า/นัด/ด่วน) ไม่กลายเป็นรายการ
+  // ใบงานเก็บหลายรายการ ช่องเดี่ยวเดิม = รายการแรก และค้นหาเจอจากรายการที่สอง
+  const j = newOrder({ customer: m.customer, kind: m.kind, items: m.items, received: T, due: m.due }, {});
+  assert.equal(j.items.length, 2);
+  assert.equal(j.title, 'ป้ายไวนิล 3×1 ม.');
+  assert.equal(j.qty, 2);
+  assert.equal(filterQueue([j], { q: 'สติ๊กเกอร์โลโก้', filter: 'open', todayISO: T }).length, 1);
+  // ใบเก่าที่ไม่มี items → นำเข้าแล้วได้ items จากช่องเดี่ยว
+  const v = validateImport([{ id: 'x', title: 'งานเก่า', qty: 5, unit: 'ใบ', status: 'queued' }], { todayISO: T });
+  assert.deepEqual(v.orders[0].items, [{ title: 'งานเก่า', qty: 5, unit: 'ใบ' }]);
 });
 
 test('เกม: parser วันนัด วันนี้/พรุ่งนี้/มะรืน/เลขวันที่ พ.ศ.', () => {

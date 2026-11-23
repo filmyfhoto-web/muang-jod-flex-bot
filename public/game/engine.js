@@ -116,19 +116,36 @@ export function makeNextId(orders) {
 // ---------- orders ----------
 
 const str = (v, n) => String(v ?? '').trim().slice(0, n);
+const posInt = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? Math.min(99999, Math.round(n)) : '';
+};
+
+/* ลูกค้าคนเดียวจดได้หลายรายการในใบเดียว (แบบใบจดของม่วงจด) */
+export function sanitizeItems(raw, fallback = {}) {
+  const list = Array.isArray(raw)
+    ? raw
+    : str(fallback.title, 200) ? [{ title: fallback.title, qty: fallback.qty, unit: fallback.unit }] : [];
+  return list
+    .map((it) => ({ title: str(it?.title, 200), qty: posInt(it?.qty), unit: str(it?.unit, 10) }))
+    .filter((it) => it.title)
+    .slice(0, 20);
+}
 
 export function newOrder(fields, { now = new Date(), orders = [] } = {}) {
   const today = bkkTodayISO(now);
   const received = ISO_DATE.test(fields.received || '') ? fields.received : today;
   const due = ISO_DATE.test(fields.due || '') ? fields.due : received;
-  const qty = Number(fields.qty);
+  const items = sanitizeItems(fields.items, fields);
   return {
     id: makeNextId(orders),
     customer: str(fields.customer, 100),
     kind: KIND[fields.kind] ? fields.kind : 'print',
-    title: str(fields.title, 200),
-    qty: Number.isFinite(qty) && qty > 0 ? Math.min(99999, Math.round(qty)) : '',
-    unit: str(fields.unit, 10),
+    /* ช่องเดี่ยวเดิมคงไว้ = รายการแรก (ของเก่าที่บันทึกไว้อ่านได้เหมือนเดิม) */
+    title: items[0]?.title || str(fields.title, 200),
+    qty: items[0]?.qty ?? '',
+    unit: items[0]?.unit || '',
+    items,
     received,
     due,
     pickedAt: '',
@@ -244,7 +261,8 @@ export function filterQueue(orders, { q = '', filter = 'open', todayISO = '' } =
     if (filter === 'done' && j.status !== 'picked_up') return false;
     if (filter === 'canceled' && j.status !== 'canceled') return false;
     if (!needle) return true;
-    return `${j.id} ${j.customer} ${j.title} ${j.note || ''} ${j.assignee || ''}`.toLowerCase().includes(needle);
+    const itemText = (j.items || []).map((it) => it.title).join(' ');
+    return `${j.id} ${j.customer} ${j.title} ${itemText} ${j.note || ''} ${j.assignee || ''}`.toLowerCase().includes(needle);
   });
 }
 
@@ -310,7 +328,11 @@ export function parseThaiOrder(text, { todayISO } = {}) {
   }
 
   const qm = /(\d+)\s*(ผืน|แผ่น|ใบ|อัน|ชิ้น|ชุด|เล่ม|ดวง|กรอบ|หน้า|ตัว|รูป)/.exec(rest);
-  if (qm) { out.qty = Number(qm[1]); out.unit = qm[2]; }
+  if (qm) {
+    out.qty = Number(qm[1]);
+    out.unit = qm[2];
+    rest = rest.replace(qm[0], ' '); // จำนวนแยกไปช่องของมัน ชื่อรายการสะอาด ไม่โชว์ซ้ำ
+  }
 
   const cm = CUSTOMER_PREFIX.exec(rest);
   if (cm) {
@@ -339,7 +361,26 @@ export function parseThaiOrder(text, { todayISO } = {}) {
   out.due = due;
 
   const title = rest.replace(/\s+/g, ' ').replace(/^[,\s]+|[,\s]+$/g, '').trim();
+  out.leftover = title; // สิ่งที่เหลือหลังดึงช่องอื่นออก (ว่าง = บรรทัดนี้ไม่มีตัวรายการ)
   out.title = title || (out.kind ? KIND[out.kind].label : src);
+  return out;
+}
+
+/* พิมพ์หลายบรรทัด = ใบเดียวหลายรายการ: บรรทัดไหนมีชื่อลูกค้า/วันนัด/คำว่าด่วน
+ * ระบบดึงไปใส่หัวใบ ส่วนที่เหลือของแต่ละบรรทัดเป็นรายการ (เช่น
+ * "โรงเรียนบ้านหนองแดง ด่วน รับศุกร์" ขึ้นหัว, อีก 2 บรรทัดเป็น 2 รายการ) */
+export function parseThaiOrderLines(text, { todayISO } = {}) {
+  const lines = String(text || '').split(/\n/).map((s) => s.trim()).filter(Boolean);
+  const out = { customer: '', kind: '', due: '', priority: 'normal', items: [] };
+  for (const line of lines) {
+    const p = parseThaiOrder(line, { todayISO });
+    if (!out.customer && p.customer) out.customer = p.customer;
+    if (!out.kind && p.kind) out.kind = p.kind;
+    if (!out.due && p.due) out.due = p.due;
+    if (p.priority === 'urgent') out.priority = 'urgent';
+    if (p.leftover) out.items.push({ title: p.leftover, qty: p.qty || '', unit: p.unit || '' });
+  }
+  out.items = out.items.slice(0, 20);
   return out;
 }
 
@@ -352,7 +393,14 @@ export function demoOrders(now = new Date()) {
   const walk = (j, steps) => steps.reduce((o, s) => applyTransition(o, s, { now, by: 'ตัวอย่าง' }), j);
   const list = [];
   list.push(walk(
-    base(list, { customer: 'ตัวอย่าง • โรงเรียนอนุบาลเมืองจอด', kind: 'vinyl', title: 'ป้ายไวนิลงานกีฬาสี 3×1 ม.', qty: 2, unit: 'ผืน', received: today, due: addDaysISO(today, 1), priority: 'urgent' }),
+    base(list, {
+      customer: 'ตัวอย่าง • โรงเรียนอนุบาลเมืองจอด', kind: 'vinyl',
+      items: [
+        { title: 'ป้ายไวนิลงานกีฬาสี 3×1 ม.', qty: 2, unit: 'ผืน' },
+        { title: 'สติ๊กเกอร์เบอร์นักกีฬา', qty: 30, unit: 'ดวง' },
+      ],
+      received: today, due: addDaysISO(today, 1), priority: 'urgent',
+    }),
     ['preparing', 'out_to_vinyl']));
   list.push(walk(
     base(list, { customer: 'ตัวอย่าง • คุณฝน', kind: 'print', title: 'ปริ้นรายงาน A4 เข้าเล่ม', qty: 3, unit: 'เล่ม', received: today, due: today }),
@@ -386,6 +434,7 @@ function sanitizeOne(j, { todayISO, fallbackId }) {
   if (!j || typeof j !== 'object') return null;
   const status = STATUS[j.status] ? j.status : OLD_STATUS_MAP[j.status] || 'queued';
   const qty = Number(j.qty);
+  const items = sanitizeItems(j.items, j); // ใบเก่าไม่มี items → สร้างจากช่องเดี่ยวให้
   const pickedAt = typeof j.pickedAt === 'string' && !Number.isNaN(new Date(j.pickedAt).getTime()) ? j.pickedAt : '';
   /* Old prototype stored only the pickup DATE ("picked"); keep the date and leave
    * the clock time empty rather than inventing one. */
@@ -397,9 +446,10 @@ function sanitizeOne(j, { todayISO, fallbackId }) {
     id: str(j.id, 40) || fallbackId,
     customer: str(j.customer, 100) || 'ไม่ระบุ',
     kind: KIND[j.kind] ? j.kind : 'print',
-    title: str(j.title, 200),
-    qty: Number.isFinite(qty) && qty > 0 ? Math.min(99999, Math.round(qty)) : '',
-    unit: str(j.unit, 10),
+    title: items[0]?.title || str(j.title, 200),
+    qty: items[0]?.qty ?? (Number.isFinite(qty) && qty > 0 ? Math.min(99999, Math.round(qty)) : ''),
+    unit: items[0]?.unit || str(j.unit, 10),
+    items,
     received: ISO_DATE.test(j.received || '') ? j.received : todayISO,
     due: ISO_DATE.test(j.due || '') ? j.due : todayISO,
     pickedAt: status === 'picked_up' ? pickedAt : '',

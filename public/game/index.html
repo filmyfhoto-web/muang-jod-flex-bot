@@ -135,7 +135,16 @@ label.lb { display: block; font-size: 13px; font-weight: 800; color: var(--ink-s
 .btn.good { background: #d9f6e6; border-color: #4caf7d; color: #1d6e4e; }
 .btn.warn { background: #ffe1dd; border-color: var(--red); color: #a2372c; }
 .parsebox { background: var(--panel-2); border: 2px dashed var(--line-deep); border-radius: 12px; padding: 10px; margin-bottom: 10px; }
-.parsebox .ex { font-size: 11.5px; color: var(--ink-soft); margin: 6px 0 8px; }
+.parsebox .ex { font-size: 12.5px; color: var(--ink-soft); margin: 6px 0 8px; }
+
+/* ใบจดรายการ (หลายบรรทัดต่อใบ แบบใบจดของม่วงจด) */
+.slipbox { background: var(--card); border: 2.5px solid var(--line-deep); border-radius: 14px; padding: 8px 10px 6px; box-shadow: var(--shadow); }
+.sliphead { background: var(--purple); color: #fff; font-weight: 900; font-size: 13.5px; border-radius: 10px; padding: 6px 12px; margin-bottom: 6px; text-align: center; }
+.ithead { display: grid; grid-template-columns: 1fr 64px 58px 40px; gap: 6px; font-size: 11.5px; font-weight: 800; color: var(--ink-soft); padding: 0 2px 2px; }
+.itrow { display: grid; grid-template-columns: 1fr 64px 58px 40px; gap: 6px; align-items: center; padding: 5px 0; border-bottom: 1.5px dashed var(--line); }
+.itrow:last-child { border-bottom: 0; }
+.itrow input { min-height: 44px; padding: 8px 9px; border: 2px solid var(--line); border-radius: 10px; background: var(--panel); font-size: 14px; min-width: 0; }
+.itrow .it-del { width: 40px; height: 44px; min-height: 44px; border-radius: 10px; border: 2px solid var(--line); background: var(--panel-2); color: var(--red); font-weight: 900; }
 
 /* vinyl panel */
 .v-stages { display: flex; gap: 5px; overflow-x: auto; padding: 8px 0 2px; }
@@ -301,9 +310,9 @@ dialog::backdrop { background: rgba(67, 32, 118, .5); }
   <div class="panel">
     <h2 class="sec" id="new-title">➕ รับงานใหม่</h2>
     <div class="parsebox" id="parse-box">
-      <b style="font-size:13px">พิมพ์รวดเดียว แล้วให้ระบบช่วยแยกช่อง</b>
-      <p class="ex">เช่น “ป้ายไวนิล 2 ผืน โรงเรียนบ้านหนองแดง ด่วน รับศุกร์” — ระบบจะเติมช่องให้ ตรวจก่อนบันทึกทุกครั้ง</p>
-      <textarea id="p-text" class="field" rows="2" placeholder="พิมพ์งานที่รับมาที่นี่..."></textarea>
+      <b style="font-size:13.5px">พิมพ์รวดเดียว แล้วให้ระบบช่วยแยกช่อง</b>
+      <p class="ex">หลายรายการพิมพ์บรรทัดละรายการ เช่น<br>“โรงเรียนบ้านหนองแดง ด่วน รับศุกร์<br>ป้ายไวนิล 3×1 ม. 2 ผืน<br>สติ๊กเกอร์โลโก้ 100 ดวง” — ระบบเติมช่องให้ ตรวจก่อนบันทึกทุกครั้ง</p>
+      <textarea id="p-text" class="field" rows="3" placeholder="พิมพ์งานที่รับมาที่นี่... (บรรทัดละรายการ)"></textarea>
       <div style="margin-top:8px"><button class="btn lite" id="p-parse" style="width:100%">✨ ช่วยแยกช่องให้</button></div>
     </div>
 
@@ -313,18 +322,12 @@ dialog::backdrop { background: rgba(67, 32, 118, .5); }
     <label class="lb">ประเภทงาน</label>
     <div class="kchips" id="f-kinds"></div>
 
-    <label class="lb" for="f-title">รายการ</label>
-    <input id="f-title" class="field" maxlength="200" placeholder="เช่น ป้ายไวนิล 3×1 ม. งานกีฬาสี">
-
-    <div class="frow">
-      <div>
-        <label class="lb" for="f-qty">จำนวน</label>
-        <input id="f-qty" class="field" type="number" min="1" max="99999" inputmode="numeric" placeholder="เช่น 2">
-      </div>
-      <div>
-        <label class="lb" for="f-unit">หน่วย</label>
-        <input id="f-unit" class="field" maxlength="10" placeholder="ผืน / แผ่น / อัน">
-      </div>
+    <label class="lb">รายการ (ลูกค้าคนเดียวจดได้หลายรายการในใบเดียว)</label>
+    <div class="slipbox">
+      <div class="sliphead">🧾 ใบจดรายการ</div>
+      <div class="ithead"><span>รายการ</span><span>จำนวน</span><span>หน่วย</span><span></span></div>
+      <div id="f-items-list"></div>
+      <button class="btn lite" id="f-add-item" style="width:100%;min-height:44px;margin:6px 0 2px">＋ เพิ่มรายการ</button>
     </div>
 
     <div class="frow">
@@ -437,7 +440,7 @@ dialog::backdrop { background: rgba(67, 32, 118, .5); }
     <div class="j-card">
       <div class="j-rows">
         <div class="row"><span>งานของ</span><b id="j-customer">—</b></div>
-        <div class="row"><span>รายการ</span><b id="j-title">—</b></div>
+        <div id="j-items"></div>
         <div class="row"><span>รหัสใบงาน</span><b><span class="idpill" id="j-id2">NP-0000</span></b></div>
         <div class="row"><span>ประเภท</span><b id="j-kind">—</b></div>
         <div class="row"><span>รับออเดอร์</span><b id="j-received">—</b></div>
@@ -690,13 +693,16 @@ function jobRow(j, { withRank = false, vis = [] } = {}) {
   const today = E.bkkTodayISO();
   const over = E.isOverdue(j, today);
   const st = E.STATUS[j.status];
-  const qty = j.qty ? ` × ${j.qty}${esc(j.unit || '')}` : '';
+  const n = j.items?.length || 0;
+  const line = n > 1
+    ? `${n} รายการ · ${esc(j.items.map((it) => it.title).join(', '))}`
+    : `${esc(j.title)}${j.qty ? ` × ${j.qty}${esc(j.unit || '')}` : ''}`;
   /* แถวเป็น div role=button (ห้ามใช้ <button> เพราะมีปุ่ม ▲▼ ซ้อนข้างในไม่ได้) */
   return `<div class="jrow ${j.priority === 'urgent' ? 'urgent' : ''}" role="button" tabindex="0" data-open="${esc(j.id)}">
     <span class="ic">${E.KIND[j.kind]?.icon || '📦'}</span>
     <span class="mid">
       <b>${esc(j.customer || 'ไม่ระบุชื่อ')}</b>
-      <small>#${esc(j.id)} · ${esc(j.title)}${qty}</small>
+      <small>#${esc(j.id)} · ${line}</small>
       <small>นัดรับ ${E.thaiDate(j.due)}${j.assignee ? ' · ' + esc(j.assignee) : ''}</small>
     </span>
     <span class="end">
@@ -790,7 +796,9 @@ function openJob(id) {
   $('j-status').textContent = CHIP_IC[st.chip] + ' ' + st.label;
   $('j-status').className = 'badge ' + ({ wait: 'c-wait', work: 'c-work', vinyl: 'c-vinyl', ready: 'c-ready', done: 'c-done', off: 'c-off' }[st.chip]);
   $('j-customer').textContent = j.customer || 'ไม่ระบุ';
-  $('j-title').textContent = j.title + (j.qty ? ` × ${j.qty}${j.unit || ''}` : '');
+  const items = (j.items && j.items.length) ? j.items : [{ title: j.title, qty: j.qty, unit: j.unit }];
+  $('j-items').innerHTML = items.map((it, i) => `
+    <div class="row"><span>${i === 0 ? `รายการ (${items.length})` : ''}</span><b>${esc(it.title)}${it.qty ? ` × ${it.qty} ${esc(it.unit || '')}` : ''}</b></div>`).join('');
   $('j-kind').textContent = `${E.KIND[j.kind]?.icon || ''} ${E.KIND[j.kind]?.label || j.kind}` + (j.sample ? ' · ตัวอย่าง' : '');
   $('j-received').textContent = E.thaiDate(j.received);
   $('j-due').textContent = `วัน${E.thaiWeekday(j.due)} ${E.thaiDate(j.due)}`;
@@ -900,6 +908,40 @@ $('f-urgent').onclick = () => {
   $('f-urgent').textContent = formUrgent ? '⚡ งานด่วน: เปิด' : '⚡ งานด่วน: ปิด';
   $('f-urgent').classList.toggle('on', formUrgent);
 };
+/* ---------- ใบจดรายการ (หลายรายการต่อใบ) ---------- */
+function addItemRow(it = {}) {
+  const row = document.createElement('div');
+  row.className = 'itrow';
+  row.innerHTML = `
+    <input class="it-title" maxlength="200" placeholder="เช่น ป้ายไวนิล 3×1 ม." value="${esc(it.title || '')}">
+    <input class="it-qty" type="number" min="1" max="99999" inputmode="numeric" placeholder="2" value="${it.qty || ''}">
+    <input class="it-unit" maxlength="10" placeholder="ผืน" value="${esc(it.unit || '')}">
+    <button type="button" class="it-del" aria-label="ลบรายการ">✕</button>`;
+  $('f-items-list').appendChild(row);
+}
+function setItemRows(items) {
+  $('f-items-list').innerHTML = '';
+  for (const it of (items && items.length ? items : [{}])) addItemRow(it);
+}
+function collectItems() {
+  return [...document.querySelectorAll('#f-items-list .itrow')].map((r) => ({
+    title: r.querySelector('.it-title').value.trim(),
+    qty: r.querySelector('.it-qty').value,
+    unit: r.querySelector('.it-unit').value.trim(),
+  })).filter((it) => it.title);
+}
+$('f-add-item').onclick = () => addItemRow();
+$('f-items-list').addEventListener('click', (ev) => {
+  const del = ev.target.closest('.it-del');
+  if (!del) return;
+  const rows = document.querySelectorAll('#f-items-list .itrow');
+  if (rows.length <= 1) { // เหลือแถวเดียว = ล้างค่าแทนการลบ
+    for (const inp of rows[0].querySelectorAll('input')) inp.value = '';
+    return;
+  }
+  del.closest('.itrow').remove();
+});
+
 function fillAssignees(sel, value) {
   sel.innerHTML = '<option value="">— ยังไม่ระบุ —</option>' +
     settings.staff.map((n) => `<option ${n === value ? 'selected' : ''}>${esc(n)}</option>`).join('');
@@ -910,8 +952,8 @@ function resetForm() {
   $('parse-box').hidden = false;
   $('f-delete').hidden = true;
   $('p-text').value = '';
-  $('f-customer').value = ''; $('f-title').value = '';
-  $('f-qty').value = ''; $('f-unit').value = '';
+  $('f-customer').value = '';
+  setItemRows([]);
   const today = E.bkkTodayISO();
   $('f-received').value = today; $('f-due').value = E.addDaysISO(today, 1);
   formKind = 'print'; formUrgent = false;
@@ -926,8 +968,8 @@ function openEdit(j) {
   $('new-title').textContent = '✏️ แก้ไขใบงาน #' + j.id;
   $('parse-box').hidden = true;
   $('f-delete').hidden = false;
-  $('f-customer').value = j.customer; $('f-title').value = j.title;
-  $('f-qty').value = j.qty || ''; $('f-unit').value = j.unit || '';
+  $('f-customer').value = j.customer;
+  setItemRows(j.items && j.items.length ? j.items : [{ title: j.title, qty: j.qty, unit: j.unit }]);
   $('f-received').value = j.received; $('f-due').value = j.due;
   formKind = j.kind; buildKindChips();
   formUrgent = j.priority === 'urgent';
@@ -937,26 +979,26 @@ function openEdit(j) {
   $('f-note').value = j.note || '';
 }
 $('p-parse').onclick = () => {
-  const parsed = E.parseThaiOrder($('p-text').value, { todayISO: E.bkkTodayISO() });
   if (!$('p-text').value.trim()) { toast('พิมพ์ข้อความงานก่อนนะคะ'); return; }
+  const parsed = E.parseThaiOrderLines($('p-text').value, { todayISO: E.bkkTodayISO() });
   if (parsed.customer) $('f-customer').value = parsed.customer;
   if (parsed.kind) { formKind = parsed.kind; buildKindChips(); }
-  if (parsed.title) $('f-title').value = parsed.title;
-  if (parsed.qty) { $('f-qty').value = parsed.qty; $('f-unit').value = parsed.unit; }
+  if (parsed.items.length) setItemRows(parsed.items);
   if (parsed.due) $('f-due').value = parsed.due;
   if (parsed.priority === 'urgent' && !formUrgent) $('f-urgent').click();
-  toast('ช่วยเติมช่องให้แล้ว — ตรวจความถูกต้องก่อนบันทึกนะคะ');
+  toast(parsed.items.length > 1
+    ? `แยกให้ ${parsed.items.length} รายการแล้ว — ตรวจก่อนบันทึกนะคะ`
+    : 'ช่วยเติมช่องให้แล้ว — ตรวจความถูกต้องก่อนบันทึกนะคะ');
 };
 $('save-job').onclick = () => {
   const customer = $('f-customer').value.trim();
-  const title = $('f-title').value.trim();
-  if (!customer && !title) { toast('กรอกชื่อลูกค้าหรือรายการงานอย่างน้อยหนึ่งช่องค่ะ'); return; }
+  const items = E.sanitizeItems(collectItems());
+  if (!customer && !items.length) { toast('กรอกชื่อลูกค้าหรือรายการงานอย่างน้อยหนึ่งช่องค่ะ'); return; }
   const received = $('f-received').value;
   const due = $('f-due').value;
   if (due && received && due < received && !window.confirm('วันนัดรับอยู่ก่อนวันรับออเดอร์ ยืนยันบันทึกไหมคะ?')) return;
   const fields = {
-    customer, title, kind: formKind,
-    qty: $('f-qty').value, unit: $('f-unit').value.trim(),
+    customer, items, kind: formKind,
     received, due,
     priority: formUrgent ? 'urgent' : 'normal',
     assignee: $('f-assignee').value,
@@ -964,13 +1006,13 @@ $('save-job').onclick = () => {
   };
   if (editId) {
     orders = orders.map((o) => (o.id === editId
-      ? { ...o, ...fields, qty: fields.qty ? Math.min(99999, Math.round(Number(fields.qty))) : '', sample: o.sample, updatedAt: new Date().toISOString() }
+      ? { ...o, ...fields, title: items[0]?.title || '', qty: items[0]?.qty ?? '', unit: items[0]?.unit || '', sample: o.sample, updatedAt: new Date().toISOString() }
       : o));
     toast('แก้ไขใบงาน #' + editId + ' แล้ว');
   } else {
     const j = E.newOrder(fields, { orders });
     orders = [...orders, j];
-    toast('รับงานใหม่ #' + j.id + ' เข้าคิวแล้ว');
+    toast(items.length > 1 ? `รับงานใหม่ #${j.id} (${items.length} รายการ) เข้าคิวแล้ว` : 'รับงานใหม่ #' + j.id + ' เข้าคิวแล้ว');
   }
   saveOrders();
   editId = '';
