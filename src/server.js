@@ -48,6 +48,16 @@ app.use(
 );
 app.use('/api', apiRouter);
 
+/* NATTAPRON 8-BIT AUTO SHOP — เกม+บอร์ดงานจำลองของหน้าร้าน (โหมดสาธิตในเครื่อง
+ * ไม่แตะฐานข้อมูลม่วงจด) ติดตั้งเป็นแอปแยกได้ scope /game/ */
+app.use(
+  '/game',
+  express.static('public/game', {
+    extensions: ['html'],
+    setHeaders: (res) => res.set('Cache-Control', 'no-cache'),
+  })
+);
+
 /* นัดพอน Sign Mockup — จำลองป้ายไวนิล/โฟมบอร์ด/โรลอัพให้ลูกค้าดูก่อนสั่ง
  * ไฟล์นิ่งล้วนใน sign-mockup/ ติดตั้งเป็นแอปแยกจากม่วงจดได้ (scope /sign/)
  * + ลิงก์ดูป้าย 3 มิติส่งลูกค้า (/sign/api/share, /sign/v/:id) */

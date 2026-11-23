@@ -1,0 +1,1038 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#7c6cd8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<title>NATTAPRON 8-BIT AUTO SHOP</title>
+<style>
+:root {
+  --bg: #cfc6ee; --bg-dot: #c1b6e6; --panel: #f6f2ff; --panel-2: #efeaff; --card: #ffffff;
+  --ink: #2e2a55; --ink-soft: #6a639c; --line: #b9ace4; --line-deep: #8d7fd0;
+  --purple: #7c6cd8; --purple-deep: #5a4bb0; --pink: #f08cc3; --yellow: #ffd34d;
+  --green: #4caf7d; --blue: #6aa6ff; --orange: #f09a4d; --red: #e86a5e; --teal: #59c2b4;
+  --shadow: 0 3px 0 rgba(90, 75, 176, .35);
+}
+* { box-sizing: border-box; }
+html, body { overflow-x: hidden; }
+body {
+  margin: 0; color: var(--ink);
+  background: var(--bg);
+  background-image: radial-gradient(var(--bg-dot) 1.4px, transparent 1.4px);
+  background-size: 22px 22px;
+  font: 15px/1.5 'Noto Sans Thai', system-ui, -apple-system, Tahoma, sans-serif;
+  padding-bottom: calc(86px + env(safe-area-inset-bottom));
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; touch-action: manipulation; border: none; background: none; min-height: 44px; }
+button:disabled { opacity: .5; cursor: default; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange); outline-offset: 2px; }
+main, header.hd { width: min(520px, 100%); margin: 0 auto; padding: 0 12px; }
+
+/* ---------- header ---------- */
+header.hd { display: flex; align-items: center; gap: 10px; padding-top: calc(10px + env(safe-area-inset-top)); padding-bottom: 8px; }
+.logo { flex: none; width: 46px; height: 46px; display: grid; place-items: center; background: var(--purple); color: #fff; font: 900 24px 'Courier New', monospace; border: 3px solid #fff; border-radius: 12px; box-shadow: var(--shadow); image-rendering: pixelated; }
+.hd-tt { min-width: 0; flex: 1; }
+.hd-tt h1 { margin: 0; font: 900 17px/1.15 'Courier New', monospace; letter-spacing: .3px; color: var(--ink); }
+.hd-tt p { margin: 2px 0 0; font-size: 11.5px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hd-chips { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 999px; background: var(--card); border: 2px solid var(--line); font-size: 11px; font-weight: 800; }
+.chip.demo { color: #1d6e4e; background: #dcf6e8; border-color: #8fd3af; }
+.chip.cnt strong { color: var(--purple-deep); }
+
+/* ---------- screens ---------- */
+.scr[hidden] { display: none !important; }
+.panel { background: var(--panel); border: 3px solid var(--line-deep); border-radius: 16px; box-shadow: var(--shadow); padding: 12px; margin-bottom: 12px; }
+h2.sec { margin: 2px 0 8px; font-size: 16px; }
+.muted { color: var(--ink-soft); font-size: 12px; }
+
+/* seg tabs (INSIDE / คิวงาน / ไวนิล) */
+.seg { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+.seg button { min-height: 44px; border-radius: 12px; border: 2.5px solid var(--line-deep); background: var(--card); font-weight: 900; font-size: 14px; color: var(--ink-soft); }
+.seg button.on { background: var(--purple); border-color: var(--purple-deep); color: #fff; box-shadow: var(--shadow); }
+
+/* stage / canvas */
+.stage { position: relative; border: 3px solid var(--purple-deep); border-radius: 16px; overflow: hidden; background: #b9ace4; box-shadow: var(--shadow); }
+.stage canvas { display: block; width: 100%; height: auto; aspect-ratio: 480 / 600; image-rendering: pixelated; touch-action: manipulation; }
+.stage .go-vinyl { position: absolute; right: 8px; bottom: 8px; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; min-height: 44px; border-radius: 12px; background: var(--yellow); border: 2.5px solid #b8860b; font-weight: 900; font-size: 12.5px; color: #5c4500; box-shadow: var(--shadow); }
+.stage .zone-tip { position: absolute; left: 8px; bottom: 8px; max-width: 55%; padding: 6px 10px; border-radius: 10px; background: rgba(46, 42, 85, .92); color: #fff6e8; font-size: 11.5px; font-weight: 700; pointer-events: none; opacity: 0; transition: opacity .2s; }
+.stage .zone-tip.on { opacity: 1; }
+
+/* stat chips row */
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
+.stat { border-radius: 14px; border: 2.5px solid; padding: 8px 6px; text-align: center; background: var(--card); }
+.stat strong { display: block; font: 900 22px 'Courier New', monospace; }
+.stat span { font-size: 11px; font-weight: 800; }
+.stat.wait { border-color: #d8ae2a; } .stat.wait strong { color: #9c7400; }
+.stat.doing { border-color: var(--blue); } .stat.doing strong { color: #2b5fb8; }
+.stat.done { border-color: #68bd8f; } .stat.done strong { color: #1d6e4e; }
+
+.today-line { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 800; color: var(--ink-soft); margin-bottom: 8px; }
+
+/* queue rows */
+.qhead { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+.qhead .more { font-weight: 900; color: var(--purple-deep); font-size: 13px; background: none; }
+.job-list { display: grid; gap: 8px; }
+.jrow { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: var(--card); border: 2.5px solid var(--line); border-radius: 14px; padding: 9px 10px; min-height: 58px; cursor: pointer; }
+.jrow:active { transform: translateY(1px); }
+.jrow:focus-visible { outline: 3px solid var(--orange); outline-offset: 2px; }
+.jrow.urgent { border-left: 6px solid var(--red); }
+.jrow .ic { flex: none; width: 38px; height: 38px; display: grid; place-items: center; font-size: 19px; background: var(--panel-2); border: 2px solid var(--line); border-radius: 10px; }
+.jrow .mid { flex: 1; min-width: 0; }
+.jrow .mid b { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jrow .mid small { display: block; font-size: 11.5px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jrow .end { flex: none; display: grid; justify-items: end; gap: 3px; }
+.jrow .arrow { color: var(--line-deep); font-weight: 900; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 900; border: 1.5px solid transparent; }
+.c-wait { background: #ffefbe; color: #8a6700; border-color: #e3c252; }
+.c-work { background: #dceaff; color: #2b5fb8; border-color: #9cc0f2; }
+.c-vinyl { background: #ffe4cb; color: #9a5312; border-color: #efb579; }
+.c-ready { background: #d9f6e6; color: #1d6e4e; border-color: #86d3ab; }
+.c-done { background: #e7e5f2; color: #5b5680; border-color: #c2bcdd; }
+.c-off { background: #ffe1dd; color: #a2372c; border-color: #efa198; }
+.b-urgent { background: #ffe1dd; color: #a2372c; border-color: #efa198; }
+.b-over { background: #a2372c; color: #fff; }
+.b-sample { background: #efeaff; color: #5a4bb0; border-color: #b9ace4; }
+.rk { display: inline-grid; grid-auto-flow: column; gap: 4px; }
+.rk button { width: 44px; height: 44px; min-height: 44px; border-radius: 10px; border: 2px solid var(--line); background: var(--panel-2); font-weight: 900; }
+
+/* search + filter */
+.searchrow { display: flex; gap: 6px; margin-bottom: 8px; }
+.searchrow input { flex: 1; min-width: 0; }
+.field { width: 100%; min-height: 46px; padding: 10px 12px; border: 2.5px solid var(--line); border-radius: 12px; background: var(--card); }
+textarea.field { min-height: 72px; resize: vertical; }
+.fchips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; margin-bottom: 8px; }
+.fchips button { flex: none; min-height: 44px; padding: 6px 13px; border-radius: 999px; border: 2px solid var(--line); background: var(--card); font-weight: 800; font-size: 12.5px; color: var(--ink-soft); }
+.fchips button.on { background: var(--purple); border-color: var(--purple-deep); color: #fff; }
+.sortline { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 12px; color: var(--ink-soft); font-weight: 700; }
+.sortline button { min-height: 44px; padding: 4px 12px; border-radius: 999px; border: 2px solid var(--line); background: var(--card); font-weight: 800; font-size: 12px; }
+
+/* new order form */
+.kchips { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin: 6px 0 2px; }
+.kchips button { min-height: 46px; border-radius: 12px; border: 2px solid var(--line); background: var(--card); font-weight: 800; font-size: 13px; text-align: left; padding: 6px 10px; }
+.kchips button.on { border-color: var(--purple-deep); background: var(--panel-2); box-shadow: inset 0 0 0 1.5px var(--purple-deep); }
+label.lb { display: block; font-size: 12.5px; font-weight: 800; color: var(--ink-soft); margin: 10px 0 4px; }
+.frow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.urgentline { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.urgentline .tog { flex: 1; min-height: 48px; border-radius: 12px; border: 2.5px solid var(--line); background: var(--card); font-weight: 900; }
+.urgentline .tog.on { background: #ffe1dd; border-color: var(--red); color: #a2372c; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px; padding: 10px 14px; border-radius: 12px; font-weight: 900; border: 2.5px solid; }
+.btn.primary { background: var(--purple); border-color: var(--purple-deep); color: #fff; box-shadow: var(--shadow); width: 100%; }
+.btn.lite { background: var(--card); border-color: var(--line-deep); color: var(--purple-deep); }
+.btn.good { background: #d9f6e6; border-color: #4caf7d; color: #1d6e4e; }
+.btn.warn { background: #ffe1dd; border-color: var(--red); color: #a2372c; }
+.parsebox { background: var(--panel-2); border: 2px dashed var(--line-deep); border-radius: 12px; padding: 10px; margin-bottom: 10px; }
+.parsebox .ex { font-size: 11.5px; color: var(--ink-soft); margin: 6px 0 8px; }
+
+/* vinyl panel */
+.v-stages { display: flex; gap: 5px; overflow-x: auto; padding: 8px 0 2px; }
+.v-stages span { flex: none; min-width: 72px; text-align: center; font-size: 10.5px; font-weight: 800; padding: 6px 8px; border-radius: 10px; background: var(--card); border: 2px solid var(--line); color: var(--ink-soft); }
+.v-stages span.on { background: #ffefbe; border-color: #d8ae2a; color: #8a6700; }
+.v-stages span.ok { background: #d9f6e6; border-color: #68bd8f; color: #1d6e4e; }
+.v-bar { height: 10px; border-radius: 999px; background: #ddd6f2; border: 2px solid var(--line); overflow: hidden; margin-top: 6px; }
+.v-bar > div { height: 100%; width: 0; background: linear-gradient(90deg, var(--teal), var(--yellow)); transition: width .15s; }
+.v-controls { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
+.v-controls .btn { flex: 1; }
+.v-controls select { min-height: 48px; border-radius: 12px; border: 2.5px solid var(--line); background: var(--card); padding: 0 8px; font-weight: 800; }
+
+/* report */
+.rgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.rcard { background: var(--card); border: 2.5px solid var(--line); border-radius: 14px; padding: 10px; }
+.rcard strong { display: block; font: 900 24px 'Courier New', monospace; color: var(--purple-deep); }
+.rcard span { font-size: 11.5px; font-weight: 800; color: var(--ink-soft); }
+.rlist { display: grid; gap: 6px; }
+.rline { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; background: var(--card); border: 2px solid var(--line); border-radius: 10px; padding: 7px 10px; }
+.rline b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btn-row { display: flex; gap: 8px; }
+.btn-row .btn { flex: 1; }
+
+/* settings */
+.set-block { margin-bottom: 14px; }
+.limit-note { background: #fff6df; border: 2px solid #e3c252; border-radius: 12px; padding: 10px; font-size: 12.5px; }
+
+/* toast */
+.toast { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px); background: var(--ink); color: #fff6e8; padding: 10px 16px; border-radius: 12px; font-size: 13px; font-weight: 700; opacity: 0; pointer-events: none; transition: all .25s; max-width: min(420px, 90vw); text-align: center; z-index: 60; }
+.toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* job modal */
+dialog { width: min(480px, calc(100vw - 18px)); max-height: min(92dvh, 820px); overflow: auto; border: 3px solid var(--purple-deep); border-radius: 18px; padding: 0; background: var(--panel); color: var(--ink); box-shadow: 0 8px 0 rgba(90, 75, 176, .4); }
+dialog::backdrop { background: rgba(46, 42, 85, .55); }
+.m-head { position: sticky; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 14px; background: var(--purple); color: #fff; }
+.m-head .tt small { display: block; font-size: 10.5px; opacity: .85; font-weight: 700; }
+.m-head .tt b { font-size: 16px; }
+.m-head .x { width: 44px; height: 44px; border-radius: 10px; background: rgba(255,255,255,.18); color: #fff; font-weight: 900; font-size: 16px; }
+.m-body { padding: 12px 14px 16px; }
+.j-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.j-top .badge { font-size: 12.5px; padding: 6px 12px; }
+.j-id { font: 900 13px 'Courier New', monospace; color: var(--ink-soft); }
+.j-card { background: var(--card); border: 2.5px solid var(--line); border-radius: 14px; padding: 10px 12px; margin-bottom: 10px; }
+.j-card .row { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1.5px dashed var(--line); font-size: 13.5px; }
+.j-card .row:last-child { border-bottom: 0; }
+.j-card .row span { flex: none; color: var(--ink-soft); font-size: 12px; font-weight: 800; padding-top: 1px; }
+.j-card .row b { text-align: right; min-width: 0; overflow-wrap: anywhere; }
+.j-acts { display: grid; gap: 8px; }
+.j-acts .btn.primary { width: 100%; }
+.j-acts .minor { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.j-foot { display: flex; gap: 8px; margin-top: 12px; }
+.j-foot .btn { flex: 1; font-size: 13px; }
+
+/* bottom tab bar */
+.tabbar { position: fixed; z-index: 50; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: 1fr 1fr 74px 1fr 1fr; align-items: end; gap: 2px; padding: 6px 8px calc(7px + env(safe-area-inset-bottom)); background: var(--panel); border-top: 3px solid var(--line-deep); }
+.tabbar button { display: grid; justify-items: center; gap: 2px; min-height: 54px; padding: 6px 2px; border-radius: 12px; font-size: 10.5px; font-weight: 800; color: var(--ink-soft); }
+.tabbar button .em { font-size: 20px; line-height: 1; }
+.tabbar button.on { color: var(--purple-deep); background: var(--panel-2); }
+.tabbar .plus { width: 64px; height: 64px; margin: 0 auto -6px; border-radius: 50%; background: var(--purple); border: 4px solid #fff; color: #fff; font-size: 30px; font-weight: 900; box-shadow: var(--shadow); display: grid; place-items: center; }
+.tabbar .plus.on { background: var(--purple-deep); }
+
+@media (min-width: 820px) {
+  main, header.hd { width: min(740px, 100%); }
+  .rgrid { grid-template-columns: repeat(3, 1fr); }
+  .kchips { grid-template-columns: repeat(3, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<header class="hd">
+  <div class="logo">N</div>
+  <div class="hd-tt">
+    <h1>NATTAPRON 8-BIT AUTO SHOP</h1>
+    <p>ร้านนัฐภรณ์คัลเลอร์แล็บ · บอร์ดงาน + เกมจำลองร้าน</p>
+  </div>
+  <div class="hd-chips">
+    <span class="chip demo">● LOCAL DEMO</span>
+    <span class="chip cnt">📋 คิว <strong id="hd-count">0</strong></span>
+  </div>
+</header>
+
+<main>
+
+<!-- ============ หน้าร้าน ============ -->
+<section id="scr-home" class="scr">
+  <div class="seg" role="tablist" aria-label="มุมมอง">
+    <button id="seg-inside" class="on">INSIDE</button>
+    <button id="seg-queue">คิวงาน</button>
+    <button id="seg-vinyl">ไวนิล</button>
+  </div>
+
+  <div class="stage">
+    <canvas id="cv" width="480" height="600" aria-label="ฉากเกมร้านนัฐภรณ์ (ภาพจำลอง ไม่กระทบสถานะงานจริง)"></canvas>
+    <button class="go-vinyl" id="btn-vinyl-go">🚚 ส่งไปบ้านทำไวนิล ›</button>
+    <div class="zone-tip" id="zone-tip"></div>
+  </div>
+
+  <!-- vinyl simulation controls (visible in ไวนิล view) -->
+  <div class="panel" id="v-panel" hidden>
+    <h2 class="sec">🚚 รถส่งงาน ร้าน → บ้านทำไวนิล → ร้าน</h2>
+    <p class="muted" id="v-note">การ์ตูนจำลองเท่านั้น ไม่ใช่ GPS และไม่เปลี่ยนสถานะงานจริง — ยืนยันสถานะจริงที่รายการด้านล่าง</p>
+    <div class="v-stages" id="v-stages"></div>
+    <div class="v-bar"><div id="v-bar"></div></div>
+    <div class="v-controls">
+      <button class="btn primary" id="v-start">▶ ให้รถวิ่งหนึ่งรอบ</button>
+      <select id="v-speed" aria-label="ความเร็ว"><option value="1">×1</option><option value="2" selected>×2</option><option value="4">×4</option></select>
+    </div>
+    <div style="margin-top:12px">
+      <h2 class="sec">งานสายไวนิลตอนนี้</h2>
+      <div class="job-list" id="v-jobs"></div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat wait"><strong id="chip-wait">0</strong><span>รอคิว</span></div>
+    <div class="stat doing"><strong id="chip-doing">0</strong><span>กำลังทำ</span></div>
+    <div class="stat done"><strong id="chip-done">0</strong><span>เสร็จแล้ว</span></div>
+  </div>
+
+  <div class="panel" id="home-queue">
+    <div class="today-line"><span id="today-line">—</span><span>เวลาไทย (Asia/Bangkok)</span></div>
+    <div class="qhead">
+      <h2 class="sec" id="home-q-title">งานในคิววันนี้</h2>
+      <button class="more" id="home-more">ดูคิวทั้งหมด ›</button>
+    </div>
+    <div class="job-list" id="home-list"></div>
+  </div>
+</section>
+
+<!-- ============ จัดการงาน ============ -->
+<section id="scr-queue" class="scr" hidden>
+  <div class="panel">
+    <h2 class="sec">📋 จัดการงาน</h2>
+    <div class="searchrow">
+      <input id="q-search" class="field" placeholder="ค้นหา ชื่อลูกค้า / งาน / เลขใบงาน" aria-label="ค้นหางาน">
+    </div>
+    <div class="fchips" id="q-filters">
+      <button data-f="open" class="on">งานค้าง</button>
+      <button data-f="urgent">⚡ ด่วน</button>
+      <button data-f="today">นัดวันนี้</button>
+      <button data-f="overdue">เลยนัด</button>
+      <button data-f="vinyl">ไวนิล</button>
+      <button data-f="ready">พร้อมรับ</button>
+      <button data-f="done">รับแล้ว</button>
+      <button data-f="canceled">ยกเลิก</button>
+    </div>
+    <div class="sortline">
+      <span id="sort-label">เรียง: ด่วนก่อน → วันนัดรับ</span>
+      <button id="sort-mode">สลับเป็นจัดลำดับเอง</button>
+    </div>
+    <div class="job-list" id="q-list"></div>
+  </div>
+</section>
+
+<!-- ============ รับงานใหม่ ============ -->
+<section id="scr-new" class="scr" hidden>
+  <div class="panel">
+    <h2 class="sec" id="new-title">➕ รับงานใหม่</h2>
+    <div class="parsebox" id="parse-box">
+      <b style="font-size:13px">พิมพ์รวดเดียว แล้วให้ระบบช่วยแยกช่อง</b>
+      <p class="ex">เช่น “ป้ายไวนิล 2 ผืน โรงเรียนบ้านหนองแดง ด่วน รับศุกร์” — ระบบจะเติมช่องให้ ตรวจก่อนบันทึกทุกครั้ง</p>
+      <textarea id="p-text" class="field" rows="2" placeholder="พิมพ์งานที่รับมาที่นี่..."></textarea>
+      <div style="margin-top:8px"><button class="btn lite" id="p-parse" style="width:100%">✨ ช่วยแยกช่องให้</button></div>
+    </div>
+
+    <label class="lb" for="f-customer">ลูกค้า / หน่วยงาน</label>
+    <input id="f-customer" class="field" maxlength="100" placeholder="เช่น โรงเรียนอนุบาลเมืองจอด">
+
+    <label class="lb">ประเภทงาน</label>
+    <div class="kchips" id="f-kinds"></div>
+
+    <label class="lb" for="f-title">รายการ</label>
+    <input id="f-title" class="field" maxlength="200" placeholder="เช่น ป้ายไวนิล 3×1 ม. งานกีฬาสี">
+
+    <div class="frow">
+      <div>
+        <label class="lb" for="f-qty">จำนวน</label>
+        <input id="f-qty" class="field" type="number" min="1" max="99999" inputmode="numeric" placeholder="เช่น 2">
+      </div>
+      <div>
+        <label class="lb" for="f-unit">หน่วย</label>
+        <input id="f-unit" class="field" maxlength="10" placeholder="ผืน / แผ่น / อัน">
+      </div>
+    </div>
+
+    <div class="frow">
+      <div>
+        <label class="lb" for="f-received">วันที่รับออเดอร์</label>
+        <input id="f-received" class="field" type="date">
+      </div>
+      <div>
+        <label class="lb" for="f-due">วันนัดรับงาน</label>
+        <input id="f-due" class="field" type="date">
+      </div>
+    </div>
+
+    <div class="urgentline">
+      <button class="tog" id="f-urgent">⚡ งานด่วน: ปิด</button>
+    </div>
+
+    <label class="lb" for="f-assignee">พนักงานผู้ดูแล</label>
+    <select id="f-assignee" class="field"></select>
+
+    <label class="lb" for="f-note">หมายเหตุ</label>
+    <textarea id="f-note" class="field" rows="2" maxlength="500" placeholder="ไฟล์อยู่ไหน / สีที่ต้องการ / เบอร์ติดต่อ (ไม่บังคับ)"></textarea>
+
+    <div style="margin-top:14px" class="btn-row">
+      <button class="btn warn" id="f-delete" hidden>🗑 ลบใบงานนี้</button>
+      <button class="btn primary" id="save-job">✓ บันทึกใบงาน</button>
+    </div>
+    <p class="muted" id="new-hint" style="margin-top:8px">ใบงานเก็บในเครื่องนี้ (โหมดสาธิต) — สำรองไฟล์ได้ที่หน้า “รายงาน”</p>
+  </div>
+</section>
+
+<!-- ============ รายงาน ============ -->
+<section id="scr-report" class="scr" hidden>
+  <div class="panel">
+    <h2 class="sec">📊 รายงานร้านวันนี้ <span class="muted" id="r-date"></span></h2>
+    <div class="rgrid">
+      <div class="rcard"><strong id="r-open">0</strong><span>งานค้างทั้งหมด</span></div>
+      <div class="rcard"><strong id="r-due-today">0</strong><span>นัดรับวันนี้</span></div>
+      <div class="rcard"><strong id="r-overdue">0</strong><span>เลยนัด</span></div>
+      <div class="rcard"><strong id="r-ready">0</strong><span>พร้อมรับ</span></div>
+      <div class="rcard"><strong id="r-picked">0</strong><span>ลูกค้ารับแล้ววันนี้</span></div>
+      <div class="rcard"><strong id="r-vinyl">0</strong><span>อยู่สายไวนิล</span></div>
+    </div>
+    <h2 class="sec">⏰ เลยนัด ต้องรีบเคลียร์</h2>
+    <div class="rlist" id="r-overdue-list"></div>
+    <h2 class="sec" style="margin-top:12px">✅ รับแล้ววันนี้ (เวลาจริงที่กดยืนยัน)</h2>
+    <div class="rlist" id="r-picked-list"></div>
+    <h2 class="sec" style="margin-top:12px">แยกตามประเภท (งานค้าง)</h2>
+    <div class="rlist" id="r-kinds"></div>
+  </div>
+  <div class="panel">
+    <h2 class="sec">💾 สำรอง / ย้ายเครื่อง</h2>
+    <p class="muted">ข้อมูลอยู่ในเบราว์เซอร์เครื่องนี้เท่านั้น — ส่งออกไฟล์เก็บไว้ หรือนำเข้าเครื่องใหม่ (รองรับไฟล์จากต้นแบบเก่าด้วย)</p>
+    <div class="btn-row" style="margin-top:8px">
+      <button class="btn lite" id="r-export">⬇ ส่งออกไฟล์สำรอง</button>
+      <label class="btn lite" style="cursor:pointer" for="r-import-file">⬆ นำเข้าไฟล์<input id="r-import-file" type="file" accept="application/json,.json" style="display:none"></label>
+    </div>
+    <p class="muted" id="r-storage" style="margin-top:8px"></p>
+  </div>
+</section>
+
+<!-- ============ ตั้งค่า ============ -->
+<section id="scr-settings" class="scr" hidden>
+  <div class="panel">
+    <h2 class="sec">⚙️ ตั้งค่า</h2>
+    <div class="set-block">
+      <label class="lb" for="s-staff">รายชื่อพนักงาน (บรรทัดละชื่อ)</label>
+      <textarea id="s-staff" class="field" rows="3" placeholder="เช่น&#10;เจ้าของร้าน&#10;ฟิล์ม"></textarea>
+      <label class="lb" for="s-me">เครื่องนี้คือใคร (ใช้ลงชื่อเวลายืนยันสถานะ)</label>
+      <select id="s-me" class="field"></select>
+      <div style="margin-top:10px"><button class="btn lite" id="s-save" style="width:100%">บันทึกตั้งค่า</button></div>
+    </div>
+    <div class="set-block">
+      <h2 class="sec">ข้อมูลตัวอย่าง</h2>
+      <p class="muted">งานที่ติดป้าย “ตัวอย่าง” เป็นข้อมูลสาธิตของเกม ไม่ใช่งานจริงของร้าน</p>
+      <div class="btn-row" style="margin-top:8px">
+        <button class="btn lite" id="s-clear-samples">ลบเฉพาะข้อมูลตัวอย่าง</button>
+        <button class="btn warn" id="s-reset">ล้างข้อมูลทั้งหมด</button>
+      </div>
+    </div>
+    <div class="set-block">
+      <h2 class="sec">ติดตั้งเป็นแอป (PWA)</h2>
+      <p class="muted">iPhone: Safari → ปุ่มแชร์ → “เพิ่มลงไปยังหน้าจอโฮม” · Android: Chrome → เมนู ⋮ → “ติดตั้งแอป” เปิดใช้แบบออฟไลน์ได้หลังติดตั้ง</p>
+    </div>
+    <div class="limit-note" id="s-limits">
+      <b>ข้อจำกัดของโหมดสาธิต (LOCAL DEMO):</b><br>
+      • คิวงานเก็บใน “เครื่องนี้” เท่านั้น ยังไม่ซิงก์ข้ามเครื่องพนักงาน — ใช้หลายเครื่องพร้อมกันต้องต่อฐานข้อมูลกลางที่ปลอดภัย (ขั้นถัดไป)<br>
+      • แผนที่และตัวละครเป็นภาพจำลอง ไม่ใช่ GPS / เวลาจริง และไม่เปลี่ยนสถานะงานเอง<br>
+      • ยังไม่เชื่อมม่วงจด / LINE OA / NATTA GROUP จนกว่าจะยืนยันให้เชื่อม
+    </div>
+    <p class="muted" style="margin-top:10px">เวอร์ชัน <span id="s-version">1.0</span> · สร้างต่อจากต้นแบบ HTML เดิม (โค้ด Lovable เดิมถูกลบไปแล้ว ไม่ได้อยู่ในระบบนี้)</p>
+  </div>
+</section>
+
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- ============ ใบงานของฉัน (job modal) ============ -->
+<dialog id="job-modal" aria-label="ใบงานของฉัน">
+  <div class="m-head">
+    <div class="tt"><small>บอร์ดงาน · ร้านนัฐภรณ์</small><b>ใบงานของฉัน</b></div>
+    <button class="x" id="j-close" aria-label="ปิด">✕</button>
+  </div>
+  <div class="m-body">
+    <div class="j-top">
+      <span class="badge" id="j-status">—</span>
+      <span class="j-id" id="j-id">NP-0000</span>
+    </div>
+    <div class="j-card">
+      <div class="row"><span>งานของ</span><b id="j-customer">—</b></div>
+      <div class="row"><span>รายการ</span><b id="j-title">—</b></div>
+      <div class="row"><span>ประเภท</span><b id="j-kind">—</b></div>
+      <div class="row"><span>รับออเดอร์</span><b id="j-received">—</b></div>
+      <div class="row"><span>นัดรับ</span><b id="j-due">—</b></div>
+      <div class="row"><span>ลูกค้ารับจริง</span><b id="j-picked">—</b></div>
+      <div class="row"><span>ผู้ดูแล</span><b id="j-assignee">—</b></div>
+      <div class="row" id="j-note-row"><span>หมายเหตุ</span><b id="j-note">—</b></div>
+    </div>
+    <div class="j-acts">
+      <button class="btn primary" id="j-main-act">—</button>
+      <div class="minor" id="j-minor-acts"></div>
+    </div>
+    <div class="j-foot">
+      <button class="btn lite" id="j-walk">🚶 เดินไปจุดงาน →</button>
+      <button class="btn lite" id="j-edit">✏️ แก้ไข</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ============ bottom tabs ============ -->
+<nav class="tabbar" aria-label="เมนูหลัก">
+  <button id="tab-home" class="on"><span class="em">🏪</span>หน้าร้าน</button>
+  <button id="tab-queue"><span class="em">🗂️</span>จัดการงาน</button>
+  <button id="tab-new" class="plus" aria-label="รับงานใหม่">＋</button>
+  <button id="tab-report"><span class="em">📊</span>รายงาน</button>
+  <button id="tab-settings"><span class="em">⚙️</span>ตั้งค่า</button>
+</nav>
+
+<script type="module">
+import * as E from './engine.js';
+import * as SC from './scene.js';
+
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* ---------- storage ---------- */
+const KEY = 'np8_orders_v1';
+const OLD_KEY = 'nattapron_vinyl_mobile_queue_v3';
+const SET_KEY = 'np8_settings_v1';
+let storageOK = true;
+let orders = [];
+let settings = { me: '', staff: ['เจ้าของร้าน'], sortMode: 'smart' };
+
+function loadAll() {
+  try {
+    const s = localStorage.getItem(SET_KEY);
+    if (s) settings = { ...settings, ...JSON.parse(s) };
+  } catch { /* ค่าเริ่มต้น */ }
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) {
+      const v = E.validateImport(raw, { todayISO: E.bkkTodayISO() });
+      if (v.ok) { orders = v.orders; return; }
+    }
+    const old = localStorage.getItem(OLD_KEY);
+    if (old) {
+      const v = E.validateImport(old, { todayISO: E.bkkTodayISO() });
+      if (v.ok && v.orders.length) { orders = v.orders; saveOrders(); toast('ย้ายคิวจากต้นแบบเดิมให้แล้ว ' + v.orders.length + ' งาน'); return; }
+    }
+    orders = E.demoOrders();
+    saveOrders();
+  } catch { storageOK = false; orders = E.demoOrders(); }
+}
+function saveOrders() {
+  try { localStorage.setItem(KEY, JSON.stringify(orders)); storageOK = true; }
+  catch { storageOK = false; }
+  const note = $('r-storage');
+  if (note) note.textContent = storageOK
+    ? 'สถานะการเก็บข้อมูล: ปกติ (เก็บในเบราว์เซอร์เครื่องนี้)'
+    : '⚠️ บันทึกลงเครื่องไม่ได้ — โปรดส่งออกไฟล์สำรองก่อนปิดหน้านี้';
+}
+function saveSettings() { try { localStorage.setItem(SET_KEY, JSON.stringify(settings)); } catch { /* แจ้งใน report */ } }
+
+/* ---------- toast ---------- */
+let toastTimer = 0;
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('on'), 2600);
+}
+
+/* ---------- screens / tabs ---------- */
+const SCREENS = ['home', 'queue', 'new', 'report', 'settings'];
+let screen = 'home';
+function showScreen(name) {
+  screen = name;
+  for (const s of SCREENS) {
+    $('scr-' + s).hidden = s !== name;
+    $('tab-' + s).classList.toggle('on', s === name);
+  }
+  if (name === 'home') renderHome();
+  if (name === 'queue') renderQueue();
+  if (name === 'new' && editId === '') resetForm();
+  if (name === 'report') renderReport();
+  if (name === 'settings') renderSettings();
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}
+for (const s of SCREENS) $('tab-' + s).onclick = () => { if (s === 'new') { editId = ''; resetForm(); } showScreen(s); };
+
+/* ---------- canvas game (VISUAL ONLY — this block never touches job status) ---------- */
+const cv = $('cv');
+const g = cv.getContext('2d', { alpha: false });
+const scene = {
+  view: 'inside',
+  walkers: SC.buildWalkers(),
+  dog: { x: 96, y: 452, tx: 96, ty: 452, nextMove: 0, heartUntil: 0 }, // dog sits on the counter like the real one
+  truck: { visible: false, back: false, t: 0 },
+  focusZone: '',
+};
+let walkerOverride = null; // {walker, restorePath, target}
+const vinylSim = { running: false, stage: -1, t: 0 };
+const V_STAGES = ['ออกจากร้าน', 'ถึงบ้านไวนิล', 'กำลังผลิต (จำลอง)', 'ขากลับ', 'ถึงร้านแล้ว'];
+
+function setView(v) {
+  scene.view = v;
+  $('seg-inside').classList.toggle('on', v === 'inside');
+  $('seg-vinyl').classList.toggle('on', v === 'route');
+  $('seg-queue').classList.remove('on');
+  $('v-panel').hidden = v !== 'route';
+  $('btn-vinyl-go').hidden = v !== 'inside';
+  if (v === 'route') renderVinylJobs();
+}
+$('seg-inside').onclick = () => setView('inside');
+$('seg-vinyl').onclick = () => setView('route');
+$('seg-queue').onclick = () => showScreen('queue');
+$('btn-vinyl-go').onclick = () => setView('route');
+
+let lastT = 0;
+function frame(t) {
+  const dt = Math.min(80, lastT ? t - lastT : 0);
+  lastT = t;
+  if (screen === 'home' && !document.hidden) {
+    // walkers + dog wander: cosmetic coordinates only, no order data in reach
+    if (walkerOverride) {
+      const w = walkerOverride.walker;
+      w.t += (w.speed * dt) / 1000 / Math.max(1, E.pathLength(w.path));
+      if (w.t >= 1) {
+        w.path = walkerOverride.restorePath; w.t = 0; w.dwell = 1600;
+        walkerOverride = null;
+      }
+      SC.tickWalkers(scene.walkers.filter((x) => x !== w), dt);
+    } else {
+      SC.tickWalkers(scene.walkers, dt);
+    }
+    const dg = scene.dog;
+    if (t > dg.nextMove) {
+      dg.tx = 56 + Math.random() * 110; dg.ty = 450 + Math.random() * 5;
+      dg.nextMove = t + 2200 + Math.random() * 2500;
+      if (Math.random() < 0.4) dg.heartUntil = t + 1500;
+    }
+    dg.x += Math.sign(dg.tx - dg.x) * Math.min(Math.abs(dg.tx - dg.x), (14 * dt) / 1000);
+    dg.y += Math.sign(dg.ty - dg.y) * Math.min(Math.abs(dg.ty - dg.y), (10 * dt) / 1000);
+
+    if (vinylSim.running) stepVinylSim(dt);
+    SC.drawScene(g, scene, t);
+  }
+  requestAnimationFrame(frame);
+}
+
+function stepVinylSim(dt) {
+  const speed = Number($('v-speed').value || 1);
+  const durations = [5200, 1600, 2600, 5200, 1200];
+  vinylSim.t += dt * speed;
+  const d = durations[vinylSim.stage];
+  const p = Math.min(1, vinylSim.t / d);
+  if (vinylSim.stage === 0) { scene.truck = { visible: true, back: false, t: p }; }
+  else if (vinylSim.stage === 3) { scene.truck = { visible: true, back: true, t: p }; }
+  else if (vinylSim.stage === 1 || vinylSim.stage === 2) { scene.truck = { visible: true, back: false, t: 1 }; }
+  else { scene.truck = { visible: true, back: true, t: 1 }; }
+  const total = durations.reduce((a, b) => a + b, 0);
+  const doneMs = durations.slice(0, vinylSim.stage).reduce((a, b) => a + b, 0) + Math.min(vinylSim.t, d);
+  $('v-bar').style.width = ((doneMs / total) * 100).toFixed(1) + '%';
+  paintVinylStages();
+  if (p >= 1) {
+    vinylSim.stage += 1; vinylSim.t = 0;
+    if (vinylSim.stage >= V_STAGES.length) {
+      vinylSim.running = false; vinylSim.stage = -1;
+      scene.truck = { visible: false, back: false, t: 0 };
+      $('v-bar').style.width = '100%';
+      $('v-start').disabled = false;
+      toast('รถวิ่งครบรอบ (จำลอง) — สถานะงานจริงไม่เปลี่ยน กดยืนยันเองด้านล่าง');
+      paintVinylStages();
+    }
+  }
+}
+function paintVinylStages() {
+  $('v-stages').innerHTML = V_STAGES.map((s, i) => {
+    const cls = vinylSim.stage < 0 ? '' : i < vinylSim.stage ? 'ok' : i === vinylSim.stage ? 'on' : '';
+    return `<span class="${cls}">${s}</span>`;
+  }).join('');
+}
+$('v-start').onclick = () => {
+  vinylSim.running = true; vinylSim.stage = 0; vinylSim.t = 0;
+  $('v-start').disabled = true;
+  paintVinylStages();
+};
+
+cv.addEventListener('click', (ev) => {
+  const r = cv.getBoundingClientRect();
+  const x = ((ev.clientX - r.left) / r.width) * SC.W;
+  const y = ((ev.clientY - r.top) / r.height) * SC.H;
+  if (scene.view !== 'inside') return;
+  const z = SC.hitZone(x, y);
+  if (!z) return;
+  scene.focusZone = z;
+  const tip = $('zone-tip');
+  tip.textContent = '📍 ' + SC.ZONES[z].label;
+  tip.classList.add('on');
+  clearTimeout(cv._tipTimer);
+  cv._tipTimer = setTimeout(() => { tip.classList.remove('on'); scene.focusZone = ''; }, 2200);
+});
+
+/* ---------- rendering: shared row ---------- */
+function jobRow(j, { withRank = false, vis = [] } = {}) {
+  const today = E.bkkTodayISO();
+  const over = E.isOverdue(j, today);
+  const st = E.STATUS[j.status];
+  const qty = j.qty ? ` × ${j.qty}${esc(j.unit || '')}` : '';
+  /* แถวเป็น div role=button (ห้ามใช้ <button> เพราะมีปุ่ม ▲▼ ซ้อนข้างในไม่ได้) */
+  return `<div class="jrow ${j.priority === 'urgent' ? 'urgent' : ''}" role="button" tabindex="0" data-open="${esc(j.id)}">
+    <span class="ic">${E.KIND[j.kind]?.icon || '📦'}</span>
+    <span class="mid">
+      <b>${esc(j.customer || 'ไม่ระบุชื่อ')}</b>
+      <small>#${esc(j.id)} · ${esc(j.title)}${qty}</small>
+      <small>นัดรับ ${E.thaiDate(j.due)}${j.assignee ? ' · ' + esc(j.assignee) : ''}</small>
+    </span>
+    <span class="end">
+      <span class="badge ${st.chip === 'wait' ? 'c-wait' : st.chip === 'work' ? 'c-work' : st.chip === 'vinyl' ? 'c-vinyl' : st.chip === 'ready' ? 'c-ready' : st.chip === 'done' ? 'c-done' : 'c-off'}">${st.label}</span>
+      ${j.priority === 'urgent' && E.isOpen(j) ? '<span class="badge b-urgent">⚡ ด่วน</span>' : ''}
+      ${over ? '<span class="badge b-over">เลยนัด</span>' : ''}
+      ${j.sample ? '<span class="badge b-sample">ตัวอย่าง</span>' : ''}
+      ${withRank ? `<span class="rk"><button data-mv="up" data-id="${esc(j.id)}" aria-label="เลื่อนขึ้น">▲</button><button data-mv="down" data-id="${esc(j.id)}" aria-label="เลื่อนลง">▼</button></span>` : '<span class="arrow">›</span>'}
+    </span>
+  </div>`;
+}
+
+/* ---------- home ---------- */
+function renderHome() {
+  const today = E.bkkTodayISO();
+  $('today-line').textContent = `วัน${E.thaiWeekday(today)}ที่ ${E.thaiDate(today)}`;
+  const b = E.statBuckets(orders);
+  $('chip-wait').textContent = b.wait;
+  $('chip-doing').textContent = b.doing;
+  $('chip-done').textContent = b.done;
+  $('hd-count').textContent = orders.filter(E.isOpen).length;
+
+  const open = E.sortQueue(orders.filter(E.isOpen), settings.sortMode);
+  const todays = open.filter((j) => j.due <= today);
+  const list = (todays.length ? todays : open).slice(0, 4);
+  $('home-q-title').textContent = todays.length
+    ? `งานในคิววันนี้ (${todays.length} รายการ)`
+    : `งานค้างล่าสุด (${open.length} รายการ)`;
+  $('home-list').innerHTML = list.length
+    ? list.map((j) => jobRow(j)).join('')
+    : '<p class="muted" style="margin:6px 0">ยังไม่มีงานค้าง — กดปุ่ม ＋ เพื่อรับงานใหม่</p>';
+}
+$('home-more').onclick = () => showScreen('queue');
+
+/* ---------- queue ---------- */
+let qFilter = 'open';
+function renderQueue() {
+  const today = E.bkkTodayISO();
+  const manual = settings.sortMode === 'manual';
+  $('sort-label').textContent = manual ? 'เรียง: จัดลำดับเอง (ปุ่ม ▲▼)' : 'เรียง: ด่วนก่อน → วันนัดรับ';
+  $('sort-mode').textContent = manual ? 'สลับเป็นเรียงอัตโนมัติ' : 'สลับเป็นจัดลำดับเอง';
+  const items = E.sortQueue(E.filterQueue(orders, { q: $('q-search').value, filter: qFilter, todayISO: today }), settings.sortMode);
+  const vis = items.map((j) => j.id);
+  $('q-list').innerHTML = items.length
+    ? items.map((j) => jobRow(j, { withRank: manual && E.isOpen(j), vis })).join('')
+    : '<p class="muted" style="margin:6px 0">ไม่มีงานในตัวกรองนี้</p>';
+  $('q-list')._vis = vis;
+}
+$('q-search').oninput = renderQueue;
+$('q-filters').addEventListener('click', (ev) => {
+  const b = ev.target.closest('button[data-f]');
+  if (!b) return;
+  qFilter = b.dataset.f;
+  for (const x of $('q-filters').children) x.classList.toggle('on', x === b);
+  renderQueue();
+});
+$('sort-mode').onclick = () => {
+  settings.sortMode = settings.sortMode === 'manual' ? 'smart' : 'manual';
+  saveSettings(); renderQueue();
+};
+document.addEventListener('click', (ev) => {
+  const mv = ev.target.closest('button[data-mv]');
+  if (mv) {
+    ev.stopPropagation();
+    orders = E.moveInQueue(orders, $('q-list')._vis || [], mv.dataset.id, mv.dataset.mv);
+    saveOrders(); renderQueue();
+    return;
+  }
+  const open = ev.target.closest('[data-open]');
+  if (open) openJob(open.dataset.open);
+});
+document.addEventListener('keydown', (ev) => {
+  if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches?.('.jrow[data-open]')) {
+    ev.preventDefault();
+    openJob(ev.target.dataset.open);
+  }
+});
+
+/* ---------- job modal (ใบงานของฉัน) ---------- */
+let modalId = '';
+function openJob(id) {
+  const j = orders.find((o) => o.id === id);
+  if (!j) return;
+  modalId = id;
+  const st = E.STATUS[j.status];
+  $('j-id').textContent = '#' + j.id;
+  $('j-status').textContent = st.label;
+  $('j-status').className = 'badge ' + ({ wait: 'c-wait', work: 'c-work', vinyl: 'c-vinyl', ready: 'c-ready', done: 'c-done', off: 'c-off' }[st.chip]);
+  $('j-customer').textContent = j.customer || 'ไม่ระบุ';
+  $('j-title').textContent = j.title + (j.qty ? ` × ${j.qty}${j.unit || ''}` : '');
+  $('j-kind').textContent = `${E.KIND[j.kind]?.icon || ''} ${E.KIND[j.kind]?.label || j.kind}` + (j.sample ? ' · ตัวอย่าง' : '');
+  $('j-received').textContent = E.thaiDate(j.received);
+  $('j-due').textContent = `วัน${E.thaiWeekday(j.due)} ${E.thaiDate(j.due)}`;
+  $('j-picked').textContent = j.status === 'picked_up'
+    ? (j.pickedAt ? E.thaiDateTime(j.pickedAt) : E.thaiDate(j.pickedDate) + ' (ไม่ระบุเวลา)')
+    : '— ยังไม่รับ';
+  $('j-assignee').textContent = j.assignee || '—';
+  $('j-note').textContent = j.note || '—';
+  $('j-note-row').style.display = j.note ? '' : 'none';
+
+  const acts = E.nextActions(j);
+  const main = acts.find((a) => a.id !== 'canceled');
+  const minors = acts.filter((a) => a !== main);
+  const mainBtn = $('j-main-act');
+  if (main) {
+    mainBtn.hidden = false;
+    mainBtn.textContent = actionText(main.id);
+    mainBtn.onclick = () => confirmMove(j.id, main.id);
+  } else {
+    mainBtn.hidden = true;
+  }
+  $('j-minor-acts').innerHTML = minors.map((a) =>
+    `<button class="btn ${a.id === 'canceled' ? 'warn' : 'lite'}" data-act="${a.id}">${actionText(a.id)}</button>`).join('');
+  for (const b of $('j-minor-acts').querySelectorAll('button')) {
+    b.onclick = () => confirmMove(j.id, b.dataset.act);
+  }
+  $('job-modal').showModal();
+}
+function actionText(to) {
+  return {
+    preparing: '▶ รับเข้าเตรียมไฟล์',
+    producing: '🖨 เริ่มผลิตในร้าน',
+    quality_check: '🔍 ส่งตรวจงาน',
+    out_to_vinyl: '🚚 ส่งไปบ้านทำไวนิล',
+    vinyl_production: '🏠 ถึงบ้านไวนิล เริ่มผลิต',
+    back_at_shop: '↩️ รับงานกลับถึงร้าน',
+    ready_for_pickup: '✅ ตรวจผ่าน พร้อมให้ลูกค้ารับ',
+    picked_up: '🤝 ลูกค้ารับงานแล้ว (บันทึกเวลา)',
+    canceled: '✕ ยกเลิกงาน',
+    queued: '↺ เปิดงานอีกครั้ง',
+  }[to] || to;
+}
+function confirmMove(id, to) {
+  const j = orders.find((o) => o.id === id);
+  if (!j) return;
+  const msg = to === 'picked_up'
+    ? `ยืนยันว่า “${j.customer || j.id}” มารับงานแล้วตอนนี้ใช่ไหมคะ?\nระบบจะบันทึกวันเวลารับจริงทันที`
+    : to === 'canceled'
+      ? `ยกเลิกใบงาน ${j.id} ของ “${j.customer || '-'}” ใช่ไหมคะ?`
+      : `ยืนยันขยับสถานะ ${j.id}: ${E.STATUS[j.status].label} → ${E.STATUS[to].label} ?`;
+  if (!window.confirm(msg)) return;
+  try {
+    const next = E.applyTransition(j, to, { now: new Date(), by: settings.me || '' });
+    orders = orders.map((o) => (o.id === id ? next : o));
+    saveOrders();
+    toast(to === 'picked_up'
+      ? `บันทึกรับงานจริง ${E.thaiDateTime(next.pickedAt)}`
+      : `${j.id} → ${E.STATUS[to].label}`);
+    renderHome(); renderQueue(); renderVinylJobs();
+    if ($('job-modal').open) openJob(id);
+  } catch (err) {
+    toast(err.message || 'ย้ายสถานะไม่ได้');
+  }
+}
+$('j-close').onclick = () => $('job-modal').close();
+$('j-walk').onclick = () => {
+  const j = orders.find((o) => o.id === modalId);
+  if (!j) return;
+  const zone = E.KIND[j.kind]?.zone || 'counter';
+  $('job-modal').close();
+  showScreen('home'); setView('inside');
+  scene.focusZone = zone;
+  const w = scene.walkers[0];
+  const cur = E.pointAt(w.path, w.t);
+  walkerOverride = { walker: w, restorePath: SC.WALK_LOOP };
+  w.path = [cur, SC.SPOTS[zone] || SC.SPOTS.counter];
+  w.t = 0; w.dwell = 0;
+  toast('พนักงานกำลังเดินไป “' + SC.ZONES[zone].label + '” (ภาพจำลอง)');
+  setTimeout(() => { scene.focusZone = ''; }, 3200);
+};
+$('j-edit').onclick = () => {
+  const j = orders.find((o) => o.id === modalId);
+  if (!j) return;
+  $('job-modal').close();
+  openEdit(j);
+};
+
+/* ---------- new / edit form ---------- */
+let editId = '';
+let formKind = 'print';
+let formUrgent = false;
+function buildKindChips() {
+  $('f-kinds').innerHTML = E.KINDS.map((k) =>
+    `<button data-k="${k.id}" class="${k.id === formKind ? 'on' : ''}">${k.icon} ${k.label}</button>`).join('');
+}
+$('f-kinds').addEventListener('click', (ev) => {
+  const b = ev.target.closest('button[data-k]');
+  if (!b) return;
+  formKind = b.dataset.k;
+  buildKindChips();
+});
+$('f-urgent').onclick = () => {
+  formUrgent = !formUrgent;
+  $('f-urgent').textContent = formUrgent ? '⚡ งานด่วน: เปิด' : '⚡ งานด่วน: ปิด';
+  $('f-urgent').classList.toggle('on', formUrgent);
+};
+function fillAssignees(sel, value) {
+  sel.innerHTML = '<option value="">— ยังไม่ระบุ —</option>' +
+    settings.staff.map((n) => `<option ${n === value ? 'selected' : ''}>${esc(n)}</option>`).join('');
+}
+function resetForm() {
+  editId = '';
+  $('new-title').textContent = '➕ รับงานใหม่';
+  $('parse-box').hidden = false;
+  $('f-delete').hidden = true;
+  $('p-text').value = '';
+  $('f-customer').value = ''; $('f-title').value = '';
+  $('f-qty').value = ''; $('f-unit').value = '';
+  const today = E.bkkTodayISO();
+  $('f-received').value = today; $('f-due').value = E.addDaysISO(today, 1);
+  formKind = 'print'; formUrgent = false;
+  buildKindChips();
+  $('f-urgent').textContent = '⚡ งานด่วน: ปิด'; $('f-urgent').classList.remove('on');
+  fillAssignees($('f-assignee'), settings.me);
+  $('f-note').value = '';
+}
+function openEdit(j) {
+  editId = j.id;
+  showScreen('new');
+  $('new-title').textContent = '✏️ แก้ไขใบงาน #' + j.id;
+  $('parse-box').hidden = true;
+  $('f-delete').hidden = false;
+  $('f-customer').value = j.customer; $('f-title').value = j.title;
+  $('f-qty').value = j.qty || ''; $('f-unit').value = j.unit || '';
+  $('f-received').value = j.received; $('f-due').value = j.due;
+  formKind = j.kind; buildKindChips();
+  formUrgent = j.priority === 'urgent';
+  $('f-urgent').textContent = formUrgent ? '⚡ งานด่วน: เปิด' : '⚡ งานด่วน: ปิด';
+  $('f-urgent').classList.toggle('on', formUrgent);
+  fillAssignees($('f-assignee'), j.assignee);
+  $('f-note').value = j.note || '';
+}
+$('p-parse').onclick = () => {
+  const parsed = E.parseThaiOrder($('p-text').value, { todayISO: E.bkkTodayISO() });
+  if (!$('p-text').value.trim()) { toast('พิมพ์ข้อความงานก่อนนะคะ'); return; }
+  if (parsed.customer) $('f-customer').value = parsed.customer;
+  if (parsed.kind) { formKind = parsed.kind; buildKindChips(); }
+  if (parsed.title) $('f-title').value = parsed.title;
+  if (parsed.qty) { $('f-qty').value = parsed.qty; $('f-unit').value = parsed.unit; }
+  if (parsed.due) $('f-due').value = parsed.due;
+  if (parsed.priority === 'urgent' && !formUrgent) $('f-urgent').click();
+  toast('ช่วยเติมช่องให้แล้ว — ตรวจความถูกต้องก่อนบันทึกนะคะ');
+};
+$('save-job').onclick = () => {
+  const customer = $('f-customer').value.trim();
+  const title = $('f-title').value.trim();
+  if (!customer && !title) { toast('กรอกชื่อลูกค้าหรือรายการงานอย่างน้อยหนึ่งช่องค่ะ'); return; }
+  const received = $('f-received').value;
+  const due = $('f-due').value;
+  if (due && received && due < received && !window.confirm('วันนัดรับอยู่ก่อนวันรับออเดอร์ ยืนยันบันทึกไหมคะ?')) return;
+  const fields = {
+    customer, title, kind: formKind,
+    qty: $('f-qty').value, unit: $('f-unit').value.trim(),
+    received, due,
+    priority: formUrgent ? 'urgent' : 'normal',
+    assignee: $('f-assignee').value,
+    note: $('f-note').value.trim(),
+  };
+  if (editId) {
+    orders = orders.map((o) => (o.id === editId
+      ? { ...o, ...fields, qty: fields.qty ? Math.min(99999, Math.round(Number(fields.qty))) : '', sample: o.sample, updatedAt: new Date().toISOString() }
+      : o));
+    toast('แก้ไขใบงาน #' + editId + ' แล้ว');
+  } else {
+    const j = E.newOrder(fields, { orders });
+    orders = [...orders, j];
+    toast('รับงานใหม่ #' + j.id + ' เข้าคิวแล้ว');
+  }
+  saveOrders();
+  editId = '';
+  showScreen('queue');
+};
+$('f-delete').onclick = () => {
+  const j = orders.find((o) => o.id === editId);
+  if (!j) return;
+  if (!window.confirm(`ลบใบงาน ${j.id} ของ “${j.customer || '-'}” ถาวรใช่ไหมคะ?`)) return;
+  if (!window.confirm('ลบแล้วกู้คืนไม่ได้ ยืนยันอีกครั้งค่ะ')) return;
+  orders = orders.filter((o) => o.id !== editId);
+  saveOrders();
+  editId = '';
+  toast('ลบใบงานแล้ว');
+  showScreen('queue');
+};
+
+/* ---------- vinyl jobs (real status with confirm) ---------- */
+function renderVinylJobs() {
+  const lane = orders.filter((j) =>
+    E.VINYL_STAGES.includes(j.status) ||
+    (j.kind === 'vinyl' && E.isOpen(j)));
+  $('v-jobs').innerHTML = lane.length
+    ? E.sortQueue(lane, 'smart').map((j) => jobRow(j)).join('')
+    : '<p class="muted" style="margin:6px 0">ยังไม่มีงานสายไวนิลค้างอยู่</p>';
+}
+
+/* ---------- report ---------- */
+function renderReport() {
+  const today = E.bkkTodayISO();
+  const r = E.reportData(orders, today);
+  $('r-date').textContent = `· วัน${E.thaiWeekday(today)} ${E.thaiDate(today)}`;
+  $('r-open').textContent = r.openCount;
+  $('r-due-today').textContent = r.dueToday.length;
+  $('r-overdue').textContent = r.overdue.length;
+  $('r-ready').textContent = r.ready.length;
+  $('r-picked').textContent = r.pickedToday.length;
+  $('r-vinyl').textContent = r.atVinyl.length;
+  $('r-overdue-list').innerHTML = r.overdue.length
+    ? r.overdue.map((j) => `<button class="rline" data-open="${esc(j.id)}"><b>#${esc(j.id)} ${esc(j.customer)}</b><span>นัด ${E.thaiDate(j.due)}</span></button>`).join('')
+    : '<p class="muted">ไม่มีงานเลยนัด 🎉</p>';
+  $('r-picked-list').innerHTML = r.pickedToday.length
+    ? r.pickedToday.map((j) => `<button class="rline" data-open="${esc(j.id)}"><b>#${esc(j.id)} ${esc(j.customer)}</b><span>${j.pickedAt ? E.bkkTimeHM(new Date(j.pickedAt)) + ' น.' : 'ไม่ระบุเวลา'}</span></button>`).join('')
+    : '<p class="muted">วันนี้ยังไม่มีลูกค้ามารับงาน</p>';
+  $('r-kinds').innerHTML = E.KINDS.filter((k) => r.byKind[k.id]).map((k) =>
+    `<div class="rline"><b>${k.icon} ${k.label}</b><span>${r.byKind[k.id]} งาน</span></div>`).join('') || '<p class="muted">ไม่มีงานค้าง</p>';
+}
+$('r-export').onclick = () => {
+  const blob = new Blob([E.serializeBackup(orders)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'NATTAPRON-8bit-backup-' + E.bkkTodayISO() + '.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 800);
+  toast('ส่งออกไฟล์สำรองแล้ว');
+};
+$('r-import-file').onchange = async (ev) => {
+  const file = ev.target.files[0];
+  ev.target.value = '';
+  if (!file) return;
+  if (file.size > 3_000_000) { toast('ไฟล์ใหญ่เกินไป'); return; }
+  const v = E.validateImport(await file.text(), { todayISO: E.bkkTodayISO() });
+  if (!v.ok) { toast('นำเข้าไม่ได้: ' + v.error); return; }
+  if (!window.confirm(`แทนที่คิวปัจจุบันด้วย ${v.orders.length} งานจากไฟล์ใช่ไหมคะ?`)) return;
+  orders = v.orders;
+  saveOrders();
+  renderReport(); renderHome();
+  toast('นำเข้า ' + v.orders.length + ' งานเรียบร้อย');
+};
+
+/* ---------- settings ---------- */
+function renderSettings() {
+  $('s-staff').value = settings.staff.join('\n');
+  fillAssignees($('s-me'), settings.me);
+  $('s-me').value = settings.me || '';
+}
+$('s-save').onclick = () => {
+  settings.staff = $('s-staff').value.split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 20);
+  if (!settings.staff.length) settings.staff = ['เจ้าของร้าน'];
+  settings.me = $('s-me').value;
+  saveSettings();
+  renderSettings();
+  toast('บันทึกตั้งค่าแล้ว');
+};
+$('s-me').addEventListener('change', () => { settings.me = $('s-me').value; saveSettings(); });
+$('s-clear-samples').onclick = () => {
+  const n = orders.filter((j) => j.sample).length;
+  if (!n) { toast('ไม่มีข้อมูลตัวอย่างแล้ว'); return; }
+  if (!window.confirm(`ลบข้อมูลตัวอย่าง ${n} งานใช่ไหมคะ? (งานจริงไม่โดนลบ)`)) return;
+  orders = orders.filter((j) => !j.sample);
+  saveOrders(); renderHome();
+  toast('ลบข้อมูลตัวอย่างแล้ว');
+};
+$('s-reset').onclick = () => {
+  if (!window.confirm('ล้างข้อมูลทั้งหมดในเครื่องนี้ใช่ไหมคะ?')) return;
+  if (!window.confirm('แน่ใจนะคะ? แนะนำให้ส่งออกไฟล์สำรองก่อน — ยืนยันล้างทั้งหมด')) return;
+  orders = [];
+  saveOrders(); renderHome(); renderQueue();
+  toast('ล้างข้อมูลแล้ว เริ่มใหม่ได้เลย');
+};
+
+/* ---------- boot ---------- */
+loadAll();
+buildKindChips();
+resetForm();
+paintVinylStages();
+renderHome();
+renderQueue();
+renderVinylJobs();
+saveOrders();
+setInterval(() => { if (screen === 'home') renderHome(); }, 60_000); // keep "วันนี้" fresh across midnight
+requestAnimationFrame(frame);
+
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
