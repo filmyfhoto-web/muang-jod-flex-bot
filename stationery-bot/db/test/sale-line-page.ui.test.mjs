@@ -17,7 +17,7 @@ import { startPgRest, staffJwt } from '../helpers/pg-rest.js';
 import { playwright, staffSession, routeOffline, PROJECT_REF } from '../helpers/back-office.js';
 import { serveMiniShell } from '../helpers/mini-shell.js';
 
-const MODULE = fileURLToPath(new URL('../../app-patches/sale-orders-page/saleorders.module.js', import.meta.url));
+const MODULE = process.env.SALE_LINE_MODULE || fileURLToPath(new URL('../../app-patches/sale-orders-page/saleorders.module.js', import.meta.url));
 const SHOTS = process.env.SALE_ORDERS_SHOTS || join(tmpdir(), 'sale-orders-shots');
 const SERVICE = 'svc-service-key';
 const EMAIL = 'ying@natta.test';
@@ -432,4 +432,40 @@ test('ยอดปิดงาน: closed orders are added up in total and by th
   const all = await page.locator('#so_modal table').first().locator('tbody tr').allInnerTexts();
   assert.deepEqual(all.map((t) => t.replace(/\s+/g, ' ').trim()), ['ฟิล์ม 1 2,500.00', 'หญิง 1 1,000.00', 'ไม่ระบุผู้รับผิดชอบ 1 300.00'], 'all time: the order without a person is listed too');
   await shot('line-10-closed-sum');
+});
+
+test('a reply is on screen at once as “waiting”, even when the server answers late; the saved row then takes its place, with no copy', skipIt, async () => {
+  await page.goto(`${shell.url}/#saleorders`);
+  await page.reload(); // start from the list (the modal of the test before is closed by this)
+  await page.waitForSelector('#so_items .so-row');
+  await page.locator('#so_tabs .so-tab', { hasText: 'ทั้งหมด' }).click();
+  await openRow('คุณปู');
+  await until(async () => (await chatTitle()) === 'คุณปู', 'the chat');
+  // the server answers 800 ms late (a phone on mobile data): the bubble must not wait for that answer
+  const LATE = 800;
+  await page.route('**/rest/v1/rpc/sale_line_send*', async (route) => {
+    await new Promise((r) => setTimeout(r, LATE));
+    await route.fallback();
+  });
+  const text = 'ได้ค่ะ ส่งใบเสนอราคาให้ภายในวันนี้นะคะ';
+  await type(text);
+  const t0 = Date.now();
+  await page.locator('#so_chat [data-a="send"]').click();
+  const bubble = page.locator('#so_msgs .so-m.out', { hasText: text });
+  await bubble.locator('.so-dl.wait').waitFor({ timeout: 5000 });
+  const shownMs = Date.now() - t0;
+  assert.ok(shownMs < LATE / 2, `the bubble is on screen at once (${shownMs} ms), while the server has not answered yet (${LATE} ms)`);
+  assert.equal(await page.locator('#so_txt').inputValue(), text, 'the text stays in the box until the server has taken it');
+  await until(async () => (await one('select count(*)::int as n from sale_line_out where body = $1', [text])).n === 1, 'the server took the reply');
+  await page.unroute('**/rest/v1/rpc/sale_line_send*');
+  await page.waitForFunction(() => [...document.querySelectorAll('#so_root .so-flash')].some((el) => /เข้าคิวส่งทาง LINE แล้ว/.test(el.innerText)), null, { timeout: 10000 });
+  assert.equal(await page.locator('#so_txt').inputValue(), '', 'the box is cleared once the reply is saved');
+  assert.equal(await page.locator('#so_msgs .so-m.out', { hasText: text }).count(), 1, 'one bubble: the waiting one became the saved one');
+  assert.match(await bubble.locator('.so-dl.wait').innerText(), /รอส่งทาง LINE/, 'still waiting for LINE until the bot says so');
+  await shot('line-11-at-once');
+
+  await bot('sent', null, 'line-req-900');
+  await refresh();
+  await until(async () => /ส่งถึง LINE แล้ว/.test(await bubble.innerText()), 'confirmed after the bot');
+  assert.equal(await page.locator('#so_msgs .so-m.out', { hasText: text }).count(), 1, 'still one bubble after the confirmation');
 });

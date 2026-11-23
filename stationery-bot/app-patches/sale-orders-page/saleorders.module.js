@@ -83,7 +83,7 @@
   const TABS=[['all','ทั้งหมด',()=>true],['unread','รอตอบ',t=>t.unread>0],['working','กำลังสั่งงาน',t=>hasOpen(t)||['quote','confirm','work'].includes(t.stage)],['done','เสร็จแล้ว',t=>['done','closed'].includes(t.stage)||(ordsOf(t).length>0&&!hasOpen(t))]]
 
   const S={tab:'unread',q:'',sel:'',mode:'list',list:[],idx:{},msgs:[],cust:null,ords:[],ord:null,stores:[],schools:[],
-    listLoading:false,msgsLoading:false,ordLoading:false,errList:'',errMsgs:'',errOrd:'',
+    listLoading:false,msgsLoading:false,ordLoading:false,errList:'',errMsgs:'',errOrd:'',localOut:[],
     flash:'',flashErr:false,flashTok:0,busySend:false,busySave:false,attachBusy:false,chatAttachBusy:false,
     drafts:{},odrafts:{},urls:{},tok:0,ctok:0,ptok:0,picker:false,pick:[],pickQ:'',creating:false,note:false,oaLog:false,
     prodOpen:false,prodQ:'',prodRows:[],prodPrice:{},prodBusy:false,modal:null,staff:'ทีมขาย',conflict:false,chatMenu:false,qaMenu:false,
@@ -701,9 +701,12 @@
   function msgsInner(t){
     if(S.msgsLoading)return '<div class="so-empty">กำลังโหลดข้อความ…</div>'
     if(S.errMsgs)return `<div class="so-empty"><b>โหลดข้อความไม่สำเร็จ</b><p>${E(S.errMsgs)}</p><button type="button" class="so-btn" data-a="retrythread">ลองใหม่</button></div>`
-    if(!S.msgs.length)return `<div class="so-empty"><b>ยังไม่มีข้อความในแชตนี้</b><p>${isLine(t)?'ข้อความจากลูกค้าทาง LINE จะเข้ามาที่นี่เอง · ':''}บันทึกการคุยด้านล่าง หรือกด "สร้างรายการจากแชต" ในใบสั่งงาน แล้ววางข้อความรายการจากลูกค้า</p></div>`
+    // ข้อความที่กำลังส่งทาง LINE (ยังไม่อ่านกลับจากฐานข้อมูล) ต่อท้ายแชตนี้ · ที่ฐานข้อมูลมีแล้วจะไม่ซ้ำ
+    const have=new Set(S.msgs.map(m=>m.id))
+    const list=S.msgs.concat(S.localOut.filter(m=>m.thread_id===t.id&&!(m.msg_id&&have.has(m.msg_id))))
+    if(!list.length)return `<div class="so-empty"><b>ยังไม่มีข้อความในแชตนี้</b><p>${isLine(t)?'ข้อความจากลูกค้าทาง LINE จะเข้ามาที่นี่เอง · ':''}บันทึกการคุยด้านล่าง หรือกด "สร้างรายการจากแชต" ในใบสั่งงาน แล้ววางข้อความรายการจากลูกค้า</p></div>`
     let last=''
-    return S.msgs.map(m=>{const d=dSep(m.created_at);const sep=d&&d!==last?`<div class="so-day">${E(d)}</div>`:'';if(d)last=d;return sep+msgHtml(m,t)}).join('')+aiCardHtml()
+    return list.map(m=>{const d=dSep(m.created_at);const sep=d&&d!==last?`<div class="so-day">${E(d)}</div>`:'';if(d)last=d;return sep+msgHtml(m,t)}).join('')+aiCardHtml()
   }
   // วาดเฉพาะรายการข้อความ (ตอนรีเฟรชอัตโนมัติ): ไม่แตะช่องพิมพ์ และไม่ดึงหน้าลงล่างถ้าพนักงานกำลังเลื่อนอ่านข้อความเก่า
   function paintMsgs(){
@@ -1530,14 +1533,20 @@
     const cur=S.sendTok[id]
     const tok=cur&&cur.text===body?cur.tok:uuid()
     S.sendTok[id]={text:body,tok}
+    // ขึ้นในแชตทันที (สถานะ "รอส่ง") โดยไม่รอเซิร์ฟเวอร์ตอบก่อน · ถ้าเซิร์ฟเวอร์ไม่รับจะเอาออก และข้อความยังอยู่ในช่องพิมพ์
+    const local={id:'local-'+tok,thread_id:id,dir:'out',kind:'text',body,by_name:S.staff,created_at:new Date().toISOString(),meta:{src:'line_out',delivery:'queued',local:true}}
+    S.localOut=S.localOut.concat(local)
     S.busySend=true;paintChat()
     const r=await q(()=>sb.rpc('sale_line_send',{p_thread:id,p_text:body,p_token:tok,p_by:S.staff,p_order:null}))
     S.busySend=false
-    if(errMsg(r)){paintChat();flash('ส่งไม่สำเร็จ ข้อความยังอยู่ในช่องพิมพ์ ('+niceErr(errMsg(r))+')',true,'chat');return}
+    if(errMsg(r)){S.localOut=S.localOut.filter(m=>m!==local);paintChat();flash('ส่งไม่สำเร็จ ข้อความยังอยู่ในช่องพิมพ์ ('+niceErr(errMsg(r))+')',true,'chat');return}
+    local.msg_id=(r.data&&r.data.msg_id)||null
     delete S.sendTok[id]
     setDraft(id,'')
     loadList(true)
-    await reloadMsgs(id)
+    await reloadMsgs(id) // อ่านข้อความจริงเข้ามาก่อน แล้วจึงเอาข้อความชั่วคราวออก: ไม่มีช่วงที่ข้อความหายไป
+    S.localOut=S.localOut.filter(m=>m!==local)
+    paintChat()
     flash('เข้าคิวส่งทาง LINE แล้ว — ยังไม่ถือว่าส่งถึงลูกค้า จนกว่า LINE จะรับข้อความ (ผลจะขึ้นที่ข้อความนั้น)',false,'chat')
     schedulePoll(true)
   }
@@ -1589,7 +1598,7 @@
   // ---------- รีเฟรชอัตโนมัติ: ข้อความใหม่ สถานะการส่ง และสถานะบอท ----------
   const POLL_MS=2000,POLL_FAST_MS=1000
   const isPendingDelivery=d=>d==='queued'||d==='sending'
-  const pendingOut=()=>S.msgs.some(m=>m.dir==='out'&&m.meta&&isPendingDelivery(m.meta.delivery))||!!(S.modal&&S.modal.lineOut&&isPendingDelivery(lineDelivery(S.modal)))
+  const pendingOut=()=>S.localOut.length>0||S.msgs.some(m=>m.dir==='out'&&m.meta&&isPendingDelivery(m.meta.delivery))||!!(S.modal&&S.modal.lineOut&&isPendingDelivery(lineDelivery(S.modal)))
   const msgSig=a=>a.map(m=>[m.id,m.dir,m.kind,(m.meta&&m.meta.delivery)||'',(m.meta&&m.meta.error)||''].join('|')).join(';')
   function schedulePoll(soon){
     if(S.poll)clearTimeout(S.poll)
@@ -1604,8 +1613,9 @@
       if(S.pollN%4===0)await loadLine() // สัญญาณชีพของบอท: ทุก ~30 วินาที
       // ถามแบบเบา ๆ ก่อน (แชตที่อัปเดตล่าสุดเปลี่ยนไหม — ไม่กี่ร้อยไบต์) แล้วค่อยดึงรายชื่อทั้งหมดเมื่อมีอะไรเปลี่ยน · ทุก ~48 วินาทีดึงเต็มเพื่อกันพลาด
       // (ตัวเลข "ยังไม่อ่าน" ที่พนักงานคนอื่นเคลียร์ และสถานะใบ ไม่ขยับเวลาอัปเดตของแชต) — ไม่ดึงทั้งรายชื่อทุก 8 วินาที เพราะข้อมูลโตแล้วจะกินโควตาข้อมูลของ Supabase
-      if((await probeList())||S.pollN%6===0)await loadList(true)
-      await refreshOpen()
+      // ผลการส่งกับข้อความใหม่ของแชตที่เปิดอยู่มาก่อน และถามพร้อมกับรายชื่อ (ไม่ต่อคิวกันทีละขั้น)
+      const [listChanged]=await Promise.all([probeList(),refreshOpen()])
+      if(listChanged||S.pollN%6===0)await loadList(true)
       // อ่านแล้วเมื่อห้องแชตอยู่บนจอจริง (มือถือที่ยังอยู่หน้ารายชื่อ = ยังไม่ได้อ่าน)
       const wide=!(window.matchMedia&&window.matchMedia('(max-width:900px)').matches)
       const t=S.list.find(x=>x.id===S.sel)
