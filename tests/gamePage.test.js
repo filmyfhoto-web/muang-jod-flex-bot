@@ -95,6 +95,17 @@ test('เกม: ฟอร์มรับงานใหม่มีช่อง
   }
   assert.ok(html.includes('ตรวจก่อนบันทึกทุกครั้ง')); // ตัวช่วยแค่เติมช่อง คนเป็นผู้ยืนยัน
   assert.ok(html.includes('ตรวจความถูกต้องก่อนบันทึกนะคะ'));
+  // ฟอร์มกระชับ (ร้านขอ): ช่องเสริมพับใน "แก้เพิ่มเติม" โชว์ประเภทปัจจุบันบนแถบ
+  assert.ok(html.includes('<details class="fmore" id="f-more">'));
+  assert.ok(html.includes('id="f-kind-now"'));
+  assert.ok(html.includes("$('f-more').open = false;"));
+  assert.ok(html.includes("$('f-more').open = true;"));
+  // ปุ่ม .btn ต้องซ่อนได้จริง (display:inline-flex เคยทับ [hidden] ทำปุ่มลบโผล่)
+  assert.ok(html.includes('.btn[hidden] { display: none; }'));
+  // ฟิล์มเดินสุ่มได้ทั่วร้าน ไม่วนเส้นทางเดิม และกลับมาเดินต่อหลังถูกสั่งงาน
+  assert.ok(html.includes('function wanderNext(w)'));
+  assert.ok(html.includes("const ART_SPOT_KEYS = ['counter', 'prep', 'printer', 'copier', 'office', 'frame', 'sticker', 'stamp', 'photo', 'bench']"));
+  assert.ok(html.includes("restorePath: art ? 'wander' : SC.WALK_LOOP"));
 });
 
 test('เกม: ใบจดหลายรายการต่อใบ (ลูกค้าทำหลายอย่าง) — ฟอร์ม/โมดัล/แถวคิว', () => {
@@ -151,8 +162,9 @@ test('เกม: ตัวหนังสือคมบนมือถือ �
   // คลิกใช้พิกัด logical ไม่ใช่พิกเซลจอ
   assert.ok(html.includes('(scene.logicalW || cv.width)'));
   // ป้ายชื่อโซนในภาพถูกวาดทับด้วยฟอนต์จริง (ภาพ upscale แล้วป้ายเดิมมัว)
-  assert.ok(scene.includes('function plateCover(g, text, cx, cy, minW = 0, size = 21)'));
-  assert.ok(scene.includes('for (const [text, lx, ly, minW] of ART.labels) plateCover(g, text, lx, ly, minW);'));
+  // ป้ายโซนย่อให้ไม่เด่น (ร้านขอ) แต่กล่องยังคลุมป้ายเบลอเดิมในภาพ (minW/minH)
+  assert.ok(scene.includes('function plateCover(g, text, cx, cy, minW = 0, size = 21, minH = 0)'));
+  assert.ok(scene.includes('for (const [text, lx, ly, minW] of ART.labels) plateCover(g, text, lx, ly, minW, 15, 38);'));
   assert.ok(scene.includes("['เคาน์เตอร์รับงาน', 191, 629, 228]"));
   assert.ok(scene.includes("g.imageSmoothingQuality = 'high';"));
 });

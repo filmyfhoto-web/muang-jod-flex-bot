@@ -104,17 +104,17 @@ export function buildArtWalker() {
 }
 
 /* ป้ายโซนแบบคม: วาดด้วยฟอนต์จริงบนแคนวาสความละเอียดจอ แทนตัวหนังสือที่ฝังในรูป */
-function plateCover(g, text, cx, cy, minW = 0, size = 21) {
-  g.font = `800 ${size}px 'Noto Sans Thai', Tahoma, sans-serif`;
-  const w = Math.max(g.measureText(text).width + 30, minW);
-  const h = size + 17; // ขนาดมาตรฐาน (21px) = สูง 38 คลุมป้ายเดิมในภาพพอดี
+/* ป้ายโซนแบบเรียบ (ร้านขอไม่ให้เด่น): ตัวเล็ก สีหม่น ไม่มีเส้นขอบ
+ * แต่กล่องยังต้องใหญ่พอ "คลุมป้ายเบลอที่ฝังในภาพ" เสมอ (minW/minH) */
+function plateCover(g, text, cx, cy, minW = 0, size = 21, minH = 0) {
+  g.font = `700 ${size}px 'Noto Sans Thai', Tahoma, sans-serif`;
+  const w = Math.max(g.measureText(text).width + 26, minW);
+  const h = Math.max(size + 15, minH);
   const x = Math.round(cx - w / 2), y = Math.round(cy - h / 2);
-  g.fillStyle = '#272148';
-  if (g.roundRect) { g.beginPath(); g.roundRect(x, y, w, h, 12); g.fill(); }
+  g.fillStyle = '#3a3468';
+  if (g.roundRect) { g.beginPath(); g.roundRect(x, y, w, h, 10); g.fill(); }
   else g.fillRect(x, y, w, h);
-  g.strokeStyle = 'rgba(255,255,255,.4)'; g.lineWidth = 1.5;
-  if (g.roundRect) { g.beginPath(); g.roundRect(x + 1, y + 1, w - 2, h - 2, 11); g.stroke(); }
-  g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = '#ddd6f2'; g.textAlign = 'center'; g.textBaseline = 'middle';
   g.fillText(text, Math.round(cx), Math.round(cy + 1));
 }
 
@@ -146,7 +146,8 @@ export function drawArtInside(g, img, state, nowMs) {
     heart(q, 0, 0); g.restore();
   }
   for (const [who, px_, py_] of ART.people) nameTag(g, who, px_, py_); // ป้ายชื่อทีมงานในภาพ
-  for (const [text, lx, ly, minW] of ART.labels) plateCover(g, text, lx, ly, minW);
+  // ป้ายโซนตัวเล็กไม่เด่น (ร้านขอ) — กล่องคงขนาดคลุมป้ายเบลอเดิมในภาพ
+  for (const [text, lx, ly, minW] of ART.labels) plateCover(g, text, lx, ly, minW, 15, 38);
   if (state.focusZone && ART.zones[state.focusZone]) {
     const z = ART.zones[state.focusZone];
     g.strokeStyle = P.yellow; g.lineWidth = 5; g.setLineDash([10, 7]);
@@ -637,7 +638,7 @@ export function drawVinylRoom(g, state, nowMs) {
     g.save(); g.translate(x, y); g.scale(1.25, 1.25); person(q, 0, 0, wlk.color, wlk.hair, Math.floor(nowMs / 160)); g.restore();
     if (state.walkerName) nameTag(g, state.walkerName, x, y - 44);
   }
-  for (const [text, lx, ly] of ROOM.labels) plateCover(g, text, lx, ly, 0, 15);
+  for (const [text, lx, ly] of ROOM.labels) plateCover(g, text, lx, ly, 0, 13);
   if (state.focusZone && ROOM.zones[state.focusZone]) {
     const z = ROOM.zones[state.focusZone];
     g.strokeStyle = P.yellow; g.lineWidth = 3; g.setLineDash([7, 5]);
