@@ -1,6 +1,11 @@
 /* NATTAPRON 8-BIT — app-shell cache. Bump CACHE on every release. */
-const CACHE = 'np8-v1';
-const SHELL = ['./', './index.html', './engine.js', './scene.js', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
+const CACHE = 'np8-v2';
+const SHELL = [
+  './', './index.html', './engine.js', './scene.js', './manifest.webmanifest', './icon-192.png', './icon-512.png',
+  './art/scene-inside.png', './art/hd-printer.png', './art/hd-frames.png', './art/tab-queue.png', './art/tab-vinyl.png',
+  './art/st-wait.png', './art/st-doing.png', './art/st-done.png',
+  './art/nav-home.png', './art/nav-queue.png', './art/nav-report.png', './art/nav-set.png', './art/job-printer.png',
+];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

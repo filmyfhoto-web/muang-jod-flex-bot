@@ -23,7 +23,7 @@ test('เกม: หน้าเพจเป็น PWA มือถือ — vi
 
 test('เกม: ปุ่มแตะได้ขั้นต่ำ 44px ทั้งปุ่มทั่วไปและแท็บล่าง', () => {
   assert.match(html, /button \{ cursor: pointer; touch-action: manipulation; border: none; background: none; min-height: 44px; \}/);
-  assert.match(html, /\.tabbar button \{[^}]*min-height: 54px/s);
+  assert.match(html, /\.tabbar button \{[^}]*min-height: 58px/s);
   assert.match(html, /\.rk button \{ width: 44px; height: 44px; min-height: 44px/);
   assert.match(html, /\.m-head \.x \{ width: 44px; height: 44px/);
 });
@@ -99,6 +99,30 @@ test('เกม: แถวงานเป็น div role=button (ห้ามป
   assert.match(html, /<div class="jrow \$\{j\.priority === 'urgent' \? 'urgent' : ''\}" role="button" tabindex="0" data-open=/);
   assert.ok(!html.includes('<button class="jrow'), 'job row must not be a <button>');
   assert.match(html, /ev\.key === 'Enter' \|\| ev\.key === ' '/);
+});
+
+test('เกม: ภาพดีไซน์ที่อนุมัติถูกใช้เป็นฉาก/ไอคอนจริง และมีฉากสำรองถ้าภาพไม่มา', () => {
+  // ไฟล์อาร์ตครบทุกชิ้นที่หน้าเพจ/sw อ้างถึง
+  const art = ['scene-inside', 'hd-printer', 'hd-frames', 'tab-queue', 'tab-vinyl',
+    'st-wait', 'st-doing', 'st-done', 'nav-home', 'nav-queue', 'nav-report', 'nav-set', 'job-printer'];
+  for (const f of art) {
+    const buf = readFileSync(new URL(`../public/game/art/${f}.png`, import.meta.url));
+    assert.ok(buf.length > 200, f + ' exists');
+    assert.equal(buf.toString('latin1', 1, 4), 'PNG', f + ' is png');
+  }
+  assert.ok(html.includes("artImg.src = './art/scene-inside.png'"));
+  // โหลดภาพไม่ได้ → ใช้ฉากที่วาดด้วยโค้ด (drawScene เช็ก artImg ก่อน)
+  assert.ok(html.includes('const artOn = () => artImg.complete && artImg.naturalWidth > 0'));
+  assert.ok(scene.includes('else if (state.artImg && state.artImg.complete && state.artImg.naturalWidth) drawArtInside'));
+  // ปุ่มรถส่งไวนิลใช้ปุ่มที่อยู่ในภาพ (โซน govinyl) แทนปุ่มลอย
+  assert.ok(scene.includes("govinyl: { x: 628"));
+  assert.ok(html.includes("if (z === 'govinyl') { setView('route'); return; }"));
+  assert.ok(html.includes("$('btn-vinyl-go').hidden = v !== 'inside' || artOn();"));
+  // กฎ display ของปุ่มลอยต้องไม่ทับ [hidden] (เคยเป็นบั๊ก)
+  assert.ok(html.includes('.stage .go-vinyl[hidden] { display: none; }'));
+  // sw แคชภาพฉากไว้ใช้ออฟไลน์
+  assert.ok(sw.includes("'./art/scene-inside.png'"));
+  assert.ok(sw.includes("'./art/job-printer.png'"));
 });
 
 test('เกม: localStorage มีกันพัง และย้ายคิวจากต้นแบบเก่าอัตโนมัติ', () => {
