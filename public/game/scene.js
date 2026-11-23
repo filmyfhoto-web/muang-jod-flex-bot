@@ -85,6 +85,9 @@ export const ART = {
   },
   path: [[392, 592], [455, 556], [455, 332], [462, 215], [442, 138]],
   dogHeart: [60, 650],
+  /* ทีมงานในภาพ (ร้านตั้งชื่อ): หญิงนั่งเคาน์เตอร์หน้าร้าน, เจ้ปิ่นยืนถืองาน,
+   * ประมวลนั่งคอมหลังร้าน — ฟิล์มคือตัวละครเดินแยกต่างหาก */
+  people: [['หญิง', 222, 458], ['เจ้ปิ่น', 517, 430], ['ประมวล', 332, 94]],
   /* ป้ายชื่อโซนที่ฝังในภาพจะมัวเมื่อย่อ/ขยายตามจอ — วาดป้ายคมทับที่ตำแหน่งเดิม
    * [ข้อความ, กลางป้าย x, y, ความกว้างขั้นต่ำให้คลุมป้ายเดิมมิด] (วัดจากภาพจริง) */
   labels: [
@@ -142,6 +145,7 @@ export function drawArtInside(g, img, state, nowMs) {
     g.save(); g.translate(ART.dogHeart[0], ART.dogHeart[1]); g.scale(2, 2);
     heart(q, 0, 0); g.restore();
   }
+  for (const [who, px_, py_] of ART.people) nameTag(g, who, px_, py_); // ป้ายชื่อทีมงานในภาพ
   for (const [text, lx, ly, minW] of ART.labels) plateCover(g, text, lx, ly, minW);
   if (state.focusZone && ART.zones[state.focusZone]) {
     const z = ART.zones[state.focusZone];
