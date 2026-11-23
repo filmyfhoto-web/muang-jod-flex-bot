@@ -85,6 +85,7 @@
   var SAMPLES = [
     {
       name: 'โลโก้ร้าน x12',
+      texts: [{ s: 'ม่วง ปริ้นท์', h: 40 }], // ตัวหนังสือในงาน (Live Text) — ให้ช่อง “ลูกค้า” เดาชื่อได้
       w: 54,
       h: 54,
       cut: [circle(27, 27, 27)],
@@ -120,6 +121,7 @@
     },
     {
       name: 'ป้ายชื่อ x8',
+      texts: [{ s: 'นัดพอน', h: 31 }],
       w: 84,
       h: 34,
       cut: [G.roundedRect(0, 0, 84, 34, 8)],
@@ -185,6 +187,7 @@
       h: def.h,
       draw: def.draw,
       image: def.image || null,
+      texts: def.texts || [],
       x: 40 + col * 260,
       y: 800 - row * 220,
       cutMm: def.cut,
@@ -223,6 +226,8 @@
       note: '',
       cut: it.cutAi || [],
       vectorOnly: !it.image,
+      texts: it.texts,
+      files: [],
     };
   }
 
@@ -655,8 +660,12 @@
     openFile: function () {
       return '';
     },
+    // โหมดทดลองในเบราว์เซอร์: จำลองธีมของ Illustrator (?skin=dark | medium | lightmed | light) — ค่าเริ่มต้นเทาเข้ม
     skin: function () {
-      return null;
+      var m = /[?&]skin=(\w+)/.exec((root.location && root.location.search) || '');
+      var v = { dark: 50, medium: 83, lightmed: 184, light: 240 }[m ? m[1] : 'dark'];
+      if (v == null) v = 50;
+      return { r: v, g: v, b: v };
     },
     onSkinChange: function () {},
     onEvent: function () {},

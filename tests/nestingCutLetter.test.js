@@ -79,7 +79,7 @@ test('ไดคัทตัวหนังสือ: หลายชุดเต
 
 test('ไดคัทตัวหนังสือ: แผง (เครื่องมือใหม่ · ไม่ซ่อนช่อง) + host.jsx (ไฟล์ใหม่ · รวมตัวซ้อน · กลับด้าน · CutContour)', () => {
   const html = read('illustrator.html');
-  assert.match(html, /<option value="letter" data-tool="letter">ไดคัทตัวหนังสือ<\/option>/);
+  assert.match(html, /<option value="letter" data-tool="letter">🔤 ไดคัทตัวหนังสือ<\/option>/);
   assert.match(html, /<section class="card" id="secLetter" data-for="letter">/);
   assert.match(html, /<script src="core\/letter\.js"><\/script>/);
   assert.match(html, /id="vecPreviewCard" data-for="corner led stamp letter"/);
@@ -227,4 +227,55 @@ test('ไดคัทตัวหนังสือ: ทิ้งกรอบ/�
   const html = read('illustrator.html');
   for (const k of ['ltSplit', 'ltDrop', 'ltNoFrame']) assert.match(html, new RegExp('data-setting="' + k + '"'), k);
   assert.match(html, /<div id="ltColors" class="lt-colors">/);
+});
+
+test('แผงนิ่งตอนลาก/ย่อขยาย + กระชับ: จัดหน้าเฟรมละครั้ง · วาดพรีวิวครั้งเดียวตอนหยุดลาก · เผื่อช่วงรอยต่อ · ค่าที่ไม่ค่อยแก้พับไว้', () => {
+  const main = read('illustrator/main.js');
+  assert.match(main, /window\.addEventListener\('resize', onPanelResize\);/);
+  assert.ok(!/addEventListener\('resize', placePreview\)/.test(main), 'ห้ามวาดพรีวิวใหม่ทุกครั้งที่ลาก');
+  assert.match(main, /resizeRaf = requestAnimationFrame\(/);
+  assert.match(main, /resizeTimer = setTimeout\(function \(\) \{\n\s*redrawPreviews\(false\);\n\s*\}, 180\);/);
+  assert.match(main, /return wideNow \? w >= WIDE_MIN - HYST : w >= WIDE_MIN \+ HYST;/); // เข้า 758 ออก 710
+  assert.match(main, /if \(key === previewKey && !force\) return;/); // กล่องไม่เปลี่ยนขนาด ไม่วาดใหม่
+  assert.match(main, /sc\.scrollTop = keep;/);
+  assert.match(main, /localStorage\.setItem\(key, d\.open \? '1' : '0'\);/); // จำว่าเปิด/ปิด
+  const html = read('illustrator.html');
+  for (const id of ['advLetter', 'advShape', 'advDim', 'advStamp']) assert.match(html, new RegExp('<details class="adv" id="' + id + '" data-remember>'), id);
+  assert.match(html, /<details class="card" id="secJob" data-for="nest run" data-page="2" data-remember>/);
+  // ค่าหลักของไดคัทตัวหนังสืออยู่นอกกล่องพับ · ค่าละเอียดอยู่ข้างใน
+  const adv = html.slice(html.indexOf('id="advLetter"'), html.indexOf('</details>', html.indexOf('id="advLetter"')));
+  for (const k of ['ltWeed', 'ltMargin', 'ltRows', 'ltUnite', 'ltRotate', 'ltGap', 'ltMinPiece', 'ltSplit', 'ltNoFrame', 'ltDrop', 'ltTol']) assert.match(adv, new RegExp('data-setting="' + k + '"'), k);
+  for (const k of ['ltSource', 'ltSizeMode', 'ltSize', 'ltSide', 'ltCopies', 'ltRoll']) assert.ok(!adv.includes('data-setting="' + k + '"'), k + ' ต้องอยู่นอกกล่องพับ');
+  const css = read('illustrator/panel.css');
+  assert.match(css, /details\.adv > summary \{/);
+});
+
+test('แผงกระชับ สีกรม–ส้มอิฐของร้าน (1.19): ไม่ใช้สีเทาตามธีม · ธีมสว่างใช้ชุดสีสว่างของร้าน · แผงแคบเป็นค่าเริ่มต้น · ปุ่มคู่ไม่ล้นขอบ', () => {
+  const main = read('illustrator/main.js');
+  const skin = main.slice(main.indexOf('function applySkin()'), main.indexOf('// ---------------------------------------------------------------- เริ่ม'));
+  assert.match(skin, /root\.classList\.add\('native'\);/);
+  assert.match(skin, /root\.classList\.toggle\('light', light\);/);
+  assert.ok(!/setProperty\(/.test(skin), 'ไม่ทับสีของร้านด้วยสีเทาของ Illustrator');
+  assert.ok(!main.includes('function skinPalette('), 'เลิกใช้ชุดสีเทา');
+  const css = read('illustrator/panel.css');
+  // สีของร้าน: พื้นกรม ส้มอิฐ · ธีมสว่างพื้นครีม ตัวหนังสือกรม + ข้อความสถานะสีเข้มอ่านออก
+  assert.match(css, /:root \{[^}]*--bg: #141b2d;[^}]*--accent: #c8643b;/);
+  assert.match(css, /:root\.light \{[^}]*--fg: #1f2a44;[^}]*--ok: #1d7f52;/);
+  const nat = css.slice(css.indexOf(':root.native {'));
+  assert.ok(!/\.toolpick \{[^}]*border-color/.test(nat), 'ช่องเลือกเครื่องมือกรอบส้มเหมือนเดิม');
+  assert.ok(!nat.includes('#btnGuide'), 'ปุ่ม ❓ สอน สีส้มเหมือนเดิม');
+  assert.match(nat, /:root\.native button\.ghost:hover \{\n\s*border-color: var\(--accent\);/);
+  // ยังกระชับ
+  assert.match(css, /:root\.native body \{\n\s*font-size: 12px;/);
+  // ช่องเลือกเครื่องมือมีไอคอนเดียวกับการ์ด “วันนี้จะทำอะไร?”
+  const html = read('illustrator.html');
+  const jobs = main.slice(main.indexOf('var GUIDE_JOBS = ['), main.indexOf('function guideOpenStart()'));
+  const icons = [...jobs.matchAll(/\['(\w+)', '([^']+)', '/g)];
+  assert.equal(icons.length, 10);
+  for (const m of icons) assert.ok(html.includes('data-tool="' + m[1] + '">' + m[2] + ' '), 'ไอคอน ' + m[1]);
+  assert.match(css, /\.tool-actions \.row button \{\n\s*min-width: 0;\n\s*white-space: normal;/);
+  const mf = read('CSXS/manifest.xml');
+  assert.match(mf, /<Size>\s*<Height>720<\/Height>\s*<Width>340<\/Width>\s*<\/Size>/);
+  assert.match(mf, /<MinSize>\s*<Height>360<\/Height>\s*<Width>260<\/Width>\s*<\/MinSize>/);
+  assert.match(read('illustrator/demo.js'), /skin=\(\\w\+\)/);
 });

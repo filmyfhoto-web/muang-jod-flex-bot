@@ -60,7 +60,7 @@
   var STORE_KEY = 'nongploy.nestingcut.settings.v2';
   // ค่าที่บันทึกจากรุ่นก่อน UI_VERSION: หัวงานเคยเปิดเป็นค่าเริ่มต้น → ปิดให้ครั้งเดียว
   var UI_VERSION = 6;
-  var PANEL_VERSION = '1.16.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
+  var PANEL_VERSION = '1.20.0'; // ต้องตรงกับ CSXS/manifest.xml — โชว์มุมล่างขวาของแผง ให้ร้านเช็กว่าได้รุ่นใหม่
   var PV_W = 300; // กรอบพรีวิวขนาดคงที่ (px) — ต้องตรงกับ #previewBox ใน panel.css
   var PV_H = 400;
   var WIDE_MIN = 734; // แผงกว้างพอวางพรีวิว (334) คู่ช่องคำสั่ง (400) — ตรงกับ --pv-col + --ctl-w ใน panel.css
@@ -113,6 +113,8 @@
     headerHeight: 18,
     jobName: '',
     customer: '',
+    autoCustomer: true, // ดึงชิ้นงานแล้วเติมช่อง “ลูกค้า” จากชื่อสินค้า/ชื่อร้านในงานให้เอง (core/customer.js)
+    customerAuto: '', // ชื่อที่ปลั๊กอินเติมให้ล่าสุด — ช่องลูกค้ายังเป็นชื่อนี้ = ยังไม่ได้แก้เอง เปลี่ยนตามงานใหม่ได้
     jobNote: '',
     logoFile: '',
     logoAspect: 0,
@@ -537,9 +539,60 @@
       renderParts();
       clearPreview();
       updateFlow();
-      status('ได้ ' + S.parts.length + ' แบบ จาก “' + res.document + '” — กำลังเตรียมพรีวิว…', 'ok');
+      var who = customerFromScan(res);
+      status('ได้ ' + S.parts.length + ' แบบ จาก “' + res.document + '”' + (who ? ' · ลูกค้า “' + who + '”' : '') + ' — กำลังเตรียมพรีวิว…', 'ok');
       autoCalc();
     });
+  }
+
+  /* ช่อง “ลูกค้า”: ดึงชิ้นงานแล้วเดาชื่อจากชื่อสินค้า/ชื่อร้านในงาน (ตัวหนังสือใหญ่สุด · ชื่อไฟล์รูป · ชื่อไฟล์งาน)
+   * เติมให้เฉพาะตอนช่องว่าง หรือยังเป็นชื่อที่ปลั๊กอินเติมไว้รอบก่อน — ร้านพิมพ์เองแล้วไม่ทับ (โชว์ปุ่ม “ใช้ชื่อนี้” แทน)
+   * คืนชื่อที่เพิ่งเติม (ไว้บอกในแถบสถานะ) */
+  function customerFromScan(res) {
+    var s = S.settings;
+    var g = NC.customer ? NC.customer.guess(res) : null;
+    S.customerGuess = g;
+    var filled = '';
+    var mine = !s.customer || s.customer === s.customerAuto;
+    if (s.autoCustomer && mine) {
+      // งานใหม่เดาไม่ได้ → ล้างชื่อลูกค้างานก่อนออก ไม่ให้ติดไปพิมพ์บนหัวงานผิดคน
+      var name = g ? g.name : '';
+      if (name !== s.customer) {
+        setSetting('customer', name);
+        s.customerAuto = name;
+        saveSettings();
+        S.built = false;
+      }
+      filled = name;
+    }
+    renderCustomerHint();
+    return filled;
+  }
+
+  function renderCustomerHint() {
+    var el = $('custHint');
+    if (!el) return;
+    var s = S.settings;
+    var g = S.customerGuess;
+    el.textContent = '';
+    if (s.autoCustomer && g && s.customer === g.name) {
+      el.textContent = '✓ อ่านจาก' + g.fromText + ' — แก้ได้ (พิมพ์เองแล้วไม่ทับ)';
+    } else if (s.autoCustomer && g && s.customer !== g.name) {
+      el.appendChild(document.createTextNode('ชื่อในงาน: '));
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'linkish inline';
+      b.textContent = 'ใช้ “' + g.name + '”';
+      b.onclick = function () {
+        setSetting('customer', g.name);
+        S.settings.customerAuto = g.name;
+        saveSettings();
+        S.built = false;
+        renderCustomerHint();
+      };
+      el.appendChild(b);
+    }
+    el.hidden = !el.textContent;
   }
 
   function importPack() {
@@ -1523,10 +1576,26 @@
   };
 
   // พรีวิวข้างเมนู: อัตโนมัติ (แผงกว้าง ≥ 734 px) · บังคับข้าง ๆ · บังคับอยู่ในหน้าขั้นที่ 3
-  function placePreview() {
+  // ลากขอบแผงอยู่แถวรอยต่อ: เผื่อช่วง ±24 px (เข้าโหมดกว้างที่ 758 ออกที่ 710) หน้าไม่สลับไปมา
+  var HYST = 24;
+  var wideNow = null;
+  function wantWide() {
     var mode = S.settings.layoutMode;
-    var wide = mode === 'side' ? true : mode === 'stack' ? false : window.innerWidth >= WIDE_MIN;
+    if (mode === 'side') return true;
+    if (mode === 'stack') return false;
+    var w = window.innerWidth;
+    if (wideNow === null) return w >= WIDE_MIN;
+    return wideNow ? w >= WIDE_MIN - HYST : w >= WIDE_MIN + HYST;
+  }
+  // จัดหน้า (ถูก) — ย้ายการ์ดพรีวิวเฉพาะตอนสลับกว้าง/แคบจริง และคงตำแหน่งเลื่อนเดิมไว้
+  function placeLayout(force) {
+    var mode = S.settings.layoutMode;
     $('btnLayout').title = LAYOUT_LABEL[mode] || LAYOUT_LABEL.auto;
+    var wide = wantWide();
+    if (wide === wideNow && !force) return false;
+    var sc = $('scroller');
+    var keep = sc.scrollTop;
+    wideNow = wide;
     document.body.classList.toggle('wide', wide);
     var target = wide ? $('previewSide') : $('previewSlot');
     ['previewCard', 'dcPreviewCard', 'vecPreviewCard'].forEach(function (id) {
@@ -1534,9 +1603,42 @@
       if (card.parentNode !== target) target.appendChild(card);
     });
     applyVisibility();
+    sc.scrollTop = keep;
+    return true;
+  }
+  // วาดภาพตัวอย่างใหม่ (แพง) — เฉพาะเมื่อกล่องพรีวิวเปลี่ยนขนาดจริง
+  var previewKey = '';
+  function redrawPreviews(force) {
+    var key = ['preview', 'dcBox', 'vecBox']
+      .map(function (id) {
+        var e = $(id);
+        return e ? e.clientWidth + 'x' + e.clientHeight : '';
+      })
+      .join('|') + (document.body.classList.contains('wide') ? 'w' : 'n');
+    if (key === previewKey && !force) return;
+    previewKey = key;
     if (S.result) drawPreview();
     if (S.dc) drawDc();
     if (S.vec) drawVec();
+  }
+  function placePreview() {
+    placeLayout(true);
+    redrawPreviews(true);
+  }
+  // ระหว่างลากขอบแผง: จัดหน้าแค่เฟรมละครั้ง · วาดภาพตัวอย่างใหม่ครั้งเดียวตอนหยุดลาก (ไม่กระตุก ไม่กระพริบ)
+  var resizeRaf = 0;
+  var resizeTimer = 0;
+  function onPanelResize() {
+    if (!resizeRaf) {
+      resizeRaf = requestAnimationFrame(function () {
+        resizeRaf = 0;
+        if (placeLayout(false)) previewKey = ''; // สลับกว้าง/แคบแล้ว ต้องวาดใหม่แน่
+      });
+    }
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () {
+      redrawPreviews(false);
+    }, 180);
   }
 
   // วาดแผ่นลงแคนวาสกว้าง cssW: ทุกแผ่นเรียงลงมา (รูปส่งลูกค้า) หรือแผ่นเดียว (only = ลำดับแผ่น, พรีวิวบนแผง)
@@ -4264,6 +4366,24 @@
     if ($('toolSelect').value !== tool) $('toolSelect').value = tool;
   }
 
+  // กล่องพับได้ (ตั้งค่าเพิ่มเติม · ข้อมูลงาน & ราคา) จำว่าร้านเปิดหรือปิดไว้
+  function rememberFolds() {
+    Array.prototype.forEach.call(document.querySelectorAll('details[data-remember]'), function (d) {
+      var key = 'nc-open:' + d.id;
+      try {
+        var v = localStorage.getItem(key);
+        if (v === '1') d.open = true;
+        else if (v === '0') d.open = false;
+      } catch (e) {}
+      d.addEventListener('toggle', function () {
+        try {
+          localStorage.setItem(key, d.open ? '1' : '0');
+        } catch (e) {}
+        redrawPreviews(false); // ความสูงแผงเปลี่ยน กล่องพรีวิวอาจเปลี่ยนขนาดตาม (วาดใหม่เฉพาะเมื่อเปลี่ยนจริง)
+      });
+    });
+  }
+
   // ช่องกรอกแบบ “ชื่ออยู่ซ้าย ช่องอยู่ขวา” อ่านง่ายเหมือนแผงของ Illustrator
   function markFields() {
     Array.prototype.forEach.call(document.querySelectorAll('label'), function (l) {
@@ -4423,6 +4543,7 @@
         if (key === 'media') loadPrice();
         if (key === 'sheetPrice') savePrice();
         if (key === 'markType') renderGtInfo();
+        if (key === 'customer' || key === 'autoCustomer') renderCustomerHint();
         if (key === 'sizeUnit' && S.settings.media === 'custom') {
           // กำหนดเอง: แปลงตัวเลขเดิมเป็นหน่วยใหม่
           var r = f.value === 'in' ? 1 / 25.4 : 25.4;
@@ -4522,15 +4643,22 @@
     loadLogoImg();
   }
 
+  /* สีแผง: สีกรม–ส้มอิฐของร้านทุกธีม (ไม่ใช้สีเทาของ Illustrator)
+   * Illustrator ธีมสว่าง → ชุดสีสว่างของร้าน (พื้นครีม ตัวหนังสือกรม) · ธีมเข้ม → พื้นกรม
+   * ระยะแน่นแบบแผงของ Adobe (.native) ใช้ทุกธีม — แผงแคบใช้งานได้ครบ */
+  function skinIsLight(c) {
+    return (c.r * 299 + c.g * 587 + c.b * 114) / 1000 > 140;
+  }
   function applySkin() {
+    var root = document.documentElement;
+    root.classList.add('native');
     var c = host.skin && host.skin();
     if (!c) return;
-    var light = (c.r * 299 + c.g * 587 + c.b * 114) / 1000 > 140;
-    document.documentElement.classList.toggle('light', light);
-    // โลโก้ตัวอักษรขาวสำหรับพื้นเข้ม / สีกรมสำหรับพื้นสว่าง
+    var light = skinIsLight(c);
+    root.classList.toggle('light', light);
+    // โลโก้ตัวอักษรขาวสำหรับพื้นกรม / สีกรมสำหรับพื้นสว่าง
     var brand = document.querySelector('.topbar .logo');
     if (brand) brand.src = light ? 'assets/logo.png' : 'assets/logo-panel.png';
-    document.documentElement.style.setProperty('--bg', 'rgb(' + Math.round(c.r) + ',' + Math.round(c.g) + ',' + Math.round(c.b) + ')');
   }
 
   // ---------------------------------------------------------------- เริ่ม
@@ -4716,7 +4844,8 @@
     placePreview();
     updateFlow();
     bindGuide();
-    window.addEventListener('resize', placePreview);
+    window.addEventListener('resize', onPanelResize);
+    rememberFolds();
 
     if (host.demo) {
       run(scan).then(function () {

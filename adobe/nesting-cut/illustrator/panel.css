@@ -59,6 +59,10 @@
   --muted: #4b5470;
   --accent-soft: rgba(192, 88, 43, 0.1);
   --input: #ffffff;
+  /* ข้อความสถานะบนพื้นสว่างต้องเข้มขึ้นให้อ่านออก */
+  --ok: #1d7f52;
+  --warn: #a35f00;
+  --err: #c0392b;
 }
 
 * {
@@ -1311,4 +1315,143 @@ details.card > summary + h3.sec {
   height: 14px;
   border-radius: 3px;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+/* ตั้งค่าเพิ่มเติม (พับไว้): ค่าที่ไม่ค่อยแก้ — แผงสั้น กระชับ · กดเปิดแล้วจำไว้ */
+details.adv {
+  margin: 6px 0 8px;
+  border-top: 1px dashed var(--line);
+  padding-top: 6px;
+}
+details.adv > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 0;
+}
+details.adv > summary::-webkit-details-marker {
+  display: none;
+}
+details.adv > summary::before {
+  content: '▸';
+  transition: transform 0.15s;
+}
+details.adv[open] > summary::before {
+  transform: rotate(90deg);
+}
+details.adv > summary .sub {
+  font-weight: 400;
+  opacity: 0.8;
+}
+details.adv[open] > summary {
+  margin-bottom: 6px;
+  color: var(--fg);
+}
+
+/* ลาก/ย่อขยายแผง: ภาพตัวอย่างไม่ดันแผง ระหว่างรอวาดใหม่ (วาดใหม่ครั้งเดียวตอนหยุดลาก) */
+#scroller {
+  overflow-anchor: none;
+}
+.preview {
+  contain: layout;
+}
+
+/* ================================================================ แผงกระชับ ใช้งานง่าย (สีกรม–ส้มอิฐของร้าน)
+   ตัวหนังสือ 12px ระยะแน่นเท่าแผงอื่นของ Adobe · แผงแคบ (~300 px) ใช้งานได้ครบ ไม่ล้น
+   สีตามชุดสีของร้าน: พื้นกรม (ธีมสว่างของ Illustrator → พื้นครีม) · กรอบ/ปุ่มหลักสีส้มอิฐ */
+:root.native {
+  --radius: 2px;
+}
+:root.native body {
+  font-size: 12px;
+  line-height: 1.4;
+}
+:root.native input,
+:root.native select,
+:root.native button,
+:root.native label.check {
+  font-size: 12px;
+}
+:root.native input,
+:root.native select {
+  padding: 3px 6px;
+  border-radius: var(--radius);
+}
+:root.native .card,
+:root.native details.card {
+  padding: 8px;
+  margin-bottom: 6px;
+}
+:root.native .card h2,
+:root.native details.card > summary {
+  font-size: 12.5px;
+}
+:root.native .num {
+  width: auto;
+  min-width: 16px;
+  padding: 2px 5px;
+  font-size: 11px;
+}
+/* หัวแผง: เตี้ย — โลโก้เล็กลง · ช่องเลือกเครื่องมือกับปุ่ม ❓ สอน กรอบส้มอิฐเหมือนเดิม */
+:root.native .topbar {
+  padding: 4px 6px;
+  gap: 4px;
+}
+:root.native .topbar .logo {
+  height: 24px;
+}
+:root.native .topbar .toolpick {
+  font-size: 12.5px;
+  padding: 3px 6px;
+}
+:root.native .topbar button.icon {
+  padding: 3px 7px;
+}
+/* ปุ่มรองมีพื้นให้เห็นว่ากดได้ · ชี้แล้วขึ้นกรอบส้ม · ปุ่มหลักสีส้มอิฐ (เห็นชัดว่ากดอันไหนต่อ) */
+:root.native button {
+  padding: 4px 9px;
+  border-radius: var(--radius);
+}
+:root.native button.ghost {
+  background: var(--card-2);
+  border-color: var(--line);
+  color: var(--fg);
+}
+:root.native button.ghost:hover {
+  border-color: var(--accent);
+}
+:root.native button.go {
+  font-size: 14px;
+  padding: 7px;
+  box-shadow: none;
+}
+:root.native .hint,
+:root.native .note {
+  font-size: 11.5px;
+}
+/* แผงแคบ: ปุ่มคู่ล่างไม่ล้นขอบ (ตัดบรรทัดได้) */
+.tool-actions .row button {
+  min-width: 0;
+  white-space: normal;
+  line-height: 1.25;
+}
+:root.native .banner {
+  border-style: solid;
+  font-size: 11.5px;
+  padding: 6px 8px;
+}
+/* ช่อง “ลูกค้า”: บอกว่าอ่านชื่อจากชิ้นงาน · ปุ่ม “ใช้ชื่อนี้” อยู่ในบรรทัดเดียวกัน */
+.cust-hint {
+  margin: 4px 0 2px;
+}
+.cust-hint button.linkish.inline {
+  display: inline-block;
+  width: auto;
+  margin: 0 0 0 4px;
+  padding: 1px 6px;
 }

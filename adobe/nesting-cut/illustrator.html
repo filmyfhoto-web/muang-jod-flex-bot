@@ -15,16 +15,16 @@
     <header class="topbar">
       <img class="logo" src="assets/logo-panel.png" alt="นัดพอน Nesting Cut — ปลั๊กอิน เจ๊หญิงสั่งลุย" />
       <select id="toolSelect" class="toolpick" title="เลือกเครื่องมือ">
-        <option value="nest" data-tool="nest">จัดวางดวง</option>
-        <option value="run" data-tool="run">ไดคัทต่อเนื่อง</option>
-        <option value="shape" data-tool="shape">ไดคัทตามรูป</option>
-        <option value="letter" data-tool="letter">ไดคัทตัวหนังสือ</option>
-        <option value="corner" data-tool="corner">ทำมุมโค้ง CNC</option>
-        <option value="led" data-tool="led">หาเส้นกลาง LED</option>
-        <option value="dim" data-tool="dim">บอกขนาด</option>
-        <option value="number" data-tool="number">รันนัมเบอร์</option>
-        <option value="stamp" data-tool="stamp">ตรายางเลเซอร์</option>
-        <option value="hotkey" data-tool="hotkey">ปุ่มลัด</option>
+        <option value="nest" data-tool="nest">🧩 จัดวางดวง</option>
+        <option value="run" data-tool="run">🏷️ ไดคัทต่อเนื่อง</option>
+        <option value="shape" data-tool="shape">✂️ ไดคัทตามรูป</option>
+        <option value="letter" data-tool="letter">🔤 ไดคัทตัวหนังสือ</option>
+        <option value="corner" data-tool="corner">🔧 ทำมุมโค้ง CNC</option>
+        <option value="led" data-tool="led">💡 หาเส้นกลาง LED</option>
+        <option value="dim" data-tool="dim">📏 บอกขนาด</option>
+        <option value="number" data-tool="number">🔢 รันนัมเบอร์</option>
+        <option value="stamp" data-tool="stamp">🔴 ตรายางเลเซอร์</option>
+        <option value="hotkey" data-tool="hotkey">⌨️ ปุ่มลัด</option>
       </select>
       <button type="button" id="btnGuide" class="ghost icon" title="วิธีใช้ — เลือกงานที่จะทำ">❓<span class="lbl"> สอน</span></button>
       <button type="button" id="btnClear" class="ghost icon" title="ล้างรายการชิ้นงาน ผลคำนวณ และพรีวิว (เลือกลบชีตเก่าในไฟล์ได้)">ล้าง</button>
@@ -80,10 +80,7 @@
     <!-- ไดคัทตามรูปทรง -->
     <section class="card" id="secShape" data-for="shape">
       <h2><span class="num">✂</span> ไดคัทตามรูปทรง</h2>
-      <p class="hint">
-        สร้างเส้น Stroke สีแดงตาม Silhouette จริงของเวกเตอร์ ขอบ Clipping Mask หรือรูปภาพ PNG / JPG พร้อม Offset
-        และรวมเส้นที่สัมผัสกันเป็นเส้นเดียว — บันทึกไฟล์ก่อน แล้วเลือกชิ้นงานให้ครบทุกส่วน
-      </p>
+      <p class="hint">เส้นตัดตามขอบเวกเตอร์ / Clipping Mask / รูป PNG-JPG พร้อมเผื่อห่าง — เลือกชิ้นงานให้ครบก่อนกดอ่าน</p>
       <details class="howto"><summary>วิธีใช้</summary>
       <ol class="steplist">
         <li><b>เลือกเวกเตอร์ รูปภาพ หรือกลุ่ม Clipping Mask</b><span>ข้อความเป็น Live Text ได้ ปลั๊กอินอ่านจากสำเนา ไม่แตะงานเดิม</span></li>
@@ -114,6 +111,7 @@
         </div>
         <label class="check"><input type="checkbox" data-setting="dcHoles" /> ตัดรูข้างในด้วย (งานรูปภาพ แนะนำให้ปิด)</label>
       </div>
+<details class="adv" id="advShape" data-remember><summary>ตั้งค่าเพิ่มเติม <span class="sub">รูปภาพ · เลเยอร์ · สีเส้น</span></summary>
       <div class="subcard">
         <h3>อ่านรูปภาพ</h3>
         <p class="hint">
@@ -144,6 +142,7 @@
           >
         </div>
       </div>
+      </details>
     </section>
 
     <!-- ทำมุมโค้ง (CNC) -->
@@ -267,6 +266,9 @@
           </select></label
         >
         <label data-dim-custom>1 : <input type="number" min="0.001" step="1" data-setting="dimScaleCustom" /></label>
+      </div>
+      <details class="adv" id="advDim" data-remember><summary>ตั้งค่าเพิ่มเติม <span class="sub">ด้าน · สี · ตัวหนังสือ · เลเยอร์</span></summary>
+      <div class="grid2">
         <label
           >ด้าน
           <select data-setting="dimSide">
@@ -284,7 +286,7 @@
         <label>เลเยอร์ผลลัพธ์ <input data-setting="dimLayer" /></label>
       </div>
       <label class="check"><input type="checkbox" data-setting="dimClear" /> ล้างเส้นบอกขนาดเดิมในเลเยอร์นี้ก่อน</label>
-      <p class="note">ไม่ลบของเก่าเป็นค่าเริ่มต้น — ถ้าต้องการแทนชุด Dimension เดิม ให้ติ๊ก “ล้างเส้นบอกขนาดเดิม” ก่อนกดใส่เส้น</p>
+      </details>
       <div class="tool-actions">
       <div class="row">
         <button id="btnDimMake" class="wide">ใส่เส้นบอกขนาด</button>
@@ -464,6 +466,7 @@
       >
       <label class="check"><input type="checkbox" data-setting="stMirror" /> กลับด้าน (Mirror) — ตรายางต้องกลับด้าน</label>
       <label class="check"><input type="checkbox" data-setting="stNegative" /> กลับสีสำหรับแกะ (พื้นดำยิงออก ตัวหนังสือเหลือนูน)</label>
+      <details class="adv" id="advStamp" data-remember><summary>ตั้งค่าเพิ่มเติม <span class="sub">ความหนาเส้น · เลเยอร์</span></summary>
       <label>เส้นตัดหนา (มม.) <input type="number" min="0.001" step="0.01" data-setting="stCutWidth" /></label>
       <label>เลเยอร์เส้นตัด <input data-setting="stCutLayer" /></label>
       <label>เลเยอร์งานแกะ <input data-setting="stEngraveLayer" /></label>
@@ -471,6 +474,7 @@
         ตั้งในโปรแกรมเลเซอร์ (LightBurn / RDWorks / LaserCAD): สีแดง = Cut ความเร็วต่ำ กำลังสูง · สีดำ = Engrave (Fill)
         ภาพ Raster กลับสีอัตโนมัติไม่ได้ — ปลั๊กอินจะกลับด้านให้อย่างเดียว
       </p>
+      </details>
       <div class="tool-actions">
         <div class="row">
           <button id="btnStRead" class="ghost">① วิเคราะห์ / ดูตัวอย่าง</button>
@@ -483,9 +487,7 @@
     <!-- ไดคัทตัวหนังสือ: สติ๊กเกอร์ตัวอักษรติดอะคริลิค -->
     <section class="card" id="secLetter" data-for="letter">
       <h2><span class="num">Aa</span> ไดคัทตัวหนังสือ <span class="sub">สติ๊กเกอร์ติดอะคริลิค</span></h2>
-      <p class="hint">
-        ตัวหนังสือ/โลโก้ที่เลือก (Live Text ก็ได้ ไม่ต้อง Outline เอง) <b>หรือรูปตัวหนังสือ JPG / PNG</b> (หาขอบให้เอง) → เส้นตัดสติ๊กเกอร์ PVC / ไวนิลสี พร้อมกรอบลอกเศษ ได้ไฟล์ใหม่ส่งเครื่องตัดได้เลย · ติดหลังอะคริลิคใส กลับด้านให้
-      </p>
+      <p class="hint">ตัวหนังสือ / โลโก้ / รูป JPG-PNG → เส้นตัดสติ๊กเกอร์ + กรอบลอกเศษ ในไฟล์ใหม่ · ติดหลังอะคริลิคใส กลับด้านให้</p>
       <details class="howto"><summary>วิธีใช้</summary>
       <ol class="steplist">
         <li><b>เลือกตัวหนังสือ</b><span>คลิกเลือกข้อความ / โลโก้ใน Illustrator (เลือกหลายชิ้นได้) — หรือวางรูปตัวหนังสือ (JPG / PNG / รูปถ่ายพื้นเรียบ) แล้วเลือกรูป</span></li>
@@ -496,18 +498,14 @@
       <label
         >อ่านจาก
         <select data-setting="ltSource">
-          <option value="auto">อัตโนมัติ (ตัวหนังสือ/เวกเตอร์ก่อน · มีแต่รูปอ่านจากรูป)</option>
-          <option value="image">รูปภาพ (อ่านทุกอย่างที่เลือกเป็นภาพ แล้วหาขอบ)</option>
+          <option value="auto">อัตโนมัติ (ตัวหนังสือก่อน · มีแต่รูปอ่านจากรูป)</option>
+          <option value="image">รูปภาพ (อ่านที่เลือกเป็นภาพแล้วหาขอบ)</option>
         </select></label
       >
-      <label>รูปภาพ: ความต่างสีพื้น <input type="number" min="5" max="200" step="5" data-setting="ltTol" id="ltTol" /></label>
       <div class="lt-colors-wrap">
         <span class="label">สีที่เจอในรูป (ติ๊กสีที่จะตัด)</span>
         <div id="ltColors" class="lt-colors"><span class="hint">อ่านจากรูปแล้ว สีที่เจอจะขึ้นตรงนี้ ติ๊กเลือกสีที่จะตัดได้</span></div>
       </div>
-      <label class="check"><input type="checkbox" data-setting="ltSplit" /> หลายสี: แยกไฟล์ทีละสี (สติ๊กเกอร์ตัดได้ทีละสี) + เครื่องหมาย + เล็งตำแหน่ง</label>
-      <label>ทิ้งจุด/ชิ้นเล็กกว่า (มม.) <input type="number" min="0" step="0.5" data-setting="ltDrop" id="ltDrop" /></label>
-      <label class="check"><input type="checkbox" data-setting="ltNoFrame" /> ไม่เอากรอบ / เส้นตรงยาว ที่ติดมากับรูป (กรอบป้าย เส้นคั่น)</label>
       <label
         >ขนาด
         <select data-setting="ltSizeMode">
@@ -521,29 +519,38 @@
         >ติดด้าน
         <select data-setting="ltSide">
           <option value="back">หลังอะคริลิคใส (กลับด้านให้)</option>
-          <option value="front">หน้าอะคริลิค / ผนัง / กระจกด้านนอก (ไม่กลับด้าน)</option>
+          <option value="front">หน้าอะคริลิค / ผนัง (ไม่กลับด้าน)</option>
         </select></label
       >
-      <label class="check"><input type="checkbox" data-setting="ltUnite" id="ltUnite" /> รวมตัวที่ซ้อน/ชนกันเป็นชิ้นเดียว (มีดไม่ตัดผ่านกลางตัวอักษร)</label>
-      <label class="check"><input type="checkbox" data-setting="ltWeed" /> กรอบลอกเศษรอบงาน</label>
-      <label>ระยะกรอบลอกเศษ (มม.) <input type="number" min="0" step="1" data-setting="ltMargin" id="ltMargin" /></label>
-      <label class="check"><input type="checkbox" data-setting="ltRows" /> เส้นคั่นระหว่างบรรทัด (ลอกเศษทีละบรรทัด ไม่ดึงตัวหนังสือหลุด)</label>
       <div class="grid2">
         <label>จำนวนชุด <input type="number" min="1" max="500" step="1" data-setting="ltCopies" /></label>
         <label>หน้าม้วน (ซม.) <input type="number" min="0" step="1" data-setting="ltRoll" /></label>
-        <label>ห่างกันชุดละ (มม.) <input type="number" min="0" step="1" data-setting="ltGap" /></label>
-        <label>เตือนชิ้นเล็กกว่า (มม.) <input type="number" min="0" step="0.5" data-setting="ltMinPiece" /></label>
       </div>
-      <label class="check"><input type="checkbox" data-setting="ltRotate" /> หมุน 90° ให้วิ่งตามความยาวม้วน ถ้ากว้างเกินหน้าม้วน</label>
-      <p class="note">
-        เครื่องตัด (Cutting Master / Graphtec): เส้นชมพูบาง Spot “CutContour” = ตัด · สติ๊กเกอร์สีพื้นไม่ต้องพิมพ์ ไม่ต้องมีมาร์ก ·
-        ลอกเศษ (Weed) แล้วแปะเทปยก (Transfer tape) ยกไปติด · หน้าม้วน 0 = ไม่จำกัด (เรียงแถวเดียว) ·
-        อ่านจากรูป: รูปยิ่งละเอียดขอบยิ่งเนียน (ตัวอักษรในรูปควรสูง 100 พิกเซลขึ้นไป) · พื้นหลังต้องเป็นสีเรียบ หรือ PNG พื้นใส ·
-        รูปหลายสี (เช่น ชื่อสีเขียว ตัวเลขสีทอง) แยกไฟล์ทีละสีให้ ไม่ต้องการสีไหน (โลโก้ กรอบ) เอาติ๊กออก · จุดไข่ปลา/ฝุ่น ทิ้งด้วยช่อง “ทิ้งจุด/ชิ้นเล็กกว่า” (เฉพาะอ่านจากรูป)
-      </p>
+      <details class="adv" id="advLetter" data-remember><summary>ตั้งค่าเพิ่มเติม <span class="sub">กรอบลอกเศษ · หลายสี · จุดเล็ก</span></summary>
+        <label class="check"><input type="checkbox" data-setting="ltWeed" /> กรอบลอกเศษรอบงาน</label>
+        <label>ระยะกรอบลอกเศษ (มม.) <input type="number" min="0" step="1" data-setting="ltMargin" id="ltMargin" /></label>
+        <label class="check"><input type="checkbox" data-setting="ltRows" /> เส้นคั่นระหว่างบรรทัด (ลอกเศษทีละบรรทัด)</label>
+        <label class="check"><input type="checkbox" data-setting="ltUnite" id="ltUnite" /> รวมตัวที่ซ้อน/ชนกันเป็นชิ้นเดียว</label>
+        <label class="check"><input type="checkbox" data-setting="ltRotate" /> หมุน 90° ถ้ากว้างเกินหน้าม้วน</label>
+        <div class="grid2">
+          <label>ห่างกันชุดละ (มม.) <input type="number" min="0" step="1" data-setting="ltGap" /></label>
+          <label>เตือนชิ้นเล็กกว่า (มม.) <input type="number" min="0" step="0.5" data-setting="ltMinPiece" /></label>
+        </div>
+        <h3 class="sec">อ่านจากรูป</h3>
+        <label class="check"><input type="checkbox" data-setting="ltSplit" /> หลายสี: แยกไฟล์ทีละสี + เครื่องหมาย + เล็งตำแหน่ง</label>
+        <label class="check"><input type="checkbox" data-setting="ltNoFrame" /> ไม่เอากรอบ / เส้นตรงยาว ที่ติดมากับรูป</label>
+        <div class="grid2">
+          <label>ทิ้งจุดเล็กกว่า (มม.) <input type="number" min="0" step="0.5" data-setting="ltDrop" id="ltDrop" /></label>
+          <label>ความต่างสีพื้น <input type="number" min="5" max="200" step="5" data-setting="ltTol" id="ltTol" /></label>
+        </div>
+        <p class="note">
+          ส่งเครื่องตัด: เส้นชมพูบาง Spot “CutContour” = ตัด · ไม่ต้องมีมาร์ก · หน้าม้วน 0 = ไม่จำกัด ·
+          อ่านจากรูป: พื้นหลังสีเรียบหรือ PNG พื้นใส รูปยิ่งละเอียดขอบยิ่งเนียน
+        </p>
+      </details>
       <div class="tool-actions">
         <div class="row">
-          <button id="btnLtRead" class="ghost">① อ่านตัวหนังสือ / ดูตัวอย่าง</button>
+          <button id="btnLtRead" class="ghost">① อ่านตัวหนังสือ</button>
           <button id="btnLtMake">② สร้างไฟล์ไดคัท</button>
         </div>
         <div id="ltStatus" class="status">เลือกตัวหนังสือใน Illustrator แล้วกด “อ่านตัวหนังสือ”</div>
@@ -747,14 +754,18 @@
     </section>
 
     <!-- ข้อมูลงาน + ราคาลูกค้า: ใส่ราคาแผ่นละครั้งเดียว ระบบจำไว้ ดวงละกี่บาทเปลี่ยนตามพรีวิวเอง -->
-    <section class="card" id="secJob" data-for="nest run" data-page="2">
-      <h2>ข้อมูลงาน &amp; ราคา <span class="sub">ลูกค้าตกดวงละกี่บาท</span></h2>
+    <details class="card" id="secJob" data-for="nest run" data-page="2" data-remember>
+      <summary>ข้อมูลงาน &amp; ราคา <span class="sub">ลูกค้าตกดวงละกี่บาท</span></summary>
       <div class="grid2">
         <label>ชื่องาน <input id="jobName" data-setting="jobName" placeholder="งานสติ๊กเกอร์" /></label>
-        <label>ลูกค้า <input id="customer" data-setting="customer" /></label>
+        <label>ลูกค้า <input id="customer" data-setting="customer" placeholder="อ่านจากชิ้นงานให้เอง" /></label>
         <label data-for="run">วัสดุ <input data-setting="runMaterial" placeholder="เช่น PP ขาวเงา" /></label>
         <label data-for="run">แกรม <input type="number" min="0" step="1" data-setting="runGram" /></label>
       </div>
+      <p class="hint cust-hint" id="custHint" hidden></p>
+      <label class="check"
+        ><input type="checkbox" data-setting="autoCustomer" /> เติมชื่อลูกค้าจากชื่อสินค้าในชิ้นงานให้เอง</label
+      >
       <label class="stack">หมายเหตุ <input id="jobNote" data-setting="jobNote" /></label>
       <h3 class="sec">ราคาลูกค้า</h3>
       <div class="grid2 price-in">
@@ -771,7 +782,7 @@
       <label class="check" id="priceHeadRow" hidden
         ><input id="priceInHeader" type="checkbox" data-setting="priceInHeader" /> พิมพ์ราคาต่อท้ายหมายเหตุบนหัวงาน</label
       >
-    </section>
+    </details>
 
     <!-- หน้า 2: ค่าละเอียด (ปิดไว้ ไม่ต้องแก้ก็ใช้ได้) -->
     <details class="card" id="secMore" data-for="nest run" data-page="2">
@@ -940,6 +951,7 @@
     <script src="core/dimension.js"></script>
     <script src="core/pack.js"></script>
     <script src="core/price.js"></script>
+    <script src="core/customer.js"></script>
     <script src="core/update.js"></script>
     <script src="core/bridge.js"></script>
     <script src="illustrator/host-bridge.js"></script>

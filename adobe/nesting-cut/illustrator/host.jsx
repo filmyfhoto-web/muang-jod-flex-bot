@@ -203,9 +203,58 @@ function np_nameOf(it) {
   return '';
 }
 
+// text + placed file names inside a part -> the panel guesses the customer name (product / shop name)
+// texts: [{ s, h }] (h = type size in pt after scaling), files: [file names]
+function np_textSize(tf) {
+  var size = 0;
+  var sc = 1;
+  try {
+    size = tf.textRange.characterAttributes.size;
+  } catch (e) {}
+  try {
+    var m = tf.matrix;
+    sc = Math.sqrt(Math.abs(m.mValueA * m.mValueD - m.mValueB * m.mValueC)) || 1;
+  } catch (e2) {}
+  if (size > 0) return size * sc;
+  try {
+    var b = tf.geometricBounds;
+    var lines = String(tf.contents).split(/[\r\n\u0003]/).length;
+    return Math.abs(b[1] - b[3]) / Math.max(1, lines);
+  } catch (e3) {}
+  return 0;
+}
+
+function np_collectInfo(it, out, depth) {
+  if (depth > 12 || out.seen > 400) return;
+  out.seen++;
+  var t = it.typename;
+  try {
+    if (it.hidden) return;
+  } catch (e) {}
+  if (t === 'TextFrame') {
+    if (out.texts.length >= 30) return;
+    var s = '';
+    try {
+      s = String(it.contents);
+    } catch (e1) {}
+    if (s.replace(/\s+/g, '').length) out.texts.push({ s: s.substr(0, 120), h: np_r(np_textSize(it)) });
+  } else if (t === 'PlacedItem') {
+    try {
+      if (out.files.length < 10) out.files.push(decodeURI(it.file.name));
+    } catch (e2) {}
+  } else if (t === 'GroupItem') {
+    var n = it.pageItems.length;
+    for (var k = 0; k < n && out.seen <= 400; k++) np_collectInfo(it.pageItems[k], out, depth + 1);
+  }
+}
+
 function np_describe(it, idx, names) {
   var cut = [];
   np_collectCut(it, names, cut, 0);
+  var info = { texts: [], files: [], seen: 0 };
+  try {
+    np_collectInfo(it, info, 0);
+  } catch (e0) {}
   var note = '';
   try {
     note = it.note || '';
@@ -218,7 +267,9 @@ function np_describe(it, idx, names) {
     gb: np_rb(it.geometricBounds),
     note: note,
     cut: cut,
-    vectorOnly: np_isVectorOnly(it, 0)
+    vectorOnly: np_isVectorOnly(it, 0),
+    texts: info.texts,
+    files: info.files
   };
 }
 
