@@ -2276,3 +2276,99 @@ dialog.type-dlg {
   border-radius: 4px;
   border: 1px solid var(--line);
 }
+
+/* ---------- งานจากม่วงจด (เปิดด้วย ?job=) ---------- */
+.jobbar {
+  display: grid;
+  gap: 6px;
+  padding: 10px 16px;
+  background: var(--accent-soft);
+  border-bottom: 1px solid var(--line);
+}
+.jb-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.jb-head b {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14.5px;
+}
+.jb-tag {
+  flex: none;
+  padding: 2px 7px;
+  background: #7b5cd6;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.jb-x {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.jb-sub {
+  color: var(--ink-2);
+  font-size: 13px;
+}
+.jb-sub:empty {
+  display: none;
+}
+.jb-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.jb-imgs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  flex: 1 1 140px;
+  min-width: 0;
+}
+.jb-img {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 2px solid var(--line);
+  background: var(--surface);
+  cursor: pointer;
+}
+.jb-img.on {
+  border-color: var(--accent);
+}
+.jb-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.jb-save {
+  flex: none;
+  margin-left: auto;
+}
+.jb-status {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+.jb-status:empty {
+  display: none;
+}
+.jb-status.err {
+  color: var(--accent-strong);
+  font-weight: 600;
+}

@@ -146,6 +146,20 @@
         </section>
 
         <aside class="panel" aria-label="ตั้งค่าป้าย">
+          <!-- เปิดจากงานในม่วงจด (?job=): งานไหน ลูกค้าใคร · รูปที่แนบในงาน (แตะเพื่อใช้) · บันทึกภาพกลับเข้างาน -->
+          <div class="jobbar" id="jobBar" hidden>
+            <div class="jb-head">
+              <span class="jb-tag">ม่วงจด</span>
+              <b id="jbTitle"></b>
+              <button type="button" class="jb-x" id="jbClose" aria-label="เลิกเชื่อมงานนี้" title="เลิกเชื่อมงานนี้">×</button>
+            </div>
+            <div class="jb-sub" id="jbSub"></div>
+            <div class="jb-row">
+              <div class="jb-imgs" id="jbImgs" hidden></div>
+              <button type="button" class="btn-primary jb-save" id="jbSave">บันทึกภาพเข้างาน</button>
+            </div>
+            <p class="jb-status" id="jbStatus" aria-live="polite"></p>
+          </div>
           <nav class="steps" aria-label="ขั้นตอน">
             <button class="step" type="button" data-step="1"><b>1</b><span>งานออกแบบ</span></button>
             <button class="step" type="button" data-step="2"><b>2</b><span>ชนิดและขนาด</span></button>

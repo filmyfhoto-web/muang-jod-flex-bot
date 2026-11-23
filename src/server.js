@@ -62,6 +62,9 @@ app.use(
  * ไฟล์นิ่งล้วนใน sign-mockup/ ติดตั้งเป็นแอปแยกจากม่วงจดได้ (scope /sign/)
  * + ลิงก์ดูป้าย 3 มิติส่งลูกค้า (/sign/api/share, /sign/v/:id) */
 const { default: signShareRouter } = await import('./routes/signShare.js');
+// งานจากม่วงจด → แอปจำลองป้าย (ตั๋วจาก /api/jobs/:id/mockup): อ่านงาน/รูปที่แนบ + บันทึกภาพจำลองกลับเข้างาน
+const { default: signJobRouter } = await import('./routes/signJob.js');
+app.use('/sign/api/job', signJobRouter);
 app.use('/sign', signShareRouter);
 app.use(
   '/sign',

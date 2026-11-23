@@ -720,6 +720,8 @@
       <!-- ที่ที่ร้านยืนอยู่ตอนงานเสร็จคือหน้านี้ แต่ใบเสร็จเคยออกได้จากแชต
            อย่างเดียว -->
       <button type="button" class="btn btn-soft" id="e-receipt">🧾 ออกใบเสร็จ / ปริ้น</button>
+      <!-- จำลองป้ายของงานนี้: เปิดแอปจำลองป้ายพร้อมชื่อลูกค้า ขนาด รูปที่แนบ — ภาพที่ทำเสร็จกลับมาแนบในงานนี้ -->
+      <button type="button" class="btn btn-soft" id="e-mockup">🪧 ทำภาพ 3 มิติ (จำลองป้าย)</button>
 
       <!-- ที่เหลือพับไว้ — ม่วงเดาให้หมดแล้วตอนจด ร้านบอกว่า "ไม่ต้องกรอกเยอะ
            บางทีไม่มีเวลากรอกเอง" ของที่ถูกอยู่แล้วไม่ต้องเอามาขวางตา -->
@@ -780,6 +782,7 @@
       <button type="button" class="hs-b pay" id="hs-tf">🏦 รับโอนแล้ว</button>
       <button type="button" class="hs-b" id="hs-receipt">🖨 ใบเสร็จ</button>
       <button type="button" class="hs-b" id="hs-edit">✏️ แก้ไขงาน</button>
+      <button type="button" class="hs-b wide" id="hs-mockup">🪧 ทำภาพ 3 มิติ (จำลองป้าย)</button>
       <button type="button" class="hs-b ghost wide" id="hs-close">ปิด</button>
     </div>
   </div>
@@ -2002,6 +2005,24 @@ async function openReceiptFor(btn) {
 }
 $('hs-receipt').onclick = () => openReceiptFor($('hs-receipt'));
 
+/* ทำภาพ 3 มิติ — เปิดแอปจำลองป้ายด้วยตั๋วของงานนี้ (ชื่อลูกค้า ขนาด รูปที่แนบ เติมให้เอง)
+ * ทำเสร็จกด "บันทึกภาพเข้างาน" ในแอปจำลองป้าย ภาพ + ลิงก์ 3 มิติกลับมาอยู่ในงานนี้ */
+async function openMockupFor(jobId, btn) {
+  if (!jobId) return;
+  btn.disabled = true;
+  try {
+    const { url } = await api('/jobs/' + jobId + '/mockup', { method: 'POST' });
+    const open = new URL(url, location.origin).href;
+    if (window.liff && liff.isInClient && liff.isInClient()) liff.openWindow({ url: open, external: false });
+    else if (!window.open(open, '_blank')) location.href = open;
+  } catch (err) {
+    toast(err.message || 'เปิดแอปจำลองป้ายไม่สำเร็จค่ะ', true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+$('hs-mockup').onclick = () => openMockupFor(homeJob && homeJob.id, $('hs-mockup'));
+
 $('hs-edit').onclick = () => {
   if (!homeJob) return;
   const id = homeJob.id;
@@ -2258,6 +2279,8 @@ $('e-receipt').onclick = async () => {
     btn.textContent = label;
   }
 };
+
+$('e-mockup').onclick = () => openMockupFor(current && current.id, $('e-mockup'));
 
 $('e-save').onclick = async () => {
   const btn = $('e-save');
