@@ -30,6 +30,7 @@ import { push } from '../services/lineService.js';
 import { receiptFlex } from '../flex/receiptFlex.js';
 import { receiptUrl } from '../flex/billFlex.js';
 import { withShopKey } from '../utils/receiptLink.js';
+import { mintTicket } from '../utils/mockupTicket.js';
 import { createBill, getBillById } from '../services/billService.js';
 import { derivePaymentFields, paidAtPatch } from '../utils/payment.js';
 import { pickupPatch, jobState, stagePatch, jobStage, JOB_STAGES, statusPatch, jobStatus } from '../utils/jobState.js';
@@ -468,6 +469,24 @@ export function createApiRouter(deps = {}) {
         billNumber: bill.bill_number || null,
         reused: Boolean(job.bill_id),
       });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /* ปุ่ม "ทำภาพ 3 มิติ" บนงาน → ตั๋วเปิดแอปจำลองป้ายของงานนี้งานเดียว (อายุ 3 วัน)
+   *
+   * แอปจำลองป้ายใช้ตั๋วเติมชื่อลูกค้า ขนาด รูปที่แนบให้เอง แล้วบันทึกภาพจำลอง (+ ลิงก์ 3 มิติ) กลับเข้างานนี้
+   * ตอบเป็น path (/sign/?job=…) ให้หน้าเว็บต่อกับโดเมนที่เปิดอยู่เอง
+   */
+  router.post('/jobs/:id/mockup', async (req, res, next) => {
+    try {
+      const job = await findJob(req.profile.id, req.params.id);
+      if (!job) return res.status(404).json({ error: 'not_found' });
+      const ticket = mintTicket(req.profile.id, job.id);
+      if (!ticket) return res.status(503).json({ error: 'no_secret', message: 'ยังไม่ได้ตั้งค่ากุญแจของเซิร์ฟเวอร์ค่ะ' });
+      logger.info('api.mockup_opened', { user: maskUserId(req.profile.line_user_id), jobId: job.id });
+      res.json({ url: '/sign/?job=' + ticket });
     } catch (err) {
       next(err);
     }

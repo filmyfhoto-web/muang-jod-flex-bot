@@ -66,3 +66,45 @@ export async function countAttachments(jobId) {
   if (error) return 0;
   return count || 0;
 }
+
+// รูปที่แนบในงาน (ไว้ให้แอปจำลองป้ายเลือกเป็นไฟล์งาน) — เก่าสุดก่อน: ไฟล์งานที่ลูกค้าส่งมักมาก่อนสลิป
+// เรียกหลังเช็กแล้วว่างานเป็นของคนที่ถือตั๋ว (attachments ไม่มีช่อง user_id ผูกผ่านงาน)
+export async function listJobImages(jobId, client = supabase) {
+  const { data, error } = await client
+    .from('attachments')
+    .select('id, file_url, file_type, created_at')
+    .eq('job_id', jobId)
+    .in('file_type', ['image/jpeg', 'image/png'])
+    .order('created_at', { ascending: true })
+    .limit(12);
+  if (error) {
+    console.error('[attachmentService] list images failed:', error.message);
+    return [];
+  }
+  return data || [];
+}
+
+// ไฟล์รูปหนึ่งรูปของงาน → { buffer, fileType } หรือ null
+// file_url เป็นลิงก์ลายเซ็นอายุ 1 ปี (หรือ path ถ้าเซ็นไม่ได้ตอนบันทึก) → ดาวน์โหลดผ่าน storage ด้วย path เสมอ
+export async function readJobImage(jobId, attachmentId, client = supabase) {
+  const { data: row, error } = await client
+    .from('attachments')
+    .select('id, file_url, file_type')
+    .eq('job_id', jobId)
+    .eq('id', attachmentId)
+    .maybeSingle();
+  if (error || !row || !/^image\/(jpeg|png)$/.test(row.file_type || '')) return null;
+  const path = storagePathOf(row.file_url);
+  if (!path) return null;
+  const { data: blob, error: dlErr } = await client.storage.from(STORAGE_BUCKET).download(path);
+  if (dlErr || !blob) return null;
+  return { buffer: Buffer.from(await blob.arrayBuffer()), fileType: row.file_type };
+}
+
+// ".../object/sign/job-evidence/<path>?token=..." หรือ "<path>" → "<path>"
+export function storagePathOf(fileUrl) {
+  const s = String(fileUrl || '');
+  const m = /\/object\/(?:sign|public|authenticated)\/([^/?]+)\/([^?]+)/.exec(s);
+  if (m) return m[1] === STORAGE_BUCKET ? decodeURIComponent(m[2]) : null;
+  return /^[\w-]+\/[\w-]+\/[\w-]+\.(jpg|png)$/.test(s) ? s : null;
+}

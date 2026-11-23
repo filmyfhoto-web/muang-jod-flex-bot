@@ -6,7 +6,7 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '4.17.0';
+  var APP_VERSION = '4.18.0';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp', hands: C.HAND_BUILTIN.src });
 
@@ -4248,6 +4248,7 @@
       hist.list = [];
       hist.i = -1;
       flushSave();
+      startJobLink(); // เปิดจากงานในม่วงจด: เติมข้อมูลงานหลังโหลดงานที่ค้างไว้เสร็จ (ไม่โดนทับ)
     };
     if (!NS.jobs) return done();
     var J = NS.jobs;
@@ -4295,6 +4296,202 @@
     if (document.visibilityState === 'hidden') flushAll();
   });
   window.addEventListener('pagehide', flushAll);
+
+
+  /* ---------- งานจากม่วงจด (?job=ตั๋ว) ----------
+   * ร้านกด “ทำภาพ 3 มิติ” บนงานในม่วงจด → เปิดแอปนี้พร้อมตั๋วของงานนั้น (อายุ 3 วัน ใช้ได้กับงานนั้นงานเดียว)
+   * เติมให้เอง: ชื่อลูกค้า · ขนาดป้ายจากรายการที่จด · รูปที่แนบในงาน (รูปแรกเป็นไฟล์งาน แตะรูปอื่นในแถบสลับได้)
+   * ทำเสร็จกด “บันทึกภาพเข้างาน” → รูปจำลอง + ลิงก์ดู 3 มิติ แนบกลับเข้างานเดิมในม่วงจด
+   * เปิดงานเดิมซ้ำ (รีเฟรช/เปิดลิงก์เดิม) ไม่ล้างงานที่ทำค้างไว้ */
+  var jobLink = null; // { ticket, job }
+  var JOB_LAST = 'sm-job-last';
+  function jobTicket() {
+    var m = /[?&]job=([A-Za-z0-9_.-]{20,400})/.exec(location.search);
+    return m ? m[1] : '';
+  }
+  function jbSay(t, err) {
+    $('jbStatus').textContent = t || '';
+    $('jbStatus').classList.toggle('err', !!err);
+  }
+  function jobImageUrl(id) {
+    return 'api/job/' + jobLink.ticket + '/image/' + id;
+  }
+  function markJobImage(id) {
+    Array.prototype.forEach.call($('jbImgs').children, function (b) {
+      b.classList.toggle('on', b.dataset.id === id);
+    });
+  }
+  // รูปในงาน → ไฟล์งาน · keepSize = ขนาดมาจากรายการที่จด (ขนาดสั่งจริง ไม่ปรับความสูงตามรูป แค่สลับกว้าง/สูงถ้ากลับด้าน)
+  function useJobImage(id, keepSize) {
+    jbSay('กำลังโหลดรูปจากงาน…');
+    return fetch(jobImageUrl(id))
+      .then(function (r) {
+        if (!r.ok) throw new Error('img');
+        return r.blob();
+      })
+      .then(function (b) {
+        return designFromBlob(b, 'รูปจากงาน ' + (jobLink.job.number || 'ม่วงจด'));
+      })
+      .then(function (d) {
+        imgDesign = d;
+        st.mode = 'image';
+        var mount = C.geometry(st.type, st.w, st.h, st.steel).mount;
+        if (keepSize) {
+          if (st.w !== st.h && d.w > d.h !== st.w > st.h) {
+            var t = st.w;
+            st.w = st.h;
+            st.h = t;
+          }
+        } else if (mount === 'wall' && C.ratioMismatch(st.w, st.h, d.w, d.h)) st.h = C.clampCm(C.heightForImage(st.w, d.w, d.h), st.h);
+        showFileCard();
+        refreshPhotoQuad();
+        sync();
+        save();
+        markJobImage(id);
+        jbSay('');
+      })
+      .catch(function () {
+        jbSay('โหลดรูปจากงานไม่ได้ — เลือกไฟล์งานเองในขั้น 1 ได้', true);
+      });
+  }
+  function renderJobBar() {
+    var j = jobLink.job;
+    $('jobBar').hidden = false;
+    $('jbTitle').textContent = [j.number ? 'งาน ' + j.number : 'งานในม่วงจด', j.customer].filter(Boolean).join(' · ');
+    $('jbSub').textContent = [j.name, j.size ? C.sizeText(j.size.w, j.size.h) : '', j.total ? C.baht(j.total) + ' บาท' : ''].filter(Boolean).join(' · ');
+    var box = $('jbImgs');
+    box.innerHTML = '';
+    (j.images || []).forEach(function (im, i) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'jb-img';
+      b.dataset.id = im.id;
+      b.title = 'ใช้รูปนี้เป็นไฟล์งาน';
+      var img = document.createElement('img');
+      img.alt = 'รูปในงาน ' + (i + 1);
+      img.loading = 'lazy';
+      img.src = jobImageUrl(im.id);
+      b.appendChild(img);
+      b.addEventListener('click', function () {
+        useJobImage(im.id, false);
+      });
+      box.appendChild(b);
+    });
+    box.hidden = !(j.images || []).length;
+  }
+  function startJobLink() {
+    var ticket = jobTicket();
+    if (!ticket || jobLink) return;
+    fetch('api/job/' + ticket)
+      .then(function (r) {
+        return r
+          .json()
+          .catch(function () {
+            return {};
+          })
+          .then(function (j) {
+            return { ok: r.ok, j: j };
+          });
+      })
+      .then(function (x) {
+        if (!x.ok || !x.j.job) {
+          toast(x.j.message || 'เปิดงานจากม่วงจดไม่ได้ — ลองกดปุ่มในม่วงจดใหม่');
+          return;
+        }
+        var j = x.j.job;
+        jobLink = { ticket: ticket, job: j };
+        var last = '';
+        try {
+          last = localStorage.getItem(JOB_LAST) || '';
+        } catch (e) {}
+        renderJobBar();
+        if (last === j.id) return; // งานเดิม: ทำต่อจากที่ค้างไว้
+        try {
+          localStorage.setItem(JOB_LAST, j.id);
+        } catch (e) {}
+        customer = j.customer || '';
+        $('customer').value = customer;
+        if (j.size) {
+          st.w = C.clampCm(j.size.w, st.w);
+          st.h = C.clampCm(j.size.h, st.h);
+        }
+        if (j.images && j.images.length) useJobImage(j.images[0].id, !!j.size);
+        else {
+          // ไม่มีรูปในงาน: เริ่มจากข้อความ (ชื่อลูกค้า/ชื่องาน) ไม่เอาไฟล์งานของงานก่อนมาปน
+          imgDesign = null;
+          st.mode = 'text';
+          if (j.customer || j.name) st.text.title = j.customer || j.name;
+          refreshPhotoQuad();
+          sync();
+          save();
+        }
+        toast('เปิดงาน' + (j.number ? ' ' + j.number : '') + ' จากม่วงจดแล้ว — เติมชื่อลูกค้า ขนาด รูปงานให้แล้ว');
+      })
+      .catch(function () {
+        toast('ต่อเซิร์ฟเวอร์ร้านไม่ได้ เปิดงานจากม่วงจดไม่สำเร็จ — ลองใหม่อีกครั้ง');
+      });
+  }
+  // บันทึกภาพเข้างาน: รูปจำลอง (เหมือนปุ่มบันทึกรูปส่งลูกค้า) + ลิงก์ดู 3 มิติ (ทำให้ด้วยถ้าเครื่องนี้เปิด 3 มิติได้)
+  $('jbSave').addEventListener('click', function () {
+    if (!jobLink) return;
+    var btn = $('jbSave');
+    btn.disabled = true;
+    jbSay('กำลังทำภาพ…');
+    buildExport('jpg')
+      .then(function (r) {
+        return blobToDataUrl(r.blob);
+      })
+      .then(function (img) {
+        var mk = !stage
+          ? Promise.resolve('')
+          : buildExport('glb')
+              .then(function (g) {
+                jbSay('กำลังทำลิงก์ดู 3 มิติ…');
+                return uploadShare(g.blob, jbSay);
+              })
+              .then(function (j) {
+                return j.url || '';
+              })
+              .catch(function () {
+                return ''; // ลิงก์ไม่ได้ก็ยังบันทึกรูปเข้างาน
+              });
+        return mk.then(function (link) {
+          jbSay('กำลังบันทึกเข้างาน…');
+          return fetch('api/job/' + jobLink.ticket + '/mockup', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ image: img, link: link }),
+          }).then(function (res) {
+            return res
+              .json()
+              .catch(function () {
+                return {};
+              })
+              .then(function (j) {
+                if (!res.ok) throw new Error(j.message || 'บันทึกเข้างานไม่สำเร็จ ลองใหม่อีกครั้ง');
+                return j;
+              });
+          });
+        });
+      })
+      .then(function (j) {
+        jbSay('✓ บันทึกภาพเข้างาน' + (j.number ? ' ' + j.number : '') + ' แล้ว' + (j.linked ? ' · ลิงก์ดู 3 มิติอยู่ในหมายเหตุงาน' : ''));
+        toast('บันทึกภาพเข้างานในม่วงจดแล้ว');
+      })
+      .catch(function (e) {
+        jbSay((e && e.message) || 'บันทึกเข้างานไม่สำเร็จ ลองใหม่อีกครั้ง', true);
+      })
+      .then(function () {
+        btn.disabled = false;
+      });
+  });
+  $('jbClose').addEventListener('click', function () {
+    jobLink = null;
+    $('jobBar').hidden = true;
+    try {
+      history.replaceState(null, '', location.pathname);
+    } catch (e) {}
+  });
 
   /* ---------- คีย์ลัด ---------- */
   document.addEventListener('keydown', function (e) {
