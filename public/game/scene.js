@@ -130,11 +130,13 @@ export function drawArtInside(g, img, state, nowMs) {
   sparkle(q, 505, 205, tick % 3 === 0);
   sparkle(q, 536, 212, tick % 3 === 1);
   sparkle(q, 700, 90, tick % 4 === 2);
-  for (const wlk of state.walkers) {
+  for (let i = 0; i < state.walkers.length; i++) {
+    const wlk = state.walkers[i];
     const [x, y] = pointAt(wlk.path, wlk.t);
     g.save(); g.translate(x, y); g.scale(2.6, 2.6);
     person(q, 0, 0, wlk.color, wlk.hair, Math.floor(nowMs / 160));
     g.restore();
+    if (i === 0 && state.walkerName) nameTag(g, state.walkerName, x, y - 82); // ป้ายชื่อ "ฟิล์ม"
   }
   if (state.dog.heartUntil > nowMs) {
     g.save(); g.translate(ART.dogHeart[0], ART.dogHeart[1]); g.scale(2, 2);
@@ -388,9 +390,11 @@ export function drawInside(g, state, nowMs) {
   plate(px(g), ZONES.counter.label, co.x + co.w / 2 - 10, co.y + co.h - 6);
 
   // walkers + dog
-  for (const wlk of state.walkers) {
+  for (let i = 0; i < state.walkers.length; i++) {
+    const wlk = state.walkers[i];
     const [x, y] = pointAt(wlk.path, wlk.t);
     person(q, x, y, wlk.color, wlk.hair, Math.floor(nowMs / 160));
+    if (i === 0 && state.walkerName) nameTag(g, state.walkerName, x, y - 32);
   }
   const dg = state.dog;
   dogSprite(q, dg.x, dg.y, Math.floor(nowMs / 300));
@@ -419,20 +423,39 @@ function treeSprite(q, x, y) {
   q.r(x - 10, y - 12, 22, 14, '#4f9e5c'); q.r(x - 6, y - 20, 14, 12, '#6fbe77');
 }
 
-function truckSprite(g, x, y, dir = 1, roll = 0) {
+/* มอเตอร์ไซค์ส่งงาน — ร้านจริงขับมอไซค์ไปบ้านทำไวนิล (ร้านสั่งเปลี่ยนจากรถบรรทุก) */
+export function motoSprite(g, x, y, dir = 1, bounce = 0) {
   g.save();
-  g.translate(Math.round(x), Math.round(y));
+  g.translate(Math.round(x), Math.round(y) + (bounce % 2));
   if (dir < 0) g.scale(-1, 1);
   const q = px(g);
-  q.r(-18, -8, 28, 10, '#6aa6ff');            // bed
-  q.r(-16, -13, 24, 6, '#f6f1e8');            // vinyl rolls
-  q.r(-16, -15, 16, 3, '#f08cc3');
-  q.r(10, -14, 12, 16, '#4b79d8');            // cab
-  q.r(12, -12, 8, 7, '#d7f0fb');              // window
-  q.r(-15, 2, 7, 7, '#2d2a3e'); q.r(9, 2, 7, 7, '#2d2a3e'); // wheels
-  q.r(-13, 4, 3, 3, roll % 2 ? '#8f98a6' : '#c9ced6');
-  q.r(11, 4, 3, 3, roll % 2 ? '#c9ced6' : '#8f98a6');
+  q.r(-16, 2, 9, 9, '#2d2a3e'); q.r(8, 2, 9, 9, '#2d2a3e');   // wheels
+  q.r(-13, 5, 3, 3, bounce % 2 ? '#8f98a6' : '#c9ced6');
+  q.r(11, 5, 3, 3, bounce % 2 ? '#c9ced6' : '#8f98a6');
+  q.r(-12, -2, 24, 6, '#8451bf');                               // frame
+  q.r(8, -8, 8, 7, '#6b3fa8');                                  // tank+bar
+  q.r(14, -11, 3, 5, '#4a3650');                                // handlebar
+  q.r(-19, -12, 10, 11, '#f6f1e8');                             // vinyl roll rack
+  q.r(-19, -9, 10, 3, '#f08cc3');
+  // คนขับ (ฟิล์ม): ขา เสื้อม่วง หมวกกันน็อกขาวคาดม่วง
+  q.r(2, -6, 4, 8, '#3b3260');
+  q.r(-4, -16, 11, 11, '#8451bf');
+  q.r(-2, -24, 9, 8, '#f6c89b');
+  q.r(-4, -28, 13, 6, '#f6f1e8'); q.r(-4, -24, 13, 2, '#8451bf'); // helmet
   g.restore();
+}
+
+/* ป้ายชื่อเล็ก ๆ ลอยเหนือหัวตัวละคร */
+export function nameTag(g, text, x, y) {
+  g.font = "800 15px 'Noto Sans Thai', Tahoma, sans-serif";
+  const w = g.measureText(text).width + 18;
+  const h = 24;
+  const bx = Math.round(x - w / 2), by = Math.round(y - h);
+  g.fillStyle = '#272148';
+  if (g.roundRect) { g.beginPath(); g.roundRect(bx, by, w, h, 8); g.fill(); }
+  else g.fillRect(bx, by, w, h);
+  g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(text, Math.round(x), by + h / 2 + 1);
 }
 
 export function drawRoute(g, state, nowMs) {
@@ -467,14 +490,15 @@ export function drawRoute(g, state, nowMs) {
   plate(q, 'เส้นทางส่งงานไวนิล (ภาพจำลอง)', W / 2, 18, 10);
   q.t('ไม่ใช่แผนที่ GPS · ระยะและเวลาไม่ใช่ของจริง', W / 2, 44, 9, '#2f5d3a');
 
-  // truck
-  const tr = state.truck;
-  if (tr && tr.visible) {
-    const pts = tr.back ? [...ROAD].reverse() : ROAD;
-    const [x, y] = pointAt(pts, tr.t);
-    truckSprite(g, x, y - 12, tr.back ? -1 : 1, Math.floor(nowMs / 120));
+  // มอไซค์ส่งงาน (ฟิล์มขับ)
+  const mo = state.moto;
+  if (mo && mo.visible) {
+    const pts = mo.back ? [...ROAD].reverse() : ROAD;
+    const [x, y] = pointAt(pts, mo.t);
+    motoSprite(g, x, y - 10, mo.back ? -1 : 1, Math.floor(nowMs / 110));
+    if (state.walkerName) nameTag(g, state.walkerName, x, y - 48);
   } else {
-    truckSprite(g, ROAD[0][0], ROAD[0][1] - 12, 1, 0);
+    motoSprite(g, ROAD[0][0], ROAD[0][1] - 10, 1, 0);
   }
 }
 
