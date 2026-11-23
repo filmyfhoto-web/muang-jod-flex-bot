@@ -24,6 +24,9 @@ test('เกม: หน้าเพจเป็น PWA มือถือ — vi
 test('เกม: ปุ่มแตะได้ขั้นต่ำ 44px ทั้งปุ่มทั่วไปและแท็บล่าง', () => {
   assert.match(html, /button \{ cursor: pointer; touch-action: manipulation; border: none; background: none; min-height: 44px; \}/);
   assert.match(html, /\.tabbar button \{[^}]*min-height: 54px/s);
+  // จอคอมต้องเหมือนมือถือ: แถบล่างกว้างเท่าคอลัมน์แอป ไม่ยืดเต็มจอ
+  assert.ok(html.includes('.tabbar { position: fixed; z-index: 50; left: 50%; transform: translateX(-50%); bottom: 0; width: min(520px, 100%);'));
+  assert.ok(!html.includes('@media (min-width: 820px)'), 'game stays phone-width on desktop');
   assert.match(html, /\.rk button \{ width: 44px; height: 44px; min-height: 44px/);
   assert.match(html, /\.m-head \.x \{ width: 44px; height: 44px/);
 });
