@@ -85,11 +85,34 @@ export const ART = {
   },
   path: [[392, 592], [455, 556], [455, 332], [462, 215], [442, 138]],
   dogHeart: [60, 650],
+  /* ป้ายชื่อโซนที่ฝังในภาพจะมัวเมื่อย่อ/ขยายตามจอ — วาดป้ายคมทับที่ตำแหน่งเดิม
+   * [ข้อความ, กลางป้าย x, y, ความกว้างขั้นต่ำให้คลุมป้ายเดิมมิด] (วัดจากภาพจริง) */
+  labels: [
+    ['หลังร้าน', 413, 46, 124], ['ตรายาง', 148, 156, 114], ['สติ๊กเกอร์', 151, 259, 132],
+    ['เตรียมไฟล์', 130, 365, 146], ['ปริ้นงาน', 400, 279, 134], ['ถ่ายเอกสาร', 409, 405, 168],
+    ['ชั้นกรอบรูป', 699, 243, 172], ['ที่นั่งรอ', 710, 504, 126],
+    ['เคาน์เตอร์รับงาน', 191, 629, 228], ['ทางเข้า', 413, 819, 140],
+  ],
 };
 export const ART_LOOP = [...ART.path, ...[...ART.path].reverse().slice(1)];
 
 export function buildArtWalker() {
   return { path: ART_LOOP, t: 0, dwell: 900, speed: 42, color: P.purple, hair: '#4a3650', stops: [0.22, 0.48, 0.74, 0.97] };
+}
+
+/* ป้ายโซนแบบคม: วาดด้วยฟอนต์จริงบนแคนวาสความละเอียดจอ แทนตัวหนังสือที่ฝังในรูป */
+function plateCover(g, text, cx, cy, minW = 0, size = 18) {
+  g.font = `800 ${size}px 'Noto Sans Thai', Tahoma, sans-serif`;
+  const w = Math.max(g.measureText(text).width + 30, minW);
+  const h = 36; // สูงพอคลุมป้ายเดิมในภาพ (~34px) เสมอ
+  const x = Math.round(cx - w / 2), y = Math.round(cy - h / 2);
+  g.fillStyle = '#332d5e';
+  if (g.roundRect) { g.beginPath(); g.roundRect(x, y, w, h, 11); g.fill(); }
+  else g.fillRect(x, y, w, h);
+  g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 1.5;
+  if (g.roundRect) { g.beginPath(); g.roundRect(x + 1, y + 1, w - 2, h - 2, 10); g.stroke(); }
+  g.fillStyle = '#fff6e8'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(text, Math.round(cx), Math.round(cy + 1));
 }
 
 function sparkle(q, x, y, on) {
@@ -100,6 +123,8 @@ function sparkle(q, x, y, on) {
 
 export function drawArtInside(g, img, state, nowMs) {
   const q = px(g);
+  g.imageSmoothingEnabled = true;
+  g.imageSmoothingQuality = 'high';
   g.drawImage(img, 0, 0, ART.w, ART.h);
   const tick = Math.floor(nowMs / 420);
   sparkle(q, 505, 205, tick % 3 === 0);
@@ -115,6 +140,7 @@ export function drawArtInside(g, img, state, nowMs) {
     g.save(); g.translate(ART.dogHeart[0], ART.dogHeart[1]); g.scale(2, 2);
     heart(q, 0, 0); g.restore();
   }
+  for (const [text, lx, ly, minW] of ART.labels) plateCover(g, text, lx, ly, minW);
   if (state.focusZone && ART.zones[state.focusZone]) {
     const z = ART.zones[state.focusZone];
     g.strokeStyle = P.yellow; g.lineWidth = 5; g.setLineDash([10, 7]);
