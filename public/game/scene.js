@@ -58,6 +58,77 @@ export const WALK_LOOP = [
 
 const LOOP_B = [SPOTS.frame, [400, 444], [300, 444], SPOTS.counter, [244, 420], SPOTS.photo, [86, 350], SPOTS.sticker, [244, 350], SPOTS.frame];
 
+/* ---------- approved mockup artwork mode ----------
+ * The INSIDE scene can render the hand-approved pixel illustration
+ * (art/scene-inside.png, cropped from the reference the shop picked) instead
+ * of the code-painted floor. Walkers/heart/taps are drawn on top; the art is
+ * decoration only and the coordinates below map its zones. */
+export const ART = {
+  w: 838, h: 840, src: './art/scene-inside.png',
+  zones: {
+    office: { x: 280, y: 8, w: 330, h: 125, label: 'หลังร้าน / ตรวจงาน' },
+    stamp: { x: 55, y: 120, w: 185, h: 95, label: 'ตรายาง' },
+    sticker: { x: 55, y: 218, w: 185, h: 90, label: 'สติ๊กเกอร์' },
+    prep: { x: 18, y: 312, w: 215, h: 160, label: 'เตรียมไฟล์' },
+    printer: { x: 245, y: 150, w: 225, h: 180, label: 'ปริ้นงาน' },
+    copier: { x: 245, y: 338, w: 225, h: 180, label: 'ถ่ายเอกสาร' },
+    frame: { x: 560, y: 128, w: 245, h: 295, label: 'ชั้นกรอบรูป' },
+    bench: { x: 600, y: 430, w: 210, h: 195, label: 'ที่นั่งรอ' },
+    counter: { x: 18, y: 478, w: 365, h: 185, label: 'เคาน์เตอร์รับงาน' },
+    door: { x: 255, y: 695, w: 320, h: 140, label: 'ทางเข้า' },
+    govinyl: { x: 628, y: 672, w: 205, h: 110, label: 'ส่งไปบ้านทำไวนิล' },
+  },
+  spots: {
+    counter: [330, 545], prep: [150, 430], printer: [365, 260], copier: [365, 445],
+    office: [430, 100], frame: [650, 310], photo: [150, 430], sticker: [150, 265],
+    stamp: [150, 175], bench: [690, 530], door: [420, 745],
+  },
+  path: [[392, 592], [455, 556], [455, 332], [462, 215], [442, 138]],
+  dogHeart: [60, 650],
+};
+export const ART_LOOP = [...ART.path, ...[...ART.path].reverse().slice(1)];
+
+export function buildArtWalker() {
+  return { path: ART_LOOP, t: 0, dwell: 900, speed: 42, color: P.purple, hair: '#4a3650', stops: [0.22, 0.48, 0.74, 0.97] };
+}
+
+function sparkle(q, x, y, on) {
+  if (!on) return;
+  q.r(x - 1, y - 6, 3, 13, '#fff6d8'); q.r(x - 6, y - 1, 13, 3, '#fff6d8');
+  q.r(x - 1, y - 1, 3, 3, '#ffd34d');
+}
+
+export function drawArtInside(g, img, state, nowMs) {
+  const q = px(g);
+  g.drawImage(img, 0, 0, ART.w, ART.h);
+  const tick = Math.floor(nowMs / 420);
+  sparkle(q, 505, 205, tick % 3 === 0);
+  sparkle(q, 536, 212, tick % 3 === 1);
+  sparkle(q, 700, 90, tick % 4 === 2);
+  for (const wlk of state.walkers) {
+    const [x, y] = pointAt(wlk.path, wlk.t);
+    g.save(); g.translate(x, y); g.scale(2.6, 2.6);
+    person(q, 0, 0, wlk.color, wlk.hair, Math.floor(nowMs / 160));
+    g.restore();
+  }
+  if (state.dog.heartUntil > nowMs) {
+    g.save(); g.translate(ART.dogHeart[0], ART.dogHeart[1]); g.scale(2, 2);
+    heart(q, 0, 0); g.restore();
+  }
+  if (state.focusZone && ART.zones[state.focusZone]) {
+    const z = ART.zones[state.focusZone];
+    g.strokeStyle = P.yellow; g.lineWidth = 5; g.setLineDash([10, 7]);
+    g.strokeRect(z.x - 4, z.y - 4, z.w + 8, z.h + 8); g.setLineDash([]);
+  }
+}
+
+export function hitArtZone(x, y) {
+  for (const [id, z] of Object.entries(ART.zones)) {
+    if (x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h) return id;
+  }
+  return '';
+}
+
 /* ---------- route map (shop → vinyl workshop; schematic, NOT GPS) ---------- */
 export const SHOP_RT = { x: 24, y: 416, w: 150, h: 128 };
 export const VINYL_RT = { x: 292, y: 70, w: 164, h: 150 };
@@ -384,6 +455,7 @@ export function drawRoute(g, state, nowMs) {
 export function drawScene(g, state, nowMs) {
   g.imageSmoothingEnabled = false;
   if (state.view === 'route') drawRoute(g, state, nowMs);
+  else if (state.artImg && state.artImg.complete && state.artImg.naturalWidth) drawArtInside(g, state.artImg, state, nowMs);
   else drawInside(g, state, nowMs);
 }
 

@@ -12,12 +12,14 @@
 <title>NATTAPRON 8-BIT AUTO SHOP</title>
 <style>
 :root {
-  --bg: #cfc6ee; --bg-dot: #c1b6e6; --panel: #f6f2ff; --panel-2: #efeaff; --card: #ffffff;
-  --ink: #2e2a55; --ink-soft: #6a639c; --line: #b9ace4; --line-deep: #8d7fd0;
-  --purple: #7c6cd8; --purple-deep: #5a4bb0; --pink: #f08cc3; --yellow: #ffd34d;
+  /* โทนสีตามภาพดีไซน์ที่ร้านเลือก (pixel_mobile_purple_dashboard) */
+  --bg: #ede2fc; --bg-dot: #e0d1f7; --panel: #f7f2fc; --panel-2: #f1e9fb; --card: #fdfbff;
+  --ink: #432076; --ink-soft: #7a66b4; --line: #cdbcf0; --line-deep: #8a74d6;
+  --purple: #8451bf; --purple-deep: #6b3fa8; --pink: #f08cc3; --yellow: #ffd34d;
   --green: #4caf7d; --blue: #6aa6ff; --orange: #f09a4d; --red: #e86a5e; --teal: #59c2b4;
-  --shadow: 0 3px 0 rgba(90, 75, 176, .35);
+  --shadow: 0 4px 0 rgba(107, 63, 168, .22);
 }
+img.pix { image-rendering: pixelated; }
 * { box-sizing: border-box; }
 html, body { overflow-x: hidden; }
 body {
@@ -34,13 +36,13 @@ button:disabled { opacity: .5; cursor: default; }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange); outline-offset: 2px; }
 main, header.hd { width: min(520px, 100%); margin: 0 auto; padding: 0 12px; }
 
-/* ---------- header ---------- */
-header.hd { display: flex; align-items: center; gap: 10px; padding-top: calc(10px + env(safe-area-inset-top)); padding-bottom: 8px; }
-.logo { flex: none; width: 46px; height: 46px; display: grid; place-items: center; background: var(--purple); color: #fff; font: 900 24px 'Courier New', monospace; border: 3px solid #fff; border-radius: 12px; box-shadow: var(--shadow); image-rendering: pixelated; }
-.hd-tt { min-width: 0; flex: 1; }
-.hd-tt h1 { margin: 0; font: 900 17px/1.15 'Courier New', monospace; letter-spacing: .3px; color: var(--ink); }
-.hd-tt p { margin: 2px 0 0; font-size: 11.5px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hd-chips { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+/* ---------- header (ตกแต่งตามภาพดีไซน์: ไอคอนปริ้นเตอร์-กรอบรูป + ป้ายชื่อร้าน) ---------- */
+header.hd { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: calc(10px + env(safe-area-inset-top)); padding-bottom: 2px; }
+.hd-art { flex: none; width: 54px; height: 54px; border-radius: 14px; border: 2.5px solid var(--line); box-shadow: var(--shadow); object-fit: cover; }
+.hd-tt { min-width: 0; flex: 1; text-align: center; }
+.hd-tt h1 { margin: 0; font: 900 clamp(11px, 3.6vw, 15.5px)/1.15 'Courier New', monospace; letter-spacing: .2px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hd-badge { display: inline-block; margin-top: 4px; padding: 3px 14px; border-radius: 999px; background: var(--ink); color: #f3e9ff; font-size: 12px; font-weight: 800; box-shadow: var(--shadow); }
+.hd-chips { display: flex; gap: 6px; justify-content: flex-end; margin: 6px 0 8px; }
 .chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 999px; background: var(--card); border: 2px solid var(--line); font-size: 11px; font-weight: 800; }
 .chip.demo { color: #1d6e4e; background: #dcf6e8; border-color: #8fd3af; }
 .chip.cnt strong { color: var(--purple-deep); }
@@ -51,26 +53,31 @@ header.hd { display: flex; align-items: center; gap: 10px; padding-top: calc(10p
 h2.sec { margin: 2px 0 8px; font-size: 16px; }
 .muted { color: var(--ink-soft); font-size: 12px; }
 
-/* seg tabs (INSIDE / คิวงาน / ไวนิล) */
+/* seg tabs (INSIDE / คิวงาน / ไวนิล) — ไอคอนจากภาพดีไซน์ */
 .seg { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 10px; }
-.seg button { min-height: 44px; border-radius: 12px; border: 2.5px solid var(--line-deep); background: var(--card); font-weight: 900; font-size: 14px; color: var(--ink-soft); }
-.seg button.on { background: var(--purple); border-color: var(--purple-deep); color: #fff; box-shadow: var(--shadow); }
+.seg button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 48px; border-radius: 14px; border: 2.5px solid var(--line-deep); background: var(--panel); font-weight: 900; font-size: 14px; color: var(--ink); box-shadow: var(--shadow); }
+.seg .tabic { width: 22px; height: 22px; image-rendering: pixelated; }
+.seg svg.tabic { fill: currentColor; }
+.seg button.on { background: var(--purple); border-color: var(--purple-deep); color: #fff; }
+.seg button.on img.tabic { display: none; }
 
 /* stage / canvas */
 .stage { position: relative; border: 3px solid var(--purple-deep); border-radius: 16px; overflow: hidden; background: #b9ace4; box-shadow: var(--shadow); }
 .stage canvas { display: block; width: 100%; height: auto; aspect-ratio: 480 / 600; image-rendering: pixelated; touch-action: manipulation; }
 .stage .go-vinyl { position: absolute; right: 8px; bottom: 8px; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; min-height: 44px; border-radius: 12px; background: var(--yellow); border: 2.5px solid #b8860b; font-weight: 900; font-size: 12.5px; color: #5c4500; box-shadow: var(--shadow); }
+.stage .go-vinyl[hidden] { display: none; } /* display:inline-flex ด้านบนจะทับกฎ [hidden] ของเบราว์เซอร์ */
 .stage .zone-tip { position: absolute; left: 8px; bottom: 8px; max-width: 55%; padding: 6px 10px; border-radius: 10px; background: rgba(46, 42, 85, .92); color: #fff6e8; font-size: 11.5px; font-weight: 700; pointer-events: none; opacity: 0; transition: opacity .2s; }
 .stage .zone-tip.on { opacity: 1; }
 
-/* stat chips row */
-.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
-.stat { border-radius: 14px; border: 2.5px solid; padding: 8px 6px; text-align: center; background: var(--card); }
-.stat strong { display: block; font: 900 22px 'Courier New', monospace; }
-.stat span { font-size: 11px; font-weight: 800; }
-.stat.wait { border-color: #d8ae2a; } .stat.wait strong { color: #9c7400; }
-.stat.doing { border-color: var(--blue); } .stat.doing strong { color: #2b5fb8; }
-.stat.done { border-color: #68bd8f; } .stat.done strong { color: #1d6e4e; }
+/* stat chips row — แนวนอน ไอคอน+ป้าย+ตัวเลข ตามภาพดีไซน์ */
+.stats { display: grid; grid-template-columns: 1fr 1fr 1.15fr; gap: 8px; margin: 10px 0; }
+.stat { display: flex; align-items: center; gap: 6px; border-radius: 14px; border: 2.5px solid; padding: 7px 10px; background: var(--panel); box-shadow: var(--shadow); min-height: 46px; }
+.stat img { width: 24px; height: 24px; image-rendering: pixelated; flex: none; }
+.stat strong { margin-left: auto; font: 900 20px 'Courier New', monospace; }
+.stat span { font-size: 12px; font-weight: 800; color: var(--ink); white-space: nowrap; }
+.stat.wait { border-color: var(--line-deep); } .stat.wait strong { color: var(--purple-deep); }
+.stat.doing { border-color: var(--line-deep); } .stat.doing strong { color: var(--purple-deep); }
+.stat.done { border-color: #7cc89a; background: #eaf7ee; } .stat.done strong { color: #1d6e4e; }
 
 .today-line { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 800; color: var(--ink-soft); margin-bottom: 8px; }
 
@@ -159,34 +166,40 @@ label.lb { display: block; font-size: 12.5px; font-weight: 800; color: var(--ink
 .toast { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px); background: var(--ink); color: #fff6e8; padding: 10px 16px; border-radius: 12px; font-size: 13px; font-weight: 700; opacity: 0; pointer-events: none; transition: all .25s; max-width: min(420px, 90vw); text-align: center; z-index: 60; }
 .toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-/* job modal */
-dialog { width: min(480px, calc(100vw - 18px)); max-height: min(92dvh, 820px); overflow: auto; border: 3px solid var(--purple-deep); border-radius: 18px; padding: 0; background: var(--panel); color: var(--ink); box-shadow: 0 8px 0 rgba(90, 75, 176, .4); }
-dialog::backdrop { background: rgba(46, 42, 85, .55); }
-.m-head { position: sticky; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 14px; background: var(--purple); color: #fff; }
-.m-head .tt small { display: block; font-size: 10.5px; opacity: .85; font-weight: 700; }
-.m-head .tt b { font-size: 16px; }
-.m-head .x { width: 44px; height: 44px; border-radius: 10px; background: rgba(255,255,255,.18); color: #fff; font-weight: 900; font-size: 16px; }
+/* job modal — ตามภาพ job-modal: การ์ดขาว หัวม่วงเข้มบนพื้นอ่อน การ์ดงานฟ้า */
+dialog { width: min(480px, calc(100vw - 18px)); max-height: min(92dvh, 820px); overflow: auto; border: 3px solid var(--line-deep); border-radius: 22px; padding: 0; background: #fdfbff; color: var(--ink); box-shadow: 0 10px 0 rgba(107, 63, 168, .3); }
+dialog::backdrop { background: rgba(67, 32, 118, .5); }
+.m-head { position: sticky; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 16px 10px; background: #fdfbff; color: var(--ink); }
+.m-head .tt small { display: block; font-size: 12px; color: var(--ink-soft); font-weight: 800; }
+.m-head .tt b { display: inline-flex; align-items: center; gap: 8px; font-size: 21px; }
+.m-head .tt b img { width: 26px; height: 26px; image-rendering: pixelated; }
+.m-head .x { width: 44px; height: 44px; border-radius: 12px; background: var(--panel); border: 2.5px solid var(--line-deep); color: var(--ink); font-weight: 900; font-size: 16px; box-shadow: var(--shadow); }
 .m-body { padding: 12px 14px 16px; }
 .j-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
 .j-top .badge { font-size: 12.5px; padding: 6px 12px; }
 .j-id { font: 900 13px 'Courier New', monospace; color: var(--ink-soft); }
-.j-card { background: var(--card); border: 2.5px solid var(--line); border-radius: 14px; padding: 10px 12px; margin-bottom: 10px; }
-.j-card .row { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1.5px dashed var(--line); font-size: 13.5px; }
+.j-card { display: flex; gap: 8px; align-items: stretch; background: #e8f2fe; border: 2.5px solid #b9d4ef; border-left-width: 7px; border-radius: 16px; padding: 10px 12px; margin-bottom: 10px; }
+.j-rows { flex: 1; min-width: 0; }
+.j-card .row { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1.5px dashed #bcd4ee; font-size: 13.5px; }
 .j-card .row:last-child { border-bottom: 0; }
-.j-card .row span { flex: none; color: var(--ink-soft); font-size: 12px; font-weight: 800; padding-top: 1px; }
+.j-card .row span { flex: none; color: #5b79a8; font-size: 12px; font-weight: 800; padding-top: 1px; }
 .j-card .row b { text-align: right; min-width: 0; overflow-wrap: anywhere; }
+.j-illo { flex: none; width: 104px; display: grid; place-items: center; font-size: 52px; }
+.j-illo img { width: 104px; height: 96px; object-fit: cover; border-radius: 12px; image-rendering: pixelated; }
+.idpill { display: inline-block; padding: 2px 10px; border-radius: 999px; background: #efe3fb; color: var(--purple-deep); font: 900 12.5px 'Courier New', monospace; }
 .j-acts { display: grid; gap: 8px; }
 .j-acts .btn.primary { width: 100%; }
 .j-acts .minor { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .j-foot { display: flex; gap: 8px; margin-top: 12px; }
 .j-foot .btn { flex: 1; font-size: 13px; }
 
-/* bottom tab bar */
-.tabbar { position: fixed; z-index: 50; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: 1fr 1fr 74px 1fr 1fr; align-items: end; gap: 2px; padding: 6px 8px calc(7px + env(safe-area-inset-bottom)); background: var(--panel); border-top: 3px solid var(--line-deep); }
-.tabbar button { display: grid; justify-items: center; gap: 2px; min-height: 54px; padding: 6px 2px; border-radius: 12px; font-size: 10.5px; font-weight: 800; color: var(--ink-soft); }
-.tabbar button .em { font-size: 20px; line-height: 1; }
-.tabbar button.on { color: var(--purple-deep); background: var(--panel-2); }
-.tabbar .plus { width: 64px; height: 64px; margin: 0 auto -6px; border-radius: 50%; background: var(--purple); border: 4px solid #fff; color: #fff; font-size: 30px; font-weight: 900; box-shadow: var(--shadow); display: grid; place-items: center; }
+/* bottom tab bar — กล่องสี่เหลี่ยมมนขอบม่วงต่อปุ่ม ตามภาพดีไซน์ */
+.tabbar { position: fixed; z-index: 50; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: 1fr 1fr 80px 1fr 1fr; align-items: end; gap: 6px; padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); background: var(--bg); border-top: 0; }
+.tabbar button { display: grid; justify-items: center; align-content: center; gap: 3px; min-height: 58px; padding: 6px 2px; border-radius: 16px; border: 2.5px solid var(--line-deep); background: var(--panel); font-size: 10.5px; font-weight: 900; color: var(--ink); box-shadow: var(--shadow); }
+.tabbar button img.nic { width: 24px; height: 24px; image-rendering: pixelated; }
+.tabbar button.on { color: #fff; background: var(--purple); border-color: var(--purple-deep); }
+.tabbar button.on img.nic { display: none; }
+.tabbar .plus { width: 66px; height: 66px; margin: 0 auto -4px; border-radius: 50%; background: var(--purple); border: 4px solid #fff; color: #fff; font-size: 30px; font-weight: 900; box-shadow: var(--shadow); display: grid; place-items: center; }
 .tabbar .plus.on { background: var(--purple-deep); }
 
 @media (min-width: 820px) {
@@ -199,25 +212,26 @@ dialog::backdrop { background: rgba(46, 42, 85, .55); }
 <body>
 
 <header class="hd">
-  <div class="logo">N</div>
+  <img class="hd-art pix" src="./art/hd-printer.png" alt="">
   <div class="hd-tt">
     <h1>NATTAPRON 8-BIT AUTO SHOP</h1>
-    <p>ร้านนัฐภรณ์คัลเลอร์แล็บ · บอร์ดงาน + เกมจำลองร้าน</p>
+    <div class="hd-badge">✦ นัฐภรณ์คัลเลอร์แล็บ ✦</div>
   </div>
-  <div class="hd-chips">
-    <span class="chip demo">● LOCAL DEMO</span>
-    <span class="chip cnt">📋 คิว <strong id="hd-count">0</strong></span>
-  </div>
+  <img class="hd-art pix" src="./art/hd-frames.png" alt="">
 </header>
 
 <main>
+<div class="hd-chips">
+  <span class="chip demo">● LOCAL DEMO</span>
+  <span class="chip cnt">📋 คิว <strong id="hd-count">0</strong></span>
+</div>
 
 <!-- ============ หน้าร้าน ============ -->
 <section id="scr-home" class="scr">
   <div class="seg" role="tablist" aria-label="มุมมอง">
-    <button id="seg-inside" class="on">INSIDE</button>
-    <button id="seg-queue">คิวงาน</button>
-    <button id="seg-vinyl">ไวนิล</button>
+    <button id="seg-inside" class="on"><svg class="tabic" viewBox="0 0 22 22" aria-hidden="true"><path d="M3 19V9l4 2V9l4 2V9l4 2V5h4v14H3zm3-2h2v-3H6v3zm5 0h2v-3h-2v3zm5 0h2v-3h-2v3z"/></svg>INSIDE</button>
+    <button id="seg-queue"><img class="tabic" src="./art/tab-queue.png" alt="">คิวงาน</button>
+    <button id="seg-vinyl"><img class="tabic" src="./art/tab-vinyl.png" alt="">ไวนิล</button>
   </div>
 
   <div class="stage">
@@ -243,9 +257,9 @@ dialog::backdrop { background: rgba(46, 42, 85, .55); }
   </div>
 
   <div class="stats">
-    <div class="stat wait"><strong id="chip-wait">0</strong><span>รอคิว</span></div>
-    <div class="stat doing"><strong id="chip-doing">0</strong><span>กำลังทำ</span></div>
-    <div class="stat done"><strong id="chip-done">0</strong><span>เสร็จแล้ว</span></div>
+    <div class="stat wait"><img src="./art/st-wait.png" alt=""><span>รอคิว</span><strong id="chip-wait">0</strong></div>
+    <div class="stat doing"><img src="./art/st-doing.png" alt=""><span>กำลังทำ</span><strong id="chip-doing">0</strong></div>
+    <div class="stat done"><img src="./art/st-done.png" alt=""><span>เสร็จแล้ว</span><strong id="chip-done">0</strong></div>
   </div>
 
   <div class="panel" id="home-queue">
@@ -413,7 +427,7 @@ dialog::backdrop { background: rgba(46, 42, 85, .55); }
 <!-- ============ ใบงานของฉัน (job modal) ============ -->
 <dialog id="job-modal" aria-label="ใบงานของฉัน">
   <div class="m-head">
-    <div class="tt"><small>บอร์ดงาน · ร้านนัฐภรณ์</small><b>ใบงานของฉัน</b></div>
+    <div class="tt"><small>บอร์ดงาน · ร้านนัฐภรณ์</small><b><img class="pix" src="./art/tab-queue.png" alt="">ใบงานของฉัน</b></div>
     <button class="x" id="j-close" aria-label="ปิด">✕</button>
   </div>
   <div class="m-body">
@@ -422,33 +436,37 @@ dialog::backdrop { background: rgba(46, 42, 85, .55); }
       <span class="j-id" id="j-id">NP-0000</span>
     </div>
     <div class="j-card">
-      <div class="row"><span>งานของ</span><b id="j-customer">—</b></div>
-      <div class="row"><span>รายการ</span><b id="j-title">—</b></div>
-      <div class="row"><span>ประเภท</span><b id="j-kind">—</b></div>
-      <div class="row"><span>รับออเดอร์</span><b id="j-received">—</b></div>
-      <div class="row"><span>นัดรับ</span><b id="j-due">—</b></div>
-      <div class="row"><span>ลูกค้ารับจริง</span><b id="j-picked">—</b></div>
-      <div class="row"><span>ผู้ดูแล</span><b id="j-assignee">—</b></div>
-      <div class="row" id="j-note-row"><span>หมายเหตุ</span><b id="j-note">—</b></div>
+      <div class="j-rows">
+        <div class="row"><span>งานของ</span><b id="j-customer">—</b></div>
+        <div class="row"><span>รายการ</span><b id="j-title">—</b></div>
+        <div class="row"><span>รหัสใบงาน</span><b><span class="idpill" id="j-id2">NP-0000</span></b></div>
+        <div class="row"><span>ประเภท</span><b id="j-kind">—</b></div>
+        <div class="row"><span>รับออเดอร์</span><b id="j-received">—</b></div>
+        <div class="row"><span>นัดรับ</span><b id="j-due">—</b></div>
+        <div class="row"><span>ลูกค้ารับจริง</span><b id="j-picked">—</b></div>
+        <div class="row"><span>ผู้ดูแล</span><b id="j-assignee">—</b></div>
+        <div class="row" id="j-note-row"><span>หมายเหตุ</span><b id="j-note">—</b></div>
+      </div>
+      <div class="j-illo" id="j-illo">🖨️</div>
     </div>
     <div class="j-acts">
       <button class="btn primary" id="j-main-act">—</button>
       <div class="minor" id="j-minor-acts"></div>
     </div>
     <div class="j-foot">
-      <button class="btn lite" id="j-walk">🚶 เดินไปจุดงาน →</button>
-      <button class="btn lite" id="j-edit">✏️ แก้ไข</button>
+      <button class="btn lite" id="j-edit">✏️ บันทึกหน้างาน / แก้ไข</button>
+      <button class="btn primary" id="j-walk" style="width:auto">🚶 เดินไปจุดงาน →</button>
     </div>
   </div>
 </dialog>
 
 <!-- ============ bottom tabs ============ -->
 <nav class="tabbar" aria-label="เมนูหลัก">
-  <button id="tab-home" class="on"><span class="em">🏪</span>หน้าร้าน</button>
-  <button id="tab-queue"><span class="em">🗂️</span>จัดการงาน</button>
+  <button id="tab-home" class="on"><img class="nic" src="./art/nav-home.png" alt="">หน้าร้าน</button>
+  <button id="tab-queue"><img class="nic" src="./art/nav-queue.png" alt="">จัดการงาน</button>
   <button id="tab-new" class="plus" aria-label="รับงานใหม่">＋</button>
-  <button id="tab-report"><span class="em">📊</span>รายงาน</button>
-  <button id="tab-settings"><span class="em">⚙️</span>ตั้งค่า</button>
+  <button id="tab-report"><img class="nic" src="./art/nav-report.png" alt="">รายงาน</button>
+  <button id="tab-settings"><img class="nic" src="./art/nav-set.png" alt="">ตั้งค่า</button>
 </nav>
 
 <script type="module">
@@ -526,12 +544,26 @@ for (const s of SCREENS) $('tab-' + s).onclick = () => { if (s === 'new') { edit
 /* ---------- canvas game (VISUAL ONLY — this block never touches job status) ---------- */
 const cv = $('cv');
 const g = cv.getContext('2d', { alpha: false });
+/* ภาพฉากจากดีไซน์ที่ร้านอนุมัติ — โหลดได้ใช้ภาพ, โหลดไม่ได้ใช้ฉากที่วาดด้วยโค้ด */
+const artImg = new Image();
+artImg.src = './art/scene-inside.png';
+const artOn = () => artImg.complete && artImg.naturalWidth > 0;
 const scene = {
   view: 'inside',
   walkers: SC.buildWalkers(),
   dog: { x: 96, y: 452, tx: 96, ty: 452, nextMove: 0, heartUntil: 0 }, // dog sits on the counter like the real one
   truck: { visible: false, back: false, t: 0 },
   focusZone: '',
+  artImg,
+};
+function fitCanvas() {
+  const art = scene.view === 'inside' && artOn();
+  const [w, h] = art ? [SC.ART.w, SC.ART.h] : [SC.W, SC.H];
+  if (cv.width !== w) { cv.width = w; cv.height = h; cv.style.aspectRatio = `${w} / ${h}`; }
+}
+artImg.onload = () => {
+  scene.walkers = [SC.buildArtWalker()];
+  setView(scene.view); // ซ่อนปุ่มรถลอย (ภาพมีปุ่มในตัว) + ปรับขนาดแคนวาส
 };
 let walkerOverride = null; // {walker, restorePath, target}
 const vinylSim = { running: false, stage: -1, t: 0 };
@@ -543,7 +575,9 @@ function setView(v) {
   $('seg-vinyl').classList.toggle('on', v === 'route');
   $('seg-queue').classList.remove('on');
   $('v-panel').hidden = v !== 'route';
-  $('btn-vinyl-go').hidden = v !== 'inside';
+  // ภาพฉากมีปุ่มรถส่งไวนิลวาดอยู่แล้ว (แตะในภาพได้) — ปุ่มลอยใช้เฉพาะฉากสำรอง
+  $('btn-vinyl-go').hidden = v !== 'inside' || artOn();
+  fitCanvas();
   if (v === 'route') renderVinylJobs();
 }
 $('seg-inside').onclick = () => setView('inside');
@@ -623,20 +657,23 @@ $('v-start').onclick = () => {
 
 cv.addEventListener('click', (ev) => {
   const r = cv.getBoundingClientRect();
-  const x = ((ev.clientX - r.left) / r.width) * SC.W;
-  const y = ((ev.clientY - r.top) / r.height) * SC.H;
+  const x = ((ev.clientX - r.left) / r.width) * cv.width;
+  const y = ((ev.clientY - r.top) / r.height) * cv.height;
   if (scene.view !== 'inside') return;
-  const z = SC.hitZone(x, y);
+  const art = artOn();
+  const z = art ? SC.hitArtZone(x, y) : SC.hitZone(x, y);
   if (!z) return;
+  if (z === 'govinyl') { setView('route'); return; } // ปุ่มรถที่วาดอยู่ในภาพ
   scene.focusZone = z;
   const tip = $('zone-tip');
-  tip.textContent = '📍 ' + SC.ZONES[z].label;
+  tip.textContent = '📍 ' + (art ? SC.ART.zones : SC.ZONES)[z].label;
   tip.classList.add('on');
   clearTimeout(cv._tipTimer);
   cv._tipTimer = setTimeout(() => { tip.classList.remove('on'); scene.focusZone = ''; }, 2200);
 });
 
 /* ---------- rendering: shared row ---------- */
+const CHIP_IC = { wait: '⏳', work: '⚙️', vinyl: '🚚', ready: '🔔', done: '✅', off: '✖️' };
 function jobRow(j, { withRank = false, vis = [] } = {}) {
   const today = E.bkkTodayISO();
   const over = E.isOverdue(j, today);
@@ -651,7 +688,7 @@ function jobRow(j, { withRank = false, vis = [] } = {}) {
       <small>นัดรับ ${E.thaiDate(j.due)}${j.assignee ? ' · ' + esc(j.assignee) : ''}</small>
     </span>
     <span class="end">
-      <span class="badge ${st.chip === 'wait' ? 'c-wait' : st.chip === 'work' ? 'c-work' : st.chip === 'vinyl' ? 'c-vinyl' : st.chip === 'ready' ? 'c-ready' : st.chip === 'done' ? 'c-done' : 'c-off'}">${st.label}</span>
+      <span class="badge ${st.chip === 'wait' ? 'c-wait' : st.chip === 'work' ? 'c-work' : st.chip === 'vinyl' ? 'c-vinyl' : st.chip === 'ready' ? 'c-ready' : st.chip === 'done' ? 'c-done' : 'c-off'}">${CHIP_IC[st.chip]} ${st.label}</span>
       ${j.priority === 'urgent' && E.isOpen(j) ? '<span class="badge b-urgent">⚡ ด่วน</span>' : ''}
       ${over ? '<span class="badge b-over">เลยนัด</span>' : ''}
       ${j.sample ? '<span class="badge b-sample">ตัวอย่าง</span>' : ''}
@@ -734,7 +771,11 @@ function openJob(id) {
   modalId = id;
   const st = E.STATUS[j.status];
   $('j-id').textContent = '#' + j.id;
-  $('j-status').textContent = st.label;
+  $('j-id2').textContent = j.id;
+  $('j-illo').innerHTML = j.kind === 'print'
+    ? '<img class="pix" src="./art/job-printer.png" alt="">'
+    : `<span>${E.KIND[j.kind]?.icon || '📦'}</span>`;
+  $('j-status').textContent = CHIP_IC[st.chip] + ' ' + st.label;
   $('j-status').className = 'badge ' + ({ wait: 'c-wait', work: 'c-work', vinyl: 'c-vinyl', ready: 'c-ready', done: 'c-done', off: 'c-off' }[st.chip]);
   $('j-customer').textContent = j.customer || 'ไม่ระบุ';
   $('j-title').textContent = j.title + (j.qty ? ` × ${j.qty}${j.unit || ''}` : '');
@@ -810,12 +851,15 @@ $('j-walk').onclick = () => {
   $('job-modal').close();
   showScreen('home'); setView('inside');
   scene.focusZone = zone;
+  const art = artOn();
+  const spots = art ? SC.ART.spots : SC.SPOTS;
+  const zones = art ? SC.ART.zones : SC.ZONES;
   const w = scene.walkers[0];
   const cur = E.pointAt(w.path, w.t);
-  walkerOverride = { walker: w, restorePath: SC.WALK_LOOP };
-  w.path = [cur, SC.SPOTS[zone] || SC.SPOTS.counter];
+  walkerOverride = { walker: w, restorePath: art ? SC.ART_LOOP : SC.WALK_LOOP };
+  w.path = [cur, spots[zone] || spots.counter];
   w.t = 0; w.dwell = 0;
-  toast('พนักงานกำลังเดินไป “' + SC.ZONES[zone].label + '” (ภาพจำลอง)');
+  toast('พนักงานกำลังเดินไป “' + zones[zone].label + '” (ภาพจำลอง)');
   setTimeout(() => { scene.focusZone = ''; }, 3200);
 };
 $('j-edit').onclick = () => {
@@ -1026,6 +1070,8 @@ renderQueue();
 renderVinylJobs();
 saveOrders();
 setInterval(() => { if (screen === 'home') renderHome(); }, 60_000); // keep "วันนี้" fresh across midnight
+if (artOn()) artImg.onload(); // รูปมาจากแคชอาจ complete ก่อนผูก onload
+fitCanvas();
 requestAnimationFrame(frame);
 
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
