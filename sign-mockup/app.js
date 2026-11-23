@@ -6,7 +6,7 @@
   var R = NS.render;
   var KEY = 'np-sign-mockup-v1';
   // รุ่นของโปรแกรม — ต้องตรงกับ VERSION ใน sw.js (เลื่อนทั้งคู่ทุกครั้งที่ปล่อยรุ่นใหม่ แอปที่ติดตั้งไว้จะอัปเดตเอง)
-  var APP_VERSION = '4.19.0';
+  var APP_VERSION = '4.20.0';
   // โลโก้ร้าน NATTAPRON: แบบเต็ม (ใบเสนอราคา/แถบบน) · ตรา NTP (แถบใต้ภาพ) · รูปการ์ตูนเจ้าของร้าน (คนเทียบขนาด)
   var BRAND = (NS.BRAND = { full: 'brand/ntp-logo.png', mark: 'brand/ntp-mark.png', mascot: 'brand/mascot.webp', hands: C.HAND_BUILTIN.src });
 
@@ -22,7 +22,9 @@
     type: 'vinyl',
     w: 300,
     h: 100,
-    fit: 'cover',
+    fit: 'fill', // วางรูปบนป้าย: พอดีขนาดที่กรอก (ยืด) · cover = เต็มป้ายตัดขอบ · contain = เห็นทั้งรูป
+    fitV: 2,
+    sizeSet: false, // ร้านกรอก/เลือกขนาดเองแล้ว → ใส่ไฟล์งานไม่เปลี่ยนขนาดให้ (งานยืดพอดีขนาดที่กรอก)
     scene: 'shop',
     person: true,
     dims: true,
@@ -31,7 +33,7 @@
     brightness: 1,
     info: true,
     night: false,
-    light: { sign: 1, scene: 1, dir: -33 }, // ปุ่ม “แสง” ในภาพ 3 มิติ: ความสว่างป้าย · ทั้งภาพ · ทิศไฟหลัก (องศา)
+    light: { sign: 1, scene: 1, dir: -33, flat: true }, // ปุ่ม “แสง” ในภาพ 3 มิติ: ความสว่างป้าย · ทั้งภาพ · ทิศไฟหลัก (องศา) · สีป้ายตามไฟล์
     view: 'angle',
     spot: 'auto',
     doorOpen: true, // ประตูห้องเรียนเปิดพับชิดผนัง (แบบที่ร้านส่งรูปมา)
@@ -95,6 +97,12 @@
     s.look = C.normalizeLook(Object.assign({}, DEF.look, s.look));
     s.shape = C.normalizeShape(s.shape);
     s.light = C.normalizeLight(s.light);
+    // รุ่นก่อน 4.20 ค่าเริ่มต้นคือ “เต็มป้าย (ตัดขอบ)” → เปลี่ยนเป็น “พอดีขนาด” ครั้งเดียว (ที่เลือก “เห็นทั้งรูป” ไว้คงเดิม)
+    // (ดูจากค่าที่บันทึกไว้จริง — s ตั้งต้นจาก DEF ที่มี fitV อยู่แล้ว)
+    if (saved && typeof saved === 'object' && saved.fitV !== 2 && s.fit !== 'contain') s.fit = 'fill';
+    s.fitV = 2;
+    if (['fill', 'cover', 'contain'].indexOf(s.fit) < 0) s.fit = 'fill';
+    s.sizeSet = !!s.sizeSet;
     if (!C.HAND_VIEWS[s.handView]) s.handView = 'both';
     s.bill = C.normalizeBill(s.bill);
     if (!C.TYPES[s.type]) s.type = DEF.type;
@@ -285,6 +293,10 @@
       shapeCache = { key: key, design: sd };
     }
     return shapeCache.design;
+  }
+  // ไฟล์พิมพ์จริง (จัดหน้าบัตร) ห้ามยืดงาน — “พอดีขนาด” ใช้แค่ภาพจำลอง ไฟล์พิมพ์ใช้เต็มป้ายแทน
+  function printFit() {
+    return st.fit === 'fill' ? 'cover' : st.fit;
   }
   function fitNow() {
     return runNow() || shapeNow() !== 'rect' ? 'cover' : st.fit;
@@ -711,6 +723,7 @@
         }
         st.w = p[0];
         st.h = p[1];
+        st.sizeSet = true;
         refreshPhotoQuad();
         sync();
       });
@@ -739,6 +752,7 @@
       b.addEventListener('click', function () {
         st.w = p[0];
         st.h = p[1];
+        st.sizeSet = true;
         refreshPhotoQuad();
         sync();
       });
@@ -958,7 +972,7 @@
     $('ratioNote').hidden = !mismatch;
     if (mismatch) {
       $('ratioText').textContent =
-        st.fit === 'cover' ? 'สัดส่วนรูปไม่ตรงกับป้าย ขอบรูปบางส่วนจะถูกตัด' : 'สัดส่วนรูปไม่ตรงกับป้าย จะมีขอบว่างรอบรูป';
+        st.fit === 'fill' ? 'สัดส่วนรูปไม่ตรงกับขนาดที่กรอก — ยืดรูปให้พอดีป้ายแล้ว' : st.fit === 'cover' ? 'สัดส่วนรูปไม่ตรงกับป้าย ขอบรูปบางส่วนจะถูกตัด' : 'สัดส่วนรูปไม่ตรงกับป้าย จะมีขอบว่างรอบรูป';
     }
     buildPresets();
     buildSpots();
@@ -1048,7 +1062,9 @@
         imgDesign = d;
         showFileCard();
         st.mode = 'image';
-        if (C.geometry(st.type, st.w, st.h, st.steel).mount === 'wall' && C.ratioMismatch(st.w, st.h, imgDesign.w, imgDesign.h)) {
+        // กรอกขนาดเองแล้ว + พอดีขนาด → คงขนาดที่กรอก งานยืดพอดีป้าย · ยังไม่ได้กรอก → ปรับความสูงตามสัดส่วนรูปให้เหมือนเดิม
+        var keepSize = st.sizeSet && st.fit === 'fill';
+        if (!keepSize && C.geometry(st.type, st.w, st.h, st.steel).mount === 'wall' && C.ratioMismatch(st.w, st.h, imgDesign.w, imgDesign.h)) {
           st.h = C.clampCm(C.heightForImage(st.w, imgDesign.w, imgDesign.h), st.h);
           toast('ปรับความสูงป้ายเป็น ' + C.fmtCm(st.h) + ' ซม. ให้ตรงกับสัดส่วนรูปแล้ว');
           refreshPhotoQuad();
@@ -1154,6 +1170,7 @@
       var v = C.num(e.target.value);
       if (v >= C.clampCm(1, 5) && v <= 2000) {
         st[key] = C.clampCm(v, st[key]);
+        st.sizeSet = true; // ร้านกรอกขนาดเอง: ใส่ไฟล์งานทีหลังไม่เปลี่ยนขนาดนี้
         refreshPhotoQuad();
         save();
         buildPresets();
@@ -2245,10 +2262,10 @@
     // รูปบัตร 300 dpi (ใหญ่สุด 4000 จุด) รวมตัดตก ใส่คำนำหน้าไว้ในรูป ตัวเลขไปใส่ใน PDF
     var k = Math.min(300 / 2.54, 4000 / (Math.max(st.w, st.h) + 2 * L.bleed));
     var split = st.mode !== 'image';
-    var art = R.cardArt(d, st.w, st.h, st.fit, r, { k: k, bleed: L.bleed, digits: false, split: split });
+    var art = R.cardArt(d, st.w, st.h, printFit(), r, { k: k, bleed: L.bleed, digits: false, split: split });
     // ภาพตัวอย่างแผ่นแรก (ย่อ) มีเลขจริงทุกช่อง
     var prev = R.sheetPreview(plan, function (i) {
-      return R.cardArt(d, st.w, st.h, st.fit, r, { k: (900 / L.sw) * 1.25, bleed: L.bleed, index: i, split: split }).canvas;
+      return R.cardArt(d, st.w, st.h, printFit(), r, { k: (900 / L.sw) * 1.25, bleed: L.bleed, index: i, split: split }).canvas;
     }, 900);
     return toBlob(art.canvas, 'image/jpeg', 0.93).then(function (jpg) {
       return blobBytes(jpg).then(function (bytes) {
@@ -4446,6 +4463,7 @@
         if (j.size) {
           st.w = C.clampCm(j.size.w, st.w);
           st.h = C.clampCm(j.size.h, st.h);
+          st.sizeSet = true;
         }
         if (j.images && j.images.length) useJobImage(j.images[0].id, !!j.size);
         else {
@@ -6087,10 +6105,20 @@
     $('lsignVal').textContent = Math.round(L.sign * 100) + '%';
     $('lsceneVal').textContent = Math.round(L.scene * 100) + '%';
     $('ldirVal').textContent = lightDirText(L.dir);
+    pressed('#lflatSeg button', 'flat', L.flat ? '1' : '0');
   }
+  // สีป้าย: ตามไฟล์งาน (ไม่รับแสง/เงาของฉาก) / ตามแสงในฉาก
+  document.querySelectorAll('#lflatSeg button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      st.light = C.normalizeLight(Object.assign({}, st.light, { flat: b.dataset.flat === '1' }));
+      syncLightUI();
+      save();
+      draw();
+    });
+  });
   var lightRaf = 0;
   function lightChanged() {
-    st.light = C.normalizeLight({ sign: $('lsign').value, scene: $('lscene').value, dir: $('ldir').value });
+    st.light = C.normalizeLight({ sign: $('lsign').value, scene: $('lscene').value, dir: $('ldir').value, flat: C.normalizeLight(st.light).flat });
     syncLightUI();
     save();
     // ลากแถบเลื่อน: วาดใหม่เฟรมละครั้งพอ

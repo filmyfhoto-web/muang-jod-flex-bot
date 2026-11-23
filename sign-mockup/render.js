@@ -1060,7 +1060,10 @@
       x.fillRect(px, py, w, h);
       return;
     }
-    if (fit === 'contain') {
+    if (fit === 'fill') {
+      // ยืดพอดีขนาดที่กรอก (จำลองภาพให้ดู: กรอกขนาดไหน งานเต็มป้ายขนาดนั้น ไม่ตัดขอบ ไม่เว้นขอบ)
+      x.drawImage(d.src, px, py, w, h);
+    } else if (fit === 'contain') {
       x.fillStyle = d.bg ? rgb(d.bg) : '#ffffff';
       x.fillRect(px, py, w, h);
       var r = C.containRect(d.w, d.h, w, h);
