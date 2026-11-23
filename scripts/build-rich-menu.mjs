@@ -51,6 +51,7 @@ const ROW3_Y = ROW2_Y + ROW_H + GAP_Y;       // 1018
 const ROW3_H = 400;
 const FOOT_Y = ROW3_Y + ROW3_H;              // 1418
 const FOOT_H = H - FOOT_Y;                   // 268
+const GAME_W = 840;                          // การ์ดเกมร้าน กินท้ายแถวแบรนด์ขวา
 
 // ------------------------------------------------------------------ colours --
 const NAVY = '#17357E', INK = '#1B2540', SUB = '#3D4C73';
@@ -204,9 +205,19 @@ ${SMALL.filter((c) => c.row)
   )
   .join('')}
 
-<div class="foot">
+<div class="foot" style="width:${W - GAME_W}px">
   <div class="fw">ม่วงจดให้ 🐾</div>
   <div class="ft">จดงานให้ · จดเงินให้ · อยู่ข้างคุณเสมอ</div>
+</div>
+
+<!-- เกมร้าน 8-BIT — stand-in ของการ์ดที่ composite ลงบนงานจริงด้วย
+     scripts/add-game-tile.mjs (เรขาคณิตเดียวกัน: ขวาสุดของแถวแบรนด์) -->
+<div style="position:absolute;left:${W - GAME_W + 40}px;top:${FOOT_Y + 28}px;width:${GAME_W - 108}px;height:${FOOT_H - 56}px;
+  border-radius:36px;background:linear-gradient(150deg,#B9A7E8 0%,#8451BF 100%);
+  box-shadow:0 14px 30px rgba(0,0,0,.3);display:flex;align-items:center;gap:26px;padding:0 34px">
+  <img style="width:140px;height:140px;border-radius:24px" src="data:image/png;base64,${b64('public/game/icon-192.png')}">
+  <div><div style="font-weight:700;font-size:60px;color:#fff;line-height:1.1">เกมร้าน 8-BIT ✦</div>
+  <div style="font-weight:400;font-size:36px;color:#EDE4FB;margin-top:4px">บอร์ดงานหน้าร้าน · แตะเล่น</div></div>
 </div>
 </body></html>`;
 

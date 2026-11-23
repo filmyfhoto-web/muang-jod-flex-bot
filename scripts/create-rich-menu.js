@@ -4,6 +4,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import linebot from '@line/bot-sdk';
 import { liffUrl, quickFormUrl } from '../src/utils/liff.js';
+import { publicBaseUrl } from '../src/utils/brand.js';
 
 const { MessagingApiClient, MessagingApiBlobClient } = linebot.messagingApi;
 
@@ -35,6 +36,8 @@ const ROW3_Y = ROW2_Y + ROW_H + GAP_Y;
 const ROW3_H = 400;
 const FOOT_Y = ROW3_Y + ROW3_H;
 const FOOT_H = LAYOUT.height - FOOT_Y;
+// ปุ่มเกมร้าน กินท้ายแถวแบรนด์ด้านขวา (ร้านขอเชื่อมเกมเข้าริชเมนู)
+const GAME_W = 840;
 
 // A tap area is grown to the gutter around its card, so a press that lands
 // between two cards still does something rather than nothing.
@@ -72,15 +75,26 @@ const BUTTONS = [
 ];
 
 // The brand footer. It reads as decoration, which is exactly why the old menu's
-// decorative panel had to be made tappable: people press the logo.
+// decorative panel had to be made tappable: people press the logo. The game
+// card now sits at its right end, so the brand's tap area stops where the
+// card's begins.
 const FOOTER = { label: 'ม่วงจดให้', data: 'action=home',
-  bounds: { x: 0, y: FOOT_Y, width: LAYOUT.width, height: FOOT_H } };
+  bounds: { x: 0, y: FOOT_Y, width: LAYOUT.width - GAME_W, height: FOOT_H } };
+
+// เกมร้าน NATTAPRON 8-BIT — เปิดหน้า /game/ ตรง ๆ (ร้านสั่งเชื่อมเองเมื่อ 23 พ.ย. 69)
+// ไม่ใช่แท็บของแอป LIFF จึงใช้ลิงก์จาก PUBLIC_BASE_URL; ไม่มีค่า → postback แทน
+const GAME = { label: 'เกมร้าน 8-BIT', data: 'action=open_game', page: 'game',
+  bounds: { x: LAYOUT.width - GAME_W, y: FOOT_Y, width: GAME_W, height: FOOT_H } };
 
 // Where a `page` button goes. 'jot' is the job form; the rest are tabs of the
 // dashboard app. Null whenever LIFF is not configured, which sends the button
 // back down the postback route.
 export function pageUrl(page, env = process.env) {
   if (!page) return null;
+  if (page === 'game') {
+    const base = publicBaseUrl(env);
+    return base ? `${base}/game/` : null;
+  }
   return page === 'jot' ? quickFormUrl({}, env) : liffUrl({ tab: page }, env);
 }
 
@@ -103,12 +117,12 @@ function area(btn, env = process.env) {
   };
 }
 
-// The nine tappable areas: eight cards, then the brand footer.
+// The ten tappable areas: eight cards, the brand footer, then the game card.
 export function buildAreas(env = process.env) {
-  return [...BUTTONS, FOOTER].map((btn) => area(btn, env));
+  return [...BUTTONS, FOOTER, GAME].map((btn) => area(btn, env));
 }
 
-export { LAYOUT, BUTTONS, FOOTER };
+export { LAYOUT, BUTTONS, FOOTER, GAME };
 
 const CONTENT_TYPES = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png' };
 
