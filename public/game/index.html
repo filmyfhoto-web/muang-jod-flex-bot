@@ -156,6 +156,9 @@ label.lb { display: block; font-size: 13px; font-weight: 800; color: var(--ink-s
 .v-controls { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
 .v-controls .btn { flex: 1; }
 .v-controls select { min-height: 48px; border-radius: 12px; border: 2.5px solid var(--line); background: var(--card); padding: 0 8px; font-weight: 800; }
+.v-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+.v-tabs button { min-height: 44px; border-radius: 12px; border: 2.5px solid var(--line-deep); background: var(--card); font-weight: 900; font-size: 13px; color: var(--ink); }
+.v-tabs button.on { background: var(--purple); border-color: var(--purple-deep); color: #fff; }
 
 /* report */
 .rgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
@@ -250,14 +253,21 @@ dialog::backdrop { background: rgba(67, 32, 118, .5); }
 
   <!-- vinyl simulation controls (visible in ไวนิล view) -->
   <div class="panel" id="v-panel" hidden>
-    <h2 class="sec">🏍️ มอไซค์ส่งงาน ร้าน → บ้านทำไวนิล → ร้าน</h2>
-    <p class="muted" id="v-note">การ์ตูนจำลองเท่านั้น ไม่ใช่ GPS และไม่เปลี่ยนสถานะงานจริง — ยืนยันสถานะจริงที่รายการด้านล่าง</p>
-    <div class="v-stages" id="v-stages"></div>
-    <div class="v-bar"><div id="v-bar"></div></div>
-    <div class="v-controls">
-      <button class="btn primary" id="v-start">▶ ให้มอไซค์วิ่งหนึ่งรอบ</button>
-      <select id="v-speed" aria-label="ความเร็ว"><option value="1">×1</option><option value="2" selected>×2</option><option value="4">×4</option></select>
+    <div class="v-tabs">
+      <button id="v-route" class="on">🗺️ เส้นทาง</button>
+      <button id="v-room">🏠 ในห้องไวนิล</button>
     </div>
+    <div id="v-simbox">
+      <h2 class="sec">🏍️ มอไซค์ส่งงาน ร้าน → บ้านทำไวนิล → ร้าน</h2>
+      <p class="muted" id="v-note">การ์ตูนจำลองเท่านั้น ไม่ใช่ GPS และไม่เปลี่ยนสถานะงานจริง — ยืนยันสถานะจริงที่รายการด้านล่าง</p>
+      <div class="v-stages" id="v-stages"></div>
+      <div class="v-bar"><div id="v-bar"></div></div>
+      <div class="v-controls">
+        <button class="btn primary" id="v-start">▶ ให้มอไซค์วิ่งหนึ่งรอบ</button>
+        <select id="v-speed" aria-label="ความเร็ว"><option value="1">×1</option><option value="2" selected>×2</option><option value="4">×4</option></select>
+      </div>
+    </div>
+    <p class="muted" id="v-roomnote" hidden>🏠 ห้องทำไวนิลของจริง — ผังอิงรูปถ่ายห้อง (เครื่องพิมพ์ใหญ่ โต๊ะตัด ตอกตาไก่) แตะจุดไหนมีป้ายบอก · ภาพจำลอง ไม่เปลี่ยนสถานะงาน</p>
     <div style="margin-top:12px">
       <h2 class="sec">งานสายไวนิลตอนนี้</h2>
       <div class="job-list" id="v-jobs"></div>
@@ -555,6 +565,7 @@ const scene = {
   walkers: SC.buildWalkers(),
   dog: { x: 96, y: 452, tx: 96, ty: 452, nextMove: 0, heartUntil: 0 }, // dog sits on the counter like the real one
   moto: { visible: false, back: false, t: 0 },
+  roomWalker: SC.buildRoomWalker(), // ฟิล์มในห้องไวนิล (ฉากอิงรูปห้องจริง)
   focusZone: '',
   walkerName: 'ฟิล์ม', // ชื่อตัวละครเดิน (ร้านตั้ง) — เปลี่ยนตาม "เครื่องนี้คือใคร" ในตั้งค่า
   artImg,
@@ -585,19 +596,28 @@ let walkerOverride = null; // {walker, restorePath, target}
 const vinylSim = { running: false, stage: -1, t: 0 };
 const V_STAGES = ['ออกจากร้าน', 'ถึงบ้านไวนิล', 'กำลังผลิต (จำลอง)', 'ขากลับ', 'ถึงร้านแล้ว'];
 
+let lastVinylView = 'route'; // จอไวนิลจำโหมดล่าสุด (เส้นทาง/ในห้อง)
 function setView(v) {
   scene.view = v;
+  const vinyl = v === 'route' || v === 'vinylroom';
+  if (vinyl) lastVinylView = v;
   $('seg-inside').classList.toggle('on', v === 'inside');
-  $('seg-vinyl').classList.toggle('on', v === 'route');
+  $('seg-vinyl').classList.toggle('on', vinyl);
   $('seg-queue').classList.remove('on');
-  $('v-panel').hidden = v !== 'route';
+  $('v-panel').hidden = !vinyl;
+  $('v-route').classList.toggle('on', v === 'route');
+  $('v-room').classList.toggle('on', v === 'vinylroom');
+  $('v-simbox').hidden = v !== 'route';
+  $('v-roomnote').hidden = v !== 'vinylroom';
   // ภาพฉากมีปุ่มรถส่งไวนิลวาดอยู่แล้ว (แตะในภาพได้) — ปุ่มลอยใช้เฉพาะฉากสำรอง
   $('btn-vinyl-go').hidden = v !== 'inside' || artOn();
   fitCanvas();
-  if (v === 'route') renderVinylJobs();
+  if (vinyl) renderVinylJobs();
 }
+$('v-route').onclick = () => setView('route');
+$('v-room').onclick = () => setView('vinylroom');
 $('seg-inside').onclick = () => setView('inside');
-$('seg-vinyl').onclick = () => setView('route');
+$('seg-vinyl').onclick = () => setView(lastVinylView);
 $('seg-queue').onclick = () => showScreen('queue');
 $('btn-vinyl-go').onclick = () => setView('route');
 
@@ -607,16 +627,17 @@ function frame(t) {
   lastT = t;
   if (screen === 'home' && !document.hidden) {
     // walkers + dog wander: cosmetic coordinates only, no order data in reach
-    if (walkerOverride) {
+    const crew = scene.view === 'vinylroom' ? [scene.roomWalker] : scene.walkers;
+    if (walkerOverride && crew.includes(walkerOverride.walker)) {
       const w = walkerOverride.walker;
       w.t += (w.speed * dt) / 1000 / Math.max(1, E.pathLength(w.path));
       if (w.t >= 1) {
         w.path = walkerOverride.restorePath; w.t = 0; w.dwell = 1600;
         walkerOverride = null;
       }
-      SC.tickWalkers(scene.walkers.filter((x) => x !== w), dt);
+      SC.tickWalkers(crew.filter((x) => x !== w), dt);
     } else {
-      SC.tickWalkers(scene.walkers, dt);
+      SC.tickWalkers(crew, dt);
     }
     const dg = scene.dog;
     if (t > dg.nextMove) {
@@ -650,7 +671,7 @@ function stepRide(dt) {
       setView('inside');
       walkTo('counter', scene.walkerName + 'กลับถึงร้านแล้ว เอางานมาส่งที่เคาน์เตอร์ (ภาพจำลอง)');
     } else {
-      toast(scene.walkerName + 'ถึงบ้านทำไวนิลแล้ว (ภาพจำลอง) — ผลิตเสร็จค่อยกดยืนยันรับกลับนะคะ');
+      roomWalkTo('printer', scene.walkerName + 'ถึงบ้านไวนิลแล้ว เดินเข้าไปเตรียมเครื่องพิมพ์ (ภาพจำลอง)', 'door');
     }
   }
 }
@@ -697,6 +718,17 @@ cv.addEventListener('click', (ev) => {
   const r = cv.getBoundingClientRect();
   const x = ((ev.clientX - r.left) / r.width) * (scene.logicalW || cv.width);
   const y = ((ev.clientY - r.top) / r.height) * (scene.logicalH || cv.height);
+  if (scene.view === 'vinylroom') {
+    const rz = SC.hitRoomZone(x, y);
+    if (!rz) return;
+    scene.focusZone = rz;
+    const rtip = $('zone-tip');
+    rtip.textContent = '📍 ' + SC.ROOM.zones[rz].label;
+    rtip.classList.add('on');
+    clearTimeout(cv._tipTimer);
+    cv._tipTimer = setTimeout(() => { rtip.classList.remove('on'); scene.focusZone = ''; }, 2200);
+    return;
+  }
   if (scene.view !== 'inside') return;
   const art = artOn();
   const z = art ? SC.hitArtZone(x, y) : SC.hitZone(x, y);
@@ -907,6 +939,19 @@ function walkTo(zone, say) {
   setTimeout(() => { scene.focusZone = ''; }, 3200);
 }
 
+/* ส่งฟิล์มเดินในห้องไวนิล (ฉากอิงรูปห้องจริง — ภาพอย่างเดียว) */
+function roomWalkTo(zone, say, fromZone) {
+  showScreen('home'); setView('vinylroom');
+  scene.focusZone = zone;
+  const w = scene.roomWalker;
+  const start = fromZone ? SC.ROOM.spots[fromZone] : E.pointAt(w.path, w.t);
+  walkerOverride = { walker: w, restorePath: SC.ROOM.path };
+  w.path = [start, SC.ROOM.spots[zone] || SC.ROOM.spots.printer];
+  w.t = 0; w.dwell = 0;
+  toast(say || `${scene.walkerName}กำลังเดินไป “${SC.ROOM.zones[zone].label}” (ภาพจำลอง)`);
+  setTimeout(() => { scene.focusZone = ''; }, 3200);
+}
+
 /* วิถีการทำงาน: พนักงานกดยืนยันสถานะจริงแล้ว ตัวละครถึงออกไปทำตามนั้น
  * (ภาพตามหลังการยืนยันเสมอ ไม่มีทางย้อนกลับไปแก้ใบงาน)
  * คืนค่า true = พาไปดูฉากแล้ว (ไม่ต้องเปิดโมดัลซ้ำ) */
@@ -932,6 +977,9 @@ function playWorkFor(to, kind) {
       showScreen('home'); setView('route');
       rideAnim.mode = 'out'; rideAnim.t = 0;
       toast('🏍️ ' + name + 'ขับมอไซค์เอางานออกไปบ้านทำไวนิล (ภาพจำลอง)');
+      return true;
+    case 'vinyl_production':
+      roomWalkTo('printer', name + 'เริ่มเดินเครื่องพิมพ์ไวนิลที่บ้าน (ภาพจำลอง)');
       return true;
     case 'back_at_shop':
       if (vinylSim.running) return false;

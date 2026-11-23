@@ -175,6 +175,23 @@ test('เกม: ฟิล์มมีชื่อลอยหัว + วิถ
   assert.ok(!html.includes('🚚'));
 });
 
+test('เกม: ห้องทำไวนิลจำลองจากรูปถ่ายห้องจริง + สลับเส้นทาง/ในห้อง + วิถีงานพาเข้าห้อง', () => {
+  // ฉากห้อง: เครื่องพิมพ์ใหญ่ โต๊ะตัด ตอกตาไก่ ม้วนไวนิล โต๊ะคอม งานพิมพ์เสร็จ ทางเข้า(มอไซค์จอด)
+  assert.ok(scene.includes('export function drawVinylRoom'));
+  for (const z of ['printer', 'cut', 'eyelet', 'rolls', 'desk', 'banner', 'door']) {
+    assert.ok(new RegExp(`${z}: \\{ x: `).test(scene), 'ROOM zone ' + z);
+  }
+  assert.ok(scene.includes("label: 'ตอกตาไก่'"));
+  assert.ok(scene.includes('export function hitRoomZone'));
+  // ปุ่มสลับ เส้นทาง ↔ ในห้องไวนิล + ป้ายความจริงของห้อง
+  assert.ok(html.includes('id="v-route"') && html.includes('id="v-room"'));
+  assert.ok(html.includes('ผังอิงรูปถ่ายห้อง'));
+  // วิถีงาน: ถึงบ้านไวนิล (จบขาออก) และกดเริ่มผลิต → เข้าไปเห็นฟิล์มทำงานในห้อง
+  assert.match(html, /case 'vinyl_production':\s*\n\s*roomWalkTo\('printer'/);
+  assert.ok(html.includes("roomWalkTo('printer', scene.walkerName + 'ถึงบ้านไวนิลแล้ว"));
+  assert.ok(html.includes("if (scene.view === 'vinylroom') {")); // แตะโซนในห้องมีป้ายบอก
+});
+
 test('เกม: localStorage มีกันพัง และย้ายคิวจากต้นแบบเก่าอัตโนมัติ', () => {
   assert.ok(html.includes("const KEY = 'np8_orders_v1'"));
   assert.ok(html.includes("const OLD_KEY = 'nattapron_vinyl_mobile_queue_v3'"));
