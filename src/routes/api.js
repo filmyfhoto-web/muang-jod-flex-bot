@@ -25,7 +25,7 @@ import { parseNaturalJob } from '../utils/nlParser.js';
 import { splitDump, looksLikeDump } from '../utils/dumpSplit.js';
 import { makeDraft } from '../utils/jobDraft.js';
 import { extractDueDate } from '../utils/thaiDate.js';
-import { saveAttachment } from '../services/attachmentService.js';
+import { saveAttachment, listJobImages, signedImageUrl } from '../services/attachmentService.js';
 import { push } from '../services/lineService.js';
 import { receiptFlex } from '../flex/receiptFlex.js';
 import { receiptUrl } from '../flex/billFlex.js';
@@ -179,6 +179,8 @@ export function createApiRouter(deps = {}) {
   const findRef = deps.findJobByClientRef || findJobByClientRef;
   const dropJob = deps.cancelJob || cancelJob;
   const writeCheckin = deps.saveCheckinSettings || saveCheckinSettings;
+  const imagesOf = deps.listJobImages || listJobImages;
+  const signImage = deps.signedImageUrl || signedImageUrl;
   // Tell the chat about a job saved from the form. Never throws: the job is
   // already saved, and a chat that missed the news must not turn into a failed
   // save the user then repeats.
@@ -469,6 +471,25 @@ export function createApiRouter(deps = {}) {
         billNumber: bill.bill_number || null,
         reused: Boolean(job.bill_id),
       });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /* รูปในงาน (หน้าแก้ไขงาน) — ไฟล์งานที่ลูกค้าส่ง สลิป และภาพจำลองป้ายที่บันทึกจากแอปจำลองป้าย
+   * ลิงก์รูปเป็นลิงก์ลายเซ็น (bucket ส่วนตัว) · ตรวจก่อนว่างานเป็นของคนที่ล็อกอิน
+   */
+  router.get('/jobs/:id/images', async (req, res, next) => {
+    try {
+      const job = await findJob(req.profile.id, req.params.id);
+      if (!job) return res.status(404).json({ error: 'not_found' });
+      const rows = await imagesOf(job.id);
+      const images = [];
+      for (const a of rows) {
+        const url = await signImage(a.file_url);
+        if (url) images.push({ id: a.id, url, at: a.created_at || null });
+      }
+      res.json({ images });
     } catch (err) {
       next(err);
     }

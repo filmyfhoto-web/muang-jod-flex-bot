@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { createApiRouter } from '../src/routes/api.js';
 import { createSignJobRouter, decodeImage } from '../src/routes/signJob.js';
 import { mintTicket, readTicket, sizeFromJob, jobForMockup, isShareLink, noteWithLink, LINK_LINE } from '../src/utils/mockupTicket.js';
-import { storagePathOf } from '../src/services/attachmentService.js';
+import { storagePathOf, signedImageUrl } from '../src/services/attachmentService.js';
 
 const KEY = 'test-ticket-secret';
 const read = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
@@ -191,4 +191,41 @@ test('หน้าเว็บ: ปุ่มทำภาพ 3 มิติใน
   assert.match(app, /fetch\('api\/job\/' \+ jobLink\.ticket \+ '\/mockup'/);
   const server = read('src/server.js');
   assert.ok(server.indexOf("app.use('/sign/api/job', signJobRouter)") < server.indexOf("app.use('/sign', signShareRouter)"));
+});
+
+test('รูปในงาน (หน้าแก้ไขงานในม่วงจด): เฉพาะงานของคนที่ล็อกอิน · ลิงก์ลายเซ็นเดิมใช้ได้เลย · path เก่าเซ็นใหม่', async () => {
+  process.env.LIFF_ID ||= '1234567890-abcdefgh';
+  const signedUrl = 'https://x.supabase.co/storage/v1/object/sign/job-evidence/user-1/job-1/a.jpg?token=t';
+  // ตัวเซ็นลิงก์: ลิงก์ลายเซ็นของ bucket งานคืนเดิม · path → เซ็นใหม่ · ของ bucket อื่น/ลิงก์แปลก → null
+  const fake = { storage: { from: () => ({ createSignedUrl: async (path) => ({ data: { signedUrl: 'https://x.supabase.co/storage/v1/object/sign/job-evidence/' + path + '?token=new' } }) }) } };
+  assert.equal(await signedImageUrl(signedUrl, fake), signedUrl);
+  assert.equal(await signedImageUrl('user-1/job-1/b.png', fake), 'https://x.supabase.co/storage/v1/object/sign/job-evidence/user-1/job-1/b.png?token=new');
+  assert.equal(await signedImageUrl('https://evil.example.com/a.jpg', fake), null);
+  assert.equal(await signedImageUrl('https://x.supabase.co/storage/v1/object/sign/other/u/j/a.jpg?t', fake), null);
+  const app = express();
+  app.use(
+    '/api',
+    createApiRouter({
+      verify: async (tok) => (tok ? { userId: 'U-line' } : null),
+      resolveProfile: async () => ({ id: 'user-1', line_user_id: 'U-line' }),
+      getJobById: async (u, id) => (u === 'user-1' && id === 'job-1' ? { id: 'job-1' } : null),
+      listJobImages: async (j) => (j === 'job-1' ? [{ id: 'a', file_url: signedUrl, created_at: '2026-11-23' }, { id: 'b', file_url: 'https://evil.example.com/x.jpg' }] : []),
+      signedImageUrl: (u) => signedImageUrl(u, fake),
+    })
+  );
+  const server = app.listen(0);
+  await new Promise((r) => server.once('listening', r));
+  const base = `http://127.0.0.1:${server.address().port}/api/jobs/`;
+  try {
+    const r = await fetch(base + 'job-1/images', { headers: { Authorization: 'Bearer t' } });
+    assert.equal(r.status, 200);
+    assert.deepEqual(await r.json(), { images: [{ id: 'a', url: signedUrl, at: '2026-11-23' }] });
+    assert.equal((await fetch(base + 'job-2/images', { headers: { Authorization: 'Bearer t' } })).status, 404);
+  } finally {
+    await new Promise((r) => server.close(r));
+  }
+  const liff = read('public/liff/index.html');
+  assert.match(liff, /<div class="pics" id="e-pics" hidden>/);
+  assert.match(liff, /const \{ images \} = await api\('\/jobs\/' \+ jobId \+ '\/images'\);/);
+  assert.match(liff, /loadPics\(job\.id\);/);
 });

@@ -108,3 +108,14 @@ export function storagePathOf(fileUrl) {
   if (m) return m[1] === STORAGE_BUCKET ? decodeURIComponent(m[2]) : null;
   return /^[\w-]+\/[\w-]+\/[\w-]+\.(jpg|png)$/.test(s) ? s : null;
 }
+
+// ลิงก์เปิดรูปในงานสำหรับหน้าเว็บของร้าน: ลิงก์ลายเซ็นที่เก็บไว้ (อายุ 1 ปี) ใช้ได้เลย
+// แถวเก่าที่เก็บเป็น path (เซ็นไม่ได้ตอนบันทึก) → เซ็นใหม่ 1 ชั่วโมง · ไม่ใช่รูปของ bucket งาน → null
+export async function signedImageUrl(fileUrl, client = supabase) {
+  const s = String(fileUrl || '');
+  if (/^https:\/\/[^/]+\/storage\/v1\/object\/sign\//.test(s)) return storagePathOf(s) ? s : null;
+  const path = storagePathOf(s);
+  if (!path) return null;
+  const { data } = await client.storage.from(STORAGE_BUCKET).createSignedUrl(path, 3600);
+  return data?.signedUrl || null;
+}
