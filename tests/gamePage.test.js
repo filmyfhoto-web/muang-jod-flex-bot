@@ -18,7 +18,7 @@ test('เกม: หน้าเพจเป็น PWA มือถือ — vi
   assert.match(html, /html, body \{ overflow-x: hidden; \}/);
   assert.match(html, /padding-bottom: calc\(78px \+ env\(safe-area-inset-bottom\)\)/);
   assert.match(html, /env\(safe-area-inset-top\)/);
-  assert.ok(html.includes("font: 15px/1.5 'Noto Sans Thai'"));
+  assert.ok(html.includes("font: 500 15.5px/1.5 'Noto Sans Thai'")); // น้ำหนักกลาง อ่านชัดตามที่ร้านขอ
 });
 
 test('เกม: ปุ่มแตะได้ขั้นต่ำ 44px ทั้งปุ่มทั่วไปและแท็บล่าง', () => {
@@ -136,7 +136,7 @@ test('เกม: ตัวหนังสือคมบนมือถือ �
   // คลิกใช้พิกัด logical ไม่ใช่พิกเซลจอ
   assert.ok(html.includes('(scene.logicalW || cv.width)'));
   // ป้ายชื่อโซนในภาพถูกวาดทับด้วยฟอนต์จริง (ภาพ upscale แล้วป้ายเดิมมัว)
-  assert.ok(scene.includes('function plateCover(g, text, cx, cy, minW = 0, size = 18)'));
+  assert.ok(scene.includes('function plateCover(g, text, cx, cy, minW = 0, size = 21)'));
   assert.ok(scene.includes('for (const [text, lx, ly, minW] of ART.labels) plateCover(g, text, lx, ly, minW);'));
   assert.ok(scene.includes("['เคาน์เตอร์รับงาน', 191, 629, 228]"));
   assert.ok(scene.includes("g.imageSmoothingQuality = 'high';"));
