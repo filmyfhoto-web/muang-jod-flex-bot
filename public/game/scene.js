@@ -104,7 +104,7 @@ export function buildArtWalker() {
 function plateCover(g, text, cx, cy, minW = 0, size = 21) {
   g.font = `800 ${size}px 'Noto Sans Thai', Tahoma, sans-serif`;
   const w = Math.max(g.measureText(text).width + 30, minW);
-  const h = 38; // สูงพอคลุมป้ายเดิมในภาพ (~34px) เสมอ
+  const h = size + 17; // ขนาดมาตรฐาน (21px) = สูง 38 คลุมป้ายเดิมในภาพพอดี
   const x = Math.round(cx - w / 2), y = Math.round(cy - h / 2);
   g.fillStyle = '#272148';
   if (g.roundRect) { g.beginPath(); g.roundRect(x, y, w, h, 12); g.fill(); }
@@ -502,9 +502,149 @@ export function drawRoute(g, state, nowMs) {
   }
 }
 
+/* ---------- ห้องทำไวนิล (ในบ้าน) — ผังอิงรูปถ่ายห้องจริงของร้าน ----------
+ * เครื่องพิมพ์หน้ากว้าง Epson + จอ RIP, โต๊ะตัดเสื่อเขียว, เครื่องตอกตาไก่
+ * บนรถเข็นสแตนเลส, ม้วนไวนิล, โต๊ะคอมสองจอ, ชั้นวาง+พัดลม, พื้นไม้ลามิเนต,
+ * ป้ายโรงเรียนธีมอวกาศที่พิมพ์เสร็จวางบนพื้น, ประตูกระจก (มอไซค์จอดหน้าบ้าน) */
+export const ROOM = {
+  zones: {
+    printer: { x: 248, y: 102, w: 200, h: 112, label: 'เครื่องพิมพ์ไวนิล' },
+    rolls: { x: 206, y: 108, w: 40, h: 100, label: 'ม้วนไวนิล' },
+    cut: { x: 25, y: 225, w: 212, h: 138, label: 'โต๊ะตัดงาน' },
+    eyelet: { x: 325, y: 328, w: 132, h: 118, label: 'ตอกตาไก่' },
+    desk: { x: 15, y: 375, w: 128, h: 108, label: 'โต๊ะคอม' },
+    shelf: { x: 15, y: 142, w: 112, h: 80, label: 'ชั้นวัสดุ' },
+    banner: { x: 145, y: 428, w: 192, h: 138, label: 'งานพิมพ์เสร็จ รอส่ง' },
+    door: { x: 145, y: 552, w: 192, h: 46, label: 'ทางเข้า · มอไซค์จอดอยู่' },
+  },
+  labels: [
+    ['เครื่องพิมพ์ไวนิล', 345, 112, 0], ['โต๊ะตัดงาน', 130, 237, 0],
+    ['ตอกตาไก่', 390, 340, 0], ['โต๊ะคอม', 78, 388, 0], ['ทางเข้า', 240, 592, 0],
+  ],
+  spots: { printer: [345, 230], rolls: [228, 218], cut: [130, 372], eyelet: [392, 452], desk: [92, 492], door: [240, 555] },
+  path: [[345, 230], [240, 300], [130, 372], [240, 425], [392, 452], [345, 230]],
+};
+
+export function buildRoomWalker() {
+  return { path: ROOM.path, t: 0, dwell: 1200, speed: 30, color: P.purple, hair: '#4a3650', stops: [0.18, 0.42, 0.66, 0.9] };
+}
+
+export function hitRoomZone(x, y) {
+  for (const [id, z] of Object.entries(ROOM.zones)) {
+    if (x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h) return id;
+  }
+  return '';
+}
+
+export function drawVinylRoom(g, state, nowMs) {
+  const q = px(g);
+  // ผนังครีม + คิ้วเทาเข้มช่วงล่าง (ตามรูปจริง) + ไฟเพดาน
+  q.r(0, 0, W, 132, '#f1e8d4');
+  q.r(0, 96, W, 36, '#5a5f6b');
+  q.r(60, 4, 150, 6, '#fffbe8'); q.r(280, 4, 150, 6, '#fffbe8');
+  // หน้าต่างกลางคืน + ม่านขาว + แอร์ (เว้นช่องผนังให้เครื่องพิมพ์แยกชั้นชัด)
+  q.r(268, 12, 162, 72, '#3a4668'); q.r(272, 16, 154, 64, '#1a2238');
+  q.r(268, 12, 14, 72, '#f4f1ea'); q.r(416, 12, 14, 72, '#f4f1ea');
+  q.r(292, 0, 86, 18, '#f6f4ee'); q.r(296, 13, 78, 3, '#d7d4cc'); // แอร์
+  q.r(298, 4, 10, 6, '#9fd48f');
+  // รูปครอบครัวบนผนัง (ตามบ้านจริง)
+  q.r(140, 24, 44, 58, '#ffffff'); q.r(144, 28, 36, 50, '#cfd8e4');
+  q.r(150, 44, 10, 22, '#8451bf'); q.r(164, 44, 10, 22, '#c0392b');
+  q.r(152, 36, 7, 8, '#f6c89b'); q.r(166, 36, 7, 8, '#f6c89b');
+  // พื้นไม้ลามิเนต
+  for (let y = 132; y < H; y += 26) {
+    q.r(0, y, W, 26, ((y / 26) | 0) % 2 ? '#c9a06a' : '#bf9661');
+    q.r(0, y, W, 2, '#a97f4e');
+    for (let x = ((y / 26) | 0) % 2 ? 40 : 110; x < W; x += 150) q.r(x, y + 2, 2, 24, '#a97f4e');
+  }
+  // ชั้นวางดำ + พัดลมตั้งพื้น (ฝั่งซ้าย)
+  const sh = ROOM.zones.shelf;
+  q.r(sh.x, sh.y, sh.w, sh.h, '#2d2a30');
+  for (let r = 0; r < 3; r++) {
+    q.r(sh.x + 5, sh.y + 7 + r * 25, sh.w - 10, 18, '#3c3844');
+    for (let c = 0; c < 3; c++) q.r(sh.x + 9 + c * 34, sh.y + 10 + r * 25, 28, 12, ['#6b5d4a', '#4a6b5d', '#5d4a6b'][(r + c) % 3]);
+  }
+  q.r(150, 160, 6, 56, '#e8e6e0'); q.r(141, 142, 24, 24, '#f4f2ec'); q.r(146, 147, 14, 14, '#c9c6be'); // พัดลม
+  // ม้วนไวนิลตั้งพิงผนัง (เริ่มใต้แนวคิ้ว)
+  const ro = ROOM.zones.rolls;
+  for (let i = 0; i < 3; i++) { q.r(ro.x + 4 + i * 12, 134, 10, 74, '#f4f1ea'); q.r(ro.x + 4 + i * 12, 134, 10, 6, '#d8d4cc'); }
+  // เครื่องพิมพ์หน้ากว้าง Epson + จอ RIP (ตั้งบนพื้น แยกจากหน้าต่างชัด)
+  const pr = ROOM.zones.printer;
+  q.r(pr.x + 6, pr.y + 44, 168, 46, '#f4f2ee');            // ตัวเครื่องขาว
+  q.r(pr.x + 6, pr.y + 34, 168, 14, '#23242a');            // ฝาบนดำ
+  q.r(pr.x + 14, pr.y + 48, 120, 8, '#d9d6cf');
+  q.r(pr.x + 150, pr.y + 50, 10, 6, '#79d69a');            // ไฟสถานะ
+  q.r(pr.x + 30, pr.y + 90, 120, 12, '#ffffff');           // งานพิมพ์ไหลออก
+  q.r(pr.x + 30, pr.y + 90, 120, 4, '#8451bf');
+  q.r(pr.x + 12, pr.y + 90, 10, 22, '#3a3b40'); q.r(pr.x + 156, pr.y + 90, 10, 22, '#3a3b40'); // ขา
+  q.r(pr.x + 36, pr.y + 102, 108, 10, '#b58256');          // แกนม้วน
+  q.r(pr.x + 184, pr.y + 44, 12, 66, '#4a4b52');           // เสาจอ
+  q.r(pr.x + 170, pr.y + 20, 40, 28, '#23242a'); q.r(pr.x + 173, pr.y + 23, 34, 22, '#cfe6ff'); // จอ RIP
+  for (let i = 0; i < 4; i++) q.r(pr.x + 175 + i * 8, pr.y + 26, 6, 8, ['#ffd34d', '#f08cc3', '#6aa6ff', '#79d69a'][i]);
+  // โต๊ะตัดงาน เสื่อเขียว + ป้ายแดงที่กำลังตัด + รางเหล็ก
+  const ct = ROOM.zones.cut;
+  q.r(ct.x, ct.y + 14, ct.w, 92, '#e8e4da');
+  q.r(ct.x + 6, ct.y + 20, ct.w - 12, 80, '#3f8d60');
+  for (let gx = ct.x + 6; gx < ct.x + ct.w - 12; gx += 24) q.r(gx, ct.y + 20, 1, 80, '#58a377');
+  for (let gy = ct.y + 20; gy < ct.y + 98; gy += 20) q.r(ct.x + 6, gy, ct.w - 12, 1, '#58a377');
+  q.r(ct.x + 26, ct.y + 34, 140, 34, '#c0392b'); q.r(ct.x + 36, ct.y + 44, 90, 7, '#f4f1ea'); // ป้ายแดง
+  q.r(ct.x + 10, ct.y + 76, ct.w - 24, 7, '#aeb7c2');       // รางตัด
+  q.r(ct.x + 8, ct.y + 106, 8, 26, '#9aa0a8'); q.r(ct.x + ct.w - 18, ct.y + 106, 8, 26, '#9aa0a8');
+  // เครื่องตอกตาไก่บนรถเข็นสแตนเลส + ตะกร้าฟ้า (เครื่องวางบนชั้นแน่น)
+  const ey = ROOM.zones.eyelet;
+  q.r(ey.x + 12, ey.y + 44, 90, 8, '#c9ced6');             // หน้าชั้นบน
+  q.r(ey.x + 16, ey.y + 52, 8, 52, '#b4bac4'); q.r(ey.x + 90, ey.y + 52, 8, 52, '#b4bac4');
+  q.r(ey.x + 10, ey.y + 100, 94, 7, '#c9ced6');            // ชั้นล่าง
+  q.r(ey.x + 20, ey.y + 10, 74, 36, '#2d2a30');            // ตัวเครื่องนั่งบนชั้น
+  for (let i = 0; i < 3; i++) { q.r(ey.x + 28 + i * 20, ey.y + 18, 12, 12, '#d9d6cf'); q.r(ey.x + 31 + i * 20, ey.y + 21, 6, 6, '#8f98a6'); }
+  q.r(ey.x + 82, ey.y + 14, 8, 8, '#e5484d');              // ปุ่มแดง
+  q.r(ey.x + 102, ey.y + 84, 28, 26, '#3f7fd4'); q.r(ey.x + 106, ey.y + 88, 20, 18, '#5b99e8'); // ตะกร้าบนพื้น
+  // โต๊ะคอมสองจอ + เก้าอี้ (จอวางบนโต๊ะ)
+  const dk = ROOM.zones.desk;
+  q.r(dk.x + 4, dk.y + 30, 112, 10, '#b58256');
+  q.r(dk.x + 8, dk.y + 40, 8, 46, '#8a5f3c'); q.r(dk.x + 100, dk.y + 40, 8, 46, '#8a5f3c');
+  q.r(dk.x + 10, dk.y + 6, 38, 24, '#23242a'); q.r(dk.x + 13, dk.y + 9, 32, 18, '#f6a3c8');
+  q.r(dk.x + 54, dk.y + 10, 32, 20, '#23242a'); q.r(dk.x + 57, dk.y + 13, 26, 14, '#9ad0f0');
+  q.r(dk.x + 90, dk.y + 20, 22, 10, '#8f98a6'); q.r(dk.x + 92, dk.y + 22, 18, 6, '#cfe6ff'); // โน้ตบุ๊ก
+  q.r(dk.x + 118, dk.y + 58, 22, 10, '#3a3b40'); q.r(dk.x + 124, dk.y + 68, 8, 20, '#3a3b40'); // เก้าอี้
+  q.r(dk.x + 116, dk.y + 40, 26, 18, '#4a4b52');
+  // ป้ายโรงเรียนธีมอวกาศที่พิมพ์เสร็จ วางบนพื้น (งานจริงในรูป!)
+  const bn = ROOM.zones.banner;
+  q.r(bn.x, bn.y, bn.w, bn.h, '#5b3fa8'); q.r(bn.x + 4, bn.y + 4, bn.w - 8, bn.h - 8, '#6b4fc0');
+  for (const [sx, sy] of [[20, 16], [60, 30], [120, 14], [160, 40], [30, 110], [150, 118], [90, 125]]) q.r(bn.x + sx, bn.y + sy, 3, 3, '#ffd34d');
+  q.r(bn.x + 132, bn.y + 16, 26, 26, '#f09a4d'); q.r(bn.x + 136, bn.y + 28, 22, 5, '#d97f35'); // ดาวพฤหัส
+  q.r(bn.x + 24, bn.y + 48, 144, 44, '#f6f2ff');           // แถบขาวกลาง
+  for (let i = 0; i < 6; i++) { q.r(bn.x + 32 + i * 23, bn.y + 58, 10, 14, ['#e5484d', '#3f7fd4', '#22a06b', '#f09a4d', '#8451bf', '#f08cc3'][i]); q.r(bn.x + 34 + i * 23, bn.y + 54, 6, 6, '#f6c89b'); }
+  q.r(bn.x + 14, bn.y + 100, 52, 26, '#f3c242'); q.r(bn.x + 20, bn.y + 106, 10, 8, '#cfe6ff'); q.r(bn.x + 36, bn.y + 106, 10, 8, '#cfe6ff'); // รถบัส
+  q.r(bn.x + 18, bn.y + 124, 8, 8, '#2d2a3e'); q.r(bn.x + 50, bn.y + 124, 8, 8, '#2d2a3e');
+  // ประตูไม้ขวา + ทางเข้ากระจกล่าง + มอไซค์จอดหน้าบ้าน
+  q.r(452, 200, 26, 118, '#8a5f3c'); q.r(456, 206, 18, 106, '#9c6f47'); q.r(458, 252, 5, 5, '#5c3a22');
+  const dr = ROOM.zones.door;
+  q.r(dr.x - 10, dr.y, dr.w + 20, 46, '#2a3350');
+  q.r(dr.x - 10, dr.y, 14, 46, '#f4f1ea'); q.r(dr.x + dr.w - 4, dr.y, 14, 46, '#f4f1ea');
+  for (let i = 0; i < 4; i++) q.r(dr.x + 8 + i * 45, dr.y + 4, 40, 38, '#39456b');
+  motoSprite(g, dr.x + dr.w / 2, dr.y + 30, 1, 0);          // มอไซค์ของฟิล์มจอดอยู่
+  // ประกาย + ฟิล์มเดินทำงาน + ป้ายโซนคม
+  const tick = Math.floor(nowMs / 420);
+  sparkle(q, 310, 150, tick % 3 === 0); sparkle(q, 120, 250, tick % 4 === 2);
+  const wlk = state.roomWalker;
+  if (wlk) {
+    const [x, y] = pointAt(wlk.path, wlk.t);
+    g.save(); g.translate(x, y); g.scale(1.25, 1.25); person(q, 0, 0, wlk.color, wlk.hair, Math.floor(nowMs / 160)); g.restore();
+    if (state.walkerName) nameTag(g, state.walkerName, x, y - 44);
+  }
+  for (const [text, lx, ly] of ROOM.labels) plateCover(g, text, lx, ly, 0, 15);
+  if (state.focusZone && ROOM.zones[state.focusZone]) {
+    const z = ROOM.zones[state.focusZone];
+    g.strokeStyle = P.yellow; g.lineWidth = 3; g.setLineDash([7, 5]);
+    g.strokeRect(z.x - 3, z.y - 3, z.w + 6, z.h + 6); g.setLineDash([]);
+  }
+}
+
 export function drawScene(g, state, nowMs) {
   g.imageSmoothingEnabled = false;
   if (state.view === 'route') drawRoute(g, state, nowMs);
+  else if (state.view === 'vinylroom') drawVinylRoom(g, state, nowMs);
   else if (state.artImg && state.artImg.complete && state.artImg.naturalWidth) drawArtInside(g, state.artImg, state, nowMs);
   else drawInside(g, state, nowMs);
 }
