@@ -25,11 +25,12 @@ import { parseNaturalJob } from '../utils/nlParser.js';
 import { splitDump, looksLikeDump } from '../utils/dumpSplit.js';
 import { makeDraft } from '../utils/jobDraft.js';
 import { extractDueDate } from '../utils/thaiDate.js';
-import { saveAttachment } from '../services/attachmentService.js';
+import { saveAttachment, listJobImages, signedImageUrl } from '../services/attachmentService.js';
 import { push } from '../services/lineService.js';
 import { receiptFlex } from '../flex/receiptFlex.js';
 import { receiptUrl } from '../flex/billFlex.js';
 import { withShopKey } from '../utils/receiptLink.js';
+import { mintTicket } from '../utils/mockupTicket.js';
 import { createBill, getBillById } from '../services/billService.js';
 import { derivePaymentFields, paidAtPatch } from '../utils/payment.js';
 import { pickupPatch, jobState, stagePatch, jobStage, JOB_STAGES, statusPatch, jobStatus } from '../utils/jobState.js';
@@ -178,6 +179,8 @@ export function createApiRouter(deps = {}) {
   const findRef = deps.findJobByClientRef || findJobByClientRef;
   const dropJob = deps.cancelJob || cancelJob;
   const writeCheckin = deps.saveCheckinSettings || saveCheckinSettings;
+  const imagesOf = deps.listJobImages || listJobImages;
+  const signImage = deps.signedImageUrl || signedImageUrl;
   // Tell the chat about a job saved from the form. Never throws: the job is
   // already saved, and a chat that missed the news must not turn into a failed
   // save the user then repeats.
@@ -468,6 +471,43 @@ export function createApiRouter(deps = {}) {
         billNumber: bill.bill_number || null,
         reused: Boolean(job.bill_id),
       });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /* รูปในงาน (หน้าแก้ไขงาน) — ไฟล์งานที่ลูกค้าส่ง สลิป และภาพจำลองป้ายที่บันทึกจากแอปจำลองป้าย
+   * ลิงก์รูปเป็นลิงก์ลายเซ็น (bucket ส่วนตัว) · ตรวจก่อนว่างานเป็นของคนที่ล็อกอิน
+   */
+  router.get('/jobs/:id/images', async (req, res, next) => {
+    try {
+      const job = await findJob(req.profile.id, req.params.id);
+      if (!job) return res.status(404).json({ error: 'not_found' });
+      const rows = await imagesOf(job.id);
+      const images = [];
+      for (const a of rows) {
+        const url = await signImage(a.file_url);
+        if (url) images.push({ id: a.id, url, at: a.created_at || null });
+      }
+      res.json({ images });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /* ปุ่ม "ทำภาพ 3 มิติ" บนงาน → ตั๋วเปิดแอปจำลองป้ายของงานนี้งานเดียว (อายุ 3 วัน)
+   *
+   * แอปจำลองป้ายใช้ตั๋วเติมชื่อลูกค้า ขนาด รูปที่แนบให้เอง แล้วบันทึกภาพจำลอง (+ ลิงก์ 3 มิติ) กลับเข้างานนี้
+   * ตอบเป็น path (/sign/?job=…) ให้หน้าเว็บต่อกับโดเมนที่เปิดอยู่เอง
+   */
+  router.post('/jobs/:id/mockup', async (req, res, next) => {
+    try {
+      const job = await findJob(req.profile.id, req.params.id);
+      if (!job) return res.status(404).json({ error: 'not_found' });
+      const ticket = mintTicket(req.profile.id, job.id);
+      if (!ticket) return res.status(503).json({ error: 'no_secret', message: 'ยังไม่ได้ตั้งค่ากุญแจของเซิร์ฟเวอร์ค่ะ' });
+      logger.info('api.mockup_opened', { user: maskUserId(req.profile.line_user_id), jobId: job.id });
+      res.json({ url: '/sign/?job=' + ticket });
     } catch (err) {
       next(err);
     }

@@ -410,6 +410,10 @@
   .hsheet .sub { font-size: 13px; color: var(--sub); margin-bottom: 12px; }
   .hsheet .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .hsheet .acts .wide { grid-column: 1 / -1; }
+  .pics { margin-top: 10px; }
+  .pics-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+  .pics-row a { flex: none; width: 76px; height: 76px; border: 1.5px solid var(--line); background: var(--surface); display: block; }
+  .pics-row img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .hs-b { border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-weight: 700; font-size: 14.5px; border-radius: 0; padding: 13px 8px; cursor: pointer; }
   .hs-b.pay { background: var(--gold); border-color: var(--gold); color: #fff; }
   .hs-b.ghost { color: var(--grey); }
@@ -720,6 +724,13 @@
       <!-- ที่ที่ร้านยืนอยู่ตอนงานเสร็จคือหน้านี้ แต่ใบเสร็จเคยออกได้จากแชต
            อย่างเดียว -->
       <button type="button" class="btn btn-soft" id="e-receipt">🧾 ออกใบเสร็จ / ปริ้น</button>
+      <!-- จำลองป้ายของงานนี้: เปิดแอปจำลองป้ายพร้อมชื่อลูกค้า ขนาด รูปที่แนบ — ภาพที่ทำเสร็จกลับมาแนบในงานนี้ -->
+      <button type="button" class="btn btn-soft" id="e-mockup">🪧 ทำภาพ 3 มิติ (จำลองป้าย)</button>
+      <!-- รูปในงาน: ไฟล์งานที่ลูกค้าส่ง สลิป และภาพจำลองป้ายที่บันทึกจากแอปจำลองป้าย — แตะเพื่อเปิดดูเต็ม -->
+      <div class="pics" id="e-pics" hidden>
+        <label>รูปในงาน</label>
+        <div class="pics-row" id="e-pics-row"></div>
+      </div>
 
       <!-- ที่เหลือพับไว้ — ม่วงเดาให้หมดแล้วตอนจด ร้านบอกว่า "ไม่ต้องกรอกเยอะ
            บางทีไม่มีเวลากรอกเอง" ของที่ถูกอยู่แล้วไม่ต้องเอามาขวางตา -->
@@ -780,6 +791,7 @@
       <button type="button" class="hs-b pay" id="hs-tf">🏦 รับโอนแล้ว</button>
       <button type="button" class="hs-b" id="hs-receipt">🖨 ใบเสร็จ</button>
       <button type="button" class="hs-b" id="hs-edit">✏️ แก้ไขงาน</button>
+      <button type="button" class="hs-b wide" id="hs-mockup">🪧 ทำภาพ 3 มิติ (จำลองป้าย)</button>
       <button type="button" class="hs-b ghost wide" id="hs-close">ปิด</button>
     </div>
   </div>
@@ -2002,6 +2014,24 @@ async function openReceiptFor(btn) {
 }
 $('hs-receipt').onclick = () => openReceiptFor($('hs-receipt'));
 
+/* ทำภาพ 3 มิติ — เปิดแอปจำลองป้ายด้วยตั๋วของงานนี้ (ชื่อลูกค้า ขนาด รูปที่แนบ เติมให้เอง)
+ * ทำเสร็จกด "บันทึกภาพเข้างาน" ในแอปจำลองป้าย ภาพ + ลิงก์ 3 มิติกลับมาอยู่ในงานนี้ */
+async function openMockupFor(jobId, btn) {
+  if (!jobId) return;
+  btn.disabled = true;
+  try {
+    const { url } = await api('/jobs/' + jobId + '/mockup', { method: 'POST' });
+    const open = new URL(url, location.origin).href;
+    if (window.liff && liff.isInClient && liff.isInClient()) liff.openWindow({ url: open, external: false });
+    else if (!window.open(open, '_blank')) location.href = open;
+  } catch (err) {
+    toast(err.message || 'เปิดแอปจำลองป้ายไม่สำเร็จค่ะ', true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+$('hs-mockup').onclick = () => openMockupFor(homeJob && homeJob.id, $('hs-mockup'));
+
 $('hs-edit').onclick = () => {
   if (!homeJob) return;
   const id = homeJob.id;
@@ -2194,6 +2224,33 @@ async function loadBranches() {
   return branches;
 }
 
+// รูปในงาน (ใหม่สุดก่อน — ภาพจำลองป้ายที่เพิ่งบันทึกอยู่หน้าแรก) · โหลดไม่ได้ก็แค่ไม่โชว์ ไม่ขวางการแก้งาน
+async function loadPics(jobId) {
+  const box = $('e-pics');
+  const row = $('e-pics-row');
+  box.hidden = true;
+  row.innerHTML = '';
+  try {
+    const { images } = await api('/jobs/' + jobId + '/images');
+    if (!current || current.id !== jobId) return;
+    images.slice().reverse().forEach((im) => {
+      const a = document.createElement('a');
+      a.href = im.url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      const img = document.createElement('img');
+      img.src = im.url;
+      img.alt = 'รูปในงาน';
+      img.loading = 'lazy';
+      a.appendChild(img);
+      row.appendChild(a);
+    });
+    box.hidden = !images.length;
+  } catch {
+    /* ไม่โชว์รูป */
+  }
+}
+
 async function openEdit(id) {
   try {
     const { job } = await api('/jobs/' + id);
@@ -2225,6 +2282,7 @@ async function openEdit(id) {
     link.hidden = false;
     link.href = '/app/jot?job=' + encodeURIComponent(job.id);
     link.textContent = rows > 1 ? `✏️ แก้รายการย่อย (${rows} รายการ)` : '✏️ แก้รายการ / เพิ่มรายการ';
+    loadPics(job.id);
     document.querySelectorAll('main > section').forEach((s) => (s.hidden = true));
     $('v-edit').hidden = false;
     $('nav').hidden = false;
@@ -2258,6 +2316,8 @@ $('e-receipt').onclick = async () => {
     btn.textContent = label;
   }
 };
+
+$('e-mockup').onclick = () => openMockupFor(current && current.id, $('e-mockup'));
 
 $('e-save').onclick = async () => {
   const btn = $('e-save');
