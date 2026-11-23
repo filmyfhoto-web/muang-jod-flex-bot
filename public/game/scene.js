@@ -101,17 +101,17 @@ export function buildArtWalker() {
 }
 
 /* ป้ายโซนแบบคม: วาดด้วยฟอนต์จริงบนแคนวาสความละเอียดจอ แทนตัวหนังสือที่ฝังในรูป */
-function plateCover(g, text, cx, cy, minW = 0, size = 18) {
+function plateCover(g, text, cx, cy, minW = 0, size = 21) {
   g.font = `800 ${size}px 'Noto Sans Thai', Tahoma, sans-serif`;
   const w = Math.max(g.measureText(text).width + 30, minW);
-  const h = 36; // สูงพอคลุมป้ายเดิมในภาพ (~34px) เสมอ
+  const h = 38; // สูงพอคลุมป้ายเดิมในภาพ (~34px) เสมอ
   const x = Math.round(cx - w / 2), y = Math.round(cy - h / 2);
-  g.fillStyle = '#332d5e';
-  if (g.roundRect) { g.beginPath(); g.roundRect(x, y, w, h, 11); g.fill(); }
+  g.fillStyle = '#272148';
+  if (g.roundRect) { g.beginPath(); g.roundRect(x, y, w, h, 12); g.fill(); }
   else g.fillRect(x, y, w, h);
-  g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 1.5;
-  if (g.roundRect) { g.beginPath(); g.roundRect(x + 1, y + 1, w - 2, h - 2, 10); g.stroke(); }
-  g.fillStyle = '#fff6e8'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.strokeStyle = 'rgba(255,255,255,.4)'; g.lineWidth = 1.5;
+  if (g.roundRect) { g.beginPath(); g.roundRect(x + 1, y + 1, w - 2, h - 2, 11); g.stroke(); }
+  g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle';
   g.fillText(text, Math.round(cx), Math.round(cy + 1));
 }
 
