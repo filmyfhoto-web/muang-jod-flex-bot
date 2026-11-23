@@ -108,8 +108,15 @@
                   <input type="range" id="ldir" min="-80" max="80" step="1" />
                   <span class="lightpop-ends" aria-hidden="true"><span>← ซ้าย</span><span>ขวา →</span></span>
                 </label>
+                <div class="field">
+                  <span class="label">สีป้าย</span>
+                  <div class="seg small" id="lflatSeg">
+                    <button type="button" data-flat="1">ตามไฟล์งาน</button>
+                    <button type="button" data-flat="0">ตามแสงในฉาก</button>
+                  </div>
+                </div>
                 <div class="lightpop-foot">
-                  <span class="hint">ใช้กับรูป/วิดีโอที่ส่งลูกค้าด้วย</span>
+                  <span class="hint">ใช้กับรูป/วิดีโอ/ลิงก์ 3 มิติที่ส่งลูกค้าด้วย</span>
                   <button type="button" class="btn-ghost small" id="lightReset">ค่าเดิม</button>
                 </div>
               </div>
@@ -198,7 +205,8 @@
                 <div class="field">
                   <span class="label">วางรูปบนป้าย</span>
                   <div class="seg small" id="fitSeg">
-                    <button type="button" data-fit="cover">เต็มป้าย</button>
+                    <button type="button" data-fit="fill">พอดีขนาด</button>
+                    <button type="button" data-fit="cover">เต็มป้าย (ตัดขอบ)</button>
                     <button type="button" data-fit="contain">เห็นทั้งรูป</button>
                   </div>
                 </div>

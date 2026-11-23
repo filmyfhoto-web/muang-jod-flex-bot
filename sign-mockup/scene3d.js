@@ -2940,6 +2940,7 @@ export function createStage(opts) {
 
   function rebuildSign(s) {
     if (model) {
+      dropFlat();
       signRoot.remove(model.group);
       if (model.dispose) model.dispose();
       disposeGroup(model.group);
@@ -3095,22 +3096,97 @@ export function createStage(opts) {
     if (!model) return [];
     return (Array.isArray(model.face) ? model.face : [model.face]).filter((m) => m && m.isMaterial && m.color);
   }
+  /* สีหน้าป้ายตามไฟล์งาน (ค่าเริ่มต้น · ปุ่มแสง › สีป้าย): หน้าป้ายไม่รับแสง เงา และการปรับโทนสีของฉาก
+   * — สีบนจอเท่ากับสีในไฟล์ (เดิม ACES + ไฟฉาก: ขาว 255 → 224 · ดำ 0 → 21 · เหลืองซีด) ฉากรอบ ๆ ยังมีแสงเงาตามเดิม
+   * ทำโดยสลับวัสดุของชิ้นหน้าป้ายเป็นแบบไม่รับแสงชั่วคราว (วัสดุเดิมยังอยู่ — ตัวสร้างป้าย/ไฟกลางคืน/ส่งออก .glb ใช้ตัวเดิม)
+   * เก็บใน WeakMap ไม่ใส่ userData (userData ถูกเขียนลงไฟล์ .glb) */
+  const flatMatOf = new WeakMap(); // วัสดุเดิม → วัสดุไม่รับแสง
+  const litMatOf = new WeakMap(); // ชิ้น (mesh) → วัสดุเดิม
+  function faceMeshes() {
+    const mats = faceMats();
+    const out = [];
+    if (!model || !mats.length) return out;
+    model.group.traverse((o) => {
+      if (!o.isMesh) return;
+      const lit = litMatOf.get(o) || o.material;
+      if (Array.isArray(lit) ? lit.some((m) => mats.includes(m)) : mats.includes(lit)) out.push(o);
+    });
+    return out;
+  }
+  function flatOf(m, k) {
+    let b = flatMatOf.get(m);
+    if (!b) {
+      b = new THREE.MeshBasicMaterial({ toneMapped: false });
+      flatMatOf.set(m, b);
+    }
+    if (b.map !== m.map || b.alphaMap !== m.alphaMap || b.transparent !== m.transparent) b.needsUpdate = true;
+    b.map = m.map;
+    b.alphaMap = m.alphaMap;
+    b.transparent = m.transparent;
+    b.opacity = m.opacity;
+    b.alphaTest = m.alphaTest;
+    b.side = m.side;
+    b.depthWrite = m.depthWrite;
+    b.polygonOffset = m.polygonOffset;
+    b.polygonOffsetFactor = m.polygonOffsetFactor;
+    b.polygonOffsetUnits = m.polygonOffsetUnits;
+    b.color.copy(m.userData.baseColor || m.color).multiplyScalar(k);
+    return b;
+  }
+  let flatOn = false;
+  function setFlat(on, k) {
+    const mats = faceMats();
+    faceMeshes().forEach((o) => {
+      const lit = litMatOf.get(o) || o.material;
+      if (on) {
+        litMatOf.set(o, lit);
+        o.material = Array.isArray(lit) ? lit.map((m) => (mats.includes(m) ? flatOf(m, k) : m)) : flatOf(lit, k);
+      } else if (litMatOf.has(o)) {
+        o.material = lit;
+        litMatOf.delete(o);
+      }
+    });
+    flatOn = on;
+    needs = true;
+  }
+  // ก่อนรื้อป้ายเดิม: คืนวัสดุเดิมให้ชิ้น (ทิ้งพร้อมป้าย) + ทิ้งวัสดุไม่รับแสง
+  function dropFlat() {
+    const mats = faceMats();
+    setFlat(false, 1);
+    mats.forEach((m) => {
+      const b = flatMatOf.get(m);
+      if (b) b.dispose();
+      flatMatOf.delete(m);
+    });
+  }
   function applySignLight() {
-    const k = lightNow().sign;
+    const L = lightNow();
+    const k = L.sign;
     faceMats().forEach((m) => {
       if (!m.userData.baseColor) m.userData.baseColor = m.color.clone();
       m.color.copy(m.userData.baseColor).multiplyScalar(k);
     });
+    setFlat(L.flat, k);
   }
   // ไฟล์ 3 มิติเก็บสีหน้าป้ายตามไฟล์งานจริง (ไม่เอาความสว่างที่ปรับดูในแอปไปด้วย · glTF รับสีไม่เกิน 1)
+  // ส่งออกด้วยวัสดุเดิม (มาตรฐาน glTF ชื่อ NadponFace) + extras npFlat ให้ตัวดูของลูกค้าแสดงสีตามไฟล์เหมือนในแอป
   async function plainFace(fn) {
+    const wasFlat = flatOn;
+    setFlat(false, 1);
     const ms = faceMats();
     const keep = ms.map((m) => m.color.clone());
-    ms.forEach((m) => m.userData.baseColor && m.color.copy(m.userData.baseColor));
+    ms.forEach((m) => {
+      if (m.userData.baseColor) m.color.copy(m.userData.baseColor);
+      m.userData.npFlat = wasFlat;
+    });
     try {
       return await fn();
     } finally {
-      ms.forEach((m, i) => m.color.copy(keep[i]));
+      ms.forEach((m, i) => {
+        m.color.copy(keep[i]);
+        delete m.userData.npFlat;
+      });
+      if (wasFlat) setFlat(true, lightNow().sign);
     }
   }
 

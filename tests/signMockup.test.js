@@ -1373,10 +1373,10 @@ test('วิดีโอโปรโมท: พิมพ์ข้อความ
 });
 
 test('ปรับแสงภาพ 3 มิติ: ความสว่างป้าย · แสงในฉาก · ทิศทางแสง (จำกับงาน ใช้กับรูป/วิดีโอ · ไฟล์ glb สีตามไฟล์งาน)', () => {
-  assert.deepEqual(C.LIGHT_DEF, { sign: 1, scene: 1, dir: -33 });
-  assert.deepEqual(C.normalizeLight(), { sign: 1, scene: 1, dir: -33 });
-  assert.deepEqual(C.normalizeLight({ sign: 9, scene: '0.1', dir: 200 }), { sign: 1.6, scene: 0.5, dir: 80 });
-  assert.deepEqual(C.normalizeLight({ sign: 1.234, scene: 'x', dir: -12.6 }), { sign: 1.23, scene: 1, dir: -13 });
+  assert.deepEqual(C.LIGHT_DEF, { sign: 1, scene: 1, dir: -33, flat: true });
+  assert.deepEqual(C.normalizeLight(), { sign: 1, scene: 1, dir: -33, flat: true });
+  assert.deepEqual(C.normalizeLight({ sign: 9, scene: '0.1', dir: 200 }), { sign: 1.6, scene: 0.5, dir: 80, flat: true });
+  assert.deepEqual(C.normalizeLight({ sign: 1.234, scene: 'x', dir: -12.6, flat: false }), { sign: 1.23, scene: 1, dir: -13, flat: false });
   assert.ok(C.lightIsDefault({}));
   assert.ok(!C.lightIsDefault({ dir: 0 }));
   const s3 = readFileSync(new URL('../sign-mockup/scene3d.js', import.meta.url), 'utf8');
@@ -1393,7 +1393,7 @@ test('ปรับแสงภาพ 3 มิติ: ความสว่าง
   const html = readFileSync(new URL('../sign-mockup/index.html', import.meta.url), 'utf8');
   for (const id of ['lightBtn', 'lightPop', 'lsign', 'lscene', 'ldir', 'lightReset']) assert.match(html, new RegExp('id="' + id + '"'), id);
   const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
-  assert.match(app, /light: \{ sign: 1, scene: 1, dir: -33 \},/);
+  assert.match(app, /light: \{ sign: 1, scene: 1, dir: -33, flat: true \},/);
   assert.match(app, /s\.light = C\.normalizeLight\(s\.light\);/);
   assert.match(app, /light: C\.normalizeLight\(st\.light\),/); // ส่งให้เวที 3 มิติ
   const css = readFileSync(new URL('../sign-mockup/app.css', import.meta.url), 'utf8');
@@ -1479,4 +1479,39 @@ test('แอป: ใส่รูปหน้าร้านแล้ววาง
   assert.match(html, /id="resetQuad">วางป้ายอัตโนมัติอีกครั้ง</);
   const render = readFileSync(new URL('../sign-mockup/render.js', import.meta.url), 'utf8');
   assert.match(render, /Math\.max\(bottom \+ lift \* s, g\.mount === 'floor' \? 0 : H \* 0\.9\)/);
+});
+
+test('สีป้ายตามไฟล์งาน (ค่าเริ่มต้น): หน้าป้าย 3 มิติไม่รับแสง/เงา/โทนสี · สลับเป็นตามแสงได้ · ส่งออก .glb แล้วตัวดูลูกค้าสีตามไฟล์ด้วย', () => {
+  assert.equal(C.normalizeLight({}).flat, true);
+  assert.equal(C.normalizeLight({ flat: '0' }).flat, false);
+  assert.ok(C.lightIsDefault({}));
+  assert.ok(!C.lightIsDefault({ flat: false })); // ตามแสง = ปรับไว้ (มีจุดส้มที่ปุ่ม)
+  const s3 = readFileSync(new URL('../sign-mockup/scene3d.js', import.meta.url), 'utf8');
+  assert.match(s3, /b = new THREE\.MeshBasicMaterial\(\{ toneMapped: false \}\);/);
+  assert.match(s3, /setFlat\(L\.flat, k\);/);
+  assert.match(s3, /const flatMatOf = new WeakMap\(\);/); // ไม่ใส่ใน userData (ถูกเขียนลงไฟล์ .glb)
+  assert.match(s3, /m\.userData\.npFlat = wasFlat;/);
+  assert.match(s3, /if \(wasFlat\) setFlat\(true, lightNow\(\)\.sign\);/);
+  assert.match(s3, /dropFlat\(\);\n\s*signRoot\.remove\(model\.group\);/);
+  const v = readFileSync(new URL('../sign-mockup/viewer3d-core.js', import.meta.url), 'utf8');
+  assert.match(v, /m\.userData && m\.userData\.npFlat && \/NadponFace\//);
+  assert.match(v, /new THREE\.MeshBasicMaterial\(\{ map: m\.map, color: m\.color,[^}]*toneMapped: false \}\)/);
+  const html = readFileSync(new URL('../sign-mockup/index.html', import.meta.url), 'utf8');
+  assert.match(html, /<button type="button" data-flat="1">ตามไฟล์งาน<\/button>/);
+});
+
+test('พอดีขนาด (ค่าเริ่มต้น): กรอกขนาดแล้วงานยืดเต็มป้ายขนาดนั้น ไม่เปลี่ยนขนาดที่กรอก · ไฟล์พิมพ์จริงไม่ยืด · งานเก่าย้ายมาใช้ครั้งเดียว', () => {
+  const app = readFileSync(new URL('../sign-mockup/app.js', import.meta.url), 'utf8');
+  assert.match(app, /fit: 'fill',/);
+  assert.match(app, /if \(saved && typeof saved === 'object' && saved\.fitV !== 2 && s\.fit !== 'contain'\) s\.fit = 'fill';/);
+  assert.match(app, /var keepSize = st\.sizeSet && st\.fit === 'fill';/);
+  assert.match(app, /st\.sizeSet = true; \/\/ ร้านกรอกขนาดเอง/);
+  assert.match(app, /return st\.fit === 'fill' \? 'cover' : st\.fit;/);
+  assert.equal((app.match(/R\.cardArt\(d, st\.w, st\.h, printFit\(\)/g) || []).length, 2);
+  const render = readFileSync(new URL('../sign-mockup/render.js', import.meta.url), 'utf8');
+  assert.match(render, /if \(fit === 'fill'\) \{[^}]*x\.drawImage\(d\.src, px, py, w, h\);/);
+  // dpi ตอนยืด: ด้านที่ยืดมากสุด (ต่ำสุด)
+  assert.equal(C.printDpi(3000, 1000, 300, 150, 'fill'), C.printDpi(3000, 1000, 300, 150, 'contain'));
+  const html = readFileSync(new URL('../sign-mockup/index.html', import.meta.url), 'utf8');
+  assert.match(html, /<button type="button" data-fit="fill">พอดีขนาด<\/button>/);
 });

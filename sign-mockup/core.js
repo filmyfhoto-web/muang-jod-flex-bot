@@ -197,7 +197,8 @@
   }
   /* แสงในภาพ 3 มิติ (ปุ่ม “แสง” เหนือภาพ)
    * sign = ความสว่างของหน้าป้ายอย่างเดียว · scene = ความสว่างทั้งภาพ · dir = ทิศไฟหลัก (องศา −80 ซ้าย … 80 ขวา, เดิม −33 = ซ้ายบนด้านหน้า) */
-  var LIGHT_DEF = { sign: 1, scene: 1, dir: -33 };
+  // flat = สีหน้าป้ายตามไฟล์งาน (ไม่รับแสง/เงา/การปรับโทนของฉาก) — ค่าเริ่มต้น: ร้านแค่จำลองภาพให้ลูกค้าดู สีต้องตรงไฟล์
+  var LIGHT_DEF = { sign: 1, scene: 1, dir: -33, flat: true };
   function normalizeLight(o) {
     o = o && typeof o === 'object' ? o : {};
     function pick(v, lo, hi, d, step) {
@@ -209,11 +210,12 @@
       sign: +pick(o.sign, 0.5, 1.6, 1, 0.01).toFixed(2),
       scene: +pick(o.scene, 0.5, 1.8, 1, 0.01).toFixed(2),
       dir: pick(o.dir, -80, 80, LIGHT_DEF.dir, 1),
+      flat: !(o.flat === false || o.flat === 0 || o.flat === '0'),
     };
   }
   function lightIsDefault(o) {
     var l = normalizeLight(o);
-    return l.sign === LIGHT_DEF.sign && l.scene === LIGHT_DEF.scene && l.dir === LIGHT_DEF.dir;
+    return l.sign === LIGHT_DEF.sign && l.scene === LIGHT_DEF.scene && l.dir === LIGHT_DEF.dir && l.flat === LIGHT_DEF.flat;
   }
   // รูปทรงที่ใช้จริงกับชนิดงานนี้ (ชนิดที่ไม่รองรับ = สี่เหลี่ยม · สแตนดี้ ถ้าเลือกสี่เหลี่ยมก็ไดคัท)
   function shapeKind(type, shape) {
@@ -445,12 +447,12 @@
       plain: !extraSum && !discount && !bill.vat, // ไม่มีอะไรเพิ่ม = ยอดเท่าค่าป้าย
     };
   }
-  // ความละเอียดตอนพิมพ์จริง (dpi) ของรูปขนาด ow×oh จุด บนป้าย wcm×hcm ตามการวาง (cover = ขยายเต็ม / contain = วางพอดี)
+  // ความละเอียดตอนพิมพ์จริง (dpi) ของรูปขนาด ow×oh จุด บนป้าย wcm×hcm ตามการวาง (cover = ขยายเต็ม / contain = วางพอดี / fill = ยืดพอดี: ด้านที่ยืดมากสุด)
   function printDpi(ow, oh, wcm, hcm, fit) {
     if (!(ow > 0 && oh > 0 && wcm > 0 && hcm > 0)) return 0;
     var a = ow / wcm;
     var b = oh / hcm;
-    return Math.round(2.54 * (fit === 'contain' ? Math.min(a, b) : Math.max(a, b)));
+    return Math.round(2.54 * (fit === 'contain' || fit === 'fill' ? Math.min(a, b) : Math.max(a, b)));
   }
   // ระยะดูป้ายโดยทั่วไป: dpi ที่พอสำหรับงานนั้น (งานมือถือ/บัตร ต้องคม · ป้ายใหญ่ดูไกลใช้น้อยได้)
   function dpiVerdict(dpi, wcm, hcm) {
