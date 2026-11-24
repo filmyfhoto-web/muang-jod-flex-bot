@@ -197,7 +197,8 @@
   }
   /* แสงในภาพ 3 มิติ (ปุ่ม “แสง” เหนือภาพ)
    * sign = ความสว่างของหน้าป้ายอย่างเดียว · scene = ความสว่างทั้งภาพ · dir = ทิศไฟหลัก (องศา −80 ซ้าย … 80 ขวา, เดิม −33 = ซ้ายบนด้านหน้า) */
-  var LIGHT_DEF = { sign: 1, scene: 1, dir: -33 };
+  // flat = สีหน้าป้ายตามไฟล์งาน (ไม่รับแสง/เงา/การปรับโทนของฉาก) — ค่าเริ่มต้น: ร้านแค่จำลองภาพให้ลูกค้าดู สีต้องตรงไฟล์
+  var LIGHT_DEF = { sign: 1, scene: 1, dir: -33, flat: true };
   function normalizeLight(o) {
     o = o && typeof o === 'object' ? o : {};
     function pick(v, lo, hi, d, step) {
@@ -209,11 +210,12 @@
       sign: +pick(o.sign, 0.5, 1.6, 1, 0.01).toFixed(2),
       scene: +pick(o.scene, 0.5, 1.8, 1, 0.01).toFixed(2),
       dir: pick(o.dir, -80, 80, LIGHT_DEF.dir, 1),
+      flat: !(o.flat === false || o.flat === 0 || o.flat === '0'),
     };
   }
   function lightIsDefault(o) {
     var l = normalizeLight(o);
-    return l.sign === LIGHT_DEF.sign && l.scene === LIGHT_DEF.scene && l.dir === LIGHT_DEF.dir;
+    return l.sign === LIGHT_DEF.sign && l.scene === LIGHT_DEF.scene && l.dir === LIGHT_DEF.dir && l.flat === LIGHT_DEF.flat;
   }
   // รูปทรงที่ใช้จริงกับชนิดงานนี้ (ชนิดที่ไม่รองรับ = สี่เหลี่ยม · สแตนดี้ ถ้าเลือกสี่เหลี่ยมก็ไดคัท)
   function shapeKind(type, shape) {
@@ -266,7 +268,7 @@
     },
     officeDoor: { name: 'ประตูห้อง', desc: 'ห้องทำงาน / ห้องประชุม', spots: [['full', 'เต็มบานประตู'], ['door', 'บนประตู'], ['above', 'เหนือประตู'], ['beside', 'ข้างประตู']], big: true },
     classroom: { name: 'ในห้องเรียน', desc: 'เหนือกระดาน / ผนังห้อง', spots: [['above', 'เหนือกระดาน'], ['beside', 'ข้างกระดาน']], tones: true, big: true },
-    photo: { name: 'รูปหน้าร้านลูกค้า', desc: 'อัปโหลดรูป แล้วลากมุมป้าย' },
+    photo: { name: 'รูปหน้าร้านลูกค้า', desc: 'อัปโหลดรูป วางป้ายให้เอง' },
   };
   var SCENE_ORDER = ['paper', 'hand', 'handPhoto', 'table', 'studio', 'wall', 'brick', 'shop', 'glass', 'fence', 'road', 'event', 'classDoor', 'officeDoor', 'classroom', 'photo'];
   var TABLE_H = 75; // ความสูงโต๊ะ/เคาน์เตอร์ (ซม.)
@@ -445,12 +447,12 @@
       plain: !extraSum && !discount && !bill.vat, // ไม่มีอะไรเพิ่ม = ยอดเท่าค่าป้าย
     };
   }
-  // ความละเอียดตอนพิมพ์จริง (dpi) ของรูปขนาด ow×oh จุด บนป้าย wcm×hcm ตามการวาง (cover = ขยายเต็ม / contain = วางพอดี)
+  // ความละเอียดตอนพิมพ์จริง (dpi) ของรูปขนาด ow×oh จุด บนป้าย wcm×hcm ตามการวาง (cover = ขยายเต็ม / contain = วางพอดี / fill = ยืดพอดี: ด้านที่ยืดมากสุด)
   function printDpi(ow, oh, wcm, hcm, fit) {
     if (!(ow > 0 && oh > 0 && wcm > 0 && hcm > 0)) return 0;
     var a = ow / wcm;
     var b = oh / hcm;
-    return Math.round(2.54 * (fit === 'contain' ? Math.min(a, b) : Math.max(a, b)));
+    return Math.round(2.54 * (fit === 'contain' || fit === 'fill' ? Math.min(a, b) : Math.max(a, b)));
   }
   // ระยะดูป้ายโดยทั่วไป: dpi ที่พอสำหรับงานนั้น (งานมือถือ/บัตร ต้องคม · ป้ายใหญ่ดูไกลใช้น้อยได้)
   function dpiVerdict(dpi, wcm, hcm) {
@@ -1007,6 +1009,404 @@
       { x: (x0 + bw) / W, y: (y0 + bh) / H },
       { x: x0 / W, y: (y0 + bh) / H },
     ];
+  }
+
+  /* ---------- ฉาก "รูปหน้าร้านลูกค้า": หาตำแหน่งติดป้ายในรูปให้เอง (ไม่ต้องลากมุมเอง) ----------
+   * findSignSpot(px, W, H, { aspect }): px = RGBA ภาพย่อ (ด้านยาว ~480 จุด) · aspect = กว้าง/สูงของป้ายจริง
+   *   → { region: [มุม TL,TR,BR,BL (0..1)], score } หรือ null (หาไม่เจอ → ใช้กรอบตั้งต้นให้ลากเอง)
+   * หากรอบสี่เหลี่ยมที่ขอบชัดครบ 4 ด้าน: ป้ายเก่า · แผงคานเหนือประตูม้วนระหว่างเสา · กรอบบนผนัง/กระจก
+   *   เส้นแนวนอน (เอียงได้ ±32° ตามมุมถ่าย) + เส้นแนวตั้ง (±12°) จาก Hough ของขอบภาพ → จับคู่เป็นสี่เหลี่ยม
+   *   ให้คะแนน: ขอบภาพจริงตามแนวทั้ง 4 ด้าน × ขนาดพอเหมาะ × สัดส่วนใกล้ป้าย × อยู่ช่วงบน/กลางภาพ (ที่ติดป้าย)
+   * fitSpot(region, aspect, W, H): วางป้ายตามสัดส่วนจริงลงในกรอบที่หาได้ (กึ่งกลาง เว้นขอบนิด ๆ) → มุม 4 จุด (0..1) */
+  function findSignSpot(px, W, H, opts) {
+    var aspect = (opts && opts.aspect) || 2;
+    var STRIPES = !(opts && opts.noStripes);
+    var N = W * H;
+    var L = new Float32Array(N);
+    for (var i = 0; i < N; i++) L[i] = 0.299 * px[i * 4] + 0.587 * px[i * 4 + 1] + 0.114 * px[i * 4 + 2];
+    // เบลอ 3×3 สองรอบ (ลายอิฐ/ลายประตูม้วน/จุดรบกวน JPEG ไม่กลายเป็นขอบ)
+    var blur = function (a) {
+      var o = new Float32Array(N);
+      for (var y = 0; y < H; y++)
+        for (var x = 0; x < W; x++) {
+          var s = 0;
+          var c = 0;
+          for (var dy = -1; dy <= 1; dy++) {
+            var yy = y + dy;
+            if (yy < 0 || yy >= H) continue;
+            for (var dx = -1; dx <= 1; dx++) {
+              var xx = x + dx;
+              if (xx < 0 || xx >= W) continue;
+              s += a[yy * W + xx];
+              c++;
+            }
+          }
+          o[y * W + x] = s / c;
+        }
+      return o;
+    };
+    var G = blur(blur(L));
+    var gx = new Float32Array(N);
+    var gy = new Float32Array(N);
+    var mag = new Float32Array(N);
+    var mags = [];
+    for (var y1 = 1; y1 < H - 1; y1++)
+      for (var x1 = 1; x1 < W - 1; x1++) {
+        var k = y1 * W + x1;
+        var a00 = G[k - W - 1], a01 = G[k - W], a02 = G[k - W + 1];
+        var a10 = G[k - 1], a12 = G[k + 1];
+        var a20 = G[k + W - 1], a21 = G[k + W], a22 = G[k + W + 1];
+        var sx = a02 + 2 * a12 + a22 - a00 - 2 * a10 - a20;
+        var sy = a20 + 2 * a21 + a22 - a00 - 2 * a01 - a02;
+        gx[k] = sx;
+        gy[k] = sy;
+        mag[k] = Math.sqrt(sx * sx + sy * sy);
+        if ((x1 + y1) % 3 === 0) mags.push(mag[k]);
+      }
+    mags.sort(function (p, q) {
+      return p - q;
+    });
+    var thr = Math.max(14, mags[Math.floor(mags.length * 0.82)] || 0);
+    // Hough: x·cosθ + y·sinθ = ρ · โหวตเฉพาะมุมใกล้ทิศของความชัน (±2°) และเฉพาะ 2 กลุ่ม (เส้นนอน / เส้นตั้ง)
+    var D = Math.ceil(Math.sqrt(W * W + H * H));
+    var NR = 2 * D + 1;
+    var acc = new Float32Array(180 * NR);
+    var COS = [];
+    var SIN = [];
+    for (var t = 0; t < 180; t++) {
+      COS[t] = Math.cos((t * Math.PI) / 180);
+      SIN[t] = Math.sin((t * Math.PI) / 180);
+    }
+    var horiz = function (t) {
+      return t >= 58 && t <= 122;
+    };
+    for (var y2 = 1; y2 < H - 1; y2++)
+      for (var x2 = 1; x2 < W - 1; x2++) {
+        var k2 = y2 * W + x2;
+        if (mag[k2] < thr) continue;
+        var tg = Math.round((Math.atan2(gy[k2], gx[k2]) * 180) / Math.PI);
+        if (tg < 0) tg += 180;
+        if (tg >= 180) tg -= 180;
+        if (!horiz(tg)) continue; // ขอบตั้งหาแยกในช่วงของแต่ละคู่เส้นนอน (ด้านล่าง)
+        for (var dt = -2; dt <= 2; dt++) {
+          var tt = (tg + dt + 180) % 180;
+          var r = Math.round(x2 * COS[tt] + y2 * SIN[tt]) + D;
+          acc[tt * NR + r] += 1;
+        }
+      }
+    // ยอดของ Hough (กดยอดใกล้กันทิ้ง) → เส้นที่เด่นสุดของแต่ละกลุ่ม
+    function peaks(test, max) {
+      var list = [];
+      for (var t3 = 0; t3 < 180; t3++) {
+        if (!test(t3)) continue;
+        for (var r3 = 0; r3 < NR; r3++) {
+          var v = acc[t3 * NR + r3];
+          if (v < 12) continue;
+          var isMax = true;
+          for (var a = -2; a <= 2 && isMax; a++)
+            for (var b = -3; b <= 3; b++) {
+              if (!a && !b) continue;
+              var ta = t3 + a;
+              var rb = r3 + b;
+              if (ta < 0 || ta >= 180 || rb < 0 || rb >= NR) continue;
+              if (acc[ta * NR + rb] > v) {
+                isMax = false;
+                break;
+              }
+            }
+          // เส้นตั้ง θ≈179° คือเส้นเดียวกับ θ≈-1° (ρ กลับเครื่องหมาย) — เก็บแบบเดียวกัน กันนับเส้นเดียวกันซ้ำสองเส้น
+          if (isMax) list.push({ t: t3, r: r3 - D, v: v, tn: t3, rn: r3 - D });
+        }
+      }
+      list.sort(function (p, q) {
+        return q.v - p.v;
+      });
+      var out = [];
+      for (var i3 = 0; i3 < list.length && out.length < max; i3++) {
+        var c = list[i3];
+        var near = out.some(function (o) {
+          return Math.abs(o.tn - c.tn) <= 3 && Math.abs(o.rn - c.rn) <= 5;
+        });
+        if (!near) out.push(c);
+      }
+      return out;
+    }
+    var hs = peaks(horiz, 48).map(function (l) {
+      return { c: COS[l.t], s: SIN[l.t], r: l.r, y: (l.r - (W / 2) * COS[l.t]) / SIN[l.t] };
+    });
+    // จุดบนเส้นนอนที่มีขอบภาพจริง (ทิศความชันตั้งฉากกับเส้น) → ผลรวมสะสม: นับขอบช่วงไหนของเส้นก็ได้ทันที
+    function edgeAt(X, Y, nx, ny) {
+      for (var d = -2; d <= 2; d++) {
+        var xx = Math.round(X + nx * d);
+        var yy = Math.round(Y + ny * d);
+        if (xx < 1 || yy < 1 || xx >= W - 1 || yy >= H - 1) continue;
+        var q = yy * W + xx;
+        var m = mag[q];
+        if (m >= thr * 0.7 && Math.abs(gx[q] * nx + gy[q] * ny) / m > 0.8) return 1;
+      }
+      return 0;
+    }
+    hs.forEach(function (l) {
+      var P = new Int32Array(W + 1);
+      var Y = new Float32Array(W);
+      for (var x = 0; x < W; x++) {
+        Y[x] = (l.r - x * l.c) / l.s;
+        P[x + 1] = P[x] + edgeAt(x, Y[x], l.c, l.s);
+      }
+      l.P = P;
+      l.Y = Y;
+    });
+    var span = function (P, a, b) {
+      var i0 = Math.max(0, Math.min(W, Math.round(Math.min(a, b))));
+      var i1 = Math.max(0, Math.min(W, Math.round(Math.max(a, b))));
+      return i1 - i0 < 4 ? 0 : (P[i1] - P[i0]) / (i1 - i0);
+    };
+    // ขอบตั้ง (ความชันแนวนอน) สะสมตามแนวตั้งของแต่ละคอลัมน์ — ขอบข้างป้ายต้องยาวเต็มช่วงระหว่างเส้นบน/ล่าง
+    // (หาในช่วงของแต่ละคู่เส้นนอน: ขอบข้างป้ายสั้นแต่เต็มช่วง ชนะรอยต่ออิฐ/ขอบเสายาว ๆ ที่ Hough ทั้งภาพชอบ)
+    var VE = new Int32Array(W * (H + 1));
+    for (var x6 = 0; x6 < W; x6++) {
+      for (var y6 = 0; y6 < H; y6++) {
+        var k6 = y6 * W + x6;
+        var m6 = mag[k6];
+        VE[x6 * (H + 1) + y6 + 1] = VE[x6 * (H + 1) + y6] + (m6 >= thr * 0.7 && Math.abs(gx[k6]) > 2 * Math.abs(gy[k6]) ? 1 : 0);
+      }
+    }
+    function colHit(x, y0, y1) {
+      var a = Math.max(0, Math.min(H, Math.round(y0)));
+      var b = Math.max(0, Math.min(H, Math.round(y1)));
+      if (b - a < 3) return 0;
+      var best = 0;
+      for (var dx = -1; dx <= 1; dx++) {
+        var xx = x + dx;
+        if (xx < 0 || xx >= W) continue;
+        var v = (VE[xx * (H + 1) + b] - VE[xx * (H + 1) + a]) / (b - a);
+        if (v > best) best = v;
+      }
+      return best;
+    }
+    // ลายเส้นนอนถี่ ๆ ข้างใน (ประตูม้วน/บานเกล็ด) — ป้ายไม่ใช่แบบนั้น
+    var HE = new Int32Array((W + 1) * (H + 1));
+    for (var y5 = 0; y5 < H; y5++) {
+      var row = 0;
+      for (var x5 = 0; x5 < W; x5++) {
+        var k5 = y5 * W + x5;
+        // ภาพจริง (ไม่เบลอ) — ซี่ประตูม้วนถี่ ๆ หายไปกับภาพเบลอ
+        var up = y5 > 0 ? L[k5 - W] : L[k5];
+        var dn = y5 < H - 1 ? L[k5 + W] : L[k5];
+        var lf5 = x5 > 0 ? L[k5 - 1] : L[k5];
+        var rt5 = x5 < W - 1 ? L[k5 + 1] : L[k5];
+        var vy = Math.abs(dn - up);
+        row += vy > 10 && vy > 1.5 * Math.abs(rt5 - lf5) ? 1 : 0;
+        HE[(y5 + 1) * (W + 1) + x5 + 1] = HE[y5 * (W + 1) + x5 + 1] + row;
+      }
+    }
+    // สัดส่วนแถวที่มีเส้นนอนพาดเกือบเต็มความกว้างกรอบ (ประตูม้วน/บานเกล็ด = เยอะ · ป้าย/ผนัง = แทบไม่มี)
+    function stripes(x0, y0, x1, y1) {
+      x0 = Math.max(0, Math.floor(x0));
+      y0 = Math.max(0, Math.floor(y0));
+      x1 = Math.min(W, Math.ceil(x1));
+      y1 = Math.min(H, Math.ceil(y1));
+      if (x1 - x0 < 4 || y1 - y0 < 4) return 0;
+      var full = 0;
+      for (var yy = y0; yy < y1; yy++) {
+        var a = HE[(yy + 1) * (W + 1) + x1] - HE[yy * (W + 1) + x1] - HE[(yy + 1) * (W + 1) + x0] + HE[yy * (W + 1) + x0];
+        if (a > (x1 - x0) * 0.55) full++;
+      }
+      return full / (y1 - y0);
+    }
+    // สีเฉลี่ยในกรอบเทียบกับรอบนอก (ป้ายเก่าเด่นจากผนัง · ผนังเปล่า/แผงคานกลืนกับรอบ ๆ) — ผลรวมสะสม 2 มิติ ต่อช่องสี
+    var W1 = W + 1;
+    var IR = new Float64Array(W1 * (H + 1));
+    var IG = new Float64Array(W1 * (H + 1));
+    var IB = new Float64Array(W1 * (H + 1));
+    for (var y9 = 0; y9 < H; y9++) {
+      var rr = 0, rg = 0, rb = 0;
+      for (var x9 = 0; x9 < W; x9++) {
+        var k9 = (y9 * W + x9) * 4;
+        rr += px[k9];
+        rg += px[k9 + 1];
+        rb += px[k9 + 2];
+        var o9 = (y9 + 1) * W1 + x9 + 1;
+        IR[o9] = IR[o9 - W1] + rr;
+        IG[o9] = IG[o9 - W1] + rg;
+        IB[o9] = IB[o9 - W1] + rb;
+      }
+    }
+    function boxSum(I, x0, y0, x1, y1) {
+      return I[y1 * W1 + x1] - I[y0 * W1 + x1] - I[y1 * W1 + x0] + I[y0 * W1 + x0];
+    }
+    function meanIn(x0, y0, x1, y1) {
+      x0 = Math.max(0, Math.min(W, Math.round(x0)));
+      x1 = Math.max(0, Math.min(W, Math.round(x1)));
+      y0 = Math.max(0, Math.min(H, Math.round(y0)));
+      y1 = Math.max(0, Math.min(H, Math.round(y1)));
+      var n = (x1 - x0) * (y1 - y0);
+      if (n <= 0) return null;
+      return { n: n, r: boxSum(IR, x0, y0, x1, y1), g: boxSum(IG, x0, y0, x1, y1), b: boxSum(IB, x0, y0, x1, y1) };
+    }
+    function contrast(x0, y0, x1, y1) {
+      var w = x1 - x0, h = y1 - y0;
+      var inn = meanIn(x0 + w * 0.15, y0 + h * 0.15, x1 - w * 0.15, y1 - h * 0.15);
+      var big = meanIn(x0 - w * 0.15, y0 - h * 0.25, x1 + w * 0.15, y1 + h * 0.25);
+      var mid = meanIn(x0, y0, x1, y1);
+      if (!inn || !big || !mid || big.n - mid.n < 20) return 0;
+      var on = big.n - mid.n;
+      var d = [inn.r / inn.n - (big.r - mid.r) / on, inn.g / inn.n - (big.g - mid.g) / on, inn.b / inn.n - (big.b - mid.b) / on];
+      return Math.sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+    }
+    hs.sort(function (p, q) {
+      return p.y - q.y;
+    });
+    var cands = [];
+    var prof = new Float32Array(W);
+    for (var i4 = 0; i4 < hs.length; i4++)
+      for (var j4 = i4 + 1; j4 < hs.length; j4++) {
+        var top = hs[i4];
+        var bot = hs[j4];
+        var dh = bot.y - top.y;
+        if (dh < H * 0.045 || dh > H * 0.62) continue;
+        // ขอบตั้งในช่วงนี้: คอลัมน์ที่ขอบยาวเกือบเต็มช่วง (ยอดเฉพาะที่) ไม่เกิน 24 เส้น
+        for (var x7 = 0; x7 < W; x7++) prof[x7] = top.Y[x7] < bot.Y[x7] - 3 ? colHit(x7, top.Y[x7], bot.Y[x7]) : 0;
+        var cols = [];
+        for (var x8 = 1; x8 < W - 1; x8++) {
+          var v8 = prof[x8];
+          if (v8 < 0.5 || v8 < prof[x8 - 1] || v8 < prof[x8 + 1]) continue;
+          if (cols.length && x8 - cols[cols.length - 1].x <= 4) {
+            if (v8 > cols[cols.length - 1].v) cols[cols.length - 1] = { x: x8, v: v8 };
+            continue;
+          }
+          cols.push({ x: x8, v: v8 });
+        }
+        if (cols.length > 24)
+          cols = cols
+            .sort(function (p, q) {
+              return q.v - p.v;
+            })
+            .slice(0, 24)
+            .sort(function (p, q) {
+              return p.x - q.x;
+            });
+        for (var a4 = 0; a4 < cols.length; a4++)
+          for (var b4 = a4 + 1; b4 < cols.length; b4++) {
+            var xl = cols[a4].x;
+            var xr = cols[b4].x;
+            if (xr - xl < W * 0.1) continue;
+            var TL = [xl, top.Y[xl]];
+            var TR = [xr, top.Y[xr]];
+            var BR = [xr, bot.Y[xr]];
+            var BL = [xl, bot.Y[xl]];
+            if (TL[1] < -H * 0.02 || TR[1] < -H * 0.02 || BL[1] > H * 1.02 || BR[1] > H * 1.02) continue;
+            if (BL[1] - TL[1] < H * 0.03 || BR[1] - TR[1] < H * 0.03) continue;
+            var sT = span(top.P, xl, xr);
+            var sB = span(bot.P, xl, xr);
+            var sL = cols[a4].v;
+            var sR = cols[b4].v;
+            var minS = Math.min(sT, sB, sL, sR);
+            if (minS < 0.5) continue;
+            var pts = [TL, TR, BR, BL];
+            var area = Math.abs(polyArea(pts)) / (W * H);
+            if (area < 0.012 || area > 0.6) continue;
+            var edge = ((sT + sB + sL + sR) / 4) * (0.6 + 0.4 * minS);
+            var ratio = (dist(TL, TR) + dist(BL, BR)) / (dist(TL, BL) + dist(TR, BR));
+            var aspP = Math.exp(-0.45 * Math.abs(Math.log(ratio / aspect)));
+            var sizeP = Math.max(0.55, 1 - (0.45 * Math.abs(Math.log(area / 0.14))) / Math.log(8));
+            var cx4 = (xl + xr) / 2 / W;
+            var cy4 = (TL[1] + TR[1] + BR[1] + BL[1]) / 4 / H;
+            // ป้ายมักอยู่ช่วงบน/กลางภาพ · ช่วงล่างคือประตูม้วน ประตู กระจก พื้น
+            var posP = (1 - 0.7 * Math.abs(cx4 - 0.5)) * (cy4 < 0.45 ? 1 : Math.max(0.45, 1 - (cy4 - 0.45) * 1.6));
+            var mx = (xr - xl) * 0.1;
+            var my = (Math.max(BL[1], BR[1]) - Math.min(TL[1], TR[1])) * 0.1;
+            var st = stripes(xl + mx, Math.min(TL[1], TR[1]) + my, xr - mx, Math.max(BL[1], BR[1]) - my);
+            var stripeP = STRIPES && st > 0.18 ? Math.max(0.25, 1 - (st - 0.18) * 4) : 1;
+            var con = contrast(xl, Math.min(TL[1], TR[1]), xr, Math.max(BL[1], BR[1]));
+            var conP = 1 + 0.4 * Math.min(1, con / 70);
+            // มุมปิด: ขอบของป้ายจบที่มุม (เลยมุมไปเป็นผนัง) · กรอบกระจก/แผงคาน/ตัวตึก เส้นวิ่งเลยมุมต่อไปอีกยาว
+            var ew = (xr - xl) * 0.2;
+            var eh = (Math.max(BL[1], BR[1]) - Math.min(TL[1], TR[1])) * 0.3;
+            var ext =
+              (span(top.P, xl - ew, xl - 2) +
+                span(top.P, xr + 2, xr + ew) +
+                span(bot.P, xl - ew, xl - 2) +
+                span(bot.P, xr + 2, xr + ew) +
+                colHit(xl, TL[1] - eh, TL[1] - 2) +
+                colHit(xl, BL[1] + 2, BL[1] + eh) +
+                colHit(xr, TR[1] - eh, TR[1] - 2) +
+                colHit(xr, BR[1] + 2, BR[1] + eh)) /
+              8;
+            var closeP = 1 - 0.4 * ext;
+            cands.push({ score: edge * aspP * sizeP * posP * stripeP * conP * closeP, pts: pts, area: area, con: con, f: [sT, sB, sL, sR, aspP, sizeP, posP, st, con / 100, ext].map(function (v) { return Math.round(v * 100) / 100; }) });
+          }
+      }
+    if (!cands.length) return null;
+    cands.sort(function (p, q) {
+      return q.score - p.score;
+    });
+    var best = cands[0];
+    // ขอบนอกของป้ายสำคัญกว่ากรอบรูปข้างในป้าย: กรอบใหญ่กว่าที่ครอบกรอบนี้ไว้ คะแนนใกล้กัน → ใช้กรอบนอก
+    for (var c6 = 1; c6 < cands.length && cands[c6].score >= best.score * 0.7; c6++) {
+      var o = cands[c6];
+      // (กรอบกระจก/แผงคานที่ครอบป้ายไว้ เส้นวิ่งเลยมุม คะแนนมุมปิดต่ำ ไม่ค่อยติดเกณฑ์นี้)
+      if (o.area > best.area * 1.15 && o.area < best.area * 4 && contains(o.pts, best.pts)) best = o;
+    }
+    if (opts && opts.debug) opts.debug.push.apply(opts.debug, cands.slice(0, 8)); // ไว้ปรับเกณฑ์: กรอบที่คะแนนสูงสุด 8 อันดับ
+    if (best.score < 0.28) return null;
+    return {
+      score: Math.round(best.score * 1000) / 1000,
+      region: best.pts.map(function (p) {
+        return { x: Math.min(1, Math.max(0, p[0] / W)), y: Math.min(1, Math.max(0, p[1] / H)) };
+      }),
+    };
+  }
+  function contains(outer, inner) {
+    return inner.every(function (p) {
+      var c = false;
+      for (var i = 0, j = outer.length - 1; i < outer.length; j = i++) {
+        var xi = outer[i][0], yi = outer[i][1], xj = outer[j][0], yj = outer[j][1];
+        if (yi > p[1] !== yj > p[1] && p[0] < ((xj - xi) * (p[1] - yi)) / (yj - yi) + xi) c = !c;
+      }
+      return c;
+    });
+  }
+  function dist(a, b) {
+    return Math.sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]));
+  }
+  function polyArea(p) {
+    var s = 0;
+    for (var i = 0; i < p.length; i++) {
+      var a = p[i];
+      var b = p[(i + 1) % p.length];
+      s += a[0] * b[1] - b[0] * a[1];
+    }
+    return s / 2;
+  }
+  // ป้ายตามสัดส่วนจริงในกรอบที่หาได้: กรอบยาวกว่าป้าย → ป้ายกึ่งกลางแนวนอน · กรอบสูงกว่า → กึ่งกลางแนวตั้ง · เว้นขอบ 3%
+  function fitSpot(region, aspect, W, H) {
+    var P = region.map(function (q) {
+      return [q.x * W, q.y * H];
+    });
+    var ratio = (dist(P[0], P[1]) + dist(P[3], P[2])) / (dist(P[0], P[3]) + dist(P[1], P[2]));
+    var inset = 0.03;
+    var u0 = inset;
+    var u1 = 1 - inset;
+    var v0 = inset;
+    var v1 = 1 - inset;
+    if (ratio > aspect) {
+      var k = (aspect / ratio) * (1 - 2 * inset);
+      u0 = 0.5 - k / 2;
+      u1 = 0.5 + k / 2;
+    } else {
+      var k2 = (ratio / aspect) * (1 - 2 * inset);
+      v0 = 0.5 - k2 / 2;
+      v1 = 0.5 + k2 / 2;
+    }
+    var at = function (u, v) {
+      var tx = P[0][0] + (P[1][0] - P[0][0]) * u;
+      var ty = P[0][1] + (P[1][1] - P[0][1]) * u;
+      var bx = P[3][0] + (P[2][0] - P[3][0]) * u;
+      var by = P[3][1] + (P[2][1] - P[3][1]) * u;
+      return { x: (tx + (bx - tx) * v) / W, y: (ty + (by - ty) * v) / H };
+    };
+    return [at(u0, v0), at(u1, v0), at(u1, v1), at(u0, v1)];
   }
 
   /* ---------- ฉาก "มือจับ (รูปของร้าน)": หาบัตรเปล่าในรูป แล้ววางงานลงบนบัตร ----------
@@ -2293,6 +2693,8 @@
     pointInQuad: pointInQuad,
     defaultQuad: defaultQuad,
     findCards: findCards,
+    findSignSpot: findSignSpot,
+    fitSpot: fitSpot,
     minRect: minRect,
     handDefaults: handDefaults,
     HAND_BUILTIN: HAND_BUILTIN,

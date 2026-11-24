@@ -139,6 +139,17 @@ export function mountViewer(opts) {
    * แสงจากตัวหน้าป้ายเอง (emissive = ลายงาน) ~70% + แสงในฉากเหลือ ~30% ให้ยังมีมิติตอนหมุน · หาหน้าป้ายจากชื่อวัสดุ NadponFace
    * (ไฟล์เก่าไม่มีชื่อ: วัสดุที่ลายใหญ่ที่สุดของตัวป้าย) */
   function printLook(meshes) {
+    // ไฟล์จากแอปรุ่น 4.20+ ที่ตั้ง “สีป้ายตามไฟล์งาน” (extras npFlat): หน้าป้ายไม่รับแสงเลย สีเท่าไฟล์งานเป๊ะเหมือนในแอป
+    let flat = 0;
+    meshes.forEach((o) => {
+      const one = (m) => {
+        if (!(m && m.map && m.userData && m.userData.npFlat && /NadponFace/.test(m.name || ''))) return m;
+        flat++;
+        return new THREE.MeshBasicMaterial({ map: m.map, color: m.color, transparent: m.transparent, opacity: m.opacity, alphaTest: m.alphaTest, side: m.side, toneMapped: false });
+      };
+      o.material = Array.isArray(o.material) ? o.material.map(one) : one(o.material);
+    });
+    if (flat) return flat;
     const mats = new Set();
     meshes.forEach((o) => (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m && m.isMeshStandardMaterial && m.map && mats.add(m)));
     const list = [...mats];
