@@ -52,6 +52,7 @@ const ROW3_H = 400;
 const FOOT_Y = ROW3_Y + ROW3_H;              // 1418
 const FOOT_H = H - FOOT_Y;                   // 268
 const GAME_W = 840;                          // การ์ดเกมร้าน กินท้ายแถวแบรนด์ขวา
+const SIGN_W = 840;                          // การ์ดจำลองป้าย 3D กินต้นแถวแบรนด์ซ้าย
 
 // ------------------------------------------------------------------ colours --
 const NAVY = '#17357E', INK = '#1B2540', SUB = '#3D4C73';
@@ -205,9 +206,19 @@ ${SMALL.filter((c) => c.row)
   )
   .join('')}
 
-<div class="foot" style="width:${W - GAME_W}px">
+<div class="foot" style="left:${SIGN_W}px;width:${W - GAME_W - SIGN_W}px">
   <div class="fw">ม่วงจดให้ 🐾</div>
   <div class="ft">จดงานให้ · จดเงินให้ · อยู่ข้างคุณเสมอ</div>
+</div>
+
+<!-- จำลองป้าย 3D — stand-in ของการ์ดที่ composite ลงบนงานจริงด้วย scripts/add-sign-tile.mjs (ซ้ายสุดของแถวแบรนด์) -->
+<div style="position:absolute;left:68px;top:${FOOT_Y + 28}px;width:${SIGN_W - 108}px;height:${FOOT_H - 56}px;
+  border-radius:36px;background:linear-gradient(150deg,#F6B07E 0%,#D9622B 100%);
+  box-shadow:0 14px 30px rgba(0,0,0,.3);display:flex;align-items:center;gap:26px;padding:0 34px">
+  <div style="width:140px;height:140px;border-radius:24px;background:#fff;display:flex;align-items:center;justify-content:center">
+  <img style="width:126px;height:126px" src="data:image/png;base64,${b64('sign-mockup/icons/icon-192.png')}"></div>
+  <div><div style="font-weight:700;font-size:60px;color:#fff;line-height:1.1">จำลองป้าย 3D ✦</div>
+  <div style="font-weight:400;font-size:36px;color:#FFEBDD;margin-top:4px">ภาพป้ายให้ลูกค้าดู · แตะเปิด</div></div>
 </div>
 
 <!-- เกมร้าน 8-BIT — stand-in ของการ์ดที่ composite ลงบนงานจริงด้วย

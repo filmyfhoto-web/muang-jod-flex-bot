@@ -22,6 +22,11 @@ const COMMANDS = new Map([
   ['เกมร้าน', 'open_game'],
   ['เกม', 'open_game'],
   ['เล่นเกม', 'open_game'],
+  // ปุ่มจำลองป้าย 3D (มุมซ้ายล่างของริชเมนู) — เปิดแอปจำลองป้ายที่ /sign/
+  ['จำลองป้าย 3d', 'open_sign'], // normalise() lower-cases latin ก่อนเทียบ
+  ['จำลองป้าย', 'open_sign'],
+  ['ป้าย 3 มิติ', 'open_sign'],
+  ['ทำภาพ 3 มิติ', 'open_sign'],
   // The small captions printed under a button. A menu whose buttons send text
   // can be built to send either line, and a shop reading the artwork may type
   // the caption rather than the heading.

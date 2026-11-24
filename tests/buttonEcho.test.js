@@ -74,8 +74,8 @@ test('with no LIFF app the same buttons still work, through the bot', () => {
   assert.equal(pageUrl('jot', {}), null);
   assert.equal(pageUrl('game', {}), null); // ไม่มี PUBLIC_BASE_URL → ปุ่มเกมก็ถอยไป postback
   const areas = buildAreas({});
-  assert.equal(areas.length, 10); // 9 เดิม + การ์ดเกม (ร้านสั่งเชื่อม 23 พ.ย. 69)
-  assert.equal(areas.filter((a) => a.action.type === 'postback').length, 10);
+  assert.equal(areas.length, 11); // 9 เดิม + การ์ดเกม (23 พ.ย. 69) + การ์ดจำลองป้าย 3D (24 พ.ย. 69)
+  assert.equal(areas.filter((a) => a.action.type === 'postback').length, 11);
   assert.equal(areas.find((a) => a.action.label === 'จดงาน').action.data, 'action=add_job');
   assert.equal(areas.find((a) => a.action.label === 'เกมร้าน 8-BIT').action.data, 'action=open_game');
 });
