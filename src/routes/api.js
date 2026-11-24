@@ -35,6 +35,8 @@ import { createBill, getBillById } from '../services/billService.js';
 import { derivePaymentFields, paidAtPatch } from '../utils/payment.js';
 import { pickupPatch, jobState, stagePatch, jobStage, JOB_STAGES, statusPatch, jobStatus } from '../utils/jobState.js';
 import { gameJob, gameStatusOf, workPatch } from '../utils/gameBridge.js';
+import { findTeamFor } from '../services/teamService.js';
+import { memberApiAllowed, stripMemberPatch } from '../utils/teamGate.js';
 import { round2 } from '../utils/currency.js';
 import { buildBook, buildAccount } from '../utils/customerBook.js';
 import { buildLedger, buildWeekByGroup, mondayISO } from '../utils/ledger.js';
@@ -156,6 +158,7 @@ export function createApiRouter(deps = {}) {
   // Injectable like the others above, so the routes can be exercised without a
   // database standing behind them.
   const findJob = deps.getJobById || getJobById;
+  const teamFor = deps.findTeamFor || findTeamFor;
   const openBill = deps.createBill || createBill;
   const readBill = deps.getBillById || getBillById;
   const saveJob = deps.updateJob || updateJob;
@@ -258,17 +261,45 @@ export function createApiRouter(deps = {}) {
        * ถ้าด่านนี้มีแต่ในแชต ใครก็ตามที่รู้ URL ของ LIFF และล็อกอิน LINE ได้
        * ก็เปิดแดชบอร์ดได้ ซึ่งเป็นประตูหลังที่กว้างกว่าแชตด้วยซ้ำ
        */
-      if (!isAllowed(user.userId)) {
-        logger.info('api.denied', { user: maskUserId(user.userId) });
-        return res.status(403).json({ error: 'forbidden' });
+      /* ทีมของร้าน (migration 026): สมาชิกที่เจ้าของเชิญไว้ทำงานบนสมุดของ
+       * เจ้าของร้าน — ผ่านด่านได้แม้ไม่อยู่ใน ALLOWED_LINE_USER_IDS เพราะ
+       * ทางเข้าทีมมีทางเดียวคือรหัสที่เจ้าของสั่งสร้างในแชต และสิทธิ์ถูกกั้น
+       * อีกชั้นด้านล่าง (เปิดเท่าที่หน้าจดงานกับเกมใช้) */
+      const team = await teamFor(user.userId);
+      if (team) {
+        req.teamMember = { name: team.member.name, lineUserId: user.userId };
+        req.profile = { ...team.owner, teamMember: req.teamMember };
+      } else {
+        if (!isAllowed(user.userId)) {
+          logger.info('api.denied', { user: maskUserId(user.userId) });
+          return res.status(403).json({ error: 'forbidden' });
+        }
+        req.profile = await resolveProfile(user.userId);
       }
-      req.profile = await resolveProfile(user.userId);
       // หมวดงานที่ร้านตั้งเองต้องพร้อมก่อนทุกเส้นทางที่โชว์ชื่อหมวด (ไม่เคย throw)
       await warmCategories(req.profile.id);
       next();
     } catch (err) {
       next(err);
     }
+  });
+
+  /* ด่านสิทธิ์สมาชิกทีม — เปิดเท่าที่ "จดงาน" (/app/jot) กับเกม (/app/game) ใช้
+   * นอกรายการ = ของเจ้าของร้าน (เงิน บัญชี รายงาน บิล สมุดลูกค้า ตั้งค่า) ปัดสุภาพ
+   * และ PATCH ใบงานของสมาชิกถูกริบช่องเงิน/สถานะรับของออกก่อนเสมอ */
+  router.use((req, res, next) => {
+    if (!req.teamMember) return next();
+    if (!memberApiAllowed(req.method, req.path)) {
+      logger.info('api.member_blocked', { path: req.path, method: req.method });
+      return res.status(403).json({
+        error: 'owner_only',
+        message: 'ส่วนนี้สำหรับเจ้าของร้านค่ะ 💜 สมาชิกทีมใช้หน้าจดงานและบอร์ดเกมคิวงานได้เลยนะคะ',
+      });
+    }
+    if (req.method === 'PATCH' && /^\/jobs\/[^/]+$/.test(req.path)) {
+      req.body = stripMemberPatch(req.body || {});
+    }
+    next();
   });
 
   router.get('/me', async (req, res, next) => {
