@@ -132,6 +132,18 @@ label.lb { display: block; font-size: 13px; font-weight: 800; color: var(--ink-s
 .frow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .tog { min-height: 48px; border-radius: 12px; border: 2.5px solid var(--line); background: var(--card); font-weight: 900; }
 .tog.on { background: #ffe1dd; border-color: var(--red); color: #a2372c; }
+/* ใบจดงานจริงในเกม (โหมดม่วงจด) — เลย์เอาต์ตามฟอร์ม "จดด่วน" ที่ร้านใช้จริง */
+.rj-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.rj-chips button { min-height: 40px; padding: 6px 12px; border-radius: 10px; border: 2px solid var(--line); background: var(--panel-2); font-weight: 800; font-size: 13.5px; color: var(--ink); }
+.rj-chips button small { color: var(--ink-soft); font-weight: 700; margin-left: 4px; font-size: 12px; }
+.rj-line { border: 2.5px solid var(--line); border-radius: 14px; padding: 10px; margin-top: 10px; background: var(--card); position: relative; }
+.rj-line .rj-del { position: absolute; top: 8px; right: 8px; width: 34px; height: 34px; border-radius: 10px; border: 2px solid var(--line); background: var(--panel-2); font-weight: 900; color: var(--ink-soft); }
+.rj-dims { display: grid; grid-template-columns: 1fr 1fr 80px; gap: 8px; margin-top: 8px; }
+.rj-strip { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; margin-top: 10px; min-height: 48px; padding: 8px 12px; border-radius: 12px; border: 2px dashed var(--purple-deep); background: #f3eafe; font-weight: 800; font-size: 13px; color: var(--ink-soft); text-align: left; }
+.rj-strip b { font-size: 19px; color: var(--purple-deep); white-space: nowrap; }
+.rj-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 2.5px solid var(--line); }
+.rj-foot .pay small { display: block; font-size: 12.5px; color: var(--ink-soft); font-weight: 800; }
+.rj-foot .pay b { font-size: 24px; color: var(--purple-deep); }
 /* ช่องเสริมพับเก็บ — ฟอร์มหลักเหลือสั้น (ร้านขอกระชับ) */
 .fmore { margin-top: 12px; }
 .fmore > summary { list-style: none; cursor: pointer; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 2px dashed var(--line-deep); border-radius: 12px; padding: 8px 12px; font-weight: 800; font-size: 13px; color: var(--ink-soft); background: var(--panel-2); }
@@ -326,7 +338,8 @@ dialog::backdrop { background: rgba(67, 32, 118, .5); }
 
 <!-- ============ รับงานใหม่ ============ -->
 <section id="scr-new" class="scr" hidden>
-  <div class="panel">
+  <!-- ฟอร์มสาธิต (ของเดิม เก็บในเครื่อง) — โหมดระบบจริงใช้ใบจดด้านล่างแทน -->
+  <div class="panel" data-demo-only>
     <h2 class="sec" id="new-title">➕ รับงานใหม่</h2>
     <div class="parsebox" id="parse-box">
       <b style="font-size:13.5px">พิมพ์รวดเดียว แล้วให้ระบบช่วยแยกช่อง</b>
@@ -374,6 +387,42 @@ dialog::backdrop { background: rgba(67, 32, 118, .5); }
       <button class="btn primary" id="save-job">✓ บันทึกใบงาน</button>
     </div>
     <p class="muted" id="new-hint" style="margin-top:8px">ใบงานเก็บในเครื่องนี้ (โหมดสาธิต) — สำรองไฟล์ได้ที่หน้า “รายงาน”</p>
+  </div>
+
+  <!-- โหมดระบบจริง: จดงานเข้าม่วงจดจากในเกมเลย — เลย์เอาต์ตามฟอร์ม "จดด่วน"
+       ที่ร้านใช้จริง (ร้านขอ 24 พ.ย. 69: "เอาจดประมาณนี้ได้ไหมในเกมส์")
+       ราคาที่พิมพ์ตอนจดคือส่วนหนึ่งของการจด แต่ paidAmount ส่ง 0 เสมอ —
+       การรับเงิน/ใบเสร็จยังทำในม่วงจดที่เดียว -->
+  <div class="panel" data-real-only hidden>
+    <h2 class="sec">🧾 จดงานเข้าม่วงจด</h2>
+    <label class="lb" for="rj-customer" style="margin-top:0">ลูกค้า</label>
+    <input id="rj-customer" class="field" maxlength="200" placeholder="เช่น รพสต.บ้านชี">
+    <div class="rj-chips" id="rj-chips" hidden></div>
+
+    <label class="lb" for="rj-due">วันนัดรับงาน</label>
+    <input id="rj-due" class="field" type="date">
+
+    <details class="fmore" id="rj-more">
+      <summary>＋ ใส่เพิ่มได้ · วันที่จด · หมายเหตุ ▾</summary>
+      <label class="lb" for="rj-date">วันที่จด (ปกติ = วันนี้)</label>
+      <input id="rj-date" class="field" type="date">
+      <label class="lb" for="rj-note">หมายเหตุ (ร้านเห็นเอง ไม่ขึ้นใบเสร็จ)</label>
+      <textarea id="rj-note" class="field" rows="2" maxlength="400" placeholder="ไฟล์อยู่ไหน / รายละเอียดที่คุยกับลูกค้า"></textarea>
+    </details>
+
+    <div id="rj-lines"></div>
+    <button type="button" class="rj-strip" id="rj-ship-row" hidden><span>🏍️ ค่าส่ง · แตะแก้หรือเอาออก</span><b id="rj-ship-amt">฿0</b></button>
+
+    <div class="btn-row" style="margin-top:10px">
+      <button class="btn lite" id="rj-add-line">＋ เพิ่มบรรทัด</button>
+      <button class="btn lite" id="rj-ship">🏍️ ค่าส่ง</button>
+    </div>
+
+    <div class="rj-foot">
+      <div class="pay"><small>ลูกค้าจ่าย</small><b id="rj-total">฿0</b></div>
+      <button class="btn primary" id="rj-save" style="min-width:150px">💾 บันทึก</button>
+    </div>
+    <p class="muted" style="margin-top:8px">บันทึกแล้วเข้าคิวร้านทันที เลขงานออกจากระบบจริง · การรับเงินและใบเสร็จทำในม่วงจดตามเดิม</p>
   </div>
 </section>
 
@@ -669,15 +718,16 @@ function showScreen(name) {
   }
   if (name === 'home') { renderHome(); requestAnimationFrame(fitCanvas); }
   if (name === 'queue') renderQueue();
-  if (name === 'new' && editId === '') resetForm();
+  if (name === 'new' && editId === '' && !REAL.on) resetForm(); // ฟอร์มสาธิตเท่านั้น (โหมดจริงใช้ใบจด rj-*)
   if (name === 'report') renderReport();
   if (name === 'settings') renderSettings();
   window.scrollTo({ top: 0, behavior: 'instant' });
 }
 for (const s of SCREENS) $('tab-' + s).onclick = () => {
   if (s === 'new') {
-    // โหมดระบบจริง: จดงาน (และราคา) ทำในฟอร์มจริงของม่วงจด — งานจะไหลเข้าคิวเกมเอง
-    if (REAL.on) { location.href = '/app/jot'; return; }
+    /* โหมดระบบจริง: จดในเกมเลยด้วยใบจดแบบฟอร์ม "จดด่วน" (ร้านขอ 24 พ.ย. 69
+     * "เอาจดประมาณนี้ได้ไหมในเกมส์" — เดิมเด้งไป /app/jot ถูกแทนด้วยหน้านี้) */
+    if (REAL.on) { showScreen('new'); initRealJot(); return; }
     editId = ''; resetForm();
   }
   showScreen(s);
@@ -1270,7 +1320,7 @@ $('p-parse').onclick = () => {
     : 'ช่วยเติมช่องให้แล้ว — ตรวจความถูกต้องก่อนบันทึกนะคะ');
 };
 $('save-job').onclick = () => {
-  if (REAL.on) { toast('โหมดระบบจริง — จดงานใหม่ทำในม่วงจดค่ะ (ปุ่ม ➕ พาไป)'); return; }
+  if (REAL.on) { toast('โหมดระบบจริง — ใช้ใบจด "จดงานเข้าม่วงจด" ที่ปุ่ม ➕ ค่ะ'); return; }
   const customer = $('f-customer').value.trim();
   const items = E.sanitizeItems(collectItems());
   if (!customer && !items.length) { toast('กรอกชื่อลูกค้าหรือรายการงานอย่างน้อยหนึ่งช่องค่ะ'); return; }
@@ -1308,6 +1358,211 @@ $('f-delete').onclick = () => {
   editId = '';
   toast('ลบใบงานแล้ว');
   showScreen('queue');
+};
+
+/* ---------- จดงานเข้าม่วงจดจากในเกม (โหมดระบบจริงเท่านั้น) ----------
+ * เลย์เอาต์และกติกาเดียวกับฟอร์ม "จดด่วน" ของจริง: เซิร์ฟเวอร์เป็นคนบวกยอด
+ * (listedTotal/customerTotal = null), clientRef กันบันทึกซ้ำ, ค่าส่งเป็นรายการ
+ * หนึ่งบนใบเสร็จ — และเกมไม่แตะการรับเงิน (paidAmount 0, payMethod null) */
+const RJ = { lines: [], ship: 0, ref: '', customers: [], loadedCust: false };
+const newRef = () => 'np8-' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2, 10));
+const r2 = (n) => Math.round(n * 100) / 100;
+const baht = (n) => '฿' + r2(n).toLocaleString('th-TH', { maximumFractionDigits: 2 });
+const rjNum = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : 0; };
+
+/* คิดเงินบรรทัดแบบฟอร์มจริง: ตร.ม. = กว้าง/100 × ยาว/100 · รวม = ตร.ม. × เรท × จำนวน
+ * "แตะแก้ราคา" = ร้านพิมพ์ราคารวมทับ (manual) ตัวเลขอัตโนมัติหยุดยุ่ง */
+function rjCompute(line) {
+  const w = rjNum(line.w);
+  const l = rjNum(line.l);
+  const qty = Math.max(1, Math.round(rjNum(line.qty) || 1));
+  const sqm = w && l ? r2((w / 100) * (l / 100)) : 0;
+  const per = sqm && rjNum(line.rate) ? r2(sqm * rjNum(line.rate)) : 0;
+  const total = line.manual != null ? r2(line.manual) : r2(per * qty);
+  return { sqm, qty, total, size: w && l ? `${w}×${l} ซม.` : null };
+}
+const rjGrand = () => r2(RJ.lines.reduce((s, ln) => s + rjCompute(ln).total, 0) + RJ.ship);
+
+function rjPaint() {
+  document.querySelectorAll('#rj-lines .rj-line').forEach((el, i) => {
+    const ln = RJ.lines[i];
+    if (!ln) return;
+    const c = rjCompute(ln);
+    el.querySelector('.rj-edit-price b').textContent = baht(c.total);
+    el.querySelector('.rj-edit-price span').textContent = ln.manual != null
+      ? 'ราคาที่ร้านตั้งเอง · แตะแก้หรือล้าง'
+      : c.sqm
+        ? `รวมบรรทัดนี้ · ${c.sqm} ตร.ม.${c.qty > 1 ? ` × ${c.qty}` : ''} · แตะแก้ราคา`
+        : 'รวมบรรทัดนี้ · แตะแก้ราคา';
+  });
+  $('rj-ship-row').hidden = !(RJ.ship > 0);
+  $('rj-ship-amt').textContent = baht(RJ.ship);
+  $('rj-total').textContent = baht(rjGrand());
+}
+
+function rjAddLine(focus) {
+  const i = RJ.lines.length;
+  RJ.lines.push({ title: '', w: '', l: '', qty: 1, rate: '', manual: null });
+  const div = document.createElement('div');
+  div.className = 'rj-line';
+  div.innerHTML = `
+    <button type="button" class="rj-del" aria-label="ลบบรรทัด">✕</button>
+    <label class="lb" style="margin-top:0">ชื่องาน/รายการ</label>
+    <input class="field rj-title" maxlength="200" placeholder="เช่น ป้ายหน้าร้าน (ไม่ใช่ชื่อลูกค้า)">
+    <div class="rj-dims">
+      <div><label class="lb" style="margin-top:0">กว้าง (ซม.)</label><input class="field rj-w" type="number" min="0" inputmode="decimal" placeholder="160"></div>
+      <div><label class="lb" style="margin-top:0">ยาว (ซม.)</label><input class="field rj-l" type="number" min="0" inputmode="decimal" placeholder="300"></div>
+      <div><label class="lb" style="margin-top:0">จำนวน</label><input class="field rj-qty" type="number" min="1" value="1" inputmode="numeric"></div>
+    </div>
+    <label class="lb">ตร.ม. ละ (บาท)</label>
+    <input class="field rj-rate" type="number" min="0" inputmode="decimal" placeholder="เช่น 165">
+    <button type="button" class="rj-strip rj-edit-price"><span>รวมบรรทัดนี้ · แตะแก้ราคา</span><b>฿0</b></button>`;
+  $('rj-lines').appendChild(div);
+
+  for (const [cls, key] of [['rj-title', 'title'], ['rj-w', 'w'], ['rj-l', 'l'], ['rj-qty', 'qty'], ['rj-rate', 'rate']]) {
+    div.querySelector('.' + cls).addEventListener('input', (e) => {
+      const at = [...$('rj-lines').children].indexOf(div);
+      if (RJ.lines[at]) { RJ.lines[at][key] = e.target.value; rjPaint(); }
+    });
+  }
+  div.querySelector('.rj-edit-price').onclick = () => {
+    const at = [...$('rj-lines').children].indexOf(div);
+    const ln = RJ.lines[at];
+    if (!ln) return;
+    const v = window.prompt('ราคารวมบรรทัดนี้ (เว้นว่าง = กลับไปคิดอัตโนมัติจาก ตร.ม. × เรท)', ln.manual != null ? ln.manual : (rjCompute(ln).total || ''));
+    if (v === null) return;
+    const n = Number(v);
+    ln.manual = String(v).trim() === '' ? null : Number.isFinite(n) && n >= 0 ? r2(n) : ln.manual;
+    rjPaint();
+  };
+  div.querySelector('.rj-del').onclick = () => {
+    const at = [...$('rj-lines').children].indexOf(div);
+    if (RJ.lines.length <= 1) { // เหลือบรรทัดเดียว = ล้างค่าแทนการลบ
+      RJ.lines[at] = { title: '', w: '', l: '', qty: 1, rate: '', manual: null };
+      for (const cls of ['rj-title', 'rj-w', 'rj-l', 'rj-rate']) div.querySelector('.' + cls).value = '';
+      div.querySelector('.rj-qty').value = 1;
+      rjPaint();
+      return;
+    }
+    RJ.lines.splice(at, 1);
+    div.remove();
+    rjPaint();
+  };
+  if (focus) div.querySelector('.rj-title').focus();
+  rjPaint();
+}
+
+function resetRealJot() {
+  RJ.lines = [];
+  RJ.ship = 0;
+  RJ.ref = newRef();
+  $('rj-lines').innerHTML = '';
+  $('rj-customer').value = '';
+  $('rj-due').value = '';
+  $('rj-date').value = E.bkkTodayISO();
+  $('rj-note').value = '';
+  $('rj-more').open = false;
+  rjAddLine();
+}
+
+/* ชื่อลูกค้าที่เคยจดไว้ เด้งให้กด — ข้อมูลจริงจาก /api/customers (เทียบแบบ
+ * ตัดจุด เว้นวรรค ขีด เหมือนสมุดลูกค้า กดชิปแล้วได้สะกดเดิมเป๊ะ) */
+const custKey = (t) => String(t || '').trim().replace(/[\s.·,\-]/g, '').toLowerCase();
+function rjChips() {
+  const typed = custKey($('rj-customer').value);
+  const list = RJ.customers
+    .filter((c) => {
+      const k = custKey(c.name);
+      if (!typed) return true;
+      if (k === typed) return false;
+      return k.includes(typed);
+    })
+    .slice(0, typed ? 4 : 6);
+  const box = $('rj-chips');
+  box.hidden = !list.length;
+  box.innerHTML = list
+    .map((c) => `<button type="button" data-name="${esc(c.name)}">${esc(c.name)}${c.jobCount > 1 ? ` <small>${c.jobCount} งาน</small>` : ''}</button>`)
+    .join('');
+}
+async function initRealJot() {
+  if (!RJ.ref) resetRealJot(); // ครั้งแรกเท่านั้น — สลับหน้าไปมา ร่างที่พิมพ์ค้างไม่หาย
+  if (!RJ.loadedCust) {
+    RJ.loadedCust = true;
+    try { RJ.customers = (await api('/customers')).customers || []; } catch { RJ.customers = []; }
+  }
+  rjChips();
+}
+$('rj-customer').addEventListener('input', rjChips);
+$('rj-chips').addEventListener('click', (ev) => {
+  const b = ev.target.closest('button[data-name]');
+  if (!b) return;
+  $('rj-customer').value = b.dataset.name;
+  rjChips();
+});
+$('rj-add-line').onclick = () => rjAddLine(true);
+const askShip = () => {
+  const v = window.prompt('ค่าส่ง (บาท) — ใส่ 0 หรือเว้นว่าง = ไม่มีค่าส่ง', RJ.ship || '');
+  if (v === null) return;
+  const n = Number(v);
+  RJ.ship = Number.isFinite(n) && n > 0 ? r2(n) : 0;
+  rjPaint();
+};
+$('rj-ship').onclick = askShip;
+$('rj-ship-row').onclick = askShip;
+
+function rjPayload() {
+  const items = [];
+  const workings = [];
+  for (const ln of RJ.lines) {
+    const c = rjCompute(ln);
+    const label = String(ln.title || '').trim();
+    if (!label && !(c.total > 0)) continue;
+    items.push({
+      item_name: label || 'รายการ',
+      size: c.size,
+      quantity: c.qty,
+      unit: null, // งานคิดตามพื้นที่: ขนาดบอกอยู่แล้ว (ทางเดียวกับฟอร์มจริง)
+      unit_price: c.qty ? r2(c.total / c.qty) : c.total,
+      total: c.total,
+    });
+    if (c.sqm && rjNum(ln.rate) && ln.manual == null) {
+      workings.push(`${label || 'รายการ'}: ${c.sqm} ตร.ม. × ${rjNum(ln.rate)} = ${c.total}`);
+    }
+  }
+  if (RJ.ship > 0) items.push({ item_name: 'ค่าส่ง', size: null, quantity: 1, unit: null, unit_price: RJ.ship, total: RJ.ship });
+  const note = [$('rj-note').value.trim(), workings.length ? 'คิดตาม ตร.ม. — ' + workings.join(' | ') : ''].filter(Boolean).join('\n');
+  return {
+    jobName: null, // เซิร์ฟเวอร์ตั้งชื่อจากหมวดของรายการ เหมือนทางแชต/ฟอร์มจริง
+    customerName: $('rj-customer').value.trim() || null,
+    jobDate: $('rj-date').value || E.bkkTodayISO(),
+    dueDate: $('rj-due').value || null,
+    items,
+    listedTotal: null, // เซิร์ฟเวอร์บวกยอดจากรายการเอง — เลขที่ไม่มีใครตรวจไม่ส่ง
+    customerTotal: null,
+    paidAmount: 0, // การรับเงินทำในม่วงจดเท่านั้น (กติกาเงินของเกม)
+    payMethod: null,
+    note: note || null,
+    clientRef: RJ.ref, // กดซ้ำ/เน็ตเด้ง = ได้งานเดิมกลับมา ไม่จดซ้ำสองใบ
+  };
+}
+$('rj-save').onclick = async () => {
+  if (!REAL.on) return;
+  const p = rjPayload();
+  if (!p.items.length) { toast('ยังไม่มีรายการให้บันทึกค่ะ'); return; }
+  if (!p.items.some((it) => it.total > 0)) { toast('ยังไม่ได้ใส่ราคาเลยค่ะ — แตะ "รวมบรรทัดนี้" เพื่อพิมพ์ราคาเองก็ได้'); return; }
+  $('rj-save').disabled = true;
+  try {
+    const d = await api('/jobs', { method: 'POST', body: JSON.stringify(p) });
+    const no = d.job?.job_number ? '#' + d.job.job_number : '';
+    await loadReal().catch(() => { /* เดี๋ยวรอบตามทุก 15 วิเก็บให้ */ });
+    resetRealJot();
+    toast(`จดเข้าม่วงจดแล้ว ${no} 💜`);
+    showScreen('queue');
+  } catch (err) {
+    toast('บันทึกไม่สำเร็จ: ' + (err.message || ''));
+  } finally {
+    $('rj-save').disabled = false;
+  }
 };
 
 /* ---------- vinyl jobs (real status with confirm) ---------- */
