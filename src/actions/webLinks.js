@@ -12,13 +12,15 @@ const PAGES = [
 // action=open_game — ปุ่มเกมบนริชเมนู: ปกติปุ่มเป็นลิงก์เปิดเกมตรง ๆ อยู่แล้ว
 // เคสนี้คือทางสำรอง (เมนูที่ส่ง label เป็นข้อความ หรือยังไม่ได้ตั้ง PUBLIC_BASE_URL)
 export async function openGame({ replyToken }) {
+  // มี LIFF = ลิงก์เปิดเกมโหมดต่อระบบจริง (/app/game ผ่าน liff.line.me — ล็อกอินให้เอง)
   const base = publicBaseUrl();
-  if (!base) {
+  const url = liffPage('game') || (base ? `${base}/game/` : null);
+  if (!url) {
     return reply(replyToken, { type: 'text', text: 'ยังเปิดเกมไม่ได้ค่ะ ต้องตั้ง PUBLIC_BASE_URL ใน Render ก่อนนะคะ 💜' });
   }
   return reply(replyToken, {
     type: 'text',
-    text: `🎮 เกมร้านนัฐภรณ์ 8-BIT เปิดเล่นได้เลยค่ะ\n${base}/game/\n\nบอร์ดงานหน้าร้านแบบเกม — คิวงาน รถส่งไวนิล และน้องหมาบนเคาน์เตอร์ 💜`,
+    text: `🎮 เกมร้านนัฐภรณ์ 8-BIT เปิดเล่นได้เลยค่ะ\n${url}\n\nบอร์ดงานหน้าร้านต่อกับคิวงานจริงของม่วงจด — กดสถานะผลิต/วันรับจริงจากในเกมได้เลย 💜`,
   });
 }
 

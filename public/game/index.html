@@ -45,7 +45,11 @@ header.hd { display: flex; align-items: center; justify-content: space-between; 
 .hd-chips { display: flex; gap: 6px; justify-content: flex-end; margin: 5px 0 7px; }
 .chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 999px; background: var(--card); border: 2px solid var(--line); font-size: 11px; font-weight: 800; }
 .chip.demo { color: #1d6e4e; background: #dcf6e8; border-color: #8fd3af; }
+.chip.real { color: #fff; background: var(--purple-deep); border-color: #8d6fd6; }
 .chip.cnt strong { color: var(--purple-deep); }
+/* ของที่โชว์เฉพาะโหมดใดโหมดหนึ่ง: [hidden] ต้องชนะ display อื่นเสมอ
+ * (ครอบครัวบั๊ก [hidden] แพ้ display — เคยโดนที่ .go-vinyl และ .btn มาแล้ว) */
+[data-demo-only][hidden], [data-real-only][hidden] { display: none !important; }
 
 /* ---------- screens ---------- */
 .scr[hidden] { display: none !important; }
@@ -238,7 +242,7 @@ dialog::backdrop { background: rgba(67, 32, 118, .5); }
 
 <main>
 <div class="hd-chips">
-  <span class="chip demo">● LOCAL DEMO</span>
+  <span class="chip demo" id="hd-mode">● LOCAL DEMO</span>
   <span class="chip cnt">📋 คิว <strong id="hd-count">0</strong></span>
 </div>
 
@@ -392,7 +396,7 @@ dialog::backdrop { background: rgba(67, 32, 118, .5); }
     <h2 class="sec" style="margin-top:12px">แยกตามประเภท (งานค้าง)</h2>
     <div class="rlist" id="r-kinds"></div>
   </div>
-  <div class="panel">
+  <div class="panel" data-demo-only>
     <h2 class="sec">💾 สำรอง / ย้ายเครื่อง</h2>
     <p class="muted">ข้อมูลอยู่ในเบราว์เซอร์เครื่องนี้เท่านั้น — ส่งออกไฟล์เก็บไว้ หรือนำเข้าเครื่องใหม่ (รองรับไฟล์จากต้นแบบเก่าด้วย)</p>
     <div class="btn-row" style="margin-top:8px">
@@ -414,7 +418,7 @@ dialog::backdrop { background: rgba(67, 32, 118, .5); }
       <select id="s-me" class="field"></select>
       <div style="margin-top:10px"><button class="btn lite" id="s-save" style="width:100%">บันทึกตั้งค่า</button></div>
     </div>
-    <div class="set-block">
+    <div class="set-block" data-demo-only>
       <h2 class="sec">ข้อมูลตัวอย่าง</h2>
       <p class="muted">งานที่ติดป้าย “ตัวอย่าง” เป็นข้อมูลสาธิตของเกม ไม่ใช่งานจริงของร้าน</p>
       <div class="btn-row" style="margin-top:8px">
@@ -426,11 +430,28 @@ dialog::backdrop { background: rgba(67, 32, 118, .5); }
       <h2 class="sec">ติดตั้งเป็นแอป (PWA)</h2>
       <p class="muted">iPhone: Safari → ปุ่มแชร์ → “เพิ่มลงไปยังหน้าจอโฮม” · Android: Chrome → เมนู ⋮ → “ติดตั้งแอป” เปิดใช้แบบออฟไลน์ได้หลังติดตั้ง</p>
     </div>
-    <div class="limit-note" id="s-limits">
+    <div class="set-block" data-real-only hidden>
+      <h2 class="sec">เชื่อมกับม่วงจด ● ระบบจริง</h2>
+      <p class="muted">คิวงานในเกมคืองานจริงจากม่วงจด — กดสถานะผลิตและบันทึกวันรับจริงจากเกมได้เลย ส่วนราคา เงิน ใบเสร็จ และการยกเลิกงาน ทำในม่วงจดตามเดิม</p>
+      <div class="btn-row" style="margin-top:8px">
+        <a class="btn lite" href="/app/" style="text-decoration:none;text-align:center">📊 เปิดม่วงจด</a>
+        <a class="btn lite" href="/app/jot" style="text-decoration:none;text-align:center">📝 จดงานใหม่</a>
+      </div>
+    </div>
+    <div class="limit-note" id="s-limits" data-demo-only>
       <b>ข้อจำกัดของโหมดสาธิต (LOCAL DEMO):</b><br>
-      • คิวงานเก็บใน “เครื่องนี้” เท่านั้น ยังไม่ซิงก์ข้ามเครื่องพนักงาน — ใช้หลายเครื่องพร้อมกันต้องต่อฐานข้อมูลกลางที่ปลอดภัย (ขั้นถัดไป)<br>
+      • คิวงานเก็บใน “เครื่องนี้” เท่านั้น ยังไม่ซิงก์ข้ามเครื่องพนักงาน<br>
       • แผนที่และตัวละครเป็นภาพจำลอง ไม่ใช่ GPS / เวลาจริง และไม่เปลี่ยนสถานะงานเอง<br>
-      • ยังไม่เชื่อมม่วงจด / LINE OA / NATTA GROUP จนกว่าจะยืนยันให้เชื่อม
+      <!-- ร้านยืนยันให้เชื่อมระบบจริงแล้ว (24 พ.ย. 2026) — โหมดจริงอยู่ใต้ /app/game
+           ข้อความเดิม "ยังไม่เชื่อมม่วงจด..." จึงเปลี่ยนเป็นบอกทางไปโหมดจริงแทน -->
+      • หน้านี้เป็นโหมดสาธิต ไม่เขียนลงม่วงจด — เปิดเกมจากปุ่มในริชเมนูไลน์ (หรือ /app/game) เพื่อใช้ระบบจริง
+    </div>
+    <div class="limit-note" data-real-only hidden>
+      <b>โหมดระบบจริง (ม่วงจด):</b><br>
+      • คิวงานซิงก์กับม่วงจด — สถานะผลิตและวันเวลารับจริงบันทึกเข้าระบบจริง<br>
+      • เรื่องเงิน ราคา ใบเสร็จ และการยกเลิกงาน แก้ในม่วงจดเท่านั้น (เกมไม่แตะโดยออกแบบ)<br>
+      • ชื่อคนเดิน (เครื่องนี้คือใคร) และลำดับคิวที่จัดเอง จำเฉพาะเครื่องนี้<br>
+      • แผนที่และตัวละครเป็นภาพจำลองประกอบการยืนยันของพนักงาน ไม่เปลี่ยนสถานะงานเอง
     </div>
     <p class="muted" style="margin-top:10px">เวอร์ชัน <span id="s-version">1.0</span> · สร้างต่อจากต้นแบบ HTML เดิม (โค้ด Lovable เดิมถูกลบไปแล้ว ไม่ได้อยู่ในระบบนี้)</p>
   </div>
@@ -500,11 +521,108 @@ let storageOK = true;
 let orders = [];
 let settings = { me: '', staff: ['เจ้าของร้าน'], sortMode: 'smart' };
 
-function loadAll() {
+/* ---------- โหมดต่อระบบจริง (ม่วงจด) ----------
+ * เปิดใต้ /app (ขอบเขต LIFF ของม่วงจด) = ล็อกอินไลน์แล้วอ่าน/เขียนคิวงานจริง
+ * ผ่าน /api/game — เปิดที่ /game เดิม = โหมดสาธิตในเครื่อง เหมือนเดิมทุกอย่าง
+ * กติกาเดิมคงอยู่ครบทั้งสองโหมด: แอนิเมชันไม่เปลี่ยนสถานะงานเอง และเรื่องเงิน
+ * เกมไม่แตะเลย (ฝั่งเซิร์ฟเวอร์ก็กันซ้ำอีกชั้นใน gameBridge) */
+const RANK_KEY = 'np8_rank_v1';
+const REAL = { on: false, token: '', timer: 0 };
+const underApp = () => location.pathname.includes('/app/');
+const dispNo = (j) => j.no || j.id; // เลขงานจริงของม่วงจดมาก่อน (ห้ามเปลี่ยนเลขงาน)
+
+function loadRank() {
+  try { return JSON.parse(localStorage.getItem(RANK_KEY)) || {}; } catch { return {}; }
+}
+function saveRank() {
+  try { localStorage.setItem(RANK_KEY, JSON.stringify(Object.fromEntries(orders.map((o) => [o.id, o.rank || 0])))); }
+  catch { /* ลำดับที่จัดเองหายได้ ไม่ใช่ตัวข้อมูลงาน */ }
+}
+function loadLiffSdk() {
+  return new Promise((ok, no) => {
+    if (window.liff) return ok();
+    const s = document.createElement('script');
+    s.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
+    s.onload = ok;
+    s.onerror = () => no(new Error('โหลด LINE SDK ไม่ได้'));
+    document.head.appendChild(s);
+  });
+}
+async function api(path, opts = {}) {
+  const res = await fetch('/api' + path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + REAL.token, ...(opts.headers || {}) },
+  });
+  if (!res.ok) {
+    let msg = '';
+    try { msg = (await res.json()).message || ''; } catch { /* ไม่ใช่ json */ }
+    throw new Error(msg || 'เชื่อมระบบไม่สำเร็จ (' + res.status + ')');
+  }
+  return res.json();
+}
+/* ใบงานจริงจากเซิร์ฟเวอร์มารูปแบบเดียวกับใบงานของเกมอยู่แล้ว (gameBridge)
+ * เติมแค่ลำดับคิวที่เครื่องนี้จัดเองไว้ */
+function toOrder(j) {
+  return { ...j, rank: Number(loadRank()[j.id]) || 0 };
+}
+async function loadReal() {
+  const d = await api('/game/jobs');
+  orders = (d.jobs || []).map(toOrder);
+}
+function paintCurrent() {
+  if (screen === 'home') renderHome();
+  if (screen === 'queue') renderQueue();
+  if (screen === 'report') renderReport();
+  renderVinylJobs();
+}
+async function enterRealMode() {
+  if (!underApp()) return 'demo';
+  try {
+    /* ?e2e-token=... มีไว้ทดสอบหน้าจอกับเซิร์ฟเวอร์จำลองเท่านั้น — กับระบบจริง
+     * โทเคนปลอมถูก /api ปฏิเสธอยู่แล้ว (ประตูจริงอยู่ฝั่งเซิร์ฟเวอร์เสมอ) */
+    const testToken = new URLSearchParams(location.search).get('e2e-token');
+    if (testToken) {
+      REAL.token = testToken;
+    } else {
+      const cfg = await (await fetch('/api/config')).json();
+      if (!cfg.liffId) throw new Error('ยังไม่ได้ตั้งค่า LIFF_ID');
+      await loadLiffSdk();
+      await window.liff.init({ liffId: cfg.liffId });
+      if (!window.liff.isLoggedIn()) {
+        window.liff.login({ redirectUri: location.href });
+        return 'redirect';
+      }
+      REAL.token = window.liff.getAccessToken() || '';
+      if (!REAL.token) throw new Error('ไม่ได้รับสิทธิ์เข้าระบบ');
+    }
+    await loadReal(); // อ่านคิวจริงรอบแรกต้องผ่าน ไม่งั้นถือว่ายังเชื่อมไม่ได้
+    REAL.on = true;
+    for (const el of document.querySelectorAll('[data-demo-only]')) el.hidden = true;
+    for (const el of document.querySelectorAll('[data-real-only]')) el.hidden = false;
+    const chip = $('hd-mode');
+    chip.textContent = '● ม่วงจด ระบบจริง';
+    chip.classList.remove('demo');
+    chip.classList.add('real');
+    // คิวจริงขยับจากมือถือ/ไลน์ได้ตลอดเวลา — ตามทุก 15 วิ (เว้นตอนเปิดใบงานค้างไว้)
+    REAL.timer = setInterval(() => {
+      if (document.hidden || $('job-modal').open) return;
+      loadReal().then(paintCurrent).catch(() => { /* เน็ตสะดุด รอบหน้าค่อยว่ากัน */ });
+    }, 15_000);
+    return 'real';
+  } catch (err) {
+    toast('เชื่อมระบบจริงไม่ได้ — เปิดโหมดสาธิตชั่วคราว (' + (err.message || '') + ')');
+    return 'demo';
+  }
+}
+
+function loadSettings() {
   try {
     const s = localStorage.getItem(SET_KEY);
     if (s) settings = { ...settings, ...JSON.parse(s) };
   } catch { /* ค่าเริ่มต้น */ }
+}
+function loadAll() {
+  loadSettings();
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
@@ -521,6 +639,7 @@ function loadAll() {
   } catch { storageOK = false; orders = E.demoOrders(); }
 }
 function saveOrders() {
+  if (REAL.on) { saveRank(); return; } // งานจริงอยู่บนเซิร์ฟเวอร์ — เครื่องนี้จำแค่ลำดับที่จัดเอง
   try { localStorage.setItem(KEY, JSON.stringify(orders)); storageOK = true; }
   catch { storageOK = false; }
   const note = $('r-storage');
@@ -555,7 +674,14 @@ function showScreen(name) {
   if (name === 'settings') renderSettings();
   window.scrollTo({ top: 0, behavior: 'instant' });
 }
-for (const s of SCREENS) $('tab-' + s).onclick = () => { if (s === 'new') { editId = ''; resetForm(); } showScreen(s); };
+for (const s of SCREENS) $('tab-' + s).onclick = () => {
+  if (s === 'new') {
+    // โหมดระบบจริง: จดงาน (และราคา) ทำในฟอร์มจริงของม่วงจด — งานจะไหลเข้าคิวเกมเอง
+    if (REAL.on) { location.href = '/app/jot'; return; }
+    editId = ''; resetForm();
+  }
+  showScreen(s);
+};
 
 /* ---------- canvas game (VISUAL ONLY — this block never touches job status) ---------- */
 const cv = $('cv');
@@ -776,7 +902,7 @@ function jobRow(j, { withRank = false, vis = [] } = {}) {
     <span class="ic">${E.KIND[j.kind]?.icon || '📦'}</span>
     <span class="mid">
       <b>${esc(j.customer || 'ไม่ระบุชื่อ')}</b>
-      <small>#${esc(j.id)} · ${line}</small>
+      <small>#${esc(dispNo(j))} · ${line}</small>
       <small>นัดรับ ${E.thaiDate(j.due)}${j.assignee ? ' · ' + esc(j.assignee) : ''}</small>
     </span>
     <span class="end">
@@ -862,8 +988,8 @@ function openJob(id) {
   if (!j) return;
   modalId = id;
   const st = E.STATUS[j.status];
-  $('j-id').textContent = '#' + j.id;
-  $('j-id2').textContent = j.id;
+  $('j-id').textContent = '#' + dispNo(j);
+  $('j-id2').textContent = dispNo(j);
   $('j-illo').innerHTML = j.kind === 'print'
     ? '<img class="pix" src="./art/job-printer.png" alt="">'
     : `<span>${E.KIND[j.kind]?.icon || '📦'}</span>`;
@@ -883,7 +1009,8 @@ function openJob(id) {
   $('j-note').textContent = j.note || '—';
   $('j-note-row').style.display = j.note ? '' : 'none';
 
-  const acts = E.nextActions(j);
+  // โหมดระบบจริง: การยกเลิกงานพันกับใบเสร็จ/บัญชี — ให้ไปทำในม่วงจดที่เดียว
+  const acts = E.nextActions(j).filter((a) => !REAL.on || a.id !== 'canceled');
   const main = acts.find((a) => a.id !== 'canceled');
   const minors = acts.filter((a) => a !== main);
   const mainBtn = $('j-main-act');
@@ -915,22 +1042,30 @@ function actionText(to) {
     queued: '↺ เปิดงานอีกครั้ง',
   }[to] || to;
 }
-function confirmMove(id, to) {
+async function confirmMove(id, to) {
   const j = orders.find((o) => o.id === id);
   if (!j) return;
   const msg = to === 'picked_up'
-    ? `ยืนยันว่า “${j.customer || j.id}” มารับงานแล้วตอนนี้ใช่ไหมคะ?\nระบบจะบันทึกวันเวลารับจริงทันที`
+    ? `ยืนยันว่า “${j.customer || dispNo(j)}” มารับงานแล้วตอนนี้ใช่ไหมคะ?\nระบบจะบันทึกวันเวลารับจริงทันที${REAL.on ? ' (ลงระบบม่วงจดจริง)' : ''}`
     : to === 'canceled'
-      ? `ยกเลิกใบงาน ${j.id} ของ “${j.customer || '-'}” ใช่ไหมคะ?`
-      : `ยืนยันขยับสถานะ ${j.id}: ${E.STATUS[j.status].label} → ${E.STATUS[to].label} ?`;
+      ? `ยกเลิกใบงาน ${dispNo(j)} ของ “${j.customer || '-'}” ใช่ไหมคะ?`
+      : `ยืนยันขยับสถานะ ${dispNo(j)}: ${E.STATUS[j.status].label} → ${E.STATUS[to].label} ?`;
   if (!window.confirm(msg)) return;
   try {
-    const next = E.applyTransition(j, to, { now: new Date(), by: settings.me || '' });
-    orders = orders.map((o) => (o.id === id ? next : o));
-    saveOrders();
+    let next;
+    if (REAL.on) {
+      // เขียนลงระบบจริง — เซิร์ฟเวอร์ตรวจกติกาเดินสถานะอีกชั้นด้วยตารางเดียวกัน
+      const d = await api('/game/jobs/' + encodeURIComponent(id) + '/work', { method: 'POST', body: JSON.stringify({ to }) });
+      next = toOrder(d.job);
+      orders = orders.map((o) => (o.id === id ? next : o));
+    } else {
+      next = E.applyTransition(j, to, { now: new Date(), by: settings.me || '' });
+      orders = orders.map((o) => (o.id === id ? next : o));
+      saveOrders();
+    }
     toast(to === 'picked_up'
       ? `บันทึกรับงานจริง ${E.thaiDateTime(next.pickedAt)}`
-      : `${j.id} → ${E.STATUS[to].label}`);
+      : `${dispNo(next)} → ${E.STATUS[to].label}`);
     renderHome(); renderQueue(); renderVinylJobs();
     const wasOpen = $('job-modal').open;
     if (wasOpen) $('job-modal').close();
@@ -1023,6 +1158,8 @@ $('j-walk').onclick = () => {
 $('j-edit').onclick = () => {
   const j = orders.find((o) => o.id === modalId);
   if (!j) return;
+  // โหมดระบบจริง: รายละเอียด/ราคาแก้ในหน้าแก้ไขจริงของม่วงจด (?edit=<งาน>)
+  if (REAL.on) { location.href = '/app/?edit=' + encodeURIComponent(j.id); return; }
   $('job-modal').close();
   openEdit(j);
 };
@@ -1133,6 +1270,7 @@ $('p-parse').onclick = () => {
     : 'ช่วยเติมช่องให้แล้ว — ตรวจความถูกต้องก่อนบันทึกนะคะ');
 };
 $('save-job').onclick = () => {
+  if (REAL.on) { toast('โหมดระบบจริง — จดงานใหม่ทำในม่วงจดค่ะ (ปุ่ม ➕ พาไป)'); return; }
   const customer = $('f-customer').value.trim();
   const items = E.sanitizeItems(collectItems());
   if (!customer && !items.length) { toast('กรอกชื่อลูกค้าหรือรายการงานอย่างน้อยหนึ่งช่องค่ะ'); return; }
@@ -1258,19 +1396,24 @@ $('s-reset').onclick = () => {
 };
 
 /* ---------- boot ---------- */
-loadAll();
-syncWalkerName();
-buildKindChips();
-resetForm();
-paintVinylStages();
-renderHome();
-renderQueue();
-renderVinylJobs();
-saveOrders();
-setInterval(() => { if (screen === 'home') renderHome(); }, 60_000); // keep "วันนี้" fresh across midnight
-if (artOn()) artImg.onload(); // รูปมาจากแคชอาจ complete ก่อนผูก onload
-fitCanvas();
-requestAnimationFrame(frame);
+(async () => {
+  const mode = await enterRealMode(); // 'real' | 'redirect' | 'demo'
+  if (mode === 'redirect') return; // liff.login กำลังพาไปหน้าล็อกอินไลน์
+  if (mode === 'real') loadSettings(); // คิวจริงมาจากเซิร์ฟเวอร์แล้ว — เครื่องนี้จำแค่ตั้งค่า
+  else loadAll();
+  syncWalkerName();
+  buildKindChips();
+  resetForm();
+  paintVinylStages();
+  renderHome();
+  renderQueue();
+  renderVinylJobs();
+  if (mode !== 'real') saveOrders();
+  setInterval(() => { if (screen === 'home') renderHome(); }, 60_000); // keep "วันนี้" fresh across midnight
+  if (artOn()) artImg.onload(); // รูปมาจากแคชอาจ complete ก่อนผูก onload
+  fitCanvas();
+  requestAnimationFrame(frame);
+})();
 
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   window.addEventListener('load', () => {

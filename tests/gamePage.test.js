@@ -48,7 +48,11 @@ test('เกม: ป้ายความจริงครบ — LOCAL DEMO / 
   assert.ok(html.includes('ไม่ใช่ GPS และไม่เปลี่ยนสถานะงานจริง'));
   assert.ok(html.includes('b-sample') && html.includes('>ตัวอย่าง<'));
   assert.ok(html.includes('ยังไม่ซิงก์ข้ามเครื่องพนักงาน'));
-  assert.ok(html.includes('ยังไม่เชื่อมม่วงจด / LINE OA / NATTA GROUP'));
+  /* เดิมปักว่า "ยังไม่เชื่อมม่วงจด / LINE OA / NATTA GROUP" — ร้านยืนยันให้เชื่อม
+   * ระบบจริงแล้ว (24 พ.ย. 69: "ไม่จำลองละค่ะ ใช้ระบบจริงเลย") ป้ายจึงเปลี่ยนเป็น
+   * บอกทางไปโหมดจริง และมีป้ายความจริงของโหมดจริงแยกต่างหาก */
+  assert.ok(html.includes('โหมดสาธิต ไม่เขียนลงม่วงจด'));
+  assert.ok(html.includes('เรื่องเงิน ราคา ใบเสร็จ และการยกเลิกงาน แก้ในม่วงจดเท่านั้น'));
   assert.ok(scene.includes('ไม่ใช่แผนที่ GPS'));
   assert.ok(scene.includes('นัฐภรณ์คัลเลอร์แล็ป')); // ป้ายไม้ชื่อร้านจริง
 });
@@ -87,6 +91,8 @@ test('เกม: manifest/sw พร้อมติดตั้งและออ
 
 test('เกม: เสิร์ฟที่ /game บนเซิร์ฟเวอร์เดิม แยกจากม่วงจด และไม่แคชหน้าเก่าค้าง', () => {
   assert.match(server, /app\.use\(\s*'\/game',\s*express\.static\('public\/game', \{\s*extensions: \['html'\],\s*setHeaders: \(res\) => res\.set\('Cache-Control', 'no-cache'\),\s*\}\)\s*\)/s);
+  // โหมดต่อระบบจริงเสิร์ฟไฟล์ชุดเดียวกันใต้ /app/game (ขอบเขต LIFF — ล็อกอินไลน์ได้)
+  assert.match(server, /app\.use\(\s*'\/app\/game',\s*express\.static\('public\/game'/s);
 });
 
 test('เกม: ฟอร์มรับงานใหม่มีช่องครบตามสเปก + ตัวช่วยอ่านข้อความ', () => {
@@ -169,12 +175,40 @@ test('เกม: ตัวหนังสือคมบนมือถือ �
   assert.ok(scene.includes("g.imageSmoothingQuality = 'high';"));
 });
 
+test('เกมจริง: หน้าเกมต่อม่วงจดเมื่ออยู่ใต้ /app — สาธิตที่ /game เหมือนเดิม', () => {
+  /* ร้านสั่ง 24 พ.ย. 69: "เชื่อมม่วงจด ไม่จำลองละ ใช้ระบบจริงเลย"
+   * เงื่อนไขเข้าโหมดจริง: อยู่ใต้ /app (LIFF endpoint) + ล็อกอินไลน์สำเร็จ
+   * + อ่านคิวจริงรอบแรกผ่าน — พลาดข้อไหนถอยเป็นสาธิตพร้อมบอกเหตุผล ไม่จอดับ */
+  assert.ok(html.includes("location.pathname.includes('/app/')"));
+  assert.ok(html.includes('async function enterRealMode()'));
+  assert.ok(html.includes("fetch('/api' + path"));
+  assert.ok(html.includes("api('/game/jobs')"));
+  assert.ok(html.includes("api('/game/jobs/' + encodeURIComponent(id) + '/work'"));
+  assert.ok(html.includes('https://static.line-scdn.net/liff/edge/2/sdk.js'));
+  assert.ok(html.includes('เชื่อมระบบจริงไม่ได้ — เปิดโหมดสาธิตชั่วคราว'));
+  // ชิปหัวบอกโหมดตามจริง + ของเฉพาะโหมดซ่อนด้วย hidden ที่ชนะ display เสมอ
+  assert.ok(html.includes('id="hd-mode"'));
+  assert.ok(html.includes('● ม่วงจด ระบบจริง'));
+  assert.ok(html.includes('[data-demo-only][hidden], [data-real-only][hidden] { display: none !important; }'));
+  // โหมดจริง: จดงาน/แก้งาน(เงิน)/ยกเลิก ไปทำในม่วงจด — เกมพาไปหน้าจริง
+  assert.ok(html.includes("location.href = '/app/jot'"));
+  assert.ok(html.includes("location.href = '/app/?edit=' + encodeURIComponent(j.id)"));
+  assert.ok(html.includes("!REAL.on || a.id !== 'canceled'"));
+  // งานจริงอยู่บนเซิร์ฟเวอร์ — เครื่องนี้เก็บแค่ลำดับคิวที่จัดเอง / เลขงานจริงโชว์ก่อน
+  assert.ok(html.includes('if (REAL.on) { saveRank(); return; }'));
+  assert.ok(html.includes('const dispNo = (j) => j.no || j.id;'));
+  // เดินสถานะโหมดจริงยิง API (เซิร์ฟเวอร์ตรวจกติกาเดียวกันซ้ำ) — สาธิตใช้ engine เดิม
+  assert.ok(html.includes("method: 'POST', body: JSON.stringify({ to })"));
+  assert.ok(sw.includes("'np8-v3'")); // เชลล์เปลี่ยน ต้องรีเฟรชแคชทุกเครื่อง
+});
+
 test('เกม: ฟิล์มมีชื่อลอยหัว + วิถีการทำงานหลังยืนยัน + มอไซค์แทนรถบรรทุก', () => {
   // ตัวละครหลักชื่อ "ฟิล์ม" (ร้านตั้ง) — ถ้าตั้ง "เครื่องนี้คือใคร" ใช้ชื่อนั้นแทน
   assert.ok(html.includes("scene.walkerName = settings.me || 'ฟิล์ม'"));
   assert.ok(scene.includes('export function nameTag(g, text, x, y)'));
   // ทีมงานในภาพตามที่ร้านตั้ง: หญิง (เคาน์เตอร์), เจ้ปิ่น (ยืนถืองาน), ประมวล (คอมหลังร้าน)
-  assert.ok(scene.includes("people: [['หญิง', 222, 458], ['เจ้ปิ่น', 517, 430], ['ประมวล', 332, 94]]"));
+  // + น้องหมา "มะม่วง" หน้าทางเข้า (ร้านตั้งชื่อ 24 พ.ย. 69)
+  assert.ok(scene.includes("people: [['หญิง', 222, 458], ['เจ้ปิ่น', 517, 430], ['ประมวล', 332, 94], ['มะม่วง', 48, 628]]"));
   assert.ok(scene.includes('for (const [who, px_, py_] of ART.people) nameTag(g, who, px_, py_);'));
   // ยืนยันสถานะจริงแล้วตัวละครถึงออกไปทำ (ภาพตามหลังการยืนยัน ไม่ใช่ตัวเปลี่ยนสถานะ)
   assert.ok(html.includes('function playWorkFor(to, kind)'));

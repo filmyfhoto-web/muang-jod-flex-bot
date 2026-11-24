@@ -262,7 +262,8 @@ export function filterQueue(orders, { q = '', filter = 'open', todayISO = '' } =
     if (filter === 'canceled' && j.status !== 'canceled') return false;
     if (!needle) return true;
     const itemText = (j.items || []).map((it) => it.title).join(' ');
-    return `${j.id} ${j.customer} ${j.title} ${itemText} ${j.note || ''} ${j.assignee || ''}`.toLowerCase().includes(needle);
+    // j.no = เลขงานจริงจากม่วงจด (โหมดต่อระบบจริง) — ค้นด้วยเลขงานที่ร้านใช้ได้
+    return `${j.id} ${j.no || ''} ${j.customer} ${j.title} ${itemText} ${j.note || ''} ${j.assignee || ''}`.toLowerCase().includes(needle);
   });
 }
 

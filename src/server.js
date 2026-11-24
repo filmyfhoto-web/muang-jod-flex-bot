@@ -39,6 +39,18 @@ const { default: receiptRouter } = await import('./routes/receipt.js');
  * ไฟล์ไม่เปลี่ยนได้ 304 ถูก ๆ) — ของเดิม maxAge 5 นาทีทำให้คอมของร้านที่เปิด
  * หน้าเดิมค้างไว้เห็นหน้าตาเก่าหลังอัปเดต ("ทำไมดูในคอมไม่ขึ้น") กดรีเฟรช
  * หนึ่งทีหลังจากนี้ ทุกครั้งต่อไปจะได้ของใหม่เสมอ */
+/* เกมหน้าร้านโหมดต่อระบบจริง — ไฟล์ชุดเดียวกับ /game แต่เสิร์ฟใต้ /app ด้วย
+ * เพราะ /app คือขอบเขต LIFF endpoint: เปิดที่ /app/game แล้ว liff.init /
+ * LINE Login ใช้ได้ทั้งในไลน์และเบราว์เซอร์นอก (ทางเดียวกับหน้าแดชบอร์ด)
+ * ตัวหน้าเกมเช็กเองว่าอยู่ใต้ /app แล้วจึงต่อระบบจริง — ที่ /game เดิมยังเป็น
+ * โหมดสาธิตในเครื่องเหมือนเดิม */
+app.use(
+  '/app/game',
+  express.static('public/game', {
+    extensions: ['html'],
+    setHeaders: (res) => res.set('Cache-Control', 'no-cache'),
+  })
+);
 app.use(
   '/app',
   express.static('public/liff', {

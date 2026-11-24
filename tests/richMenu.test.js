@@ -104,8 +104,14 @@ test('จดงาน is the biggest target, and the brand footer is tappable', 
   assert.equal(footer.bounds.width + game.bounds.width, LAYOUT.width);
   assert.equal(game.bounds.x + game.bounds.width, LAYOUT.width);
   assert.equal(game.bounds.y + game.bounds.height, LAYOUT.height);
-  // มี PUBLIC_BASE_URL → ปุ่มเกมเป็นลิงก์เปิด /game/ ตรง ๆ
+  // มีแค่ PUBLIC_BASE_URL → ปุ่มเกมเปิด /game/ โหมดสาธิตตรง ๆ (ทางสำรอง)
   const linked = buildAreas({ PUBLIC_BASE_URL: 'https://shop.example' }).at(-1);
   assert.equal(linked.action.type, 'uri');
   assert.equal(linked.action.uri, 'https://shop.example/game/');
+
+  /* มี LIFF (ของจริงบน Render ตั้งไว้แล้ว) → ปุ่มเกมเปิดผ่าน liff.line.me
+   * = /app/game โหมดต่อระบบจริง ไลน์ล็อกอินให้เอง (ร้านสั่งเชื่อม 24 พ.ย. 69) */
+  const real = buildAreas({ PUBLIC_BASE_URL: 'https://shop.example', LIFF_ID: '1234567890-abcdefgh' }).at(-1);
+  assert.equal(real.action.type, 'uri');
+  assert.equal(real.action.uri, 'https://liff.line.me/1234567890-abcdefgh/game');
 });
