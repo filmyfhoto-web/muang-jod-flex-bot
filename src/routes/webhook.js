@@ -11,6 +11,8 @@ import { markEventProcessed } from '../services/webhookEventService.js';
 import { reply, rememberReplyTarget } from '../services/lineService.js';
 import { logger, maskUserId } from '../services/logger.js';
 import { gateEvent } from '../utils/access.js';
+import { findTeamFor } from '../services/teamService.js';
+import { handleJoinAttempt, handleOwnerTeamCommand, memberGate } from '../handlers/teamHandler.js';
 
 const { middleware } = linebot;
 const router = express.Router();
@@ -50,6 +52,13 @@ export function errorDetail(err) {
 }
 
 async function dispatch(event, profile) {
+  /* ทีมของร้าน — สมาชิกใช้ได้เท่าที่ teamGate เปิด (จดงาน/คิว/เกม) นอกนั้นปัดสุภาพ
+   * ส่วนเจ้าของมีคำสั่ง "เพิ่มพนักงาน / ทีม / ลบพนักงาน" แทรกก่อนเครื่องอ่านข้อความเดิม */
+  if (profile.teamMember) {
+    if (await memberGate(event)) return;
+  } else if (await handleOwnerTeamCommand(event, profile)) {
+    return;
+  }
   switch (event.type) {
     case 'message': {
       const mtype = event.message?.type;
@@ -101,7 +110,25 @@ async function processEvent(event) {
      * รายชื่อได้ และถ้ากรอกผิดสักตัว นี่คือทางเดียวที่จะกลับมาอ่าน id ที่ถูกต้อง
      */
     const gate = gateEvent(event);
-    if (gate.action !== 'pass') {
+    /* ทีมของร้าน (migration 026): คนที่ไม่อยู่ใน ALLOWED_LINE_USER_IDS ก็เข้าได้
+     * ถ้าเจ้าของเชิญไว้ — สมาชิกทีมผ่านด่าน และคนแปลกหน้าที่พิมพ์รหัสเชิญ
+     * ("ทีม ABC123") ได้แลกรหัสก่อนถูกปัด การคุมสิทธิ์จริงอยู่ที่รหัสซึ่ง
+     * เจ้าของเป็นคนสั่งสร้างเท่านั้น */
+    let team = null;
+    if (gate.action === 'deny') {
+      team = await findTeamFor(lineUserId);
+      if (!team) {
+        if (await handleJoinAttempt(event)) {
+          logger.info('webhook.team_join_attempt', base);
+          return;
+        }
+        logger.info('webhook.deny', base);
+        if (gate.text && event.replyToken) {
+          await reply(event.replyToken, { type: 'text', text: gate.text });
+        }
+        return;
+      }
+    } else if (gate.action !== 'pass') {
       logger.info(`webhook.${gate.action}`, base);
       if (gate.text && event.replyToken) {
         await reply(event.replyToken, { type: 'text', text: gate.text });
@@ -109,7 +136,11 @@ async function processEvent(event) {
       return;
     }
 
-    const profile = await getOrCreateProfile(lineUserId);
+    /* สมาชิกทีมทำงานบนสมุดของเจ้าของร้าน — โค้ดหลังจุดนี้ไม่ต้องรู้จักทีมเลย
+     * (ด่านเปิดอยู่ก็ต้องเช็ก: สมาชิกที่บังเอิญอยู่ใน allowlist หรือบอทที่ยัง
+     * ไม่ตั้ง allowlist ก็ต้องลงสมุดร้านเหมือนกัน) */
+    if (!team) team = await findTeamFor(lineUserId);
+    const profile = team ? { ...team.owner, teamMember: { name: team.member.name, lineUserId } } : await getOrCreateProfile(lineUserId);
     // หมวดงานที่ร้านตั้งเองต้องพร้อมก่อนทุกการ์ดที่จะโชว์ชื่อหมวด (ไม่เคย throw)
     await ensureTaxonomy(profile.id);
     await dispatch(event, profile);
