@@ -22,9 +22,19 @@
 img.pix { image-rendering: pixelated; }
 * { box-sizing: border-box; }
 html, body { overflow-x: hidden; }
+html {
+  /* เว็บวิวของ LINE/iOS ขยายตัวอักษรเองตามตั้งค่า "ขนาดตัวอักษร" ในแอป แล้วดัน
+   * การ์ดจนหน้าลื่นไปด้านข้าง (ร้านเจอจอล้น 24 พ.ย. 69) — ล็อกไว้ที่ 100%
+   * หน้าตาคงที่เท่าที่ออกแบบทุกเครื่อง */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
 body {
   margin: 0; color: var(--ink);
   background: var(--bg);
+  /* กันหน้าลื่นแนวนอนเด็ดขาด — ของที่กว้างเกินถูกตัดในที่ของมัน ไม่ลากทั้งหน้า
+   * (แถบตัวกรองยังเลื่อนข้างในตัวเองได้ตามเดิม) */
+  overflow-x: clip;
   background-image: radial-gradient(var(--bg-dot) 1.4px, transparent 1.4px);
   background-size: 22px 22px;
   font: 500 15.5px/1.5 'Noto Sans Thai', system-ui, -apple-system, Tahoma, sans-serif;
@@ -88,7 +98,11 @@ h2.sec { margin: 2px 0 8px; font-size: 16px; }
 /* queue rows */
 .qhead { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
 .qhead .more { font-weight: 900; color: var(--purple-deep); font-size: 13px; background: none; }
-.job-list { display: grid; gap: 8px; }
+/* คอลัมน์ต้องไม่กว้างตามเนื้อหา: 1fr เฉย ๆ = minmax(auto, 1fr) ซึ่งยอมให้
+ * ข้อความยาว (ชื่อรายการจริงต่อกันยาว ๆ) ดันแถวบานเกินจอแบบเงียบ ๆ —
+ * ต้นเหตุ "จอล้น" ที่ร้านเจอ 24 พ.ย. 69 · minmax(0, 1fr) ล็อกเท่าคอนเทนเนอร์
+ * แล้ว ellipsis ในแถวถึงได้ทำงานจริง */
+.job-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .jrow { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; background: var(--card); border: 2.5px solid var(--line); border-radius: 14px; padding: 7px 9px; min-height: 54px; cursor: pointer; }
 .jrow:active { transform: translateY(1px); }
 .jrow:focus-visible { outline: 3px solid var(--orange); outline-offset: 2px; }
@@ -121,7 +135,7 @@ textarea.field { min-height: 72px; resize: vertical; }
 .fchips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; margin-bottom: 8px; }
 .fchips button { flex: none; min-height: 44px; padding: 6px 13px; border-radius: 999px; border: 2px solid var(--line); background: var(--card); font-weight: 800; font-size: 13px; color: var(--ink-soft); }
 .fchips button.on { background: var(--purple); border-color: var(--purple-deep); color: #fff; }
-.sortline { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 12px; color: var(--ink-soft); font-weight: 700; }
+.sortline { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 12px; color: var(--ink-soft); font-weight: 700; }
 .sortline button { min-height: 44px; padding: 4px 12px; border-radius: 999px; border: 2px solid var(--line); background: var(--card); font-weight: 800; font-size: 12px; }
 
 /* new order form */

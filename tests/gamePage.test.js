@@ -203,6 +203,14 @@ test('เกมจริง: หน้าเกมต่อม่วงจดเ
   // เดินสถานะโหมดจริงยิง API (เซิร์ฟเวอร์ตรวจกติกาเดียวกันซ้ำ) — สาธิตใช้ engine เดิม
   assert.ok(html.includes("method: 'POST', body: JSON.stringify({ to })"));
   assert.ok(sw.includes("'np8-v4'")); // เชลล์เปลี่ยน ต้องรีเฟรชแคชทุกเครื่อง (v4: ใบจดในเกม)
+
+  /* "จอไม่ล้นได้ไหม" (24 พ.ย. 69 — คิวจริงบนมือถือล้นขวา): เว็บวิว LINE/iOS
+   * ขยายตัวอักษรเองตามตั้งค่าในแอป ต้องล็อก 100% และกันหน้าลื่นข้างระดับ body */
+  assert.ok(html.includes('-webkit-text-size-adjust: 100%'));
+  assert.ok(html.includes('text-size-adjust: 100%'));
+  assert.ok(html.includes('overflow-x: clip'));
+  // ต้นเหตุจริง: grid 1fr ยอมให้แถวบานตามข้อความยาว — ต้อง minmax(0, 1fr)
+  assert.ok(html.includes('grid-template-columns: minmax(0, 1fr)'));
 });
 
 test('เกมจริง: ใบจดในเกมหน้าตา/กติกาเดียวกับฟอร์ม "จดด่วน" และไม่แตะการรับเงิน', () => {
