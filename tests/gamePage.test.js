@@ -190,8 +190,11 @@ test('เกมจริง: หน้าเกมต่อม่วงจดเ
   assert.ok(html.includes('id="hd-mode"'));
   assert.ok(html.includes('● ม่วงจด ระบบจริง'));
   assert.ok(html.includes('[data-demo-only][hidden], [data-real-only][hidden] { display: none !important; }'));
-  // โหมดจริง: จดงาน/แก้งาน(เงิน)/ยกเลิก ไปทำในม่วงจด — เกมพาไปหน้าจริง
-  assert.ok(html.includes("location.href = '/app/jot'"));
+  /* เดิมปุ่ม ➕ โหมดจริงเด้งไป /app/jot — ร้านขอ (24 พ.ย. 69 "เอาจดประมาณนี้
+   * ได้ไหมในเกมส์") เลยแทนด้วยใบจดในเกมที่หน้าตา/กติกาเดียวกับฟอร์ม "จดด่วน" */
+  assert.ok(html.includes("showScreen('new'); initRealJot();"));
+  assert.ok(!html.includes("location.href = '/app/jot'"), 'ทางเด้งออกเดิมถูกแทนแล้ว');
+  // แก้งาน(เงิน)/ยกเลิก ยังไปทำในม่วงจด
   assert.ok(html.includes("location.href = '/app/?edit=' + encodeURIComponent(j.id)"));
   assert.ok(html.includes("!REAL.on || a.id !== 'canceled'"));
   // งานจริงอยู่บนเซิร์ฟเวอร์ — เครื่องนี้เก็บแค่ลำดับคิวที่จัดเอง / เลขงานจริงโชว์ก่อน
@@ -199,7 +202,33 @@ test('เกมจริง: หน้าเกมต่อม่วงจดเ
   assert.ok(html.includes('const dispNo = (j) => j.no || j.id;'));
   // เดินสถานะโหมดจริงยิง API (เซิร์ฟเวอร์ตรวจกติกาเดียวกันซ้ำ) — สาธิตใช้ engine เดิม
   assert.ok(html.includes("method: 'POST', body: JSON.stringify({ to })"));
-  assert.ok(sw.includes("'np8-v3'")); // เชลล์เปลี่ยน ต้องรีเฟรชแคชทุกเครื่อง
+  assert.ok(sw.includes("'np8-v4'")); // เชลล์เปลี่ยน ต้องรีเฟรชแคชทุกเครื่อง (v4: ใบจดในเกม)
+});
+
+test('เกมจริง: ใบจดในเกมหน้าตา/กติกาเดียวกับฟอร์ม "จดด่วน" และไม่แตะการรับเงิน', () => {
+  /* ร้านส่งภาพฟอร์มจดด่วนมา: "เอาจดประมาณนี้ได้ไหมในเกมส์" (24 พ.ย. 69)
+   * องค์ประกอบหลักของฟอร์มจริงต้องอยู่ครบ: ชิปลูกค้าประจำ · วันนัด · บรรทัด
+   * กว้าง×ยาว จำนวน ตร.ม.ละ · รวมบรรทัด(แตะแก้ราคา) · เพิ่มบรรทัด · ค่าส่ง ·
+   * ลูกค้าจ่าย · บันทึก */
+  for (const id of ['rj-customer', 'rj-chips', 'rj-due', 'rj-more', 'rj-date', 'rj-note', 'rj-lines', 'rj-ship-row', 'rj-add-line', 'rj-ship', 'rj-total', 'rj-save']) {
+    assert.ok(html.includes(`id="${id}"`), id);
+  }
+  assert.ok(html.includes('ตร.ม. ละ (บาท)'));
+  assert.ok(html.includes('รวมบรรทัดนี้ · แตะแก้ราคา'));
+  assert.ok(html.includes('＋ เพิ่มบรรทัด'));
+  assert.ok(html.includes('🏍️ ค่าส่ง'));
+  assert.ok(html.includes('ลูกค้าจ่าย'));
+  // สูตรเดียวกับฟอร์มจริง: ตร.ม. จาก ซม. และค่าส่งเป็นรายการหนึ่งบนใบเสร็จ
+  assert.ok(html.includes('r2((w / 100) * (l / 100))'));
+  assert.ok(html.includes("item_name: 'ค่าส่ง'"));
+  // ชิปลูกค้าจริง + บันทึกผ่าน API จริง + กันบันทึกซ้ำ + เซิร์ฟเวอร์เป็นคนบวกยอด
+  assert.ok(html.includes("api('/customers')"));
+  assert.ok(html.includes("api('/jobs', { method: 'POST'"));
+  assert.ok(html.includes('clientRef: RJ.ref'));
+  assert.ok(html.includes('listedTotal: null'));
+  // กติกาเงินของเกม: ราคาที่จดส่งได้ แต่การรับเงินไม่แตะ (paidAmount 0 เสมอ)
+  assert.ok(html.includes('paidAmount: 0'));
+  assert.ok(html.includes('payMethod: null'));
 });
 
 test('เกม: ฟิล์มมีชื่อลอยหัว + วิถีการทำงานหลังยืนยัน + มอไซค์แทนรถบรรทุก', () => {
