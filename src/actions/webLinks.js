@@ -24,6 +24,19 @@ export async function openGame({ replyToken }) {
   });
 }
 
+// action=open_sign — ปุ่มจำลองป้าย 3D บนริชเมนู: ปกติปุ่มเป็นลิงก์เปิดแอปตรง ๆ อยู่แล้ว
+// เคสนี้คือทางสำรอง (เมนูที่ส่ง label เป็นข้อความ / พิมพ์ "จำลองป้าย" / ยังไม่ได้ตั้ง PUBLIC_BASE_URL)
+export async function openSign({ replyToken }) {
+  const base = publicBaseUrl();
+  if (!base) {
+    return reply(replyToken, { type: 'text', text: 'ยังเปิดแอปจำลองป้ายไม่ได้ค่ะ ต้องตั้ง PUBLIC_BASE_URL ใน Render ก่อนนะคะ 💜' });
+  }
+  return reply(replyToken, {
+    type: 'text',
+    text: `🪧 แอปจำลองป้าย 3 มิติ เปิดได้เลยค่ะ\n${base}/sign/\n\nใส่ไฟล์งาน กรอกขนาด เลือกฉาก (หรือใส่รูปหน้าร้านลูกค้า วางป้ายให้เอง) แล้วส่งรูป/ลิงก์ 3 มิติให้ลูกค้าได้เลย · ทำจากงานในม่วงจด กด “ทำภาพ 3 มิติ” ในหน้างานนั้นนะคะ 💜`,
+  });
+}
+
 // action=web_links — ลิงก์เปิดบนคอม/เบราว์เซอร์ ตอนไม่ได้ถือโทรศัพท์
 export async function webLinks({ replyToken }) {
   const base = publicBaseUrl();

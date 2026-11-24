@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolveMenuCommand } from '../src/utils/menuCommands.js';
 import { POSTBACK_ACTIONS } from '../src/utils/validation.js';
-import { buildAreas, LAYOUT, BUTTONS, FOOTER, GAME } from '../scripts/create-rich-menu.js';
+import { buildAreas, LAYOUT, BUTTONS, FOOTER, GAME, SIGN } from '../scripts/create-rich-menu.js';
 import { richMenuObject } from '../scripts/export-rich-menu-json.mjs';
 
 // The Rich Menu is artwork plus a list of tappable rectangles, kept in step by
@@ -13,8 +13,8 @@ const builder = readFileSync(new URL('../scripts/build-rich-menu.mjs', import.me
 const nOf = (key) => Number(new RegExp(`${key} = (\\d+)`).exec(builder)?.[1]);
 
 test('every button reaches a handler, by tap and by text', () => {
-  const all = [...BUTTONS, FOOTER, GAME];
-  assert.equal(all.length, 10, 'eight cards, the brand footer, and the game card');
+  const all = [...BUTTONS, SIGN, FOOTER, GAME];
+  assert.equal(all.length, 11, 'eight cards, the sign-mockup card, the brand footer, and the game card');
 
   for (const btn of all) {
     const action = /action=([a-z_]+)/.exec(btn.data)?.[1];
@@ -32,7 +32,7 @@ const cOf = (key) => Number(new RegExp(`${key} = (\\d+)`).exec(config)?.[1]);
 test('the artwork and the tap areas describe the same geometry', () => {
   // Both files declare the grid independently; edit one alone and the buttons
   // drift off the cards they are drawn on.
-  for (const key of ['PAD', 'GAP_X', 'GAP_Y', 'LEFT_W', 'COL_W', 'ROW_H', 'ROW3_H', 'ROW1_Y', 'GAME_W']) {
+  for (const key of ['PAD', 'GAP_X', 'GAP_Y', 'LEFT_W', 'COL_W', 'ROW_H', 'ROW3_H', 'ROW1_Y', 'GAME_W', 'SIGN_W']) {
     const drawn = nOf(key);
     const tapped = cOf(key);
     assert.ok(Number.isFinite(drawn), `${key} not declared in build-rich-menu.mjs`);
@@ -45,7 +45,7 @@ test('the artwork and the tap areas describe the same geometry', () => {
 
 test('the areas stay inside the image, never overlap, and are big enough to tap', () => {
   const areas = buildAreas();
-  assert.equal(areas.length, BUTTONS.length + 2); // + แถวแบรนด์ + การ์ดเกม
+  assert.equal(areas.length, BUTTONS.length + 3); // + การ์ดจำลองป้าย + แถวแบรนด์ + การ์ดเกม
 
   for (const { bounds, action } of areas) {
     assert.ok(bounds.width >= 200 && bounds.height >= 200, `${action.displayText}: ${bounds.width}x${bounds.height} too small`);
@@ -95,13 +95,17 @@ test('จดงาน is the biggest target, and the brand footer is tappable', 
 
   // เดิมแถวแบรนด์กินเต็มความกว้าง — ตั้งแต่ร้านสั่งเชื่อมเกม (23 พ.ย. 69)
   // ปลายขวาของแถวเป็นการ์ดเกม สองพื้นที่ต่อกันพอดีเต็มความกว้างเหมือนเดิม
+  // ต้นซ้ายของแถวเป็นการ์ดจำลองป้าย 3D (ร้านขอ 24 พ.ย. 69) สามพื้นที่ต่อกันพอดีเต็มความกว้าง
+  const sign = areas.at(-3);
   const footer = areas.at(-2);
   const game = areas.at(-1);
   assert.equal(footer.action.data, FOOTER.data);
-  assert.equal(footer.bounds.x, 0);
+  assert.equal(sign.bounds.x, 0);
+  assert.equal(footer.bounds.x, sign.bounds.width);
+  assert.equal(sign.bounds.y + sign.bounds.height, LAYOUT.height);
   assert.equal(footer.bounds.y + footer.bounds.height, LAYOUT.height);
   assert.equal(game.action.data ?? 'action=open_game', 'action=open_game');
-  assert.equal(footer.bounds.width + game.bounds.width, LAYOUT.width);
+  assert.equal(sign.bounds.width + footer.bounds.width + game.bounds.width, LAYOUT.width);
   assert.equal(game.bounds.x + game.bounds.width, LAYOUT.width);
   assert.equal(game.bounds.y + game.bounds.height, LAYOUT.height);
   // มีแค่ PUBLIC_BASE_URL → ปุ่มเกมเปิด /game/ โหมดสาธิตตรง ๆ (ทางสำรอง)
@@ -114,4 +118,19 @@ test('จดงาน is the biggest target, and the brand footer is tappable', 
   const real = buildAreas({ PUBLIC_BASE_URL: 'https://shop.example', LIFF_ID: '1234567890-abcdefgh' }).at(-1);
   assert.equal(real.action.type, 'uri');
   assert.equal(real.action.uri, 'https://liff.line.me/1234567890-abcdefgh/game');
+});
+
+test('การ์ดจำลองป้าย 3D: เปิดแอปจำลองป้าย /sign/ ตรง ๆ · ไม่มี base URL ถอยไป postback ให้บอตตอบลิงก์ · พิมพ์ "จำลองป้าย" ก็ได้', () => {
+  const none = buildAreas({}).find((a) => a.action.label === 'จำลองป้าย 3D');
+  assert.equal(none.action.type, 'postback');
+  assert.equal(none.action.data, 'action=open_sign');
+  const linked = buildAreas({ PUBLIC_BASE_URL: 'https://shop.example', LIFF_ID: '1234567890-abcdefgh' }).find((a) => a.action.label === 'จำลองป้าย 3D');
+  assert.equal(linked.action.type, 'uri');
+  assert.equal(linked.action.uri, 'https://shop.example/sign/');
+  for (const t of ['จำลองป้าย 3D', 'จำลองป้าย', 'ทำภาพ 3 มิติ']) assert.equal(resolveMenuCommand(t), 'open_sign', t);
+  const handler = readFileSync(new URL('../src/handlers/postbackHandler.js', import.meta.url), 'utf8');
+  assert.match(handler, /case 'open_sign':\n\s*return openSign\(ctx\);/);
+  const tile = readFileSync(new URL('../scripts/add-sign-tile.mjs', import.meta.url), 'utf8');
+  assert.match(tile, /const SIGN_W = 840;/);
+  assert.match(tile, /const FOOT_Y = 1418;/);
 });
