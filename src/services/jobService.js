@@ -455,6 +455,9 @@ export async function updateJob(userId, jobId, patch, client = supabase) {
     'fulfillment',
     'handler_name',
     'client_ref',
+    // ขั้นผลิตของเกมหน้าร้าน (migration 025) — ชื่อที่ไม่อยู่ในรายการนี้ถูกทิ้งเงียบ ๆ
+    'work_status',
+    'work_history',
   ];
   for (const f of fields) {
     if (patch[f] !== undefined) allowed[f] = patch[f];

@@ -34,6 +34,7 @@ import { mintTicket } from '../utils/mockupTicket.js';
 import { createBill, getBillById } from '../services/billService.js';
 import { derivePaymentFields, paidAtPatch } from '../utils/payment.js';
 import { pickupPatch, jobState, stagePatch, jobStage, JOB_STAGES, statusPatch, jobStatus } from '../utils/jobState.js';
+import { gameJob, gameStatusOf, workPatch } from '../utils/gameBridge.js';
 import { round2 } from '../utils/currency.js';
 import { buildBook, buildAccount } from '../utils/customerBook.js';
 import { buildLedger, buildWeekByGroup, mondayISO } from '../utils/ledger.js';
@@ -1128,6 +1129,59 @@ export function createApiRouter(deps = {}) {
         stage: jobStage(job),
       });
       res.json({ job, stage: jobStage(job), stages: JOB_STAGES.map((s) => s.label) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /* ── เกมหน้าร้าน NATTAPRON 8-BIT ต่อกับงานจริง ──────────────────────────
+   *
+   * เกมที่ /app/game อ่านคิวงานจริง และเขียนได้แค่สองเรื่อง: ขั้นผลิตละเอียด
+   * (work_status — ช่องของเกมเองจาก migration 025) กับ ทำเสร็จ/ลูกค้ารับ
+   * (done_at / picked_up_at ช่องเดิม ผ่าน statusPatch) — ช่องเงินทุกช่อง
+   * แตะไม่ได้จากเกมโดยออกแบบ และการยกเลิกงานก็ต้องไปทำในม่วงจด
+   * กติกาการเดินสถานะใช้ TRANSITIONS จากสมองของเกมโดยตรง (gameBridge)
+   */
+  router.get('/game/jobs', async (req, res, next) => {
+    try {
+      const jobs = await queueJobs(req.profile.id, 120);
+      res.json({ jobs: jobs.map(gameJob) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post('/game/jobs/:id/work', async (req, res, next) => {
+    try {
+      const current = await findJob(req.profile.id, req.params.id);
+      if (!current) return res.status(404).json({ error: 'not_found' });
+
+      const to = String(req.body?.to || '');
+      const r = workPatch(current, to);
+      if (!r) {
+        return res.status(400).json({
+          error: 'bad_transition',
+          from: gameStatusOf(current),
+          message: 'เดินสถานะแบบนั้นไม่ได้ค่ะ — รีเฟรชคิวแล้วลองใหม่นะคะ',
+        });
+      }
+
+      try {
+        await saveJob(req.profile.id, req.params.id, r.patch);
+      } catch (err) {
+        if (missingColumn(err, 'work_status', 'work_history')) {
+          logger.warn('api.game_work_no_column', { jobId: req.params.id });
+          return res.status(503).json({
+            error: 'not_ready',
+            message: 'ยังเชื่อมเกมไม่ได้ค่ะ — ต้องรัน migration 025_game_work_status.sql ใน Supabase ก่อน',
+          });
+        }
+        throw err;
+      }
+
+      const job = await findJob(req.profile.id, req.params.id);
+      logger.info('api.game_work', { user: maskUserId(req.profile.line_user_id), jobId: req.params.id, to });
+      res.json({ job: gameJob(job) });
     } catch (err) {
       next(err);
     }

@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import linebot from '@line/bot-sdk';
-import { liffUrl, quickFormUrl } from '../src/utils/liff.js';
+import { liffUrl, quickFormUrl, liffPage } from '../src/utils/liff.js';
 import { publicBaseUrl } from '../src/utils/brand.js';
 
 const { MessagingApiClient, MessagingApiBlobClient } = linebot.messagingApi;
@@ -92,6 +92,10 @@ const GAME = { label: 'เกมร้าน 8-BIT', data: 'action=open_game', p
 export function pageUrl(page, env = process.env) {
   if (!page) return null;
   if (page === 'game') {
+    /* มี LIFF = เปิดผ่าน liff.line.me → /app/game โหมดต่อระบบจริง (ไลน์ล็อกอิน
+     * ให้เอง เห็นคิวงานจริง) · ไม่มีก็เปิด /game โหมดสาธิตตรง ๆ เหมือนเดิม */
+    const real = liffPage('game', {}, env);
+    if (real) return real;
     const base = publicBaseUrl(env);
     return base ? `${base}/game/` : null;
   }
