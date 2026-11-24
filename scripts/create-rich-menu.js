@@ -38,6 +38,8 @@ const FOOT_Y = ROW3_Y + ROW3_H;
 const FOOT_H = LAYOUT.height - FOOT_Y;
 // ปุ่มเกมร้าน กินท้ายแถวแบรนด์ด้านขวา (ร้านขอเชื่อมเกมเข้าริชเมนู)
 const GAME_W = 840;
+// ปุ่มจำลองป้าย 3D กินต้นแถวแบรนด์ด้านซ้าย กว้างเท่าการ์ดเกม (ร้านขอวางแอปจำลองป้ายในริชเมนู 24 พ.ย. 69)
+const SIGN_W = 840;
 
 // A tap area is grown to the gutter around its card, so a press that lands
 // between two cards still does something rather than nothing.
@@ -79,7 +81,12 @@ const BUTTONS = [
 // card now sits at its right end, so the brand's tap area stops where the
 // card's begins.
 const FOOTER = { label: 'ม่วงจดให้', data: 'action=home',
-  bounds: { x: 0, y: FOOT_Y, width: LAYOUT.width - GAME_W, height: FOOT_H } };
+  bounds: { x: SIGN_W, y: FOOT_Y, width: LAYOUT.width - GAME_W - SIGN_W, height: FOOT_H } };
+
+// แอปจำลองป้าย 3 มิติ (/sign/) — การ์ดส้มซ้ายล่าง (วางลงภาพด้วย scripts/add-sign-tile.mjs)
+// ไม่ใช่หน้าของแอป LIFF: ลิงก์ PUBLIC_BASE_URL/sign/ เปิดในเบราว์เซอร์ของไลน์ · ไม่มีค่า → postback ให้บอตตอบลิงก์
+const SIGN = { label: 'จำลองป้าย 3D', data: 'action=open_sign', page: 'sign',
+  bounds: { x: 0, y: FOOT_Y, width: SIGN_W, height: FOOT_H } };
 
 // เกมร้าน NATTAPRON 8-BIT — เปิดหน้า /game/ ตรง ๆ (ร้านสั่งเชื่อมเองเมื่อ 23 พ.ย. 69)
 // ไม่ใช่แท็บของแอป LIFF จึงใช้ลิงก์จาก PUBLIC_BASE_URL; ไม่มีค่า → postback แทน
@@ -91,6 +98,10 @@ const GAME = { label: 'เกมร้าน 8-BIT', data: 'action=open_game', p
 // back down the postback route.
 export function pageUrl(page, env = process.env) {
   if (!page) return null;
+  if (page === 'sign') {
+    const base = publicBaseUrl(env);
+    return base ? `${base}/sign/` : null;
+  }
   if (page === 'game') {
     /* มี LIFF = เปิดผ่าน liff.line.me → /app/game โหมดต่อระบบจริง (ไลน์ล็อกอิน
      * ให้เอง เห็นคิวงานจริง) · ไม่มีก็เปิด /game โหมดสาธิตตรง ๆ เหมือนเดิม */
@@ -121,12 +132,12 @@ function area(btn, env = process.env) {
   };
 }
 
-// The ten tappable areas: eight cards, the brand footer, then the game card.
+// The eleven tappable areas: eight cards, the sign-mockup card, the brand footer, then the game card.
 export function buildAreas(env = process.env) {
-  return [...BUTTONS, FOOTER, GAME].map((btn) => area(btn, env));
+  return [...BUTTONS, SIGN, FOOTER, GAME].map((btn) => area(btn, env));
 }
 
-export { LAYOUT, BUTTONS, FOOTER, GAME };
+export { LAYOUT, BUTTONS, FOOTER, GAME, SIGN };
 
 const CONTENT_TYPES = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png' };
 

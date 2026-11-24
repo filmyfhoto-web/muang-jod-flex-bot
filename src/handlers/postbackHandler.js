@@ -37,7 +37,7 @@ import { nudgeOff, nudgeOn, nudgeTest } from '../actions/nudge.js';
 import { quickJob } from '../actions/quickJob.js';
 import { aiCost } from '../actions/aiCost.js';
 import { moneyList } from '../actions/moneyList.js';
-import { webLinks, openGame } from '../actions/webLinks.js';
+import { webLinks, openGame, openSign } from '../actions/webLinks.js';
 import { reviewJobs, reviewAnswer } from '../actions/reviewJobs.js';
 import {
   checkinHasWork,
@@ -143,6 +143,8 @@ export async function handlePostback(event, profile) {
       return openDashboard(ctx);
     case 'open_game':
       return openGame(ctx);
+    case 'open_sign':
+      return openSign(ctx);
     case 'remind_job':
       return remindPrompt(ctx);
     case 'set_reminder':

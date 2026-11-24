@@ -27,6 +27,7 @@ export const POSTBACK_ACTIONS = [
   'view_receipt',
   'open_dashboard',
   'open_game',
+  'open_sign',
   'remind_job',
   'set_reminder',
   'cancel_reminder',
