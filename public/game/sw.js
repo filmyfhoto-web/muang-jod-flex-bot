@@ -1,8 +1,8 @@
 /* NATTAPRON 8-BIT — app-shell cache. Bump CACHE on every release. */
-const CACHE = 'np8-v4'; // v4: ใบจดงานจริงในเกม (จดเข้าม่วงจดจากหน้า ➕ ได้เลย)
+const CACHE = 'np8-v5'; // v5: ฉากเดินมุมสูงวาดด้วยโค้ด (เลิกภาพมุมหน้าร้าน — เบากว่าด้วย)
 const SHELL = [
   './', './index.html', './engine.js', './scene.js', './manifest.webmanifest', './icon-192.png', './icon-512.png',
-  './art/scene-inside.png', './art/hd-printer.png', './art/hd-frames.png', './art/tab-queue.png', './art/tab-vinyl.png',
+  './art/hd-printer.png', './art/hd-frames.png', './art/tab-queue.png', './art/tab-vinyl.png',
   './art/st-wait.png', './art/st-doing.png', './art/st-done.png',
   './art/nav-home.png', './art/nav-queue.png', './art/nav-report.png', './art/nav-set.png', './art/job-printer.png',
 ];
