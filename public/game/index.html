@@ -476,7 +476,7 @@ dialog::backdrop { background: rgba(67, 32, 118, .5); }
     <h2 class="sec">⚙️ ตั้งค่า</h2>
     <div class="set-block">
       <label class="lb" for="s-staff">รายชื่อพนักงาน (บรรทัดละชื่อ)</label>
-      <textarea id="s-staff" class="field" rows="3" placeholder="เช่น&#10;เจ้าของร้าน&#10;ฟิล์ม"></textarea>
+      <textarea id="s-staff" class="field" rows="3" placeholder="เช่น&#10;ฟิล์ม&#10;เจ้ปิ่น&#10;หญิง&#10;ประมวล"></textarea>
       <label class="lb" for="s-me">เครื่องนี้คือใคร (ใช้ลงชื่อเวลายืนยันสถานะ)</label>
       <select id="s-me" class="field"></select>
       <div style="margin-top:10px"><button class="btn lite" id="s-save" style="width:100%">บันทึกตั้งค่า</button></div>
@@ -582,7 +582,10 @@ const OLD_KEY = 'nattapron_vinyl_mobile_queue_v3';
 const SET_KEY = 'np8_settings_v1';
 let storageOK = true;
 let orders = [];
-let settings = { me: '', staff: ['เจ้าของร้าน'], sortMode: 'smart' };
+/* ทีมจริงของร้านเป็นค่าตั้งต้น (ร้านสั่ง 25 พ.ย. 69 "ทำต่อให้ครบ") —
+ * ฟิล์มกับเจ้ปิ่นออกเดินทำงาน หญิงกับประมวลประจำสถานีในภาพ */
+const DEFAULT_STAFF = ['ฟิล์ม', 'เจ้ปิ่น', 'หญิง', 'ประมวล'];
+let settings = { me: '', staff: [...DEFAULT_STAFF], sortMode: 'smart' };
 
 /* ---------- โหมดต่อระบบจริง (ม่วงจด) ----------
  * เปิดใต้ /app (ขอบเขต LIFF ของม่วงจด) = ล็อกอินไลน์แล้วอ่าน/เขียนคิวงานจริง
@@ -683,6 +686,10 @@ function loadSettings() {
     const s = localStorage.getItem(SET_KEY);
     if (s) settings = { ...settings, ...JSON.parse(s) };
   } catch { /* ค่าเริ่มต้น */ }
+  // เครื่องที่ยังถือค่าตั้งต้นเก่า ['เจ้าของร้าน'] = ไม่เคยตั้งเอง → อัปเกรดเป็นทีมจริง
+  if (Array.isArray(settings.staff) && settings.staff.length === 1 && settings.staff[0] === 'เจ้าของร้าน') {
+    settings.staff = [...DEFAULT_STAFF];
+  }
 }
 function loadAll() {
   loadSettings();
@@ -796,7 +803,9 @@ function wanderNext(w) {
 /* ทีมงานออกเดินทำงานทั้งร้าน (ร้านขอ 25 พ.ย. 69 "ให้ตัวละครทุกคนทำงาน เป็นทีมงาน")
  * ชื่อจากรายชื่อพนักงานในตั้งค่า — สามคนในภาพ (หญิง/เจ้ปิ่น/ประมวล) ประจำสถานี
  * ของตัวเองพร้อมลูกเล่นขยับอยู่แล้ว จึงไม่ปล่อยตัวเดินซ้ำชื่อออกมาอีกตัว */
-const BAKED_CREW = ['หญิง', 'เจ้ปิ่น', 'ประมวล'];
+// หญิง/ประมวลมีโต๊ะ-เก้าอี้อาบอยู่ในภาพ จึงประจำสถานี (มีลูกเล่นขยับ) —
+// เจ้ปิ่นยืนบนพื้นโล่ง เลยปะพื้นลบร่างในภาพแล้วปล่อยออกเดินกับทีมได้จริง
+const BAKED_CREW = ['หญิง', 'ประมวล'];
 function buildCrew() {
   const lead = settings.me || 'ฟิล์ม';
   const extras = settings.staff.filter((n) => n && n !== lead && !BAKED_CREW.includes(n));
@@ -1663,7 +1672,7 @@ function renderSettings() {
 }
 $('s-save').onclick = () => {
   settings.staff = $('s-staff').value.split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 20);
-  if (!settings.staff.length) settings.staff = ['เจ้าของร้าน'];
+  if (!settings.staff.length) settings.staff = [...DEFAULT_STAFF];
   settings.me = $('s-me').value;
   saveSettings();
   syncWalkerName();
