@@ -243,9 +243,14 @@ test('เกม: ฟิล์มมีชื่อลอยหัว + วิถ
   // ตัวละครหลักชื่อ "ฟิล์ม" (ร้านตั้ง) — ถ้าตั้ง "เครื่องนี้คือใคร" ใช้ชื่อนั้นแทน
   assert.ok(html.includes("scene.walkerName = settings.me || 'ฟิล์ม'"));
   assert.ok(scene.includes('export function nameTag(g, text, x, y)'));
-  // ทีมงานในภาพตามที่ร้านตั้ง: หญิง (เคาน์เตอร์), เจ้ปิ่น (ยืนถืองาน), ประมวล (คอมหลังร้าน)
-  // + น้องหมา "มะม่วง" หน้าทางเข้า (ร้านตั้งชื่อ 24 พ.ย. 69)
-  assert.ok(scene.includes("people: [['หญิง', 222, 458], ['เจ้ปิ่น', 517, 430], ['ประมวล', 332, 94], ['มะม่วง', 48, 628]]"));
+  /* ทีมในภาพ: เดิมปักสี่ป้าย (รวมเจ้ปิ่นที่ยืนนิ่ง) — ร้านสั่ง "ทำต่อให้ครบ"
+   * (25 พ.ย. 69) เจ้ปิ่นเลยย้ายไปเป็นตัวเดินจริงในทีม: ร่างนิ่งถูกปะพื้นทับ
+   * ป้ายชื่อตามตัวเดินแทน เหลือป้ายประจำที่ของหญิง/ประมวล/มะม่วง */
+  assert.ok(scene.includes("people: [['หญิง', 222, 458], ['ประมวล', 332, 94], ['มะม่วง', 48, 628]]"));
+  assert.ok(scene.includes('g.drawImage(img, 482, 568, 98, 90, 482, 428, 98, 90)'), 'แผ่นปะพื้นลบร่างเจ้ปิ่น');
+  assert.ok(html.includes("const BAKED_CREW = ['หญิง', 'ประมวล']"));
+  assert.ok(html.includes("const DEFAULT_STAFF = ['ฟิล์ม', 'เจ้ปิ่น', 'หญิง', 'ประมวล']"));
+  assert.ok(html.includes("settings.staff[0] === 'เจ้าของร้าน'"), 'เครื่องเก่าที่ถือค่าตั้งต้นเดิมถูกอัปเกรดเป็นทีมจริง');
   assert.ok(scene.includes('for (const [who, px_, py_] of ART.people) nameTag(g, who, px_, py_);'));
   /* ทีมงานทั้งร้านออกเดินทำงาน (ร้านขอ 25 พ.ย. 69 "ให้ตัวละครทุกคนทำงาน
    * เป็นทีมงาน / เอาตัวฟิล์มให้เหมือนคนอื่น") — สไปรต์พิกเซลสไตล์เดียวกับ
@@ -254,7 +259,8 @@ test('เกม: ฟิล์มมีชื่อลอยหัว + วิถ
   assert.ok(scene.includes('export function personSprite('));
   assert.ok(scene.includes('work: WORK_TOP.concat(LEGS.stand)'));
   assert.ok(scene.includes('const crewTags = []')); // ป้ายชื่อทีมลอยเหนือป้ายโซน
-  assert.ok(html.includes("const BAKED_CREW = ['หญิง', 'เจ้ปิ่น', 'ประมวล']"));
+  // เดิมกันสามชื่อในภาพ — เจ้ปิ่นออกเดินแล้ว (25 พ.ย. 69 "ทำต่อให้ครบ") เหลือสองคนประจำที่
+  assert.ok(html.includes("const BAKED_CREW = ['หญิง', 'ประมวล']"));
   assert.ok(html.includes('function buildCrew()'));
   assert.ok(html.includes('.slice(0, 4)')); // ทีมเดินสูงสุด 4 คน กันฉากแน่น
 
