@@ -1,5 +1,5 @@
 /* NATTAPRON 8-BIT — app-shell cache. Bump CACHE on every release. */
-const CACHE = 'np8-v5'; // v5: ฉากเดินมุมสูงวาดด้วยโค้ด (เลิกภาพมุมหน้าร้าน — เบากว่าด้วย)
+const CACHE = 'np8-v6'; // v6: ฉากมุมสูงแต่งเต็มตามภาพอนุมัติ (พื้นน้ำเงิน กันสาด ป้ายไม้)
 const SHELL = [
   './', './index.html', './engine.js', './scene.js', './manifest.webmanifest', './icon-192.png', './icon-512.png',
   './art/hd-printer.png', './art/hd-frames.png', './art/tab-queue.png', './art/tab-vinyl.png',
