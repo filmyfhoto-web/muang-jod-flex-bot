@@ -23,6 +23,7 @@ const RE = {
   note: /(วันที่|ฝาก|ประมาณ|รบกวน|ขอบคุณ|โทร|เบอร์|ราคา|ยอด|โอน|บาท|ส่งของ|มารับ|แวะ)/,
   day: /วันที่\s*(\d{1,2})(?!\d)/,
   tailUnit: new RegExp('^(.*?[^\\d\\s])\\s*(\\d+(?:[.,]\\d+)?)\\s*(' + UNITS + ')?\\s*$'),
+  tailUnitSpaced: new RegExp('^(.*\\S)\\s+(\\d+(?:[.,]\\d+)?)\\s*(' + UNITS + ')\\s*$'),
   headQty: new RegExp('^(\\d+(?:[.,]\\d+)?)\\s*(' + UNITS + ')?\\s+(.+)$'),
 };
 
@@ -63,6 +64,14 @@ function readLine(t) {
     const q = qtyOf(m[2]);
     const nm = nameOf(m[1]);
     if (q && nm) return { name: nm, qty: q, unit: normUnit(m[3] || ''), strong: Boolean(m[3]) || /\s+[x×X*]$/.test(m[1]) };
+  }
+  // a name may end in digits (แม็ก MAX HD-10 1อัน · โพสอิท 3*3 1 โหล · คลิปหนีบดำ No110 2กล่อง): when the line ends "quantity unit" with a
+  // space before the quantity, that number is the quantity. A run of 6 digits or more is a phone number, not a name
+  m = t.match(RE.tailUnitSpaced);
+  if (m) {
+    const q = qtyOf(m[2]);
+    const nm = nameOf(m[1]);
+    if (q && nm && /[A-Za-zก-๙]/.test(nm) && !/\d{6,}/.test(nm)) return { name: nm, qty: q, unit: normUnit(m[3]), strong: true };
   }
   m = t.match(RE.headQty);
   if (m) {

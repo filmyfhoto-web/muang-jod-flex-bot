@@ -432,7 +432,10 @@ async function notifyPickList(shop, { customerId, list, saved = null }) {
   const shown = list.items.slice(0, Math.max(1, Math.min(Number(cfg.maxLines) || 12, 20)));
   const appBase = cfg.appUrl === '' ? '' : cfg.appUrl || 'https://admin.nattagroup.com/#projdocs'; // the back office, not the shop (www)
   const docNo = saved?.doc?.doc_no || '';
-  const appUrl = docNo ? docLink(appBase, docNo) : appBase; // …opening this very job when there is one
+  // a job saved in the app opens that very job; a list that is not a job yet opens the chat page, where it is and where staff make the order
+  const chatCfg = cfg.chatUrl ?? 'https://admin.nattagroup.com/#saleorders';
+  const chatBase = appBase && chatCfg ? chatCfg : '';
+  const appUrl = docNo ? docLink(appBase, docNo) : chatBase;
   if (shop.contact?.notify !== false) {
     const card = pickListCard(shop, {
       customerName: customer?.name,
@@ -459,8 +462,8 @@ async function notifyPickList(shop, { customerId, list, saved = null }) {
   }
   const tag = `pick${Date.now().toString(36)}`; // one notification per list (a fixed tag would replace the one before)
   const title = docNo ? `📋 มีรายการสั่งจัดของ ${docNo}` : '📋 มีรายการสั่งจัดของ';
-  // (the app's push-notify only accepts "/" or "/#word" as the page to open, so the phone note opens the list of jobs; the number is in its title)
-  await appFlow?.notifyApp({ title, body: pickListPushText({ customer: customer?.name, items: list.items }), path: '/#projdocs', tag }).catch(() => false);
+  // (the app's push-notify only accepts "/" or "/#word" as the page to open: the phone note opens the job's list, or the chat page while there is no job yet; the number is in its title)
+  await appFlow?.notifyApp({ title, body: pickListPushText({ customer: customer?.name, items: list.items }), path: docNo ? '/#projdocs' : '/#saleorders', tag }).catch(() => false);
 }
 
 // Saves the list as a job in the shop's app (chatorders.js) when that is switched on for this customer. Awaited inside the

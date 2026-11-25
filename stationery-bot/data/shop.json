@@ -370,6 +370,7 @@
     "enabled": true,
     "reply": "",
     "appUrl": "https://admin.nattagroup.com/#projdocs",
+    "chatUrl": "https://admin.nattagroup.com/#saleorders",
     "maxLines": 12,
     "followMinutes": 10,
     "remarkEveryMinutes": 60

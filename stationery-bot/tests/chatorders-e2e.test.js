@@ -227,7 +227,7 @@ test('mode "off" (the shop\'s file as it ships): the admins are told as before, 
   assert.equal(h.docs().length, 0);
   const json = JSON.stringify(h.alerts()[0].body.messages[0]);
   assert.ok(!json.includes('PJ-') && !json.includes('บันทึกในแอปแล้ว'));
-  assert.ok(json.includes('เปิดหน้าออเดอร์ในแอป') && json.includes('https://admin.nattagroup.com/#projdocs'));
+  assert.ok(json.includes('เปิดหน้าออเดอร์ในแอป') && json.includes('https://admin.nattagroup.com/#saleorders'), 'no job yet: the button opens the chat page');
   assert.equal(h.emu.requests.filter((r) => r.startsWith('POST /rest/v1/project_docs')).length, 0);
   assert.equal(JSON.parse(await (await fetch(`http://127.0.0.1:${h.port}/health`)).text()).orders, 'off');
 });

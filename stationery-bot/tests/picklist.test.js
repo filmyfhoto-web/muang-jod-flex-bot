@@ -146,3 +146,27 @@ test('the admin card for a list that was saved in the app: the job number, what 
   const more = JSON.stringify(pickListCard(shop, { customerName: 'x', items, altText: 'a', docNo: 'PJ-0123', merged: true, added: 3 }));
   assert.ok(more.includes('✅ เพิ่มอีก 3 รายการในใบเดิม PJ-0123'));
 });
+
+// the list a customer sent in the chat on 23 Nov (GUN): product names that end in digits (HD-10, 3*3, No110) are read as lines too
+const GUN_LIST = [
+  'แฟ้ม 3 ห่วง   1 กล่อง', 'กระดาษ A4 70แกรม  3 กล่อง', 'กระดาษ A4 80แกรม  2 กล่อง', 'กระดาษ สีชมพู 1 รีม', 'ไส้แฟ้ม 4 โหล',
+  'แม็ก MAX HD-10   1อัน', 'แม็ก MAX HD-50   1อัน', 'ลิควิดแบบน้ำ  1 อัน', 'ลิควิดแบบเทป  4 อัน', 'โพสอิท 3*3   1 โหล', 'คลิปหนีบดำ No110  2กล่อง',
+];
+test('a name may end in digits: "แม็ก MAX HD-10 1อัน" is that product, 1 อัน; a phone number next to a unit is not a quantity', () => {
+  const r = parseOrderText(GUN_LIST.join('\n'));
+  assert.deepEqual(lines(r), [
+    ['แฟ้ม 3 ห่วง', 1, 'กล่อง'],
+    ['กระดาษ A4 70แกรม', 3, 'กล่อง'],
+    ['กระดาษ A4 80แกรม', 2, 'กล่อง'],
+    ['กระดาษ สีชมพู', 1, 'รีม'],
+    ['ไส้แฟ้ม', 4, 'โหล'],
+    ['แม็ก MAX HD-10', 1, 'อัน'],
+    ['แม็ก MAX HD-50', 1, 'อัน'],
+    ['ลิควิดแบบน้ำ', 1, 'อัน'],
+    ['ลิควิดแบบเทป', 4, 'อัน'],
+    ['โพสอิท 3*3', 1, 'โหล'],
+    ['คลิปหนีบดำ No110', 2, 'กล่อง'],
+  ]);
+  assert.deepEqual(r.notes, [], 'every line of the list is an item');
+  assert.equal(parseOrderText('โทร 081 234 5678 อัน').items.length, 0, 'a phone number is a remark');
+});
