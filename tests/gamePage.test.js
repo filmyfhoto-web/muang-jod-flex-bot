@@ -110,8 +110,9 @@ test('เกม: ฟอร์มรับงานใหม่มีช่อง
   assert.ok(html.includes('.btn[hidden] { display: none; }'));
   // ฟิล์มเดินสุ่มได้ทั่วร้าน ไม่วนเส้นทางเดิม และกลับมาเดินต่อหลังถูกสั่งงาน
   assert.ok(html.includes('function wanderNext(w)'));
-  assert.ok(html.includes("const ART_SPOT_KEYS = ['counter', 'prep', 'printer', 'copier', 'office', 'frame', 'sticker', 'stamp', 'photo', 'bench']"));
-  assert.ok(html.includes("restorePath: art ? 'wander' : SC.WALK_LOOP"));
+  assert.ok(html.includes("const SPOT_KEYS = ['counter', 'prep', 'printer', 'copier', 'office', 'frame', 'sticker', 'stamp', 'photo', 'bench']"));
+  // ฉากมุมสูงมีโหมดเดียว — เดินงานเสร็จกลับไปเดินทั่วร้าน (wander) เสมอ
+  assert.ok(html.includes("restorePath: 'wander'"));
 });
 
 test('เกม: ใบจดหลายรายการต่อใบ (ลูกค้าทำหลายอย่าง) — ฟอร์ม/โมดัล/แถวคิว', () => {
@@ -136,27 +137,32 @@ test('เกม: แถวงานเป็น div role=button (ห้ามป
   assert.match(html, /ev\.key === 'Enter' \|\| ev\.key === ' '/);
 });
 
-test('เกม: ภาพดีไซน์ที่อนุมัติถูกใช้เป็นฉาก/ไอคอนจริง และมีฉากสำรองถ้าภาพไม่มา', () => {
-  // ไฟล์อาร์ตครบทุกชิ้นที่หน้าเพจ/sw อ้างถึง
-  const art = ['scene-inside', 'hd-printer', 'hd-frames', 'tab-queue', 'tab-vinyl',
+test('เกม: ฉากเดินเป็นมุมสูงวาดด้วยโค้ด และไอคอนตกแต่งจากภาพอนุมัติยังครบ', () => {
+  /* เดิมฉากเดินคือภาพมุมหน้าร้านที่อาบไว้ (scene-inside.png) — ร้านสั่ง
+   * (25 พ.ย. 69) "รูปแบบเวลาเดิน ขอเป็นมุมสูง ไม่เอามุมหน้าร้านแบบนี้"
+   * จึงวาดแผนที่มองจากด้านบนด้วยโค้ดทั้งฉากแทน (TOP + drawTopInside)
+   * ภาพประกอบ UI ชิ้นอื่นจากดีไซน์ที่อนุมัติยังใช้ตามเดิม */
+  const art = ['hd-printer', 'hd-frames', 'tab-queue', 'tab-vinyl',
     'st-wait', 'st-doing', 'st-done', 'nav-home', 'nav-queue', 'nav-report', 'nav-set', 'job-printer'];
   for (const f of art) {
     const buf = readFileSync(new URL(`../public/game/art/${f}.png`, import.meta.url));
     assert.ok(buf.length > 200, f + ' exists');
     assert.equal(buf.toString('latin1', 1, 4), 'PNG', f + ' is png');
   }
-  assert.ok(html.includes("artImg.src = './art/scene-inside.png'"));
-  // โหลดภาพไม่ได้ → ใช้ฉากที่วาดด้วยโค้ด (drawScene เช็ก artImg ก่อน)
-  assert.ok(html.includes('const artOn = () => artImg.complete && artImg.naturalWidth > 0'));
-  assert.ok(scene.includes('else if (state.artImg && state.artImg.complete && state.artImg.naturalWidth) drawArtInside'));
-  // ปุ่มรถส่งไวนิลใช้ปุ่มที่อยู่ในภาพ (โซน govinyl) แทนปุ่มลอย
-  assert.ok(scene.includes("govinyl: { x: 628"));
+  assert.ok(scene.includes('export const TOP = {'));
+  assert.ok(scene.includes('export function drawTopInside(g, state, nowMs)'));
+  assert.ok(scene.includes('export function hitTopZone(x, y)'));
+  assert.ok(scene.includes('else drawTopInside(g, state, nowMs);'));
+  assert.ok(!html.includes('artImg'), 'หน้าเกมเลิกพึ่งภาพฉากแล้ว');
+  assert.ok(html.includes("scene.view === 'inside' ? [SC.TOP.w, SC.TOP.h] : [SC.W, SC.H]"));
+  // การ์ดรถส่งไวนิลอยู่ในฉาก (โซน govinyl) แทนปุ่มลอย — ปุ่มลอยซ่อนถาวร
+  assert.ok(scene.includes("govinyl: { x: 318"));
   assert.ok(html.includes("if (z === 'govinyl') { setView('route'); return; }"));
-  assert.ok(html.includes("$('btn-vinyl-go').hidden = v !== 'inside' || artOn();"));
+  assert.ok(html.includes("$('btn-vinyl-go').hidden = true;"));
   // กฎ display ของปุ่มลอยต้องไม่ทับ [hidden] (เคยเป็นบั๊ก)
   assert.ok(html.includes('.stage .go-vinyl[hidden] { display: none; }'));
-  // sw แคชภาพฉากไว้ใช้ออฟไลน์
-  assert.ok(sw.includes("'./art/scene-inside.png'"));
+  // sw ไม่แบกภาพฉากเก่า (เมกะไบต์ที่ไม่ได้ใช้) แต่ไอคอน UI ยังแคชครบ
+  assert.ok(!sw.includes('scene-inside'));
   assert.ok(sw.includes("'./art/job-printer.png'"));
 });
 
@@ -170,9 +176,10 @@ test('เกม: ตัวหนังสือคมบนมือถือ �
   // ป้ายชื่อโซนในภาพถูกวาดทับด้วยฟอนต์จริง (ภาพ upscale แล้วป้ายเดิมมัว)
   // ป้ายโซนย่อให้ไม่เด่น (ร้านขอ) แต่กล่องยังคลุมป้ายเบลอเดิมในภาพ (minW/minH)
   assert.ok(scene.includes('function plateCover(g, text, cx, cy, minW = 0, size = 21, minH = 0)'));
-  assert.ok(scene.includes('for (const [text, lx, ly, minW] of ART.labels) plateCover(g, text, lx, ly, minW, 15, 38);'));
-  assert.ok(scene.includes("['เคาน์เตอร์รับงาน', 191, 629, 228]"));
-  assert.ok(scene.includes("g.imageSmoothingQuality = 'high';"));
+  // ฉากมุมสูง: ป้ายโซนเล็กใต้เฟอร์นิเจอร์ทุกจุด (ยังใช้ plateCover ตัวเดิม)
+  assert.ok(scene.includes('plateCover(g, z.label, z.x + z.w / 2, z.y + z.h + 11, 0, 12);'));
+  // ฉากมุมสูง: ป้ายมาจากชื่อโซนโดยตรง (ไม่มีป้ายเบลอในภาพให้คลุมอีกแล้ว)
+  assert.ok(scene.includes("counter: { x: 62, y: 432, w: 224, h: 52, label: 'เคาน์เตอร์รับงาน' }"));
 });
 
 test('เกมจริง: หน้าเกมต่อม่วงจดเมื่ออยู่ใต้ /app — สาธิตที่ /game เหมือนเดิม', () => {
@@ -202,7 +209,7 @@ test('เกมจริง: หน้าเกมต่อม่วงจดเ
   assert.ok(html.includes('const dispNo = (j) => j.no || j.id;'));
   // เดินสถานะโหมดจริงยิง API (เซิร์ฟเวอร์ตรวจกติกาเดียวกันซ้ำ) — สาธิตใช้ engine เดิม
   assert.ok(html.includes("method: 'POST', body: JSON.stringify({ to })"));
-  assert.ok(sw.includes("'np8-v4'")); // เชลล์เปลี่ยน ต้องรีเฟรชแคชทุกเครื่อง (v4: ใบจดในเกม)
+  assert.ok(sw.includes("'np8-v5'")); // เชลล์เปลี่ยน ต้องรีเฟรชแคชทุกเครื่อง (v5: ฉากมุมสูง)
 
   /* "จอไม่ล้นได้ไหม" (24 พ.ย. 69 — คิวจริงบนมือถือล้นขวา): เว็บวิว LINE/iOS
    * ขยายตัวอักษรเองตามตั้งค่าในแอป ต้องล็อก 100% และกันหน้าลื่นข้างระดับ body */
@@ -246,12 +253,14 @@ test('เกม: ฟิล์มมีชื่อลอยหัว + วิถ
   /* ทีมในภาพ: เดิมปักสี่ป้าย (รวมเจ้ปิ่นที่ยืนนิ่ง) — ร้านสั่ง "ทำต่อให้ครบ"
    * (25 พ.ย. 69) เจ้ปิ่นเลยย้ายไปเป็นตัวเดินจริงในทีม: ร่างนิ่งถูกปะพื้นทับ
    * ป้ายชื่อตามตัวเดินแทน เหลือป้ายประจำที่ของหญิง/ประมวล/มะม่วง */
-  assert.ok(scene.includes("people: [['หญิง', 222, 458], ['ประมวล', 332, 94], ['มะม่วง', 48, 628]]"));
-  assert.ok(scene.includes('g.drawImage(img, 482, 568, 98, 90, 482, 428, 98, 90)'), 'แผ่นปะพื้นลบร่างเจ้ปิ่น');
+  /* ฉากมุมสูง (25 พ.ย. 69): หญิง/ประมวลนั่งประจำสถานี (ป้ายใน TOP.people)
+   * มะม่วงเดินเอง ป้ายตามตัว — แผ่นปะพื้นลบร่างเจ้ปิ่นหมดหน้าที่ไปกับภาพเดิม */
+  assert.ok(scene.includes("people: [['หญิง', 96, 414], ['ประมวล', 240, 16]]"));
+  assert.ok(scene.includes("nameTag(g, 'มะม่วง', dg.x, dg.y - 24)"));
   assert.ok(html.includes("const BAKED_CREW = ['หญิง', 'ประมวล']"));
   assert.ok(html.includes("const DEFAULT_STAFF = ['ฟิล์ม', 'เจ้ปิ่น', 'หญิง', 'ประมวล']"));
   assert.ok(html.includes("settings.staff[0] === 'เจ้าของร้าน'"), 'เครื่องเก่าที่ถือค่าตั้งต้นเดิมถูกอัปเกรดเป็นทีมจริง');
-  assert.ok(scene.includes('for (const [who, px_, py_] of ART.people) nameTag(g, who, px_, py_);'));
+  assert.ok(scene.includes('for (const [who, px_, py_] of TOP.people) nameTag(g, who, px_, py_);'));
   /* ทีมงานทั้งร้านออกเดินทำงาน (ร้านขอ 25 พ.ย. 69 "ให้ตัวละครทุกคนทำงาน
    * เป็นทีมงาน / เอาตัวฟิล์มให้เหมือนคนอื่น") — สไปรต์พิกเซลสไตล์เดียวกับ
    * คนในภาพ มีท่าเดิน/ยืนทำงาน และทีมเดินสร้างจากรายชื่อพนักงานในตั้งค่า

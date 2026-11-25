@@ -757,29 +757,25 @@ for (const s of SCREENS) $('tab-' + s).onclick = () => {
 /* ---------- canvas game (VISUAL ONLY — this block never touches job status) ---------- */
 const cv = $('cv');
 const g = cv.getContext('2d', { alpha: false });
-/* ภาพฉากจากดีไซน์ที่ร้านอนุมัติ — โหลดได้ใช้ภาพ, โหลดไม่ได้ใช้ฉากที่วาดด้วยโค้ด */
-const artImg = new Image();
-artImg.src = './art/scene-inside.png';
-const artOn = () => artImg.complete && artImg.naturalWidth > 0;
+/* ฉากเดินเป็นมุมสูงวาดด้วยโค้ดทั้งฉาก (ร้านสั่ง 25 พ.ย. 69 "ขอเป็นมุมสูง
+ * ไม่เอามุมหน้าร้าน") — ภาพมุมหน้าร้านเดิมเหลือใช้เป็นไอคอนตกแต่ง UI เท่านั้น */
 const scene = {
   view: 'inside',
   walkers: SC.buildWalkers(),
-  dog: { x: 96, y: 452, tx: 96, ty: 452, nextMove: 0, heartUntil: 0 }, // dog sits on the counter like the real one
+  dog: { x: 60, y: 516, tx: 60, ty: 516, nextMove: 0, heartUntil: 0 }, // มะม่วงเฝ้าหน้าทางเข้า
   moto: { visible: false, back: false, t: 0 },
   roomWalker: SC.buildRoomWalker(), // ฟิล์มในห้องไวนิล (ฉากอิงรูปห้องจริง)
   focusZone: '',
   walkerName: 'ฟิล์ม', // ชื่อตัวละครเดิน (ร้านตั้ง) — เปลี่ยนตาม "เครื่องนี้คือใคร" ในตั้งค่า
-  artImg,
 };
 function syncWalkerName() {
   scene.walkerName = settings.me || 'ฟิล์ม';
-  if (artOn() && scene.walkers[0]?.wander) buildCrew(); // รายชื่อทีม/ชื่อหัวหน้าเปลี่ยน → จัดทีมเดินใหม่
+  if (scene.walkers[0]?.wander) buildCrew(); // รายชื่อทีม/ชื่อหัวหน้าเปลี่ยน → จัดทีมเดินใหม่
 }
 /* ความคมของตัวหนังสือ/สไปรต์: ตั้ง backing store ของแคนวาสเท่าพิกเซลจอจริง
  * (ขนาดที่แสดง × devicePixelRatio) แล้ว scale บริบทวาด — ป้ายและตัวละครคมทุกจอ */
 function fitCanvas() {
-  const art = scene.view === 'inside' && artOn();
-  const [lw, lh] = art ? [SC.ART.w, SC.ART.h] : [SC.W, SC.H];
+  const [lw, lh] = scene.view === 'inside' ? [SC.TOP.w, SC.TOP.h] : [SC.W, SC.H];
   scene.logicalW = lw; scene.logicalH = lh;
   cv.style.aspectRatio = `${lw} / ${lh}`;
   const cssW = cv.getBoundingClientRect().width;
@@ -792,19 +788,17 @@ function fitCanvas() {
 }
 let fitTimer = 0;
 window.addEventListener('resize', () => { clearTimeout(fitTimer); fitTimer = setTimeout(fitCanvas, 150); });
-/* ฟิล์มเดินสุ่มได้ทั่วร้าน (ร้านขอ) — เลือกจุดงานถัดไปแบบสุ่มทุกครั้งที่ถึง */
-const ART_SPOT_KEYS = ['counter', 'prep', 'printer', 'copier', 'office', 'frame', 'sticker', 'stamp', 'photo', 'bench'];
-const randomArtSpot = () => SC.ART.spots[ART_SPOT_KEYS[Math.floor(Math.random() * ART_SPOT_KEYS.length)]];
+/* ทีมเดินสุ่มได้ทั่วร้าน (ร้านขอ) — เลือกจุดงานถัดไปแบบสุ่มทุกครั้งที่ถึง */
+const SPOT_KEYS = ['counter', 'prep', 'printer', 'copier', 'office', 'frame', 'sticker', 'stamp', 'photo', 'bench'];
+const randomSpot = () => SC.TOP.spots[SPOT_KEYS[Math.floor(Math.random() * SPOT_KEYS.length)]];
 function wanderNext(w) {
-  w.path = [w.path[1] || w.path[0], randomArtSpot()];
+  w.path = [w.path[1] || w.path[0], randomSpot()];
   w.t = 0;
   w.dwell = 1100 + Math.random() * 1900;
 }
 /* ทีมงานออกเดินทำงานทั้งร้าน (ร้านขอ 25 พ.ย. 69 "ให้ตัวละครทุกคนทำงาน เป็นทีมงาน")
- * ชื่อจากรายชื่อพนักงานในตั้งค่า — สามคนในภาพ (หญิง/เจ้ปิ่น/ประมวล) ประจำสถานี
- * ของตัวเองพร้อมลูกเล่นขยับอยู่แล้ว จึงไม่ปล่อยตัวเดินซ้ำชื่อออกมาอีกตัว */
-// หญิง/ประมวลมีโต๊ะ-เก้าอี้อาบอยู่ในภาพ จึงประจำสถานี (มีลูกเล่นขยับ) —
-// เจ้ปิ่นยืนบนพื้นโล่ง เลยปะพื้นลบร่างในภาพแล้วปล่อยออกเดินกับทีมได้จริง
+ * ชื่อจากรายชื่อพนักงานในตั้งค่า — หญิง/ประมวลประจำสถานีในฉากมุมสูง
+ * (นั่งเคาน์เตอร์/โต๊ะคอม มีลูกเล่นขยับ) จึงไม่ปล่อยตัวเดินซ้ำชื่อออกมาอีกตัว */
 const BAKED_CREW = ['หญิง', 'ประมวล'];
 function buildCrew() {
   const lead = settings.me || 'ฟิล์ม';
@@ -812,17 +806,14 @@ function buildCrew() {
   scene.walkers = [lead, ...extras].slice(0, 4).map((name, i) => ({
     name,
     pal: i,
-    path: [randomArtSpot(), randomArtSpot()],
+    path: [randomSpot(), randomSpot()],
     t: Math.random() * 0.5,
     dwell: 500 + Math.random() * 1800,
     speed: 40 + ((i * 7) % 12),
     wander: true,
   }));
 }
-artImg.onload = () => {
-  buildCrew();
-  setView(scene.view); // ซ่อนปุ่มรถลอย (ภาพมีปุ่มในตัว) + ปรับขนาดแคนวาส
-};
+buildCrew(); // ฉากมุมสูงพร้อมตั้งแต่บูต ไม่ต้องรอโหลดภาพ
 let walkerOverride = null; // {walker, restorePath, target}
 const vinylSim = { running: false, stage: -1, t: 0 };
 const V_STAGES = ['ออกจากร้าน', 'ถึงบ้านไวนิล', 'กำลังผลิต (จำลอง)', 'ขากลับ', 'ถึงร้านแล้ว'];
@@ -841,7 +832,7 @@ function setView(v) {
   $('v-simbox').hidden = v !== 'route';
   $('v-roomnote').hidden = v !== 'vinylroom';
   // ภาพฉากมีปุ่มรถส่งไวนิลวาดอยู่แล้ว (แตะในภาพได้) — ปุ่มลอยใช้เฉพาะฉากสำรอง
-  $('btn-vinyl-go').hidden = v !== 'inside' || artOn();
+  $('btn-vinyl-go').hidden = true; // ฉากมุมสูงมีการ์ดรถของตัวเอง — ปุ่มลอยเลิกใช้
   fitCanvas();
   if (vinyl) renderVinylJobs();
 }
@@ -882,7 +873,9 @@ function frame(t) {
     }
     const dg = scene.dog;
     if (t > dg.nextMove) {
-      dg.tx = 56 + Math.random() * 110; dg.ty = 450 + Math.random() * 5;
+      // มะม่วงเดินเล่นแถวหน้าทางเข้า (พื้นที่ตามฉากมุมสูง)
+      const A = SC.TOP.dogArea;
+      dg.tx = A.x0 + Math.random() * (A.x1 - A.x0); dg.ty = A.y0 + Math.random() * (A.y1 - A.y0);
       dg.nextMove = t + 2200 + Math.random() * 2500;
       if (Math.random() < 0.4) dg.heartUntil = t + 1500;
     }
@@ -971,13 +964,12 @@ cv.addEventListener('click', (ev) => {
     return;
   }
   if (scene.view !== 'inside') return;
-  const art = artOn();
-  const z = art ? SC.hitArtZone(x, y) : SC.hitZone(x, y);
+  const z = SC.hitTopZone(x, y);
   if (!z) return;
-  if (z === 'govinyl') { setView('route'); return; } // ปุ่มรถที่วาดอยู่ในภาพ
+  if (z === 'govinyl') { setView('route'); return; } // การ์ดรถที่วาดอยู่ในฉาก
   scene.focusZone = z;
   const tip = $('zone-tip');
-  tip.textContent = '📍 ' + (art ? SC.ART.zones : SC.ZONES)[z].label;
+  tip.textContent = '📍 ' + SC.TOP.zones[z].label;
   tip.classList.add('on');
   clearTimeout(cv._tipTimer);
   cv._tipTimer = setTimeout(() => { tip.classList.remove('on'); scene.focusZone = ''; }, 2200);
@@ -1177,12 +1169,11 @@ $('j-close').onclick = () => $('job-modal').close();
 function walkTo(zone, say) {
   showScreen('home'); setView('inside');
   scene.focusZone = zone;
-  const art = artOn();
-  const spots = art ? SC.ART.spots : SC.SPOTS;
-  const zones = art ? SC.ART.zones : SC.ZONES;
+  const spots = SC.TOP.spots;
+  const zones = SC.TOP.zones;
   const w = scene.walkers[0];
   const cur = E.pointAt(w.path, w.t);
-  walkerOverride = { walker: w, restorePath: art ? 'wander' : SC.WALK_LOOP };
+  walkerOverride = { walker: w, restorePath: 'wander' };
   w.path = [cur, spots[zone] || spots.counter];
   w.t = 0; w.dwell = 0;
   toast(say || `${scene.walkerName}กำลังเดินไป “${zones[zone].label}” (ภาพจำลอง)`);
@@ -1711,7 +1702,7 @@ $('s-reset').onclick = () => {
   renderVinylJobs();
   if (mode !== 'real') saveOrders();
   setInterval(() => { if (screen === 'home') renderHome(); }, 60_000); // keep "วันนี้" fresh across midnight
-  if (artOn()) artImg.onload(); // รูปมาจากแคชอาจ complete ก่อนผูก onload
+  setView(scene.view); // ซ่อนปุ่มลอย + ตั้งแผงให้ตรงมุมมองตั้งแต่บูต
   fitCanvas();
   requestAnimationFrame(frame);
 })();

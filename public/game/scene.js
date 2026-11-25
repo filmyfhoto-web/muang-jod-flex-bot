@@ -58,51 +58,43 @@ export const WALK_LOOP = [
 
 const LOOP_B = [SPOTS.frame, [400, 444], [300, 444], SPOTS.counter, [244, 420], SPOTS.photo, [86, 350], SPOTS.sticker, [244, 350], SPOTS.frame];
 
-/* ---------- approved mockup artwork mode ----------
- * The INSIDE scene can render the hand-approved pixel illustration
- * (art/scene-inside.png, cropped from the reference the shop picked) instead
- * of the code-painted floor. Walkers/heart/taps are drawn on top; the art is
- * decoration only and the coordinates below map its zones. */
-export const ART = {
-  w: 838, h: 840, src: './art/scene-inside.png',
+/* ---------- ฉากเดินมุมสูง (bird's-eye) ----------
+ * ร้านสั่ง (25 พ.ย. 69): "รูปแบบเวลาเดิน ฉันขอเป็นมุมสูงได้ไหม ไม่เอามุม
+ * หน้าร้านแบบนี้" — ภาพมุมหน้าร้านที่อาบไว้ (art/scene-inside.png) เลิกใช้
+ * เป็นฉากเดิน แทนด้วยแผนที่มองจากด้านบนที่วาดด้วยโค้ดทั้งฉาก สไตล์เกม
+ * top-down (แผนที่มุมสูง + ตัวละครหันหน้าเข้ากล้องตามขนบ JRPG — สไปรต์ทีม
+ * ชุดเดิมใช้ได้เลย) ผังสถานีคงตามร้านจริง และคีย์โซนเท่าชุดเดิมทุกตัว
+ * ให้วิถีการทำงาน (playWorkFor) กับปุ่มเดินไม่ต้องแก้อะไร */
+export const TOP = {
+  w: 480, h: 560,
   zones: {
-    office: { x: 280, y: 8, w: 330, h: 125, label: 'หลังร้าน / ตรวจงาน' },
-    stamp: { x: 55, y: 120, w: 185, h: 95, label: 'ตรายาง' },
-    sticker: { x: 55, y: 218, w: 185, h: 90, label: 'สติ๊กเกอร์' },
-    prep: { x: 18, y: 312, w: 215, h: 160, label: 'เตรียมไฟล์' },
-    printer: { x: 245, y: 150, w: 225, h: 180, label: 'ปริ้นงาน' },
-    copier: { x: 245, y: 338, w: 225, h: 180, label: 'ถ่ายเอกสาร' },
-    frame: { x: 560, y: 128, w: 245, h: 295, label: 'ชั้นกรอบรูป' },
-    bench: { x: 600, y: 430, w: 210, h: 195, label: 'ที่นั่งรอ' },
-    counter: { x: 18, y: 478, w: 365, h: 185, label: 'เคาน์เตอร์รับงาน' },
-    door: { x: 255, y: 695, w: 320, h: 140, label: 'ทางเข้า' },
-    govinyl: { x: 628, y: 672, w: 205, h: 110, label: 'ส่งไปบ้านทำไวนิล' },
+    office: { x: 120, y: 22, w: 240, h: 86, label: 'หลังร้าน' },
+    stamp: { x: 20, y: 118, w: 74, h: 74, label: 'ตรายาง' },
+    sticker: { x: 20, y: 206, w: 74, h: 94, label: 'สติ๊กเกอร์' },
+    prep: { x: 20, y: 314, w: 74, h: 98, label: 'เตรียมไฟล์' },
+    printer: { x: 150, y: 146, w: 180, h: 86, label: 'ปริ้นงาน' },
+    copier: { x: 150, y: 266, w: 180, h: 86, label: 'ถ่ายเอกสาร' },
+    photo: { x: 386, y: 118, w: 74, h: 64, label: 'อัดรูป' },
+    frame: { x: 386, y: 198, w: 74, h: 162, label: 'ชั้นกรอบรูป' },
+    bench: { x: 364, y: 384, w: 96, h: 64, label: 'ที่นั่งรอ' },
+    counter: { x: 62, y: 432, w: 224, h: 52, label: 'เคาน์เตอร์รับงาน' },
+    govinyl: { x: 318, y: 474, w: 142, h: 66, label: 'ส่งไปบ้านทำไวนิล' },
   },
+  // จุดยืนทำงาน (ปลายเท้า) — อยู่บนพื้นข้างเฟอร์นิเจอร์ของโซนนั้น
   spots: {
-    counter: [330, 545], prep: [150, 430], printer: [365, 260], copier: [365, 445],
-    office: [430, 100], frame: [650, 310], photo: [150, 430], sticker: [150, 265],
-    stamp: [150, 175], bench: [690, 530], door: [420, 745],
+    office: [240, 132], stamp: [122, 158], sticker: [122, 256], prep: [122, 362],
+    printer: [240, 254], copier: [240, 376], photo: [356, 154], frame: [356, 282],
+    bench: [336, 418], counter: [176, 512],
   },
-  path: [[392, 592], [455, 556], [455, 332], [462, 215], [442, 138]],
-  dogHeart: [60, 650],
-  /* ทีมงานในภาพ (ร้านตั้งชื่อ): หญิงนั่งเคาน์เตอร์หน้าร้าน, เจ้ปิ่นยืนถืองาน,
-   * ประมวลนั่งคอมหลังร้าน — ฟิล์มคือตัวละครเดินแยกต่างหาก */
-  // เจ้ปิ่นย้ายไปเป็นตัวเดินในทีมแล้ว (ป้ายชื่อตามตัว) — เหลือคนประจำสถานี + น้องหมา
-  people: [['หญิง', 222, 458], ['ประมวล', 332, 94], ['มะม่วง', 48, 628]],
-  /* ป้ายชื่อโซนที่ฝังในภาพจะมัวเมื่อย่อ/ขยายตามจอ — วาดป้ายคมทับที่ตำแหน่งเดิม
-   * [ข้อความ, กลางป้าย x, y, ความกว้างขั้นต่ำให้คลุมป้ายเดิมมิด] (วัดจากภาพจริง) */
-  labels: [
-    ['หลังร้าน', 413, 46, 124], ['ตรายาง', 148, 156, 114], ['สติ๊กเกอร์', 151, 259, 132],
-    ['เตรียมไฟล์', 130, 365, 146], ['ปริ้นงาน', 400, 279, 134], ['ถ่ายเอกสาร', 409, 405, 168],
-    ['ชั้นกรอบรูป', 699, 243, 172], ['ที่นั่งรอ', 710, 504, 126],
-    ['เคาน์เตอร์รับงาน', 191, 629, 228], ['ทางเข้า', 413, 819, 140],
-  ],
+  // วงเดินสำรอง (ใช้ตอนคืนทางหลังเดินงานในโหมดที่ไม่ wander)
+  path: [[140, 132], [340, 132], [340, 254], [140, 254], [140, 376], [340, 376], [240, 430], [240, 512]],
+  /* คนประจำสถานี (มองจากบน: ตัวอยู่หลังเฟอร์นิเจอร์ = นั่งทำงาน):
+   * หญิงหลังเคาน์เตอร์ ประมวลหลังโต๊ะหลังร้าน — มะม่วงเดินเอง ป้ายตามตัว */
+  people: [['หญิง', 96, 414], ['ประมวล', 240, 16]],
+  seated: { ying: [96, 444], pramual: [240, 56] },
+  dogArea: { x0: 36, x1: 92, y0: 500, y1: 534 },
+  door: { x: 196, y: 526, w: 88 },
 };
-export const ART_LOOP = [...ART.path, ...[...ART.path].reverse().slice(1)];
-
-export function buildArtWalker() {
-  return { path: ART_LOOP, t: 0, dwell: 900, speed: 42, color: P.purple, hair: '#4a3650', stops: [0.22, 0.48, 0.74, 0.97] };
-}
 
 /* ป้ายโซนแบบคม: วาดด้วยฟอนต์จริงบนแคนวาสความละเอียดจอ แทนตัวหนังสือที่ฝังในรูป */
 /* ป้ายโซนแบบเรียบ (ร้านขอไม่ให้เด่น): ตัวเล็ก สีหม่น ไม่มีเส้นขอบ
@@ -125,60 +117,133 @@ function sparkle(q, x, y, on) {
   q.r(x - 1, y - 1, 3, 3, '#ffd34d');
 }
 
-export function drawArtInside(g, img, state, nowMs) {
+/* วาดฉากมุมสูงทั้งฉาก — เฟอร์นิเจอร์มองจากด้านบน คนสไตล์ JRPG หันเข้ากล้อง
+ * คนประจำสถานีวาด "ก่อน" เฟอร์นิเจอร์ของตัวเอง ให้โต๊ะ/เคาน์เตอร์บังช่วงขา
+ * = ท่านั่งทำงานแบบเกมยุคเก่า */
+export function drawTopInside(g, state, nowMs) {
   const q = px(g);
-  g.imageSmoothingEnabled = true;
-  g.imageSmoothingQuality = 'high';
-  g.drawImage(img, 0, 0, ART.w, ART.h);
-  /* เจ้ปิ่นออกเดินทำงานแล้ว (ร้านสั่ง 25 พ.ย. 69 "ทำต่อให้ครบ") — ร่างนิ่งที่
-   * อาบไว้ในภาพถูกปะทับด้วยพื้นสะอาดจากใต้จุดเดิม (ลายพื้นเป็นลายวาดนุ่ม
-   * รอยต่อกลืนเอง) ตัวจริงของเธอคือสไปรต์ในทีมเดิน ป้ายชื่อตามตัวไปด้วย */
-  g.drawImage(img, 482, 568, 98, 90, 482, 428, 98, 90);
-  g.drawImage(img, 482, 598, 98, 46, 482, 518, 98, 46);
+  const T = TOP;
   const tick = Math.floor(nowMs / 420);
-  sparkle(q, 505, 205, tick % 3 === 0);
-  sparkle(q, 536, 212, tick % 3 === 1);
-  sparkle(q, 700, 90, tick % 4 === 2);
-
-  /* ทีมในภาพก็ทำงานอยู่ (ร้านขอ "ให้ตัวละครทุกคนทำงาน เป็นทีมงาน") —
-   * สามคนในภาพประจำสถานีของตัวเอง เลยได้ลูกเล่นขยับเล็ก ๆ แทนการเดิน:
-   * ประมวลพิมพ์งานหลังร้าน · เจ้ปิ่นไล่ตรวจปึกงานในมือ · หญิงรับลูกค้าหน้าเคาน์เตอร์ */
   const beat = Math.floor(nowMs / 260);
-  // ประมวลกำลังพิมพ์ — บับเบิลจุดสามจุดข้างหัว (บนโต๊ะสีอ่อนจุดจมหาย)
-  q.r(356, 72, 24, 12, '#272148');
-  for (let k = 0; k < 3; k++) q.r(360 + k * 6, 76, 3, 3, (beat + k) % 3 ? '#cdbdf0' : '#6d5a9e');
-  if (Math.floor(nowMs / 1500) % 3 === 0) { // หญิงรับลูกค้า — หัวใจบริการข้างแก้ม
-    g.save(); g.translate(250, 503 - (beat % 2) * 2); g.scale(1.7, 1.7); heart(q, 0, 0); g.restore();
-  }
 
+  // พื้นกระเบื้อง + ผนังรอบ + พรมหน้าประตู
+  q.r(0, 0, T.w, T.h, '#b9aede');
+  q.r(10, 10, T.w - 20, T.h - 20, '#a292d2');
+  q.r(14, 14, T.w - 28, T.h - 28, '#e6e1f4');
+  g.strokeStyle = '#d7d0ec'; g.lineWidth = 2;
+  for (let gx = 54; gx < T.w - 14; gx += 40) { g.beginPath(); g.moveTo(gx, 14); g.lineTo(gx, T.h - 14); g.stroke(); }
+  for (let gy = 54; gy < T.h - 14; gy += 40) { g.beginPath(); g.moveTo(14, gy); g.lineTo(T.w - 14, gy); g.stroke(); }
+  q.r(T.door.x, T.h - 16, T.door.w, 16, '#cdbfe8'); // ช่องประตู
+  q.r(T.door.x + 4, T.h - 46, T.door.w - 8, 30, '#d8cdf0'); // พรมทางเข้า
+  q.r(T.door.x - 26, T.h - 44, 18, 26, '#3f9d5a'); q.r(T.door.x + T.door.w + 8, T.h - 44, 18, 26, '#3f9d5a'); // กระถางต้นไม้
+  q.r(T.door.x - 26, T.h - 20, 18, 6, '#9a6b3f'); q.r(T.door.x + T.door.w + 8, T.h - 20, 18, 6, '#9a6b3f');
+
+  const box = (z, fill, edge) => { q.r(z.x, z.y, z.w, z.h, edge); q.r(z.x + 3, z.y + 3, z.w - 6, z.h - 6, fill); };
+
+  // หลังร้าน: ประมวลนั่งคอม (ตัวก่อน โต๊ะเตี้ย ๆ ทับช่วงขา = ท่านั่ง) + บับเบิลพิมพ์งาน
+  personSprite(g, T.seated.pramual[0], T.seated.pramual[1], { pal: 2, frame: 'stand', s: 1.5 });
+  q.r(120, 44, 240, 52, '#8a6a43'); q.r(123, 47, 234, 46, '#c99f6b'); // โต๊ะยาวหลังร้าน
+  q.r(190, 56, 44, 28, '#2f2a44'); q.r(194, 60, 36, 16, '#9fd1ff'); // จอหลัก
+  q.r(248, 58, 34, 24, '#2f2a44'); q.r(252, 62, 26, 14, '#cdbdf0'); // จอรอง
+  q.r(146, 62, 26, 16, '#f6f2ff'); q.r(302, 64, 24, 14, '#f6f2ff'); // กองเอกสาร
+  q.r(286, 12, 22, 11, '#272148');
+  for (let k = 0; k < 3; k++) q.r(290 + k * 6, 16, 3, 3, (beat + k) % 3 ? '#cdbdf0' : '#6d5a9e');
+
+  // ผนังซ้าย: ตรายาง / สติ๊กเกอร์ / เตรียมไฟล์
+  box(T.zones.stamp, '#f3f0fb', '#8d87ad');
+  for (let r = 0; r < 2; r++) for (let c = 0; c < 3; c++) {
+    q.r(32 + c * 18, 134 + r * 26, 12, 12, r ? '#b03a2e' : '#7a4a2f');
+    q.r(34 + c * 18, 148 + r * 26, 8, 4, '#4a3650');
+  }
+  box(T.zones.sticker, '#f3f0fb', '#8d87ad');
+  const ROLLS = ['#f08bb4', '#ffd34d', '#7fb8e6', '#9570de', '#7fd49a', '#f0a05a'];
+  ROLLS.forEach((cc, i) => {
+    const rx = 36 + (i % 2) * 26, ry = 220 + Math.floor(i / 2) * 26;
+    q.r(rx, ry, 20, 20, cc); q.r(rx + 7, ry + 7, 6, 6, '#f6f2ff'); // ม้วนสติ๊กเกอร์มองจากบน
+  });
+  box(T.zones.prep, '#c99f6b', '#8a6a43');
+  q.r(32, 330, 36, 24, '#2f2a44'); q.r(36, 334, 28, 14, '#9fd1ff');
+  q.r(34, 362, 32, 10, '#4a4466'); q.r(32, 380, 28, 18, '#f6f2ff');
+
+  // เกาะกลาง: ปริ้นงาน (สองเครื่องใหญ่) / ถ่ายเอกสาร
+  box(T.zones.printer, '#eceaf6', '#8d87ad');
+  for (const px0 of [162, 248]) {
+    q.r(px0, 156, 70, 58, '#dbd7ec'); q.r(px0 + 4, 160, 62, 14, '#4a4466');
+    for (let v = 0; v < 4; v++) q.r(px0 + 8, 180 + v * 7, 54, 3, '#b5afd0');
+    q.r(px0 + 18, 206, 34, 12, '#f6f2ff'); // กระดาษออก
+  }
+  box(T.zones.copier, '#eceaf6', '#8d87ad');
+  q.r(170, 276, 140, 56, '#dbd7ec'); q.r(176, 282, 128, 22, '#bfe3f2'); // กระจกสแกน
+  q.r(176, 310, 60, 14, '#4a4466'); q.r(246, 310, 56, 14, '#f6f2ff');
+
+  // ผนังขวา: อัดรูป / ชั้นกรอบรูป / ที่นั่งรอ + ตู้น้ำ
+  box(T.zones.photo, '#f3f0fb', '#8d87ad');
+  q.r(398, 130, 50, 24, '#dbd7ec'); q.r(402, 134, 42, 10, '#4a4466');
+  for (let i = 0; i < 3; i++) q.r(398 + i * 17, 160, 14, 16, '#f6f2ff');
+  box(T.zones.frame, '#c99f6b', '#8a6a43');
+  const FR = ['#d4a53f', '#8a6a43', '#f6f2ff', '#9570de'];
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 2; c++) {
+    const fx = 398 + c * 34, fy = 210 + r * 37;
+    q.r(fx, fy, 28, 30, FR[(r + c) % FR.length]); q.r(fx + 5, fy + 5, 18, 20, '#bfe3f2');
+  }
+  box(T.zones.bench, '#e6ddcf', '#9a8a6f');
+  for (const by of [392, 418]) { q.r(372, by, 64, 18, '#c99f6b'); for (let s = 0; s < 3; s++) q.r(376 + s * 20, by + 3, 14, 12, '#b98d59'); }
+  q.r(440, 392, 16, 44, '#dbe9f5'); q.r(444, 396, 8, 18, '#7fb8e6'); // ตู้น้ำดื่ม
+
+  // เคาน์เตอร์รับงาน: หญิงนั่งหลังเคาน์เตอร์ (หัวใจบริการเด้งเป็นจังหวะ)
+  personSprite(g, T.seated.ying[0], T.seated.ying[1], { pal: 1, frame: 'stand', s: 1.5 });
+  if (Math.floor(nowMs / 1500) % 3 === 0) {
+    g.save(); g.translate(128, 432 - (beat % 2) * 2); g.scale(1.4, 1.4); heart(q, 0, 0); g.restore();
+  }
+  box(T.zones.counter, '#c99f6b', '#8a6a43');
+  q.r(70, 440, 208, 10, '#a87c4f'); // ขอบหน้าเคาน์เตอร์
+  q.r(84, 454, 34, 22, '#2f2a44'); q.r(88, 458, 26, 12, '#9fd1ff'); // จอ POS
+  q.r(132, 458, 16, 18, '#f6f2ff'); q.r(135, 461, 10, 10, '#272148'); // ป้าย QR
+  q.r(214, 456, 30, 16, '#f08bb4'); q.r(214, 452, 30, 6, '#ffd34d'); // กองงานรอส่งมอบ
+
+  // การ์ดส่งบ้านไวนิล (แตะแล้วไปหน้าเส้นทาง — ปุ่มอยู่ในฉากเหมือนเดิม)
+  const gv = T.zones.govinyl;
+  box(gv, '#7b57c8', '#5b3fa8');
+  q.r(gv.x + 6, gv.y + 6, gv.w - 12, gv.h - 12, '#8a63d6');
+  g.save(); g.translate(gv.x + 38, gv.y + 34); g.scale(0.9, 0.9); motoSprite(g, 0, 0, 1, tick % 2); g.restore();
+  plateCover(g, 'ส่งทำไวนิล', gv.x + gv.w / 2 + 18, gv.y + gv.h - 16, 0, 12);
+
+  // น้องหมามะม่วง (เดินเองแถวหน้าร้าน ป้ายชื่อตามตัว)
+  const dg = state.dog;
+  dogSprite(q, dg.x, dg.y, Math.floor(nowMs / 300));
+  if (dg.heartUntil > nowMs) heart(q, dg.x + 10, dg.y - 14);
+  nameTag(g, 'มะม่วง', dg.x, dg.y - 24);
+
+  // ทีมเดินทำงาน (สไปรต์ชุดเดียวกับเดิม) — ป้ายชื่อเก็บไว้วาดท้ายสุด
   const crewTags = []; // ป้ายชื่อทีมวาดท้ายสุด ให้ลอยเหนือป้ายโซน (ไม่โดนทับ)
   for (let i = 0; i < state.walkers.length; i++) {
     const wlk = state.walkers[i];
     const [x, y] = pointAt(wlk.path, wlk.t);
     const frame = walkFrame(wlk, nowMs);
     if (frame !== 'work') wlk.flip = walkFlip(wlk); // ตอนทำงานหันค้างไว้ท่าเดิม
-    personSprite(g, x, y, { pal: wlk.pal ?? i, frame, flip: wlk.flip, s: 2.6 });
-    if (frame === 'work' && tick % 3 === 0) sparkle(q, x + (wlk.flip ? -22 : 22), y - 30, true);
+    personSprite(g, x, y, { pal: wlk.pal ?? i, frame, flip: wlk.flip, s: 1.5 });
+    if (frame === 'work' && tick % 3 === 0) sparkle(q, x + (wlk.flip ? -14 : 14), y - 20, true);
     const tag = wlk.name || (i === 0 ? state.walkerName : '');
-    if (tag) crewTags.push([tag, x, y - 78]);
+    if (tag) crewTags.push([tag, x, y - 42]);
   }
-  if (state.dog.heartUntil > nowMs) {
-    g.save(); g.translate(ART.dogHeart[0], ART.dogHeart[1]); g.scale(2, 2);
-    heart(q, 0, 0); g.restore();
+
+  // ป้ายโซนเล็กไม่เด่น (กติกาเดิมของร้าน) ใต้เฟอร์นิเจอร์แต่ละจุด
+  for (const [id, z] of Object.entries(T.zones)) {
+    if (id === 'govinyl') continue;
+    plateCover(g, z.label, z.x + z.w / 2, z.y + z.h + 11, 0, 12);
   }
-  for (const [who, px_, py_] of ART.people) nameTag(g, who, px_, py_); // ป้ายชื่อทีมงานในภาพ
-  // ป้ายโซนตัวเล็กไม่เด่น (ร้านขอ) — กล่องคงขนาดคลุมป้ายเบลอเดิมในภาพ
-  for (const [text, lx, ly, minW] of ART.labels) plateCover(g, text, lx, ly, minW, 15, 38);
+  for (const [who, px_, py_] of TOP.people) nameTag(g, who, px_, py_); // คนประจำสถานี
   for (const [tag, tx, ty] of crewTags) nameTag(g, tag, tx, ty); // ชื่อทีมเดินลอยบนสุด
-  if (state.focusZone && ART.zones[state.focusZone]) {
-    const z = ART.zones[state.focusZone];
-    g.strokeStyle = P.yellow; g.lineWidth = 5; g.setLineDash([10, 7]);
-    g.strokeRect(z.x - 4, z.y - 4, z.w + 8, z.h + 8); g.setLineDash([]);
+
+  if (state.focusZone && T.zones[state.focusZone]) {
+    const z = T.zones[state.focusZone];
+    g.strokeStyle = P.yellow; g.lineWidth = 4; g.setLineDash([8, 6]);
+    g.strokeRect(z.x - 3, z.y - 3, z.w + 6, z.h + 6); g.setLineDash([]);
   }
 }
 
-export function hitArtZone(x, y) {
-  for (const [id, z] of Object.entries(ART.zones)) {
+export function hitTopZone(x, y) {
+  for (const [id, z] of Object.entries(TOP.zones)) {
     if (x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h) return id;
   }
   return '';
@@ -738,8 +803,7 @@ export function drawScene(g, state, nowMs) {
   g.imageSmoothingEnabled = false;
   if (state.view === 'route') drawRoute(g, state, nowMs);
   else if (state.view === 'vinylroom') drawVinylRoom(g, state, nowMs);
-  else if (state.artImg && state.artImg.complete && state.artImg.naturalWidth) drawArtInside(g, state.artImg, state, nowMs);
-  else drawInside(g, state, nowMs);
+  else drawTopInside(g, state, nowMs); // ฉากเดินมุมสูง (ร้านสั่ง 25 พ.ย. 69 เลิกมุมหน้าร้าน)
 }
 
 export function hitZone(x, y) {
