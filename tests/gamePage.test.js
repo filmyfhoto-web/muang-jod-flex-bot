@@ -247,6 +247,17 @@ test('เกม: ฟิล์มมีชื่อลอยหัว + วิถ
   // + น้องหมา "มะม่วง" หน้าทางเข้า (ร้านตั้งชื่อ 24 พ.ย. 69)
   assert.ok(scene.includes("people: [['หญิง', 222, 458], ['เจ้ปิ่น', 517, 430], ['ประมวล', 332, 94], ['มะม่วง', 48, 628]]"));
   assert.ok(scene.includes('for (const [who, px_, py_] of ART.people) nameTag(g, who, px_, py_);'));
+  /* ทีมงานทั้งร้านออกเดินทำงาน (ร้านขอ 25 พ.ย. 69 "ให้ตัวละครทุกคนทำงาน
+   * เป็นทีมงาน / เอาตัวฟิล์มให้เหมือนคนอื่น") — สไปรต์พิกเซลสไตล์เดียวกับ
+   * คนในภาพ มีท่าเดิน/ยืนทำงาน และทีมเดินสร้างจากรายชื่อพนักงานในตั้งค่า
+   * (สามคนในภาพประจำสถานี มีลูกเล่นขยับ จึงไม่ปล่อยตัวเดินซ้ำชื่อ) */
+  assert.ok(scene.includes('export function personSprite('));
+  assert.ok(scene.includes('work: WORK_TOP.concat(LEGS.stand)'));
+  assert.ok(scene.includes('const crewTags = []')); // ป้ายชื่อทีมลอยเหนือป้ายโซน
+  assert.ok(html.includes("const BAKED_CREW = ['หญิง', 'เจ้ปิ่น', 'ประมวล']"));
+  assert.ok(html.includes('function buildCrew()'));
+  assert.ok(html.includes('.slice(0, 4)')); // ทีมเดินสูงสุด 4 คน กันฉากแน่น
+
   // ยืนยันสถานะจริงแล้วตัวละครถึงออกไปทำ (ภาพตามหลังการยืนยัน ไม่ใช่ตัวเปลี่ยนสถานะ)
   assert.ok(html.includes('function playWorkFor(to, kind)'));
   assert.ok(html.includes('const went = playWorkFor(to, next.kind);'));
