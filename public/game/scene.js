@@ -133,13 +133,32 @@ export function drawArtInside(g, img, state, nowMs) {
   sparkle(q, 505, 205, tick % 3 === 0);
   sparkle(q, 536, 212, tick % 3 === 1);
   sparkle(q, 700, 90, tick % 4 === 2);
+
+  /* ทีมในภาพก็ทำงานอยู่ (ร้านขอ "ให้ตัวละครทุกคนทำงาน เป็นทีมงาน") —
+   * สามคนในภาพประจำสถานีของตัวเอง เลยได้ลูกเล่นขยับเล็ก ๆ แทนการเดิน:
+   * ประมวลพิมพ์งานหลังร้าน · เจ้ปิ่นไล่ตรวจปึกงานในมือ · หญิงรับลูกค้าหน้าเคาน์เตอร์ */
+  const beat = Math.floor(nowMs / 260);
+  // ประมวลกำลังพิมพ์ — บับเบิลจุดสามจุดข้างหัว (บนโต๊ะสีอ่อนจุดจมหาย)
+  q.r(356, 72, 24, 12, '#272148');
+  for (let k = 0; k < 3; k++) q.r(360 + k * 6, 76, 3, 3, (beat + k) % 3 ? '#cdbdf0' : '#6d5a9e');
+  const bob = beat % 2;
+  q.r(498, 470 + bob, 14, 10, '#f6f2ff'); // กระดาษบนปึกในมือเจ้ปิ่นพลิกขยับ
+  q.r(499, 473 + bob, 12, 1, '#b9a8e4');
+  q.r(499, 476 + bob, 12, 1, '#b9a8e4');
+  if (Math.floor(nowMs / 1500) % 3 === 0) { // หญิงรับลูกค้า — หัวใจบริการข้างแก้ม
+    g.save(); g.translate(250, 503 - (beat % 2) * 2); g.scale(1.7, 1.7); heart(q, 0, 0); g.restore();
+  }
+
+  const crewTags = []; // ป้ายชื่อทีมวาดท้ายสุด ให้ลอยเหนือป้ายโซน (ไม่โดนทับ)
   for (let i = 0; i < state.walkers.length; i++) {
     const wlk = state.walkers[i];
     const [x, y] = pointAt(wlk.path, wlk.t);
-    g.save(); g.translate(x, y); g.scale(2.6, 2.6);
-    person(q, 0, 0, wlk.color, wlk.hair, Math.floor(nowMs / 160));
-    g.restore();
-    if (i === 0 && state.walkerName) nameTag(g, state.walkerName, x, y - 82); // ป้ายชื่อ "ฟิล์ม"
+    const frame = walkFrame(wlk, nowMs);
+    if (frame !== 'work') wlk.flip = walkFlip(wlk); // ตอนทำงานหันค้างไว้ท่าเดิม
+    personSprite(g, x, y, { pal: wlk.pal ?? i, frame, flip: wlk.flip, s: 2.6 });
+    if (frame === 'work' && tick % 3 === 0) sparkle(q, x + (wlk.flip ? -22 : 22), y - 30, true);
+    const tag = wlk.name || (i === 0 ? state.walkerName : '');
+    if (tag) crewTags.push([tag, x, y - 78]);
   }
   if (state.dog.heartUntil > nowMs) {
     g.save(); g.translate(ART.dogHeart[0], ART.dogHeart[1]); g.scale(2, 2);
@@ -148,6 +167,7 @@ export function drawArtInside(g, img, state, nowMs) {
   for (const [who, px_, py_] of ART.people) nameTag(g, who, px_, py_); // ป้ายชื่อทีมงานในภาพ
   // ป้ายโซนตัวเล็กไม่เด่น (ร้านขอ) — กล่องคงขนาดคลุมป้ายเบลอเดิมในภาพ
   for (const [text, lx, ly, minW] of ART.labels) plateCover(g, text, lx, ly, minW, 15, 38);
+  for (const [tag, tx, ty] of crewTags) nameTag(g, tag, tx, ty); // ชื่อทีมเดินลอยบนสุด
   if (state.focusZone && ART.zones[state.focusZone]) {
     const z = ART.zones[state.focusZone];
     g.strokeStyle = P.yellow; g.lineWidth = 5; g.setLineDash([10, 7]);
@@ -188,7 +208,7 @@ export function tickWalkers(walkers, dtMs) {
     const prev = w.t;
     w.t += (w.speed * dtMs) / 1000 / len;
     if (w.t >= 1) w.t -= 1;
-    for (const s of w.stops) {
+    for (const s of w.stops || []) { // ตัวเดินโหมด wander ไม่มี stops — ห้ามล้มทั้งเฟรม
       if (prev < s && w.t >= s) { w.dwell = 1400; w.t = s; break; }
     }
   }
@@ -214,16 +234,77 @@ function plate(q, label, cx, y, size = 9) {
   q.t(label, cx, y + 8.5, size);
 }
 
-function person(q, x, y, shirt, hair, step = 0, flip = false) {
-  const lx = flip ? -1 : 1;
-  q.r(x - 5, y - 18, 10, 7, hair);           // hair
-  q.r(x - 4, y - 13, 8, 6, P.skin);           // face
-  q.r(x - 2 * lx - 1, y - 11, 2, 2, '#2d2340');
-  q.r(x - 6, y - 7, 12, 10, shirt);           // shirt
-  q.r(x - 8, y - 6, 2, 6, P.skin); q.r(x + 6, y - 6, 2, 6, P.skin);
-  const a = step % 2 === 0;
-  q.r(x - 4, y + 3, 3, a ? 6 : 4, '#3b3260'); // legs
-  q.r(x + 1, y + 3, 3, a ? 4 : 6, '#3b3260');
+/* ---------- ตัวละครทีมงาน (สไตล์เดียวกับคนในภาพฉาก) ----------
+ *
+ * ร้านบอก (25 พ.ย. 69): "เอาตัวละครฟิล์มให้มันเหมือนคนอื่นได้ไหม มันตลก" —
+ * ตัวเดินแบบเก่าเป็นสี่เหลี่ยมเจ็ดก้อน ยืนข้างตัวละครในภาพแล้วโดด ตัวใหม่
+ * วาดจากแผนที่พิกเซล 14×20 ช่อง: ผมมีทรง ตาสองข้าง เสื้อโปโลม่วงมีปกเข้ม
+ * ป้ายชื่อเล็กบนอก กางเกงเข้ม รองเท้า — โทนเดียวกับยูนิฟอร์มทีมในภาพ
+ * มีสามท่า: เดินสลับขา (a/b) และยืนทำงาน (work ถือกระดาษ) หันซ้ายขวาได้
+ */
+const SPRITE_W = 14;
+const SPRITE_ROWS_TOP = [
+  '.....HHHH.....',
+  '....HHHHHH....',
+  '....HHHHHH....',
+  '....HSSSSH....',
+  '....SESSES....',
+  '....SSSSSS....',
+  '.....SSSS.....',
+  '.....DDDD.....',
+  '...DDPPPPDD...',
+  '...PPPPPPPP...',
+  '...PPPWWPPP...',
+  '...PPPPPPPP...',
+  '...A.PPPP.A...',
+];
+const LEGS = {
+  stand: ['....NNNNNN....', '....NNNNNN....', '....NN..NN....', '....NN..NN....', '....NN..NN....', '....BB..BB....', '..............'],
+  a: ['....NNNNNN....', '....NNNNNN....', '...NNN..NN....', '...NN....NN...', '...NN....NN...', '..BBB....NN...', '.........BB...'],
+  b: ['....NNNNNN....', '....NNNNNN....', '....NN..NNN...', '...NN....NN...', '...NN....NN...', '...NN....BBB..', '...BB.........'],
+};
+// ท่าทำงาน: ขายืนนิ่ง มือสองข้างถือกระดาษไว้ข้างหน้า
+const WORK_TOP = SPRITE_ROWS_TOP.slice(0, 11).concat(['...PAWWWWAP...', '....AWWWWA....']);
+const SPRITE_FRAMES = {
+  a: SPRITE_ROWS_TOP.concat(LEGS.a),
+  b: SPRITE_ROWS_TOP.concat(LEGS.b),
+  stand: SPRITE_ROWS_TOP.concat(LEGS.stand),
+  work: WORK_TOP.concat(LEGS.stand),
+};
+const SPRITE_H = SPRITE_FRAMES.a.length;
+function compileFrame(rows) {
+  const cells = [];
+  rows.forEach((row, y) => { [...row].forEach((ch, x) => { if (ch !== '.') cells.push([x, y, ch]); }); });
+  return cells;
+}
+const FRAME_CELLS = Object.fromEntries(Object.entries(SPRITE_FRAMES).map(([k, rows]) => [k, compileFrame(rows)]));
+// ชุดสีทีมงาน — เสื้อม่วงเฉดใกล้กันแบบยูนิฟอร์ม ผมต่างกันพอจำคนออก
+export const CREW_PALS = [
+  { shirt: '#7b57c8', trim: '#5b3fa8', hair: '#3a2b33' },
+  { shirt: '#8a63d6', trim: '#6a48b8', hair: '#6b4a33' },
+  { shirt: '#6f4fbf', trim: '#54379e', hair: '#2e2a3c' },
+  { shirt: '#9570de', trim: '#7452c2', hair: '#54351f' },
+];
+export function personSprite(g, x, y, { pal = 0, frame = 'stand', flip = false, s = 1 } = {}) {
+  const p = CREW_PALS[((pal % CREW_PALS.length) + CREW_PALS.length) % CREW_PALS.length];
+  const C = { H: p.hair, S: P.skin, A: P.skin, E: '#2d2340', P: p.shirt, D: p.trim, N: '#35314e', B: '#262038', W: '#f6f1ff' };
+  const cell = 1.35 * s;
+  const left = x - (SPRITE_W * cell) / 2;
+  const top = y + 8 * s - SPRITE_H * cell; // เท้าแตะพื้นที่ y+8s (ใกล้ระยะตัวเดิม)
+  for (const [cx, cy, ch] of FRAME_CELLS[frame] || FRAME_CELLS.stand) {
+    g.fillStyle = C[ch];
+    g.fillRect(left + (flip ? SPRITE_W - 1 - cx : cx) * cell, top + cy * cell, cell + 0.4, cell + 0.4);
+  }
+}
+// กำลังเดินไปทางไหน (ไว้หันหน้าตามทาง) / เฟรมของตัวเดินตอนนี้
+export function walkFlip(wlk) {
+  const [x1] = pointAt(wlk.path, Math.max(0, wlk.t - 0.02));
+  const [x2] = pointAt(wlk.path, Math.min(1, wlk.t + 0.02));
+  return x2 < x1 - 0.5;
+}
+export function walkFrame(wlk, nowMs) {
+  if (wlk.dwell > 0) return 'work'; // ถึงจุดงานแล้ว — ยืนถือใบงานทำงาน
+  return Math.floor(nowMs / 150) % 2 ? 'a' : 'b';
 }
 
 function dogSprite(q, x, y, wag = 0) {
@@ -398,8 +479,11 @@ export function drawInside(g, state, nowMs) {
   for (let i = 0; i < state.walkers.length; i++) {
     const wlk = state.walkers[i];
     const [x, y] = pointAt(wlk.path, wlk.t);
-    person(q, x, y, wlk.color, wlk.hair, Math.floor(nowMs / 160));
-    if (i === 0 && state.walkerName) nameTag(g, state.walkerName, x, y - 32);
+    const frame = walkFrame(wlk, nowMs);
+    if (frame !== 'work') wlk.flip = walkFlip(wlk);
+    personSprite(g, x, y, { pal: wlk.pal ?? i, frame, flip: wlk.flip, s: 1 });
+    const tag = wlk.name || (i === 0 ? state.walkerName : '');
+    if (tag) nameTag(g, tag, x, y - 32);
   }
   const dg = state.dog;
   dogSprite(q, dg.x, dg.y, Math.floor(nowMs / 300));
@@ -635,8 +719,10 @@ export function drawVinylRoom(g, state, nowMs) {
   const wlk = state.roomWalker;
   if (wlk) {
     const [x, y] = pointAt(wlk.path, wlk.t);
-    g.save(); g.translate(x, y); g.scale(1.25, 1.25); person(q, 0, 0, wlk.color, wlk.hair, Math.floor(nowMs / 160)); g.restore();
-    if (state.walkerName) nameTag(g, state.walkerName, x, y - 44);
+    const frame = walkFrame(wlk, nowMs);
+    if (frame !== 'work') wlk.flip = walkFlip(wlk);
+    personSprite(g, x, y, { pal: 0, frame, flip: wlk.flip, s: 1.25 });
+    if (state.walkerName) nameTag(g, state.walkerName, x, y - 42);
   }
   for (const [text, lx, ly] of ROOM.labels) plateCover(g, text, lx, ly, 0, 13);
   if (state.focusZone && ROOM.zones[state.focusZone]) {

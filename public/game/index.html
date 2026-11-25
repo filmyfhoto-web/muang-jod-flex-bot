@@ -764,7 +764,10 @@ const scene = {
   walkerName: 'ฟิล์ม', // ชื่อตัวละครเดิน (ร้านตั้ง) — เปลี่ยนตาม "เครื่องนี้คือใคร" ในตั้งค่า
   artImg,
 };
-function syncWalkerName() { scene.walkerName = settings.me || 'ฟิล์ม'; }
+function syncWalkerName() {
+  scene.walkerName = settings.me || 'ฟิล์ม';
+  if (artOn() && scene.walkers[0]?.wander) buildCrew(); // รายชื่อทีม/ชื่อหัวหน้าเปลี่ยน → จัดทีมเดินใหม่
+}
 /* ความคมของตัวหนังสือ/สไปรต์: ตั้ง backing store ของแคนวาสเท่าพิกเซลจอจริง
  * (ขนาดที่แสดง × devicePixelRatio) แล้ว scale บริบทวาด — ป้ายและตัวละครคมทุกจอ */
 function fitCanvas() {
@@ -790,8 +793,25 @@ function wanderNext(w) {
   w.t = 0;
   w.dwell = 1100 + Math.random() * 1900;
 }
+/* ทีมงานออกเดินทำงานทั้งร้าน (ร้านขอ 25 พ.ย. 69 "ให้ตัวละครทุกคนทำงาน เป็นทีมงาน")
+ * ชื่อจากรายชื่อพนักงานในตั้งค่า — สามคนในภาพ (หญิง/เจ้ปิ่น/ประมวล) ประจำสถานี
+ * ของตัวเองพร้อมลูกเล่นขยับอยู่แล้ว จึงไม่ปล่อยตัวเดินซ้ำชื่อออกมาอีกตัว */
+const BAKED_CREW = ['หญิง', 'เจ้ปิ่น', 'ประมวล'];
+function buildCrew() {
+  const lead = settings.me || 'ฟิล์ม';
+  const extras = settings.staff.filter((n) => n && n !== lead && !BAKED_CREW.includes(n));
+  scene.walkers = [lead, ...extras].slice(0, 4).map((name, i) => ({
+    name,
+    pal: i,
+    path: [randomArtSpot(), randomArtSpot()],
+    t: Math.random() * 0.5,
+    dwell: 500 + Math.random() * 1800,
+    speed: 40 + ((i * 7) % 12),
+    wander: true,
+  }));
+}
 artImg.onload = () => {
-  scene.walkers = [{ path: [SC.ART.spots.counter, SC.ART.spots.printer], t: 0, dwell: 900, speed: 42, color: '#8451bf', hair: '#4a3650', wander: true }];
+  buildCrew();
   setView(scene.view); // ซ่อนปุ่มรถลอย (ภาพมีปุ่มในตัว) + ปรับขนาดแคนวาส
 };
 let walkerOverride = null; // {walker, restorePath, target}
@@ -830,6 +850,12 @@ function frame(t) {
   if (screen === 'home' && !document.hidden) {
     // walkers + dog wander: cosmetic coordinates only, no order data in reach
     const crew = scene.view === 'vinylroom' ? [scene.roomWalker] : scene.walkers;
+    // ทีมโหมดเดินทั่วร้าน: ถึงจุดแล้วแวะทำงาน (dwell) แล้วสุ่มจุดใหม่
+    const stepWander = (w) => {
+      if (w.dwell > 0) { w.dwell -= dt; return; }
+      w.t += (w.speed * dt) / 1000 / Math.max(1, E.pathLength(w.path));
+      if (w.t >= 1) wanderNext(w);
+    };
     if (walkerOverride && crew.includes(walkerOverride.walker)) {
       const w = walkerOverride.walker;
       w.t += (w.speed * dt) / 1000 / Math.max(1, E.pathLength(w.path));
@@ -838,14 +864,11 @@ function frame(t) {
         else { w.path = walkerOverride.restorePath; w.t = 0; w.dwell = 1600; }
         walkerOverride = null;
       }
-      SC.tickWalkers(crew.filter((x) => x !== w), dt);
+      // เพื่อนร่วมทีมทำงานของตัวเองต่อ (ทีมหลายคนแล้ว — เดิมมีคนเดียวเลยไม่มีใครตกบรรทัดนี้)
+      for (const o of crew) if (o !== w && o.wander) stepWander(o);
+      SC.tickWalkers(crew.filter((x) => x !== w && !x.wander), dt);
     } else {
-      for (const w of crew) {
-        if (!w.wander) continue; // ฟิล์มโหมดเดินทั่วร้าน: สุ่มจุดใหม่เมื่อถึง
-        if (w.dwell > 0) { w.dwell -= dt; continue; }
-        w.t += (w.speed * dt) / 1000 / Math.max(1, E.pathLength(w.path));
-        if (w.t >= 1) wanderNext(w);
-      }
+      for (const w of crew) if (w.wander) stepWander(w);
       SC.tickWalkers(crew.filter((w) => !w.wander), dt);
     }
     const dg = scene.dog;
