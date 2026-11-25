@@ -20,7 +20,7 @@ import { parseNaturalJob, looksLikeWorkDetail } from '../utils/nlParser.js';
 import { customerCardForText, parseCardAsk } from '../actions/customerCard.js';
 import { combineBills } from '../actions/bill.js';
 import { deriveJobName, classifyJob } from '../utils/category.js';
-import { makeDraft, draftToBubble, priceDraft, parseBarePrice, parseBareSqmRate, priceDraftBySqm, parseCustomerName } from '../utils/jobDraft.js';
+import { makeDraft, draftToBubble, priceDraft, parseBarePrice, parseBareSqmRate, priceDraftBySqm, parseCustomerName, looksLikeBareLink } from '../utils/jobDraft.js';
 import { extractDate, extractDueDate } from '../utils/thaiDate.js';
 import { startCollecting, turnUnderstands } from '../utils/slots.js';
 import { startCollectFlow, handleCollectTurn } from '../services/collectFlow.js';
@@ -174,6 +174,18 @@ export async function handleTextMessage(event, profile) {
   // "เพิ่มหมวด 🥤 แก้วสกรีน" — เพิ่มหมวดงานใหม่ของร้านจากแชตได้เลย
   const newCategory = parseAddCategory(text);
   if (newCategory) return addCategoryFromChat({ replyToken, profile }, newCategory);
+
+  /* วางลิงก์มาเฉย ๆ ไม่ใช่งาน — เคยตีลิงก์เชิญทีม LINE OA เป็นร่างงาน ฿6
+   * (25 พ.ย. 69) ลิงก์ไม่มีทางเป็นคำตอบของวงถามไหนอยู่แล้ว กันตั้งแต่ปากทาง */
+  if (looksLikeBareLink(text)) {
+    return reply(replyToken, {
+      type: 'text',
+      text:
+        'อันนี้เป็นลิงก์ค่ะ ม่วงเลยไม่จดเป็นงานนะคะ 💜\n' +
+        'ถ้าจะจดงาน พิมพ์แบบนี้ได้เลย: "วัดไชยคำ ป้ายไวนิล 3×1 ม. 2 ผืน ตรมละ 350"\n' +
+        'อยากเก็บลิงก์ไว้กับงานไหน เปิดงานนั้นในแอปแล้วใส่ไว้ในหมายเหตุได้ค่ะ',
+    });
+  }
 
   // "ซื้อกระดาษ A4 350" — รายจ่ายของร้าน การ์ดสั้น ๆ ให้ยืนยันก่อนบันทึก
   // (มาก่อนการอ่านเป็นงาน: "ซื้อ..." ไม่ใช่งานของลูกค้า)
@@ -561,7 +573,6 @@ async function handleDraftPrice(replyToken, profile, state, text) {
   const bySqm = rate ? priceDraftBySqm(draft, rate) : null;
   if (bySqm) {
     await setState(profile.id, STATES.CONFIRMING_JOB, { ...state.context, draft: bySqm.draft });
-    const names = !bySqm.draft.customerName ? await getRecentCustomerNames(profile.id) : [];
     return reply(
       replyToken,
       withDraftGuide(
@@ -763,7 +774,6 @@ async function handleNewJob(replyToken, profile, text, knownCustomer = null, par
   // ที่ค้นย้อนหลังไม่เจอ
   const askWho = !draft.customerName ? '\nงานนี้ของลูกค้าท่านไหนคะ? พิมพ์ชื่อมาได้เลยค่ะ' : '';
 
-  const guideNames = !draft.customerName ? await getRecentCustomerNames(profile.id) : [];
   // บอกสิ่งที่ม่วงเข้าใจจากคำท้ายประโยค — เข้าใจผิดต้องเห็นตรงนี้ ตอนยังแก้ทัน
   const MONEY_UNDERSTOOD = {
     cash: '💵 รับเป็นเงินสดแล้ว — จะลงใบลงบัญชีวันนี้ให้เลยค่ะ',
@@ -790,7 +800,7 @@ async function handleNewJob(replyToken, profile, text, knownCustomer = null, par
         askWho,
     },
     jobPreviewMessage(draftToBubble(draft)),
-  ], draft, guideNames));
+  ], draft));
 }
 
 async function handlePaymentAmount(replyToken, profile, state, text) {

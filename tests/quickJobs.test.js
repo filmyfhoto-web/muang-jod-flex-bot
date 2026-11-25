@@ -24,36 +24,32 @@ function withLiff(fn) {
   }
 }
 
-test('แถบตั้งต้น: งานที่ร้านกดบ่อยอยู่ครบ ทุกหมวดได้โผล่ และท้ายแถบคือหมวดงาน', () => {
+test('แถบตั้งต้น = กระจกริชเมนู และปุ่มงานตามหมวดยังครบในชุดของการ์ดจดด่วน', () => {
+  /* เดิมแถบตั้งต้นเป็นปุ่มงานตามหมวด + ลิงก์หมวดงาน — ร้านดูจอคอมแล้วสั่ง
+   * (25 พ.ย. 69) "ฉันอยากให้เมนูแบบริชเมนู" จึงเปลี่ยนแถบเป็นเมนูหลักทั้งชุด
+   * (postback ล้วน ใช้ได้ไม่ง้อ LIFF) ส่วนกติกาปุ่มงานตามหมวดถูกตรวจต่อที่
+   * quickJobItems ตรง ๆ ซึ่งการ์ด "จดด่วน" ยังใช้อยู่เหมือนเดิม */
   const items = withLiff(() => quickReplyBlock().items);
-
   assert.ok(items.length <= 13, 'LINE รับได้ 13 ปุ่ม');
-  for (const i of items) assert.ok(i.action.label.length <= 20, `label too long (${i.action.label.length}): ${i.action.label}`);
-
-  // หกงานเดิมที่ร้านกดจริงต้องยังอยู่บนแถบ (ลำดับใหม่หยิบวนทีละหมวด)
-  const names = items
-    .filter((i) => i.action.type === 'postback')
-    .map((i) => new URLSearchParams(i.action.data).get('name'));
-  for (const want of ['กรอบรูป', 'ป้ายไวนิล', 'โฟมบอร์ด', 'สติ๊กเกอร์', 'สติ๊กเกอร์ฟิวเจอร์บอร์ด', 'ตรายาง']) {
-    assert.ok(names.includes(want), `"${want}" หายไปจากแถบ`);
+  for (const i of items) {
+    assert.ok(i.action.label.length <= 20, `label too long (${i.action.label.length}): ${i.action.label}`);
+    assert.equal(i.action.type, 'postback', `${i.action.label} ยังเด้งออกไปหน้าเว็บ`);
+  }
+  const data = items.map((i) => new URLSearchParams(i.action.data).get('action'));
+  for (const a of ['add_job', 'recent_jobs', 'pending_payment', 'pick_category', 'create_bill', 'open_game', 'open_sign', 'open_dashboard', 'help']) {
+    assert.ok(data.includes(a), `ปุ่มริชเมนูหาย: ${a}`);
   }
 
+  // หกงานเดิมที่ร้านกดจริงยังอยู่ครบในชุดปุ่มงาน (ของการ์ดจดด่วน)
+  const names = quickJobItems().map((i) => i.name);
+  for (const want of ['กรอบรูป', 'ป้ายไวนิล', 'โฟมบอร์ด', 'สติ๊กเกอร์', 'สติ๊กเกอร์ฟิวเจอร์บอร์ด', 'ตรายาง']) {
+    assert.ok(names.includes(want), `"${want}" หายไปจากชุดปุ่มงาน`);
+  }
   // ชื่อที่ปุ่มส่งคือชื่อประเภทเต็ม ๆ — ทุกปุ่มต้องจัดหมวดเข้า "ประเภทของตัวเอง"
-  // ไม่งั้นกดปุ่มแล้วงานไปกองรวมที่งานทั่วไป และม่วงถามชุดคำถามผิดชนิด
   for (const name of names) {
     const hit = classifyJob([{ item_name: name }]);
     assert.equal(hit?.type?.label, name, `"${name}" ไปลง ${hit?.type?.label || hit?.group?.label || 'งานทั่วไป'}`);
   }
-
-  /* ร้านบอกว่า "ตรงปุ่มกดให้เป็นบอทตอบเหมือนเดิม แล้วค่อยกดเข้าไปแก้ไขทีหลัง" */
-  for (const i of items.slice(0, -1)) {
-    assert.equal(i.action.type, 'postback', `${i.action.label} ยังเด้งออกไปหน้าเว็บ`);
-    assert.match(i.action.data, /^action=quick_job&name=/);
-  }
-
-  // "หมวดงาน" ยังเป็นลิงก์ เพราะมันคือหน้าเว็บจริง ๆ ไม่ใช่บทสนทนา
-  assert.equal(items.at(-1).action.type, 'uri');
-  assert.match(items.at(-1).action.uri, /\?tab=category$/, 'หมวดงานไม่ได้เปิดหน้าหมวด');
 });
 
 test('แถบตามหมวดของร้านจริง: ประเภทที่ร้านตั้งเองนำหน้า และกดแล้วเข้าประเภทตัวเอง', () => {
@@ -91,7 +87,8 @@ test('แถบตามหมวดของร้านจริง: ประ
 
 test('tapping a job button starts the conversation, not a form', () => {
   const json = withLiff(() => JSON.stringify(quickReplyBlock()));
-  assert.ok(!json.includes('create_bill'), 'ออกบิล is still on the bar');
+  // แถบตั้งต้นเป็นกระจกริชเมนูแล้ว (25 พ.ย. 69) — ออกใบเสร็จจึง "ต้องอยู่" บนแถบ
+  assert.ok(json.includes('create_bill'), 'ปุ่มออกใบเสร็จหายจากเมนู');
   assert.ok(!json.includes('/jot?quick=1'), 'ปุ่มงานยังเปิดฟอร์มอยู่');
 
   // และมีคนรับปุ่มนั้นจริง ๆ อยู่ปลายทาง
@@ -129,17 +126,20 @@ test('the form fills the name in, but never over work already in progress', () =
   assert.match(jot, /state\.items\.length === 1 && !state\.items\[0\]\.name && !state\.items\[0\]\.total/);
 });
 
-test('with no LIFF app the bar is never empty, or the old one is stuck forever', () => {
-  // LINE only swaps the bar when a message arrives carrying one. A message
-  // with no bar does not clear the old one — it leaves it on screen. So an
-  // empty bar meant the shop kept seeing the buttons from before the change
-  // and never the new ones, which is exactly what they reported.
+test('แถบตั้งต้นคือกระจกริชเมนู — ปุ่มชุดเดียวกับริชเมนูทุกใบ ใช้ได้ไม่ง้อ LIFF', () => {
+  /* เดิมแถบนี้เป็นปุ่มจดงานตามหมวด — ร้านดูจอคอมแล้วสั่ง (25 พ.ย. 69)
+   * "ฉันอยากให้เมนูแบบริชเมนู" คำสั่งใหม่ล่าสุดแทนที่: บนคอมริชเมนูไม่แสดง
+   * แถบนี้จึงต้องเป็นเมนูหลักตัวเดียวกัน (ปุ่มจดตามหมวดยังอยู่ในการ์ดจดด่วน) */
   const items = defaultItems();
-  assert.ok(items.length > 0, 'an empty bar strands whatever was last shown');
-  assert.ok(items.every((i) => !i.uri), 'a link to nowhere is on the bar');
-  assert.ok(items.every((i) => i.action), 'a button with nothing behind it');
-  // ปุ่มงานไม่ต้องพึ่ง LIFF — หายไปแค่ "หมวดงาน" และทุกปุ่มที่เหลือคืองานจริง
-  assert.ok(items.every((i) => i.action === 'quick_job' && classifyItem(i.name)), 'มีปุ่มที่ไม่ใช่งานปนอยู่');
+  assert.ok(items.length > 0 && items.length <= 13, 'an empty bar strands whatever was last shown');
+  assert.ok(items.every((i) => !i.uri && i.action), 'ทุกปุ่มเป็น postback ไม่พึ่ง LIFF');
+  const actions = items.map((i) => i.action);
+  for (const a of ['add_job', 'recent_jobs', 'attach_evidence', 'pending_payment', 'pick_category', 'create_bill', 'open_game', 'open_sign', 'open_dashboard', 'help']) {
+    assert.ok(actions.includes(a), `ปุ่มริชเมนูหาย: ${a}`);
+  }
+  assert.ok(items.every((i) => i.label.length <= 20), 'ป้ายยาวเกินกติกา LINE');
+  // ปุ่มงานตามหมวดยังมีชีวิต (การ์ดจดด่วนใช้) — แค่ไม่ใช่แถบตั้งต้นแล้ว
+  assert.ok(quickJobItems().every((i) => i.action === 'quick_job' && classifyItem(i.name)));
 });
 
 test('the receipt is reachable from the screen the shop finishes a job on', () => {
