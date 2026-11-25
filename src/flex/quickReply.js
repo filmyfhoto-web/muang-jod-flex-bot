@@ -1,4 +1,3 @@
-import { liffUrl } from '../utils/liff.js';
 import { activeTaxonomy } from '../utils/category.js';
 
 // แถบปุ่มลัดเหนือช่องพิมพ์ (Quick Reply ของ LINE)
@@ -26,19 +25,12 @@ import { activeTaxonomy } from '../utils/category.js';
  */
 const MAX_JOB_CHIPS = 12;
 
-// ตาข่ายกันแถบว่าง — ไม่ควรถึง (ชุดหมวดตั้งต้นมีประเภทเสมอ) แต่แถบว่างคือ
-// ข้อความถูก LINE ปฏิเสธทั้งใบ จึงกันไว้
-const FALLBACK = [
-  { label: '📝 บันทึกงาน', action: 'add_job', text: 'บันทึกงานวันนี้' },
-  { label: '📊 สรุปวันนี้', action: 'today_summary', text: 'สรุปวันนี้' },
-  { label: '💰 ค้างรับ', action: 'pending_payment', text: 'ค้างรับ' },
-  { label: '🕘 ล่าสุด', action: 'recent_jobs', text: 'รายการล่าสุด' },
-];
+// (ตาข่ายกันแถบว่างเดิมไม่จำเป็นแล้ว — กระจกริชเมนูเป็นลิสต์คงที่ ไม่มีวันว่าง)
 
 // ท้ายแถบ ถัดจากปุ่มงาน: ทางไปดูว่างานแต่ละหมวดมีอะไรไปแล้วบ้าง ร้านขอไว้ว่า
 // "ตรงเมนูด่วนด้านหลังตรายาง เพิ่มหมวดงานให้หน่อย" — ปุ่มอื่นในแถบนี้คือ "จดงาน
 // ชนิดนี้" ปุ่มนี้คือ "ขอดูงานที่จดไปแล้ว" จึงอยู่ท้ายสุด ไม่ปนกับงาน
-export const QUICK_LINKS = [{ label: '📂 หมวดงาน', page: { tab: 'category' } }];
+// (ลิงก์ "หมวดงาน" เดิมของแถบนี้ถูกแทนด้วยปุ่ม pick_category ในกระจกริชเมนู)
 
 // ปุ่มงานจากชุดหมวดชุดหนึ่ง — แยกเป็นฟังก์ชันให้เทสต์ส่งชุดหมวดอื่นเข้ามาได้
 //
@@ -73,11 +65,30 @@ export function quickJobItems(tax = activeTaxonomy()) {
   }));
 }
 
+/* แถบตั้งต้น = กระจกริชเมนู
+ *
+ * ร้านดูจอคอมแล้วสั่ง (25 พ.ย. 69): "ฉันอยากให้เมนูแบบริชเมนู" — บนคอม LINE
+ * ไม่แสดงริชเมนู แถบนี้คือเมนูเดียวที่ลอยอยู่เสมอ จึงต้องเป็นปุ่มชุดเดียวกับ
+ * ริชเมนูทุกใบ (เว้นแผ่นแบรนด์กลางที่เป็นโลโก้)
+ *
+ * คำขอก่อนหน้า ("ปุ่มงานด่วนให้เข้ากับหมวดงาน") ถูกคำสั่งใหม่นี้แทนที่ —
+ * ปุ่มจดงานตามหมวดยังมีชีวิตอยู่ในการ์ด "จดด่วน" (กด 📝 จดงาน แล้วเจอ)
+ */
+export const MENU_MIRROR = [
+  { label: '📝 จดงาน', action: 'add_job' },
+  { label: '🕘 ล่าสุด/แก้ไข', action: 'recent_jobs' },
+  { label: '📎 แนบสลิป', action: 'attach_evidence' },
+  { label: '💰 งานค้าง', action: 'pending_payment' },
+  { label: '📂 หมวดงาน', action: 'pick_category' },
+  { label: '🧾 ออกใบเสร็จ', action: 'create_bill' },
+  { label: '🎮 เกมร้าน 8-BIT', action: 'open_game' },
+  { label: '🪧 จำลองป้าย 3D', action: 'open_sign' },
+  { label: '⚙️ ตั้งค่า', action: 'open_dashboard' },
+  { label: '❓ ช่วยเหลือ', action: 'help' },
+];
+
 export function defaultItems() {
-  const jobs = quickJobItems();
-  const links = QUICK_LINKS.map((l) => ({ ...l, uri: liffUrl(l.page) })).filter((l) => l.uri);
-  const items = [...jobs, ...links];
-  return items.length ? items : FALLBACK;
+  return MENU_MIRROR;
 }
 
 export function quickReplyBlock(items = defaultItems()) {

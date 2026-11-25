@@ -23,6 +23,18 @@ function liftWorkings(items) {
   return { items: clean, workings: lines };
 }
 
+/* ข้อความที่เป็นลิงก์ล้วน — วาง URL มาเฉย ๆ ไม่ใช่งานให้จด
+ *
+ * ร้านวางลิงก์เชิญทีมของ LINE OA (manager.line.biz/invitation/...) ลงแชต
+ * แล้วม่วงตีเป็นร่างงาน ฿6 หน้าตาประหลาด (25 พ.ย. 69) — ลิงก์ที่มากับ
+ * ข้อความงานจริง ("ป้ายไวนิล 2 ผืน ไฟล์อยู่ https://...") ยังผ่านตามเดิม
+ */
+export function looksLikeBareLink(text) {
+  const t = String(text || '').trim();
+  if (!/^(https?:\/\/|www\.)/i.test(t)) return false;
+  return t.replace(/(https?:\/\/|www\.)\S+/gi, '').trim().length < 4;
+}
+
 export function makeDraft({
   jobName,
   customerName = null,
