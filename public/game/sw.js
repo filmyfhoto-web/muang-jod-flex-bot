@@ -1,8 +1,8 @@
 /* NATTAPRON 8-BIT — app-shell cache. Bump CACHE on every release. */
-const CACHE = 'np8-v6'; // v6: ฉากมุมสูงแต่งเต็มตามภาพอนุมัติ (พื้นน้ำเงิน กันสาด ป้ายไม้)
+const CACHE = 'np8-v7'; // v7: ฉากมุมสูงเป็นภาพการ์ตูนอาบเต็มใบ (scene-top.png)
 const SHELL = [
   './', './index.html', './engine.js', './scene.js', './manifest.webmanifest', './icon-192.png', './icon-512.png',
-  './art/hd-printer.png', './art/hd-frames.png', './art/tab-queue.png', './art/tab-vinyl.png',
+  './art/scene-top.png', './art/hd-printer.png', './art/hd-frames.png', './art/tab-queue.png', './art/tab-vinyl.png',
   './art/st-wait.png', './art/st-doing.png', './art/st-done.png',
   './art/nav-home.png', './art/nav-queue.png', './art/nav-report.png', './art/nav-set.png', './art/job-printer.png',
 ];

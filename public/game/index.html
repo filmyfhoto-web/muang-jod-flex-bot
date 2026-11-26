@@ -757,12 +757,16 @@ for (const s of SCREENS) $('tab-' + s).onclick = () => {
 /* ---------- canvas game (VISUAL ONLY — this block never touches job status) ---------- */
 const cv = $('cv');
 const g = cv.getContext('2d', { alpha: false });
-/* ฉากเดินเป็นมุมสูงวาดด้วยโค้ดทั้งฉาก (ร้านสั่ง 25 พ.ย. 69 "ขอเป็นมุมสูง
- * ไม่เอามุมหน้าร้าน") — ภาพมุมหน้าร้านเดิมเหลือใช้เป็นไอคอนตกแต่ง UI เท่านั้น */
+/* ฉากเดินมุมสูงเป็นภาพอาร์ตอาบเต็มใบ (ร้านย้ำ 26 พ.ย. 69 "มุมสูงแต่เป็น
+ * รูปแบบการ์ตูนเหมือนเดิม") — ภาพโหลดไม่ทัน/ไม่ได้ ฉากวาดผังสำรองให้เอง
+ * ภาพมุมหน้าร้านเดิมเหลือใช้เป็นไอคอนตกแต่ง UI เท่านั้น */
+const topImg = new Image();
+topImg.src = 'art/scene-top.png'; // ลูปวาดทำงานตลอด — ภาพมาเมื่อไหร่เฟรมถัดไปติดเอง
 const scene = {
   view: 'inside',
+  topImg,
   walkers: SC.buildWalkers(),
-  dog: { x: 60, y: 538, tx: 60, ty: 538, nextMove: 0, heartUntil: 0 }, // มะม่วงเล่นสนามหญ้าหน้าร้าน
+  dog: { x: 60, y: 584, tx: 60, ty: 584, nextMove: 0, heartUntil: 0 }, // มะม่วงวิ่งสนามหญ้าหน้าร้าน
   moto: { visible: false, back: false, t: 0 },
   roomWalker: SC.buildRoomWalker(), // ฟิล์มในห้องไวนิล (ฉากอิงรูปห้องจริง)
   focusZone: '',
