@@ -1,6 +1,6 @@
 -- ย้อนหน้า v18 กลับเป็น v17 ตรงทุกไบต์ (md5 b60f6d6eec1415f73f0648afa4e5adad)
 -- · เปลี่ยนเฉพาะคอลัมน์ code (กับ updated_at) ของแถว saleorders · enabled และ seq ไม่เปลี่ยน · โมดูลอื่นไม่ถูกแตะ
--- · ทำเฉพาะเมื่อโค้ดที่เก็บอยู่ตรงกับ v18 ทุกไบต์ (md5 2d4572c82a293659ecae4c89b1f82744) — ถ้ามีคนแก้ไว้ จะไม่ทับและแจ้งเตือน · รันซ้ำได้
+-- · ทำเฉพาะเมื่อโค้ดที่เก็บอยู่ตรงกับ v18 ทุกไบต์ (md5 36b6167986ffb92063f0d0a90249a602) — ถ้ามีคนแก้ไว้ จะไม่ทับและแจ้งเตือน · รันซ้ำได้
 do $do$
 declare c text;
 begin
@@ -12,7 +12,7 @@ begin
     raise notice 'saleorders: already v17, nothing changed';
     return;
   end if;
-  if md5(c) <> '2d4572c82a293659ecae4c89b1f82744' then
+  if md5(c) <> '36b6167986ffb92063f0d0a90249a602' then
     raise exception 'saleorders: the stored code is neither v18 nor v17 (it was changed); not overwritten';
   end if;
   update app_modules set code = $so$/* NATTA GROUP · แชตและออเดอร์ (โมดูล saleorders · ตามภาพตัวอย่างของเจ้าของ 3 พ.ย. 2569)

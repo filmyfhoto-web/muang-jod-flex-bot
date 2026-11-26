@@ -1,4 +1,4 @@
--- อัปเกรดหน้าเป็นรุ่น 18: ตัวอ่านรายการจากแชตรับชื่อสินค้าที่ลงท้ายด้วยตัวเลข ("แม็ก MAX HD-10 1อัน" · "โพสอิท 3*3 1 โหล" · "คลิปหนีบดำ No110 2กล่อง") ให้ตรงกับบอท · ไม่เปลี่ยนข้อมูลใบสั่งงาน และไม่ส่งข้อความเข้า LINE เอง
+-- อัปเกรดหน้าเป็นรุ่น 18: บนมือถือ ช่องพิมพ์ไม่ถูกคีย์บอร์ดบัง · ชื่อลูกค้าในหัวแชตมีที่แสดง (ลิงก์ดูสรุปออเดอร์ย้ายไปอยู่ในเมนูเฟือง) · คำอธิบายเรื่องการตอบจาก LINE OA Manager บอกปุ่มที่ถูกต้อง · ตัวอ่านรายการจากแชตรับชื่อสินค้าที่ลงท้ายด้วยตัวเลข ("แม็ก MAX HD-10 1อัน" · "โพสอิท 3*3 1 โหล" · "คลิปหนีบดำ No110 2กล่อง") ให้ตรงกับบอท · ไม่เปลี่ยนข้อมูลใบสั่งงาน และไม่ส่งข้อความเข้า LINE เอง
 -- · เปลี่ยนเฉพาะคอลัมน์ code (กับ updated_at) ของแถว saleorders · enabled และ seq ไม่เปลี่ยน · โมดูลอื่นไม่ถูกแตะ
 -- · ทำเฉพาะเมื่อโค้ดที่เก็บอยู่ตรงกับ v17 ทุกไบต์ (md5 b60f6d6eec1415f73f0648afa4e5adad) — ถ้ามีคนแก้ไว้ จะไม่ทับและแจ้งเตือน · รันซ้ำได้
 do $do$
@@ -8,7 +8,7 @@ begin
   if c is null then
     raise exception 'saleorders: not installed; use apply.sql';
   end if;
-  if md5(c) = '2d4572c82a293659ecae4c89b1f82744' then
+  if md5(c) = '36b6167986ffb92063f0d0a90249a602' then
     raise notice 'saleorders: already v18, nothing changed';
     return;
   end if;
@@ -339,6 +339,7 @@ begin
 #so_root .so-ai-f{margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 #so_root .so-ai-n{font-size:11.5px;font-weight:800;color:#4B789B}
 #so_root .so-goord{display:none}
+#so_root .m-only{display:none}
 #so_root .so-sub{font-size:11.5px;color:#91A0B0;margin-top:2px}
 @media (max-width:900px){
   #so_root{height:auto;min-height:0;display:block}
@@ -367,7 +368,11 @@ begin
   #so_root .so-ohd .ttl{font-size:17px}
   #so_root .so-ord .so-flash{margin:8px 14px 0}
   #so_root .so-ch .so-chip.lite{display:none}
-  #so_root .so-goord{display:inline-flex}
+  #so_root .so-goord,#so_root #so_lchip{display:none}
+  #so_root .m-only{display:block}
+  #so_root .so-comp textarea,#so_root .so-srch input{font-size:16px}
+  #so_root .so-lnote{font-size:11px;padding:5px 12px}
+  #so_root.kb .so-tagrow,#so_root.kb .so-honest,#so_root.kb .so-mtabs,#so_root.kb .so-lnote{display:none}
   #so_root .so-ch{padding:12px 14px}
   #so_root .so-msgs{padding:14px}
   #so_root .so-tb thead{display:none}
@@ -417,7 +422,18 @@ begin
     root.addEventListener('error',e=>{const el=e.target;if(el&&el.tagName==='IMG'&&el.closest&&el.closest('.so-av'))el.remove()},true)
   }
 
-  function applyMode(){const r=$('so_root');if(r)r.className='m-'+S.mode;paintMTabs()}
+  function applyMode(){const r=$('so_root');if(r)r.className='m-'+S.mode;paintMTabs();fitPhoneView()}
+  // มือถือ: เวลาคีย์บอร์ดขึ้น iPhone ไม่ย่อหน้าจอ ช่องพิมพ์เลยไปอยู่ใต้คีย์บอร์ด → หน้าแชต/ออเดอร์สูงเท่าพื้นที่ที่มองเห็นจริง
+  // ตอนพิมพ์ซ่อนแถบแท็บ ป้าย และคำอธิบายไว้ก่อน ให้เหลือที่ให้ข้อความ (กลับมาเองเมื่อคีย์บอร์ดลง)
+  function fitPhoneView(){
+    const root=$('so_root'),cols=root&&root.querySelector('.so-cols');if(!cols)return
+    const vv=window.visualViewport
+    const phone=!!(window.matchMedia&&window.matchMedia('(max-width:900px)').matches)
+    if(!vv||!phone||(S.mode!=='chat'&&S.mode!=='order')){cols.style.top='';cols.style.height='';root.classList.remove('kb');return}
+    cols.style.top=Math.round(vv.offsetTop)+'px';cols.style.height=Math.round(vv.height)+'px'
+    root.classList.toggle('kb',window.innerHeight-vv.height>120)
+  }
+  if(window.visualViewport){window.visualViewport.addEventListener('resize',fitPhoneView);window.visualViewport.addEventListener('scroll',fitPhoneView)}
   function setMode(m){S.mode=m;applyMode()}
   // แจ้งผลในช่องที่พนักงานกำลังทำงานอยู่: 'chat' = ห้องแชต · 'ord' = ใบสั่งงาน · ไม่ระบุ = ทั้งสองช่อง
   function flash(msg,bad,where){S.flash=msg;S.flashErr=!!bad;S.flashWhere=where||'';const tk=++S.flashTok;paintFlash();setTimeout(()=>{if(S.flashTok===tk){S.flash='';paintFlash()}},bad?7000:4500)}
@@ -755,7 +771,7 @@ begin
         <span class="so-chip" style="--c:${st.c}">${st.t}</span>
         <button type="button" class="so-btn sm so-goord" data-a="goord">ดูสรุปออเดอร์ ↗</button>
         <button type="button" class="so-ic" data-a="chatmenu" aria-haspopup="true" aria-expanded="${S.chatMenu}" title="จัดการแชต">${ic('gear')}</button>
-        ${S.chatMenu?`<div class="so-stgmenu" role="menu">
+        ${S.chatMenu?`<div class="so-stgmenu" role="menu"><button type="button" role="menuitem" class="m-only" data-a="goord">ดูสรุปออเดอร์ ↗</button><div class="so-mdiv m-only"></div>
           <div class="so-mhead">ขั้นตอน</div>
           ${Object.entries(STG).map(([k,v])=>`<button type="button" role="menuitem" data-a="stage" data-k="${k}">${t.stage===k?'✓ ':''}${v.t}</button>`).join('')}
           <div class="so-mdiv"></div>
@@ -766,7 +782,7 @@ begin
           ${line?`<button type="button" role="menuitem" data-a="oalog">${S.oaLog?'✓ ':''}บันทึกคำตอบจาก OA Manager</button>`:''}
         </div>`:''}
       </div>
-      ${line?'<div class="so-lnote">แชตจาก LINE OA · หน้านี้แสดงข้อความของลูกค้า คำตอบของบอท และข้อความที่ส่งจากหน้านี้ — คำตอบที่พิมพ์ตรงใน LINE OA Manager ไม่ขึ้นเอง — กดปุ่ม "จาก OA Manager" แล้ววางคำตอบนั้นเพื่อบันทึกให้ทุกคนเห็น หรือตอบจากหน้านี้เลย</div>':''}
+      ${line?'<div class="so-lnote">แชตจาก LINE OA · คำตอบที่พิมพ์ใน LINE OA Manager ไม่ขึ้นเอง — ถ้าตอบที่นั่น กดปุ่มเฟือง (จัดการแชต) เลือก "บันทึกคำตอบจาก OA Manager" แล้ววางคำตอบนั้น</div>':''}
       <div class="so-flashbox" data-where="chat"></div>
       <div class="so-msgs" id="so_msgs" data-id="${E(t.id)}">${inner}</div>
       <div class="so-tagrow" role="group" aria-label="ป้ายจัดหมวดแชต">${TAG.map(([k,lb,c])=>`<button type="button" class="so-tagbtn${t.tag===k?' on':''}" style="--tc:${c}" data-a="tag" data-k="${k}" aria-pressed="${t.tag===k}">${lb}</button>`).join('')}</div>
@@ -1890,7 +1906,7 @@ begin
     if(a==='picker'){S.picker=!S.picker;if(!S.picker){S.pick=[];S.pickQ=''}paintPicker();const i=$('so_cq');if(i)i.focus();return}
     if(a==='pickc'){const c=S.pick.find(x=>x.id===el.dataset.id);if(c)newThread(c);return}
     if(a==='picknew'){newThread(null,S.pickQ);return}
-    if(a==='goord'){setMode('order');return}
+    if(a==='goord'){S.chatMenu=false;paintChat();setMode('order');return}
     if(a==='mmode'){if(el.dataset.k!=='list'&&!S.sel)return;setMode(el.dataset.k);if(el.dataset.k==='chat'){const ms=$('so_msgs');if(ms)ms.scrollTop=ms.scrollHeight}return}
     if(a==='chatattach'){pickFile('so_chatfile',chatAttach);return}
     if(a==='openfile'){openFile(el.dataset.p);return}

@@ -176,9 +176,10 @@ test('the payment status ลงบัญชี is offered, and it does not claim
   assert.match(code, /ลงบัญชี · ลูกค้าชำระทีหลัง \(ยังไม่ได้รับเงิน\)/, 'the summary says it is paid later');
 });
 
-test('the chat note says what the chat shows: the customer, the bot’s answers, and what is sent from the page; not what is typed in LINE OA Manager', () => {
-  assert.match(code, /แชตจาก LINE OA · หน้านี้แสดงข้อความของลูกค้า คำตอบของบอท และข้อความที่ส่งจากหน้านี้/);
-  assert.match(code, /คำตอบที่พิมพ์ตรงใน LINE OA Manager ไม่ขึ้นเอง/);
+test('the chat note says that a reply typed in LINE OA Manager does not show, and which menu item saves it (the button it used to name is in the ⚙ menu)', () => {
+  assert.match(code, /แชตจาก LINE OA · คำตอบที่พิมพ์ใน LINE OA Manager ไม่ขึ้นเอง/);
+  assert.match(code, /กดปุ่มเฟือง \(จัดการแชต\) เลือก "บันทึกคำตอบจาก OA Manager" แล้ววางคำตอบนั้น/);
+  assert.doesNotMatch(code, /กดปุ่ม "จาก OA Manager"/, 'there is no button of that name');
   assert.doesNotMatch(code, /คำตอบอัตโนมัติของบอทจะไม่แสดง/, 'the old note said the bot’s answers are not shown: no longer true');
 });
 

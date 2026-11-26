@@ -1,6 +1,6 @@
 // Writes the SQL that puts the back-office page "แชตและออเดอร์" (module saleorders, table app_modules) in place.
 // Run: node app-patches/sale-orders-page/make-sql.mjs   (from stationery-bot/)
-//   saleorders.module.js      the current version (v18: a name in a list may end in digits, "แม็ก MAX HD-10 1อัน" is read as a product; v17: a reply to a LINE chat shows in the chat at once, as waiting, before the server answers; v16: the order summary redesigned to the approved mockup, and the chat summary card; v15: fewer always-visible buttons in the chat room — stage/assignee/note/OA-log share one menu, quick replies sit behind an icon — and the page opens on "รอตอบ" first)
+//   saleorders.module.js      the current version (v18: on a phone the reply box stays above the keyboard, the customer's name shows in the chat header, the order link moves into the ⚙ menu, and the banner names the menu item for a reply typed in OA Manager; a name in a list may end in digits, "แม็ก MAX HD-10 1อัน" is read as a product; v17: a reply to a LINE chat shows in the chat at once, as waiting, before the server answers; v16: the order summary redesigned to the approved mockup, and the chat summary card; v15: fewer always-visible buttons in the chat room — stage/assignee/note/OA-log share one menu, quick replies sit behind an icon — and the page opens on "รอตอบ" first)
 //   saleorders.module.v17.js  the version on the back office after v16 (md5 b60f6d6e…), frozen before v18
 //   saleorders.module.v16.js  the version on the back office after v15 (md5 f1c2063c…), frozen before v17
 //   saleorders.module.v15.js  the version on the back office after v14 (md5 54a16434…), frozen before v16
@@ -156,7 +156,7 @@ $do$;
   }
   if (v17) {
     out.upgrade1718 = replaceScript({
-      note: 'อัปเกรดหน้าเป็นรุ่น 18: ตัวอ่านรายการจากแชตรับชื่อสินค้าที่ลงท้ายด้วยตัวเลข ("แม็ก MAX HD-10 1อัน" · "โพสอิท 3*3 1 โหล" · "คลิปหนีบดำ No110 2กล่อง") ให้ตรงกับบอท · ไม่เปลี่ยนข้อมูลใบสั่งงาน และไม่ส่งข้อความเข้า LINE เอง',
+      note: 'อัปเกรดหน้าเป็นรุ่น 18: บนมือถือ ช่องพิมพ์ไม่ถูกคีย์บอร์ดบัง · ชื่อลูกค้าในหัวแชตมีที่แสดง (ลิงก์ดูสรุปออเดอร์ย้ายไปอยู่ในเมนูเฟือง) · คำอธิบายเรื่องการตอบจาก LINE OA Manager บอกปุ่มที่ถูกต้อง · ตัวอ่านรายการจากแชตรับชื่อสินค้าที่ลงท้ายด้วยตัวเลข ("แม็ก MAX HD-10 1อัน" · "โพสอิท 3*3 1 โหล" · "คลิปหนีบดำ No110 2กล่อง") ให้ตรงกับบอท · ไม่เปลี่ยนข้อมูลใบสั่งงาน และไม่ส่งข้อความเข้า LINE เอง',
       from: { label: 'v17', md5: md5v17 },
       to: { label: 'v18', md5, code },
     });

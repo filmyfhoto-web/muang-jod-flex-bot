@@ -162,7 +162,7 @@ test('no heartbeat from the bot: the page says LINE is not connected, shows the 
   assert.match(await msgsText(), /<b>ตัวหนา<\/b>/);
   // a PDF from the customer is a button that opens it
   assert.equal(await page.locator('#so_msgs button.so-file', { hasText: 'ไวนิล.pdf' }).count(), 1, 'a PDF is a button to open it');
-  assert.match(await page.locator('#so_chat .so-lnote').innerText(), /คำตอบของบอท.*LINE OA Manager.*ไม่ขึ้นเอง/);
+  assert.match(await page.locator('#so_chat .so-lnote').innerText(), /LINE OA Manager.*ไม่ขึ้นเอง/);
   assert.equal(await page.locator('#so_lchip').innerText(), 'LINE OA: ยังไม่ได้เชื่อมต่อ');
   assert.match(await page.locator('#so_honest').innerText(), /ข้อความจะรอส่งได้ไม่เกิน 30 นาที/);
   await shot('line-1-not-connected');
@@ -468,4 +468,77 @@ test('a reply is on screen at once as “waiting”, even when the server answer
   await refresh();
   await until(async () => /ส่งถึง LINE แล้ว/.test(await bubble.innerText()), 'confirmed after the bot');
   assert.equal(await page.locator('#so_msgs .so-m.out', { hasText: text }).count(), 1, 'still one bubble after the confirmation');
+});
+
+test('on a phone the customer’s name has room in the chat header, the order link is in the ⚙ menu, and the banner says where a reply typed in OA Manager is saved', skipIt, async () => {
+  const ctx = await newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const p = await ctx.newPage();
+  try {
+    await p.goto(`${shell.url}/#saleorders`);
+    await p.waitForSelector('#so_items .so-row');
+    await p.locator('#so_tabs .so-tab', { hasText: 'ทั้งหมด' }).click();
+    await p.locator('#so_items .so-row', { hasText: 'คุณปู' }).click();
+    await p.waitForSelector('#so_msgs .so-m');
+    const name = await p.locator('#so_chat .so-chn h2').boundingBox();
+    assert.ok(name && name.width >= 120, `the customer's name has room in the header (${name ? Math.round(name.width) : 0}px of 390px)`);
+    assert.equal(await p.locator('#so_chat .so-goord').isVisible(), false, 'the order link is not squeezed into the header on a phone');
+    await p.locator('#so_chat [data-a="chatmenu"]').click();
+    assert.equal(await p.locator('#so_chat .so-stgmenu [data-a="goord"]').isVisible(), true, 'the order link is the first item of the ⚙ menu instead');
+    await p.locator('#so_chat .so-stgmenu [data-a="goord"]').click();
+    assert.equal(await p.locator('#so_root.m-order').count(), 1, 'the order link opens the order panel');
+    await p.locator('#so_mtabs [data-k="chat"]').click();
+    assert.equal(await p.locator('#so_chat .so-stgmenu').count(), 0, 'and the ⚙ menu is closed when the chat comes back');
+    assert.match(await p.locator('#so_chat .so-lnote').innerText(), /เฟือง.*"บันทึกคำตอบจาก OA Manager"/, 'the banner names the menu item that saves a reply typed in OA Manager');
+    assert.ok(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'nothing scrolls sideways');
+    await p.screenshot({ path: `${SHOTS}/line-9-phone-header.png` });
+  } finally {
+    await ctx.close();
+  }
+});
+
+test('on a phone with the keyboard up, the reply box stays above it, the tabs and tags step aside, and all of it comes back when the keyboard goes', skipIt, async () => {
+  const ctx = await newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  // an iPhone keeps the page its full height when the keyboard opens; only the visible part shrinks. This stands in for that.
+  await ctx.addInitScript(() => {
+    const vv = new EventTarget();
+    Object.assign(vv, { offsetTop: 0, pageTop: 0, pageLeft: 0, scale: 1 });
+    // the visible part is read when asked: the whole window, unless the test has put a keyboard over the bottom
+    Object.defineProperty(vv, 'height', { get: () => window.__visible ?? window.innerHeight });
+    Object.defineProperty(vv, 'width', { get: () => window.innerWidth });
+    window.__vv = vv;
+    try {
+      Object.defineProperty(window, 'visualViewport', { configurable: true, get: () => window.__vv });
+    } catch (_) {
+      /* the stand-in is not needed where the property cannot be replaced */
+    }
+  });
+  const p = await ctx.newPage();
+  // keyboard(430): the keyboard is up and 430px are visible · keyboard(null): it is down again
+  const keyboard = (visible) =>
+    p.evaluate((v) => {
+      window.__visible = v;
+      window.__vv.dispatchEvent(new Event('resize'));
+    }, visible);
+  try {
+    await p.goto(`${shell.url}/#saleorders`);
+    await p.waitForSelector('#so_items .so-row');
+    await p.locator('#so_tabs .so-tab', { hasText: 'ทั้งหมด' }).click();
+    await p.locator('#so_items .so-row', { hasText: 'คุณปู' }).click();
+    await p.waitForSelector('#so_msgs .so-m');
+    await p.locator('#so_txt').click();
+    await keyboard(430);
+    const box = await p.locator('#so_txt').boundingBox();
+    assert.ok(box.y >= 0 && box.y + box.height <= 430, `the reply box is above the keyboard (its bottom at ${Math.round(box.y + box.height)}px, the visible part is 430px)`);
+    assert.equal(await p.locator('#so_mtabs').isVisible(), false, 'the tabs step aside while typing');
+    assert.equal(await p.locator('#so_chat .so-tagrow').isVisible(), false, 'so do the tags');
+    const name = await p.locator('#so_chat .so-chn h2').boundingBox();
+    assert.ok(name && name.width >= 120, 'the name still has room while typing');
+    await p.screenshot({ path: `${SHOTS}/line-10-phone-keyboard.png` });
+    await keyboard(null);
+    assert.equal(await p.locator('#so_mtabs').isVisible(), true, 'the tabs come back when the keyboard goes');
+    const again = await p.locator('#so_txt').boundingBox();
+    assert.ok(again.y + again.height <= 844, 'the box sits at the bottom of the screen again');
+  } finally {
+    await ctx.close();
+  }
 });
