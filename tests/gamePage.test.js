@@ -137,12 +137,13 @@ test('เกม: แถวงานเป็น div role=button (ห้ามป
   assert.match(html, /ev\.key === 'Enter' \|\| ev\.key === ' '/);
 });
 
-test('เกม: ฉากเดินเป็นมุมสูงวาดด้วยโค้ด และไอคอนตกแต่งจากภาพอนุมัติยังครบ', () => {
-  /* เดิมฉากเดินคือภาพมุมหน้าร้านที่อาบไว้ (scene-inside.png) — ร้านสั่ง
-   * (25 พ.ย. 69) "รูปแบบเวลาเดิน ขอเป็นมุมสูง ไม่เอามุมหน้าร้านแบบนี้"
-   * จึงวาดแผนที่มองจากด้านบนด้วยโค้ดทั้งฉากแทน (TOP + drawTopInside)
-   * ภาพประกอบ UI ชิ้นอื่นจากดีไซน์ที่อนุมัติยังใช้ตามเดิม */
-  const art = ['hd-printer', 'hd-frames', 'tab-queue', 'tab-vinyl',
+test('เกม: ฉากมุมสูงเป็นภาพการ์ตูนอาบเต็มใบ และไอคอนตกแต่งจากภาพอนุมัติยังครบ', () => {
+  /* ลำดับคำสั่งของร้าน: (25 พ.ย. 69) "ขอเป็นมุมสูง ไม่เอามุมหน้าร้าน" →
+   * ฉากวาดด้วยโค้ด → (26 พ.ย. 69) "มุมสูงแต่เป็นรูปแบบการ์ตูนเหมือนเดิม"
+   * → กลับเป็นภาพอาร์ตอาบเต็มใบอีกครั้ง คราวนี้เป็นภาพมุมสูงที่สร้างใหม่
+   * สไตล์เดียวกับภาพอนุมัติ (art/scene-top.png) ภาพเก่ามุมหน้าร้าน
+   * (scene-inside.png) ยังเลิกใช้ตามเดิม โค้ดวาดเหลือเป็นผังสำรอง */
+  const art = ['scene-top', 'hd-printer', 'hd-frames', 'tab-queue', 'tab-vinyl',
     'st-wait', 'st-doing', 'st-done', 'nav-home', 'nav-queue', 'nav-report', 'nav-set', 'job-printer'];
   for (const f of art) {
     const buf = readFileSync(new URL(`../public/game/art/${f}.png`, import.meta.url));
@@ -153,15 +154,23 @@ test('เกม: ฉากเดินเป็นมุมสูงวาดด
   assert.ok(scene.includes('export function drawTopInside(g, state, nowMs)'));
   assert.ok(scene.includes('export function hitTopZone(x, y)'));
   assert.ok(scene.includes('else drawTopInside(g, state, nowMs);'));
-  assert.ok(!html.includes('artImg'), 'หน้าเกมเลิกพึ่งภาพฉากแล้ว');
+  // ภาพฉากโหลดผ่าน scene.topImg — โหลดไม่ได้ต้องถอยไปผังสำรอง ไม่จอดับ
+  assert.ok(html.includes("topImg.src = 'art/scene-top.png'"));
+  assert.ok(scene.includes('g.drawImage(img, 0, 0, T.w, T.h);'));
+  assert.ok(scene.includes('} else drawTopPlan(q, T);'));
+  assert.ok(scene.includes('function drawTopPlan(q, T)'));
+  // คนนั่งประจำสถานี: วาดภาพช่วงโต๊ะ/เคาน์เตอร์ซ้ำทับช่วงขา (ท่านั่งแบบภาพเดิม)
+  assert.ok(scene.includes('patch(T.patch.desk);'));
+  assert.ok(scene.includes('patch(T.patch.counter);'));
   assert.ok(html.includes("scene.view === 'inside' ? [SC.TOP.w, SC.TOP.h] : [SC.W, SC.H]"));
   // การ์ดรถส่งไวนิลอยู่ในฉาก (โซน govinyl) แทนปุ่มลอย — ปุ่มลอยซ่อนถาวร
-  assert.ok(scene.includes("govinyl: { x: 318"));
+  assert.ok(scene.includes("govinyl: { x: 348"));
   assert.ok(html.includes("if (z === 'govinyl') { setView('route'); return; }"));
   assert.ok(html.includes("$('btn-vinyl-go').hidden = true;"));
   // กฎ display ของปุ่มลอยต้องไม่ทับ [hidden] (เคยเป็นบั๊ก)
   assert.ok(html.includes('.stage .go-vinyl[hidden] { display: none; }'));
-  // sw ไม่แบกภาพฉากเก่า (เมกะไบต์ที่ไม่ได้ใช้) แต่ไอคอน UI ยังแคชครบ
+  // sw แคชภาพฉากใหม่ (ย่อ+บีบแล้ว ~0.33MB) แต่ไม่แบกภาพมุมหน้าร้านเก่า
+  assert.ok(sw.includes("'./art/scene-top.png'"));
   assert.ok(!sw.includes('scene-inside'));
   assert.ok(sw.includes("'./art/job-printer.png'"));
 });
@@ -177,12 +186,12 @@ test('เกม: ตัวหนังสือคมบนมือถือ �
   // ป้ายโซนย่อให้ไม่เด่น (ร้านขอ) แต่กล่องยังคลุมป้ายเบลอเดิมในภาพ (minW/minH)
   assert.ok(scene.includes('function plateCover(g, text, cx, cy, minW = 0, size = 21, minH = 0)'));
   // ฉากมุมสูง: ป้ายโซนเล็กใต้เฟอร์นิเจอร์ทุกจุด (ยังใช้ plateCover ตัวเดิม)
-  // 25 พ.ย. 69 "รูปแบบเดิม แต่มุมสูง": ใต้โซนเคาน์เตอร์กลายเป็นป้ายไม้ชื่อร้าน
-  // ป้ายเคาน์เตอร์เลยย้ายขึ้นมาวางบนหน้าเคาน์เตอร์แทน (เหมือนตำแหน่งในภาพอนุมัติ)
-  assert.ok(scene.includes("const ly = id === 'counter' ? z.y + 42 : z.y + z.h + 11;"));
-  assert.ok(scene.includes('plateCover(g, z.label, z.x + z.w / 2, ly, 0, 12);'));
-  // ฉากมุมสูง: ป้ายมาจากชื่อโซนโดยตรง (ไม่มีป้ายเบลอในภาพให้คลุมอีกแล้ว)
-  assert.ok(scene.includes("counter: { x: 62, y: 432, w: 224, h: 52, label: 'เคาน์เตอร์รับงาน' }"));
+  // (ข้อยกเว้นป้ายเคาน์เตอร์สมัยฉากวาดโค้ดถูกถอน 26 พ.ย. 69 — ภาพใหม่ใต้เคาน์เตอร์ว่าง)
+  assert.ok(scene.includes('plateCover(g, z.label, z.x + z.w / 2, z.y + z.h + 11, 0, 12);'));
+  // พิกัดโซนอ้างตำแหน่งเฟอร์นิเจอร์ในภาพอาบ scene-top.png (26 พ.ย. 69)
+  assert.ok(scene.includes("counter: { x: 104, y: 378, w: 272, h: 62, label: 'เคาน์เตอร์รับงาน' }"));
+  // ชื่อร้านเขียนทับป้ายไม้เปล่าในภาพ (ภาพสร้างใหม่สั่งเว้นตัวหนังสือไว้)
+  assert.ok(scene.includes("q.t('นัฐภรณ์คัลเลอร์แล็บ', sg.cx, sg.cy + 1, 15, '#ffe9c4');"));
 });
 
 test('เกมจริง: หน้าเกมต่อม่วงจดเมื่ออยู่ใต้ /app — สาธิตที่ /game เหมือนเดิม', () => {
@@ -212,7 +221,7 @@ test('เกมจริง: หน้าเกมต่อม่วงจดเ
   assert.ok(html.includes('const dispNo = (j) => j.no || j.id;'));
   // เดินสถานะโหมดจริงยิง API (เซิร์ฟเวอร์ตรวจกติกาเดียวกันซ้ำ) — สาธิตใช้ engine เดิม
   assert.ok(html.includes("method: 'POST', body: JSON.stringify({ to })"));
-  assert.ok(sw.includes("'np8-v6'")); // เชลล์เปลี่ยน ต้องรีเฟรชแคชทุกเครื่อง (v6: ฉากมุมสูงแต่งตามภาพอนุมัติ)
+  assert.ok(sw.includes("'np8-v7'")); // เชลล์เปลี่ยน ต้องรีเฟรชแคชทุกเครื่อง (v7: ฉากมุมสูงภาพการ์ตูน)
 
   /* "จอไม่ล้นได้ไหม" (24 พ.ย. 69 — คิวจริงบนมือถือล้นขวา): เว็บวิว LINE/iOS
    * ขยายตัวอักษรเองตามตั้งค่าในแอป ต้องล็อก 100% และกันหน้าลื่นข้างระดับ body */
@@ -258,7 +267,7 @@ test('เกม: ฟิล์มมีชื่อลอยหัว + วิถ
    * ป้ายชื่อตามตัวเดินแทน เหลือป้ายประจำที่ของหญิง/ประมวล/มะม่วง */
   /* ฉากมุมสูง (25 พ.ย. 69): หญิง/ประมวลนั่งประจำสถานี (ป้ายใน TOP.people)
    * มะม่วงเดินเอง ป้ายตามตัว — แผ่นปะพื้นลบร่างเจ้ปิ่นหมดหน้าที่ไปกับภาพเดิม */
-  assert.ok(scene.includes("people: [['หญิง', 120, 408], ['ประมวล', 240, 16]]")); // 25 พ.ย. 69 ฉากแต่งเต็ม: หญิงขยับพ้นป้ายเตรียมไฟล์
+  assert.ok(scene.includes("people: [['หญิง', 150, 338], ['ประมวล', 236, 50]]")); // 26 พ.ย. 69 ฉากภาพอาบ: ตำแหน่งตามเฟอร์นิเจอร์ในภาพ
   assert.ok(scene.includes("nameTag(g, 'มะม่วง', dg.x, dg.y - 24)"));
   assert.ok(html.includes("const BAKED_CREW = ['หญิง', 'ประมวล']"));
   assert.ok(html.includes("const DEFAULT_STAFF = ['ฟิล์ม', 'เจ้ปิ่น', 'หญิง', 'ประมวล']"));
