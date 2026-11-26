@@ -21,27 +21,25 @@
 
 ไม่เปลี่ยนข้อมูลใบสั่งงาน ไม่แก้บอท และไม่ส่งข้อความเข้า LINE เอง
 
-## ขั้นตอนติดตั้ง (ทำเมื่อเจ้าของสั่งเท่านั้น · ใน SQL Editor ของโปรเจกต์ที่ใช้งานจริง)
+## ขั้นตอนติดตั้ง (ไฟล์เดียว · ทำเมื่อเจ้าของสั่งเท่านั้น · ใน SQL Editor ของโปรเจกต์ที่ใช้งานจริง)
 
-ระบบจริงตอนนี้เป็นรุ่น 16 ต้องรันสองไฟล์ตามลำดับ:
+ระบบจริงตอนนี้เป็นรุ่น 16 รันไฟล์เดียวได้เลย (รุ่น 17 และ 18 อยู่ในไฟล์นี้แล้ว):
 
-1. ตรวจว่าเป็นรุ่น 16:
-   `select md5(code) as md5, enabled, seq from app_modules where name = 'saleorders';`
-   ต้องได้ `f1c2063ce020ce5c0b5dfadb216663b1`
-2. รัน `../upgrade-v16-to-v17.sql` (ข้อความที่ขึ้น: `saleorders: now v17 …`) แล้วตรวจว่าได้ `b60f6d6eec1415f73f0648afa4e5adad`
-3. รัน `../upgrade-v17-to-v18.sql` (ข้อความที่ขึ้น: `saleorders: now v18 …`)
-4. ตรวจผล: `select md5(code) as md5, enabled, seq from app_modules where name = 'saleorders';`
-   ต้องได้ `36b6167986ffb92063f0d0a90249a602`, enabled เป็น `true` และ seq เป็น `66`
+1. ตรวจว่าเป็นรุ่น 16: `select md5(code) as md5, enabled, seq from app_modules where name = 'saleorders';` ต้องได้ `f1c2063ce020ce5c0b5dfadb216663b1`
+2. รัน `../upgrade-v16-to-v18.sql` (ข้อความที่ขึ้น: `saleorders: now v18 …`)
+3. ตรวจผล: `select md5(code) as md5, enabled, seq from app_modules where name = 'saleorders';` ต้องได้ `36b6167986ffb92063f0d0a90249a602`, enabled เป็น `true` และ seq เป็น `66`
 
-ถ้าต้องย้อนกลับ รัน `../downgrade-v18-to-v17.sql` แล้วค่อย `../downgrade-v17-to-v16.sql` แต่ละไฟล์ทำงานเฉพาะเมื่อโค้ดตรงกับรุ่นที่คาดไว้ และไม่ทับโค้ดที่ถูกแก้ไขไว้
+ย้อนกลับ (ไฟล์เดียว): รัน `../downgrade-v18-to-v16.sql` ได้รุ่น 16 ตรงทุกไบต์ ทำเฉพาะเมื่อโค้ดตรงกับรุ่น 18 และไม่ทับโค้ดที่ถูกแก้ไขไว้
 
-ทุกไฟล์ทำงานซ้ำได้ ไม่แก้โมดูลอื่น และไม่แก้ข้อมูลใบสั่งงาน
+ทุกไฟล์รันซ้ำได้ ไม่แก้โมดูลอื่น และไม่แก้ข้อมูลใบสั่งงาน
+
+ไฟล์ทีละรุ่น (`upgrade-v16-to-v17.sql` → `upgrade-v17-to-v18.sql`) ยังอยู่ในโฟลเดอร์เพื่ออ้างอิงเท่านั้น ไม่ต้องรัน
 
 ## ทดสอบ (ในเครื่องพัฒนา ไม่กระทบระบบจริง)
 
 ```
 cd stationery-bot/db
-node --test test/saleorders-module-sql.test.js   # 65/65
+node --test test/saleorders-module-sql.test.js   # 68/68
 node --test test/sale-orders-page.ui.test.mjs    # 24/24
 node --test test/sale-line-page.ui.test.mjs      # 13/13 (รวม "ขึ้นทันที" เมื่อเซิร์ฟเวอร์ตอบช้า 800 มิลลิวินาที และการทดสอบหน้าจอมือถือ 3 ข้อ)
 ```

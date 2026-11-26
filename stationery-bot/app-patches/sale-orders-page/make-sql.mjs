@@ -36,6 +36,7 @@
 // upgrade-v15-to-v16.sql v15 → v16 (the step run on the live back office) · downgrade-v16-to-v15.sql v16 → v15
 // upgrade-v16-to-v17.sql v16 → v17 · downgrade-v17-to-v16.sql v17 → v16
 // upgrade-v17-to-v18.sql v17 → v18 · downgrade-v18-to-v17.sql v18 → v17
+// upgrade-v16-to-v18.sql v16 → v18 in ONE step (the script for the live back office while it is v16) · downgrade-v18-to-v16.sql v18 → v16 in one step
 // upgrade-v3-to-v4.sql, upgrade-v4-to-v5.sql, upgrade-v5-to-v6.sql, upgrade-v6-to-v7.sql, upgrade-v7-to-v8.sql, upgrade-v8-to-v9.sql, upgrade-v9-to-v10.sql, upgrade-v10-to-v11.sql, upgrade-v11-to-v12.sql, upgrade-v12-to-v13.sql, upgrade-v13-to-v14.sql, upgrade-v14-to-v15.sql and upgrade-v15-to-v16.sql are the steps that ran on production: their bytes must not change (the tests check them)
 // reverse.sql           removes the module while its code is v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17 or v18 (md5); an edited page is never removed
 // upgrade-v1-to-v2.sql  the step run on 4 Nov 2569 — written once and frozen (this script does not regenerate it)
@@ -164,6 +165,19 @@ $do$;
       note: `ย้อนหน้า v18 กลับเป็น v17 ตรงทุกไบต์ (md5 ${md5v17})`,
       from: { label: 'v18', md5 },
       to: { label: 'v17', md5: md5v17, code: v17 },
+    });
+  }
+  // รุ่น 16 → 18 ในขั้นเดียว (ผลเหมือนรันรุ่น 17 แล้วรุ่น 18): ไฟล์นี้คือขั้นที่รันบนหลังร้านจริงตอนนี้ (รุ่น 16)
+  if (v16) {
+    out.upgrade1618 = replaceScript({
+      note: 'อัปเกรดหน้าจากรุ่น 16 เป็นรุ่น 18 ในขั้นเดียว (รวมรุ่น 17 และ 18 ผลเหมือนรันทีละไฟล์): ข้อความที่ตอบลูกค้าทาง LINE ขึ้นในแชตทันทีในสถานะ "รอส่ง" · บนมือถือ ช่องพิมพ์ไม่ถูกคีย์บอร์ดบัง และชื่อลูกค้าในหัวแชตมีที่แสดง · คำอธิบายเรื่อง OA Manager บอกปุ่มที่ถูกต้อง · ตัวอ่านรายการจากแชตรับชื่อสินค้าที่ลงท้ายด้วยตัวเลข · ไม่เปลี่ยนข้อมูลใบสั่งงาน ไม่แก้บอท และไม่ส่งข้อความเข้า LINE เอง',
+      from: { label: 'v16', md5: md5v16 },
+      to: { label: 'v18', md5, code },
+    });
+    out.downgrade1816 = replaceScript({
+      note: `ย้อนหน้า v18 กลับเป็น v16 ในขั้นเดียว ตรงทุกไบต์ (md5 ${md5v16})`,
+      from: { label: 'v18', md5 },
+      to: { label: 'v16', md5: md5v16, code: v16 },
     });
   }
   if (v13 && v14) {
@@ -397,5 +411,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   writeFileSync(DIR + 'downgrade-v17-to-v16.sql', b.downgrade1716);
   writeFileSync(DIR + 'upgrade-v17-to-v18.sql', b.upgrade1718);
   writeFileSync(DIR + 'downgrade-v18-to-v17.sql', b.downgrade1817);
+  writeFileSync(DIR + 'upgrade-v16-to-v18.sql', b.upgrade1618);
+  writeFileSync(DIR + 'downgrade-v18-to-v16.sql', b.downgrade1816);
   console.log(`wrote the scripts (current md5 ${b.md5}; v17 ${b.md5v17}; v16 ${b.md5v16}; v15 ${b.md5v15}; v14 ${b.md5v14}; v13 ${b.md5v13}; v12 ${b.md5v12}; v11 ${b.md5v11}; v10 ${b.md5v10}; v9 ${b.md5v9}; v8 ${b.md5v8}; v7 ${b.md5v7}; v6 ${b.md5v6}; v5 ${b.md5v5}; v4 ${b.md5v4}; v3 ${b.md5v3}; v2 ${b.md5v2}; v1 ${b.md5v1})`);
 }

@@ -125,6 +125,8 @@ test('the committed scripts are the ones these files give, and the ten versions 
     ['downgrade1716', 'downgrade-v17-to-v16.sql'],
     ['upgrade1718', 'upgrade-v17-to-v18.sql'],
     ['downgrade1817', 'downgrade-v18-to-v17.sql'],
+    ['upgrade1618', 'upgrade-v16-to-v18.sql'],
+    ['downgrade1816', 'downgrade-v18-to-v16.sql'],
   ]) {
     assert.equal(read(file), built[key], `${file} is stale: run node app-patches/sale-orders-page/make-sql.mjs`);
   }
@@ -1212,6 +1214,59 @@ test('downgrade-v18-to-v17.sql puts v17 back byte for byte, goes forward again, 
   try {
     await assert.rejects(edited.exec(built.downgrade1817), /neither v18 nor v17/);
     assert.equal((await rowOf(edited)).code, code + '\n// a later edit', 'the edited page is still there');
+  } finally {
+    await edited.close();
+  }
+});
+
+test('upgrade-v16-to-v18.sql moves the page from v16 straight to v18 in one step: the same row as the two steps, enabled and seq stay, other modules untouched, and running it again does nothing', async () => {
+  for (const enabled of [true, false]) {
+    const d = await installed(v16, enabled);
+    const two = await installed(v16, enabled);
+    try {
+      const others0 = await othersOf(d);
+      await d.exec(built.upgrade1618);
+      const r = await rowOf(d);
+      assert.equal(r.code, code, 'the stored code is exactly the current (v18) file');
+      assert.equal(await md5In(d, r.code), built.md5);
+      assert.deepEqual([r.enabled, r.seq], [enabled, 66], 'switched on stays on, switched off stays off');
+      assert.deepEqual(await othersOf(d), others0, 'salechat and the other modules are exactly as they were');
+      await two.exec(built.upgrade1617);
+      await two.exec(built.upgrade1718);
+      assert.deepEqual(await rowOf(two), r, 'the same row as running the two steps');
+      await d.exec(built.upgrade1618);
+      assert.deepEqual(await rowOf(d), r, 'run twice: nothing more changes');
+    } finally {
+      await d.close();
+      await two.close();
+    }
+  }
+});
+
+test('downgrade-v18-to-v16.sql puts v16 back byte for byte in one step, goes forward again, and refuses an edited v18', async () => {
+  const d = await installed(code);
+  try {
+    await d.exec(built.downgrade1816);
+    assert.equal((await rowOf(d)).code, v16, 'v16 is back, byte for byte');
+    await d.exec(built.upgrade1618);
+    assert.equal((await rowOf(d)).code, code, 'and v18 again');
+  } finally {
+    await d.close();
+  }
+  const edited = await installed(code + '\n// a later edit');
+  try {
+    await assert.rejects(edited.exec(built.downgrade1816), /neither v18 nor v16/);
+    assert.equal((await rowOf(edited)).code, code + '\n// a later edit', 'the edited page is still there');
+  } finally {
+    await edited.close();
+  }
+});
+
+test('upgrade-v16-to-v18.sql refuses a page that is neither v16 nor v18, and never overwrites an edited one', async () => {
+  const edited = await installed(v16 + '\n// a later edit');
+  try {
+    await assert.rejects(edited.exec(built.upgrade1618), /neither v16 nor v18/);
+    assert.equal((await rowOf(edited)).code, v16 + '\n// a later edit', 'the edited page is still there');
   } finally {
     await edited.close();
   }
